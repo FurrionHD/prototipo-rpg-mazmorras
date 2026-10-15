@@ -156,7 +156,7 @@ static func runas_de(item: Resource) -> Dictionary:
 		return {}
 	# Solo LEER: meta_de fabrica una meta por defecto si no la hay, y las fichas preguntan tambien por copias de
 	# escaparate (tienda, vitrinas) que no deben dejar meta colgando.
-	return (Game.item_meta.get(item, {}) as Dictionary).get("runas", {})
+	return Game.meta_si_hay(item).get("runas", {})
 
 static func set_de(item: Resource) -> RunaSetData:
 	var r: Dictionary = runas_de(item)

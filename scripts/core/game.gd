@@ -6470,9 +6470,9 @@ func lampara() -> ToolData:
 # OJO, y es la trampa principal de todo este sistema: aqui NO se puede usar meta_de(), porque
 # meta_de CREA la meta por defecto la primera vez que le preguntas. Con la basica eso la
 # convertiria en "T1 Comun forjada" (afinidad gratis para todo el mundo) y ademas metaria el .tres
-# COMPARTIDO dentro de item_meta, que se serializa al save. item_meta.has() solo pregunta.
+# COMPARTIDO dentro de item_meta, que se serializa al save. tiene_meta() solo pregunta.
 func es_herramienta_forjada(t: ToolData) -> bool:
-	return t != null and item_meta.has(t)
+	return tiene_meta(t)
 
 # Lo que aporta la herramienta al minijuego: {"afinidad", "golpes_menos"}. Fuente UNICA, la usan
 # los tres start_* y tambien la ficha del inventario (MenuScaffold.filas_herramienta), asi que lo
@@ -6480,7 +6480,7 @@ func es_herramienta_forjada(t: ToolData) -> bool:
 func tool_mods(t: ToolData) -> Dictionary:
 	if not es_herramienta_forjada(t):
 		return {"afinidad": 0.0, "golpes_menos": 0, "perdona": 0}
-	var m: Dictionary = item_meta[t]
+	var m: Dictionary = meta_de(t)
 	return Upgrades.tool_mods(int(t.tipo), int(m.get("tier", 1)),
 		int(m.get("rareza", Upgrades.Rareza.COMUN)), int(m.get("banda", 0)))
 
@@ -6739,10 +6739,28 @@ var equip_meta: Dictionary:
 # y desequiparlo no pierde sus mejoras. keyed por instancia de Resource. ---
 var item_meta: Dictionary = {}
 
+# La meta de una pieza que NO es tuya va pegada al propio objeto con esta clave (ver crear_item).
+const META_AJENA := &"_meta_ajena"
+
+# ¿Tiene meta propia (pieza forjada, tuya o ajena)? Pregunta sin crearla, a diferencia de meta_de.
+func tiene_meta(item: Resource) -> bool:
+	return item != null and (item_meta.has(item) or item.has_meta(META_AJENA))
+
+# La meta si la tiene (tuya o ajena), o {} si no: LEER sin crear. Para quien pregunta por cualquier objeto
+# (runas, fichas, celdas) y no debe dejar metas por defecto colgando como haria meta_de.
+func meta_si_hay(item: Resource) -> Dictionary:
+	if item == null:
+		return {}
+	if item.has_meta(META_AJENA):
+		return item.get_meta(META_AJENA)
+	return item_meta.get(item, {})
+
 # Meta de un item, creandola por defecto (T1/Comun/sin mejoras) la primera vez.
 func meta_de(item: Resource) -> Dictionary:
 	if item == null:
 		return _meta_por_defecto()
+	if item.has_meta(META_AJENA):
+		return item.get_meta(META_AJENA)
 	if not item_meta.has(item):
 		item_meta[item] = _meta_por_defecto()
 	return item_meta[item]
@@ -9671,7 +9689,7 @@ func crear_item(base: Resource, tier: int, rareza: int, mejoras: Dictionary,
 	if base == null:
 		return null
 	var copia: Resource = base.duplicate()
-	item_meta[copia] = {
+	var meta: Dictionary = {
 		"tier": maxi(1, tier),
 		"rareza": clampi(rareza, 0, Upgrades.RAREZA_SLOTS.size() - 1),
 		"mejoras": mejoras.duplicate(),
@@ -9681,7 +9699,13 @@ func crear_item(base: Resource, tier: int, rareza: int, mejoras: Dictionary,
 		"ruta_base": str(base.resource_path),
 	}
 	if not registrar:
+		# PIEZA AJENA (el doble de un compañero, un muñeco del roster, una vitrina): su meta va PEGADA al
+		# objeto y no a item_meta, que es TU baul. Antes entraba en item_meta con el propio objeto de clave:
+		# no se liberaba nunca y acababa en tu guardado (50 repintados del roster = 50 piezas fantasma).
+		# meta_de y tiene_meta la encuentran igual. Prueba: tools/unitarias/test_item_meta.gd
+		copia.set_meta(META_AJENA, meta)
 		return copia
+	item_meta[copia] = meta
 	if copia is ArmorData:
 		add_owned_armor(copia as ArmorData)
 	elif copia is BackpackData:
@@ -12568,7 +12592,7 @@ func mejoras_actuales(item: Resource) -> int:
 	# SIN META NO HAY MEJORAS, y no se le crea una para averiguarlo: meta_de() CREA la entrada si
 	# falta, y la celda pregunta esto por CADA objeto de la rejilla -- materiales y cristales
 	# incluidos --, asi que abrir el baul lleno metia cientos de entradas inutiles en item_meta.
-	if item == null or not item_meta.has(item):
+	if not tiene_meta(item):
 		return 0
 	return Upgrades.total_mejoras(meta_de(item)["mejoras"])
 
@@ -16208,7 +16232,7 @@ func _reto_recoleccion(exigencia: float, stat: float, suelo: float, afinidad: fl
 func _log_herramienta(t: ToolData, tm: Dictionary) -> String:
 	if not es_herramienta_forjada(t):
 		return "  ·  sin herramienta (basica)"
-	var m: Dictionary = item_meta[t]
+	var m: Dictionary = meta_de(t)
 	return "  ·  %s T%d %s (banda %d): afinidad +%.0f, -%d" % [
 		t.tipo_texto(), int(m.get("tier", 1)),
 		Upgrades.rareza_nombre(int(m.get("rareza", 0))), int(m.get("banda", 0)),

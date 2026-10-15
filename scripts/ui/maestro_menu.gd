@@ -703,8 +703,6 @@ func _dibujar_pestana(c: Control, i: int) -> void:
 
 	# EL TOMO, a la izquierda y siempre del mismo tamaño: lo que cambia entre abierta y cerrada es el
 	# hueco de al lado (donde cabe el nombre), no la miniatura.
-	var mini := Control.new()
-	mini.size = Vector2(30, 40)
 	var tomo_r := Rect2(Vector2(8, (h - 40) * 0.5), Vector2(30, 40))
 	c.draw_rect(tomo_r, Color(col.r * 0.2 + 0.06, col.g * 0.2 + 0.06, col.b * 0.2 + 0.08, 1.0), true)
 	for k in 8:

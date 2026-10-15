@@ -204,6 +204,10 @@ func _seguir(delta: float) -> void:
 	# (su resolucion es la subcelda), asi que no hay nada que ganar.
 	if not _algo_se_movio(jugador.global_position, focos, vista):
 		_refrescar_camara()
+		# La MASCARA sigue valiendo, pero los ENEMIGOS si se mueven: uno que entra a tu luz mientras
+		# estas parado tiene que aparecer (antes seguia invisible hasta que dabas un paso). Es barato
+		# comparado con la pasada: solo lee la mascara ya hecha. Prueba: tools/prueba_niebla_quieto
+		_apagar_lo_que_no_se_ve(_vista_previa)
 		return
 	_ojo_previo = jugador.global_position
 	_focos_previos = focos.duplicate(true)

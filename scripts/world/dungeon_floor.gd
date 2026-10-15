@@ -2617,7 +2617,8 @@ func _guardar_estado() -> void:
 	var suelo: Array = []
 	for p in get_tree().get_nodes_in_group("pickup"):
 		if is_instance_valid(p) and p.item != null:
-			suelo.append({"item": p.item, "pos": p.global_position})
+			# "n": un monton (flechas recuperadas) vuelve con las que tenia, no como 1 (prueba_suelo_monton)
+			suelo.append({"item": p.item, "pos": p.global_position, "n": int(p.cantidad)})
 
 	# Los recolectables agotados YA NO van aqui: viven en Game.mazmorra_persistente (con su sello
 	# de tiempo para el respawn), que marcar_agotado escribe en el momento de picar y que
@@ -2678,7 +2679,7 @@ func _restaurar_estado() -> void:
 
 	for d in (mem.get("suelo", []) as Array):
 		var pickup: Node2D = _pickup_script.new()
-		pickup.setup(d["item"])
+		pickup.setup(d["item"], int(d.get("n", 1)))   # sin "n" (guardado de antes): uno, como entonces
 		var mundo: Node = get_parent()
 		if mundo == null:
 			mundo = self

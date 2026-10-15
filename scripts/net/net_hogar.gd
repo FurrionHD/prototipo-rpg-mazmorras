@@ -1276,11 +1276,6 @@ func tengo_taller() -> bool:
 	return _taller_dueno == multiplayer.get_unique_id()
 
 
-func _difundir_almacen() -> void:
-	_set_almacen.rpc(_almacen_dicts())
-	Net.hogar_cambiado.emit()
-
-
 @rpc("authority", "call_remote", "reliable")
 func _set_almacen(bag: Array) -> void:
 	# No piso mi baul si soy YO quien tiene el taller prestado (estoy crafteando con el).

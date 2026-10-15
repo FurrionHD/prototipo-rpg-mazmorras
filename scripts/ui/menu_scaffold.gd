@@ -1108,7 +1108,7 @@ static func filas_herramienta(t: ToolData) -> Array:
 	if t == null:
 		return []
 	var m: Dictionary = Game.tool_mods(t)
-	var meta: Dictionary = Game.item_meta.get(t, {})
+	var meta: Dictionary = Game.meta_si_hay(t)
 	var filas: Array = [["Tipo", t.tipo_texto()], ["Sirve para", TOOL_PARA[int(t.tipo)]]]
 	# EL FAROLILLO se sale del molde de las otras cuatro: no tiene minijuego, asi que ni afinidad
 	# ni golpes ahorrados. Lo que da es RANGO DE VISION, y lo gasta en CARBON.
