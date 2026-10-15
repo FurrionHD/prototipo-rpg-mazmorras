@@ -70,7 +70,7 @@ static func a_filas(s: SaveData, ids: Ids) -> Dictionary:
 ## despues (un valor un pelin mas nuevo, nunca un objeto perdido ni repetido).
 class Volcado:
 	const TROZO_LISTA := 128
-	const TROZO_CONTAR := 1000
+	const TROZO_CONTAR := 300
 	var out := {"campos": {}, "objetos": {}, "contables": {}}
 	var ctx: Dictionary
 	var _s: SaveData
