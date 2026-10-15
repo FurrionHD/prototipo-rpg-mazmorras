@@ -4269,8 +4269,9 @@ func morir_jugador() -> void:
 		_caer_en_arena()
 		return
 	_muriendo = true
-	var perdidos_c: int = _perder_de(crystals)
-	var perdidos_d: int = _perder_de(materiales)
+	var perdido: Array = perder_botin_por_muerte()
+	var perdidos_c: int = int(perdido[0])
+	var perdidos_d: int = int(perdido[1])
 
 	# Despertais ENTEROS, todo el grupo: ya habeis pagado con el botin, no hace falta ademas un
 	# paseo al altar con tres fichas a 1 de vida.
@@ -4318,6 +4319,13 @@ func morir_jugador() -> void:
 
 # Descarta MUERTE_PERDIDA de una lista de la bolsa: la CANTIDAD es fija (round(n * la fraccion),
 # asi es predecible y se puede contar), pero CUALES se pierden es al azar. Devuelve cuantos cayeron.
+# Lo que te quitan al caer: MUERTE_PERDIDA de los cristales y de los materiales de la bolsa, al azar (el carbon
+# no: es la luz, y sin ella no se vuelve a bajar). Devuelve [cristales perdidos, materiales perdidos].
+# Prueba: unitarias/test_bolsa_juego
+func perder_botin_por_muerte() -> Array:
+	return [_perder_de(crystals), _perder_de(materiales)]
+
+
 func _perder_de(lista: Array) -> int:
 	var n: int = lista.size()
 	if n == 0:
@@ -5387,6 +5395,14 @@ func en_bolsa(mat: MaterialData, calidad: int = -1) -> int:
 
 func en_hogar(mat: MaterialData, calidad: int = -1) -> int:
 	return baul.cantidad(mat, calidad)
+
+# Cristales que llevas: de una categoria y calidad, o de todas (< 0).
+func cristales_en_bolsa(categoria: int = -1, calidad: int = -1) -> int:
+	var n: int = 0
+	for c in crystals:
+		if c != null and (categoria < 0 or c.categoria == categoria) and (calidad < 0 or int(c.calidad) == calidad):
+			n += 1
+	return n
 
 func total_en_bolsa() -> int:
 	return materiales.size() + carbon.size()
