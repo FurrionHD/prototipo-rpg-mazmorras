@@ -572,11 +572,43 @@ func reanudar_tras_combate(hp: float = -1.0, _estados: Array = []) -> void:
 
 # Ha caido en la maquina que simula el piso: aqui pasa a verse como cadaver. Mismo gris apagado
 # que enemy.morir(), para que los dos jugadores vean lo mismo.
+# CUANDO SE PUDRE, en el reloj de esta maquina (msec; -1 = no se sabe). Solo para el tinte rancio (tinte_podrido.gd):
+# quien lo hace desaparecer es el dueño del piso. Si el dueño lo manda (lo que le quedaba, en el alta), se usa eso;
+# si no, cuenta desde que lo vi caer.
+const _TintePodrido = preload("res://scripts/fx/tinte_podrido.gd")
+const _CADAVER_SEGUNDOS := 300.0   # = enemy.CADAVER_SEGUNDOS
+var _pudre_hasta_ms: int = -1
+
+func fijar_pudre_quedan(quedan: float) -> void:
+	if quedan >= 0.0:
+		_pudre_hasta_ms = Time.get_ticks_msec() + int(quedan * 1000.0)
+
+
+func pudre_quedan() -> float:
+	if _pudre_hasta_ms < 0:
+		return -1.0
+	return maxf(0.0, float(_pudre_hasta_ms - Time.get_ticks_msec()) / 1000.0)
+
+
+func fraccion_podrida() -> float:
+	if _pudre_hasta_ms < 0 or es_boss:
+		return 0.0
+	var quedan: float = float(_pudre_hasta_ms - Time.get_ticks_msec()) / 1000.0
+	return clampf(1.0 - quedan / _CADAVER_SEGUNDOS, 0.0, 1.0)
+
+
+func pintar_podrido() -> void:
+	if _sprite != null:
+		_sprite.self_modulate = _TintePodrido.tinte(fraccion_podrida())
+
+
 func marcar_cadaver() -> void:
 	Game.quitar_muerto_o_aplazar(self)   # a mitad de pelea sigue oculto (09/10)
 	if muerto:
 		return
 	muerto = true
+	if _pudre_hasta_ms < 0:
+		_pudre_hasta_ms = Time.get_ticks_msec() + int(_CADAVER_SEGUNDOS * 1000.0)
 	_quitar_choque()   # un cadaver no se interpone: se le pasa por encima
 	if _cuerpo != null:
 		_cuerpo.color = Color(0.4, 0.4, 0.4)

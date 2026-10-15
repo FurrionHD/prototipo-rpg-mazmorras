@@ -85,6 +85,9 @@ func _datos_enemigo(nodo: Node) -> Dictionary:
 		d["muneco"] = nodo.get_meta("muneco")
 	if nodo.has_method("esta_muerto"):
 		d["muerto"] = bool(nodo.esta_muerto())
+	# Lo que le queda para pudrirse (12/10): el que lo ve llegar ya cadaver lo pinta igual de rancio que el dueño.
+	if d["muerto"] and nodo.has_method("pudre_quedan"):
+		d["pudre_q"] = float(nodo.pudre_quedan())
 	return d
 
 
@@ -271,6 +274,8 @@ func _spawn_enemigo(id: int, lugar: String, pos: Vector2, d: Dictionary) -> void
 		bool(d.get("muerto", false)), float(d.get("vis", 130.0)), float(d.get("ang", 50.0)),
 		bool(d.get("mut", false)), String(d.get("mutid", "")))
 	cuerpo.carga = float(d.get("carga", 0.0))
+	if d.has("pudre_q"):
+		cuerpo.fijar_pudre_quedan(float(d["pudre_q"]))
 	_enem_nodos[id] = cuerpo
 
 
