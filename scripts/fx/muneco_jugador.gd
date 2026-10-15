@@ -913,7 +913,9 @@ func _process(delta: float) -> void:
 func _escribir(i: int) -> void:
 	for c in _capas:
 		var s: AnimatedSprite2D = c["nodo"]
-		if s.visible and i < s.sprite_frames.get_frame_count(s.animation):
+		# Solo si CAMBIA (optimizacion 1B, 16/10): esto corre en cada fotograma y la animacion va mas lenta que el juego,
+		# asi que casi siempre ya estaba puesto; asignar frame repinta la capa igual. Mismo resultado.
+		if s.visible and s.frame != i and i < s.sprite_frames.get_frame_count(s.animation):
 			s.frame = i
 	# El arma en mano se reordena por fotograma DURANTE LOS GOLPES: el tajo la lleva de detras del
 	# cuerpo a delante y _ordenar (frame 0) la dejaba plantada detras todo el rato.
