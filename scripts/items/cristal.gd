@@ -17,6 +17,9 @@ enum Calidad { INTACTO, NORMAL, DANADO, ROTO }
 @export var categoria: int = 1
 @export var calidad: Calidad = Calidad.NORMAL
 
+# CUANTOS hay en este monton (ver Monton y el mismo campo en MaterialItem). Sin exportar a proposito.
+var n: int = 1
+
 
 # Multiplicador de VALOR segun la calidad (precios bien marcados).
 func multiplicador_calidad() -> float:

@@ -5372,6 +5372,31 @@ func _migrar_carbon() -> void:
 		print("[carbonera] %d de carbon recogidos de la bolsa/almacen de una partida anterior." % movidos)
 
 
+# LECTORES de lo que hay en la bolsa y en el baul del hogar, en UNIDADES (piezas), de un material de una calidad
+# (o de todas con calidad < 0). Existen para que las pruebas y las pantallas pregunten sin saber como se guarda
+# por dentro (plan de optimizacion, fase 1A: las listas pasan a ir contadas). Prueba: unitarias/test_baul_juego
+func en_bolsa(mat: MaterialData, calidad: int = -1) -> int:
+	return _contar_en(materiales, mat, calidad) + _contar_en(carbon, mat, calidad)
+
+func en_hogar(mat: MaterialData, calidad: int = -1) -> int:
+	return _contar_en(almacen_materiales, mat, calidad)
+
+func total_en_bolsa() -> int:
+	return materiales.size() + carbon.size()
+
+func total_en_hogar() -> int:
+	return almacen_materiales.size()
+
+func _contar_en(lista: Array, mat: MaterialData, calidad: int) -> int:
+	if mat == null:
+		return 0
+	var n: int = 0
+	for m in lista:
+		if m != null and m.data != null and m.data.id == mat.id and (calidad < 0 or int(m.calidad) == calidad):
+			n += 1
+	return n
+
+
 func guardar_material(m: MaterialItem) -> void:
 	if m == null:
 		return

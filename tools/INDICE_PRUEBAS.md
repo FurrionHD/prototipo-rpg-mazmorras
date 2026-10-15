@@ -3,7 +3,7 @@
 Generado por `python tools/indice_pruebas.py` (no editar a mano: se rehace). "Lo nombra" no es "lo cubre
 entero": sirve para ver los **huecos** y para saber qué pruebas pasar después de tocar un archivo.
 
-**254 de 360 scripts no tienen ninguna prueba que los nombre.**
+**254 de 361 scripts no tienen ninguna prueba que los nombre.**
 
 | Carpeta | Scripts | Sin prueba |
 |---|---|---|
@@ -11,7 +11,7 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 | `scripts/actors/player` | 5 | 2 |
 | `scripts/core` | 38 | 7 |
 | `scripts/fx` | 123 | 110 |
-| `scripts/items` | 18 | 5 |
+| `scripts/items` | 19 | 5 |
 | `scripts/net` | 21 | 4 |
 | `scripts/town` | 23 | 20 |
 | `scripts/ui` | 88 | 76 |
@@ -298,7 +298,7 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 - `scripts/core/elements.gd`: `prueba_bestias_tactico.gd`, `prueba_constructos_tactico.gd`, `prueba_mut_fuego.gd`, `prueba_mut_profundo.gd`
 - `scripts/core/encargos.gd`: `prueba_encargos_excelia.gd`, `prueba_town_dos_cliente_guion.gd`, `prueba_town_dos_jugadores_guion.gd`, `unitarias/test_estados_y_encargos.gd`
 - `scripts/core/forge.gd`: `prueba_armadura_magica.gd`
-- `scripts/core/game.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_andar_apuntando.gd`, `prueba_anim_por_red.gd`, `prueba_apartarse_fuera.gd`, `prueba_arena.gd` y 94 más
+- `scripts/core/game.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_andar_apuntando.gd`, `prueba_anim_por_red.gd`, `prueba_apartarse_fuera.gd`, `prueba_arena.gd` y 95 más
 - `scripts/core/huella_save.gd`: `prueba_bd_ida_vuelta.gd`, `prueba_bd_nube.gd`, `prueba_bd_partida.gd`, `prueba_bd_ranura.gd`, `prueba_huella_save.gd`
 - `scripts/core/identity.gd`: `prueba_bd_nube.gd`, `prueba_bd_un_jugador.gd`, `prueba_roster_duplicados.gd`, `prueba_sala.gd`, `prueba_sala_cliente_guion.gd`, `prueba_sala_dos_jugadores.gd` y 3 más
 - `scripts/core/informe.gd`: `unitarias/test_medidor.gd`
@@ -336,10 +336,11 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 - `scripts/items/ability_data.gd`: `prueba_amenaza_tactico.gd`, `prueba_andar_apuntando.gd`, `prueba_anim_por_red.gd`, `prueba_apartarse_fuera.gd`, `prueba_ataques_magicos.gd`, `prueba_bajos_tactico.gd` y 20 más
 - `scripts/items/armor_data.gd`: `prueba_armadura_magica.gd`, `prueba_taller_runas.gd`
 - `scripts/items/consumable_data.gd`: `prueba_arena.gd`, `prueba_cargar_turno.gd`
-- `scripts/items/cristal.gd`: `prueba_comer_cristales.gd`, `prueba_rueda_cristales.gd`, `unitarias/test_bd_filas.gd`
+- `scripts/items/cristal.gd`: `prueba_comer_cristales.gd`, `prueba_rueda_cristales.gd`, `unitarias/test_bd_filas.gd`, `unitarias/test_monton.gd`
 - `scripts/items/drop_pickup.gd`: `prueba_suelo_monton.gd`
-- `scripts/items/material_data.gd`: `prueba_armadura_magica.gd`, `prueba_cargar_turno.gd`, `prueba_runas.gd`, `prueba_scroll_rejilla.gd`, `prueba_town_baul_cliente.gd`, `prueba_town_baul_red.gd`
-- `scripts/items/material_item.gd`: `prueba_arena.gd`, `prueba_armadura_magica.gd`, `prueba_cargar_turno.gd`, `prueba_huella_save.gd`, `prueba_runas.gd`, `prueba_scroll_rejilla.gd` y 5 más
+- `scripts/items/material_data.gd`: `prueba_armadura_magica.gd`, `prueba_cargar_turno.gd`, `prueba_runas.gd`, `prueba_scroll_rejilla.gd`, `prueba_town_baul_cliente.gd`, `prueba_town_baul_red.gd` y 1 más
+- `scripts/items/material_item.gd`: `prueba_arena.gd`, `prueba_armadura_magica.gd`, `prueba_cargar_turno.gd`, `prueba_huella_save.gd`, `prueba_runas.gd`, `prueba_scroll_rejilla.gd` y 7 más
+- `scripts/items/monton.gd`: `unitarias/test_monton.gd`
 - `scripts/items/municion_data.gd`: `prueba_cargar_turno.gd`
 - `scripts/items/runa_set_data.gd`: `prueba_runas.gd`, `prueba_taller_runas.gd`
 - `scripts/items/shield_data.gd`: `prueba_amenaza_tactico.gd`

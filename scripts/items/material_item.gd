@@ -25,6 +25,12 @@ enum Calidad { INTACTO, NORMAL, DANADO, ROTO, PURO }
 # es una unidad de bolsa mas, y su medida es parte de la unidad. Ver MaterialData.talla_desde.
 @export var cm: float = 0.0
 
+# CUANTAS hay en este monton (plan de optimizacion, fase 1A). La bolsa, el baul y la carbonera van CONTADOS
+# (ver Monton): una entrada por material + calidad + talla, con su cantidad aqui. Un objeto suelto es 1.
+# NO va exportada a proposito: la base de datos ya guarda los materiales contados (BDFilas: una fila por
+# clase con su cantidad), y si n fuera un campo guardado entraria en la clave de la fila.
+var n: int = 1
+
 
 static func crear(d: MaterialData, c: Calidad = Calidad.NORMAL) -> MaterialItem:
 	var m := MaterialItem.new()

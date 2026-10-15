@@ -226,7 +226,8 @@ static func _contar(ruta: String, v: Array, desde: int, cuantos: int, ctx: Dicti
 			# (un objeto, su fila; un valor, el valor) y se cuenta como uno mas.
 			txt = var_to_str(_a_valor(it, ruta, ctx))
 		var clave: String = ruta + "|" + txt
-		cuenta[clave] = int(cuenta.get(clave, 0)) + 1
+		# Un MONTON cuenta lo que lleva (Monton, fase 1A de la optimizacion); un objeto suelto, uno.
+		cuenta[clave] = int(cuenta.get(clave, 0)) + (maxi(1, int(it.n)) if (it is MaterialItem or it is Cristal) else 1)
 	return hasta >= v.size()
 
 
