@@ -96,7 +96,7 @@ func _ready() -> void:
 	var agilidad_antes := agilidad_grupo()
 	t = 0.0
 	while Net.peleas.espejando() and t < 40.0:
-		if pulsar(5):   # Huir
+		if huir():
 			print("[B] [dev] pulso Huir (%.1f s)" % t)
 		var p: Node = pantalla()
 		if p != null and p.acabada():

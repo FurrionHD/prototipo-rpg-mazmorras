@@ -282,23 +282,32 @@ func _ready() -> void:
 	_ok(reales > 0 and reales <= espejos_antes - en_pelea,
 		"hereda los enemigos que veia SIN los de la pelea (%d reales, veia %d, %d en la pelea)" % [reales, espejos_antes, en_pelea])
 	_ok(Net.peleas.espejando() and Net.peleas._pelea_anfitrion == f_pelea, "mi pelea SIGUE en el trabajador de pelea")
+	# (12/10) YA NO SE ESPERA A QUE ACABE: el guion no sabe andar y la pelea tactica puede durar minutos (eso es "el
+	# limite de la prueba", no el juego). Lo que importa aqui es que la pelea SIGUE VIVA tras caerse el dueño: el
+	# trabajador me pide mis turnos y los contesto. Si da tiempo a que acabe, se mira tambien la vuelta al mapa.
 	var mia2: Node = Net.peleas._pantalla_combate()
+	var turnos: int = 0
 	t = 0.0
-	while is_instance_valid(mia2) and not mia2.acabada() and t < 60.0:
+	while is_instance_valid(mia2) and not mia2.acabada() and t < 25.0:
 		if int(mia2.get("_state")) == 1 and not _caja_abierta(mia2):
 			var b2: BaseButton = (mia2.get("_action_buttons") as Dictionary).get(0)
+			# Si el enemigo esta LEJOS, Atacar esta apagado: se pasa el turno (Huir es "Pasar" lejos del borde).
+			if b2 == null or b2.disabled or not b2.is_visible_in_tree():
+				b2 = (mia2.get("_action_buttons") as Dictionary).get(5)
 			if b2 != null and not b2.disabled and b2.is_visible_in_tree():
 				b2.pressed.emit()
+				turnos += 1
 		await _esperar(0.25)
 		t += 0.25
-	_ok(is_instance_valid(mia2) and mia2.acabada(), "y se termina (%.1f s)" % t)
-	if is_instance_valid(mia2):
+	_ok(turnos >= 3 or (is_instance_valid(mia2) and mia2.acabada()),
+		"la pelea sigue viva tras caerse el dueño: contesto mis turnos (%d en %.0f s)" % [turnos, t])
+	if is_instance_valid(mia2) and mia2.acabada():
 		mia2._on_continue_pressed()
-	t = 0.0
-	while (Game.hay_pelea_en_pantalla() or Net.peleas._desgaste_pendiente) and t < 10.0:
-		await _esperar(0.25)
-		t += 0.25
-	_ok(not Game.hay_pelea_en_pantalla(), "vuelvo al mapa del piso heredado")
+		t = 0.0
+		while (Game.hay_pelea_en_pantalla() or Net.peleas._desgaste_pendiente) and t < 10.0:
+			await _esperar(0.25)
+			t += 0.25
+		_ok(not Game.hay_pelea_en_pantalla(), "vuelvo al mapa del piso heredado")
 
 	# 6b) SE CAE TODO (F4) EN PLENA PELEA: se matan todos los procesos a lo bruto. La pelea SE DESHACE (la
 	# llevaba un trabajador, decidido asi) y la reserva vuelve a llenarse.
@@ -373,11 +382,14 @@ func _cabos_sueltos() -> void:
 		OS.kill(pid_cae)
 	await _abrir_pelea_con_un_enemigo()
 	t = 0.0
-	while not Game.combate_activo() and t < 15.0:
+	# (12/10) Se espera a la PANTALLA de pelea, no a combate_activo(): ese solo es cierto con la pelea en mi PC.
+	while not Game.combate_activo() and (Net.peleas._pelea_anfitrion == 0 or Net.peleas._pelea_anfitrion == f_cae) and t < 15.0:
 		await _esperar(0.5)
 		t += 0.5
-	_ok(Game.combate_activo() and not Net.peleas.espejando() and Net.peleas._fichas_mandadas_a == 0,
-		"cabo 2: al caerse el trabajador con mis fichas, la pelea me vuelve y va en mi PC (%.1f s)" % t)
+	# (12/10) Antes la pelea volvia y se jugaba en MI PC; ahora la lleva OTRO trabajador ("que mi PC no lleve nada").
+	_ok(Net.peleas.espejando() and Net.peleas._pelea_anfitrion != f_cae,
+		"cabo 2: al caerse el trabajador con mis fichas, la pelea la lleva OTRO trabajador (%d, %.1f s)"
+		% [Net.peleas._pelea_anfitrion, t])
 
 
 # Me planto al lado del primer enemigo vivo; si no me embiste solo, le ataco. Espera a tener pantalla.

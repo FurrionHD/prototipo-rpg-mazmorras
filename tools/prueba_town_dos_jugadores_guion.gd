@@ -132,9 +132,10 @@ func _ready() -> void:
 		entro_b = entro_b or dentro
 		# No actuo hasta que B este dentro: el ATB espera a quien tiene el turno, asi que la pelea se queda
 		# quieta y no se acaba antes de que llegue. Luego Defender para alargarla (sin energia, Atacar: si
-		# no hago nada la pelea se para en mi turno y a B no le llega nunca el suyo).
-		if entro_b and not pulsar(3):
-			pulsar(0)
+		# no hago nada la pelea se para en mi turno y a B no le llega nunca el suyo). Y si la rata esta lejos, Atacar
+		# tambien esta apagado: Pasar (el sexto boton lejos del muro), o la pelea se queda esperandome (A8, 12/10).
+		if entro_b and not pulsar(3) and not pulsar(0):
+			pulsar(5)
 		se_fue_b = _hay_linea_b("fase3_fin")
 		await _esperar(0.25)
 		t += 0.25
@@ -165,7 +166,20 @@ func _ready() -> void:
 		await _esperar(0.25)
 		t += 0.25
 	_ok(visto, "veo el enemigo que ha puesto B, con su muñeco")
-	_ok(await _dato_de_b("arena_fin", 120.0) == 1, "B termina la arena")
+	# Mientras B pelea, YO TAMBIEN JUEGO MIS TURNOS (12/10): entro por el mismo sitio que el, y a veces es mi cuerpo
+	# el que toca su slime primero. La pelea es entonces mia, B se une, y si yo no pulso nada el trabajador se
+	# queda esperandome y la de B no acaba nunca.
+	t = 0.0
+	while not _hay_linea_b("arena_fin") and t < 120.0:
+		var pa: Node = pantalla()
+		if pa != null and is_instance_valid(pa):
+			if pa.acabada():
+				pa._on_continue_pressed()
+			elif not pulsar(0):
+				pulsar(5)
+		await _esperar(0.25)
+		t += 0.25
+	_ok(await _dato_de_b("arena_fin", 1.0) == 1, "B termina la arena")
 
 	await _fin()
 

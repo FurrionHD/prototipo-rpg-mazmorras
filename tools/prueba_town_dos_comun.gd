@@ -68,12 +68,32 @@ func pulsar(id: int) -> bool:
 	return true
 
 
+# HUIR DE VERDAD en el mapa (12/10, A8): el sexto boton solo huye pegado al muro de la zona; lejos de el es "Pasar"
+# (combat._huir_es_pasar). El guion no sabe andar, asi que en mi turno pone mi cuerpo en el borde mas cercano y
+# pulsa. Quien lleva la pelea no mira la posicion para dejar huir, solo la recorta a mi circulo.
+func huir() -> bool:
+	var p: Node = pantalla()
+	if p == null or int(p.get("_state")) != 1 or caja_abierta(p):
+		return false
+	var arena = Game.get("_arena_nodo")
+	var cuerpo = p.turno_mapa.get("_cuerpo") if p.tactico else null
+	if is_instance_valid(arena) and is_instance_valid(cuerpo):
+		var tramo: Dictionary = arena._tramo_cercano(cuerpo.global_position)
+		if not tramo.is_empty():
+			var q: Vector2 = tramo["q"]
+			cuerpo.global_position = q + (cuerpo.global_position - q).limit_length(2.0)
+	return pulsar(5)
+
+
 # Pulsa Atacar en mis turnos hasta que la pelea acabe; luego Continuar. Devuelve si acabo en plazo.
 func pelear_hasta_el_final(plazo: float) -> bool:
 	var t := 0.0
 	var p: Node = pantalla()
 	while p != null and is_instance_valid(p) and not p.acabada() and t < plazo:
-		pulsar(0)
+		# (12/10) Si el enemigo esta lejos, Atacar esta apagado y el guion no sabe andar: se pasa el turno (Huir es
+		# "Pasar" lejos del borde) para que el bicho venga. Antes se quedaba esperando y la pelea no acababa nunca.
+		if not pulsar(0):
+			pulsar(5)
 		await _esperar(0.25)
 		t += 0.25
 		p = pantalla()

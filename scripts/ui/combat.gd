@@ -254,6 +254,12 @@ var _slots_invocados: Dictionary = {}
 # Tope de enemigos en una pelea. Lo aplica enemy.gd al reclutar vecinos (MAX_COMBATIENTES);
 # aqui sirve de contrato para la UI (bloques y numeracion).
 const MAX_ENEMIGOS := 5
+# EN EL MAPA NO HAY TOPE (12/10, lo decidio el jefe tras el playtest 11/10: "estos pensaba que estaban dentro, les
+# golpee pero entraron mas tarde y malgaste una habilidad"). Lo que esta DENTRO de la zona pelea: con el tope de 5 el
+# sexto se quedaba en la cola, de pie dentro de la arena y sin poder recibir golpes. MAX_ENEMIGOS sigue valiendo para
+# la pelea de fila y para el escudo de invocaciones del Rey (combat_enemigos._hay_sitio_para_invocar).
+func tope_enemigos() -> int:
+	return 1 << 20 if tactico else MAX_ENEMIGOS
 # Tope de ALIADOS en pantalla (hito 5.4-C, peleas compartidas). 4 es el techo real por dos motivos
 # que coinciden: el cupo de personajes en sesion ya topa a 4 EN TOTAL (Net.cupo_party), y la fila
 # de bloques NO hace wrap -216 px cada uno en un viewport de 1152-, asi que un quinto se saldria.
@@ -2342,7 +2348,11 @@ func _mas_rapido() -> Combatant:
 # media: de un grupo escapas tanto como te deje el que mejor te alcanza. Promediar haria que
 # sumarle tres slimes lentos a un lobo veloz te FACILITARA huir, que es absurdo.
 func _accion_huir() -> void:
+	# EL QUE HUYE PASA A IR EN CABEZA DE SU GRUPO (12/10, lo pidio el jefe: "que se quede en la posicion desde la que
+	# sales"). Se apunta aqui y lo aplica Game al cerrar la pantalla, en la maquina de ese jugador y solo con SU grupo.
+	var pj_huye: PersonajeData = Game.pj_mio_de(_player)
 	if espejo._enviar_si_espejo("huir"):
+		Game.apuntar_huida(pj_huye, true)   # en un espejo: solo cuenta si de verdad me voy (ver Game)
 		return
 	var perseguidor: Combatant = _mas_rapido()
 	var chance := StatsMath.flee_chance(
@@ -2375,6 +2385,8 @@ func _accion_huir() -> void:
 			Game.ganar("agilidad", _reto(perseguidor, pj), Game.GAIN_AGILIDAD_HUIDA_COMBATE,
 				Game.RETO_MAX_FISICO, pj)
 	if ok:
+		if dueno == 0:
+			Game.apuntar_huida(pj_huye, false)
 		# HUIR ES INDIVIDUAL (regla del usuario): si el que escapa es el personaje de OTRO humano,
 		# se va EL con los suyos y la pelea sigue para los que quedan. Solo se acaba para todos si
 		# con eso no queda nadie en pie.

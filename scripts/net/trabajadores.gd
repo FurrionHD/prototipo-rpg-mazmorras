@@ -30,9 +30,10 @@
 extends Node
 
 const ARG := "trabajador"
-# Cuantos se tienen esperando. Uno basta: entrar a un piso es poco frecuente y arrancar otro son unos
-# segundos, pero sin ninguno esperando el primero que baja se quedaria de dueño humano.
-const RESERVA := 1
+# Cuantos se tienen esperando. Eran 1 (entrar a un piso es poco frecuente y arrancar otro son unos segundos), pero
+# sin ninguno esperando el primero que baja se queda de dueño humano, y el 11/10 dos jugadores entrando y peleando a
+# la vez lo agotaban: el piso o la pelea acababan en el PC de un jugador. Con 2 siempre queda uno (12/10).
+const RESERVA := 2
 # CUANTOS SE GUARDAN ANTES DE CERRAR NINGUNO. No es lo mismo que RESERVA: aquel es cuantos se LANZAN
 # para tener a mano, y este cuantos se CONSERVAN cuando uno queda libre.
 #
@@ -41,7 +42,7 @@ const RESERVA := 1
 # logs del 19/09: 121 trabajadores lanzados y 110 cerrados para 97 peleas, y cada arranque es un Godot
 # entero que ademas GENERA EL PISO al nacer, en la misma maquina que esta jugando. Conservando dos, el
 # que se libera se reaprovecha para la pelea siguiente y no se lanza nada.
-const RESERVA_MAX := 2
+const RESERVA_MAX := 3   # uno mas que RESERVA (12/10: la reserva paso a 2)
 # Si un trabajador lanzado no se ha presentado en este tiempo, se da por perdido (no arranco, se colgo).
 const PLAZO_ARRANQUE := 30.0
 # Tantos seguidos sin presentarse y se deja de lanzar: algo impide conectar y relanzar cada 30 s solo
@@ -71,6 +72,12 @@ var _estado: Dictionary = {}      # peer_id -> piso en el que esta (0 = en la re
 # la pelea empieza al instante (no hay que cargar el piso) y ningun jugador la lleva en su PC.
 var _de_pelea: Dictionary = {}    # peer_id -> true: esta en su piso para peleas
 var _peleando: Dictionary = {}    # peer_id -> true: ejecutando una pelea ahora mismo
+# RESERVADO AL MANDARLE UNA PELEA (12/10, playtest 11/10): hasta entonces solo contaba como ocupado cuando el
+# trabajador contestaba _pelea_empezada, y en ese rato una segunda pelea del mismo piso se le mandaba a EL; la
+# rechazaba ("no puedo ejecutar ... la monta el") y acababa jugandose en el PC de un jugador: dos peleas en el
+# mismo sitio y los dos actuando a la vez. peer_id -> msec hasta el que esta apartado (por si nunca contesta).
+var _reservado_hasta: Dictionary = {}
+const RESERVA_PELEA_MS := 8000
 # El PROCESO de cada trabajador (su pid, que manda al presentarse). Para cerrar uno concreto: hoy lo usan las
 # pruebas para tirar SOLO al dueño del piso y ver que la pelea de otro trabajador sigue.
 var _pid_de: Dictionary = {}
@@ -335,6 +342,11 @@ func _saludar_trabajador(token: String, protocolo: int, pid: int = 0) -> void:
 		Net._presentar_ajeno.rpc_id(quien, otro, p["color"], p["metal"], p["nombre"], p["lugar"],
 			p.get("imagen", PackedByteArray()), float(p.get("alpha", 1.0)), p.get("comps", []),
 			p.get("piezas", {}))
+	# ...y EN QUE PISO SE JUEGA LA ARENA (12/10, playtest 11/10: el Minotauro de la arena salia con 3553 de vida, al
+	# volver tras huir con 1208 y luego otra vez con 3551). A los humanos se lo cuenta Net._registrar_peer; a un
+	# trabajador que se presentaba DESPUES de cambiarlo no se lo decia nadie, y al montar la pelea de la arena sacaba
+	# los numeros del piso 1.
+	Net.pisos.contar_piso_arena(quien)
 	print("[trabajadores] se presenta el peer %d (reserva: %d)" % [quien, _libres()])
 	# ¿Hay algun piso con gente esperando a su trabajador de pelea? (el que salio de la reserva hacia falta.)
 	for piso in Net._dueno_piso.keys():
@@ -450,6 +462,7 @@ func al_irse(peer_id: int) -> void:
 	_pid_de.erase(peer_id)
 	_de_pelea.erase(peer_id)
 	_peleando.erase(peer_id)
+	_reservado_hasta.erase(peer_id)
 	_rellenar_reserva()
 	if piso > 0:
 		asegurar_pelea(piso)
@@ -461,10 +474,22 @@ func al_irse(peer_id: int) -> void:
 
 # El de pelea que esta en 'piso' y libre para una pelea nueva (0 = ninguno).
 func pelea_libre_en(piso: int) -> int:
+	var ahora: int = Time.get_ticks_msec()
 	for w in _de_pelea:
-		if int(_estado.get(w, 0)) == piso and not _peleando.has(w):
+		if int(_estado.get(w, 0)) == piso and not _peleando.has(w) and ahora >= int(_reservado_hasta.get(w, 0)):
 			return w
 	return 0
+
+
+# Se le acaba de mandar una pelea a 'w': ya no esta libre para otra, y que entre otro para la siguiente.
+func reservar_pelea(w: int) -> void:
+	_reservado_hasta[w] = Time.get_ticks_msec() + RESERVA_PELEA_MS
+	asegurar_pelea(int(_estado.get(w, 0)))
+
+
+# ¿Hay trabajadores en esta sala? (si no, las peleas van en el PC de quien pelea, como siempre)
+func hay_trabajadores() -> bool:
+	return Net.es_host and _token != "" and _fallos_seguidos < FALLOS_PARA_PARAR
 
 
 # Que 'piso' tenga uno de pelea esperando dentro, si hay gente y queda alguno en la reserva. Se llama al
@@ -500,6 +525,7 @@ func _pelea_empezada() -> void:
 	if not Net.es_host or not _de_pelea.has(w):
 		return
 	_peleando[w] = true
+	_reservado_hasta.erase(w)
 	asegurar_pelea(int(_estado.get(w, 0)))
 
 

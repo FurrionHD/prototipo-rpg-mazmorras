@@ -51,7 +51,9 @@ func _correr() -> void:
 	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
 	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/slime.tres", jug.global_position + Vector2(90, 0), {})
 	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/slime.tres", jug.global_position + Vector2(90, 40), {})
-	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/slime.tres", jug.global_position + Vector2(120, 20), {})
+	# El refuerzo nace LEJOS (12/10): sin tope en el mapa, uno que nace dentro de la zona entra solo en la pelea nada mas
+	# empezar (combat_tactico._recoger_de_la_arena) y ya no quedaria para meterlo a mano en el hueco del que cae.
+	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/slime.tres", jug.global_position + Vector2(700, 20), {})
 	await _esperar(25)
 	var nodos: Array = get_tree().get_nodes_in_group("enemy")
 	_ver(nodos.size() >= 3, "tres slimes (%d)" % nodos.size())
@@ -67,6 +69,7 @@ func _correr() -> void:
 				if h.get("tactico") != null:
 					combat = h
 	combat.set_process(false)
+	refuerzo.global_position = a.global_position + Vector2(0, 30)   # ya con la pelea quieta: al lado, dentro de la zona
 	var ea: Combatant = combat._enemies[0]
 	print("1) cae el primero y un refuerzo estrena su hueco en el acto")
 	ea.current_hp = 0.0

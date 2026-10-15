@@ -60,6 +60,10 @@ var _nombre: Label = null
 # Su cuerpo dibujado (ver muneco_jugador.gd) y hacia donde mira, deducido de su movimiento.
 var _muneco: MunecoJugador = null
 var _facing: Vector2 = Vector2.DOWN
+# HACIA DONDE MIRA SEGUN SU DUEÑO (el facing que viaja en el paquete de posicion). Andando manda el movimiento
+# (ver _physics_process), pero GOLPEANDO manda este: se pega parado, y el espadazo tiene que salir hacia donde
+# el lo dio, no hacia el ultimo lado por el que anduvo (12/10).
+var _facing_red: Vector2 = Vector2.ZERO
 # SU imbuicion (ImbueVisual.codigo, 0 = ninguna). Se guarda por si llega antes que su muñeco.
 var _imbue_cod: int = 0
 # Su bocadillo mientras canta un hechizo en el mapa (null = no esta cantando). Ver cantar().
@@ -289,6 +293,25 @@ func _fx_de_arma(arma) -> int:
 
 
 # Nuevo destino recibido de la red (lo llama Net al llegar cada paquete de posicion).
+func fijar_mirada_red(dir: Vector2) -> void:
+	if dir != Vector2.ZERO:
+		_facing_red = dir.normalized()
+
+
+# ¿VA A POR ESTE BICHO? Lo pregunta el bicho (enemy._es_contra) en la maquina que simula el piso, justo antes de
+# abrir la pelea a su nombre: si este jugador estaba soltando un espadazo hacia el, la pelea la ha empezado EL y la
+# iniciativa es suya. Hasta el 12/10 solo el jugador local tenia esto, y en multi (los trabajadores no tienen
+# jugador local) el golpe del bicho ganaba siempre: "iniciativa: enemigo" aunque le hubieras pegado tu primero.
+const CONTRA_FONDO := 24.0 + 16.0   # la zona del espadazo (player.ZONA_GOLPE_FONDO) y un palmo por el retraso de red
+const CONTRA_ANCHO := 34.0 + 16.0
+func quiere_atacarme(bicho: Node) -> bool:
+	if _golpe_t <= 0.0 or bicho == null or not is_instance_valid(bicho) or not (bicho is Node2D):
+		return false
+	var dir: Vector2 = _facing_red if _facing_red != Vector2.ZERO else _facing
+	var zona: Rect2 = Cuerpos.zona_delante(self, dir, CONTRA_FONDO, CONTRA_ANCHO)
+	return Cuerpos.hueco_entre(zona, Cuerpos.caja_de(bicho as Node2D)) <= 0.0
+
+
 func ir_a(pos: Vector2) -> void:
 	if _objetivo == Vector2.INF or global_position.distance_to(pos) > SALTO:
 		global_position = pos   # primer paquete o salto grande: aparecer alli, sin deslizarse
@@ -336,7 +359,10 @@ func _physics_process(delta: float) -> void:
 		# MIENTRAS PEGA, MIRA A DONDE PEGABA. Deducir el facing del movimiento (que es lo correcto
 		# andando, ver arriba) aqui no vale: se golpea PARADO, asi que la interpolacion no da
 		# direccion ninguna y el espadazo saldria siempre hacia el ultimo lado por el que se movio.
+		# Por eso aqui manda el facing de su dueño (12/10).
 		andando = false
+		if _facing_red != Vector2.ZERO:
+			_facing = _facing_red
 	if _muneco != null and _muneco.hay_dibujo():
 		if _faena > 0:
 			_animar_faena()
