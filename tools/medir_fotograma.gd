@@ -98,6 +98,7 @@ func _correr() -> void:
 	for r in rutas.slice(0, 25):
 		print("[FOTOGRAMA]   %-34s %8.1f us   (%d nodos)" % [r, por_script[r][0], por_script[r][1]])
 	_detalle_jugador(jugador)
+	_enemigos_persiguiendo(jugador)
 	var hud2: Node = get_tree().get_first_node_in_group("hud")
 	if hud2 != null:
 		var t0: int = Time.get_ticks_usec()
@@ -222,3 +223,61 @@ func _detalle_jugador(j: Node) -> void:
 
 	for f in filas:
 		print("[FOTOGRAMA]   %-30s %8.1f us" % f)
+
+
+# EL PEOR CASO DE LA IA: todos a por el jugador desde donde esten (con roca de por medio: esquiva y rayos). Se les da un
+# lose_range enorme para que no se rindan y se mide su _physics_process a mano, como el perfil.
+func _enemigos_persiguiendo(j: Node2D) -> void:
+	var bichos: Array = get_tree().get_nodes_in_group("enemy").filter(
+		func(e): return is_instance_valid(e) and e.get("_state") != null and e.can_process())
+	var guardado: Array = []
+	for e in bichos:
+		guardado.append([e.global_position, e._state, e.lose_range])
+		e.lose_range = 99999.0
+		e._objetivo = j
+		e._state = e.State.CHASE
+	var us: float = 0.0
+	for k in VECES:
+		var t0: int = Time.get_ticks_usec()
+		for e in bichos:
+			if is_instance_valid(e) and e._state == e.State.CHASE:
+				e._physics_process(1.0 / 60.0)
+		us += float(Time.get_ticks_usec() - t0)
+	# Por dentro, sumado para todos los bichos.
+	var piezas: Array = [
+		["_aliados", func(e): e._aliados()],
+		["_excluir_del_rayo", func(e): e._excluir_del_rayo()],
+		["_aliado_a_tiro", func(e): e._aliado_a_tiro()],
+		["_cabe_por (1 vez)", func(e): e._cabe_por((j.global_position - e.global_position).normalized(), 40.0)],
+		["_direccion_esquivando", func(e): e._direccion_esquivando(j.global_position - e.global_position)],
+		["move_and_slide", func(e): e.move_and_slide()],
+		["_separacion", func(e): e._separacion()],
+		["_try_detect", func(e): e._try_detect()],
+		["_actualizar_indicadores", func(e): e._actualizar_indicadores()],
+		["_aliado_en_contacto", func(e): e._aliado_en_contacto()],
+		["_aliado_mas_cercano", func(e): e._aliado_mas_cercano()],
+		["_chase", func(e): e._chase(1.0 / 60.0)],
+		["_vigilar_atasco", func(e): e._vigilar_atasco(1.0 / 60.0, e.global_position, Vector2.RIGHT)],
+		["_actualizar_animacion", func(e): e._actualizar_animacion(Vector2.RIGHT * 40.0)],
+		["_tick_estados_fuera", func(e): e._tick_estados_fuera(1.0 / 60.0)],
+		["_actualizar_rastro", func(e): e._actualizar_rastro(1.0 / 60.0)],
+	]
+	for p in piezas:
+		var mejor: float = INF   # la MEJOR de 5 tandas: este PC mide con mucho ruido (la misma pieza x2 entre vueltas)
+		for tanda in 5:
+			var t0: int = Time.get_ticks_usec()
+			for k in VECES:
+				for e in bichos:
+					if is_instance_valid(e):
+						p[1].call(e)
+			mejor = minf(mejor, float(Time.get_ticks_usec() - t0) / VECES)
+		print("[FOTOGRAMA]     %-24s %7.1f us (todos)" % [p[0], mejor])
+	var siguen: int = bichos.filter(func(e): return is_instance_valid(e) and e._state == e.State.CHASE).size()
+	print("[FOTOGRAMA] enemigos PERSIGUIENDO: %d bichos, %.1f us por fotograma (siguen persiguiendo %d)" % [
+		bichos.size(), us / VECES, siguen])
+	for i in bichos.size():
+		if is_instance_valid(bichos[i]):
+			bichos[i].global_position = guardado[i][0]
+			bichos[i]._state = guardado[i][1]
+			bichos[i].lose_range = guardado[i][2]
+			bichos[i]._objetivo = null

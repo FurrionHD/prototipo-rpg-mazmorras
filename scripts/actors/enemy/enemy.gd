@@ -1032,11 +1032,22 @@ func _todo_lo_ve() -> bool:
 
 # Todo el grupo (lider + companeros), que es a quien puede cazar. Filtra invalidos de un frame
 # suelto: el sequito se rehace cuando cambias de equipo o de piso.
+# UNA lista para TODOS los bichos y UNA vez por fotograma de fisica (optimizacion 1B, 16/10): cada bicho la pedia hasta
+# cinco veces por fotograma (detectar, a tiro, contacto, el mas cercano, los rayos). Quien la use solo la RECORRE.
+# Lo que se borre a mitad de fotograma sigue valido hasta el final (queue_free), asi que no hay nada muerto dentro.
+static var _aliados_lista: Array[Node2D] = []
+static var _aliados_frame: int = -1
+
 func _aliados() -> Array[Node2D]:
+	var f: int = Engine.get_physics_frames()
+	if f == _aliados_frame:
+		return _aliados_lista
+	_aliados_frame = f
 	var out: Array[Node2D] = []
 	for n in get_tree().get_nodes_in_group("aliado"):
 		if is_instance_valid(n) and n is Node2D:
 			out.append(n as Node2D)
+	_aliados_lista = out
 	return out
 
 
@@ -1081,12 +1092,34 @@ func _linea_de_vision_libre(punto: Vector2) -> bool:
 # comparte capa con la roca, y los companeros tienen su propio cuerpo) y uno mismo. Sin esto se
 # taparian unos a otros: el que va delante le haria de escudo al de detras contra el cono que lo
 # esta mirando.
+# UNA VEZ POR FOTOGRAMA DE FISICA (optimizacion 1B, 16/10): persiguiendo se tiran hasta 3 rayos por angulo probado y
+# cada uno rehacia esta lista (el grupo "aliado" entero). Dentro de un mismo fotograma no cambia; un RID de alguien
+# que se acabe de ir no estorba en una lista de excluidos.
+var _excl: Array[RID] = []
+var _excl_frame: int = -1
+
 func _excluir_del_rayo() -> Array[RID]:
+	var f: int = Engine.get_physics_frames()
+	if f == _excl_frame:
+		return _excl
+	_excl_frame = f
 	var out: Array[RID] = [get_rid()]
 	for n in _aliados():
 		if n is CollisionObject2D:
 			out.append((n as CollisionObject2D).get_rid())
+	_excl = out
 	return out
+
+
+# La consulta de los rayos, UNA por bicho y reutilizada (antes una nueva por rayo).
+var _rayo := PhysicsRayQueryParameters2D.new()
+
+func _rayo_de(desde: Vector2, hasta: Vector2) -> PhysicsRayQueryParameters2D:
+	_rayo.from = desde
+	_rayo.to = hasta
+	_rayo.collision_mask = CAPA_OBSTACULOS
+	_rayo.exclude = _excluir_del_rayo()
+	return _rayo
 
 
 # ============================================================
@@ -1244,10 +1277,7 @@ func _elegir_lado(dir: Vector2, sonda: float, hacia: Vector2) -> Vector2:
 # ha comprobado _cabe_por.
 func _recorrido_libre(dir: Vector2, largo: float) -> float:
 	var espacio: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
-	var query := PhysicsRayQueryParameters2D.create(
-		global_position, global_position + dir * largo, CAPA_OBSTACULOS)
-	query.exclude = _excluir_del_rayo()
-	var hit: Dictionary = espacio.intersect_ray(query)
+	var hit: Dictionary = espacio.intersect_ray(_rayo_de(global_position, global_position + dir * largo))
 	if hit.is_empty():
 		return largo
 	return global_position.distance_to(hit["position"])
@@ -1279,14 +1309,11 @@ const MARGEN_CUERPO := 2.0
 
 func _cabe_por(dir: Vector2, sonda: float) -> bool:
 	var espacio: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
-	var excluir: Array[RID] = _excluir_del_rayo()
 	var media: float = _MEDIO_CUERPO + radio_extra + MARGEN_CUERPO
 	var lado: Vector2 = Vector2(-dir.y, dir.x) * media
 	for off in [Vector2.ZERO, lado, -lado]:
 		var desde: Vector2 = global_position + off
-		var query := PhysicsRayQueryParameters2D.create(desde, desde + dir * sonda, CAPA_OBSTACULOS)
-		query.exclude = excluir
-		if not espacio.intersect_ray(query).is_empty():
+		if not espacio.intersect_ray(_rayo_de(desde, desde + dir * sonda)).is_empty():
 			return false
 	return true
 
@@ -1378,8 +1405,9 @@ func _chase(delta: float) -> void:
 # El miembro del grupo que tiene A TIRO ahora mismo (dentro del margen de ataque), o null. Mira a
 # TODOS: cualquiera que se le ponga a huevo vale, no solo al que venia persiguiendo.
 func _aliado_en_contacto() -> Node2D:
+	var mia: Rect2 = Cuerpos.caja_de(self)   # una vez, no una por miembro (= hueco_hasta)
 	for n in _aliados():
-		if hueco_hasta(n) <= CONTACTO:
+		if Cuerpos.hueco_entre(mia, Cuerpos.caja_de(n)) <= CONTACTO:
 			return n
 	return null
 
@@ -1404,8 +1432,10 @@ func _aliado_a_tiro() -> Node2D:
 	var margen: float = margen_ataque()
 	var best: Node2D = null
 	var mejor: float = INF
+	# Mi caja UNA vez, no una por miembro del grupo (= hueco_hasta(n), optimizacion 1B, 16/10).
+	var mia: Rect2 = Cuerpos.caja_de(self)
 	for n in _aliados():
-		var h: float = hueco_hasta(n)
+		var h: float = Cuerpos.hueco_entre(mia, Cuerpos.caja_de(n))
 		if h <= margen and h < mejor:
 			mejor = h
 			best = n
@@ -2060,12 +2090,13 @@ func _separacion() -> Vector2:
 		# Los ESPEJOS no cuentan para NADA de la IA (separacion, manadas, refuerzos): son el dibujo
 		# de la simulacion de otra maquina, no compañeros mios. Ademas no cumplen medio contrato del
 		# grupo, asi que preguntarles revienta (ver remote_enemy).
-		if n == self or not is_instance_valid(n) or n.has_meta("es_espejo"):
+		if n == self or not is_instance_valid(n):
 			continue
 		var d: Vector2 = global_position - (n as Node2D).global_position
-		var dist: float = d.length()
-		if dist >= SEPARACION_MIN:
+		# Lejos primero (sin raiz cuadrada) y el meta despues: casi todos los del piso estan lejos (1B, 16/10).
+		if d.length_squared() >= SEPARACION_MIN * SEPARACION_MIN or n.has_meta("es_espejo"):
 			continue
+		var dist: float = d.length()
 		if dist < 0.01:
 			# Exactamente encima (han nacido en el mismo punto): se aparta hacia donde sea, o la
 			# division de abajo seria entre cero y se quedarian pegados para siempre.
