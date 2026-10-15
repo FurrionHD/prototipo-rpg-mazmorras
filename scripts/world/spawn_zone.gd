@@ -143,6 +143,14 @@ func adoptar(e) -> void:
 # Quita del registro a los que ya no son enemigos VIVOS: los muertos siguen en la escena
 # como cadaveres (con tu loot dentro), pero no ocupan plaza en la zona.
 func _purgar() -> void:
+	# Corre en CADA fotograma: la lista nueva solo si de verdad sobra alguien (optimizacion 1B, 16/10). Mismo resultado.
+	var sobra: bool = false
+	for e in _vivos:
+		if not is_instance_valid(e) or e.esta_muerto():
+			sobra = true
+			break
+	if not sobra:
+		return
 	var quedan: Array = []
 	for e in _vivos:
 		if is_instance_valid(e) and not e.esta_muerto():
