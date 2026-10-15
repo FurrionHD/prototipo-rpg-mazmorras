@@ -1547,6 +1547,7 @@ func _descontar(bloque: Dictionary, dmg: float) -> void:
 # que tarde lo mismo una cura pequeña que una grande: lo que dura la espiral.
 const T_SUBIDA_CURA := 1.1
 const COLOR_CURA := Color(0.45, 1.0, 0.55)
+const COLOR_FALLO := Color(1.0, 1.0, 1.0)   # el «FALLO» de un golpe que no entra (ver _soltar_numero_de)
 
 func _aterrizar_cura(bloque: Dictionary, cura: float) -> void:
 	if bloque.is_empty():
@@ -3145,9 +3146,12 @@ func _soltar_numero_de(ev: Dictionary) -> void:
 	var evadido: bool = bool(ev["evadido"])
 	var lbl: Label = _coger_numero()
 	if evadido:
-		lbl.text = "FALLA"
-		lbl.add_theme_color_override("font_color", Color(0.7, 0.75, 0.85))
-		lbl.add_theme_font_size_override("font_size", 18)
+		# EL GOLPE QUE NO ENTRA (15/10, lo pidio el usuario): «FALLO», en BLANCO y del tamaño de un golpe normal, como un
+		# numero mas. Antes era «FALLA» gris azulado y mas pequeño, y entre el gesto de apartarse no se veia. Una sola
+		# palabra para todo lo que no entra: la tirada es una (Agilidad contra Destreza, con la Ceguera y la guardia dentro).
+		lbl.text = "FALLO"
+		lbl.add_theme_color_override("font_color", COLOR_FALLO)
+		lbl.add_theme_font_size_override("font_size", 19)
 	elif float(ev["dmg"]) < 0.0:
 		# UNA CURA: lo que cura el hechizo ENTERO, aunque pase del maximo (decision del usuario: que se
 		# vea lo que hace el conjuro, no lo que le cabia a la barra). En verde y sin decimales.
