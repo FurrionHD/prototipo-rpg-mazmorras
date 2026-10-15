@@ -181,11 +181,11 @@ func _despawn_drop(id: int) -> void:
 # proceso, el aviso del HUD ("Recoges X") sale solo en SU pantalla.
 @rpc("any_peer", "call_remote", "reliable")
 func _recoger_concedido(d: Dictionary) -> void:
-	# Un monton (d["n"]) se embolsa unidad a unidad: cada MaterialItem es uno.
-	for _k in range(maxi(1, int(d.get("n", 1)))):
-		var item := _item_de_dict(d)
-		if item != null:
-			Game.embolsar(item)
+	# Un monton (d["n"]) entra de golpe. Antes iba unidad a unidad, y como _item_de_dict ya le pone su n a cada
+	# pieza, un monton de 5 flechas embolsaba 5 x 5 = 25.
+	var item := _item_de_dict(d)
+	if item != null:
+		Game.embolsar(item, int(d.get("n", 1)))
 
 
 # --- UN ENEMIGO SE COME UN CRISTAL DEL SUELO (05/10, ver ComerCristales) ---------------------

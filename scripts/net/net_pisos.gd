@@ -401,6 +401,9 @@ func _montar_sesion_desde_dentro(piso: int) -> void:
 		var d: Dictionary = Net.suelo._item_a_dict(pk.item)
 		if d.is_empty():
 			continue
+		d.erase("n")
+		if int(pk.get("cantidad")) > 1:
+			d["n"] = int(pk.get("cantidad"))   # el monton entero, no una pieza
 		var pos: Vector2 = (pk as Node2D).global_position
 		pk.queue_free()
 		Net.suelo._registrar_y_difundir(d, pos, lugar)

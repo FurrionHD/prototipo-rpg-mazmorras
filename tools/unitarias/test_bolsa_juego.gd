@@ -171,3 +171,73 @@ func test_guardar_en_casa_y_volver() -> void:
 	igual(Game.carbon_restante(), 1, "el carbon se queda en la carbonera")
 	Game.recoger_materiales_del_hogar(true)
 	igual(Game.en_bolsa(load(ACERO)), 6, "vuelven los 6")
+
+
+# --- EL SUELO VA CONTADO (fase 1A, 16/10): soltar varias iguales deja UN monton y recogerlo las devuelve todas ---
+
+func test_embolsar_un_monton_entra_de_golpe() -> void:
+	_limpio()
+	var m := _mat(ACERO, N)
+	m.n = 3   # el n que traiga el item NO cuenta: manda el del monton del suelo
+	Game.embolsar(m, 5)
+	igual(Game.en_bolsa(load(ACERO), N), 5, "5 aceros, no 3 ni 15")
+	Game.embolsar(_cri(2, Cristal.Calidad.NORMAL), 4)
+	igual(Game.cristales_en_bolsa(2), 4, "4 cristales")
+	var anti: ConsumableData = load("res://resources/consumables/antidoto.tres")
+	var antes: int = int(Game.consumables.get(anti, 0))
+	Game.embolsar(anti, 3)
+	igual(int(Game.consumables.get(anti, 0)), antes + 3, "3 antidotos")
+
+
+func _jugador_falso() -> Node2D:
+	var p := Node2D.new()
+	p.add_to_group("player")
+	# Colgado de Game y no de la raiz: las unitarias corren mientras la raiz aun monta a sus hijos (add_child falla).
+	Game.add_child(p)
+	return p
+
+
+# Sin los que ya se han recogido: recoger() hace queue_free y siguen en el grupo hasta el fotograma siguiente.
+func _pickups() -> Array:
+	return Game.get_tree().get_nodes_in_group("pickup").filter(func(k): return not k.is_queued_for_deletion())
+
+
+func test_soltar_varias_deja_un_monton() -> void:
+	_limpio()
+	for i in 6:
+		Game.embolsar(_mat(ACERO, N))
+	var p := _jugador_falso()
+	igual(Game.soltar_item(_mat(ACERO, N), 5), 5, "suelta 5")
+	var suelo: Array = _pickups()
+	igual(suelo.size(), 1, "UN monton en el suelo")
+	if suelo.size() == 1:
+		igual(int(suelo[0].cantidad), 5, "con sus 5")
+		igual(Game.en_bolsa(load(ACERO), N), 1, "te queda 1")
+		var cuantos: int = int(suelo[0].cantidad)
+		Game.embolsar(suelo[0].recoger(), cuantos)
+		igual(Game.en_bolsa(load(ACERO), N), 6, "recogerlo devuelve las 5")
+	p.free()
+
+
+func test_soltar_mas_de_las_que_hay() -> void:
+	_limpio()
+	for i in 2:
+		Game.embolsar(_mat(ACERO, N))
+	var p := _jugador_falso()
+	igual(Game.soltar_item(_mat(ACERO, N), 9), 2, "solo hay 2")
+	igual(_pickups().size(), 1, "un monton")
+	for k in _pickups():
+		k.free()
+	p.free()
+
+
+func test_los_cristales_caen_de_uno_en_uno() -> void:
+	_limpio()
+	for i in 3:
+		Game.embolsar(_cri(1, Cristal.Calidad.NORMAL))
+	var p := _jugador_falso()
+	igual(Game.soltar_item(_cri(1, Cristal.Calidad.NORMAL), 3), 3, "suelta 3")
+	igual(_pickups().size(), 3, "tres cristales sueltos: son cebo y el slime se come uno")
+	for k in _pickups():
+		k.free()
+	p.free()

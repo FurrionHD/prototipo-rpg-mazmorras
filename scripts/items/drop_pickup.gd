@@ -102,19 +102,9 @@ func _crear_destellos() -> void:
 
 
 # El jugador lo recoge: devuelve el item y se elimina del suelo. Quien llama decide
-# en que parte de la bolsa lo mete (Game.embolsar: cristales / materiales / consumibles).
+# en que parte de la bolsa lo mete (Game.embolsar: cristales / materiales / consumibles). Si es un monton, quien
+# llama lee antes 'cantidad' y se la pasa a Game.embolsar: entran todas de golpe.
 func recoger() -> Resource:
 	var i := item
 	queue_free()
 	return i
-
-# Todo el monton, una unidad por elemento (para embolsarlas de una en una). La primera es el propio item.
-func recoger_todos() -> Array:
-	var out: Array = [item]
-	for _k in range(cantidad - 1):
-		if item is MaterialItem:
-			out.append(MaterialItem.crear((item as MaterialItem).data, int((item as MaterialItem).calidad)))
-		else:
-			out.append(item)
-	queue_free()
-	return out

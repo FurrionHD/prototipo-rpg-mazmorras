@@ -13451,11 +13451,20 @@ func soltar_item(modelo: Resource, cantidad: int, delante: bool = false) -> int:
 	if parent == null:
 		return 0
 
+	# UN SOLO MONTON EN EL SUELO (optimizacion 1A, 16/10): soltar 40 de cobre eran 40 nodos y, en multi, 40 viajes
+	# al host; ahora es un drop con su cantidad (DropPickup.cantidad, el "x40" que pinta). Los CRISTALES no: siguen
+	# cayendo de uno en uno, porque son cebo -- el slime se come UNO (ComerCristales) y un monton entero se lo
+	# tragaria de golpe.
+	var de_uno: bool = modelo is Cristal
 	var soltados: int = 0
 	while soltados < cantidad:
 		var item: Resource = _sacar_de_bolsa(modelo)
 		if item == null:
 			break
+		var n: int = 1
+		if not de_uno:
+			while soltados + n < cantidad and _sacar_de_bolsa(modelo) != null:
+				n += 1
 		# Pequeño offset aleatorio para que no queden todos apilados en el mismo pixel. Se
 		# calcula AQUI (quien suelta) tambien en multi: la posicion viaja ya resuelta y ambas
 		# maquinas ven el drop en el MISMO sitio.
@@ -13468,13 +13477,13 @@ func soltar_item(modelo: Resource, cantidad: int, delante: bool = false) -> int:
 		if Net.activo:
 			# MULTIJUGADOR: el suelo es del host. El drop lo planta Net en TODOS los mundos
 			# (el mio incluido) con su id de red; aqui solo se saca de la bolsa.
-			Net.suelo.solicitar_soltar(item, pos)
+			Net.suelo.solicitar_soltar(item, pos, n)
 		else:
 			var pickup: Node2D = _drop_pickup_script.new()
-			pickup.setup(item)
+			pickup.setup(item, n)
 			parent.add_child(pickup)
 			pickup.global_position = pos
-		soltados += 1
+		soltados += n
 	if soltados > 0:
 		print("[bolsa] Sueltas %d x %s al suelo" % [soltados, _nombre_item(modelo)])
 	return soltados
@@ -13501,33 +13510,37 @@ func soltar_en_suelo(item: Resource, pos: Vector2, n: int = 1) -> void:
 # Mete un item recogido del suelo en la bolsa, con su descubrimiento, su log y su aviso del
 # HUD. Lo comparten la recogida local (player.gd, tecla F) y la concedida por red (Net): como
 # solo corre en el proceso de QUIEN recoge, el aviso sale solo en su pantalla.
-func embolsar(item: Resource) -> void:
+# n = cuantas iguales (un monton del suelo, DropPickup.cantidad): entran de golpe, sin un objeto por unidad.
+# El n que traiga el propio item NO cuenta: manda el del monton del suelo.
+func embolsar(item: Resource, n: int = 1) -> void:
+	n = maxi(1, n)
 	if item is MaterialItem:
 		var m := item as MaterialItem
+		m.n = n
 		# POR EL EMBUDO, no a 'materiales' a pelo: el COMBUSTIBLE va a la carbonera. Ahora que el
 		# carbon se puede soltar para pasarselo a un compañero, recogerlo por aqui lo metia en la
 		# bolsa -donde pesa, se guarda en el almacen y el farolillo no lo encuentra-, o sea que darle
 		# carbon a alguien se lo convertia en otra cosa.
 		guardar_material(m)
 		descubrir(m.data)
-		print("Recoges: ", m.nombre(), " (", m.calidad_texto(), "). Total materiales: ",
+		print("Recoges: ", n, " x ", m.nombre(), " (", m.calidad_texto(), "). Total materiales: ",
 			bolsa.total())
-		_aviso_recogida(m.nombre(), 1, m.calidad_texto())
+		_aviso_recogida(m.nombre(), n, m.calidad_texto())
 	elif item is Cristal:
 		var c := item as Cristal
-		cristales.anadir(c)
-		print("Recoges: Cristal Cat ", c.categoria, " (", c.calidad_texto(),
+		cristales.anadir(c, n)
+		print("Recoges: ", n, " x Cristal Cat ", c.categoria, " (", c.calidad_texto(),
 			"). Total cristales: ", cristales.total())
-		_aviso_recogida("Cristal T%d" % c.categoria, 1, c.calidad_texto())
+		_aviso_recogida("Cristal T%d" % c.categoria, n, c.calidad_texto())
 	elif item is ConsumableData:
 		# Por el mismo embudo que las compra la tienda: es un contador, no una lista.
 		var cd := item as ConsumableData
 		# Si era un libro ya leido, add_consumable lo ha vendido y YA ha avisado el: aqui no se vuelve
 		# a avisar, o saldrian dos carteles seguidos diciendo cosas distintas del mismo objeto.
-		if add_consumable(cd, 1) > 0:
+		if add_consumable(cd, n) > 0:
 			return
-		print("Recoges: ", cd.nombre, ". Total consumibles: ", consumibles_total())
-		_aviso_recogida(cd.nombre, 1, "")
+		print("Recoges: ", n, " x ", cd.nombre, ". Total consumibles: ", consumibles_total())
+		_aviso_recogida(cd.nombre, n, "")
 
 
 # Saca de la bolsa UNA unidad equivalente al modelo (y la devuelve). null si no queda.
