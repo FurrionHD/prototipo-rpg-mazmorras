@@ -9,8 +9,10 @@
 #    - Un Resource incrustado (tu espada +2, un MaterialItem) vale {"_clase", y sus campos
 #      guardados}, recorrido entero. Si nadie lo conoce, sale igual: nada se escapa por omision.
 #    - Los bytes (las caras PNG) valen "bytes:<tamaño>:<sha256>".
-#    - Las listas SOLO de MaterialItem / Cristal se ordenan: la BD los guarda contados (una fila
-#      por material), y el orden de las unidades en la bolsa no es un dato.
+#    - Las listas SOLO de MaterialItem / Cristal valen su CUENTA: cada clase con su total, ordenadas. La BD los
+#      guarda contados (una fila por material) y el juego los lleva en montones (Monton, fase 1A de la
+#      optimizacion): 807 carbones sueltos y un monton de 807 son la misma partida. Por eso el campo n (la
+#      cantidad de un monton) tampoco entra en la huella de cada uno.
 #    - Las claves de los diccionarios van con var_to_str (1 y "1" son claves distintas).
 #    - "_compartidos": los objetos incrustados que salen en MAS DE UN sitio (el arma equipada que
 #      es la misma del baul). Al leerlo de vuelta tienen que seguir siendo uno solo. Menos los
@@ -56,13 +58,24 @@ static func _valor(v, ruta: String, vistos: Dictionary, compartidos: Array, pila
 			d[ck] = _valor(v[k], "%s{%s}" % [ruta, ck], vistos, compartidos, pila)
 		return d
 	if v is Array:
+		if _solo_contables(v):
+			var cuenta: Dictionary = {}   # texto de la clase -> total
+			var i0: int = 0
+			for e in v:
+				var k: String = var_to_str(_valor(e, "%s[%d]" % [ruta, i0], vistos, compartidos, pila))
+				cuenta[k] = int(cuenta.get(k, 0)) + maxi(1, int(e.n))
+				i0 += 1
+			var claves: Array = cuenta.keys()
+			claves.sort()
+			var contada: Array = []
+			for k in claves:
+				contada.append([k, cuenta[k]])
+			return contada
 		var l: Array = []
 		var i: int = 0
 		for e in v:
 			l.append(_valor(e, "%s[%d]" % [ruta, i], vistos, compartidos, pila))
 			i += 1
-		if _solo_contables(v):
-			l.sort_custom(func(x, y): return var_to_str(x) < var_to_str(y))
 		return l
 	if v is PackedByteArray:
 		return _bytes(v)
@@ -94,6 +107,8 @@ static func _de_resource(r: Resource, ruta: String, vistos: Dictionary, comparti
 		var n: String = p["name"]
 		if _NO_SON_DATOS.has(n):
 			continue
+		if n == "n" and (r is MaterialItem or r is Cristal):
+			continue   # la cantidad de un monton va en la cuenta de su lista, no en la huella de la cosa
 		d[n] = _valor(r.get(n), "%s.%s" % [ruta, n], vistos, compartidos, pila)
 	pila.erase(iid)
 	return d

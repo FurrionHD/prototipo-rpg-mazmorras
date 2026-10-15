@@ -126,10 +126,10 @@ func _pasada_encargos() -> void:
 		str(e.get("desenlace")), str((e.get("botin", []) as Array).size()), str(e.get("cristales")),
 		int(e.get("dinero", 0)), int(e.get("rotos", 0)), int(e.get("perdido", 0)), int(e.get("peleas", 0))])
 	var bote_antes: int = Game.bote_dinero
-	var almacen_antes: int = Game.almacen_materiales.size()
+	var almacen_antes: int = Game.baul.total()
 	var inf: Dictionary = Game.recoger_encargo(id)
 	print("[hogar] recoger: %s | hucha %d -> %d | almacen %d -> %d" % [str(inf), bote_antes, Game.bote_dinero,
-		almacen_antes, Game.almacen_materiales.size()])
+		almacen_antes, Game.baul.total()])
 	enc._enc_sub = 0
 	_menu._aviso = enc._texto_informe(inf)
 	_menu._aviso_ok = int(inf.get("desenlace", 0)) != Encargos.FRACASO
@@ -142,7 +142,7 @@ func _llenar_hogar() -> void:
 	Game.bote_dinero = 1250
 	# MATERIALES en la bolsa y en casa, en cantidades muy distintas (las mismas que el visor del inventario).
 	Game.materiales = []
-	Game.almacen_materiales = []
+	Game.baul.vaciar()
 	var i: int = 0
 	for id in ["cobre", "cobre_veteado", "acero", "madera_comun", "cuero_simple", "baba_slime",
 			"nucleo_slime", "ajo", "cebolla"]:
@@ -159,7 +159,7 @@ func _llenar_hogar() -> void:
 			var it2 := MaterialItem.new()
 			it2.data = d
 			it2.calidad = MaterialItem.Calidad.INTACTO
-			Game.almacen_materiales.append(it2)
+			Game.baul.anadir(it2)
 	# UTILES: mochilas y herramientas (con farolillos) en el baul, para meter parte en el cofre.
 	var mo: BackpackData = load("res://resources/backpacks/mochila_basica.tres") as BackpackData
 	if mo != null:
@@ -199,17 +199,17 @@ func _seccion(nombre: String) -> Object:
 func _pasada_guardar() -> void:
 	DirAccess.make_dir_recursive_absolute(SALIDA)
 	if Game.materiales.is_empty():
-		for m in Game.almacen_materiales.slice(0, 12):
+		for m in Game.baul.expandir().slice(0, 12):
 			Game.materiales.append(m)
 	var en_bolsa: int = Game.materiales.size()
-	var en_casa: int = Game.almacen_materiales.size()
+	var en_casa: int = Game.baul.total()
 	_seccion("equipo")
 	_menu._rebuild()
 	await _captura("guardar_antes")
 	await _seccion("equipo")._guardar_materiales()
 	await _captura("guardar_despues")
 	print("[guardar] bolsa %d -> %d   casa %d -> %d" % [en_bolsa, Game.materiales.size(), en_casa,
-		Game.almacen_materiales.size()])
+		Game.baul.total()])
 
 
 func _pasada() -> void:

@@ -27,9 +27,10 @@ enum Calidad { INTACTO, NORMAL, DANADO, ROTO, PURO }
 
 # CUANTAS hay en este monton (plan de optimizacion, fase 1A). La bolsa, el baul y la carbonera van CONTADOS
 # (ver Monton): una entrada por material + calidad + talla, con su cantidad aqui. Un objeto suelto es 1.
-# NO va exportada a proposito: la base de datos ya guarda los materiales contados (BDFilas: una fila por
-# clase con su cantidad), y si n fuera un campo guardado entraria en la clave de la fila.
-var n: int = 1
+# Va EXPORTADA porque el mundo compartido y los respaldos aun se guardan como .tres (sin ella un monton de 300
+# volveria como 1). En la base de datos NO entra como campo (BDFilas._campos la salta): alli ya va como la
+# cantidad de la fila contada. Un objeto suelto es 1, que es el valor por defecto y no se escribe.
+@export var n: int = 1
 
 
 static func crear(d: MaterialData, c: Calidad = Calidad.NORMAL) -> MaterialItem:

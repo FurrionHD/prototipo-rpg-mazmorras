@@ -11,7 +11,7 @@
 #  con los botones de la ficha (que es lo que vale en el movil, donde arrastrar se lo lleva el scroll).
 #
 #  DE DONDE SALE CADA COSA (en multi, lo de casa es del host):
-#    - Materiales:  Game.almacen_materiales, con el CANDADO DEL TALLER cogido mientras estas en la
+#    - Materiales:  Game.baul (contado), con el CANDADO DEL TALLER cogido mientras estas en la
 #                   categoria (sin el, el cliente no ve el baul de verdad; ver net_hogar.abrir_taller).
 #    - Equipo, armas y armaduras: el COFRE (Net.hogar.cofre_visible()). Sus entradas son diccionarios;
 #                   la celda necesita un Resource, asi que se reconstruyen con deserializar_equipo
@@ -182,7 +182,7 @@ func _recoger(lado: int) -> Array:
 	var out: Array = []
 	match _cat:
 		CAT_MATERIALES:
-			var lista: Array = Game.almacen_materiales if lado == LADO_CASA else Game.materiales
+			var lista: Array = Game.baul.montones() if lado == LADO_CASA else Game.materiales
 			for s in _agrupar(lista):
 				out.append(_entrada(s["modelo"], int(s["cantidad"]), lado))
 		CAT_CONSUMIBLES:
@@ -289,22 +289,9 @@ func _pasa_filtro(item: Resource) -> bool:
 	return true
 
 
-# Agrupa materiales iguales en montones {modelo, cantidad}, con la clave de Game.clave_monton.
+# Agrupa materiales iguales en montones {modelo, cantidad}: la agrupacion comun (Monton.agrupar).
 func _agrupar(items: Array) -> Array:
-	var claves: Array = []
-	var mapa: Dictionary = {}
-	for it in items:
-		if not (it is MaterialItem):
-			continue
-		var k: String = Game.clave_monton(it)
-		if not mapa.has(k):
-			mapa[k] = {"modelo": it, "cantidad": 0}
-			claves.append(k)
-		mapa[k]["cantidad"] += 1
-	var res: Array = []
-	for k in claves:
-		res.append(mapa[k])
-	return res
+	return Monton.agrupar(items)
 
 
 # ============================================================
@@ -356,7 +343,7 @@ var _modal: Control = null
 func _confirmar_bloque(que: String) -> void:
 	cerrar_modal()
 	var en_bolsa: int = Game.materiales.size()
-	var en_casa: int = Game.almacen_materiales.size()
+	var en_casa: int = Game.total_en_hogar()
 	var titulo: String = ""
 	var texto: String = ""
 	var accion: Callable

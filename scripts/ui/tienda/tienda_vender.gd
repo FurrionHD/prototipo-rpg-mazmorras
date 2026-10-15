@@ -296,7 +296,7 @@ func _recoger() -> Array:
 			match _sub2_de(SUB_HOGAR):
 				HOGAR_MATERIALES:
 					if not Net.activo or _taller == 1:
-						for g in _agrupar(Game.almacen_materiales):
+						for g in _agrupar(Game.baul.montones()):
 							out.append(_monton(g["modelo"], int(g["cantidad"]), "hogar", "h|" + _clave_item(g["modelo"])))
 				HOGAR_EQUIPO:
 					out.append_array(_del_cofre())
@@ -366,29 +366,12 @@ func _del_cofre() -> Array:
 # Agrupa cristales y materiales en montones iguales. La TALLA entra en la clave (dos peces de la misma
 # especie con tallas distintas valen distinto), y Game._sacar_de_bolsa saca por la misma regla.
 func _agrupar(items: Array) -> Array:
-	var claves: Array = []
-	var mapa: Dictionary = {}
-	for it in items:
-		var k: String = _clave_item(it)
-		if not mapa.has(k):
-			mapa[k] = {"modelo": it, "cantidad": 0}
-			claves.append(k)
-		mapa[k]["cantidad"] += 1
-	var res: Array = []
-	for k in claves:
-		res.append(mapa[k])
-	return res
+	return Monton.agrupar(items)
 
 
 static func _clave_item(it: Resource) -> String:
-	if it is Cristal:
-		var c := it as Cristal
-		return "c|%d|%d" % [c.categoria, int(c.calidad)]
-	if it is MaterialItem:
-		var m := it as MaterialItem
-		var id: String = String(m.data.id) if m.data != null else "?"
-		return "m|%s|%d|%d" % [id, int(m.calidad), roundi(m.cm)]
-	return "?"
+	var k: String = Monton.clave_de(it)   # la del baul (talla a 0,1 cm): la tienda saca por la misma
+	return k if k != "" else "?"
 
 
 # ============================================================
@@ -437,7 +420,7 @@ func disponible(s: Dictionary) -> int:
 		"bolsa":
 			return _cuenta_iguales(m, Game.crystals) + _cuenta_iguales(m, Game.materiales) + _cuenta_iguales(m, Game.carbon)
 		"hogar":
-			return _cuenta_iguales(m, Game.almacen_materiales)
+			return Game.baul.cantidad_de(m)
 		"equipo":
 			# Cada array esta TIPADO: .has() con la clase equivocada revienta, asi que cada clase al suyo.
 			var mio: bool
@@ -467,7 +450,7 @@ func _cuenta_iguales(modelo: Resource, lista: Array) -> int:
 	var n: int = 0
 	for it in lista:
 		if it != null and _clave_item(it) == k:
-			n += 1
+			n += maxi(1, int(it.n))
 	return n
 
 

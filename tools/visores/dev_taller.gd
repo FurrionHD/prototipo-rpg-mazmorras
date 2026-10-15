@@ -202,7 +202,7 @@ func _cocina() -> void:
 	await _captura(men, "cocina_hondo")
 
 	print("\n=== SIN NADA ===")
-	Game.almacen_materiales.clear()
+	Game.baul.vaciar()
 	await _ir(men, 1)
 	_ok("con el baúl vacío la rejilla sigue (las recetas se ven igual) y no revienta",
 		men.stacks.size() == Game.recetas_cocina_tier(1).size())
@@ -213,7 +213,7 @@ func _cocina() -> void:
 # El baul lleno con los ingredientes de TODAS las recetas, en dos o tres calidades, y alguna poción
 # base para poder probar las mejoras.
 func _llenar_hogar() -> void:
-	Game.almacen_materiales.clear()
+	Game.baul.vaciar()
 	var vistos: Dictionary = {}
 	var todas: Array = Game.recetas_boticaria() + Game.recetas_cocina()
 	for r in todas:
@@ -228,7 +228,7 @@ func _llenar_hogar() -> void:
 				cals.append(MaterialItem.Calidad.DANADO)
 			for cal in cals:
 				for i in 8:
-					Game.almacen_materiales.append(MaterialItem.crear(md, int(cal)))
+					Game.baul.anadir(MaterialItem.crear(md, int(cal)))
 
 
 func _ir(men: Node, tier: int) -> void:

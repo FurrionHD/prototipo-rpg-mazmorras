@@ -2910,7 +2910,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -
 	# anterior (el farol del HUD arrancaria a medias sin un solo carbon en la carbonera).
 	lampara_llama = 0.0
 	lampara_llama_total = 0.0
-	almacen_materiales.clear()
+	baul.vaciar()
 	bote_dinero = 0
 	cofre_equipo.clear()
 	cofre_consumibles.clear()
@@ -3080,7 +3080,7 @@ func exportar_partida() -> SaveData:
 	d.carbon = carbon.duplicate()
 	d.lampara_llama = lampara_llama
 	d.lampara_llama_total = lampara_llama_total
-	d.almacen_materiales = almacen_materiales.duplicate()
+	d.almacen_materiales = baul.a_lista()
 	d.bote_dinero = bote_dinero
 	d.cofre_equipo = cofre_equipo.duplicate(true)
 	d.cofre_consumibles = cofre_consumibles.duplicate(true)
@@ -3456,7 +3456,7 @@ func limpiar_mundo_heredado() -> void:
 	owned_armor.clear()
 	item_meta.clear()
 	# La casa: almacen, hucha y cofres. En el mundo del host son COMUNES y me los va a mandar el.
-	almacen_materiales.clear()
+	baul.vaciar()
 	bote_dinero = 0
 	cofre_equipo.clear()
 	cofre_consumibles.clear()
@@ -3578,9 +3578,10 @@ func _adoptar_jugador(jd: JugadorData) -> void:
 	lider_idx = clampi(jd.lider_pos, 0, maxi(0, eq.size() - 1))
 
 	money = jd.dinero
-	crystals.assign(jd.crystals)
-	materiales.assign(jd.materiales)
-	carbon.assign(jd.carbon)
+	# Vienen en MONTONES de la base de datos (o de la red): la bolsa aun va por unidad (fase 1A, paso 3).
+	crystals.assign(Monton.por_unidad(jd.crystals))
+	materiales.assign(Monton.por_unidad(jd.materiales))
+	carbon.assign(Monton.por_unidad(jd.carbon))
 	_migrar_carbon()
 	_restaurar_llama(jd.lampara_llama, jd.lampara_llama_total)
 	consumables.clear()
@@ -3656,10 +3657,7 @@ func exportar_partida_invitado() -> SaveData:
 		return d   # no estoy de invitado: nada que devolver
 
 	# --- Lo del MUNDO, de vuelta a como era al entrar en la sesion ---
-	var alm: Array[MaterialItem] = []
-	for m in (mio["almacen_materiales"] as Array):
-		alm.append(m)
-	d.almacen_materiales = alm
+	d.almacen_materiales = (mio["almacen_materiales"] as Array).duplicate()
 	d.bote_dinero = int(mio["bote_dinero"])
 	d.cofre_equipo = (mio["cofre_equipo"] as Array).duplicate(true)
 	d.cofre_consumibles = (mio["cofre_consumibles"] as Dictionary).duplicate(true)
@@ -3838,12 +3836,14 @@ func importar_partida(d: SaveData) -> void:
 	# tendero tal y como lo dejaste hace tres dias.
 	recompra.clear()
 
-	crystals.assign(d.crystals)
-	materiales.assign(d.materiales)
-	carbon.assign(d.carbon)
+	# Vienen en MONTONES de la base de datos (o de la red): la bolsa aun va por unidad (fase 1A, paso 3).
+	crystals.assign(Monton.por_unidad(d.crystals))
+	materiales.assign(Monton.por_unidad(d.materiales))
+	carbon.assign(Monton.por_unidad(d.carbon))
 	_migrar_carbon()
 	_restaurar_llama(d.lampara_llama, d.lampara_llama_total)
-	almacen_materiales.assign(d.almacen_materiales)
+	baul.vaciar()
+	baul.anadir_lista(d.almacen_materiales)
 	bote_dinero = d.bote_dinero
 	cofre_equipo = d.cofre_equipo.duplicate(true)
 	cofre_consumibles = d.cofre_consumibles.duplicate(true)
@@ -3984,7 +3984,7 @@ func importar_partida(d: SaveData) -> void:
 	# que tengas encima o en el baul: si no, un veterano con el baul lleno de hierro abriria la
 	# forja y no veria ni el hierro.
 	materiales_vistos = d.materiales_vistos.duplicate()
-	for lista in [materiales, almacen_materiales]:
+	for lista in [materiales, baul.montones()]:
 		for it in lista:
 			if it != null:
 				descubrir((it as MaterialItem).data)
@@ -5311,7 +5311,10 @@ var crystals: Array[Cristal] = []
 var materiales: Array[MaterialItem] = []
 
 # --- BAUL DEL HOGAR: materiales ya guardados en casa. No pesan.
-var almacen_materiales: Array[MaterialItem] = []
+# CONTADO (plan de optimizacion, fase 1A): una entrada por material + calidad + talla con su cantidad, no un
+# objeto por unidad (el baul real tenia 19.000). Ver Monton. Se guarda con baul.a_lista() y la base de datos lo
+# cuenta igual que antes: las filas no cambian.
+var baul := Monton.new()
 
 # --- CARBONERA: el combustible del farolillo, APARTE de la bolsa.
 #
@@ -5358,16 +5361,20 @@ func _migrar_metalurgia() -> void:
 
 func _migrar_carbon() -> void:
 	var movidos: int = 0
-	for lista in [materiales, almacen_materiales]:
-		for i in range(lista.size() - 1, -1, -1):
-			var m: MaterialItem = lista[i]
-			if m == null or m.data == null:
-				continue
-			if int(m.data.tipo) != MaterialData.Tipo.COMBUSTIBLE:
-				continue
-			carbon.append(m)
-			lista.remove_at(i)
-			movidos += 1
+	for i in range(materiales.size() - 1, -1, -1):
+		var m: MaterialItem = materiales[i]
+		if m == null or m.data == null or int(m.data.tipo) != MaterialData.Tipo.COMBUSTIBLE:
+			continue
+		carbon.append(m)
+		materiales.remove_at(i)
+		movidos += 1
+	for e in baul.montones().duplicate():
+		if e == null or e.data == null or int(e.data.tipo) != MaterialData.Tipo.COMBUSTIBLE:
+			continue
+		var cuantos: int = baul.quitar(e, int(e.n))
+		for k in cuantos:
+			carbon.append(MaterialItem.crear(e.data, e.calidad))
+		movidos += cuantos
 	if movidos > 0:
 		print("[carbonera] %d de carbon recogidos de la bolsa/almacen de una partida anterior." % movidos)
 
@@ -5379,13 +5386,13 @@ func en_bolsa(mat: MaterialData, calidad: int = -1) -> int:
 	return _contar_en(materiales, mat, calidad) + _contar_en(carbon, mat, calidad)
 
 func en_hogar(mat: MaterialData, calidad: int = -1) -> int:
-	return _contar_en(almacen_materiales, mat, calidad)
+	return baul.cantidad(mat, calidad)
 
 func total_en_bolsa() -> int:
 	return materiales.size() + carbon.size()
 
 func total_en_hogar() -> int:
-	return almacen_materiales.size()
+	return baul.total()
 
 func _contar_en(lista: Array, mat: MaterialData, calidad: int) -> int:
 	if mat == null:
@@ -5891,12 +5898,11 @@ func recoger_encargo(id: int) -> Dictionary:
 		var data: MaterialData = load(String((b as Dictionary)["ruta"])) as MaterialData
 		if data == null:
 			continue
-		for i in int((b as Dictionary)["n"]):
-			var it: MaterialItem = MaterialItem.crear(data, int((b as Dictionary)["calidad"]))
-			# Los peces llevan su talla: de ella salen el valor y la corona (ver MaterialItem.cm).
-			it.cm = float((b as Dictionary).get("cm", 0.0))
-			almacen_materiales.append(it)
-			n_mat += 1
+		# Entra CONTADO: antes se creaba un objeto por unidad (de aqui salian casi todos los 19.000).
+		# Los peces llevan su talla: de ella salen el valor y la corona (ver MaterialItem.cm).
+		var cuantos_b: int = int((b as Dictionary)["n"])
+		baul.anadir_de(data, int((b as Dictionary)["calidad"]), cuantos_b, float((b as Dictionary).get("cm", 0.0)))
+		n_mat += maxi(0, cuantos_b)
 		descubrir(data)
 	if en_red:
 		Net.hogar.cerrar_taller()
@@ -10326,9 +10332,9 @@ func guardar_materiales_en_hogar() -> int:
 	if n == 0:
 		return 0
 	for m in materiales:
-		almacen_materiales.append(m)
+		baul.anadir(m)
 	materiales.clear()
-	print("[hogar] Guardas %d materiales. Total en casa: %d" % [n, almacen_materiales.size()])
+	print("[hogar] Guardas %d materiales. Total en casa: %d" % [n, baul.total()])
 	return n
 
 
@@ -10352,28 +10358,29 @@ func recoger_materiales_del_hogar(todo: bool = true) -> int:
 	# El mismo candado que para depositar: en multi el baul es del host y no se toca sin el taller.
 	if not Net.hogar.tengo_taller():
 		return 0
-	if almacen_materiales.is_empty():
+	if baul.esta_vacio():
 		return 0
 	var cogidos: int = 0
 	if todo:
-		for m in almacen_materiales:
+		for m in baul.expandir():
 			materiales.append(m)
 			cogidos += 1
-		almacen_materiales.clear()
+		baul.vaciar()
 	else:
-		# Solo hasta el umbral de sobrecarga. Se recorre una copia porque se va borrando del original.
+		# Solo hasta el umbral de sobrecarga, monton a monton: de cada uno, los que quepan.
 		var libre: float = (capacidad_carga() * overload_threshold) - peso_actual()
-		for m in almacen_materiales.duplicate():
-			var w: float = m.peso()
-			if w > libre:
+		for e in baul.montones().duplicate():
+			var w: float = e.peso()
+			var caben: int = int(e.n) if w <= 0.0 else mini(int(e.n), int(floor(libre / w)))
+			if caben <= 0:
 				continue   # este no cabe, pero puede que uno mas ligero de mas adelante si
-			materiales.append(m)
-			almacen_materiales.erase(m)
-			libre -= w
-			cogidos += 1
+			for k in caben:
+				materiales.append(baul.sacar_uno(e))
+			libre -= w * caben
+			cogidos += caben
 	print("[hogar] Recoges %d materiales%s. Quedan en casa: %d. Carga: %.1f/%.1f%s" % [
 		cogidos, " (todo)" if todo else " (hasta el umbral de sobrecarga)",
-		almacen_materiales.size(), peso_actual(), capacidad_carga(),
+		baul.total(), peso_actual(), capacidad_carga(),
 		"  SOBRECARGADO" if esta_sobrecargado() else ""])
 	return cogidos
 
@@ -10386,17 +10393,23 @@ func recoger_materiales_del_hogar(todo: bool = true) -> int:
 func mover_monton_material(modelo: MaterialItem, a_casa: bool, cuantos: int = -1) -> int:
 	if modelo == null or not Net.hogar.tengo_taller():
 		return 0
-	var origen: Array = materiales if a_casa else almacen_materiales
-	var destino: Array = almacen_materiales if a_casa else materiales
 	var clave: String = clave_monton(modelo)
 	var movidos: int = 0
-	for m in origen.duplicate():
-		if cuantos >= 0 and movidos >= cuantos:
-			break
-		if m is MaterialItem and clave_monton(m) == clave:
-			origen.erase(m)
-			destino.append(m)
-			movidos += 1
+	if a_casa:
+		for i in range(materiales.size() - 1, -1, -1):
+			if cuantos >= 0 and movidos >= cuantos:
+				break
+			var m = materiales[i]
+			if m is MaterialItem and clave_monton(m) == clave:
+				materiales.remove_at(i)
+				baul.anadir(m)
+				movidos += 1
+		return movidos
+	var hay: int = baul.cantidad_de(modelo)
+	var a_sacar: int = hay if cuantos < 0 else mini(hay, cuantos)
+	for k in a_sacar:
+		materiales.append(baul.sacar_uno(modelo))
+		movidos += 1
 	return movidos
 
 
@@ -10404,7 +10417,7 @@ func mover_monton_material(modelo: MaterialItem, a_casa: bool, cuantos: int = -1
 # especie con tallas distintas no son el mismo objeto (ver inventory_menu._clave_item, que es la misma
 # cuenta y tiene que seguir siendolo).
 func clave_monton(m: MaterialItem) -> String:
-	return "m|%s|%d|%d" % [m.nombre(), int(m.calidad), roundi(m.cm)]
+	return Monton.clave_de(m)   # la misma que el baul contado (talla a 0,1 cm): rejilla, venta y baul cuentan igual
 
 
 # ============================================================
@@ -10514,20 +10527,14 @@ func vender_item(modelo: Resource, cantidad: int, desde_hogar: bool = false) -> 
 func _sacar_del_hogar(modelo: Resource) -> Resource:
 	if not (modelo is MaterialItem):
 		return null
-	var mm := modelo as MaterialItem
-	for i in almacen_materiales.size():
-		var m := almacen_materiales[i]
-		if _mismo_material(m, mm):
-			almacen_materiales.remove_at(i)
-			return m
-	return null
+	return baul.sacar_uno(modelo)
 
 # Dos unidades de material son la MISMA a efectos de vender/soltar: misma especie, calidad y TALLA. La
 # talla faltaba: los menus agrupan los peces por talla (valen distinto, ver MaterialItem.valor_estimado)
 # pero aqui se sacaba cualquiera de la especie, asi que vendiendo el monton de 12 cm podia irse el trofeo
 # de 30 y cobrar otra cosa de lo anunciado. roundi, igual que la clave de los montones.
 func _mismo_material(a: MaterialItem, b: MaterialItem) -> bool:
-	return a.data == b.data and a.calidad == b.calidad and roundi(a.cm) == roundi(b.cm)
+	return Monton.clave_de(a) == Monton.clave_de(b)
 
 # Lo que te pagan por una poción/grimorio: la misma fraccion que por el equipo. No van al
 # mostrador de recompra (son apilables y el tendero los vende de serie: si te arrepientes,
@@ -11673,10 +11680,10 @@ func refinar(origen: MaterialData, destino: MaterialData, cal: int, veces: int, 
 		if int(destino.tipo) == MaterialData.Tipo.COMBUSTIBLE:
 			carbon.append(salida)
 		else:
-			almacen_materiales.append(salida)
+			baul.anadir(salida)
 		descubrir(destino)
 		if randf() < prob_dev:
-			almacen_materiales.append(MaterialItem.crear(origen, cal))
+			baul.anadir_de(origen, cal)
 			devueltos += 1
 		match oficio:
 			"peleteria": peleteria_exp += _puntos_oficio("peleteria", origen.tier)
@@ -11829,8 +11836,7 @@ func fabricar_municion(lingote: MaterialData, cal: int, veces: int, arma: int) -
 		_consumir_items_calidad(lingote, cal, 1)
 		_gastar_tablon_municion(lingote)
 		var cal_final: int = MaterialItem.subir_calidad(cal) if randf() < prob else cal
-		for _j in range(por_tanda):
-			almacen_materiales.append(MaterialItem.crear(destino, cal_final))
+		baul.anadir_de(destino, cal_final, por_tanda)
 		carpinteria_exp += _puntos_oficio("carpinteria", lingote.tier)
 	if n > 0:
 		descubrir(destino)
@@ -11869,19 +11875,12 @@ func _mismo_metal(mat: MaterialData, col: int, destino: int) -> MaterialData:
 
 # Quita n items de un material Y calidad concretos del hogar.
 func _consumir_items_calidad(mat: MaterialData, cal: int, n: int) -> void:
-	var restan: int = n
-	var i: int = almacen_materiales.size() - 1
-	while i >= 0 and restan > 0:
-		var it: MaterialItem = almacen_materiales[i]
-		if it != null and it.data != null and it.data.id == mat.id and int(it.calidad) == int(cal):
-			almacen_materiales.remove_at(i)
-			restan -= 1
-		i -= 1
+	baul.quitar_material(mat, cal, n)
 
 # Todos los NUCLEOS que tienes en el hogar y sirven para mejorar esta pieza (arma o armadura).
 func nucleos_para(item: Resource) -> Array:
 	var vistos: Array = []
-	for it in almacen_materiales:
+	for it in baul.montones():
 		if it == null or it.data == null:
 			continue
 		if not Forge.nucleo_vale(it.data, item, int(meta_de(item)["tier"])):
@@ -12244,7 +12243,7 @@ func forjar_tanda(base: Resource, metal: MaterialData, selecciones: Array, n: in
 		if peor >= 0:
 			for _p in range(piezas):
 				if randf() < prob_dev:
-					almacen_materiales.append(MaterialItem.crear(mat, peor))
+					baul.anadir_de(mat, peor)
 					devueltos += 1
 	# El arma magica entrena CARPINTERIA; el resto, Herreria (misma tirada, distinto oficio). Los
 	# puntos van POR PIEZA: forjar tres de golpe entrena como forjarlas de una en una.
@@ -12287,8 +12286,7 @@ func _tirar_devolucion(mat: MaterialData, gasto: Dictionary, necesita: int) -> v
 	var sobra: int = _uds_de_seleccion(gasto) - necesita
 	if mat == null or sobra <= 0:
 		return
-	for _k in range(sobra):
-		almacen_materiales.append(MaterialItem.crear(mat, MaterialItem.Calidad.DANADO))
+	baul.anadir_de(mat, MaterialItem.Calidad.DANADO, sobra)
 	print("[recorte] Sobran %d uds de %s: vuelven como %d dañado(s)" % [sobra, mat.nombre, sobra])
 
 
@@ -12600,8 +12598,7 @@ func _devolver_mejoras_melee_de_baston(it: WeaponData) -> void:
 		var n: int = 0
 		if nucleo != null:
 			n = Forge.nucleos_para_mejora(nivel, nucleo, it)
-			for _k in n:
-				almacen_materiales.append(MaterialItem.crear(nucleo, MaterialItem.Calidad.NORMAL))
+			baul.anadir_de(nucleo, MaterialItem.Calidad.NORMAL, n)
 			nucleos_dev += n
 		var mats: Dictionary = materiales_mejora(it)
 		var c: Dictionary = Forge.material_para_mejora(nivel, it, mats["metal"], mats["fibra"])
@@ -12631,11 +12628,7 @@ func nucleos_en_hogar(nucleo: MaterialData) -> int:
 				MaterialItem.Calidad.DANADO, MaterialItem.Calidad.ROTO]:
 			suma += items_calidad_en_hogar(nucleo, int(cal))
 		return suma
-	var n: int = 0
-	for it in almacen_materiales:
-		if it != null and it.data != null and nucleo != null and it.data.id == nucleo.id:
-			n += 1
-	return n
+	return baul.cantidad(nucleo)
 
 # El MATERIAL que pide mejorar esta pieza: el mismo con el que se forjo y del MISMO tier, o sea
 # {metal (lingote/chapa), fibra (madera/cuero)}. Cualquiera de los dos puede venir null si a ese
@@ -12921,8 +12914,7 @@ func fundir_item(item: Resource) -> bool:
 		partes.append("%d uds de %s" % [int(m["uds"]), (m["material"] as MaterialData).nombre])
 	var nucleos: Dictionary = d["nucleos"]
 	for n in nucleos:
-		for _k in range(int(nucleos[n])):
-			almacen_materiales.append(MaterialItem.crear(n, MaterialItem.Calidad.NORMAL))
+		baul.anadir_de(n, MaterialItem.Calidad.NORMAL, int(nucleos[n]))
 
 	print("[herrero] Fundes %s -> %s, %d núcleo(s)" % [
 		nombre, ", ".join(partes) if partes.size() > 0 else "nada", _total_nucleos(nucleos)])
@@ -12942,11 +12934,9 @@ func _total_nucleos(nucleos: Dictionary) -> int:
 func _devolver_unidades(mat: MaterialData, uds: int) -> void:
 	if mat == null or uds <= 0:
 		return
-	var normales: int = uds / 2
-	for _k in range(normales):
-		almacen_materiales.append(MaterialItem.crear(mat, MaterialItem.Calidad.NORMAL))
+	baul.anadir_de(mat, MaterialItem.Calidad.NORMAL, uds / 2)
 	if uds % 2 == 1:
-		almacen_materiales.append(MaterialItem.crear(mat, MaterialItem.Calidad.DANADO))
+		baul.anadir_de(mat, MaterialItem.Calidad.DANADO)
 	descubrir(mat)
 
 
@@ -12956,13 +12946,9 @@ func _consumir_nucleos(nucleo: MaterialData, n: int) -> void:
 	var orden: Array = [MaterialItem.Calidad.DANADO, MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.INTACTO]
 	var restan: int = n
 	for cal in orden:
-		var i: int = almacen_materiales.size() - 1
-		while i >= 0 and restan > 0:
-			var it: MaterialItem = almacen_materiales[i]
-			if it != null and it.data != null and it.data.id == nucleo.id and int(it.calidad) == int(cal):
-				almacen_materiales.remove_at(i)
-				restan -= 1
-			i -= 1
+		if restan <= 0:
+			break
+		restan -= baul.quitar_material(nucleo, int(cal), restan)
 
 
 # Quita `uds` UNIDADES de un material del hogar, gastando lo PEOR primero. Es lo que usa la
@@ -12976,18 +12962,14 @@ func _consumir_unidades(mat: MaterialData, uds: int) -> void:
 		MaterialItem.Calidad.INTACTO, MaterialItem.Calidad.PURO]
 	var restan: int = uds
 	for cal in orden:
-		var i: int = almacen_materiales.size() - 1
-		while i >= 0 and restan > 0:
-			var it: MaterialItem = almacen_materiales[i]
-			if it != null and it.data != null and it.data.id == mat.id and int(it.calidad) == int(cal):
-				almacen_materiales.remove_at(i)
-				restan -= it.unidades_crafteo()
-			i -= 1
+		var por_pieza: int = MaterialItem.crear(null, int(cal)).unidades_crafteo()
+		while restan > 0 and baul.quitar_material(mat, int(cal), 1) == 1:
+			restan -= por_pieza
 
 
 # ============================================================
 #  CRAFTEO (boticaria): pociones a partir de materiales del HOGAR
-#  Los materiales salen del baul (almacen_materiales), no de la bolsa: craftear es una
+#  Los materiales salen del baul (Game.baul), no de la bolsa: craftear es una
 #  actividad de pueblo. La CALIDAD no cambia la receta, cambia cuantos items hacen falta
 #  (un intacto = 3 unidades, normal = 2, dañado = 1; ver MaterialItem.unidades_crafteo).
 # ============================================================
@@ -12996,11 +12978,7 @@ func _consumir_unidades(mat: MaterialData, uds: int) -> void:
 func unidades_material_en_hogar(mat: MaterialData) -> int:
 	if mat == null:
 		return 0
-	var total: int = 0
-	for it in almacen_materiales:
-		if it != null and it.data != null and it.data.id == mat.id:
-			total += it.unidades_crafteo()
-	return total
+	return baul.unidades(mat)
 
 
 # EL RECUENTO DEL BAUL, mientras un menu repinta. Contar recorre el baul ENTERO, y un menu de oficio
@@ -13014,7 +12992,7 @@ func unidades_material_en_hogar(mat: MaterialData) -> int:
 # recuento abierto, se rehace solo si el baul ha cambiado de tamaño (ver items_calidad_en_hogar).
 var _recuento_hogar: Dictionary = {}   # mat_id -> {calidad: n}
 var _recuento_abierto: int = 0
-var _recuento_tam: int = -1            # cuantos habia en el baul al contar
+var _recuento_tam: int = -1            # la version del baul al contar (Monton.version)
 
 func abrir_recuento_hogar() -> void:
 	_recuento_abierto += 1
@@ -13026,14 +13004,14 @@ func abrir_recuento_hogar() -> void:
 
 func _contar_hogar() -> void:
 	_recuento_hogar.clear()
-	_recuento_tam = almacen_materiales.size()
-	for it in almacen_materiales:
+	_recuento_tam = baul.version
+	for it in baul.montones():
 		if it == null or it.data == null:
 			continue
 		var por_cal: Dictionary = _recuento_hogar.get(it.data.id, {})
 		if por_cal.is_empty():
 			_recuento_hogar[it.data.id] = por_cal
-		por_cal[int(it.calidad)] = int(por_cal.get(int(it.calidad), 0)) + 1
+		por_cal[int(it.calidad)] = int(por_cal.get(int(it.calidad), 0)) + int(it.n)
 
 
 func cerrar_recuento_hogar() -> void:
@@ -13047,14 +13025,10 @@ func items_calidad_en_hogar(mat: MaterialData, cal: int) -> int:
 	if mat == null:
 		return 0
 	if _recuento_abierto > 0:
-		if almacen_materiales.size() != _recuento_tam:
+		if baul.version != _recuento_tam:
 			_contar_hogar()
 		return int((_recuento_hogar.get(mat.id, {}) as Dictionary).get(int(cal), 0))
-	var n: int = 0
-	for it in almacen_materiales:
-		if it != null and it.data != null and it.data.id == mat.id and int(it.calidad) == int(cal):
-			n += 1
-	return n
+	return baul.cantidad(mat, int(cal))
 
 
 # DISPONIBLE para MI: lo que hay en el baul menos lo que otros humanos tienen RESERVADO ahora mismo
@@ -13326,14 +13300,7 @@ func craftear_con(receta: RecipeData, seleccion: Array) -> int:
 # Quita del baul `cantidad` items de cada (material, calidad) de la seleccion.
 func _consumir_seleccion_material(mat: MaterialData, dict: Dictionary) -> void:
 	for cal in dict:
-		var restan: int = int(dict[cal])
-		var i: int = almacen_materiales.size() - 1
-		while i >= 0 and restan > 0:
-			var it: MaterialItem = almacen_materiales[i]
-			if it != null and it.data != null and it.data.id == mat.id and int(it.calidad) == int(cal):
-				almacen_materiales.remove_at(i)
-				restan -= 1
-			i -= 1
+		baul.quitar_material(mat, int(cal), int(dict[cal]))
 
 
 # Seleccion AUTO que cubre las unidades de `veces` piezas de cada ingrediente. La usan los dos

@@ -36,8 +36,10 @@ var _peso: float = -1.0           # -1 = hay que recalcularlo
 # ------------------------------------------------------------
 #  CLAVES
 # ------------------------------------------------------------
+# A 0,1 cm y en su forma CANONICA: snappedf(47.28, 0.1) da 47.300000000000004, que al pasar a texto (base de datos,
+# red) vuelve como 47.3 y ya no seria la misma clave ni la misma fila. Leerlo del texto da siempre el mismo numero.
 static func talla(cm: float) -> float:
-	return snappedf(cm, 0.1) if cm > 0.0 else 0.0
+	return ("%.1f" % cm).to_float() if cm > 0.0 else 0.0
 
 
 static func clave_de(cosa: Resource) -> String:
@@ -48,6 +50,39 @@ static func clave_de(cosa: Resource) -> String:
 		var c := cosa as Cristal
 		return "c|%d|%d" % [c.categoria, int(c.calidad)]
 	return ""
+
+
+# LA AGRUPACION DE LAS REJILLAS (inventario, tienda, almacen del hogar), una sola para todas: montones
+# {modelo, cantidad} de una lista de MaterialItem/Cristal, con la clave del baul y sumando el n de cada uno.
+# Vale para una lista contada (Monton.montones) y para una de un objeto por unidad (la bolsa, mientras lo sea).
+static func agrupar(items: Array) -> Array:
+	var claves: Array = []
+	var mapa: Dictionary = {}
+	for it in items:
+		if not (it is MaterialItem or it is Cristal):
+			continue
+		var k: String = clave_de(it)
+		if not mapa.has(k):
+			mapa[k] = {"modelo": it, "cantidad": 0}
+			claves.append(k)
+		mapa[k]["cantidad"] += maxi(1, int(it.n))
+	var res: Array = []
+	for k in claves:
+		res.append(mapa[k])
+	return res
+
+
+# Despliega una lista con montones (n > 1) a UN OBJETO POR UNIDAD. Solo para las listas que todavia no van
+# contadas (la bolsa, la carbonera, los cristales) al cargarlas: la base de datos ya las devuelve en montones.
+static func por_unidad(lista: Array) -> Array:
+	var out: Array = []
+	for cosa in lista:
+		if (cosa is MaterialItem or cosa is Cristal) and int(cosa.n) > 1:
+			for i in int(cosa.n):
+				out.append(_copia(cosa))
+		elif cosa != null:
+			out.append(cosa)
+	return out
 
 
 static func clave_mat(data: MaterialData, calidad: int, cm: float = 0.0) -> String:

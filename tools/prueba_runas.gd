@@ -84,7 +84,7 @@ func _tiradas() -> void:
 
 func _dar(mat: MaterialData, n: int) -> void:
 	for i in n:
-		Game.almacen_materiales.append(MaterialItem.crear(mat, MaterialItem.Calidad.NORMAL))
+		Game.baul.anadir(MaterialItem.crear(mat, MaterialItem.Calidad.NORMAL))
 
 
 func _taller() -> void:

@@ -37,8 +37,15 @@ func _cuenta(lista: Array) -> Dictionary:
 			k = "cri|%d|%d" % [m.categoria, int(m.calidad)]
 		else:
 			k = "otro|" + str(m)
-		out[k] = int(out.get(k, 0)) + 1
+		out[k] = int(out.get(k, 0)) + maxi(1, int(m.n))   # un monton cuenta lo que lleva
 	return out
+
+
+func _unidades(lista: Array) -> int:
+	var n := 0
+	for m in lista:
+		n += maxi(1, int(m.n))
+	return n
 
 
 func test_baul_grande_va_contado() -> void:
@@ -57,7 +64,8 @@ func test_baul_grande_va_contado() -> void:
 			n_filas += 1
 	igual(n_filas, 3, "807 materiales de 3 clases son 3 filas contadas")
 	var s2: SaveData = r[1]
-	igual(s2.almacen_materiales.size(), 807, "vuelven las 807 unidades")
+	igual(_unidades(s2.almacen_materiales), 807, "vuelven las 807 unidades")
+	igual(s2.almacen_materiales.size(), 3, "en 3 montones, no 807 objetos")
 	igual(_cuenta(s2.almacen_materiales), _cuenta(s.almacen_materiales), "mismas cantidades por clase")
 
 
@@ -112,3 +120,30 @@ func test_volcado_a_trozos_da_lo_mismo_que_de_golpe() -> void:
 		pasos += 1
 	cierto(pasos > 1, "con 1 µs de presupuesto tiene que ir a trozos")
 	igual(v.out["contables"], de_golpe["contables"], "las filas contadas salen iguales")
+
+
+func test_montones_cuentan_su_n_y_la_fila_no_cambia() -> void:
+	# Un monton de 300 y 300 objetos sueltos tienen que dar EXACTAMENTE la misma fila (misma clave y cuenta)
+	var s1 := SaveData.new()
+	var monton := _mat(ACERO, MaterialItem.Calidad.NORMAL)
+	monton.n = 300
+	s1.almacen_materiales.append(monton)
+	var s2 := SaveData.new()
+	for i in 300:
+		s2.almacen_materiales.append(_mat(ACERO, MaterialItem.Calidad.NORMAL))
+	var f1: Dictionary = BDFilas.a_filas(s1, BDFilas.Ids.new())["contables"]
+	var f2: Dictionary = BDFilas.a_filas(s2, BDFilas.Ids.new())["contables"]
+	igual(f1, f2, "un monton de 300 = 300 sueltos, misma fila")
+
+
+func test_monton_en_tres_conserva_su_n() -> void:
+	# El mundo compartido y los respaldos van como .tres: el n tiene que guardarse alli
+	var m := _mat(ACERO, MaterialItem.Calidad.NORMAL)
+	m.n = 42
+	var ruta := "user://prueba_monton_n.tres"
+	var s := SaveData.new()
+	s.almacen_materiales.append(m)
+	ResourceSaver.save(s, ruta)
+	var de_vuelta: SaveData = ResourceLoader.load(ruta, "", ResourceLoader.CACHE_MODE_IGNORE)
+	igual(int(de_vuelta.almacen_materiales[0].n), 42, "el n vuelve del .tres")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(ruta))

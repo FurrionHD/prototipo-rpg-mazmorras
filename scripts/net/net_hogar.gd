@@ -52,13 +52,13 @@ var _roster_ajeno: Dictionary = {}
 # recepcion de una difusion, y con envio inmediato eso son dos clientes difundiendose en bucle.
 # Agrupado por frame, meter y sacar a cuatro personas seguidas es UNA sola publicacion.
 var _hogar_sucio: bool = false
-# Baul de MATERIALES: como el crafteo trabaja sobre Game.almacen_materiales, al ser cliente se
+# Baul de MATERIALES: como el crafteo trabaja sobre Game.baul, al ser cliente se
 # guarda aparte el mio y se restaura al desconectar (durante la sesion veo/uso el del host).
 var _almacen_solo: Array = []
 var _almacen_guardado := false
 
 # --- BAUL de materiales COMPARTIDO (hito 4) ---
-# El baul "de verdad" es el del host (Game.almacen_materiales). Los clientes tienen un MIRROR en el suyo. Desde el
+# El baul "de verdad" es el del host (Game.baul). Los clientes tienen un MIRROR en el suyo. Desde el
 # 08/10/2026 cada uno craftea sobre su copia AL INSTANTE y solo viaja lo que cambia (ver "EL TALLER, AL INSTANTE",
 # abrir_taller / cerrar_taller). Antes habia un candado que prestaba el baul ENTERO y tardaba segundos.
 var _taller_dueno: int = 0     # mi id mientras dura una accion de taller (tengo_taller); 0 = ninguna
@@ -1035,20 +1035,20 @@ func _set_cofre_consumibles(d: Dictionary) -> void:
 
 # --- BAUL de materiales compartido + candado del taller (hito 4) ------------------------------
 
+# CONTADO: un dict por monton con su "n" (unas 700 entradas en vez de 19.000; PROTOCOLO 40).
 func _almacen_dicts() -> Array:
 	var out: Array = []
-	for m in Game.almacen_materiales:
+	for m in Game.baul.montones():
 		out.append(Net.suelo._item_a_dict(m))
 	return out
 
 
 func _cargar_almacen(arr: Array) -> void:
-	var lista: Array[MaterialItem] = []
+	Game.baul.vaciar()
 	for d in arr:
 		var it := Net.suelo._item_de_dict(d)
 		if it is MaterialItem:
-			lista.append(it)
-	Game.almacen_materiales = lista
+			Game.baul.anadir(it)   # con su n
 # ------------------------------------------------------------
 #  EL TALLER, AL INSTANTE Y SIN DUPLICADOS (08/10/2026, lo pidio el usuario: "tiene que ser instant incluso por red", y
 #  luego: "¿eso no hace que se pueda duplicar?").
@@ -1184,18 +1184,17 @@ func _vigilar_permiso() -> void:
 
 # La CLAVE de un material en el baul: lo que lo distingue de otro (su ficha, su calidad y su talla si es un pez).
 static func _clave(m: MaterialItem) -> String:
-	return "%s|%d|%.2f" % [m.data.resource_path if m.data != null else "", int(m.calidad), m.cm]
+	return Monton.clave_de(m)   # la del baul contado: ficha, calidad y talla a 0,1 cm
 
 
+# La FOTO del baul para el delta del taller: ya va contado, asi que es leer los montones (antes, recorrer 19.000).
 func _conteo_almacen() -> Dictionary:
 	var out: Dictionary = {}
-	for m in Game.almacen_materiales:
+	for m in Game.baul.montones():
 		if m == null:
 			continue
-		var k: String = _clave(m)
-		var e: Array = out.get(k, [0, m])
-		e[0] = int(e[0]) + 1
-		out[k] = e
+		var uno: MaterialItem = Monton._copia(m)   # el modelo del delta, de UNA pieza (el n va aparte)
+		out[_clave(m)] = [int(m.n), uno]
 	return out
 
 
@@ -1221,22 +1220,12 @@ func _aplicar_delta_local(quitar: Array, poner: Array) -> int:
 		var it: MaterialItem = Net.suelo._item_de_dict(q[0]) as MaterialItem
 		if it == null:
 			continue
-		var k: String = _clave(it)
-		var restan: int = int(q[1])
-		var i: int = Game.almacen_materiales.size() - 1
-		while i >= 0 and restan > 0:
-			var m: MaterialItem = Game.almacen_materiales[i]
-			if m != null and _clave(m) == k:
-				Game.almacen_materiales.remove_at(i)
-				restan -= 1
-			i -= 1
-		faltan += restan
+		var pide: int = int(q[1])
+		faltan += pide - Game.baul.quitar(it, pide)
 	for p in poner:
-		for _n in int(p[1]):
-			var it: MaterialItem = Net.suelo._item_de_dict(p[0]) as MaterialItem
-			if it == null:
-				break
-			Game.almacen_materiales.append(it)
+		var it: MaterialItem = Net.suelo._item_de_dict(p[0]) as MaterialItem
+		if it != null:
+			Game.baul.anadir(it, int(p[1]))
 	return faltan
 
 
@@ -1358,7 +1347,7 @@ func _aplicar_reserva(quien: int, claim: Dictionary) -> void:
 	Net.reservas_cambiadas.emit()
 
 
-# Solo host: cuantas de 'clave' hay en el baul autoritativo (Game.almacen_materiales).
+# Solo host: cuantas de 'clave' hay en el baul autoritativo (Game.baul).
 func _en_baul(clave: String) -> int:
 	var partes := clave.split("|")
 	if partes.size() != 2:
@@ -1366,9 +1355,9 @@ func _en_baul(clave: String) -> int:
 	var mat_id := partes[0]
 	var cal := int(partes[1])
 	var n := 0
-	for m in Game.almacen_materiales:
+	for m in Game.baul.montones():
 		if m != null and m.data != null and String(m.data.id) == mat_id and int(m.calidad) == cal:
-			n += 1
+			n += int(m.n)
 	return n
 
 

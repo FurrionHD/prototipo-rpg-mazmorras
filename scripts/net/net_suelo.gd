@@ -26,10 +26,16 @@ func _item_a_dict(item: Resource) -> Dictionary:
 		# MaterialItem.corona). Sin esto, todo pescado que cruzaba el cable volvia a 0 cm -- y por ahi
 		# pasa la bolsa entera de quien no es el host cada vez que se sincroniza, asi que un pez trofeo
 		# se convertia en un pez del monton sin que nadie tocara nada.
-		return {"t": "mat", "ruta": m.data.resource_path, "calidad": int(m.calidad), "cm": m.cm}
+		var dm: Dictionary = {"t": "mat", "ruta": m.data.resource_path, "calidad": int(m.calidad), "cm": m.cm}
+		if m.n > 1:
+			dm["n"] = m.n   # un MONTON del baul contado (ver Monton)
+		return dm
 	if item is Cristal:
 		var c := item as Cristal
-		return {"t": "cri", "categoria": c.categoria, "calidad": int(c.calidad)}
+		var dc: Dictionary = {"t": "cri", "categoria": c.categoria, "calidad": int(c.calidad)}
+		if c.n > 1:
+			dc["n"] = c.n
+		return dc
 	if item is ConsumableData:
 		# Solo la RUTA: un consumible no tiene estado por unidad (la bolsa es un contador por .tres),
 		# asi que el .tres del proyecto ES el objeto. load() cachea, o sea que al rehidratarlo sale
@@ -46,11 +52,13 @@ func _item_de_dict(d: Dictionary) -> Resource:
 			return null
 		var m := MaterialItem.crear(data, int(d["calidad"]))
 		m.cm = float(d.get("cm", 0.0))   # 0 si viene de una version que aun no la mandaba
+		m.n = maxi(1, int(d.get("n", 1)))   # un MONTON (baul contado); sin "n" es una pieza
 		return m
 	if d.get("t") == "cri":
 		var c := Cristal.new()
 		c.categoria = int(d["categoria"])
 		c.calidad = int(d["calidad"])
+		c.n = maxi(1, int(d.get("n", 1)))
 		return c
 	if d.get("t") == "con":
 		return load(str(d["ruta"])) as ConsumableData

@@ -127,7 +127,9 @@ const MAX_CONEXIONES := 32
 # 38 (11/10): la pelea de otro vista desde fuera: el IMPACTO (quieto al golpe) y la ZONA (Net.jugadores _rel_impacto,
 #     _impacto, _rel_zona, _zona).
 # 39 (12/10): la ANIMACION y el GESTO de la habilidad viajan en el paquete de impactos (combat_espejo MARCA_ANIM).
-const PROTOCOLO := 39
+# 40 (15/10): el BAUL viaja CONTADO (plan de optimizacion, fase 1A): un dict por monton con su "n", no uno por
+#     unidad. Un cliente de antes leeria cada monton como una sola pieza.
+const PROTOCOLO := 40
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -627,10 +629,8 @@ func desconectar() -> void:
 	# porque no trae mundo propio (ver _on_connected_to_server). Volcarle aqui un `_almacen_solo`
 	# vacio le borraria el baul del mundo en el que acaba de jugar.
 	if hogar._almacen_guardado and not mundo_compartido:
-		var lista: Array[MaterialItem] = []
-		for m in hogar._almacen_solo:
-			lista.append(m)
-		Game.almacen_materiales = lista
+		Game.baul.vaciar()
+		Game.baul.anadir_lista(hogar._almacen_solo)
 	if hogar._almacen_guardado:
 		hogar._almacen_guardado = false
 		hogar._almacen_solo = []
@@ -923,7 +923,7 @@ func _on_connected_to_server() -> void:
 	if not mundo_compartido:
 		# LAN de siempre: tengo mi propia partida cargada y hay que protegerla del mundo del host.
 		# Guardo MI baul de materiales antes de que el host me mande el suyo (lo recupero al salir).
-		hogar._almacen_solo = Game.almacen_materiales.duplicate()
+		hogar._almacen_solo = Game.baul.a_lista()
 		hogar._almacen_guardado = true
 		partida._congelar_mi_mundo()   # para poder GUARDAR sin volcar en mi save nada del mundo del host
 

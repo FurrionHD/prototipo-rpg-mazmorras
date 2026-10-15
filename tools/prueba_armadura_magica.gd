@@ -142,7 +142,7 @@ func _tela() -> void:
 	for c in [MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.INTACTO]:
 		antes_t += Game.items_calidad_en_hogar(_mat("tela_hierba"), c)
 	for i in 9:
-		Game.almacen_materiales.append(MaterialItem.crear(hierba, cal))
+		Game.baul.anadir(MaterialItem.crear(hierba, cal))
 	var n: int = Game.hilar(cal, 5, hierba)
 	var despues_t: int = 0
 	for c in [MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.INTACTO]:

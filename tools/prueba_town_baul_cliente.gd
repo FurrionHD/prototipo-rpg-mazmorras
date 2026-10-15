@@ -13,21 +13,21 @@ func _ready() -> void:
 		return
 	var baba: MaterialData = load("res://resources/materials/baba_slime.tres")
 	var runa: MaterialData = load("res://resources/materials/runa_slime.tres")
-	Game.almacen_materiales.clear()
+	Game.baul.vaciar()
 	await _esperar(0.5)
 	_ok(Net.unirse(args[i + 1], args[i + 3], int(args[i + 2])) == OK, "me conecto a la sala")
 	var t := 0.0
-	while Game.almacen_materiales.size() < 19000 and t < 40.0:
+	while Game.baul.total() < 19000 and t < 40.0:
 		await _esperar(0.5)
 		t += 0.5
-	print("[B] dato baul_listo=%d" % Game.almacen_materiales.size())
+	print("[B] dato baul_listo=%d" % Game.baul.total())
 
 	# 1) Gasto 6 babas (3 normales) y añado una runa, como hace un taller. Tiene que ser instantaneo.
 	await esperar_fase(1, 60.0)
 	var t0 := Time.get_ticks_msec()
 	var ok: bool = await Net.hogar.abrir_taller()
 	Game._consumir_unidades(baba, 6)
-	Game.almacen_materiales.append(MaterialItem.crear(runa, MaterialItem.Calidad.NORMAL))
+	Game.baul.anadir(MaterialItem.crear(runa, MaterialItem.Calidad.NORMAL))
 	Net.hogar.cerrar_taller()
 	var ms: int = Time.get_ticks_msec() - t0
 	_ok(ok, "el taller se abre sin esperar a nadie")
@@ -49,24 +49,16 @@ func _ready() -> void:
 	print("[B] dato ms_espera_real=%d" % (Time.get_ticks_msec() - t1))
 	var gasto := 0
 	if ok3 and _cuantos(real) > 0:
-		for j in range(Game.almacen_materiales.size() - 1, -1, -1):
-			if Game.almacen_materiales[j].data == real:
-				Game.almacen_materiales.remove_at(j)
-				gasto = 1
-				break
+		gasto = Game.baul.quitar_material(real, MaterialItem.Calidad.NORMAL, 1)
 	Net.hogar.cerrar_taller()
 	_ok(ok3, "me dan el permiso en cuanto lo suelta el host")
 	print("[B] dato gasto_real=%d" % gasto)
 	await _esperar(1.5)
-	print("[B] dato baul_b=%d" % Game.almacen_materiales.size())
+	print("[B] dato baul_b=%d" % Game.baul.total())
 	await esperar_fase(9, 30.0)
 	print("[B] RESULTADO: ", "TODO PASA" if fallos.is_empty() else "FALLAN %d" % fallos.size())
 	get_tree().quit()
 
 
 func _cuantos(mat: MaterialData) -> int:
-	var n := 0
-	for m in Game.almacen_materiales:
-		if m != null and m.data == mat:
-			n += 1
-	return n
+	return Game.en_hogar(mat)

@@ -255,7 +255,7 @@ func _ready() -> void:
 	# comprobaba lo contrario y por eso fallaba: la comprobación se había quedado vieja, no el juego.
 	# Lo que sigue importando es que la pantalla aguante y no se repinte sin parar (ver
 	# taller_menu.grid_detail); si eso se rompiera, el visor no llegaría a la línea siguiente.
-	Game.almacen_materiales.clear()
+	Game.baul.vaciar()
 	await _ir(men, men.TAB_CURTIR)
 	_ok("con el baúl vacío salen las pieles conocidas a x0, y la pantalla aguanta",
 		not men.stacks.is_empty() and not men.stacks.any(func(s): return int(s["tengo"]) > 0))
@@ -275,7 +275,7 @@ func _ready() -> void:
 
 # Lo que la partida de prueba no trae: el baul lleno de pieles, cuero curtido y metal.
 func _llenar_hogar() -> void:
-	Game.almacen_materiales.clear()
+	Game.baul.vaciar()
 	for id in PIELES:
 		var md: MaterialData = load("res://resources/materials/%s.tres" % id) as MaterialData
 		if md == null:
@@ -285,7 +285,7 @@ func _llenar_hogar() -> void:
 			# SIETE de cada una: con CUERO_POR_CURTIDO piezas por cuero, sobra para curtir y para
 			# que el montón siga ahí después (así se ve que se encoge, no que desaparece).
 			for i in 7:
-				Game.almacen_materiales.append(MaterialItem.crear(md, int(cal)))
+				Game.baul.anadir(MaterialItem.crear(md, int(cal)))
 	# Cuero curtido (para Correas) y sus correas, y metal para las hebillas. Y las PLANTAS para Hilar y
 	# la tela ya hilada para coser (la tela, 08/10/2026).
 	for id2 in ["cuero_curtido", "cuero_reforzado", "correa_cuero", "hierba_palida", "raiz_amarga",
@@ -296,7 +296,7 @@ func _llenar_hogar() -> void:
 		Game.descubrir(md2)
 		for cal2 in [MaterialItem.Calidad.INTACTO, MaterialItem.Calidad.NORMAL]:
 			for i2 in 9:
-				Game.almacen_materiales.append(MaterialItem.crear(md2, int(cal2)))
+				Game.baul.anadir(MaterialItem.crear(md2, int(cal2)))
 	# Los metales, que es lo que hace de hebilla. Se descubre el MINERAL (es lo que mira
 	# metales_forja_conocidos) y se guardan las hebillas ya hechas.
 	for par in [["cobre", "hebillas_cobre"], ["hierro", "hebillas_hierro"]]:
@@ -308,7 +308,7 @@ func _llenar_hogar() -> void:
 			continue
 		for cal3 in [MaterialItem.Calidad.INTACTO, MaterialItem.Calidad.NORMAL]:
 			for i3 in 6:
-				Game.almacen_materiales.append(MaterialItem.crear(h, int(cal3)))
+				Game.baul.anadir(MaterialItem.crear(h, int(cal3)))
 
 
 func _ir(men: Node, tab: int) -> void:

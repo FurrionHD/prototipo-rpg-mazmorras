@@ -547,31 +547,14 @@ func _pick(i: int) -> void:
 
 # Agrupa una lista de Cristal/MaterialItem en stacks {modelo, cantidad}.
 func _agrupar(items: Array) -> Array:
-	var claves: Array = []
-	var mapa: Dictionary = {}
-	for it in items:
-		var k: String = _clave_item(it)
-		if not mapa.has(k):
-			mapa[k] = {"modelo": it, "cantidad": 0}
-			claves.append(k)
-		mapa[k]["cantidad"] += 1
-	var res: Array = []
-	for k in claves:
-		res.append(mapa[k])
-	return res
+	return Monton.agrupar(items)   # la comun: misma clave que el baul, sumando el n de cada monton
 
 
+# El TAMAÑO entra en la clave (a 0,1 cm): dos peces de la misma especie con tallas distintas NO son el mismo
+# item y no pueden apilarse. Si se apilaran, el de 61 cm y el de 12 se venderian al mismo precio.
 func _clave_item(it: Resource) -> String:
-	if it is Cristal:
-		var c := it as Cristal
-		return "c|%d|%d" % [c.categoria, int(c.calidad)]
-	if it is MaterialItem:
-		var m := it as MaterialItem
-		# El TAMAÑO entra en la clave: dos peces de la misma especie con tallas distintas NO son el
-		# mismo item y no pueden apilarse en un solo monton. Si se apilaran, el de 61 cm y el de 12
-		# se venderian al mismo precio y la corona no sabria a cual pegarse.
-		return "m|%s|%d|%d" % [m.nombre(), int(m.calidad), roundi(m.cm)]
-	return "?"
+	var k: String = Monton.clave_de(it)
+	return k if k != "" else "?"
 
 
 func _nombre_item(it: Resource) -> String:
@@ -1004,7 +987,7 @@ func _on_usar(cons: ConsumableData, pj: PersonajeData = null) -> void:
 func _build_materiales() -> void:
 	# El HOGAR no pesa, asi que aqui no hay contador de carga; lo que si dice algo es CUANTO hay
 	# guardado, que es lo que se viene a mirar antes de bajar a por mas.
-	var todos_m: Array = _agrupar(Game.almacen_materiales)
+	var todos_m: Array = _agrupar(Game.baul.montones())
 	_stacks = _aplicar(todos_m)
 	_contador("%d de %d montones" % [_stacks.size(), todos_m.size()])
 	_grid_detail(_piezas_stacks(_stacks), _preview_material)

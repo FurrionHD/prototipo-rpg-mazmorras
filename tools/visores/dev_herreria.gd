@@ -174,14 +174,15 @@ func _herreria() -> void:
 	await _captura(men, "reparar")
 
 	print("\n=== SIN NADA ===")
-	var guardado: Array = Game.almacen_materiales.duplicate()
-	Game.almacen_materiales.clear()
+	var guardado: Array = Game.baul.a_lista()
+	Game.baul.vaciar()
 	for i in men.TABS_HERRERO.size():
 		await _ir(men, i)
 	_ok("con el baúl vacío las ocho pestañas pintan sin colgarse", true)
 	await _ir(men, i_forjar)
 	await _captura(men, "forjar_vacio")
-	Game.almacen_materiales.assign(guardado)
+	Game.baul.vaciar()
+	Game.baul.anadir_lista(guardado)
 	men._on_artesano(men._gente().find(Game.lider()))
 	men._cerrar()
 
@@ -216,7 +217,7 @@ func _carpinteria() -> void:
 
 # El baul con de todo: minerales, lingotes, chapas, hebillas, maderas, tablones, cuero y nucleos.
 func _llenar_hogar() -> void:
-	Game.almacen_materiales.clear()
+	Game.baul.vaciar()
 	var ids: Array = ["cobre", "cobre_veteado", "hierro", "lingote_cobre", "lingote_cobre_veteado",
 		"lingote_hierro", "chapa_cobre", "chapa_hierro", "hebillas_cobre", "madera_comun", "madera_dura",
 		"tablon_comun", "tablon_duro", "cuero_curtido", "cuero_reforzado"]
@@ -227,10 +228,10 @@ func _llenar_hogar() -> void:
 		Game.descubrir(md)
 		for cal in [MaterialItem.Calidad.INTACTO, MaterialItem.Calidad.NORMAL]:
 			for i in 12:
-				Game.almacen_materiales.append(MaterialItem.crear(md, int(cal)))
+				Game.baul.anadir(MaterialItem.crear(md, int(cal)))
 	for n in Game.todos_los_nucleos():
 		for i in 6:
-			Game.almacen_materiales.append(MaterialItem.crear(n as MaterialData, MaterialItem.Calidad.NORMAL))
+			Game.baul.anadir(MaterialItem.crear(n as MaterialData, MaterialItem.Calidad.NORMAL))
 
 
 func _tab(men: Node, id: String) -> int:

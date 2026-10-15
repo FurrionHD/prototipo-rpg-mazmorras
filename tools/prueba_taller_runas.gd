@@ -35,10 +35,10 @@ func _ready() -> void:
 	# Material para todo.
 	var s: RunaSetData = Runas.set_por_id(&"slime")
 	for i in 3:
-		Game.almacen_materiales.append(MaterialItem.crear(s.material, MaterialItem.Calidad.NORMAL))
-		Game.almacen_materiales.append(MaterialItem.crear(s.nucleo, MaterialItem.Calidad.NORMAL))
+		Game.baul.anadir(MaterialItem.crear(s.material, MaterialItem.Calidad.NORMAL))
+		Game.baul.anadir(MaterialItem.crear(s.nucleo, MaterialItem.Calidad.NORMAL))
 	for i in 6:
-		Game.almacen_materiales.append(MaterialItem.crear(s.runa, MaterialItem.Calidad.NORMAL))
+		Game.baul.anadir(MaterialItem.crear(s.runa, MaterialItem.Calidad.NORMAL))
 	var peto: Resource = Game.crear_item(load("res://resources/armor/cuero_pecho.tres"), 1, 0, {})
 	puerta.interact_with_player()
 	await get_tree().process_frame

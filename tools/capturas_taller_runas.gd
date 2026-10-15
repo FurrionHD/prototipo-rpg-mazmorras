@@ -20,10 +20,10 @@ func _ready() -> void:
 	for id in [&"slime", &"fuego"]:
 		var s: RunaSetData = Runas.set_por_id(id)
 		for k in 3:
-			Game.almacen_materiales.append(MaterialItem.crear(s.material, MaterialItem.Calidad.NORMAL))
-			Game.almacen_materiales.append(MaterialItem.crear(s.nucleo, MaterialItem.Calidad.NORMAL))
+			Game.baul.anadir(MaterialItem.crear(s.material, MaterialItem.Calidad.NORMAL))
+			Game.baul.anadir(MaterialItem.crear(s.nucleo, MaterialItem.Calidad.NORMAL))
 		for k in 5:
-			Game.almacen_materiales.append(MaterialItem.crear(s.runa, MaterialItem.Calidad.NORMAL))
+			Game.baul.anadir(MaterialItem.crear(s.runa, MaterialItem.Calidad.NORMAL))
 	var peto_libre: Resource = Game.crear_item(load("res://resources/armor/cuero_pecho.tres"), 1, 2, {})
 	var peto_set: Resource = Game.crear_item(load("res://resources/armor/hierro_pecho.tres"), 2, 3, {})
 	Game.meta_de(peto_set)["runas"] = {"set": "slime", "subs": [{"s": "vida_pct", "v": 0.062},

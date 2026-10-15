@@ -306,9 +306,9 @@ func _llenar_tienda() -> Dictionary:
 				Game.consumables[load("res://resources/consumables/" + f)] = 2
 				n += 1
 	# El hogar: materiales en el baul y el cofre con una pieza libre y otra prestada a un encargo.
-	Game.almacen_materiales.clear()
+	Game.baul.vaciar()
 	for i in 4:
-		Game.almacen_materiales.append(MaterialItem.crear(load("res://resources/materials/tomate.tres")))
+		Game.baul.anadir(MaterialItem.crear(load("res://resources/materials/tomate.tres")))
 	var espada: Resource = Game.crear_item(load("res://resources/weapons/daga.tres"), 2, Upgrades.Rareza.EPICO, {}, false)
 	var d_esp: Dictionary = Game.serializar_equipo(espada)
 	Game.cofre_equipo.clear()

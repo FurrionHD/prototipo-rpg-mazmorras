@@ -1081,10 +1081,9 @@ func _on_add_materiales() -> void:
 		# boticaria. Meterlo solo en el baúl NO bastaba: por eso el T2/T3 no aparecía al sembrarlo.
 		Game.descubrir(d)
 		for cal in cals:
-			for _i in range(n):
-				Game.almacen_materiales.append(MaterialItem.crear(d, cal))
-				total += 1
-	print("[dev] Baúl: +", total, " materiales (y descubiertos). Total en casa: ", Game.almacen_materiales.size())
+			Game.baul.anadir_de(d, cal, n)
+			total += n
+	print("[dev] Baúl: +", total, " materiales (y descubiertos). Total en casa: ", Game.baul.total())
 	if pedido:
 		Net.hogar.cerrar_taller()
 

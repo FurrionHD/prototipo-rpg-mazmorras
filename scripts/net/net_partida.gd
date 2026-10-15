@@ -550,11 +550,11 @@ var _mundo_propio: Dictionary = {}
 
 # Solo cliente, al conectar: aparta los campos del mundo PROPIO antes de que el host mande el suyo.
 #
-# No es cosmetico: mientras tengo el candado del taller, Game.almacen_materiales ES EL BAUL DEL HOST
+# No es cosmetico: mientras tengo el candado del taller, Game.baul ES EL BAUL DEL HOST
 # (ver _taller_ok). Guardar a pelo me metia en mi save los materiales de mi compañero.
 func _congelar_mi_mundo() -> void:
 	_mundo_propio = {
-		"almacen_materiales": Game.almacen_materiales.duplicate(),
+		"almacen_materiales": Game.baul.a_lista(),
 		"bote_dinero": Game.bote_dinero,
 		"cofre_equipo": Game.cofre_equipo.duplicate(true),
 		"cofre_consumibles": Game.cofre_consumibles.duplicate(true),

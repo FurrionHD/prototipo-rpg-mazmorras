@@ -232,7 +232,7 @@ func _llenar() -> void:
 	Game.money = 48210
 	Game.crystals = []
 	Game.materiales = []
-	Game.almacen_materiales = []
+	Game.baul.vaciar()
 
 	# La BOLSA: cristales de varias calidades y un puñado de materiales de cada escala.
 	for cat in [1, 2, 3, 5]:
@@ -260,7 +260,7 @@ func _llenar() -> void:
 			var it2 := MaterialItem.new()
 			it2.data = d
 			it2.calidad = MaterialItem.Calidad.INTACTO
-			Game.almacen_materiales.append(it2)
+			Game.baul.anadir(it2)
 
 	Game.consumables = {}
 	var j: int = 0

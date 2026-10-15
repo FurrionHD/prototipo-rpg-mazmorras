@@ -21,13 +21,13 @@ func _ready() -> void:
 	var relleno: MaterialData = load("res://resources/materials/baba_fuego.tres")
 	var baba: MaterialData = load("res://resources/materials/baba_slime.tres")
 	var runa: MaterialData = load("res://resources/materials/runa_slime.tres")
-	Game.almacen_materiales.clear()
+	Game.baul.vaciar()
 	for i in RELLENO:
-		Game.almacen_materiales.append(MaterialItem.crear(relleno, MaterialItem.Calidad.NORMAL))
+		Game.baul.anadir(MaterialItem.crear(relleno, MaterialItem.Calidad.NORMAL))
 	for i in 30:
-		Game.almacen_materiales.append(MaterialItem.crear(baba, MaterialItem.Calidad.NORMAL))
+		Game.baul.anadir(MaterialItem.crear(baba, MaterialItem.Calidad.NORMAL))
 	for i in 10:
-		Game.almacen_materiales.append(MaterialItem.crear(runa, MaterialItem.Calidad.NORMAL))
+		Game.baul.anadir(MaterialItem.crear(runa, MaterialItem.Calidad.NORMAL))
 	await _esperar(0.5)
 	_ok(Net.hostear("abc", PUERTO) == OK, "sala abierta")
 	_pid_b = _lanzar_b()
@@ -39,7 +39,7 @@ func _ready() -> void:
 	if Net._num_humanos < 2:
 		await _fin()
 		return
-	_ok(await _dato_de_b("baul_listo", 40.0) == Game.almacen_materiales.size(), "B tiene el espejo del baul entero")
+	_ok(await _dato_de_b("baul_listo", 40.0) == Game.baul.total(), "B tiene el espejo del baul entero")
 
 	# 1) B gasta y añade.
 	escribir_fase(1)
@@ -64,7 +64,7 @@ func _ready() -> void:
 	#    tarda); B lo intenta en ese momento: tiene que ESPERAR, y cuando le toca la runa ya no esta. Se gasta UNA.
 	var real: MaterialData = load("res://resources/materials/runa_real.tres")
 	Net.hogar.abrir_taller()
-	Game.almacen_materiales.append(MaterialItem.crear(real, MaterialItem.Calidad.NORMAL))
+	Game.baul.anadir(MaterialItem.crear(real, MaterialItem.Calidad.NORMAL))
 	Net.hogar.cerrar_taller()
 	await _esperar(1.0)
 	_ok(await Net.hogar.abrir_taller(), "el host coge el permiso")
@@ -79,24 +79,17 @@ func _ready() -> void:
 	_ok(espera_b >= 500 and espera_b < 3000, "B esperó a que soltara (%d ms)" % espera_b)
 	await _esperar(1.0)
 	_ok(_cuantos(real) == 0, "se gasto UNA runa, no dos ni ninguna de mas")
-	_ok(Game.almacen_materiales.size() == RELLENO + 27 + 9, "el baul del host cuadra (%d)" % Game.almacen_materiales.size())
-	_ok(await _dato_de_b("baul_b", 10.0) == Game.almacen_materiales.size(), "y el de B es igual")
+	_ok(Game.baul.total() == RELLENO + 27 + 9, "el baul del host cuadra (%d)" % Game.baul.total())
+	_ok(await _dato_de_b("baul_b", 10.0) == Game.baul.total(), "y el de B es igual")
 	await _fin()
 
 
 func _cuantos(mat: MaterialData) -> int:
-	var n := 0
-	for m in Game.almacen_materiales:
-		if m != null and m.data == mat:
-			n += 1
-	return n
+	return Game.en_hogar(mat)
 
 
 func _quitar(mat: MaterialData) -> void:
-	for i in range(Game.almacen_materiales.size() - 1, -1, -1):
-		if Game.almacen_materiales[i].data == mat:
-			Game.almacen_materiales.remove_at(i)
-			return
+	Game.baul.quitar_material(mat, MaterialItem.Calidad.NORMAL, 1)
 
 
 func _lanzar_b() -> int:

@@ -155,13 +155,21 @@ static func de_filas(f: Dictionary, ids: Ids) -> SaveData:
 		var n: int = int(f["contables"][clave])
 		if not listas.has(lista):
 			listas[lista] = []
-		for i in n:
-			if not (d is Dictionary and d.has("_clase")):
-				listas[lista].append(_de_valor(d, objs, listas))   # lo que no era material (ver _contar)
-				continue
+		if d is Dictionary and d.has("_clase"):
+			# UN MONTON por fila (plan de optimizacion, fase 1A): el material con su cantidad en n, no n objetos.
 			var it: Resource = _instanciar(String(d.get("_clase", "")))
 			_rellenar(it, d, objs, listas)
-			listas[lista].append(it)
+			if it is MaterialItem or it is Cristal:
+				it.set("n", maxi(1, n))
+				listas[lista].append(it)
+			else:
+				for i in n:   # algo contado que no es material ni cristal: como siempre, uno por unidad
+					var otro: Resource = _instanciar(String(d.get("_clase", "")))
+					_rellenar(otro, d, objs, listas)
+					listas[lista].append(otro)
+		else:
+			for i in n:
+				listas[lista].append(_de_valor(d, objs, listas))   # lo que no era material (ver _contar)
 	for id in objs:
 		_rellenar(objs[id], crudos[id], objs, listas)
 		if String(id).begins_with("o"):
@@ -337,9 +345,12 @@ static func _campos(o: Object) -> Array:
 		l = _campos_de[clave]
 	else:
 		l = []
+		# La CANTIDAD de un monton (MaterialItem.n / Cristal.n) no es un campo: va en la cuenta de su fila
+		# contada (ver _contar). Si entrara, dos montones del mismo material serian filas distintas.
+		var contable: bool = o is MaterialItem or o is Cristal
 		for p in o.get_property_list():
 			var n: String = p["name"]
-			if int(p["usage"]) & PROPERTY_USAGE_STORAGE and not _NO_SON_DATOS.has(n) and not n.begins_with("metadata/"):
+			if int(p["usage"]) & PROPERTY_USAGE_STORAGE and not _NO_SON_DATOS.has(n) and not n.begins_with("metadata/") 					and not (contable and n == "n"):
 				l.append(n)
 		_campos_de[clave] = l
 	# Los METADATOS (set_meta) son de cada objeto, no de su clase, y Godot tambien los guarda:
