@@ -112,7 +112,11 @@ func unidades_crafteo() -> int:
 # poción en la boticaria). Es la escala ORDENADA de verdad, que el enum ya no es. El PURO se
 # sale del 0..1 a proposito: es lo que permite pasar del techo del material recolectado.
 func score_calidad() -> float:
-	match calidad:
+	return score_de(calidad)
+
+# La misma tabla sin objeto (Lampara.duracion_de creaba un MaterialItem solo para preguntarla).
+static func score_de(cal: int) -> float:
+	match cal:
 		Calidad.PURO: return 1.5
 		Calidad.INTACTO: return 1.0
 		Calidad.NORMAL: return 0.5

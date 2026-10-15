@@ -6636,11 +6636,20 @@ func carbon_restante() -> int:
 # la carbonera. Es EL numero que hay que saber para decidir si bajas otro piso o te vuelves, y hasta
 # ahora no estaba en ningun sitio: la pestaña del farolillo enseñaba la llama actual y el numero de
 # trozos por separado, y sumarlos era cosa tuya.
+# Lo de la carbonera va guardado hasta que la carbonera CAMBIE (su version; y si es otra, al cargar partida): el HUD lo
+# pregunta en cada fotograma (optimizacion 1B, 16/10). La llama en curso se suma siempre, que baja sola.
+var _luz_carbonera: float = 0.0
+var _luz_carbonera_ver: int = -1
+var _luz_carbonera_de: Monton = null
+
 func luz_total_restante() -> float:
-	var s: float = maxf(lampara_llama, 0.0)
-	for m in carbonera.montones():
-		s += Lampara.duracion(m) * int(m.n)
-	return s
+	if carbonera != _luz_carbonera_de or carbonera.version != _luz_carbonera_ver:
+		_luz_carbonera_de = carbonera
+		_luz_carbonera_ver = carbonera.version
+		_luz_carbonera = 0.0
+		for m in carbonera.montones():
+			_luz_carbonera += Lampara.duracion(m) * int(m.n)
+	return maxf(lampara_llama, 0.0) + _luz_carbonera
 
 
 # Y lo mismo en fraccion, para el farol del HUD: cuanto le queda al trozo EN CURSO. 0 = sin llama.
@@ -9579,9 +9588,11 @@ func armor_mods(pj: PersonajeData = null) -> Dictionary:
 			vel_delta += cob * (SIN_ARMADURA_VEL_MULT - 1.0)
 			continue
 		var slot: String = str(s[1])
-		rareza_max = maxi(rareza_max, equip_rareza(slot, p))
-		var pm := Upgrades.armor_piece_mods(pieza, tier_mult(equip_tier(slot, p)),
-			equip_rareza(slot, p), equip_mejoras(slot, p), equip_tier(slot, p))
+		var meta: Dictionary = _meta(slot, p)   # tier, rareza y mejoras de una vez (antes, 5 lecturas por pieza)
+		var tier: int = int(meta["tier"])
+		var rareza: int = int(meta["rareza"])
+		rareza_max = maxi(rareza_max, rareza)
+		var pm := Upgrades.armor_piece_mods(pieza, tier_mult(tier), rareza, meta["mejoras"], tier)
 		# DURABILIDAD: una pieza gastada protege menos (con tope), y rota se va a los suelos.
 		# Solo toca lo defensivo (DEF y reduccion), no la esquiva/velocidad/identidad.
 		var dur_mult: float = durabilidad_mult(durabilidad_slot(slot, p))

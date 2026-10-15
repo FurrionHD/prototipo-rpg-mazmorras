@@ -2373,8 +2373,10 @@ func _refrescar_barras() -> void:
 		# de combate, que nace del aguante y es la que gastan las habilidades. Quien es su combatiente
 		# lo dice la pelea (combat_tactico.combatiente_de_mi_pj): en el espejo no pasa por Game.
 		var c: Combatant = _combatiente_de.call(pj) if _combatiente_de.is_valid() else null
+		# El maximo UNA vez (optimizacion 1B, 16/10): player_hp(pj) lo volvia a calcular entero cuando la vida esta llena
+		# (current_hp = -1), y es lo mas caro de las barras (stats con estados + runas). Mismo resultado que player_hp.
 		var maxhp_c: float = c.max_hp if c != null else Game.player_max_hp(pj)
-		var hp_c: float = c.current_hp if c != null else Game.player_hp(pj)
+		var hp_c: float = c.current_hp if c != null else (pj.current_hp if pj.current_hp >= 0.0 else maxhp_c)
 		(fila["hp"] as ProgressBar).max_value = maxf(1.0, maxhp_c)
 		(fila["hp"] as ProgressBar).value = hp_c
 		# EL ESCUDO DE AGUA (set Marea, 09/10): su tramo azul encima de la vida, solo en la pelea.
@@ -2382,7 +2384,7 @@ func _refrescar_barras() -> void:
 		(fila["hp_lbl"] as Label).text = "%.1f/%.1f" % [hp_c, maxhp_c] 			+ TramoEscudo.poner(fila["hp"] as ProgressBar, hp_c, maxhp_c, escudo_c)
 		var en_bar: ProgressBar = fila["en"]
 		var maxen_c: float = c.max_energy if c != null else _calc_max_aguante(pj)
-		var en_c: float = c.current_energy if c != null else _aguante_de(pj)
+		var en_c: float = c.current_energy if c != null else (maxen_c if pj.stamina < 0.0 else clampf(pj.stamina, 0.0, maxen_c))   # = _aguante_de
 		en_bar.max_value = maxf(1.0, maxen_c)
 		en_bar.value = en_c
 		# Rojiza cuando ese se ha quedado sin fuelle (el lider por _exhausted, via el meta de arriba).
@@ -2391,7 +2393,7 @@ func _refrescar_barras() -> void:
 		(fila["en_lbl"] as Label).text = "%.0f/%.0f" % [en_c, maxen_c]
 		var mp_bar: ProgressBar = fila["mp"]
 		var maxmp_c: float = c.max_mp if c != null else Game.player_max_mp(pj)
-		var mp_c: float = c.current_mp if c != null else Game.player_mp(pj)
+		var mp_c: float = c.current_mp if c != null else (pj.current_mp if pj.current_mp >= 0.0 else maxmp_c)   # = player_mp
 		mp_bar.max_value = maxf(1.0, maxmp_c)
 		mp_bar.value = mp_c
 		(fila["mp_lbl"] as Label).text = "%.2f/%.2f" % [mp_c, maxmp_c]
@@ -2408,7 +2410,7 @@ func _refrescar_barras() -> void:
 		# los chips: el se guarda su propia firma y solo se repinta si algo ha cambiado de verdad.
 		var eq = fila.get("equipo")
 		if eq != null and is_instance_valid(eq):
-			eq.refrescar()
+			eq.refrescar_si_toca()
 		var caja: HBoxContainer = fila["estados"]
 		if c != null and _chips_de_pelea.is_valid():
 			_pintar_chips_pelea(fila, caja, _chips_de_pelea.call(pj))

@@ -241,3 +241,20 @@ func test_los_cristales_caen_de_uno_en_uno() -> void:
 	for k in _pickups():
 		k.free()
 	p.free()
+
+
+# LA LUZ TOTAL va guardada hasta que cambie la carbonera (1B, 16/10): tiene que seguirla al meter y al sacar carbon.
+func test_la_luz_total_sigue_a_la_carbonera() -> void:
+	_limpio()
+	Game.lampara_llama = 0.0
+	igual(Game.luz_total_restante(), 0.0, "sin carbon ni llama, 0")
+	var uno: float = Lampara.duracion(_mat(CARBON, N))
+	Game.embolsar(_mat(CARBON, N), 3)
+	cerca(Game.luz_total_restante(), uno * 3.0, 0.001, "3 trozos")
+	Game.carbonera.quitar(_mat(CARBON, N), 1)
+	cerca(Game.luz_total_restante(), uno * 2.0, 0.001, "al gastar uno, 2")
+	Game.lampara_llama = 10.0
+	cerca(Game.luz_total_restante(), uno * 2.0 + 10.0, 0.001, "y la llama en curso se suma")
+	var intacto: float = Lampara.duracion(_mat(CARBON, I))
+	cierto(intacto > uno, "un carbon intacto dura mas que uno normal (la calidad sin crear objetos)")
+	Game.lampara_llama = 0.0

@@ -600,9 +600,11 @@ func mis_barras(filas: Array) -> void:
 	if not Net.activo or Net.soy_trabajador or Net.soy_sala or multiplayer.multiplayer_peer == null:
 		return
 	var ahora: int = Time.get_ticks_msec()
-	var firma: String = var_to_str(filas)
 	var pasado: float = float(ahora - _barras_t) / 1000.0
-	if pasado < BARRAS_CADA or (firma == _barras_firma and pasado < BARRAS_LATIDO):
+	if pasado < BARRAS_CADA:
+		return   # antes de var_to_str: pasar las filas a texto en cada fotograma para tirarlo casi siempre (1B, 16/10)
+	var firma: String = var_to_str(filas)
+	if firma == _barras_firma and pasado < BARRAS_LATIDO:
 		return
 	_barras_t = ahora
 	_barras_firma = firma

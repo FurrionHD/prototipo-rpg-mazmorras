@@ -368,20 +368,32 @@ static func filas(item: Resource) -> Array:
 const SLOTS_ARMA := ["equipped_main", "equipped_off"]
 const SLOTS_ARMADURA := ["equipped_casco", "equipped_pecho", "equipped_manos", "equipped_pantalones", "equipped_botas"]
 
+const _SLOTS_TODOS := ["equipped_main", "equipped_off",   # SLOTS_ARMA + SLOTS_ARMADURA, sin juntarlas en cada llamada
+	"equipped_casco", "equipped_pecho", "equipped_manos", "equipped_pantalones", "equipped_botas"]
+
 # {clave: suma} de las sub-stats de todo lo puesto + los bonus de 2 piezas de los sets activos.
+# EN UNA PASADA (optimizacion 1B, 16/10): la vida maxima lo pregunta por cada personaje en cada fotograma (las barras),
+# y antes recorria el equipo dos veces (subs y luego sets_activos) leyendo la meta de cada pieza tres veces. Mismo
+# resultado que sumar subs_de de cada pieza + bonus_2p de cada set con 2 piezas o mas.
 static func totales(p: PersonajeData) -> Dictionary:
 	var t: Dictionary = {}
-	for r in SLOTS_ARMA + SLOTS_ARMADURA:
+	var cuenta: Dictionary = {}   # RunaSetData -> piezas (dos manos cuenta 2), como sets_activos
+	for r in _SLOTS_TODOS:
 		var it: Resource = p.get(r)
 		if it == null or not admite_runas(it):
 			continue
-		for s in subs_de(it):
+		var ru: Dictionary = runas_de(it)
+		if ru.is_empty():
+			continue   # sin runas: ni subs ni set
+		for s in ru.get("subs", []):
 			t[s["s"]] = float(t.get(s["s"], 0.0)) + float(s["v"])
-	for s in sets_activos(p):
-		var sd: RunaSetData = s[0]
-		if int(s[1]) >= 2:
-			for k in sd.bonus_2p:
-				t[k] = float(t.get(k, 0.0)) + float(sd.bonus_2p[k])
+		var sd: RunaSetData = set_por_id(StringName(str(ru.get("set", ""))))
+		if sd != null:
+			cuenta[sd] = int(cuenta.get(sd, 0)) + (2 if dos_manos(it) else 1)
+	for sd in cuenta:
+		if int(cuenta[sd]) >= 2:
+			for k in (sd as RunaSetData).bonus_2p:
+				t[k] = float(t.get(k, 0.0)) + float((sd as RunaSetData).bonus_2p[k])
 	return t
 
 # [[RunaSetData, piezas]] de los sets que lleva (arma: principal + secundaria, dos manos cuenta 2).

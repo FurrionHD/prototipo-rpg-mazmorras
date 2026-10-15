@@ -147,9 +147,7 @@ static func duracion_de(d: MaterialData, calidad: int) -> float:
 	if d == null:
 		return 0.0
 	var base: float = float(DURACION.get(d.id, 240.0))
-	var m := MaterialItem.new()
-	m.calidad = calidad as MaterialItem.Calidad
-	return base * (1.0 + CALIDAD_MULT * m.score_calidad())
+	return base * (1.0 + CALIDAD_MULT * MaterialItem.score_de(calidad))
 
 
 static func es_combustible(m: MaterialItem) -> bool:

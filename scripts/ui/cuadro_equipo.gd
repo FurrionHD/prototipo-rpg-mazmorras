@@ -76,6 +76,20 @@ func _pagina() -> int:
 
 # Corre en cada frame (lo llama el refresco de barras): solo se repinta cuando CAMBIA algo. Es el
 # mismo criterio que los chips de estado, y por el mismo motivo.
+# Lo que llaman las barras CADA fotograma (optimizacion 1B, 16/10): la firma son 7 lecturas de durabilidad por
+# personaje, y la durabilidad no cambia mas deprisa que un golpe. Cada CADA_MS basta; quien cambie el equipo y quiera
+# verlo ya, llama a refrescar().
+const CADA_MS := 200
+var _t_ms: int = -CADA_MS
+
+func refrescar_si_toca() -> void:
+	var ahora: int = Time.get_ticks_msec()
+	if ahora - _t_ms < CADA_MS:
+		return
+	_t_ms = ahora
+	refrescar()
+
+
 func refrescar() -> void:
 	if pj == null:
 		return

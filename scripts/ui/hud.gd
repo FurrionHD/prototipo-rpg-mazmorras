@@ -721,14 +721,21 @@ func _refrescar_farol() -> void:
 	_farol_box.hay_luz = Game.lampara_llama > 0.0
 	_farol_box.llama = Game.llama_fraccion()
 	var total: float = Game.luz_total_restante()
+	var carbon: int = Game.carbon_restante()
+	var radio: float = Game.radio_lampara()
+	# Los textos y el COLOR solo si cambian: add_theme_color_override en cada fotograma avisa al Label de un cambio de
+	# tema 60 veces por segundo (optimizacion 1B, 16/10).
+	var firma: String = "%d|%s|%s|%.1f" % [carbon, _texto_luz(total), total < AVISO_LUZ, radio]
+	if firma == _firma_farol:
+		return
+	_firma_farol = firma
 	# "xN" arriba y la luz total abajo. Los minutos van SIN segundos: es una magnitud para decidir de
 	# un vistazo, y un contador al segundo invita a mirarlo en vez de jugar.
-	_farol_lbl.text = "x%d\n%s" % [Game.carbon_restante(), _texto_luz(total)]
+	_farol_lbl.text = "x%d\n%s" % [carbon, _texto_luz(total)]
 	_farol_lbl.add_theme_color_override("font_color",
 		Color(1.0, 0.55, 0.45) if total < AVISO_LUZ else Color.WHITE)
 	_farol_lbl.tooltip_text = "Luz restante: %s\nCarbón: %d trozo%s\nAlcance: %.1f casillas" % [
-		_texto_luz(total), Game.carbon_restante(), "" if Game.carbon_restante() == 1 else "s",
-		Game.radio_lampara()]
+		_texto_luz(total), carbon, "" if carbon == 1 else "s", radio]
 
 
 # Menos de esto y el numero se pone rojo: es lo que tarda en amargarte quedarte a oscuras hondo.
@@ -752,6 +759,9 @@ func _abrir_menu(grupo: String, metodo: String) -> void:
 		m.call(metodo)
 
 
+var _firma_peso: String = ""
+var _firma_farol: String = ""
+
 func _process(_delta: float) -> void:
 	# Ayudas de tecla (el resto de datos viven en las barras / cuadrado de peso / menus).
 	# El [F] va AQUI y no repetido en el cartel de cada edificio: la tecla es siempre la misma, asi
@@ -761,11 +771,17 @@ func _process(_delta: float) -> void:
 
 	# LA MOCHILA: el numero encima, y el nivel + el color del agua los pinta ella sola con el ratio
 	# de carga (ver cuadro_carga.gd y Game.color_carga).
-	_peso_lbl.text = "%d/%d" % [roundi(Game.peso_actual()), roundi(Game.capacidad_carga())]
-	_peso_box.ratio = Game.ratio_carga()
-	_peso_box.tooltip_text = "Carga %d/%d  (%d%%)%s" % [
-		roundi(Game.peso_actual()), roundi(Game.capacidad_carga()),
-		roundi(_peso_box.ratio * 100.0),
-		"\nVas SOBRECARGADO: andas más lento." if Game.esta_sobrecargado() else ""]
+	# Cada numero UNA vez (optimizacion 1B, 16/10): antes la capacidad se calculaba 4 veces por fotograma (recorre el
+	# grupo entero) y el peso 3. Y los textos solo se reescriben si cambian.
+	var peso: float = Game.peso_actual()
+	var cap: float = Game.capacidad_carga()
+	var ratio: float = 0.0 if cap <= 0.0 else peso / cap   # = Game.ratio_carga
+	_peso_box.ratio = ratio
+	var firma: String = "%d|%d|%d|%s" % [roundi(peso), roundi(cap), roundi(ratio * 100.0), ratio >= Game.overload_threshold]
+	if firma != _firma_peso:
+		_firma_peso = firma
+		_peso_lbl.text = "%d/%d" % [roundi(peso), roundi(cap)]
+		_peso_box.tooltip_text = "Carga %d/%d  (%d%%)%s" % [roundi(peso), roundi(cap), roundi(ratio * 100.0),
+			"\nVas SOBRECARGADO: andas más lento." if ratio >= Game.overload_threshold else ""]   # = esta_sobrecargado
 
 	_refrescar_farol()
