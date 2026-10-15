@@ -1,50 +1,62 @@
 # ============================================================
 #  pieza_pueblo.gd  (class_name PiezaPueblo)
-#  Una pieza del pueblo con ALTURA (casa, columna, verja) colocada sobre su huella y PARTIDA EN DOS
-#  para que se ordene bien contra quien anda alrededor.
+#  Una pieza del pueblo con ALTURA (casa, columna, verja, farola, puesto) colocada sobre su huella, que se
+#  ordena contra quien anda alrededor POR LA LINEA DE SU SUELO.
 #
 #  EL PROBLEMA. El proyecto no usa y_sort, y no puede usarlo sin mas: el muñeco del jugador ordena sus
-#  capas con z ABSOLUTOS de 1 a ~2050 (ver muneco_jugador.gd), asi que un y_sort solo ordenaria
-#  dentro del mismo z y no serviria de nada.
+#  capas con z (ver muneco_jugador.gd), asi que un y_sort solo ordenaria dentro del mismo z.
 #
-#  LA SALIDA. El dibujo se corta por la linea de fondo de su HUELLA:
-#    - lo que cae DENTRO de la huella (la fachada, el pie de la columna) va por DEBAJO de los
-#      personajes: como nadie puede meterse en la huella, quien este cerca esta DELANTE y se le ve
-#      encima de la fachada;
-#    - lo que SOBRESALE por encima (tejado, chimenea, la parte alta de la columna) va por ENCIMA:
-#      quien pasa por detras queda tapado.
+#  LA SALIDA (12/10, C2 del playtest 11/10). Game._ordenar_munecos ya reparte cada fotograma una BANDA de z
+#  a cada muñeco y a cada enemigo por la altura de sus pies; las piezas entran en ese MISMO orden, enteras,
+#  por su linea_suelo(): quien tiene los pies por encima (detras) queda tapado por la pieza entera, y quien
+#  los tiene por debajo (delante) se pinta encima de ella entera. Cada uno en su sitio aunque haya uno
+#  delante y otro detras a la vez.
 #
-#  Eso es exacto cuando la huella es mas honda que alto es un personaje (~60 px): las casas. En una
-#  pieza ESTRECHA (una columna de una casilla, una verja) no lo es: alguien pegado por delante mete
-#  la cabeza en la parte que sobresale y el tejado de la columna le taparia la cara. Para esas va
-#  'dinamica': si hay alguien delante y cerca, la parte de arriba baja tambien por debajo.
+#  Antes la pieza se partia en dos por la base de su huella: lo de abajo SIEMPRE por debajo de todos (z -1)
+#  y lo de arriba SIEMPRE por encima (z 3700), y en las estrechas ('dinamicas') la parte alta bajaba si
+#  habia alguien delante. Pero tenia UNA z para todos: con uno delante y otro detras (tu grupo, que va en
+#  fila) el tejado de la farola le atravesaba la cabeza al de delante; y la tira de abajo era mas alta que
+#  la caja de choque, asi que quien se arrimaba por detras metia los pies DENTRO de las cajas del mercado.
+#
+#  Lo que se pinta en la pieza (el fuego, el cartel de la fachada, el agua de la fuente, el vidrio de las
+#  ventanas) cuelga de ella con z RELATIVA: sube y baja con ella.
 # ============================================================
 extends Node2D
 class_name PiezaPueblo
 
-# Por encima de TODAS las capas del muñeco. No basta con pasar el 2051 de la cara: el arma se empuja
-# a prof 40 cuando va delante (muneco_jugador.gd), o sea z ~2560, y con 2100 asomaba por encima del
-# tejado. Por debajo del 4000 de los numeros de combate y del tope de Godot (4096).
-const Z_ENCIMA := 3700   # y por encima de la base de los personajes: 1024 + 2560 (Game.Z_PERSONAJES)
-const Z_DEBAJO := -1        # con el suelo, pero pintada despues de el
+# El humo de las chimeneas y el globo del cartel indicador van por encima de todo lo del mundo.
+const Z_ENCIMA := 3700
+# Hasta que Game la ordena (el primer fotograma), y siempre la que es todo suelo: con el suelo, pintada
+# despues de el.
+const Z_DEBAJO := -1
+# Las z que gasta una pieza en el orden (Game._ordenar_munecos): la suya y una encima para lo que lleva
+# pegado (fuego, cartel). Un muñeco gasta Game.BANDA_MUNECO; una pieza no tiene capas, y la verja del
+# jardin son medio centenar de piezas a la vista a la vez.
+const PASO_Z := 2
+# Cuanto por encima de la base de su huella esta la linea del suelo. La caja de choque de lo pequeño (el
+# zocalo del poste, la planta del barril) acaba unos px por encima de esa base, y quien se arrima por
+# delante tiene los pies justo debajo de la caja: con la base pelada, el que esta pegado delante aun
+# contaba como detras.
+const MARGEN_SUELO := 8.0
+const GRUPO := &"piezas_pueblo"
+
+static var _creadas: int = 0
 
 var clave: String = ""
-var dinamica: bool = false
+# A la misma linea de suelo (el puesto, su vendedor y su frente comparten huella) manda el orden en que se
+# crearon: lo que se monta despues va encima.
+var orden: int = 0
+var margen_suelo: float = MARGEN_SUELO
 
-var _arriba: Sprite2D = null
-# Lo que va pegado a la parte ALTA y tiene que ordenarse igual que ella (la llama del altar): si la parte
-# alta baja por debajo de quien esta delante, esto baja con ella.
-var acompanantes: Array[CanvasItem] = []
-var _abajo: Sprite2D = null
 var _tam: Vector2i = Vector2i.ZERO
+# Px desde abajo que son HUELLA (suelo). Si es el dibujo entero, la pieza no tiene altura.
 var _pie: int = 0
 
 
 # 'huella' en casillas: la pieza se centra en horizontal sobre ella y apoya su base en su borde sur.
-static func crear(p_clave: String, huella: Rect2i, p_dinamica: bool = false) -> PiezaPueblo:
+static func crear(p_clave: String, huella: Rect2i) -> PiezaPueblo:
 	var p := PiezaPueblo.new()
 	p.clave = p_clave
-	p.dinamica = p_dinamica
 	p.name = "Pieza_" + p_clave
 	var celda: float = float(PuebloPlano.CELDA)
 	p._montar(PuebloSprites.textura(p_clave), PuebloSprites.tam(p_clave), PuebloSprites.pie(p_clave))
@@ -53,157 +65,88 @@ static func crear(p_clave: String, huella: Rect2i, p_dinamica: bool = false) -> 
 	return p
 
 
-# La misma pieza partida, con una textura cualquiera y SIN colocar: la usan las escaleras de la
-# mazmorra (EscaleraSprites), que no viven en la rejilla del pueblo. Quien la crea pone 'position'
-# (la esquina de arriba a la izquierda del dibujo). 'margen_delante': cuanto por encima de la base
-# cuenta aun como "delante" en una pieza dinamica (ver _process).
+# La misma pieza con una textura cualquiera y SIN colocar: la usan las escaleras de la mazmorra
+# (EscaleraSprites), que no viven en la rejilla del pueblo, y el vendedor del mercadillo. Quien la crea pone
+# 'position' (la esquina de arriba a la izquierda del dibujo). 'p_margen': cuanto por encima de la base
+# cuenta aun como "delante" (la subida de la escalera: quien pisa los peldaños sigue delante del arco).
 static func crear_textura(p_nombre: String, tex: Texture2D, p_tam: Vector2i, p_pie: int,
-		p_dinamica: bool = false, margen_delante: float = 20.0) -> PiezaPueblo:
+		p_margen: float = MARGEN_SUELO) -> PiezaPueblo:
 	var p := PiezaPueblo.new()
 	p.clave = p_nombre
-	p.dinamica = p_dinamica
 	p.name = "Pieza_" + p_nombre
-	p._margen_delante = margen_delante
+	p.margen_suelo = p_margen
 	p._montar(tex, p_tam, p_pie)
 	return p
 
 
-var _margen_delante: float = 20.0
-# El ancho que cuenta para decidir si alguien esta delante; -1 = el del dibujo. Lo usa el vendedor del
-# mercadillo, cuya imagen es mas ancha que su puesto (para poder entrar de lado) y tiene que subir y
-# bajar A LA VEZ que el puesto: con su propio ancho se bajaba el solo y se metia debajo del estante.
-var ancho_delante: float = -1.0
+func _init() -> void:
+	_creadas += 1
+	orden = _creadas
+	z_as_relative = false
+	z_index = Z_DEBAJO
+
 
 func _montar(tex: Texture2D, p_tam: Vector2i, p_pie: int) -> void:
 	_tam = p_tam
 	_pie = mini(p_pie, _tam.y)
-	var corte: int = _tam.y - _pie
-	_abajo = _trozo(tex, Rect2(0, corte, _tam.x, _pie), Z_DEBAJO)
-	if corte > 0:
-		_arriba = _trozo(tex, Rect2(0, 0, _tam.x, corte), Z_ENCIMA)
-
-
-# Aqui y no en crear(): Godot ENCIENDE el _process al entrar en el arbol si el script lo define, asi
-# que apagarlo antes de add_child no sirve de nada (y las piezas sin parte alta petaban cada frame).
-func _ready() -> void:
-	set_process((dinamica and _arriba != null) or not colgados.is_empty())
-
-
-# LO COLGADO DE LA FACHADA (el cartel del oficio, ver town._colgar_cartel). Esta en el plano de la PARED,
-# asi que se ordena como ella y no como el tejado: va por DEBAJO de lo que queda delante -- la farola de
-# la calle, quien pasa por delante de la casa -- y solo sube por ENCIMA de quien pasa por DETRAS, a su
-# altura. Antes iba siempre encima de todo y tapaba la farola que tiene delante (lo vio el usuario).
-# 'pos' en px del lienzo de la pieza.
-var colgados: Array[Node2D] = []
-
-func colgar(nodo: Node2D, pos: Vector2) -> void:
-	nodo.z_as_relative = false
-	nodo.z_index = Z_DEBAJO
-	nodo.position = pos
-	add_child(nodo)
-	colgados.append(nodo)
-	if is_inside_tree():
-		set_process(true)
-
-
-# Pega algo a la parte alta (ver acompanantes). 'pos' en px del lienzo de la pieza.
-func acompanar(nodo: CanvasItem, pos: Vector2) -> void:
-	nodo.z_as_relative = false
-	nodo.z_index = Z_ENCIMA + 1
-	if nodo is Node2D:
-		(nodo as Node2D).position = pos
-	add_child(nodo)
-	acompanantes.append(nodo)
-
-
-func _trozo(tex: Texture2D, region: Rect2, z: int) -> Sprite2D:
 	var s := Sprite2D.new()
 	s.texture = tex
 	s.centered = false
-	s.region_enabled = true
-	s.region_rect = region
-	s.position = region.position
 	# POR NODO, que el proyecto no lo pone globalmente (misma nota que en enemy.gd).
 	s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	s.z_as_relative = false
-	s.z_index = z
 	add_child(s)
-	return s
+
+
+# SOLO LAS QUE TIENEN ALTURA entran en el orden. La que es todo huella (la escalera que baja: un agujero en
+# el suelo) se queda con el suelo, por debajo de quien la pisa.
+func _ready() -> void:
+	if _pie < _tam.y:
+		add_to_group(GRUPO)
+
+
+# Lo pone Game._ordenar_munecos cada fotograma. Lo pegado va relativo: sube y baja con ella.
+func poner_z(z: int) -> void:
+	if z_index != z:
+		z_index = z
+
+
+# La altura con la que entra en el orden de Game, como los pies de un muñeco.
+func linea_suelo() -> float:
+	return base_y() - margen_suelo
+
+
+# El dibujo entero, en coordenadas globales (para saber si esta a la vista).
+func rect_global() -> Rect2:
+	return Rect2(global_position, Vector2(_tam))
+
+
+# LO COLGADO DE LA FACHADA (el cartel del oficio, ver town._colgar_cartel): justo encima de la pared, y con
+# ella por debajo de lo que queda delante (la farola de la calle, quien pasa). 'pos' en px del lienzo.
+func colgar(nodo: Node2D, pos: Vector2) -> void:
+	_pegar(nodo, pos)
+
+
+# Lo que va pegado a la parte alta (la llama del altar, el fuego de la farola). 'pos' en px del lienzo.
+func acompanar(nodo: CanvasItem, pos: Vector2) -> void:
+	_pegar(nodo, pos)
+
+
+# Lo que va pintado SOBRE la pieza a su misma altura (el agua de la fuente, el vidrio de las ventanas):
+# despues de ella en el arbol, con su misma z.
+func encima(nodo: CanvasItem) -> void:
+	nodo.z_as_relative = true
+	nodo.z_index = 0
+	add_child(nodo)
+
+
+func _pegar(nodo: CanvasItem, pos: Vector2) -> void:
+	nodo.z_as_relative = true
+	nodo.z_index = 1
+	if nodo is Node2D:
+		(nodo as Node2D).position = pos
+	add_child(nodo)
 
 
 # El borde sur de la huella, en coordenadas globales.
 func base_y() -> float:
 	return global_position.y + float(_tam.y)
-
-
-func _process(_delta: float) -> void:
-	if not colgados.is_empty():
-		_ordenar_colgados()
-	if not dinamica or _arriba == null:
-		return
-	var fondo: float = base_y()
-	var cx: float = global_position.x + float(_tam.x) * 0.5
-	var ancho: float = float(_tam.x) if ancho_delante < 0.0 else ancho_delante
-	var delante: bool = false
-	# Y TAMBIEN SI HAY ALGUIEN DETRAS, porque la parte alta tiene UNA z para todos. Bajarla por quien
-	# esta delante deja al de detras pintado ENCIMA DEL TEJADO -- se le ve el cuerpo entero atravesando
-	# el techo del puesto --, y eso es peor que lo que la bajada venia a evitar: al de delante solo le
-	# pisa la coronilla, y ademas el de delante casi siempre eres tu, que sabes lo que hay ahi. Hace
-	# falta que coincidan dos (tu comprando y el vendedor volviendo a casa por detras, un guardia, un
-	# acompañante, un compañero en multi), por eso se ve poco y cuesta reproducirlo.
-	var detras: bool = false
-	for n in _personajes():
-		var nd := n as Node2D
-		if nd == null:
-			continue
-		var p: Vector2 = nd.global_position
-		if absf(p.x - cx) >= ancho * 0.5 + 16.0:
-			continue
-		# Delante = su origen por debajo de la base (menos lo que su caja de pies sube) y lo bastante
-		# cerca para que su cabeza llegue a la parte que sobresale.
-		if p.y > fondo - _margen_delante and p.y < fondo + 80.0:
-			delante = true
-		# Detras = su origen por encima de la base, a la altura que el tejado taparia.
-		elif p.y < fondo - _margen_delante and p.y > fondo - float(_tam.y) - 60.0:
-			detras = true
-	_arriba.z_index = Z_DEBAJO if (delante and not detras) else Z_ENCIMA
-	for a in acompanantes:
-		if is_instance_valid(a):
-			a.z_index = _arriba.z_index + 1
-
-
-# QUIEN PUEDE ESTAR DELANTE O DETRAS: tu grupo y los NPC del pueblo (los guardias, y los vendedores y
-# aldeanos que vengan). Con solo el grupo, el brasero del porton se le pintaba en la cabeza al guardia
-# que tenia delante: la parte de arriba nunca bajaba por el (lo vio el usuario).
-const GRUPO_NPC := "npc_pueblo"
-
-func _personajes() -> Array:
-	var tree: SceneTree = get_tree()
-	var out: Array = tree.get_nodes_in_group("aliado")
-	out.append_array(tree.get_nodes_in_group(GRUPO_NPC))
-	return out
-
-
-# Un personaje por DETRAS de la fachada (su origen por encima de la base) y dentro del ancho de lo
-# colgado: ahi el cartel le queda delante. Cualquier otro caso, detras de todo lo que tenga delante.
-func _ordenar_colgados() -> void:
-	var fondo: float = base_y()
-	var aliados: Array = _personajes()
-	for c in colgados:
-		if not is_instance_valid(c):
-			continue
-		var ancho: float = 0.0
-		if c is Sprite2D and (c as Sprite2D).texture != null:
-			ancho = float((c as Sprite2D).texture.get_width())
-		var x0: float = c.global_position.x - 16.0
-		var x1: float = c.global_position.x + ancho + 16.0
-		var detras: bool = false
-		for n in aliados:
-			var nd := n as Node2D
-			if nd == null:
-				continue
-			var p: Vector2 = nd.global_position
-			if p.x > x0 and p.x < x1 and p.y < fondo and p.y > fondo - float(_pie) - 40.0:
-				detras = true
-				break
-		c.z_index = Z_ENCIMA + 1 if detras else Z_DEBAJO

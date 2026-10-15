@@ -3,15 +3,13 @@
 #  EL VENDEDOR DE UN PUESTO DEL MERCADILLO (pedido del usuario el 22/09/2026). De pie DENTRO del puesto,
 #  entre el mostrador y el estante, con el mismo muñeco que el jugador (MunecoJugador).
 #
-#  COMO SE METE DENTRO. El vendedor no cabe "entre" dos capas del puesto por z: sus capas van de -600 a
-#  2560 sobre Game.Z_PERSONAJES, igual que las del jugador, y el puesto se ordena contra el jugador con
-#  solo dos z (PiezaPueblo: -1 y 3700). Recortarlo tampoco basta: la mitad alta del puesto (la que tapa a
-#  quien pasa por detras) lleva tambien el estante, y se le comia la cara (visto en las fotos del visor).
+#  COMO SE METE DENTRO. El vendedor no cabe "entre" dos capas del puesto por z: el puesto es UNA pieza con una
+#  sola z en el orden de Game (PiezaPueblo), y el muñeco tiene su banda entera por la altura de sus pies.
 #
 #  Asi que el vendedor se vuelve UNA PIEZA MAS DEL PUESTO: su muñeco se pinta en un SubViewport del
 #  lienzo del puesto (algo mas ancho, ver MARGEN), y esa imagen se coloca como una PiezaPueblo entre el puesto entero y su
-#  frente (PlazaSprites._puesto_frente). Tres piezas con el mismo lienzo y la misma huella: PiezaPueblo
-#  las sube y las baja a la vez, y entre ellas manda el orden del arbol (puesto, vendedor, frente).
+#  frente (PlazaSprites._puesto_frente). Tres piezas con el mismo lienzo y la misma huella: van juntas en el
+#  orden, y entre ellas manda el orden en que se crearon (puesto, vendedor, frente).
 #
 #  El aspecto sale de su numero, como el de los guardias: igual en todos los PC.
 #
@@ -67,8 +65,7 @@ func _ready() -> void:
 	_muneco.montar(_pj)
 	_muneco.tenir(_pj.color, 0.0)
 	_pieza = PiezaPueblo.crear_textura("vendedor_%d" % indice, _vista.get_texture(), tam,
-		int(PlazaSprites.PIEZAS[puesto]["pie"]), true)
-	_pieza.ancho_delante = float(tam_puesto.x)
+		int(PlazaSprites.PIEZAS[puesto]["pie"]))
 	add_child(_pieza)
 	_pieza.global_position = _esquina_vista()
 	_calle = Node2D.new()
@@ -94,13 +91,6 @@ func _actualizar() -> void:
 	var anim: String = PoseJugador.animacion(e["mira"], 1, bool(e["moviendose"]), false, false)
 	_muneco.visible = dentro
 	_calle.visible = fuera
-	# En el grupo de los NPC solo mientras anda por la calle: escondido en casa o metido en el puesto no
-	# tiene que bajar el tejado de ninguna farola ni de ningun brasero (ver PiezaPueblo._personajes).
-	if fuera != _calle.is_in_group(PiezaPueblo.GRUPO_NPC):
-		if fuera:
-			_calle.add_to_group(PiezaPueblo.GRUPO_NPC)
-		else:
-			_calle.remove_from_group(PiezaPueblo.GRUPO_NPC)
 	if dentro:
 		# En px de la imagen del puesto.
 		_muneco.position = ((e["pos"] as Vector2) - _esquina_vista()).round()

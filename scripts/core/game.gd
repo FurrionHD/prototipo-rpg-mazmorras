@@ -6362,7 +6362,7 @@ func _ordenar_munecos() -> void:
 		if m == null or not m.is_visible_in_tree() or m.get_viewport() != vp or m.get_canvas_layer_node() != null:
 			continue
 		if vista.has_point(m.global_position):
-			lista.append([m.global_position.y + PoseJugador.PIES_BAJO_NODO, m])
+			lista.append([m.global_position.y + PoseJugador.PIES_BAJO_NODO, m, m.get_instance_id()])
 	# LOS ENEMIGOS EN LAS MISMAS BANDAS (10/10, el 5 del playtest 09/10): antes iban ENTEROS delante o detras de todos
 	# los personajes segun el aliado mas cercano (z_frente_a_personajes), y como cada maquina tiene sus aliados, en una
 	# el minotauro tapaba a todos y en la otra todos a el. Ahora cada uno en su sitio por su altura, igual en todas.
@@ -6372,15 +6372,32 @@ func _ordenar_munecos() -> void:
 		if e == null or not e.is_visible_in_tree() or e.get_viewport() != vp or e.get_canvas_layer_node() != null:
 			continue
 		if vista.has_point(e.global_position):
-			lista.append([Cuerpos.caja_de(e).get_center().y, e])
-	# A la misma altura desempata algo fijo (si no, el orden bailaria de un fotograma a otro y parpadearian).
+			lista.append([Cuerpos.caja_de(e).get_center().y, e, e.get_instance_id()])
+	# LAS PIEZAS DEL PUEBLO TAMBIEN (12/10, C2 del playtest 11/10): la farola, el puesto, la casa... por la linea de
+	# su suelo. Antes tenian una sola z para todos y con uno delante y otro detras tapaban al de delante.
+	for n in get_tree().get_nodes_in_group(PiezaPueblo.GRUPO):
+		var p := n as PiezaPueblo
+		if p == null or not p.is_visible_in_tree() or p.get_viewport() != vp or p.get_canvas_layer_node() != null:
+			continue
+		if vista.intersects(p.rect_global()):
+			lista.append([p.linea_suelo(), p, p.orden])
+	# A la misma altura desempata algo fijo (si no, el orden bailaria de un fotograma a otro y parpadearian). Las
+	# piezas, por el orden en que se crearon (el frente del puesto encima del vendedor y este encima del puesto).
 	lista.sort_custom(func(a: Array, b: Array) -> bool:
-		return a[0] < b[0] or (a[0] == b[0] and (a[1] as Node2D).get_instance_id() < (b[1] as Node2D).get_instance_id()))
+		return a[0] < b[0] or (a[0] == b[0] and int(a[2]) < int(b[2])))
+	# Las z se van sumando: un muñeco o un enemigo gasta su banda entera (sus capas) y una pieza solo PASO_Z.
+	var z: int = Z_PERSONAJES
+	var tope: int = Z_PERSONAJES + (MAX_BANDAS - 1) * BANDA_MUNECO
 	for k in lista.size():
-		var z: int = Z_PERSONAJES + mini(k, MAX_BANDAS - 1) * BANDA_MUNECO
 		var nodo: Node2D = lista[k][1]
-		if nodo.z_index != z:
-			nodo.z_index = z
+		var zk: int = mini(z, tope)
+		if nodo is PiezaPueblo:
+			(nodo as PiezaPueblo).poner_z(zk)
+			z += PiezaPueblo.PASO_Z
+		else:
+			if nodo.z_index != zk:
+				nodo.z_index = zk
+			z += BANDA_MUNECO
 
 
 func _process(delta: float) -> void:

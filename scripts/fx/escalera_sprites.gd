@@ -383,7 +383,7 @@ const SUBE_MARGEN := 40.0
 
 static func montar(padre: Node2D, clave: String) -> PiezaPueblo:
 	var p: PiezaPueblo = PiezaPueblo.crear_textura("escalera_" + clave, textura(clave), TAM[clave], PIE[clave],
-		clave == "sube", SUBE_MARGEN)
+		SUBE_MARGEN if clave == "sube" else PiezaPueblo.MARGEN_SUELO)
 	p.position = -CENTRO[clave]
 	padre.add_child(p)
 	if clave == "caracol":
