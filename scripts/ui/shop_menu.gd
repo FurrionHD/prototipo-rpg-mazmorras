@@ -656,10 +656,7 @@ func ficha_objeto(vb: VBoxContainer, m: Resource, cantidad: int = 0) -> void:
 		row(vb, "Tipo", md.tipo_texto())
 		row(vb, "Peso", "%s por unidad" % MaterialData.texto_peso(md.peso_base))
 		# Cuantas llevas ENCIMA: lo que decide si hace falta comprar mas antes de bajar es la bolsa.
-		var llevas: int = 0
-		for x in Game.materiales:
-			if x != null and x.data == md:
-				llevas += 1
+		var llevas: int = Game.en_bolsa(md)
 		row(vb, "Llevas", "%d en la bolsa" % llevas)
 	elif m is ConsumableData:
 		var cd := m as ConsumableData

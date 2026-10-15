@@ -583,11 +583,7 @@ func _build_bolsa() -> void:
 	_contador("Peso  %d / %d" % [roundi(Game.peso_actual()), roundi(Game.capacidad_carga())],
 		Game.esta_sobrecargado())
 
-	var items: Array = []
-	for c in Game.crystals:
-		items.append(c)
-	for m in Game.materiales:
-		items.append(m)
+	var items: Array = Game.cristales.montones() + Game.bolsa.montones()
 	_stacks = _aplicar(_agrupar(items))
 	_grid_detail(_piezas_stacks(_stacks), _preview_bolsa)
 
@@ -762,7 +758,7 @@ func _build_farolillo() -> void:
 	for t in Game.owned_tools:
 		if (t as ToolData).es_lampara():
 			_stacks.append({"modelo": t, "cantidad": 1})
-	var carbones: Array = _agrupar(Game.carbon)   # por material Y calidad (ver _clave_item)
+	var carbones: Array = _agrupar(Game.carbonera.montones())   # por material Y calidad (ver _clave_item)
 	_stacks.append_array(carbones)
 	if _stacks.is_empty():
 		_note(_content, "No tienes ningún farolillo. Se forjan en la herrería, en Herramientas, "

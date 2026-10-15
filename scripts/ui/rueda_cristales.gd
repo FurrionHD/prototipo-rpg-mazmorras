@@ -85,11 +85,11 @@ func _cerrar() -> void:
 
 func _rehacer_grupos() -> void:
 	var por_clave: Dictionary = {}
-	for c in Game.crystals:
+	for c in Game.cristales.montones():
 		var k := Vector2i(c.categoria, int(c.calidad))
 		if not por_clave.has(k):
 			por_clave[k] = {"modelo": c, "n": 0}
-		por_clave[k]["n"] += 1
+		por_clave[k]["n"] += int(c.n)
 	var claves: Array = por_clave.keys()
 	# Categoria de menor a mayor; dentro, de la mejor calidad a la peor (INTACTO es el 0).
 	claves.sort_custom(func(a, b): return a.x < b.x or (a.x == b.x and a.y < b.y))

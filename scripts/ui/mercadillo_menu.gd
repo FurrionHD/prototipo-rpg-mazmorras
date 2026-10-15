@@ -216,10 +216,7 @@ func _pintar_ficha() -> void:
 	MenuScaffold.banner_item(_ficha, md, "", "Ingrediente de cocina")
 	MenuScaffold.fila(_ficha, "Tipo", md.tipo_texto())
 	MenuScaffold.fila(_ficha, "Peso", "%s por unidad" % MaterialData.texto_peso(md.peso_base))
-	var llevas: int = 0
-	for x in Game.materiales:
-		if x != null and x.data == md:
-			llevas += 1
+	var llevas: int = Game.en_bolsa(md)
 	MenuScaffold.fila(_ficha, "Llevas", "%d en la bolsa" % llevas)
 	MenuScaffold.fila(_ficha, "Precio", "%d monedas" % precio, 170, AMBAR)
 

@@ -58,7 +58,7 @@ func _correr() -> void:
 	var dinero_antes: int = Game.money
 	var fuerza_antes: float = float(lider.ability_internal.get("fuerza", 0.0))
 	var estados_antes: int = lider.estados.size()
-	var bolsa_antes: int = Game.materiales.size()
+	var bolsa_antes: int = Game.bolsa.total()
 
 	# 1) ENTRAR (lo que hace el porton del pueblo).
 	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
@@ -105,11 +105,11 @@ func _correr() -> void:
 	lider.ability_internal["fuerza"] = fuerza_antes + 500.0
 	Game.money = dinero_antes + 12345
 	var mat: MaterialItem = null
-	for m in Game.materiales:
+	for m in Game.bolsa.montones():
 		mat = m
 		break
 	if mat != null:
-		Game.materiales.append(mat)
+		Game.bolsa.anadir(mat, 1)   # UNA mas (mat es un monton de dentro: sin el 1 metia el monton entero)
 	_ok("el plato se ha gastado y me ha puesto su estado",
 		int(Game.consumables.get(plato, 0)) == 2 and lider.estados.size() > estados_antes)
 
@@ -132,7 +132,7 @@ func _correr() -> void:
 	_ok("y su estado se ha ido", lider.estados.size() == estados_antes)
 	_ok("la excelia vuelve a la de antes", float(lider.ability_internal.get("fuerza", 0.0)) == fuerza_antes)
 	_ok("el dinero tambien", Game.money == dinero_antes)
-	_ok("y lo recogido no sale", Game.materiales.size() == bolsa_antes)
+	_ok("y lo recogido no sale", Game.bolsa.total() == bolsa_antes)
 	jug = get_tree().get_first_node_in_group("player") as Node2D
 	var junto: bool = jug != null and jug.global_position.distance_to(PuebloPlano.vuelta_de_arena_px()) < 40.0
 	_ok("aparezco junto al porton del pueblo", junto)

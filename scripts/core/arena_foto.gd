@@ -35,8 +35,8 @@ static func sacar(g) -> Dictionary:
 	return {
 		"pjs": pjs, "metas": metas,
 		"plantilla": g.plantilla.duplicate(), "party": g.party.duplicate(), "lider_idx": g.lider_idx,
-		"money": g.money, "crystals": g.crystals.duplicate(), "materiales": g.materiales.duplicate(),
-		"carbon": g.carbon.duplicate(), "consumables": g.consumables.duplicate(),
+		"money": g.money, "crystals": g.cristales.a_lista(), "materiales": g.bolsa.a_lista(),
+		"carbon": g.carbonera.a_lista(), "consumables": g.consumables.duplicate(),
 		"cebo": g.cebo_activo, "llama": g.lampara_llama, "llama_total": g.lampara_llama_total,
 		"registro_pesca": g.registro_pesca.duplicate(true),
 	}
@@ -59,9 +59,9 @@ static func aplicar(g, foto: Dictionary) -> void:
 	g.party.assign(foto["party"])
 	g.lider_idx = int(foto["lider_idx"])
 	g.money = int(foto["money"])
-	g.crystals.assign(foto["crystals"])
-	g.materiales.assign(foto["materiales"])
-	g.carbon.assign(foto["carbon"])
+	for par in [[g.cristales, "crystals"], [g.bolsa, "materiales"], [g.carbonera, "carbon"]]:
+		(par[0] as Monton).vaciar()
+		(par[0] as Monton).anadir_lista(foto[par[1]])
 	g.consumables = (foto["consumables"] as Dictionary).duplicate()
 	g.cebo_activo = foto["cebo"]
 	g.lampara_llama = float(foto["llama"])

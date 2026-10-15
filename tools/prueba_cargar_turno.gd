@@ -53,7 +53,7 @@ func _correr() -> void:
 	Game.equipar_arma(load("res://resources/weapons/arco.tres") as WeaponData)
 	var flecha: MaterialData = load("res://resources/materials/flecha_acero.tres")
 	for _i in 20:
-		Game.materiales.append(MaterialItem.crear(flecha))
+		Game.bolsa.anadir(MaterialItem.crear(flecha))
 	var untura: ConsumableData = load("res://resources/consumables/ponzona_ciempies.tres")
 	Game.consumables[untura] = 2
 	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")

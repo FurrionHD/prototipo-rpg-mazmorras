@@ -2903,9 +2903,9 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -
 	gacha_historial.clear()
 	recompra.clear()
 
-	crystals.clear()
-	materiales.clear()
-	carbon.clear()
+	cristales.vaciar()
+	bolsa.vaciar()
+	carbonera.vaciar()
 	# Y la llama, que ahora persiste: sin esto una partida nueva heredaria el trozo encendido de la
 	# anterior (el farol del HUD arrancaria a medias sin un solo carbon en la carbonera).
 	lampara_llama = 0.0
@@ -3075,9 +3075,9 @@ func exportar_partida() -> SaveData:
 	d.tiradas_novato = tiradas_novato
 	d.gacha_historial = gacha_historial.duplicate(true)
 
-	d.crystals = crystals.duplicate()
-	d.materiales = materiales.duplicate()
-	d.carbon = carbon.duplicate()
+	d.crystals = cristales.a_lista()
+	d.materiales = bolsa.a_lista()
+	d.carbon = carbonera.a_lista()
 	d.lampara_llama = lampara_llama
 	d.lampara_llama_total = lampara_llama_total
 	d.almacen_materiales = baul.a_lista()
@@ -3284,9 +3284,9 @@ func _mi_jugador_data(en_mazmorra: bool, player: Node) -> JugadorData:
 	jd.equipo = party.duplicate()
 	jd.lider_pos = clampi(lider_idx, 0, maxi(0, party.size() - 1))
 	jd.dinero = money
-	jd.crystals = crystals.duplicate()
-	jd.materiales = materiales.duplicate()
-	jd.carbon = carbon.duplicate()
+	jd.crystals = cristales.a_lista()
+	jd.materiales = bolsa.a_lista()
+	jd.carbon = carbonera.a_lista()
 	jd.lampara_llama = lampara_llama
 	jd.lampara_llama_total = lampara_llama_total
 	jd.consumibles = {}
@@ -3500,7 +3500,7 @@ func limpiar_mundo_heredado() -> void:
 	equipped_cuchillo = null
 	equipped_lampara = null
 	# La carbonera y la llama tambien son de MI partida: llegan en el JugadorData como la lampara.
-	carbon.clear()
+	carbonera.vaciar()
 	lampara_llama = 0.0
 	lampara_llama_total = 0.0
 	# LA FOTO DE LA ARENA es de MI partida anterior, y es lo mas peligroso de todo lo que se hereda: el
@@ -3578,10 +3578,13 @@ func _adoptar_jugador(jd: JugadorData) -> void:
 	lider_idx = clampi(jd.lider_pos, 0, maxi(0, eq.size() - 1))
 
 	money = jd.dinero
-	# Vienen en MONTONES de la base de datos (o de la red): la bolsa aun va por unidad (fase 1A, paso 3).
-	crystals.assign(Monton.por_unidad(jd.crystals))
-	materiales.assign(Monton.por_unidad(jd.materiales))
-	carbon.assign(Monton.por_unidad(jd.carbon))
+	# Vale la lista de antes (un objeto por unidad) y la contada (montones de la base de datos o de la red).
+	cristales.vaciar()
+	cristales.anadir_lista(jd.crystals)
+	bolsa.vaciar()
+	bolsa.anadir_lista(jd.materiales)
+	carbonera.vaciar()
+	carbonera.anadir_lista(jd.carbon)
 	_migrar_carbon()
 	_restaurar_llama(jd.lampara_llama, jd.lampara_llama_total)
 	consumables.clear()
@@ -3836,10 +3839,13 @@ func importar_partida(d: SaveData) -> void:
 	# tendero tal y como lo dejaste hace tres dias.
 	recompra.clear()
 
-	# Vienen en MONTONES de la base de datos (o de la red): la bolsa aun va por unidad (fase 1A, paso 3).
-	crystals.assign(Monton.por_unidad(d.crystals))
-	materiales.assign(Monton.por_unidad(d.materiales))
-	carbon.assign(Monton.por_unidad(d.carbon))
+	# Vale la lista de antes (un objeto por unidad) y la contada (montones de la base de datos o de la red).
+	cristales.vaciar()
+	cristales.anadir_lista(d.crystals)
+	bolsa.vaciar()
+	bolsa.anadir_lista(d.materiales)
+	carbonera.vaciar()
+	carbonera.anadir_lista(d.carbon)
 	_migrar_carbon()
 	_restaurar_llama(d.lampara_llama, d.lampara_llama_total)
 	baul.vaciar()
@@ -3984,7 +3990,7 @@ func importar_partida(d: SaveData) -> void:
 	# que tengas encima o en el baul: si no, un veterano con el baul lleno de hierro abriria la
 	# forja y no veria ni el hierro.
 	materiales_vistos = d.materiales_vistos.duplicate()
-	for lista in [materiales, baul.montones()]:
+	for lista in [bolsa.montones(), baul.montones()]:
 		for it in lista:
 			if it != null:
 				descubrir((it as MaterialItem).data)
@@ -4303,8 +4309,8 @@ func morir_jugador() -> void:
 	mensaje_muerte = "Has caído en la mazmorra. Te rescatan, pero el botín se queda abajo: pierdes %d cristal%s y %d material%s." % [
 		perdidos_c, "" if perdidos_c == 1 else "es",
 		perdidos_d, "" if perdidos_d == 1 else "es"]
-	print("[muerte] ", mensaje_muerte, " | te quedan ", crystals.size(), " cristales y ",
-		materiales.size(), " materiales")
+	print("[muerte] ", mensaje_muerte, " | te quedan ", cristales.total(), " cristales y ",
+		bolsa.total(), " materiales")
 
 	# La muerte se GUARDA SOLA: no vale morir y recargar la partida de hace un rato. Si se
 	# pudiera deshacer, el castigo por caer seria decorativo y la decision de "¿subo a vender
@@ -4323,17 +4329,14 @@ func morir_jugador() -> void:
 # no: es la luz, y sin ella no se vuelve a bajar). Devuelve [cristales perdidos, materiales perdidos].
 # Prueba: unitarias/test_bolsa_juego
 func perder_botin_por_muerte() -> Array:
-	return [_perder_de(crystals), _perder_de(materiales)]
+	return [_perder_de(cristales), _perder_de(bolsa)]
 
 
-func _perder_de(lista: Array) -> int:
-	var n: int = lista.size()
+func _perder_de(m: Monton) -> int:
+	var n: int = m.total()
 	if n == 0:
 		return 0
-	var perder: int = mini(n, int(round(float(n) * MUERTE_PERDIDA)))
-	for _i in range(perder):
-		lista.remove_at(randi() % lista.size())
-	return perder
+	return m.quitar_al_azar(mini(n, int(round(float(n) * MUERTE_PERDIDA))))
 
 # --- Escalado del ENEMIGO por PROFUNDIDAD (piso) ---
 # NIVEL 1 = pisos 1..13. Dos ejes distintos:
@@ -5312,11 +5315,12 @@ func cerrar_menus_abiertos() -> void:
 # --- BOLSA: lo que llevas ENCIMA de la expedicion. Es lo unico que PESA (peso_actual).
 # Los cristales solo salen de la bolsa vendiendolos en la tienda; los materiales se pueden
 # guardar en el HOGAR (ver guardar_materiales_en_hogar).
-var crystals: Array[Cristal] = []
+# CONTADOS, igual que el baul (plan de optimizacion, fase 1A): una entrada por clase con su cantidad (ver Monton).
+var cristales := Monton.new()
 # MATERIALES: lo que sueltan los bichos (baba, nucleo) y lo que recolectas (mineral, planta).
 # Todos son MaterialItem = plantilla (MaterialData) + calidad. Las dos FAMILIAS (corriente /
 # nucleo) conviven en la misma bolsa: quien las separa es el que las usa (pociones vs forja).
-var materiales: Array[MaterialItem] = []
+var bolsa := Monton.new()
 
 # --- BAUL DEL HOGAR: materiales ya guardados en casa. No pesan.
 # CONTADO (plan de optimizacion, fase 1A): una entrada por material + calidad + talla con su cantidad, no un
@@ -5335,8 +5339,8 @@ var baul := Monton.new()
 # Va con el FAROLILLO en la interfaz (misma pestaña), porque juntos son una sola cosa: la luz.
 #
 # Todo lo que se recolecte de tipo COMBUSTIBLE aterriza aqui, y de eso se encarga guardar_material()
-# -- que es el UNICO sitio que decide a que contenedor va cada cosa.
-var carbon: Array[MaterialItem] = []
+# -- que es el UNICO sitio que decide a que contenedor va cada cosa. Contada, como la bolsa (ver Monton).
+var carbonera := Monton.new()
 
 
 # EL EMBUDO. Todo lo que entra en tus manos recolectando pasa por aqui, y aqui se decide en que
@@ -5369,20 +5373,13 @@ func _migrar_metalurgia() -> void:
 
 func _migrar_carbon() -> void:
 	var movidos: int = 0
-	for i in range(materiales.size() - 1, -1, -1):
-		var m: MaterialItem = materiales[i]
-		if m == null or m.data == null or int(m.data.tipo) != MaterialData.Tipo.COMBUSTIBLE:
-			continue
-		carbon.append(m)
-		materiales.remove_at(i)
-		movidos += 1
-	for e in baul.montones().duplicate():
-		if e == null or e.data == null or int(e.data.tipo) != MaterialData.Tipo.COMBUSTIBLE:
-			continue
-		var cuantos: int = baul.quitar(e, int(e.n))
-		for k in cuantos:
-			carbon.append(MaterialItem.crear(e.data, e.calidad))
-		movidos += cuantos
+	for origen in [bolsa, baul]:
+		for e in (origen as Monton).montones().duplicate():
+			if e == null or e.data == null or int(e.data.tipo) != MaterialData.Tipo.COMBUSTIBLE:
+				continue
+			var cuantos: int = (origen as Monton).quitar(e, int(e.n))
+			carbonera.anadir(e, cuantos)
+			movidos += cuantos
 	if movidos > 0:
 		print("[carbonera] %d de carbon recogidos de la bolsa/almacen de una partida anterior." % movidos)
 
@@ -5391,7 +5388,7 @@ func _migrar_carbon() -> void:
 # (o de todas con calidad < 0). Existen para que las pruebas y las pantallas pregunten sin saber como se guarda
 # por dentro (plan de optimizacion, fase 1A: las listas pasan a ir contadas). Prueba: unitarias/test_baul_juego
 func en_bolsa(mat: MaterialData, calidad: int = -1) -> int:
-	return _contar_en(materiales, mat, calidad) + _contar_en(carbon, mat, calidad)
+	return bolsa.cantidad(mat, calidad) + carbonera.cantidad(mat, calidad)
 
 func en_hogar(mat: MaterialData, calidad: int = -1) -> int:
 	return baul.cantidad(mat, calidad)
@@ -5399,34 +5396,24 @@ func en_hogar(mat: MaterialData, calidad: int = -1) -> int:
 # Cristales que llevas: de una categoria y calidad, o de todas (< 0).
 func cristales_en_bolsa(categoria: int = -1, calidad: int = -1) -> int:
 	var n: int = 0
-	for c in crystals:
-		if c != null and (categoria < 0 or c.categoria == categoria) and (calidad < 0 or int(c.calidad) == calidad):
-			n += 1
+	for c in cristales.montones():
+		if (categoria < 0 or c.categoria == categoria) and (calidad < 0 or int(c.calidad) == calidad):
+			n += int(c.n)
 	return n
 
 func total_en_bolsa() -> int:
-	return materiales.size() + carbon.size()
+	return bolsa.total() + carbonera.total()
 
 func total_en_hogar() -> int:
 	return baul.total()
-
-func _contar_en(lista: Array, mat: MaterialData, calidad: int) -> int:
-	if mat == null:
-		return 0
-	var n: int = 0
-	for m in lista:
-		if m != null and m.data != null and m.data.id == mat.id and (calidad < 0 or int(m.calidad) == calidad):
-			n += 1
-	return n
-
 
 func guardar_material(m: MaterialItem) -> void:
 	if m == null:
 		return
 	if int(m.data.tipo) == MaterialData.Tipo.COMBUSTIBLE:
-		carbon.append(m)
+		carbonera.anadir(m)
 		return
-	materiales.append(m)
+	bolsa.anadir(m)
 
 # ============================================================
 #  REGISTRO DE PESCA: el libro del Pescador
@@ -6349,11 +6336,11 @@ func _ready() -> void:
 	# TEMPORAL: relleno de cristales hasta ~X% de la capacidad para probar peso.
 	if dev_start_weight_ratio > 0.0:
 		var objetivo: float = dev_start_weight_ratio * capacidad_carga()
-		while peso_actual() < objetivo and crystals.size() < 200:
+		while peso_actual() < objetivo and cristales.total() < 200:
 			var c := Cristal.new()
 			c.categoria = randi_range(1, 3)
 			c.calidad = Cristal.Calidad.INTACTO
-			crystals.append(c)
+			cristales.anadir(c)
 
 
 # Le pone el tema a la raiz de cada pantalla nueva (ver _ready). Solo actua sobre el Control que
@@ -6613,16 +6600,16 @@ func gastar_llama(delta: float) -> void:
 # Enciende el siguiente trozo. Coge EL DE MENOS DURACION primero: asi la antracita se te queda
 # para lo hondo, que es donde hace falta, sin que tengas que administrarla a mano.
 func _prender_siguiente_carbon() -> bool:
-	var mejor: int = -1
+	var mejor: MaterialItem = null
 	var mejor_dur: float = INF
-	for i in carbon.size():
-		var d: float = Lampara.duracion(carbon[i])
+	for m in carbonera.montones():
+		var d: float = Lampara.duracion(m)
 		if d < mejor_dur:
 			mejor_dur = d
-			mejor = i
-	if mejor < 0:
+			mejor = m
+	if mejor == null:
 		return false
-	carbon.remove_at(mejor)
+	carbonera.quitar(mejor, 1)
 	lampara_llama = mejor_dur
 	lampara_llama_total = mejor_dur
 	return true
@@ -6642,7 +6629,7 @@ func lampara_encendida() -> bool:
 
 # Cuantos trozos te quedan en la carbonera (sin contar el que esta ardiendo).
 func carbon_restante() -> int:
-	return carbon.size()
+	return carbonera.total()
 
 
 # LO QUE QUEDA DE LUZ EN TOTAL, en segundos: lo que le queda al trozo encendido mas lo que dura toda
@@ -6651,8 +6638,8 @@ func carbon_restante() -> int:
 # trozos por separado, y sumarlos era cosa tuya.
 func luz_total_restante() -> float:
 	var s: float = maxf(lampara_llama, 0.0)
-	for m in carbon:
-		s += Lampara.duracion(m)
+	for m in carbonera.montones():
+		s += Lampara.duracion(m) * int(m.n)
 	return s
 
 
@@ -7514,10 +7501,10 @@ const HAB_UNTAR: AbilityData = preload("res://resources/abilities/untar.tres")
 # mas a la que menos.
 func municion_en_bolsa(arma: int) -> Array:
 	var cuenta: Dictionary = {}
-	for it in materiales:
-		var md: MunicionData = it.data as MunicionData if it != null else null
+	for it in bolsa.montones():
+		var md: MunicionData = it.data as MunicionData
 		if md != null and md.arma == arma:
-			cuenta[md] = int(cuenta.get(md, 0)) + 1
+			cuenta[md] = int(cuenta.get(md, 0)) + int(it.n)
 	var out: Array = []
 	for md in cuenta:
 		out.append({"md": md, "n": int(cuenta[md])})
@@ -7526,18 +7513,15 @@ func municion_en_bolsa(arma: int) -> Array:
 
 # SACA de la bolsa hasta 'n' de 'md', de la MEJOR calidad a la peor, y devuelve sus calidades en ese orden.
 func sacar_municion_de_bolsa(md: MunicionData, n: int) -> Array:
-	var suyas: Array = []
-	for it in materiales:
-		if it != null and it.data == md:
-			suyas.append(it)
-	# El enum de calidad NO va en orden (INTACTO es 0 y PURO 4): se ordena por su rango de verdad.
-	var rango := {MaterialItem.Calidad.PURO: 4, MaterialItem.Calidad.INTACTO: 3, MaterialItem.Calidad.NORMAL: 2,
-		MaterialItem.Calidad.DANADO: 1, MaterialItem.Calidad.ROTO: 0}
-	suyas.sort_custom(func(a, b): return int(rango.get(int(a.calidad), 0)) > int(rango.get(int(b.calidad), 0)))
+	# El enum de calidad NO va en orden (INTACTO es 0 y PURO 4): se recorre por su rango de verdad.
 	var cals: Array = []
-	for i in mini(n, suyas.size()):
-		materiales.erase(suyas[i])
-		cals.append(int(suyas[i].calidad))
+	for cal in [MaterialItem.Calidad.PURO, MaterialItem.Calidad.INTACTO, MaterialItem.Calidad.NORMAL,
+			MaterialItem.Calidad.DANADO, MaterialItem.Calidad.ROTO]:
+		var q: int = bolsa.quitar_material(md, int(cal), n - cals.size())
+		for k in q:
+			cals.append(int(cal))
+		if cals.size() >= n:
+			break
 	return cals
 
 # Devuelve a la BOLSA municion [[MunicionData, calidad]] (lo que se cargo y no se disparo).
@@ -7545,7 +7529,7 @@ func devolver_municion_a_bolsa(lista: Array) -> void:
 	for par in lista:
 		var md: MunicionData = par[0] as MunicionData
 		if md != null:
-			materiales.append(MaterialItem.crear(md, int(par[1])))
+			bolsa.anadir_de(md, int(par[1]))
 
 # ¿Lleva un ARCO o una BALLESTA en la principal? Es lo que hace que el ataque del mapa dispare de lejos.
 # Devuelve a la bolsa la municion cargada que el arma de ahora no dispara (cambiar de arco a ballesta o a otra).
@@ -9686,19 +9670,10 @@ func capacidad_carga() -> float:
 	return _capacidad_con(base_capacity + capacidad_mochila(), mochila_fuerza_saturacion())
 
 func peso_actual() -> float:
-	var w: float = 0.0
-	for c in crystals:
-		w += c.peso()
-	for m in materiales:
-		# EL CARBON NO PESA. Se queda en la bolsa como todo lo demas (con su calidad, su pila y su
-		# minijuego), pero la balanza no lo mira: la luz no es equipo opcional sino el requisito
-		# para ver, asi que cobrar carga por llevar con que ver seria cobrar dos veces por lo
-		# mismo. Se excluye por TIPO y no sacandolo de 'materiales', que es lo que romperia todo
-		# lo demas. Ver MaterialData.Tipo.COMBUSTIBLE.
-		if int(m.data.tipo) == MaterialData.Tipo.COMBUSTIBLE:
-			continue
-		w += m.peso()
-	return w
+	# EL CARBON NO PESA: vive en la carbonera, que no entra en la cuenta (la luz no es equipo opcional sino el
+	# requisito para ver, asi que cobrar carga por llevar con que ver seria cobrar dos veces). Cada Monton guarda
+	# su peso en cache y solo lo rehace cuando cambia: antes esto recorria la bolsa entera varias veces por frame.
+	return cristales.peso() + bolsa.peso()
 
 func ratio_carga() -> float:
 	var cap: float = capacidad_carga()
@@ -10344,12 +10319,12 @@ func guardar_materiales_en_hogar() -> int:
 	# antes). Sin el, se bloquea para no desincronizar el baul del host.
 	if not Net.hogar.tengo_taller():
 		return 0
-	var n: int = materiales.size()
+	var n: int = bolsa.total()
 	if n == 0:
 		return 0
-	for m in materiales:
-		baul.anadir(m)
-	materiales.clear()
+	for m in bolsa.montones():
+		baul.anadir(m)   # con su n
+	bolsa.vaciar()
 	print("[hogar] Guardas %d materiales. Total en casa: %d" % [n, baul.total()])
 	return n
 
@@ -10378,9 +10353,9 @@ func recoger_materiales_del_hogar(todo: bool = true) -> int:
 		return 0
 	var cogidos: int = 0
 	if todo:
-		for m in baul.expandir():
-			materiales.append(m)
-			cogidos += 1
+		for m in baul.montones():
+			bolsa.anadir(m)   # con su n
+		cogidos = baul.total()
 		baul.vaciar()
 	else:
 		# Solo hasta el umbral de sobrecarga, monton a monton: de cada uno, los que quepan.
@@ -10390,8 +10365,8 @@ func recoger_materiales_del_hogar(todo: bool = true) -> int:
 			var caben: int = int(e.n) if w <= 0.0 else mini(int(e.n), int(floor(libre / w)))
 			if caben <= 0:
 				continue   # este no cabe, pero puede que uno mas ligero de mas adelante si
-			for k in caben:
-				materiales.append(baul.sacar_uno(e))
+			bolsa.anadir(e, caben)
+			baul.quitar(e, caben)
 			libre -= w * caben
 			cogidos += caben
 	print("[hogar] Recoges %d materiales%s. Quedan en casa: %d. Carga: %.1f/%.1f%s" % [
@@ -10409,23 +10384,12 @@ func recoger_materiales_del_hogar(todo: bool = true) -> int:
 func mover_monton_material(modelo: MaterialItem, a_casa: bool, cuantos: int = -1) -> int:
 	if modelo == null or not Net.hogar.tengo_taller():
 		return 0
-	var clave: String = clave_monton(modelo)
 	var movidos: int = 0
-	if a_casa:
-		for i in range(materiales.size() - 1, -1, -1):
-			if cuantos >= 0 and movidos >= cuantos:
-				break
-			var m = materiales[i]
-			if m is MaterialItem and clave_monton(m) == clave:
-				materiales.remove_at(i)
-				baul.anadir(m)
-				movidos += 1
-		return movidos
-	var hay: int = baul.cantidad_de(modelo)
-	var a_sacar: int = hay if cuantos < 0 else mini(hay, cuantos)
-	for k in a_sacar:
-		materiales.append(baul.sacar_uno(modelo))
-		movidos += 1
+	var origen: Monton = bolsa if a_casa else baul
+	var destino: Monton = baul if a_casa else bolsa
+	var hay: int = origen.cantidad_de(modelo)
+	movidos = origen.quitar(modelo, hay if cuantos < 0 else mini(hay, cuantos))
+	destino.anadir(modelo, movidos)
 	return movidos
 
 
@@ -10577,13 +10541,14 @@ func vender_consumible(c: ConsumableData, n: int) -> int:
 
 # Vacia la bolsa de cristales de un clic (lo que hacia la tienda vieja).
 func vender_todos_cristales() -> int:
-	if crystals.is_empty():
+	if cristales.esta_vacio():
 		return 0
 	var total: int = 0
-	for c in crystals:
-		total += precio_venta_item(c)
-	var n: int = crystals.size()
-	crystals.clear()
+	for c in cristales.montones():
+		for k in int(c.n):
+			total += precio_venta_item(c)   # una a una: cada cristal tira su precio
+	var n: int = cristales.total()
+	cristales.vaciar()
 	ingresar(total)
 	print("[tienda] Vendes %d cristales por %d. Dinero: %d" % [n, total, money])
 	return total
@@ -10696,8 +10661,10 @@ func comprar_material(base: MaterialData, n: int = 1) -> bool:
 		return false
 	# NO se mira la sobrecarga a proposito: recolectar tampoco la mira. Pasarte de peso te FRENA
 	# (esta_sobrecargado), no te impide coger cosas.
-	for _i in range(n):
-		materiales.append(MaterialItem.crear(base, MaterialItem.Calidad.NORMAL))
+	guardar_material(MaterialItem.crear(base, MaterialItem.Calidad.NORMAL))   # una, por el embudo (carbon aparte)
+	if n > 1:
+		(carbonera if int(base.tipo) == MaterialData.Tipo.COMBUSTIBLE else bolsa).anadir_de(
+			base, MaterialItem.Calidad.NORMAL, n - 1)
 	descubrir(base)
 	print("[tienda] Compras %d x %s por %d. Dinero: %d" % [n, base.nombre, precio, money])
 	return true
@@ -11694,7 +11661,7 @@ func refinar(origen: MaterialData, destino: MaterialData, cal: int, veces: int, 
 		# regla que aplica guardar_material a lo que recolectas, aqui a lo que fabricas.
 		var salida: MaterialItem = MaterialItem.crear(destino, cal_final)
 		if int(destino.tipo) == MaterialData.Tipo.COMBUSTIBLE:
-			carbon.append(salida)
+			carbonera.anadir(salida)
 		else:
 			baul.anadir(salida)
 		descubrir(destino)
@@ -13544,13 +13511,13 @@ func embolsar(item: Resource) -> void:
 		guardar_material(m)
 		descubrir(m.data)
 		print("Recoges: ", m.nombre(), " (", m.calidad_texto(), "). Total materiales: ",
-			materiales.size())
+			bolsa.total())
 		_aviso_recogida(m.nombre(), 1, m.calidad_texto())
 	elif item is Cristal:
 		var c := item as Cristal
-		crystals.append(c)
+		cristales.anadir(c)
 		print("Recoges: Cristal Cat ", c.categoria, " (", c.calidad_texto(),
-			"). Total cristales: ", crystals.size())
+			"). Total cristales: ", cristales.total())
 		_aviso_recogida("Cristal T%d" % c.categoria, 1, c.calidad_texto())
 	elif item is ConsumableData:
 		# Por el mismo embudo que las compra la tienda: es un contador, no una lista.
@@ -13566,28 +13533,21 @@ func embolsar(item: Resource) -> void:
 # Saca de la bolsa UNA unidad equivalente al modelo (y la devuelve). null si no queda.
 func _sacar_de_bolsa(modelo: Resource) -> Resource:
 	if modelo is Cristal:
-		var m := modelo as Cristal
-		for i in crystals.size():
-			var c := crystals[i]
-			if c.categoria == m.categoria and c.calidad == m.calidad:
-				crystals.remove_at(i)
-				return c
+		var c: Resource = cristales.sacar_uno(modelo)
+		if c != null:
+			return c
 	elif modelo is MaterialItem:
 		var mm := modelo as MaterialItem
-		for i in materiales.size():
-			var m := materiales[i]
-			if _mismo_material(m, mm):
-				materiales.remove_at(i)
-				return m
+		var m: Resource = bolsa.sacar_uno(mm)
+		if m != null:
+			return m
 		# Y LA CARBONERA, que es otro saco. El carbon vive fuera de 'materiales' (no pesa, no va al
 		# almacen: ver la nota de Game.carbon), asi que mirando solo ahi arriba soltar un carbon
 		# devolvia 0 EN SILENCIO -- no habia ningun filtro que lo prohibiera, simplemente no se le
 		# buscaba donde esta. Al recogerlo, guardar_material() ya lo devuelve solo a la carbonera.
-		for i in carbon.size():
-			var c2 := carbon[i]
-			if _mismo_material(c2, mm):
-				carbon.remove_at(i)
-				return c2
+		var c2: Resource = carbonera.sacar_uno(mm)
+		if c2 != null:
+			return c2
 	elif modelo is ConsumableData:
 		# LAS POCIONES NO SON ITEMS: la bolsa las lleva como un contador por .tres
 		# (Game.consumables), asi que aqui no hay nada que "sacar" de un array -- se resta una y se
@@ -16031,17 +15991,17 @@ func _on_extraction_finished(cristal: Cristal, progreso: float, corpse) -> void:
 	_active_layer = null
 
 	if cristal != null and not cristal.se_pierde():
-		crystals.append(cristal)
+		cristales.anadir(cristal)
 		# Pasiva RNG de extraccion: tira por conseguirla y, si la tienes, un cristal extra igual.
 		rodar_pasiva("reco_extraccion")
 		if tiene_pasiva("reco_extraccion"):
 			var extra := Cristal.new()
 			extra.categoria = cristal.categoria
 			extra.calidad = cristal.calidad
-			crystals.append(extra)
+			cristales.anadir(extra)
 			print("[pasiva] +1 cristal por 'Pulso de joyero'.")
 		print("Obtienes cristal categoria ", cristal.categoria,
-			" (", cristal.calidad_texto(), "). Total: ", crystals.size())
+			" (", cristal.calidad_texto(), "). Total: ", cristales.total())
 		var cant_cristal: int = 2 if tiene_pasiva("reco_extraccion") else 1
 		_aviso_recogida("Cristal T%d" % cristal.categoria, cant_cristal, cristal.calidad_texto())
 		# Destreza: subes mas cuanto mas dificil era el cuerpo PARA TI. Mismo trato exacto que las
@@ -16298,7 +16258,7 @@ func _on_mineria_finished(item: MaterialItem, progreso: float, nodo) -> void:
 		descubrir(item.data)
 		# Pasiva RNG: +1 al botin, y esa pieza extra puede salir PURA si la recogida fue perfecta.
 		var cal_extra: int = _botin_extra_reco("reco_mineria", item.data, int(item.calidad))
-		print("Sacas ", item.nombre(), " (", item.calidad_texto(), "). Materiales: ", materiales.size())
+		print("Sacas ", item.nombre(), " (", item.calidad_texto(), "). Materiales: ", bolsa.total())
 		_aviso_recogida(item.nombre(), 1, item.calidad_texto())
 		if cal_extra == int(MaterialItem.Calidad.PURO):
 			_aviso_recogida(item.nombre(), 1, "¡PURO!")
@@ -16359,7 +16319,7 @@ func _on_herboristeria_finished(item: MaterialItem, progreso: float, nodo) -> vo
 		descubrir(item.data)
 		# Pasiva RNG: +1 al botin, y esa pieza extra puede salir PURA si la recogida fue perfecta.
 		var cal_extra: int = _botin_extra_reco("reco_herboristeria", item.data, int(item.calidad))
-		print("Recoges ", item.nombre(), " (", item.calidad_texto(), "). Materiales: ", materiales.size())
+		print("Recoges ", item.nombre(), " (", item.calidad_texto(), "). Materiales: ", bolsa.total())
 		_aviso_recogida(item.nombre(), 1, item.calidad_texto())
 		if cal_extra == int(MaterialItem.Calidad.PURO):
 			_aviso_recogida(item.nombre(), 1, "¡PURO!")
@@ -16423,7 +16383,7 @@ func _on_talado_finished(item: MaterialItem, progreso: float, nodo) -> void:
 		descubrir(item.data)
 		# Pasiva RNG: +1 al botin, y esa pieza extra puede salir PURA si la recogida fue perfecta.
 		var cal_extra: int = _botin_extra_reco("reco_talado", item.data, int(item.calidad))
-		print("Sacas ", item.nombre(), " (", item.calidad_texto(), "). Materiales: ", materiales.size())
+		print("Sacas ", item.nombre(), " (", item.calidad_texto(), "). Materiales: ", bolsa.total())
 		_aviso_recogida(item.nombre(), 1, item.calidad_texto())
 		if cal_extra == int(MaterialItem.Calidad.PURO):
 			_aviso_recogida(item.nombre(), 1, "¡PURO!")

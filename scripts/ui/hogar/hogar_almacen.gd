@@ -182,7 +182,7 @@ func _recoger(lado: int) -> Array:
 	var out: Array = []
 	match _cat:
 		CAT_MATERIALES:
-			var lista: Array = Game.baul.montones() if lado == LADO_CASA else Game.materiales
+			var lista: Array = Game.baul.montones() if lado == LADO_CASA else Game.bolsa.montones()
 			for s in _agrupar(lista):
 				out.append(_entrada(s["modelo"], int(s["cantidad"]), lado))
 		CAT_CONSUMIBLES:
@@ -342,7 +342,7 @@ var _modal: Control = null
 # El modal de las acciones en bloque: que va a pasar, con cuantos, y Cancelar / Confirmar.
 func _confirmar_bloque(que: String) -> void:
 	cerrar_modal()
-	var en_bolsa: int = Game.materiales.size()
+	var en_bolsa: int = Game.bolsa.total()
 	var en_casa: int = Game.total_en_hogar()
 	var titulo: String = ""
 	var texto: String = ""

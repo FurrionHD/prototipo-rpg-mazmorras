@@ -253,7 +253,7 @@ func _acciones() -> void:
 	# y a su seccion de Materiales cada vuelta era un rodeo). Sin modal: es lo mismo que el boton de
 	# bloque del Cofre y se deshace recogiendo.
 	var guardar: Button = MenuScaffold.pastilla(fila, "Guardar materiales", _guardar_materiales, false,
-		not Game.materiales.is_empty())
+		not Game.bolsa.esta_vacio())
 	guardar.custom_minimum_size = Vector2(200, MenuScaffold.ALTO_BOTON)
 	guardar.tooltip_text = "Deja en el cofre de casa todos los materiales que llevas. Los cristales no: esos se venden en la tienda."
 

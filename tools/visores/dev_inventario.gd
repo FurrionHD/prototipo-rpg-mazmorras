@@ -230,8 +230,8 @@ func _captura(nombre: String) -> void:
 
 func _llenar() -> void:
 	Game.money = 48210
-	Game.crystals = []
-	Game.materiales = []
+	Game.cristales.vaciar()
+	Game.bolsa.vaciar()
 	Game.baul.vaciar()
 
 	# La BOLSA: cristales de varias calidades y un puñado de materiales de cada escala.
@@ -241,7 +241,7 @@ func _llenar() -> void:
 				var cr := Cristal.new()
 				cr.categoria = cat
 				cr.calidad = cal
-				Game.crystals.append(cr)
+				Game.cristales.anadir(cr)
 	var i: int = 0
 	for id in MATS:
 		var d: MaterialData = load("res://resources/materials/%s.tres" % id) as MaterialData
@@ -254,7 +254,7 @@ func _llenar() -> void:
 			var it := MaterialItem.new()
 			it.data = d
 			it.calidad = MaterialItem.Calidad.NORMAL
-			Game.materiales.append(it)
+			Game.bolsa.anadir(it)
 		# El HOGAR (pestaña Materiales) con lo mismo pero en cantidades mayores.
 		for _n in (i * 23) % 300 + 5:
 			var it2 := MaterialItem.new()
@@ -358,7 +358,7 @@ func _equipo() -> void:
 
 	# CARBON: dos calidades del mismo material, que es el caso que la cabecera vieja contaba mal
 	# (cogia un trozo de muestra y daba SUS minutos para todo el monton).
-	Game.carbon = []
+	Game.carbonera.vaciar()
 	for id in ["carbon_veta", "carbon_negro", "carbon_vegetal"]:
 		var d: MaterialData = load("res://resources/materials/%s.tres" % id) as MaterialData
 		if d == null:
@@ -368,7 +368,7 @@ func _equipo() -> void:
 				var it := MaterialItem.new()
 				it.data = d
 				it.calidad = cal
-				Game.carbon.append(it)
+				Game.carbonera.anadir(it)
 
 
 # Las armas con LAS OCHO RAREZAS repartidas, que es lo que no sale en una partida normal y es justo

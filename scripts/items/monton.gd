@@ -72,19 +72,6 @@ static func agrupar(items: Array) -> Array:
 	return res
 
 
-# Despliega una lista con montones (n > 1) a UN OBJETO POR UNIDAD. Solo para las listas que todavia no van
-# contadas (la bolsa, la carbonera, los cristales) al cargarlas: la base de datos ya las devuelve en montones.
-static func por_unidad(lista: Array) -> Array:
-	var out: Array = []
-	for cosa in lista:
-		if (cosa is MaterialItem or cosa is Cristal) and int(cosa.n) > 1:
-			for i in int(cosa.n):
-				out.append(_copia(cosa))
-		elif cosa != null:
-			out.append(cosa)
-	return out
-
-
 static func clave_mat(data: MaterialData, calidad: int, cm: float = 0.0) -> String:
 	return "m|%s|%d|%d" % [String(data.id) if data != null else "", calidad, roundi(talla(cm) * 10.0)]
 
@@ -172,6 +159,22 @@ func sacar_uno(modelo: Resource) -> Resource:
 	var copia: Resource = _copia(e)
 	_quitar_clave(k, 1)
 	return copia
+
+
+# Quita `k` unidades AL AZAR, cada una con la misma probabilidad (un monton de 9 tiene 9 veces mas papeletas que uno
+# de 1), como quitar al azar de la lista de antes. Lo usa perder el botin al caer. Devuelve cuantas ha quitado.
+func quitar_al_azar(k: int) -> int:
+	var quitadas: int = 0
+	while quitadas < k and _total > 0:
+		var tiro: int = randi() % _total
+		for clave in _por_clave:
+			var hay: int = int(_por_clave[clave].get("n"))
+			if tiro < hay:
+				_quitar_clave(clave, 1)
+				break
+			tiro -= hay
+		quitadas += 1
+	return quitadas
 
 
 func vaciar() -> void:

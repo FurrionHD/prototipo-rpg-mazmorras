@@ -157,3 +157,24 @@ func test_cosas_raras_no_rompen() -> void:
 	igual(b.total(), 0, "nada de eso mete nada")
 	igual(b.cantidad(null), 0, "contar null es cero")
 	igual(b.quitar(null), 0, "quitar null es cero")
+
+
+func test_quitar_al_azar_quita_justo_k() -> void:
+	var b := Monton.new()
+	b.anadir_de(load(ACERO), N, 9)
+	b.anadir_de(load(AJO), N, 1)
+	igual(b.quitar_al_azar(7), 7, "quita 7")
+	igual(b.total(), 3, "quedan 3")
+	igual(b.quitar_al_azar(50), 3, "no quita mas de los que hay")
+	igual(b.total(), 0, "vacio")
+	# Proporcional: con 9 aceros y 1 ajo, quitar uno al azar 2000 veces se lleva el ajo ~10 % de las veces
+	seed(12345)
+	var ajos := 0
+	for i in 2000:
+		var c := Monton.new()
+		c.anadir_de(load(ACERO), N, 9)
+		c.anadir_de(load(AJO), N, 1)
+		c.quitar_al_azar(1)
+		if c.cantidad(load(AJO)) == 0:
+			ajos += 1
+	entre(ajos, 140, 260, "el de 1 sale ~10 %% de las veces (%d de 2000)" % ajos)

@@ -118,7 +118,7 @@ func _ready() -> void:
 		var antes: int = Game.money
 		await V._vender_uno(s_pez, 1)
 		_ok("vender el pez grande cobra lo anunciado (%d)" % anunciado, Game.money - antes == anunciado)
-		_ok("y el pequeño sigue en la bolsa", Game.materiales.has(extra["pez_chico"]))
+		_ok("y el pequeño sigue en la bolsa", Game.bolsa.cantidad_de(extra["pez_chico"]) > 0)
 
 	# El cofre, en solitario: sale y se cobra en el acto.
 	await _ir(men, men.TAB_VENDER, V, V.SUB_HOGAR, V.HOGAR_EQUIPO)
@@ -270,26 +270,26 @@ func _llenar_tienda() -> Dictionary:
 	var out: Dictionary = {}
 	# Botin: cristales, un monton de materiales de sobra, el carbon y DOS peces de la misma especie con
 	# tallas distintas, el PEQUEÑO primero (es el orden en el que se colaba al vender el grande).
-	Game.crystals.clear()
+	Game.cristales.vaciar()
 	for i in 6:
 		var c := Cristal.new()
 		c.categoria = 3 + (i % 2)
-		Game.crystals.append(c)
-	Game.materiales.clear()
+		Game.cristales.anadir(c)
+	Game.bolsa.vaciar()
 	for ruta in ["res://resources/materials/cebolla.tres", "res://resources/materials/ajo.tres"]:
 		for i in 5:
-			Game.materiales.append(MaterialItem.crear(load(ruta)))
+			Game.bolsa.anadir(MaterialItem.crear(load(ruta)))
 	var pez: MaterialData = load("res://resources/materials/anguila_pozo.tres")
 	out["pez_chico"] = MaterialItem.crear(pez)
 	out["pez_chico"].cm = pez.cm_min
 	out["pez_grande"] = MaterialItem.crear(pez)
 	out["pez_grande"].cm = pez.cm_max
-	Game.materiales.append(out["pez_chico"])
-	Game.materiales.append(out["pez_grande"])
+	Game.bolsa.anadir(out["pez_chico"])
+	Game.bolsa.anadir(out["pez_grande"])
 	out["carbon"] = load("res://resources/materials/carbon_duro.tres")
-	Game.carbon.clear()
+	Game.carbonera.vaciar()
 	for i in 3:
-		Game.carbon.append(MaterialItem.crear(out["carbon"]))
+		Game.carbonera.anadir(MaterialItem.crear(out["carbon"]))
 	# Una herramienta FORJADA, sin equipar, y un farolillo: las dos mitades de Equipo.
 	out["herramienta"] = Game.crear_item(load("res://resources/tools/pico_basico.tres"), 1, Upgrades.Rareza.RARO, {})
 	Game.crear_item(load("res://resources/tools/farolillo_basico.tres"), 1, Upgrades.Rareza.COMUN, {})

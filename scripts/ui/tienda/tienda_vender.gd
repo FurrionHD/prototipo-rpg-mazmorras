@@ -248,11 +248,8 @@ func _recoger() -> Array:
 	var out: Array = []
 	match _sub:
 		SUB_BOTIN:
-			var items: Array = []
-			items.append_array(Game.crystals)
-			items.append_array(Game.materiales)
 			# El carbon vive en su propio saco (no pesa y no va al almacen) y por eso se quedaba fuera.
-			items.append_array(Game.carbon)
+			var items: Array = Game.cristales.montones() + Game.bolsa.montones() + Game.carbonera.montones()
 			for g in _agrupar(items):
 				out.append(_monton(g["modelo"], int(g["cantidad"]), "bolsa", "b|" + _clave_item(g["modelo"])))
 		SUB_EQUIPO:
@@ -418,7 +415,7 @@ func disponible(s: Dictionary) -> int:
 	var m: Resource = s["modelo"]
 	match String(s.get("origen", "")):
 		"bolsa":
-			return _cuenta_iguales(m, Game.crystals) + _cuenta_iguales(m, Game.materiales) + _cuenta_iguales(m, Game.carbon)
+			return Game.cristales.cantidad_de(m) + Game.bolsa.cantidad_de(m) + Game.carbonera.cantidad_de(m)
 		"hogar":
 			return Game.baul.cantidad_de(m)
 		"equipo":
@@ -443,15 +440,6 @@ func disponible(s: Dictionary) -> int:
 		"cofre_c":
 			return int(Net.hogar.cofre_consumibles_visible().get(String(s["ruta"]), 0))
 	return 0
-
-
-func _cuenta_iguales(modelo: Resource, lista: Array) -> int:
-	var k: String = _clave_item(modelo)
-	var n: int = 0
-	for it in lista:
-		if it != null and _clave_item(it) == k:
-			n += maxi(1, int(it.n))
-	return n
 
 
 # De QUE va la pantalla que se esta mirando, para el orden y los filtros del modal. No es la seccion
@@ -527,13 +515,13 @@ func grupos() -> Array:
 
 # El boton de siempre: vaciar la bolsa de cristales de un toque, en la barra del Botin.
 func pie_extra(barra: HBoxContainer) -> void:
-	if _sub != SUB_BOTIN or Game.crystals.is_empty():
+	if _sub != SUB_BOTIN or Game.cristales.esta_vacio():
 		return
 	var total: int = 0
-	for c in Game.crystals:
-		total += Game.precio_venta_item(c)
-	MenuScaffold.pastilla(barra, "Vender cristales (%d → %d)" % [Game.crystals.size(), total], func():
-		var n: int = Game.crystals.size()
+	for c in Game.cristales.montones():
+		total += Game.precio_venta_item(c) * int(c.n)
+	MenuScaffold.pastilla(barra, "Vender cristales (%d → %d)" % [Game.cristales.total(), total], func():
+		var n: int = Game.cristales.total()
 		var cobrado: int = Game.vender_todos_cristales()
 		t.decir("Vendes %d cristales por %d monedas." % [n, cobrado])
 		t.cant = -1

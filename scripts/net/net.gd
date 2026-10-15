@@ -127,8 +127,9 @@ const MAX_CONEXIONES := 32
 # 38 (11/10): la pelea de otro vista desde fuera: el IMPACTO (quieto al golpe) y la ZONA (Net.jugadores _rel_impacto,
 #     _impacto, _rel_zona, _zona).
 # 39 (12/10): la ANIMACION y el GESTO de la habilidad viajan en el paquete de impactos (combat_espejo MARCA_ANIM).
-# 40 (15/10): el BAUL viaja CONTADO (plan de optimizacion, fase 1A): un dict por monton con su "n", no uno por
-#     unidad. Un cliente de antes leeria cada monton como una sola pieza.
+# 40 (15/10): el BAUL, la BOLSA, la CARBONERA y los CRISTALES viajan CONTADOS (plan de optimizacion, fase 1A): un
+#     dict por monton con su "n", no uno por unidad (_set_almacen, _mi_estado, la mudanza...). Un cliente de antes
+#     leeria cada monton como una sola pieza.
 const PROTOCOLO := 40
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.

@@ -82,7 +82,7 @@ func build(que: int) -> void:
 func _contador(que: int, montones: Array) -> String:
 	if que == Que.CARBON:
 		# En la carbonera lo que importa es cuanta luz te queda, no cuanta madera hay.
-		var trozos: int = Game.carbon.size()
+		var trozos: int = Game.carbon_restante()
 		return "" if trozos == 0 else "Carbón: %s de luz" % _mmss(Game.luz_total_restante() - Game.lampara_llama)
 	var total: int = 0
 	for m in montones:
@@ -261,7 +261,7 @@ func _en_el_almacen(vb: VBoxContainer, destino: MaterialData) -> void:
 func _en_la_carbonera(vb: VBoxContainer) -> void:
 	vb.add_child(HSeparator.new())
 	MenuScaffold.titulo(vb, "EN LA CARBONERA", 13)
-	var trozos: int = Game.carbon.size()
+	var trozos: int = Game.carbon_restante()
 	if trozos == 0:
 		t.note(vb, "No te queda carbón.")
 		return

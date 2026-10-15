@@ -141,7 +141,7 @@ func _pasada_encargos() -> void:
 func _llenar_hogar() -> void:
 	Game.bote_dinero = 1250
 	# MATERIALES en la bolsa y en casa, en cantidades muy distintas (las mismas que el visor del inventario).
-	Game.materiales = []
+	Game.bolsa.vaciar()
 	Game.baul.vaciar()
 	var i: int = 0
 	for id in ["cobre", "cobre_veteado", "acero", "madera_comun", "cuero_simple", "baba_slime",
@@ -154,7 +154,7 @@ func _llenar_hogar() -> void:
 			var it := MaterialItem.new()
 			it.data = d
 			it.calidad = MaterialItem.Calidad.NORMAL
-			Game.materiales.append(it)
+			Game.bolsa.anadir(it)
 		for _n in (i * 23) % 120 + 5:
 			var it2 := MaterialItem.new()
 			it2.data = d
@@ -198,17 +198,17 @@ func _seccion(nombre: String) -> Object:
 # EL BOTON "Guardar materiales" de la pantalla de Equipo: antes, pulsado y despues.
 func _pasada_guardar() -> void:
 	DirAccess.make_dir_recursive_absolute(SALIDA)
-	if Game.materiales.is_empty():
+	if Game.bolsa.esta_vacio():
 		for m in Game.baul.expandir().slice(0, 12):
-			Game.materiales.append(m)
-	var en_bolsa: int = Game.materiales.size()
+			Game.bolsa.anadir(m)
+	var en_bolsa: int = Game.bolsa.total()
 	var en_casa: int = Game.baul.total()
 	_seccion("equipo")
 	_menu._rebuild()
 	await _captura("guardar_antes")
 	await _seccion("equipo")._guardar_materiales()
 	await _captura("guardar_despues")
-	print("[guardar] bolsa %d -> %d   casa %d -> %d" % [en_bolsa, Game.materiales.size(), en_casa,
+	print("[guardar] bolsa %d -> %d   casa %d -> %d" % [en_bolsa, Game.bolsa.total(), en_casa,
 		Game.baul.total()])
 
 

@@ -20,7 +20,7 @@ func _ready() -> void:
 		var d = load(r)
 		if d is MaterialData:
 			for cal in [MaterialItem.Calidad.PURO, MaterialItem.Calidad.INTACTO, MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.DANADO]:
-				Game.materiales.append(MaterialItem.crear(d, cal))
+				Game.bolsa.anadir(MaterialItem.crear(d, cal))
 	var menu = load("res://scripts/ui/inventory_menu.gd").new()
 	get_tree().root.add_child.call_deferred(menu)
 	await _frames(3)
