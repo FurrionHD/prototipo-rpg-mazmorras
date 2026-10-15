@@ -1,0 +1,114 @@
+extends "res://tools/unitarias/caso.gd"
+# BDFilas (scripts/core/bd_filas.gd): una partida <-> filas de la base de datos.
+# Lo importante para el plan de optimizacion: los materiales y cristales van CONTADOS (una fila por
+# material+calidad+talla, no una por unidad) y vuelven identicos. La prueba con una partida real entera
+# sigue siendo tools/prueba_bd_ida_vuelta (integracion); aqui va lo que se puede mirar en milisegundos.
+
+const ACERO := "res://resources/materials/acero.tres"
+const AJO := "res://resources/materials/ajo.tres"
+
+
+func _mat(ruta: String, calidad: int, cm: float = 0.0) -> MaterialItem:
+	var m := MaterialItem.crear(load(ruta), calidad)
+	m.cm = cm
+	return m
+
+
+func _cri(cat: int, calidad: int) -> Cristal:
+	var c := Cristal.new()
+	c.categoria = cat
+	c.calidad = calidad
+	return c
+
+
+func _ida_vuelta(s: SaveData) -> Array:
+	var filas := BDFilas.a_filas(s, BDFilas.Ids.new())
+	return [filas, BDFilas.de_filas(filas, BDFilas.Ids.new())]
+
+
+# Cuenta una lista de materiales como {ruta|calidad|cm: n}, para comparar sin depender del orden.
+func _cuenta(lista: Array) -> Dictionary:
+	var out := {}
+	for m in lista:
+		var k: String
+		if m is MaterialItem:
+			k = "%s|%d|%s" % [m.data.resource_path, int(m.calidad), str(m.cm)]
+		elif m is Cristal:
+			k = "cri|%d|%d" % [m.categoria, int(m.calidad)]
+		else:
+			k = "otro|" + str(m)
+		out[k] = int(out.get(k, 0)) + 1
+	return out
+
+
+func test_baul_grande_va_contado() -> void:
+	var s := SaveData.new()
+	for i in 500:
+		s.almacen_materiales.append(_mat(ACERO, MaterialItem.Calidad.NORMAL))
+	for i in 300:
+		s.almacen_materiales.append(_mat(AJO, MaterialItem.Calidad.DANADO))
+	for i in 7:
+		s.almacen_materiales.append(_mat(ACERO, MaterialItem.Calidad.PURO))
+	var r := _ida_vuelta(s)
+	var filas: Dictionary = r[0]
+	var n_filas := 0
+	for k in filas["contables"]:
+		if String(k).begins_with("almacen_materiales|"):
+			n_filas += 1
+	igual(n_filas, 3, "807 materiales de 3 clases son 3 filas contadas")
+	var s2: SaveData = r[1]
+	igual(s2.almacen_materiales.size(), 807, "vuelven las 807 unidades")
+	igual(_cuenta(s2.almacen_materiales), _cuenta(s.almacen_materiales), "mismas cantidades por clase")
+
+
+func test_talla_de_los_peces_se_conserva() -> void:
+	var s := SaveData.new()
+	s.materiales.append(_mat(AJO, MaterialItem.Calidad.NORMAL, 31.5))
+	s.materiales.append(_mat(AJO, MaterialItem.Calidad.NORMAL, 31.5))
+	s.materiales.append(_mat(AJO, MaterialItem.Calidad.NORMAL, 44.25))
+	var s2: SaveData = _ida_vuelta(s)[1]
+	igual(_cuenta(s2.materiales), _cuenta(s.materiales), "la talla (cm) viaja con cada uno")
+
+
+func test_cristales_van_contados() -> void:
+	var s := SaveData.new()
+	for i in 40:
+		s.crystals.append(_cri(2, Cristal.Calidad.NORMAL))
+	s.crystals.append(_cri(5, Cristal.Calidad.INTACTO))
+	var r := _ida_vuelta(s)
+	var n_filas := 0
+	for k in r[0]["contables"]:
+		if String(k).begins_with("crystals|"):
+			n_filas += 1
+	igual(n_filas, 2, "41 cristales de 2 clases son 2 filas")
+	igual(_cuenta(r[1].crystals), _cuenta(s.crystals), "mismos cristales")
+
+
+func test_listas_vacias() -> void:
+	var s := SaveData.new()
+	var s2: SaveData = _ida_vuelta(s)[1]
+	igual(s2.materiales.size(), 0, "bolsa vacia")
+	igual(s2.almacen_materiales.size(), 0, "baul vacio")
+	igual(s2.crystals.size(), 0, "sin cristales")
+
+
+func test_diccionario_partido_va_por_piso() -> void:
+	var s := SaveData.new()
+	s.memoria_pisos = {1: {"suelo": [Vector2i(1, 2)]}, 6: {"suelo": [], "vivos": 3}}
+	var r := _ida_vuelta(s)
+	cierto(r[0]["campos"].has("memoria_pisos/1") and r[0]["campos"].has("memoria_pisos/6"),
+		"memoria_pisos va una fila por piso")
+	igual(r[1].memoria_pisos, s.memoria_pisos, "y vuelve igual")
+
+
+func test_volcado_a_trozos_da_lo_mismo_que_de_golpe() -> void:
+	var s := SaveData.new()
+	for i in 1000:
+		s.almacen_materiales.append(_mat(ACERO if i % 3 else AJO, i % 4))
+	var de_golpe := BDFilas.a_filas(s, BDFilas.Ids.new())
+	var v := BDFilas.Volcado.new(s, BDFilas.Ids.new())
+	var pasos := 0
+	while not v.paso(1):   # el presupuesto mas pequeño posible: un trozo por paso
+		pasos += 1
+	cierto(pasos > 1, "con 1 µs de presupuesto tiene que ir a trozos")
+	igual(v.out["contables"], de_golpe["contables"], "las filas contadas salen iguales")

@@ -12,6 +12,23 @@ python tools/pasar_pruebas.py arena magia # solo las que lleven esas palabras en
 python tools/pasar_pruebas.py --lista     # qué pasaría, con qué tope, sin lanzar nada
 ```
 
+### Unitarias (15/10/2026): la lógica pura, en milisegundos
+```
+python tools/pasar_pruebas.py --unitarias                                   # todas, por el lanzador
+godot --headless --path . res://tools/prueba_unitarias.tscn                 # lo mismo, a mano
+godot --headless --path . res://tools/prueba_unitarias.tscn -- stats bd     # solo los archivos con esas palabras
+```
+- Viven en `tools/unitarias/test_<tema>.gd`: `extends "res://tools/unitarias/caso.gd"` y funciones `test_<algo>()`
+  con `cierto`, `igual`, `cerca` y `entre`. Las pasa todas `tools/unitarias/correr.gd` en UN solo Godot (el
+  arranque son ~6 s; los tests, décimas). Un error de script dentro de un test se apunta como fallo de ese test y
+  se sigue con el resto. Como `prueba_unitarias.tscn` es una prueba más, `--rapidas` y la batería entera ya la pasan.
+- **Qué va en unitaria:** cuentas, tablas, conversiones (StatsMath, BDFilas, CombatFormas, ArenaCalculo,
+  StatusEffects, Encargos...). Probar PROPIEDADES (paridad, topes, que crezca con la stat, ida y vuelta, casos
+  límite), no números copiados del código: así un retoque de balance no rompe el test y un fallo de la fórmula sí.
+- **Qué NO:** lo que cruza piezas (física, red, guardado real, una pelea entera). Eso sigue en `prueba_*.tscn`.
+- **Índice archivo → prueba:** `python tools/indice_pruebas.py` rehace `tools/INDICE_PRUEBAS.md` (qué pruebas
+  nombran cada script y cuáles no tiene ninguna). Mirarlo para saber qué pasar tras tocar un archivo.
+
 El lanzador busca solo todas las `prueba_*.tscn` (una prueba nueva no hay que apuntarla en ningún sitio), deja la
 salida de cada una en `tools/resultados_pruebas/<nombre>.log` y dice BIEN / MAL / COLGADA / SIN MARCA.
 

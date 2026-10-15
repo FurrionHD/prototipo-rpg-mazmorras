@@ -10,6 +10,7 @@ salir todas bien. Cada mecanica nueva entra con su prueba (y se apunta aqui si n
   python tools/pasar_pruebas.py --rapidas    # sin las de red -> antes de cada commit
   python tools/pasar_pruebas.py arena magias # solo las que contengan esas palabras en el nombre
   python tools/pasar_pruebas.py --lista      # ensena que pasaria y con que tope, sin lanzar nada
+  python tools/pasar_pruebas.py --unitarias  # solo las unitarias (tools/unitarias/test_*.gd): segundos
 
 Cada prueba deja su salida en tools/resultados_pruebas/<nombre>.log (ignorada en git) y al final sale
 un resumen: BIEN / MAL / COLGADA (paso su tope) / SIN MARCA (acabo sin decir ni bien ni mal).
@@ -198,9 +199,12 @@ def main() -> int:
     ap.add_argument("--rapidas", action="store_true", help="sin las de red (para antes de cada commit)")
     ap.add_argument("--hilos", type=int, default=4, help="cuantas a la vez (por defecto 4; con 6 fallan las que miden tiempos)")
     ap.add_argument("--lista", action="store_true", help="ensena la lista y sale")
+    ap.add_argument("--unitarias", action="store_true", help="solo las unitarias (tools/unitarias): segundos")
     a = ap.parse_args()
 
     nombres = todas_las_pruebas()
+    if a.unitarias:
+        nombres = ["prueba_unitarias"]
     if a.filtros:
         nombres = [n for n in nombres if any(f in n for f in a.filtros)]
     if a.rapidas:

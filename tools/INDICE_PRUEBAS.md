@@ -1,0 +1,388 @@
+# Índice: qué prueba nombra cada script
+
+Generado por `python tools/indice_pruebas.py` (no editar a mano: se rehace). "Lo nombra" no es "lo cubre
+entero": sirve para ver los **huecos** y para saber qué pruebas pasar después de tocar un archivo.
+
+**258 de 359 scripts no tienen ninguna prueba que los nombre.**
+
+| Carpeta | Scripts | Sin prueba |
+|---|---|---|
+| `scripts/actors/enemy` | 5 | 0 |
+| `scripts/actors/player` | 5 | 2 |
+| `scripts/core` | 37 | 8 |
+| `scripts/fx` | 123 | 110 |
+| `scripts/items` | 18 | 6 |
+| `scripts/net` | 21 | 4 |
+| `scripts/town` | 23 | 20 |
+| `scripts/ui` | 88 | 76 |
+| `scripts/ui/herreria` | 6 | 5 |
+| `scripts/ui/hogar` | 5 | 5 |
+| `scripts/ui/peleteria` | 2 | 2 |
+| `scripts/ui/taller` | 1 | 1 |
+| `scripts/ui/tienda` | 4 | 4 |
+| `scripts/world` | 21 | 15 |
+
+## Huecos (ninguna prueba los nombra)
+
+- `scripts/actors/player/companion.gd`
+- `scripts/actors/player/proyectil_hechizo.gd`
+- `scripts/core/arena_foto.gd`
+- `scripts/core/battle.gd`
+- `scripts/core/battle_test.gd`
+- `scripts/core/catalogo_equipo.gd`
+- `scripts/core/econ_test.gd`
+- `scripts/core/informe.gd`
+- `scripts/core/lampara.gd`
+- `scripts/core/libros.gd`
+- `scripts/fx/aberracion3d_sprites.gd`
+- `scripts/fx/aberracion_sprites.gd`
+- `scripts/fx/acechador3d_sprites.gd`
+- `scripts/fx/acechador_sprites.gd`
+- `scripts/fx/agua_fuente.gd`
+- `scripts/fx/antorcha.gd`
+- `scripts/fx/apoyo_aire.gd`
+- `scripts/fx/arana3d_sprites.gd`
+- `scripts/fx/arana_sprites.gd`
+- `scripts/fx/arco_sprites.gd`
+- `scripts/fx/area_curacion.gd`
+- `scripts/fx/arma_sprites.gd`
+- `scripts/fx/aura_capa.gd`
+- `scripts/fx/barba_sprites.gd`
+- `scripts/fx/barrido_aire.gd`
+- `scripts/fx/baston_aire.gd`
+- `scripts/fx/bestia_acorazada3d_sprites.gd`
+- `scripts/fx/bestia_acorazada_sprites.gd`
+- `scripts/fx/bestia_aire.gd`
+- `scripts/fx/boca_sprites.gd`
+- `scripts/fx/cana_pesca.gd`
+- `scripts/fx/capa_estado.gd`
+- `scripts/fx/capa_hechizos.gd`
+- `scripts/fx/capa_jugador.gd`
+- `scripts/fx/cara_sprites.gd`
+- `scripts/fx/casa_sprites.gd`
+- `scripts/fx/chillon3d_sprites.gd`
+- `scripts/fx/chillon_sprites.gd`
+- `scripts/fx/chupasimas3d_sprites.gd`
+- `scripts/fx/chupasimas_sprites.gd`
+- `scripts/fx/ciempies3d_sprites.gd`
+- `scripts/fx/ciempies_sprites.gd`
+- `scripts/fx/circulo_magico.gd`
+- `scripts/fx/coloso3d_sprites.gd`
+- `scripts/fx/coloso_sprites.gd`
+- `scripts/fx/constructo_aire.gd`
+- `scripts/fx/corte_aire.gd`
+- `scripts/fx/cuerpo_sprites.gd`
+- `scripts/fx/cura_en_curso.gd`
+- `scripts/fx/daga_aire.gd`
+- `scripts/fx/distancia_aire.gd`
+- `scripts/fx/escalera_sprites.gd`
+- `scripts/fx/escarabajo3d_sprites.gd`
+- `scripts/fx/escarabajo_sprites.gd`
+- `scripts/fx/escudo_aire.gd`
+- `scripts/fx/escudo_sprites.gd`
+- `scripts/fx/espada_aire.gd`
+- `scripts/fx/espiral_cura.gd`
+- `scripts/fx/estela_golpe.gd`
+- `scripts/fx/estoque_aire.gd`
+- `scripts/fx/fiera_aire.gd`
+- `scripts/fx/fuego_sprites.gd`
+- `scripts/fx/gargola3d_sprites.gd`
+- `scripts/fx/gargola_sprites.gd`
+- `scripts/fx/golem3d_sprites.gd`
+- `scripts/fx/golem_sprites.gd`
+- `scripts/fx/gorro_sprites.gd`
+- `scripts/fx/hacha_aire.gd`
+- `scripts/fx/humo_chimenea.gd`
+- `scripts/fx/imbue_visual.gd`
+- `scripts/fx/insecto_aire.gd`
+- `scripts/fx/jabali3d_sprites.gd`
+- `scripts/fx/jabali_sprites.gd`
+- `scripts/fx/jugador_sprites.gd`
+- `scripts/fx/llama_altar.gd`
+- `scripts/fx/luz_de_arriba.gd`
+- `scripts/fx/magia_aire.gd`
+- `scripts/fx/magia_mayor.gd`
+- `scripts/fx/maza_aire.gd`
+- `scripts/fx/miconido3d_sprites.gd`
+- `scripts/fx/miconido_sprites.gd`
+- `scripts/fx/minotauro_aire.gd`
+- `scripts/fx/minotauro_sprites.gd`
+- `scripts/fx/muralla_sprites.gd`
+- `scripts/fx/neblina_fria.gd`
+- `scripts/fx/paleta_equipo.gd`
+- `scripts/fx/particulas.gd`
+- `scripts/fx/pasiva_aire.gd`
+- `scripts/fx/pelo_sprites.gd`
+- `scripts/fx/pez_sprites.gd`
+- `scripts/fx/plaza_sprites.gd`
+- `scripts/fx/poligono.gd`
+- `scripts/fx/polilla3d_sprites.gd`
+- `scripts/fx/polilla_sprites.gd`
+- `scripts/fx/pose_baston.gd`
+- `scripts/fx/pose_distancia.gd`
+- `scripts/fx/pose_larga.gd`
+- `scripts/fx/profundo_aire.gd`
+- `scripts/fx/prop_sprites.gd`
+- `scripts/fx/pueblo_sprites.gd`
+- `scripts/fx/pueblo_terreno.gd`
+- `scripts/fx/rata3d_sprites.gd`
+- `scripts/fx/rata_sprites.gd`
+- `scripts/fx/recolectable_sprites.gd`
+- `scripts/fx/rey_aire.gd`
+- `scripts/fx/ropa_sprites.gd`
+- `scripts/fx/sangre_mapa.gd`
+- `scripts/fx/segadora3d_sprites.gd`
+- `scripts/fx/segadora_sprites.gd`
+- `scripts/fx/sellos_magicos.gd`
+- `scripts/fx/sima_aire.gd`
+- `scripts/fx/slime3d_sprites.gd`
+- `scripts/fx/slime_aire.gd`
+- `scripts/fx/slime_burbuja.gd`
+- `scripts/fx/sprite_lienzo.gd`
+- `scripts/fx/sprites_3d.gd`
+- `scripts/fx/terreno_sprites.gd`
+- `scripts/fx/trent3d_sprites.gd`
+- `scripts/fx/trent_sprites.gd`
+- `scripts/fx/visor_hitboxes.gd`
+- `scripts/items/backpack_data.gd`
+- `scripts/items/drop_pickup.gd`
+- `scripts/items/recipe_data.gd`
+- `scripts/items/recipe_ingrediente.gd`
+- `scripts/items/tool_data.gd`
+- `scripts/items/wand_data.gd`
+- `scripts/net/cloud_store_http.gd`
+- `scripts/net/invitaciones_steam.gd`
+- `scripts/net/net_extraccion.gd`
+- `scripts/net/net_pesca.gd`
+- `scripts/town/altar.gd`
+- `scripts/town/boticaria.gd`
+- `scripts/town/carpintero.gd`
+- `scripts/town/cartel_indicador.gd`
+- `scripts/town/cocinero.gd`
+- `scripts/town/door.gd`
+- `scripts/town/guardia_pueblo.gd`
+- `scripts/town/guardias_plan.gd`
+- `scripts/town/herrero.gd`
+- `scripts/town/hogar.gd`
+- `scripts/town/luz_pueblo.gd`
+- `scripts/town/maestro.gd`
+- `scripts/town/peletero.gd`
+- `scripts/town/pescador.gd`
+- `scripts/town/runista.gd`
+- `scripts/town/shop.gd`
+- `scripts/town/taberna.gd`
+- `scripts/town/town.gd`
+- `scripts/town/vendedor_mercadillo.gd`
+- `scripts/town/vendedores_plan.gd`
+- `scripts/ui/altar_menu.gd`
+- `scripts/ui/arrastre_scroll.gd`
+- `scripts/ui/boton_icono.gd`
+- `scripts/ui/casteo_mapa.gd`
+- `scripts/ui/celda_kit.gd`
+- `scripts/ui/celda_objeto.gd`
+- `scripts/ui/combat_altas.gd`
+- `scripts/ui/combat_diagnostico.gd`
+- `scripts/ui/combat_efectos.gd`
+- `scripts/ui/combat_enemigos.gd`
+- `scripts/ui/combat_ficha_objetivo.gd`
+- `scripts/ui/combat_figuras.gd`
+- `scripts/ui/combat_figuras_mapa.gd`
+- `scripts/ui/combat_geometria.gd`
+- `scripts/ui/combat_habilidades.gd`
+- `scripts/ui/combat_magia.gd`
+- `scripts/ui/combat_montaje.gd`
+- `scripts/ui/combat_montaje_mapa.gd`
+- `scripts/ui/combat_objetivos.gd`
+- `scripts/ui/combat_objetos.gd`
+- `scripts/ui/craft_menu.gd`
+- `scripts/ui/creador_personaje.gd`
+- `scripts/ui/cuadro_carga.gd`
+- `scripts/ui/cuadro_equipo.gd`
+- `scripts/ui/cuadro_farol.gd`
+- `scripts/ui/debug_panel.gd`
+- `scripts/ui/desarrollo_menu.gd`
+- `scripts/ui/extraction.gd`
+- `scripts/ui/ficha_tactil.gd`
+- `scripts/ui/fishing.gd`
+- `scripts/ui/fishing_book_menu.gd`
+- `scripts/ui/fishing_menu.gd`
+- `scripts/ui/floor_select_menu.gd`
+- `scripts/ui/forge_menu.gd`
+- `scripts/ui/fps_overlay.gd`
+- `scripts/ui/gacha_banner.gd`
+- `scripts/ui/gacha_ritual.gd`
+- `scripts/ui/globo_casteo.gd`
+- `scripts/ui/harvest.gd`
+- `scripts/ui/herreria/herreria_deshacer.gd`
+- `scripts/ui/herreria/herreria_forjar.gd`
+- `scripts/ui/herreria/herreria_herramientas.gd`
+- `scripts/ui/herreria/herreria_mejorar.gd`
+- `scripts/ui/herreria/herreria_refinar.gd`
+- `scripts/ui/hogar/hogar_almacen.gd`
+- `scripts/ui/hogar/hogar_editor_equipo.gd`
+- `scripts/ui/hogar/hogar_encargos.gd`
+- `scripts/ui/hogar/hogar_equipo.gd`
+- `scripts/ui/hogar/hogar_hucha.gd`
+- `scripts/ui/home_menu.gd`
+- `scripts/ui/hud.gd`
+- `scripts/ui/icono_item.gd`
+- `scripts/ui/iconos.gd`
+- `scripts/ui/iconos_equipo.gd`
+- `scripts/ui/keys_help.gd`
+- `scripts/ui/maestro_menu.gd`
+- `scripts/ui/main_menu.gd`
+- `scripts/ui/map_menu.gd`
+- `scripts/ui/material_spawner.gd`
+- `scripts/ui/medidor_faena.gd`
+- `scripts/ui/mercadillo_menu.gd`
+- `scripts/ui/mining.gd`
+- `scripts/ui/multi_menu.gd`
+- `scripts/ui/multiplayer_panel.gd`
+- `scripts/ui/pause_menu.gd`
+- `scripts/ui/peleteria/peleteria_mochilas.gd`
+- `scripts/ui/peleteria/peleteria_refinar.gd`
+- `scripts/ui/peticion_formacion.gd`
+- `scripts/ui/pregunta_pelea.gd`
+- `scripts/ui/puntero.gd`
+- `scripts/ui/retorno_menu.gd`
+- `scripts/ui/retrato_combate.gd`
+- `scripts/ui/retrato_pieza.gd`
+- `scripts/ui/runas_menu.gd`
+- `scripts/ui/settings_menu.gd`
+- `scripts/ui/shop_menu.gd`
+- `scripts/ui/spawner.gd`
+- `scripts/ui/sprites_objeto.gd`
+- `scripts/ui/status_chip.gd`
+- `scripts/ui/talado.gd`
+- `scripts/ui/taller/taller_recetas.gd`
+- `scripts/ui/taller_menu.gd`
+- `scripts/ui/tannery_menu.gd`
+- `scripts/ui/tavern_menu.gd`
+- `scripts/ui/tienda/tienda_cesta.gd`
+- `scripts/ui/tienda/tienda_comprar.gd`
+- `scripts/ui/tienda/tienda_orden.gd`
+- `scripts/ui/tienda/tienda_vender.gd`
+- `scripts/ui/tooltip_button.gd`
+- `scripts/ui/touch_controls.gd`
+- `scripts/ui/touch_pad.gd`
+- `scripts/ui/turn_timeline.gd`
+- `scripts/ui/vista_muneco.gd`
+- `scripts/world/decorado.gd`
+- `scripts/world/dungeon_exit.gd`
+- `scripts/world/dungeon_floor.gd`
+- `scripts/world/faena.gd`
+- `scripts/world/material_entry.gd`
+- `scripts/world/material_table.gd`
+- `scripts/world/niebla.gd`
+- `scripts/world/resource_node.gd`
+- `scripts/world/spawn_entry.gd`
+- `scripts/world/spawn_table.gd`
+- `scripts/world/stairs.gd`
+- `scripts/world/transicion.gd`
+- `scripts/world/vision.gd`
+- `scripts/world/wall_birth_fx.gd`
+- `scripts/world/wall_crack_fx.gd`
+
+## Con prueba
+
+- `scripts/actors/enemy/comer_cristales.gd`: `prueba_comer_cristales.gd`
+- `scripts/actors/enemy/enemy.gd`: `prueba_tactico_turno.gd`
+- `scripts/actors/enemy/enemy_data.gd`: `prueba_ataques_magicos.gd`, `prueba_bajos_tactico.gd`, `prueba_bestias_tactico.gd`, `prueba_cadaveres_pudren.gd`, `prueba_comer_cristales.gd`, `prueba_constructos_tactico.gd` y 18 más
+- `scripts/actors/enemy/mutacion_data.gd`: `prueba_ataques_magicos.gd`
+- `scripts/actors/enemy/remote_enemy.gd`: `prueba_tactico_turno.gd`
+- `scripts/actors/player/party_trail.gd`: `prueba_orden_pueblo.gd`
+- `scripts/actors/player/player.gd`: `prueba_iniciativa_red.gd`, `prueba_rueda_cristales.gd`
+- `scripts/actors/player/remote_player.gd`: `prueba_iniciativa_red.gd`
+- `scripts/core/abilities.gd`: `prueba_armadura_magica.gd`, `prueba_ataques_magicos.gd`, `prueba_dot_del_golpe.gd`, `prueba_escudo_agua.gd`, `prueba_magias_regla.gd`, `prueba_mut_fuego.gd` y 5 más
+- `scripts/core/ambiente.gd`: `prueba_huella_combate.gd`
+- `scripts/core/bd_filas.gd`: `prueba_bd_ida_vuelta.gd`, `prueba_bd_mazmorra_viva.gd`, `prueba_bd_partida.gd`, `prueba_bd_ranura.gd`, `unitarias/test_bd_filas.gd`
+- `scripts/core/ciclo_dia.gd`: `prueba_town_dos_cliente_guion.gd`
+- `scripts/core/combatant.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_anim_por_red.gd`, `prueba_apartarse_fuera.gd`, `prueba_armadura_magica.gd`, `prueba_ataques_magicos.gd` y 40 más
+- `scripts/core/cuerpos.gd`: `prueba_iniciativa_red.gd`, `prueba_orden_dibujo.gd`, `prueba_pasivas_mut.gd`, `prueba_slimes_tactico.gd`, `prueba_tactico_turno.gd`
+- `scripts/core/elements.gd`: `prueba_bestias_tactico.gd`, `prueba_constructos_tactico.gd`, `prueba_mut_fuego.gd`, `prueba_mut_profundo.gd`
+- `scripts/core/encargos.gd`: `prueba_encargos_excelia.gd`, `prueba_town_dos_cliente_guion.gd`, `prueba_town_dos_jugadores_guion.gd`, `unitarias/test_estados_y_encargos.gd`
+- `scripts/core/forge.gd`: `prueba_armadura_magica.gd`
+- `scripts/core/game.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_andar_apuntando.gd`, `prueba_anim_por_red.gd`, `prueba_apartarse_fuera.gd`, `prueba_arena.gd` y 91 más
+- `scripts/core/huella_save.gd`: `prueba_bd_ida_vuelta.gd`, `prueba_bd_nube.gd`, `prueba_bd_partida.gd`, `prueba_bd_ranura.gd`, `prueba_huella_save.gd`
+- `scripts/core/identity.gd`: `prueba_bd_nube.gd`, `prueba_bd_un_jugador.gd`, `prueba_roster_duplicados.gd`, `prueba_sala.gd`, `prueba_sala_cliente_guion.gd`, `prueba_sala_dos_jugadores.gd` y 3 más
+- `scripts/core/jugador_data.gd`: `prueba_baul_sala.gd`, `prueba_caida_en_pelea.gd`, `prueba_foto_arena_invitado.gd`, `prueba_roster_duplicados.gd`, `prueba_sala.gd`, `prueba_sala_dos_jugadores.gd` y 3 más
+- `scripts/core/migracion_bd.gd`: `prueba_bd_nube.gd`, `prueba_bd_partida.gd`, `prueba_bd_ranura.gd`, `prueba_bd_un_jugador.gd`
+- `scripts/core/mundos.gd`: `prueba_bd_nube.gd`, `prueba_roster_duplicados.gd`, `prueba_sala.gd`, `prueba_sala_cliente_guion.gd`, `prueba_sala_dos_jugadores.gd`, `prueba_sala_entrar.gd` y 1 más
+- `scripts/core/musica.gd`: `prueba_huella_combate.gd`
+- `scripts/core/partida_bd.gd`: `prueba_bd_mazmorra_viva.gd`, `prueba_bd_nube.gd`, `prueba_bd_partida.gd`, `prueba_bd_ranura.gd`, `prueba_bd_un_jugador.gd`, `prueba_pelea_a_medias.gd`
+- `scripts/core/personaje_data.gd`: `prueba_arena.gd`, `prueba_armadura_magica.gd`, `prueba_caida_en_pelea.gd`, `prueba_cargar_turno.gd`, `prueba_encargos_excelia.gd`, `prueba_ficha_fiel.gd` y 22 más
+- `scripts/core/profile.gd`: `prueba_bd_altf4.gd`, `prueba_bd_mazmorra_viva.gd`, `prueba_bd_ranura.gd`, `prueba_bd_un_jugador.gd`, `prueba_caida_en_pelea.gd`, `prueba_pelea_a_medias.gd` y 1 más
+- `scripts/core/runas.gd`: `prueba_runas.gd`, `prueba_runas_en_menu.gd`, `prueba_taller_runas.gd`
+- `scripts/core/save_data.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_andar_apuntando.gd`, `prueba_anim_por_red.gd`, `prueba_apartarse_fuera.gd`, `prueba_arena.gd` y 67 más
+- `scripts/core/save_io.gd`: `prueba_bd_nube.gd`, `prueba_bd_ranura.gd`
+- `scripts/core/sonido.gd`: `prueba_ventana_ajustes.gd`
+- `scripts/core/spell_book.gd`: `prueba_magias_regla.gd`
+- `scripts/core/stats_math.gd`: `prueba_armadura_magica.gd`, `prueba_ataques_magicos.gd`, `prueba_bestias_tactico.gd`, `prueba_constructos_tactico.gd`, `prueba_magias_regla.gd`, `prueba_minotauro_tactico.gd` y 6 más
+- `scripts/core/status_effects.gd`: `prueba_amenaza_tactico.gd`, `prueba_bajos_tactico.gd`, `prueba_bestias_tactico.gd`, `prueba_cargar_turno.gd`, `prueba_charcos_baba.gd`, `prueba_constructos_tactico.gd` y 15 más
+- `scripts/core/tactil.gd`: `prueba_barras_registro.gd`
+- `scripts/core/upgrades.gd`: `prueba_armadura_magica.gd`, `prueba_magias_regla.gd`
+- `scripts/core/ventana.gd`: `prueba_sala_cliente_guion.gd`, `prueba_sala_entrar.gd`, `prueba_ventana_ajustes.gd`
+- `scripts/fx/abisal_aire.gd`: `prueba_mut_abisal.gd`
+- `scripts/fx/armadura_sprites.gd`: `prueba_armadura_magica.gd`
+- `scripts/fx/baba_suelo.gd`: `prueba_charcos_baba.gd`
+- `scripts/fx/combat_fx.gd`: `prueba_amenaza_tactico.gd`, `prueba_vuelo_crias_rey.gd`
+- `scripts/fx/escudo_agua.gd`: `prueba_escudo_agua.gd`
+- `scripts/fx/humo_toxico.gd`: `prueba_mut_veneno.gd`
+- `scripts/fx/muneco_jugador.gd`: `prueba_tactico_mazmorra.gd`
+- `scripts/fx/parpadeo.gd`: `prueba_mut_abisal.gd`, `prueba_parpadeo.gd`
+- `scripts/fx/pose_jugador.gd`: `prueba_amenaza_tactico.gd`, `prueba_apartarse_fuera.gd`, `prueba_bajos_tactico.gd`, `prueba_bestias_tactico.gd`, `prueba_companeros_pueblo.gd`, `prueba_constructos_tactico.gd` y 10 más
+- `scripts/fx/slime_sprites.gd`: `prueba_slimes_tactico.gd`
+- `scripts/fx/sprites_enemigo.gd`: `prueba_mut_abisal.gd`, `prueba_mut_profundo.gd`, `prueba_mut_rey.gd`, `prueba_mutaciones.gd`, `prueba_parpadeo.gd`
+- `scripts/fx/suelo_roto.gd`: `prueba_embestidas_recorren.gd`, `prueba_simas_tactico.gd`, `prueba_tactico_turno.gd`
+- `scripts/fx/tinte_podrido.gd`: `prueba_cadaveres_pudren.gd`
+- `scripts/items/ability_data.gd`: `prueba_amenaza_tactico.gd`, `prueba_andar_apuntando.gd`, `prueba_anim_por_red.gd`, `prueba_apartarse_fuera.gd`, `prueba_ataques_magicos.gd`, `prueba_bajos_tactico.gd` y 20 más
+- `scripts/items/armor_data.gd`: `prueba_armadura_magica.gd`, `prueba_taller_runas.gd`
+- `scripts/items/consumable_data.gd`: `prueba_arena.gd`, `prueba_cargar_turno.gd`
+- `scripts/items/cristal.gd`: `prueba_comer_cristales.gd`, `prueba_rueda_cristales.gd`, `unitarias/test_bd_filas.gd`
+- `scripts/items/material_data.gd`: `prueba_armadura_magica.gd`, `prueba_cargar_turno.gd`, `prueba_runas.gd`, `prueba_scroll_rejilla.gd`, `prueba_town_baul_cliente.gd`, `prueba_town_baul_red.gd`
+- `scripts/items/material_item.gd`: `prueba_arena.gd`, `prueba_armadura_magica.gd`, `prueba_cargar_turno.gd`, `prueba_huella_save.gd`, `prueba_runas.gd`, `prueba_scroll_rejilla.gd` y 4 más
+- `scripts/items/municion_data.gd`: `prueba_cargar_turno.gd`
+- `scripts/items/runa_set_data.gd`: `prueba_runas.gd`, `prueba_taller_runas.gd`
+- `scripts/items/shield_data.gd`: `prueba_amenaza_tactico.gd`
+- `scripts/items/spell_data.gd`: `prueba_amenaza_tactico.gd`, `prueba_armadura_magica.gd`, `prueba_formas_area.gd`, `prueba_log_cura.gd`, `prueba_magias_regla.gd`, `prueba_rebotes_descarga.gd` y 1 más
+- `scripts/items/status_application.gd`: `prueba_quemadura.gd`
+- `scripts/items/weapon_data.gd`: `prueba_cargar_turno.gd`, `prueba_tactico_turno.gd`, `prueba_taller_runas.gd`
+- `scripts/net/cloud.gd`: `prueba_bd_nube.gd`, `prueba_bd_un_jugador.gd`, `prueba_nube_sin_red.gd`, `prueba_sala.gd`, `prueba_sala_dos_jugadores.gd`, `prueba_sala_entrar.gd` y 2 más
+- `scripts/net/cloud_store_local.gd`: `prueba_identidad_y_cerrojo.gd`
+- `scripts/net/net.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_andar_apuntando.gd`, `prueba_anim_por_red.gd`, `prueba_apartarse_fuera.gd`, `prueba_arena.gd` y 65 más
+- `scripts/net/net_enemigos.gd`: `prueba_tactico_turno.gd`, `prueba_town_dos_comun.gd`, `prueba_town_dos_jugadores_guion.gd`, `prueba_town_tactico_guion.gd`, `prueba_town_trabajadores_guion.gd`, `prueba_town_zona_ajena_guion.gd`
+- `scripts/net/net_formacion.gd`: `prueba_sala_cliente_guion.gd`
+- `scripts/net/net_hogar.gd`: `prueba_roster_duplicados.gd`, `prueba_sala_cliente_guion.gd`, `prueba_town_baul_cliente.gd`, `prueba_town_baul_red.gd`, `prueba_town_dos_cliente_guion.gd`, `prueba_town_dos_jugadores_guion.gd`
+- `scripts/net/net_jefes.gd`: `prueba_bd_mazmorra_viva.gd`
+- `scripts/net/net_jugadores.gd`: `prueba_town_dos_jugadores_guion.gd`
+- `scripts/net/net_mapa.gd`: `prueba_marcas_mapa.gd`
+- `scripts/net/net_partida.gd`: `prueba_baul_sala.gd`, `prueba_ficha_fiel.gd`, `prueba_huella_combate.gd`, `prueba_sala_cliente_guion.gd`, `prueba_sala_entrar.gd`, `prueba_viaja_todo.gd` y 1 más
+- `scripts/net/net_peleas.gd`: `prueba_caida_en_pelea.gd`, `prueba_huella_combate.gd`, `prueba_huella_red_falsa.gd`, `prueba_town_dos_cliente_guion.gd`, `prueba_town_dos_comun.gd`, `prueba_town_dos_jugadores_guion.gd` y 5 más
+- `scripts/net/net_pisos.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_andar_apuntando.gd`, `prueba_anim_por_red.gd`, `prueba_apartarse_fuera.gd`, `prueba_arena.gd` y 41 más
+- `scripts/net/net_recoleccion.gd`: `prueba_bd_mazmorra_viva.gd`
+- `scripts/net/net_suelo.gd`: `prueba_bd_mazmorra_viva.gd`
+- `scripts/net/sala.gd`: `prueba_sala.gd`, `prueba_sala_dos_jugadores.gd`, `prueba_sala_entrar.gd`, `prueba_sala_steam.gd`
+- `scripts/net/trabajadores.gd`: `prueba_town_trabajadores_guion.gd`
+- `scripts/net/tunel_steam.gd`: `prueba_tunel.gd`
+- `scripts/town/pieza_pueblo.gd`: `prueba_orden_pueblo.gd`
+- `scripts/town/porton_arena.gd`: `prueba_arena.gd`
+- `scripts/town/pueblo_plano.gd`: `prueba_arena.gd`, `prueba_companeros_pueblo.gd`, `prueba_orden_pueblo.gd`
+- `scripts/ui/barras_otros.gd`: `prueba_barras_registro.gd`, `prueba_town_dos_jugadores_guion.gd`
+- `scripts/ui/cargando.gd`: `prueba_carga_piso.gd`
+- `scripts/ui/character_menu.gd`: `prueba_runas_en_menu.gd`
+- `scripts/ui/combat.gd`: `prueba_huella_combate.gd`, `prueba_mut_fuego.gd`
+- `scripts/ui/combat_espejo.gd`: `prueba_anim_por_red.gd`
+- `scripts/ui/combat_formas.gd`: `prueba_charcos_baba.gd`, `prueba_formas_area.gd`, `prueba_minotauro_tactico.gd`, `prueba_mut_profundo.gd`, `prueba_mut_veneno.gd`, `prueba_retraso_barra.gd` y 2 más
+- `scripts/ui/combat_tactico.gd`: `prueba_formas_area.gd`, `prueba_tactico_turno.gd`
+- `scripts/ui/combate_detalle.gd`: `prueba_huella_combate.gd`
+- `scripts/ui/herreria/herreria_reparar.gd`: `prueba_reparar_escudo.gd`
+- `scripts/ui/inventory_menu.gd`: `prueba_scroll_rejilla.gd`
+- `scripts/ui/menu_scaffold.gd`: `prueba_runas_en_menu.gd`, `prueba_scroll_rejilla.gd`, `prueba_taller_runas.gd`
+- `scripts/ui/rueda_cristales.gd`: `prueba_rueda_cristales.gd`
+- `scripts/ui/tramo_escudo.gd`: `prueba_escudo_agua.gd`
+- `scripts/world/arena_calculo.gd`: `prueba_arena_forma.gd`, `prueba_arena_tactica.gd`, `prueba_entra_de_fuera.gd`, `prueba_tactico_mazmorra.gd`, `prueba_town_trabajadores_guion.gd`, `prueba_town_zona_ajena_b_guion.gd` y 3 más
+- `scripts/world/arena_combate.gd`: `prueba_alcances.gd`, `prueba_arena_forma.gd`, `prueba_arena_recoge.gd`, `prueba_arena_tactica.gd`, `prueba_entra_de_fuera.gd`, `prueba_reparto_enemigos.gd` y 5 más
+- `scripts/world/dungeon_generator.gd`: `prueba_arena_forma.gd`, `prueba_arena_tactica.gd`, `prueba_embestida_porrazo.gd`, `prueba_entra_de_fuera.gd`, `prueba_estados_hud_pelea.gd`, `prueba_iniciativa_red.gd` y 7 más
+- `scripts/world/enemy_links.gd`: `prueba_tactico_mazmorra.gd`
+- `scripts/world/fishing_spot.gd`: `prueba_pesca_recoger.gd`
+- `scripts/world/spawn_zone.gd`: `prueba_reparto_enemigos.gd`
