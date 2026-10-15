@@ -23,10 +23,21 @@ salida de cada una en `tools/resultados_pruebas/<nombre>.log` y dice BIEN / MAL 
 - La **huella del combate** (`prueba_huella_combate`) compara con `tools/huellas/*.txt`. Si se cambia el combate a
   propósito, se vuelve a grabar (`-- grabar`) en el mismo commit; se regrabó el 12/10 (llevaba sin tocarse desde el
   15/09 y comparaba contra un combate de hace un mes).
-- Inestable conocida (falla a veces sin que el juego cambie): `prueba_bd_un_jugador` (el fichero de la ranura a veces sigue cogido al borrarlo).
-- (13/10) `prueba_comer_cristales` YA NO es inestable: "animacion de transformacion" era un fallo DEL JUEGO (la marca gesto_comer la borraba el final del gesto de comer) y "se lo come" era la prueba (10 % de mutar al primer bocado, que deja la carga a 0).
-- Inestable conocida: `prueba_bd_ranura` (13/10: "un paso del guardado ha tardado 11448 us" con 4 a la vez; sola, bien).
-- Inestable (13/10, por mirar): `prueba_zona_ajena` ("me pilla dentro: sigo quieto (me uno)" una vez en la bateria; sola 3/3 bien).
+- (13/10) REVISADAS TODAS LAS INESTABLES, una a una (repetidas solas y 4-6 a la vez, con `repetir`):
+  - `prueba_bd_un_jugador`: era la PRUEBA. Fallo cuando las de BD iban 4 a la vez y se pisaban la ranura 97 (ya van
+    de una en una, `va_sola`). 20/20 bien, tambien con el PC cargado.
+  - `prueba_bd_ranura`: sobre todo la prueba (medir tiempo con otros procesos a la vez); ahora mide 3 veces y vale la
+    mejor. Y un detalle DEL JUEGO: los trozos de 1000 materiales hacian que un paso del guardado continuo doblara su
+    presupuesto (TROZO_CONTAR 1000 -> 300).
+  - `prueba_zona_ajena`: fallo DEL JUEGO. El jugador estaba en el modo de movimiento de plataformas: un enemigo pegado
+    por debajo contaba como suelo y al teletransportarse lo lanzaba contra la pared (~3 %). Ahora va FLOTANDO; lo
+    vigila `prueba_jugador_no_monta` (con el modo viejo sale lanzado 214 px).
+  - `prueba_insectos_tactico`: era la PRUEBA (medía el sitio libre con una raya apuntada a los pies; la del juego
+    apunta al bulto con mejor_apunte y pasaba pegada a otro bicho de la prueba). 0/48 con 4 a la vez.
+  - `prueba_retraso_barra` (paso 8, 15/10): fallo DEL JUEGO. La IA buscaba sitio fuera de tu area en 3 anillos al
+    35/65/100 % de lo que anda, y segun la Agilidad de la tirada se saltaba la franja buena (un slime mas agil lo hacia
+    PEOR). Ahora anillos cada 12 px (PASO_ANILLO). La prueba fija la agilidad a 36, que con lo viejo fallaba siempre.
+  - `prueba_town_trabajadores`: SIN REVISAR a proposito (los trabajadores se van a rehacer enteros).
   Si fallan, se repiten antes de dar nada por roto.
 
 Se lanzan así (sin ventana, cada una dice `FIN: TODO BIEN` o lista sus `MAL:`):
