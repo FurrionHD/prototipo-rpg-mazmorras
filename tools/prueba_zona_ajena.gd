@@ -37,6 +37,15 @@ func _esperar(n: int) -> void:
 		await get_tree().process_frame
 
 
+var _vigia_jug: Node2D = null
+var _vigia_ult := Vector2.ZERO
+var _vigia_log: Array = []
+func _vigia() -> void:
+	if _vigia_jug != null and is_instance_valid(_vigia_jug) and _vigia_jug.global_position != _vigia_ult:
+		_vigia_log.append("f%d %s -> %s (fisica=%s)" % [Engine.get_process_frames(), _vigia_ult.round(), _vigia_jug.global_position.round(), Engine.is_in_physics_frame()])
+		_vigia_ult = _vigia_jug.global_position
+
+
 func _pregunta_abierta() -> bool:
 	return Game._pregunta_pelea != null and is_instance_valid(Game._pregunta_pelea) \
 		and not Game._pregunta_pelea.is_queued_for_deletion()
@@ -62,11 +71,20 @@ func _correr() -> void:
 		(e as Node2D).global_position = Vector2(-9999, -9999)
 	var centro: Vector2 = gen.centro_px(sala.position + sala.size / 2)
 	jug.global_position = centro
+	_vigia_jug = jug
+	_vigia_ult = centro
+	get_tree().physics_frame.connect(_vigia)
+	get_tree().process_frame.connect(_vigia)
 	await _esperar(3)
 
 	print("1) el impacto de un compañero")
 	Game.impacto_ajeno(EMISOR, centro + Vector2(60, 0))
 	_ver(Game.entrando_en_pelea(), "a 60 px y a la vista: me quedo quieto")
+	if not Game.entrando_en_pelea():
+		print("    por que no: capa=%s combate=%s ocupado=%s jugador=%s (centro %s) linea=%s enemigos=%s" % [
+			Game._active_layer, Game.combate_activo(), Net.peleas.ocupado_en_pelea(), jug.global_position.round(),
+			centro.round(), ArenaCalculo.linea_por_suelo(gen, jug.global_position, centro + Vector2(60, 0)),
+			Game._active_enemies])
 	Game.soltar_entrando_en_pelea()
 	Game._impacto_de = 0
 	Game.impacto_ajeno(EMISOR, centro + Vector2(Game.ALIADOS_EN_ZONA + 40.0, 0))
@@ -93,8 +111,13 @@ func _correr() -> void:
 	print("2) llega su zona")
 	var dentro_rect := Rect2i(c0 - Vector2i(2, 2), Vector2i(5, 5))
 	Game.impacto_ajeno(EMISOR, centro + Vector2(60, 0))
+	var quieto_antes: bool = Game.entrando_en_pelea()
 	Game.zona_ajena(EMISOR, ANFITRION, dentro_rect, PackedByteArray())
 	_ver(Game.entrando_en_pelea(), "me pilla dentro: sigo quieto (me uno)")
+	if not Game.entrando_en_pelea():
+		print("    por que no: quieto antes=%s jugador=%s celda %s, zona %s, enemigos=%s capa=%s" % [quieto_antes,
+			jug.global_position.round(), ArenaCalculo.celda_de_px(jug.global_position), dentro_rect,
+			Game._active_enemies, Game._active_layer])
 	_ver(Game._impacto_de == 0, "el impacto ya esta atendido")
 	Game.zona_ajena_cerrada(EMISOR)
 	Game.soltar_entrando_en_pelea()
@@ -151,5 +174,7 @@ func _correr() -> void:
 	_ver(jug.global_position.is_equal_approx(antes4 + Vector2(40.0, 0.0)), "y ya no me frena")
 	_ver(not Game.hay_modal(), "no se queda ningun menu abierto")
 
+	if _mal > 0:
+		print("    vigia: ", _vigia_log.slice(0, 20))
 	print("FIN: %s (%d MAL)" % ["TODO BIEN" if _mal == 0 else "HAY FALLOS", _mal])
 	get_tree().quit(1 if _mal > 0 else 0)

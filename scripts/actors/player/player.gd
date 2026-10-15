@@ -232,6 +232,12 @@ func _ready() -> void:
 	# capa 2 (enemy.gd; en multi la caja del espejo, remote_enemy._montar_choque). Los cadaveres la sueltan al caer. Los
 	# compañeros siguen sin vigilarla a proposito (ver enemy.gd: el grupo no se atasca a si mismo).
 	collision_mask |= 2
+	# FLOTANDO, como los enemigos, los compañeros y los jugadores remotos (13/10, lo destapo prueba_zona_ajena). Estaba en
+	# el modo por defecto, el de los juegos de PLATAFORMAS: un cuerpo pegado por debajo (normal hacia arriba) contaba como
+	# SUELO, y el jugador heredaba su velocidad como si fuera una plataforma movil. Desde que chocas con los enemigos
+	# (arriba), uno que se teletransporta estando "debajo" de ti (recolocar, correccion de red) te lanzaba a ~10.000 px/s
+	# contra la pared mas cercana; uno que andaba te arrastraba unos pixeles.
+	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
 	# "aliado" = la lista de objetivos que mira el enemigo. El lider entra en ella igual que los
 	# companeros (companion.gd), asi que el bicho no tiene que distinguir quien lleva la corona:
 	# va a por el que tenga mas a mano.
