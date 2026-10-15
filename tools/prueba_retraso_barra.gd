@@ -208,6 +208,11 @@ func _correr() -> void:
 
 	print("8) LA IA: se pone fuera de tu area si desde ahi sigue pegando")
 	e.prob_apartarse = 1.0   # (10/10: normalmente el 33 %; aqui se mira el sitio que elige)
+	# AGILIDAD FIJA (15/10): de ella sale lo que anda, y cada slime sale con su tirada. Con 36 (anda 115 px) los anillos
+	# viejos de _sitio_seguro (al 35/65/100 % de lo que anda) se saltaban la franja buena y se quedaba dentro de tu area;
+	# se fija para que esta prueba mire siempre ese caso. Se devuelve al acabar el paso.
+	var agi_antes = e.abilities.agilidad
+	e.abilities.agilidad = 36
 	combat._casteos.erase(al)
 	al.charging = null
 	if ab != null and tm.usa_huella(ab):
@@ -257,6 +262,7 @@ func _correr() -> void:
 		tm._terminar()
 		tm._cargas.erase(al)
 		al.charging = null
+	e.abilities.agilidad = agi_antes
 
 	print("FIN: %s (%d MAL)" % ["TODO BIEN" if _mal == 0 else "HAY FALLOS", _mal])
 	get_tree().quit(1 if _mal > 0 else 0)

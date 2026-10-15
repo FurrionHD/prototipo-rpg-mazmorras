@@ -4157,15 +4157,28 @@ func _en_peligro(e: Combatant, pies: Vector2, formas: Array, holgado: bool = fal
 
 # EL SITIO SEGURO: de lo que alcanza andando este turno (anillos alrededor de donde esta), los que no pisa ninguna de
 # 'formas' Y desde los que LLEGA a su presa; de esos, el que menos le hace andar. null = no hay ninguno.
+# Cada cuantos px se prueba un anillo de sitios en _sitio_seguro.
+const PASO_ANILLO := 12.0
+
 func _sitio_seguro(e: Combatant, cuerpo: Node2D, radio: float, presa: Combatant, formas: Array):
 	var desde: Vector2 = cuerpo.global_position
 	var off: Vector2 = pies_de(e) - desde
 	var dentro: Rect2 = _dentro(_arena())
 	var mejor = null
 	var nota_mejor: float = INF
-	for anillo in [0.35, 0.65, 1.0]:
+	# ANILLOS CADA PASO_ANILLO px hasta lo que anda, no al 35/65/100 % de lo que anda (15/10, lo destapo prueba_retraso_barra):
+	# el sitio bueno -fuera de tu area y aun a tiro- es una franja estrecha pegada a su presa, y con anillos proporcionales
+	# caia entre dos segun su Agilidad. Un slime MAS agil (radio 115: anillos a 40/75/115) no la encontraba y uno mas lento
+	# (64: a 22/42) si; se quedaba dentro de tu area teniendo sitio. La nota sigue siendo lo que anda: gana el mas cercano.
+	var anillos: Array = []
+	var d_anillo: float = PASO_ANILLO
+	while d_anillo < radio:
+		anillos.append(d_anillo)
+		d_anillo += PASO_ANILLO
+	anillos.append(radio)
+	for anillo in anillos:
 		for k in 16:
-			var p: Vector2 = desde + Vector2.RIGHT.rotated(TAU * float(k) / 16.0) * radio * float(anillo)
+			var p: Vector2 = desde + Vector2.RIGHT.rotated(TAU * float(k) / 16.0) * float(anillo)
 			p = _acotar(p, desde, radio, dentro)
 			if not _puede_estar(p, cuerpo) or _en_peligro(e, p + off, formas, true):
 				continue
