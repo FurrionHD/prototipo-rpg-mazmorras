@@ -136,9 +136,11 @@ func _correr() -> void:
 				"la Embestida rodante pilla a los dos en fila: el primero entero, el de detras a %.1f" % rodar.area_secundario)
 			var antes: Vector2 = t.pos_de(e)
 			# Hasta donde puede llegar sin acabar encima de nadie que NO aparta (los otros bichos de la prueba).
-			# (con la MISMA raya que va a lanzar: apuntada al primero, como _enemy_use_ability; la de arriba apunta al de detras
-			# y sale un pelo torcida, unos px menos de sitio libre)
-			var f0 = t.forma_de(rodar, e, t.pies_de(al[0]))
+			# (con la MISMA raya que va a lanzar: la de mejor_apunte con el primero de presa, como _enemy_use_ability ->
+			# reparto_enemigo. Apunta al CENTRO del bulto, no a los pies, y sale un pelo torcida: 13/10, con la raya recta de
+			# los pies la prueba daba por libre un sitio que la de verdad tenia pegado a otro bicho de la prueba -el
+			# ciempies, donde lo dejara el paso de antes- y fallaba a veces por 4 px)
+			var f0 = t.forma_de(rodar, e, t.mejor_apunte(e, rodar, al[0])["punto"])
 			var hasta_detras: float = (t.pies_de(al[1]) - pe).dot(f0.dir)
 			# Sin contar a los que aparta a un lado; al que no cabe apartado (pared al lado) si le para, como en el juego.
 			var apartables: Array = []
