@@ -1,3 +1,4 @@
+# Cubre: res://scripts/world/dungeon_floor.gd res://scripts/items/drop_pickup.gd
 # EL MONTON DEL SUELO CONSERVA SU CANTIDAD (auditoria 13/10). Un pickup puede ser un monton (las flechas que se
 # recuperan caen juntas: DropPickup.cantidad), pero el piso guardaba solo {item, pos}: al volver al piso o al
 # cargar la partida el monton de 7 volvia como 1. La prueba vuelca el piso a la memoria, quita el monton y lo

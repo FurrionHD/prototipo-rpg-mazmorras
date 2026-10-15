@@ -46,12 +46,16 @@ scripts/core/game/encargos.gd   ...
   código de antes; si el cambio la rompe, nos enteramos.
 - Lo que se separe de una escena se lleva sus unitarias; las pruebas de integración que solo comprobaban esa cuenta
   se quitan o se adelgazan.
-- `tools/LEEME_pruebas.md` tiene el índice **archivo → prueba**, con los huecos marcados.
+- La primera línea de cada prueba nueva dice qué cubre: `# Cubre: res://scripts/world/niebla.gd ...`. Así el índice
+  (`tools/indice_pruebas.py` → `tools/INDICE_PRUEBAS.md`) la encuentra aunque la prueba no nombre el archivo, y
+  `pasar_pruebas.py --rapidas` la pasa sola cuando se toca ese archivo.
+- Antes de cada commit, `--rapidas` (unitarias + imprescindibles + las de los scripts tocados, 1-2 min). La batería
+  entera al acabar una fase y antes de juntar a `main`.
 
 ## 5. Cómo se trabaja
 - Una rama por fase, desde `main`. Un commit por tarea.
-- Antes de cada commit: `python tools/pasar_pruebas.py --rapidas`. Antes de juntar a `main` o sacar un .exe: la
-  batería entera, con red.
+- Antes de cada commit: `python tools/pasar_pruebas.py --rapidas`. Al acabar una fase, antes de juntar a `main` o
+  de sacar un .exe: la batería entera, con red (`python tools/pasar_pruebas.py`).
 - Cada cambio en los mensajes de red sube el `PROTOCOLO`.
 - Las cuatro reglas de los datos (memoria `contado-no-suelto`): lo igual va **contado**; lo fijo viaja **una vez**
   y se nombra por id; lo que el otro ordenador puede calcular **no viaja**; lo que no ha cambiado **no se

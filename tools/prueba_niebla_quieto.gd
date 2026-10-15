@@ -1,3 +1,4 @@
+# Cubre: res://scripts/world/niebla.gd
 # LA NIEBLA CON EL JUGADOR QUIETO (auditoria 13/10, fallo encontrado leyendo el codigo): la niebla se salta la
 # pasada si nadie se mueve (es lo caro), y con ella se saltaba tambien el "quien esta a la luz". Un enemigo que
 # entraba de la oscuridad a tu farolillo mientras estabas parado seguia INVISIBLE hasta que dabas un paso; y uno que

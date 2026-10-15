@@ -6,8 +6,10 @@ pasar_pruebas.py -- pasa la bateria de pruebas sin ventana (tools/prueba_*.tscn)
 REGLA (12/10/2026, la pidio el jefe): ANTES DE CADA COMMIT O SUBIDA se pasan las pruebas y tienen que
 salir todas bien. Cada mecanica nueva entra con su prueba (y se apunta aqui si necesita algo especial).
 
-  python tools/pasar_pruebas.py              # TODAS (las de red de una en una) -> antes de juntar a main / .exe
-  python tools/pasar_pruebas.py --rapidas    # sin las de red -> antes de cada commit
+  python tools/pasar_pruebas.py              # TODAS (las de red de una en una) -> al acabar una fase, antes de juntar a main / .exe
+  python tools/pasar_pruebas.py --rapidas    # antes de cada commit (~1-2 min): unitarias + IMPRESCINDIBLES + las que
+                                             # nombran los scripts que has tocado (ver tools/INDICE_PRUEBAS.md)
+  python tools/pasar_pruebas.py --sin-red    # todas menos las de red (la --rapidas de antes del 15/10, ~7 min)
   python tools/pasar_pruebas.py arena magias # solo las que contengan esas palabras en el nombre
   python tools/pasar_pruebas.py --lista      # ensena que pasaria y con que tope, sin lanzar nada
   python tools/pasar_pruebas.py --unitarias  # solo las unitarias (tools/unitarias/test_*.gd): segundos
@@ -40,6 +42,52 @@ GODOT_CANDIDATOS = [
     str(Path.home() / "AppData/Local/Microsoft/WinGet/Packages/"
         "GodotEngine.GodotEngine_Microsoft.Winget.Source_8wekyb3d8bbwe/Godot_v4.7-stable_win64_console.exe"),
 ]
+
+# LAS IMPRESCINDIBLES (15/10/2026, decision del jefe: "las rapidas antes de cada commit y la grande al final o al
+# juntar a main"). Cortas y repartidas por los sistemas: que todo compile, la huella del combate, guardar y cargar,
+# lo que viaja por la red, el tactico, magias, mutantes, runas, el piso, la niebla y la interfaz. A esto --rapidas
+# le suma las que NOMBRAN los scripts tocados (git), salvo los que nombran casi todas (game.gd): ahi no hay atajo.
+IMPRESCINDIBLES = [
+    "prueba_unitarias", "prueba_cargar_todo", "prueba_huella_combate",
+    "prueba_bd_ida_vuelta", "prueba_bd_un_jugador", "prueba_viaja_todo", "prueba_ficha_fiel",
+    "prueba_tactico_montaje", "prueba_arena_tactica", "prueba_formas_area", "prueba_retraso_barra",
+    "prueba_magias_regla", "prueba_mutaciones", "prueba_runas", "prueba_encargos_excelia",
+    "prueba_carga_piso", "prueba_niebla_quieto", "prueba_suelo_monton", "prueba_zona_ajena",
+    "prueba_jugador_no_monta", "prueba_iniciativa_red", "prueba_scroll_rejilla",
+]
+# Un script que nombran mas de estas pruebas (game.gd, combat.gd...) no arrastra sus pruebas a --rapidas:
+# serian casi todas. Para esos, la grande al acabar.
+TOPE_TOCADOS = 25
+
+
+def tocados_en_git() -> list:
+    """Los .gd de scripts/ cambiados respecto al ultimo commit (incluidos los nuevos sin añadir)."""
+    def git(*a):
+        try:
+            return subprocess.run(["git", *a], capture_output=True, text=True, cwd=str(RAIZ), timeout=30).stdout
+        except Exception:
+            return ""
+    nombres = set(git("diff", "--name-only", "HEAD").split()) | set(git("ls-files", "--others", "--exclude-standard").split())
+    return sorted(RAIZ / n for n in nombres if n.startswith("scripts/") and n.endswith(".gd") and (RAIZ / n).exists())
+
+
+def pruebas_de_tocados(disponibles: list) -> list:
+    sys.path.insert(0, str(TOOLS))
+    from indice_pruebas import quien_nombra
+    out = set()
+    tocados = tocados_en_git()
+    for s, ps in quien_nombra(tocados).items():
+        nombres = {Path(p).stem for p in ps if p.startswith("prueba_")}
+        rel = s.relative_to(RAIZ).as_posix()
+        if len(nombres) > TOPE_TOCADOS:
+            print("  (%s lo nombran %d pruebas: no se suman todas; pasa la grande al acabar)" % (rel, len(nombres)))
+            continue
+        nuevas = sorted(n for n in nombres if n in disponibles)
+        if nuevas:
+            print("  %s -> %s" % (rel, ", ".join(nuevas)))
+        out |= set(nuevas)
+    return sorted(out)
+
 
 # Escenas que NO son una prueba por si solas: las lanza otra prueba como segundo proceso.
 AYUDANTES = {
@@ -196,7 +244,9 @@ def pasar(godot: str, nombre: str) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Pasa las pruebas sin ventana de tools/.")
     ap.add_argument("filtros", nargs="*", help="solo las que contengan alguna de estas palabras")
-    ap.add_argument("--rapidas", action="store_true", help="sin las de red (para antes de cada commit)")
+    ap.add_argument("--rapidas", action="store_true",
+                    help="antes de cada commit: unitarias + imprescindibles + las de los scripts tocados")
+    ap.add_argument("--sin-red", action="store_true", help="todas menos las de red")
     ap.add_argument("--hilos", type=int, default=4, help="cuantas a la vez (por defecto 4; con 6 fallan las que miden tiempos)")
     ap.add_argument("--lista", action="store_true", help="ensena la lista y sale")
     ap.add_argument("--unitarias", action="store_true", help="solo las unitarias (tools/unitarias): segundos")
@@ -208,6 +258,9 @@ def main() -> int:
     if a.filtros:
         nombres = [n for n in nombres if any(f in n for f in a.filtros)]
     if a.rapidas:
+        print("Rapidas: imprescindibles + las que nombran los scripts tocados:")
+        nombres = sorted(set(n for n in IMPRESCINDIBLES if n in nombres) | set(pruebas_de_tocados(nombres)))
+    if a.sin_red:
         nombres = [n for n in nombres if not es_de_red(n)]
     sin_red = [n for n in nombres if not va_sola(n)]
     con_red = [n for n in nombres if va_sola(n)]   # las de red y las que comparten ranura: de una en una

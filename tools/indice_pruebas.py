@@ -34,9 +34,11 @@ def autoloads() -> dict:
     return out
 
 
-def main() -> int:
+def quien_nombra(scripts=None) -> dict:
+    """{script (Path): [pruebas que lo nombran, relativas a tools/]}. Lo usa tambien pasar_pruebas --rapidas."""
     al = autoloads()
-    scripts = sorted(p for p in (RAIZ / "scripts").rglob("*.gd"))
+    if scripts is None:
+        scripts = sorted(p for p in (RAIZ / "scripts").rglob("*.gd"))
     pruebas = sorted(TOOLS.glob("prueba_*.gd")) + sorted((TOOLS / "unitarias").glob("test_*.gd"))
     textos = {p: p.read_text(encoding="utf-8", errors="replace") for p in pruebas}
 
@@ -58,6 +60,12 @@ def main() -> int:
         for p, t in textos.items():
             if r.search(t):
                 nombra[s].append(p.relative_to(TOOLS).as_posix())
+    return nombra
+
+
+def main() -> int:
+    scripts = sorted(p for p in (RAIZ / "scripts").rglob("*.gd"))
+    nombra = quien_nombra(scripts)
 
     por_carpeta = defaultdict(lambda: [0, 0])
     for s in scripts:

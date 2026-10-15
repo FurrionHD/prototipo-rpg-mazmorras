@@ -6,8 +6,11 @@
 con su prueba (los mutantes nuevos, lo que venga): a partir de ahora, siempre.
 
 ```
-python tools/pasar_pruebas.py --rapidas   # antes de CADA commit (sin las de red, ~6 min con 4 a la vez)
-python tools/pasar_pruebas.py             # TODAS, también las de red de una en una: antes de juntar a main o hacer .exe
+python tools/pasar_pruebas.py --rapidas   # antes de CADA commit (~1-2 min): unitarias + IMPRESCINDIBLES + las que
+                                          # nombran los scripts tocados (git). Lista en IMPRESCINDIBLES de pasar_pruebas.py
+python tools/pasar_pruebas.py             # TODAS, también las de red de una en una: al acabar una fase, antes de
+                                          # juntar a main o hacer .exe (decisión del 15/10)
+python tools/pasar_pruebas.py --sin-red   # todas menos las de red (~7 min; era la --rapidas antes del 15/10)
 python tools/pasar_pruebas.py arena magia # solo las que lleven esas palabras en el nombre
 python tools/pasar_pruebas.py --lista     # qué pasaría, con qué tope, sin lanzar nada
 ```

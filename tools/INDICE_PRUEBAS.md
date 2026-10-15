@@ -3,7 +3,7 @@
 Generado por `python tools/indice_pruebas.py` (no editar a mano: se rehace). "Lo nombra" no es "lo cubre
 entero": sirve para ver los **huecos** y para saber qué pruebas pasar después de tocar un archivo.
 
-**256 de 360 scripts no tienen ninguna prueba que los nombre.**
+**254 de 360 scripts no tienen ninguna prueba que los nombre.**
 
 | Carpeta | Scripts | Sin prueba |
 |---|---|---|
@@ -20,7 +20,7 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 | `scripts/ui/peleteria` | 2 | 2 |
 | `scripts/ui/taller` | 1 | 1 |
 | `scripts/ui/tienda` | 4 | 4 |
-| `scripts/world` | 21 | 15 |
+| `scripts/world` | 21 | 13 |
 
 ## Huecos (ninguna prueba los nombra)
 
@@ -267,11 +267,9 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 - `scripts/ui/vista_muneco.gd`
 - `scripts/world/decorado.gd`
 - `scripts/world/dungeon_exit.gd`
-- `scripts/world/dungeon_floor.gd`
 - `scripts/world/faena.gd`
 - `scripts/world/material_entry.gd`
 - `scripts/world/material_table.gd`
-- `scripts/world/niebla.gd`
 - `scripts/world/resource_node.gd`
 - `scripts/world/spawn_entry.gd`
 - `scripts/world/spawn_table.gd`
@@ -383,7 +381,9 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 - `scripts/ui/tramo_escudo.gd`: `prueba_escudo_agua.gd`
 - `scripts/world/arena_calculo.gd`: `prueba_arena_forma.gd`, `prueba_arena_tactica.gd`, `prueba_entra_de_fuera.gd`, `prueba_tactico_mazmorra.gd`, `prueba_town_trabajadores_guion.gd`, `prueba_town_zona_ajena_b_guion.gd` y 3 más
 - `scripts/world/arena_combate.gd`: `prueba_alcances.gd`, `prueba_arena_forma.gd`, `prueba_arena_recoge.gd`, `prueba_arena_tactica.gd`, `prueba_entra_de_fuera.gd`, `prueba_reparto_enemigos.gd` y 5 más
+- `scripts/world/dungeon_floor.gd`: `prueba_suelo_monton.gd`
 - `scripts/world/dungeon_generator.gd`: `prueba_arena_forma.gd`, `prueba_arena_tactica.gd`, `prueba_embestida_porrazo.gd`, `prueba_entra_de_fuera.gd`, `prueba_estados_hud_pelea.gd`, `prueba_iniciativa_red.gd` y 7 más
 - `scripts/world/enemy_links.gd`: `prueba_tactico_mazmorra.gd`
 - `scripts/world/fishing_spot.gd`: `prueba_pesca_recoger.gd`
+- `scripts/world/niebla.gd`: `prueba_niebla_quieto.gd`
 - `scripts/world/spawn_zone.gd`: `prueba_reparto_enemigos.gd`
