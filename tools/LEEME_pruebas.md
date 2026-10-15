@@ -37,6 +37,8 @@ salida de cada una en `tools/resultados_pruebas/<nombre>.log` y dice BIEN / MAL 
   - `prueba_retraso_barra` (paso 8, 15/10): fallo DEL JUEGO. La IA buscaba sitio fuera de tu area en 3 anillos al
     35/65/100 % de lo que anda, y segun la Agilidad de la tirada se saltaba la franja buena (un slime mas agil lo hacia
     PEOR). Ahora anillos cada 12 px (PASO_ANILLO). La prueba fija la agilidad a 36, que con lo viejo fallaba siempre.
+  - `prueba_dot_del_golpe` (15/10): era la PRUEBA. Un critico con 60 % de armadura pegaba mas que un golpe normal sin
+    ella; ahora fuerza sin criticos (y devuelve el critico y la esquiva al acabar). 16/16 con 4 a la vez.
   - `prueba_town_trabajadores`: SIN REVISAR a proposito (los trabajadores se van a rehacer enteros).
   Si fallan, se repiten antes de dar nada por roto.
 

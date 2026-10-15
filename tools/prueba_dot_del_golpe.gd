@@ -95,6 +95,11 @@ func _correr() -> void:
 	var v: Combatant = al[0]
 	v.max_hp = 99999.0
 	var resultados: Array = []
+	# SIN CRITICOS (15/10): un critico con 60 % de armadura pegaba mas que uno normal sin ella (34.92 > 31.80) y la
+	# comparacion de abajo fallaba a veces. Se fuerza aqui y se devuelve al acabar, igual que la esquiva.
+	var crit_antes: float = e.crit_bonus
+	var evasion_antes: float = v.evasion_bonus
+	e.crit_bonus = -5.0
 	for armadura in [0.0, 0.6]:
 		var visto: bool = false
 		for _intento in 12:
@@ -123,6 +128,8 @@ func _correr() -> void:
 				visto = true
 				break
 		_ver(visto, "la Cornada le ha hecho sangrar (armadura %.0f %%)" % (armadura * 100.0))
+	e.crit_bonus = crit_antes
+	v.evasion_bonus = evasion_antes
 	if resultados.size() == 2:
 		_ver(resultados[1] < resultados[0], "con mas armadura sangra menos (%.2f < %.2f)" % [resultados[1], resultados[0]])
 	print("=== FIN (%s) ===" % ("TODO BIEN" if _mal == 0 else "%d MAL" % _mal))
