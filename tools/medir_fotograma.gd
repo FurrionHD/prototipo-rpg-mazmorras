@@ -201,6 +201,18 @@ func _medir_guardado() -> void:
 			c[1].call()
 			mejor = minf(mejor, float(Time.get_ticks_usec() - t0))
 		print("[FOTOGRAMA]   exportar: %-26s %7.2f ms" % [c[0], mejor / 1000.0])
+	# LA CARGA: importar la partida de referencia (la de un jugador de verdad) y leerla de la base de datos.
+	var ref_c = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
+	if ref_c is SaveData:
+		var t0: int = Time.get_ticks_usec()
+		var filas_c: Dictionary = BDFilas.a_filas(ref_c, BDFilas.Ids.new())
+		var t1: int = Time.get_ticks_usec()
+		var de_bd: SaveData = BDFilas.de_filas(filas_c, BDFilas.Ids.new())
+		var t2: int = Time.get_ticks_usec()
+		print("[FOTOGRAMA]   carga: filas -> partida (leer la BD) %.1f ms" % [(t2 - t1) / 1000.0])
+		var t3: int = Time.get_ticks_usec()
+		Game.importar_partida(de_bd)
+		print("[FOTOGRAMA]   carga: importar_partida %.1f ms" % [(Time.get_ticks_usec() - t3) / 1000.0])
 	print("[FOTOGRAMA]   item_meta: %d entradas, baul %d montones" % [Game.item_meta.size(), Game.baul.montones().size()])
 	# ¿El atajo del texto contado da LO MISMO? Las filas de una foto con un Ids calentado contra uno nuevo.
 	var foto: SaveData = Game.exportar_partida()
