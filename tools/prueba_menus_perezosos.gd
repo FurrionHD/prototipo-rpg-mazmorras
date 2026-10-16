@@ -1,6 +1,7 @@
 # PRUEBA: los menus que el jugador crea en CADA escena se montan PEREZOSOS (optimizacion 1D, 16/10/2026): al entrar
 # en escena no construyen su interfaz, y al abrirlos por primera vez se construye entera, UNA sola vez.
 # Talleres (ver taller_menu.asegurar_ui): boticaria, cocina, herreria, carpinteria, peleteria, runas, pescador, taberna.
+# Pausa y ayuda de teclas (F1): su _construir.
 extends Node
 
 var fallos := 0
@@ -53,6 +54,28 @@ func _ready() -> void:
 		if t[0] == "runas":
 			_ok(men._barra_pie != null and men._barra_pie.get_child_count() > 0, "runas: con su barra de filtros y orden")
 		men._cerrar()
+		men.queue_free()
+		await _frames(1)
+	# LA PAUSA y LA AYUDA DE TECLAS (F1): _construir al abrirlas.
+	for m in [["pausa", "res://scripts/ui/pause_menu.gd"], ["ayuda F1", "res://scripts/ui/keys_help.gd"]]:
+		var men = load(m[1]).new()
+		add_child(men)
+		await _frames(1)
+		_ok(men._root == null, "%s: al montarse no construye la interfaz" % m[0])
+		men._set_open(true)
+		await _frames(1)
+		_ok(men._root != null and men._root.visible, "%s: al abrirla se construye y se ve" % m[0])
+		var raiz: Control = men._root
+		men._set_open(false)
+		men._set_open(true)
+		_ok(men._root == raiz and raiz.visible, "%s: al reabrirla NO se construye otra vez" % m[0])
+		if m[0] == "pausa":
+			men._abrir_ajustes()
+			_ok(men._ajustes != null and men._ajustes.visible, "pausa: los ajustes se abren")
+			men._ajustes.cerrar()
+			await _frames(1)
+			_ok(not men._ajustes.visible and men._root.visible, "pausa: al cerrarlos se vuelve a la pausa")
+		men._set_open(false)
 		men.queue_free()
 		await _frames(1)
 	print("[perezosos] RESULTADO: ", "FIN: TODO BIEN" if fallos == 0 else "FALLAN %d" % fallos)

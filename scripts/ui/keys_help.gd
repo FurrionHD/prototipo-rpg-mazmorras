@@ -39,7 +39,16 @@ func _ready() -> void:
 	layer = 90   # por debajo del combate (100) pero encima del mundo
 	# El panel debe seguir procesando (input, boton de cerrar) aunque pausemos el juego.
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	# LA INTERFAZ SE MONTA AL ABRIRLA (_construir): el jugador crea esta ayuda en CADA escena y montarla eran ~4 ms de
+	# cada cambio de escena (medido 16/10).
 
+
+var _construido := false
+
+func _construir() -> void:
+	if _construido:
+		return
+	_construido = true
 	# Raiz a pantalla completa: un fondo oscuro modal + el panel centrado. Arranca
 	# OCULTA para no interrumpir el juego; se abre con F1 (y entonces pausa).
 	_root = Control.new()
@@ -149,6 +158,7 @@ func _hint(vb: VBoxContainer, txt: String) -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo \
 			and (event as InputEventKey).keycode == KEY_F1:
+		_construir()
 		_set_open(not _root.visible)
 
 
@@ -158,5 +168,6 @@ func _cerrar() -> void:
 
 # Abre/cierra la ayuda. Mientras esta abierta, el juego queda PAUSADO.
 func _set_open(open: bool) -> void:
+	_construir()
 	_root.visible = open
 	Game.fijar_modal(Game.Modal.SISTEMA, self, open)

@@ -34,7 +34,18 @@ func _ready() -> void:
 	layer = 95   # por encima del HUD, por debajo del combate (100)
 	process_mode = Node.PROCESS_MODE_ALWAYS   # tiene que funcionar con el juego en pausa
 	add_to_group("menu_pausa")   # lo busca el boton del engranaje del HUD (ver hud.gd)
+	# La invitacion de Steam puede llegar con la pausa cerrada: se conecta YA (con la pausa sin montar, no hace nada).
+	Net.invitaciones.sin_overlay.connect(_abrir_amigos)
+	# LA INTERFAZ SE MONTA AL ABRIRLA (_construir), no aqui: el jugador crea la pausa en CADA escena y montarla eran
+	# ~4,5 ms de cada cambio de escena (medido 16/10).
 
+
+var _construido := false
+
+func _construir() -> void:
+	if _construido:
+		return
+	_construido = true
 	_root = Control.new()
 	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_root.visible = false
@@ -145,7 +156,6 @@ func _ready() -> void:
 	_root.add_child(_ajustes)
 
 	_montar_amigos()
-	Net.invitaciones.sin_overlay.connect(_abrir_amigos)
 
 
 # 420x56 y no 260 de ancho por lo alto que salga: con el pulgar, un boton de 31 px de alto es una
@@ -171,6 +181,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if not event.is_action_pressed(&"cancelar"):
 		return
+	_construir()
 	# ESC dentro de los AJUSTES vuelve a la pausa, no cierra la pausa entera: si no, para salir de
 	# los ajustes habria que reabrir el menu.
 	if _root.visible and _ajustes != null and _ajustes.visible:
@@ -197,6 +208,7 @@ func _unhandled_input(event: InputEvent) -> void:
 #
 # Devuelve si ha hecho algo, que es lo que la tecla necesita para saber si consume el evento.
 func alternar() -> bool:
+	_construir()
 	if not _root.visible and (Game.hay_pantalla_abierta() or Game.hay_modal()):
 		return false
 	_set_open(not _root.visible)
@@ -204,6 +216,7 @@ func alternar() -> bool:
 
 
 func _set_open(abierto: bool) -> void:
+	_construir()
 	_root.visible = abierto
 	Game.fijar_modal(Game.Modal.SISTEMA, self, abierto)
 	if abierto:
@@ -318,7 +331,7 @@ func _montar_amigos() -> void:
 
 
 func _abrir_amigos(cadena: String) -> void:
-	if not _root.visible:
+	if _root == null or not _root.visible:
 		return
 	for h in _lista_amigos.get_children():
 		h.queue_free()
