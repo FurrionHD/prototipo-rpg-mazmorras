@@ -41,6 +41,16 @@ func _ready() -> void:
 	layer = 91
 	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para mientras esta abierto
 	add_to_group("mercadillo_menu")
+	# LA INTERFAZ SE MONTA AL ABRIRLO (_construir): el jugador crea el mercadillo en CADA escena y montarlo eran
+	# ~2,3 ms de cada cambio de escena (medido 16/10).
+
+
+var _construido := false
+
+func _construir() -> void:
+	if _construido:
+		return
+	_construido = true
 	_root = Control.new()
 	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_root.visible = false
@@ -121,6 +131,7 @@ func abrir(vendedor: int) -> void:
 		return
 	if not VendedoresPlan.vende(vendedor, CicloDia.segundo()):
 		return
+	_construir()
 	_vendedor = vendedor
 	_genero = VendedoresPlan.genero(vendedor)
 	_titulo.text = String(VendedoresPlan.VENDEDORES[vendedor]["nombre"])
@@ -136,7 +147,7 @@ func abrir(vendedor: int) -> void:
 
 
 func cerrar() -> void:
-	if not _root.visible:
+	if _root == null or not _root.visible:
 		return
 	_root.visible = false
 	Game.cerrar_menu(self)
@@ -144,7 +155,7 @@ func cerrar() -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if not _root.visible:
+	if _root == null or not _root.visible:
 		return
 	if event is InputEventKey and event.pressed and not event.echo \
 			and (event as InputEventKey).keycode == KEY_ESCAPE:

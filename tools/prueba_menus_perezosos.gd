@@ -80,5 +80,13 @@ func _ready() -> void:
 		men._set_open(false)
 		men.queue_free()
 		await _frames(1)
+	# Los que se abren con datos que aqui no hay (el mercadillo necesita un puesto abierto a esta hora): solo que al
+	# montarse no construyan nada. Lo de abrirlos lo cubren sus visores (dev_mercadillo).
+	for m in [["mercadillo", "res://scripts/ui/mercadillo_menu.gd"]]:
+		var men = load(m[1]).new()
+		add_child(men)
+		await _frames(1)
+		_ok(men._root == null, "%s: al montarse no construye la interfaz" % m[0])
+		men.queue_free()
 	print("[perezosos] RESULTADO: ", "FIN: TODO BIEN" if fallos == 0 else "FALLAN %d" % fallos)
 	get_tree().quit(0 if fallos == 0 else 1)
