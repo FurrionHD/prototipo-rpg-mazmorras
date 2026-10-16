@@ -2142,20 +2142,34 @@ func _tarjeta_persona(fila: Container, c: ConsumableData, i: int) -> void:
 	# la tarjeta y por debajo de nada -- por eso el nombre y las barras se pintan en el draw del
 	# padre y quedarian TAPADOS. Se colocan fuera de la silueta a proposito (arriba del todo y en el
 	# pie), donde el muñeco no llega.
+	# HORNEADO si ya lo esta (1D, 16/10: ver RetratoHorneado), del tamaño de la tarjeta entera.
+	var tarjeta := Vector2(ANCHO_TARJETA, ALTO_TARJETA)
+	var horneado: Dictionary = RetratoHorneado.de_modo(pj, "tarjeta_inv")
+	if not horneado.is_empty():
+		var r := RetratoHorneado.crear(horneado)
+		r.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		r.size = tarjeta
+		b.add_child(r)
+		return
 	var m := MunecoJugador.new()
 	m.montar(pj)
 	m.tenir(pj.color, 0.0)
 	m.poner_cara(pj.textura())
 	if m.hay_dibujo():
-		# Escala para que quepa entre el nombre y las barras. Los pies del muñeco son su propio
-		# origen, asi que se apoya donde empiezan las barras.
-		var alto_util: float = ALTO_TARJETA - 84.0
-		m.scale = Vector2.ONE * (alto_util / PoseJugador.ALTO_MUNDO)
-		m.position = Vector2(ANCHO_TARJETA * 0.5, ALTO_TARJETA - 54.0)
+		_colocar_en_tarjeta(m, tarjeta)
 		m.animar("idle_4")
 		b.add_child(m)
+		RetratoHorneado.pedir_modo(pj, "tarjeta_inv", tarjeta, -1, _colocar_en_tarjeta, "idle_4")
 	else:
 		m.queue_free()
+
+
+# Escala para que quepa entre el nombre y las barras. Los pies del muñeco son su propio origen, asi que se apoya
+# donde empiezan las barras. La usan el vivo y el horneado.
+static func _colocar_en_tarjeta(m: MunecoJugador, tarjeta: Vector2) -> void:
+	var alto_util: float = tarjeta.y - 84.0
+	m.scale = Vector2.ONE * (alto_util / PoseJugador.ALTO_MUNDO)
+	m.position = Vector2(tarjeta.x * 0.5, tarjeta.y - 54.0)
 
 
 # Una barra de N/M con su numero encima. Devuelve nada: se dibuja en el CanvasItem que se le pasa.

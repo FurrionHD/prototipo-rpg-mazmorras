@@ -125,69 +125,15 @@ func _ready() -> void:
 	print("[RETRATOS] caras: %d horneadas de %d; %d pixeles distintos, el peor %d/255" % [n_hc, gente.size(), dc[0], dc[1]])
 	if dc[0] > maxi(dv[0] / 4, 50):
 		mal += 1
-	# 5) RECTANGULAR Y RESPIRANDO (la tira de la ficha de detalle de combate, CombateDetalle._colocar_retrato)
+	# 5) RECTANGULAR Y RESPIRANDO: la tira de la ficha de detalle de combate y la tarjeta del inventario (esta SIN
+	# recorte en el vivo, como en el juego: si el muneco se sale de la tarjeta, el horneado lo cortaria).
 	var CD = preload("res://scripts/ui/combate_detalle.gd")
-	_fila.queue_free()
-	await get_tree().process_frame
-	_fila = HBoxContainer.new()
-	_fila.position = Vector2(40, 60)
-	add_child(_fila)
-	var tam := Vector2(60, 84)
-	var huecos: Array = []
-	var vivos5: Array = []
-	for pj in gente:
-		var hq := Control.new()
-		hq.custom_minimum_size = tam
-		hq.size = tam
-		hq.clip_contents = true
-		_fila.add_child(hq)
-		huecos.append(hq)
-		var mu := MunecoJugador.new()
-		mu.montar(pj)
-		mu.tenir(pj.color, 0.0)
-		mu.poner_cara(pj.textura())
-		hq.add_child(mu)
-		mu.z_as_relative = true
-		CD._colocar_retrato(mu, tam)
-		vivos5.append(mu)
-		RetratoHorneado.pedir_modo(pj, "prueba_rect", tam, -1, CD._colocar_retrato)
-	await get_tree().process_frame
-	for mu in vivos5:
-		mu.z_as_relative = true
-		mu.z_index = 0
-	var vivas5: Array = []
-	for m in 8:
-		for mu in vivos5:
-			mu.fijar(RetratoHorneado.ANIM, m)
-		vivas5.append(await _captura())
-	for i in 300:
-		await get_tree().process_frame
-		if RetratoHorneado._horneando.is_empty():
-			break
-	var rs: Array = []
-	for i in gente.size():
-		for h in (huecos[i] as Control).get_children():
-			h.free()
-		var e5: Dictionary = RetratoHorneado.de_modo(gente[i], "prueba_rect")
-		if not e5.is_empty():
-			var r5 := RetratoHorneado.crear(e5)
-			huecos[i].add_child(r5)
-			rs.append(r5)
-	var peor5: int = 0
-	for m in 8:
-		for r5 in rs:
-			r5._i = m
-			r5.set_process(false)
-			r5.queue_redraw()
-		var im5: Image = await _captura()
-		var d5: Array = _diferencia(vivas5[m], im5, 60 + m)
-		peor5 = maxi(peor5, d5[0])
-		if m == 0:
-			im5.save_png("%s/rect_horneado.png" % CARPETA)
-			(vivas5[0] as Image).save_png("%s/rect_vivo.png" % CARPETA)
-	print("[RETRATOS] rectangulares (60x84, respirando): %d horneados de %d; el peor fotograma %d pixeles distintos" % [rs.size(), gente.size(), peor5])
-	if peor5 > maxi(dv[0], 50):
-		mal += 1
+	var INV = preload("res://scripts/ui/inventory_menu.gd")
+	for prueba in [["detalle", Vector2(60, 84), CD._colocar_retrato, "idle_0", true],
+			["tarjeta_inv", Vector2(116, 182), INV._colocar_en_tarjeta, "idle_4", false]]:
+		var peor5: int = await _probar_modo(gente, prueba[0], prueba[1], prueba[2], prueba[3], prueba[4])
+		if peor5 > maxi(dv[0], 50):
+			mal += 1
 	print("[RETRATOS] FIN: %s" % ("IGUALES A LA VISTA" if mal == 0 else "%d FOTOGRAMAS CON DIFERENCIAS GRANDES" % mal))
 	get_tree().quit()
 
@@ -232,3 +178,66 @@ func _diferencia(a: Image, b: Image, m: int) -> Array:
 	d.save_png("%s/diferencia_%d.png" % [CARPETA, m])
 	return [n, peor]
 
+
+
+# Un encuadre cualquiera: vivo contra horneado en sus 8 fotogramas. Devuelve los pixeles distintos del peor.
+func _probar_modo(gente: Array, modo: String, tam: Vector2, colocar: Callable, anim: String, recorte_vivo: bool) -> int:
+	_fila.queue_free()
+	await get_tree().process_frame
+	_fila = HBoxContainer.new()
+	_fila.position = Vector2(40, 60)
+	add_child(_fila)
+	var huecos: Array = []
+	var vivos5: Array = []
+	for pj in gente:
+		var hq := Control.new()
+		hq.custom_minimum_size = tam
+		hq.size = tam
+		hq.clip_contents = recorte_vivo
+		_fila.add_child(hq)
+		huecos.append(hq)
+		var mu := MunecoJugador.new()
+		mu.montar(pj)
+		mu.tenir(pj.color, 0.0)
+		mu.poner_cara(pj.textura())
+		hq.add_child(mu)
+		colocar.call(mu, tam)
+		vivos5.append(mu)
+		RetratoHorneado.pedir_modo(pj, "prueba_" + modo, tam, -1, colocar, anim)
+	await get_tree().process_frame
+	for mu in vivos5:
+		mu.z_as_relative = true
+		mu.z_index = 0
+	var vivas5: Array = []
+	for m in 8:
+		for mu in vivos5:
+			mu.fijar(anim, m)
+		vivas5.append(await _captura())
+	for i in 300:
+		await get_tree().process_frame
+		if RetratoHorneado._horneando.is_empty():
+			break
+	var rs: Array = []
+	for i in gente.size():
+		for h in (huecos[i] as Control).get_children():
+			h.free()
+		var e5: Dictionary = RetratoHorneado.de_modo(gente[i], "prueba_" + modo)
+		if not e5.is_empty():
+			var r5 := RetratoHorneado.crear(e5)
+			huecos[i].add_child(r5)
+			rs.append(r5)
+	var peor5: int = 0
+	for m in 8:
+		for r5 in rs:
+			r5._i = m
+			r5.set_process(false)
+			r5.queue_redraw()
+		var im5: Image = await _captura()
+		var d5: Array = _diferencia(vivas5[m], im5, 100 + m)
+		peor5 = maxi(peor5, d5[0])
+		if m == 0:
+			im5.save_png("%s/%s_horneado.png" % [CARPETA, modo])
+			(vivas5[0] as Image).save_png("%s/%s_vivo.png" % [CARPETA, modo])
+	print("[RETRATOS] %s (%dx%d, %s): %d horneados de %d; el peor fotograma %d pixeles distintos" % [
+		modo, tam.x, tam.y, anim, rs.size(), gente.size(), peor5])
+	return peor5

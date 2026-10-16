@@ -24,7 +24,11 @@ class_name RetratoHorneado
 extends Control
 
 const ANIM := "idle_0"
-const MAX_EN_CACHE := 48          # cada uno son unos cientos de KB; si se pasa, se empieza de nuevo
+# TOPE DE MEMORIA de la cache, en bytes de imagen (RGBA). Una fila de 8 fotogramas de 74 px a 1920x1080 son ~300 KB;
+# una tarjeta del inventario ~1,4 MB. Si se pasa, se empieza de nuevo (lo que se vea se vuelve a hornear solo).
+# Los munecos GRANDES (hogar, altar, ficha) no se hornean: se reutilizan vivos (ver plan 1D).
+const MAX_BYTES := 48 * 1024 * 1024
+static var _bytes: int = 0
 # Lo que hay que mover al muneco para que el recorte deje cabeza y hombros (los mismos numeros que
 # MenuScaffold._retrato, que salieron de mirar la captura): escala por lado del cuadro y donde va el origen.
 const ESCALA_POR_LADO := 2.1
@@ -74,10 +78,10 @@ static func de(pj: PersonajeData) -> Dictionary:
 # Que se hornee, para la proxima vez. Si ya esta (o se esta haciendo), nada.
 static func pedir(pj: PersonajeData) -> void:
 	pedir_modo(pj, "fila", Vector2.ONE * MenuScaffold.LADO_RETRATO, -1,
-		func(mu: MunecoJugador, px: Vector2) -> void: colocar_fila(mu, px.x))
+		func(mu: MunecoJugador, tam: Vector2) -> void: colocar_fila(mu, tam.x))
 
 
-# Donde va el muneco de la fila dentro de un cuadro de 'lado' (en px de lo que se pinta): lo usan el vivo
+# Donde va el muneco de la fila dentro de un cuadro de 'lado' (unidades de la interfaz): lo usan el vivo
 # (MenuScaffold._retrato) y el horneado, para que encuadren igual.
 static func colocar_fila(mu: MunecoJugador, lado: float) -> void:
 	mu.scale = Vector2.ONE * (lado * ESCALA_POR_LADO / PoseJugador.ALTO_MUNDO)
@@ -94,19 +98,24 @@ static func de_modo(pj: PersonajeData, modo: String) -> Dictionary:
 
 
 # 'tam' = el cuadro en unidades de la interfaz; 'marcos' = cuantos fotogramas de ANIM (-1 = todos: respira; 1 =
-# quieto); 'colocar' = func(mu: MunecoJugador, tam_px: Vector2): deja el muneco como lo dejaria quien lo pinta vivo
-# dentro de un cuadro de tam_px. El tamaño tiene que ir dentro de 'modo' si puede cambiar.
-static func pedir_modo(pj: PersonajeData, modo: String, tam: Vector2, marcos: int, colocar: Callable) -> void:
+# quieto); 'colocar' = func(mu: MunecoJugador, tam: Vector2): deja el muneco EXACTAMENTE como lo deja quien lo pinta
+# vivo en un cuadro de 'tam', en unidades de la interfaz (la escala de pantalla se le aplica despues, a todo junto:
+# asi valen las cuentas con margenes fijos, como la tarjeta del inventario). El tamaño va dentro de 'modo' si cambia.
+static func pedir_modo(pj: PersonajeData, modo: String, tam: Vector2, marcos: int, colocar: Callable,
+		anim: String = ANIM) -> void:
 	if pj == null or not se_puede() or tam.x <= 1.0 or tam.y <= 1.0:
 		return
 	var k: float = escala_pantalla()
 	var h: String = huella(pj, k, modo)
 	if _cache.has(h) or _horneando.has(h):
 		return
-	_hornear(pj, h, Vector2i(ceili(tam.x * k), ceili(tam.y * k)), marcos, colocar)
+	_hornear(pj, h, tam, k, marcos, colocar, anim)
 
 
-static func _hornear(pj: PersonajeData, h: String, tam: Vector2i, marcos_pide: int, colocar: Callable) -> void:
+static func _hornear(pj: PersonajeData, h: String, tam_ui: Vector2, k: float, marcos_pide: int, colocar: Callable,
+		anim: String) -> void:
+	var tam := Vector2i(ceili(tam_ui.x * k), ceili(tam_ui.y * k))
+	var escala_img := Vector2(float(tam.x) / tam_ui.x, float(tam.y) / tam_ui.y)
 	_horneando[h] = true
 	var arbol := Engine.get_main_loop() as SceneTree
 	# Cada fotograma va en el centro de un hueco TRES veces mas ancho: el muneco a esta escala se sale de su cuadro
@@ -128,10 +137,14 @@ static func _hornear(pj: PersonajeData, h: String, tam: Vector2i, marcos_pide: i
 		mu.montar(pj)
 		mu.tenir(pj.color, 0.0)
 		mu.poner_cara(pj.textura())
-		colocar.call(mu, Vector2(tam))
+		colocar.call(mu, tam_ui)
+		# De unidades de la interfaz a pixeles de la imagen, todo junto. Por lo que MIDE la imagen (109 px para un cuadro
+		# de 74 a escala 1,47, no 108,78): asi al estirarla a su cuadro cae cada pixel donde lo pinta el vivo.
+		mu.scale *= escala_img.x
+		mu.position *= escala_img
 		mu.position += Vector2(float(i * hueco + lado), 0.0)   # al cuadro del medio de su hueco
 		vp.add_child(mu)
-		mu.fijar(ANIM, i)
+		mu.fijar(anim, i)
 		if i == 0:
 			if marcos_pide < 0:
 				marcos = maxi(1, int(mu.get("_marcos")))
@@ -150,8 +163,11 @@ static func _hornear(pj: PersonajeData, h: String, tam: Vector2i, marcos_pide: i
 	var atlas := Image.create(lado * marcos, tam.y, false, img.get_format())
 	for m in marcos:
 		atlas.blit_rect(img, Rect2i(m * hueco + lado, 0, lado, tam.y), Vector2i(m * lado, 0))
-	if _cache.size() >= MAX_EN_CACHE:
+	var bytes: int = atlas.get_width() * atlas.get_height() * 4
+	if _bytes + bytes > MAX_BYTES:
 		_cache.clear()
+		_bytes = 0
+	_bytes += bytes
 	_cache[h] = {"tex": ImageTexture.create_from_image(atlas), "marcos": marcos, "fps": fps, "lado": lado, "alto": tam.y}
 
 
