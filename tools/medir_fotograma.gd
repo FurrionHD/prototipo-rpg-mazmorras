@@ -102,6 +102,7 @@ func _correr() -> void:
 		print("[FOTOGRAMA]   %-34s %8.1f us   (%d nodos)" % [r, por_script[r][0], por_script[r][1]])
 	_detalle_jugador(jugador)
 	_enemigos_persiguiendo(jugador)
+	_medir_retratos()
 	var hud2: Node = get_tree().get_first_node_in_group("hud")
 	if hud2 != null:
 		var t0: int = Time.get_ticks_usec()
@@ -417,3 +418,34 @@ func _enemigos_persiguiendo(j: Node2D) -> void:
 			bichos[i]._state = guardado[i][1]
 			bichos[i].lose_range = guardado[i][2]
 			bichos[i]._objetivo = null
+
+
+# LOS RETRATOS (1D): lo que cuesta montar la fila de retratos de una pantalla (un MunecoJugador vivo por persona) y
+# tenerla viva un fotograma.
+func _medir_retratos() -> void:
+	var gente: Array = Game.party + Game.plantilla if "plantilla" in Game else Game.party
+	var fila := HBoxContainer.new()
+	add_child(fila)
+	var mejor: float = INF
+	for tanda in 3:
+		var t0: int = Time.get_ticks_usec()
+		MenuScaffold.retratos(fila, gente, 0, Game.party.size(), func(_i): pass)
+		mejor = minf(mejor, float(Time.get_ticks_usec() - t0))
+	var munecos: Array = []
+	_juntar(fila, munecos)
+	munecos = munecos.filter(func(n): return n is MunecoJugador)
+	var capas: int = 0
+	_juntar_cuenta(fila, func(n): if n is AnimatedSprite2D: capas += 1)
+	var t1: int = Time.get_ticks_usec()
+	for k in VECES:
+		for m in munecos:
+			m._process(1.0 / 60.0)
+	print("[FOTOGRAMA] retratos: %d personas, montar la fila %.2f ms, %d munecos con %d capas, vivos %.1f us por fotograma" % [
+		gente.size(), mejor / 1000.0, munecos.size(), capas, float(Time.get_ticks_usec() - t1) / VECES])
+	fila.queue_free()
+
+
+func _juntar_cuenta(n: Node, f: Callable) -> void:
+	f.call(n)
+	for h in n.get_children():
+		_juntar_cuenta(h, f)
