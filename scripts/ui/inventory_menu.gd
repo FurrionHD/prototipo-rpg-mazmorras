@@ -70,7 +70,16 @@ func _ready() -> void:
 	# Diferida, y puede que para entonces este menu ya no este en la escena (se cambia de escena en el
 	# mismo fotograma, p. ej. la mazmorra sin partida manda al menu principal): sin arbol no hay precarga.
 	(func(): if is_inside_tree(): IconoItem.SpritesObjeto.precargar(get_tree())).call_deferred()
+	# LA INTERFAZ SE MONTA AL ABRIRLO (_construir): el jugador crea el inventario en CADA escena y montarlo eran ~3 ms
+	# de cada cambio de escena (medido 16/10).
 
+
+var _construido := false
+
+func _construir() -> void:
+	if _construido:
+		return
+	_construido = true
 	# con_lateral = FALSE: las pestañas van en una FILA ARRIBA, no en una columna a la izquierda. Es
 	# la forma que tiene el menu en escritorio, y ademas devuelve a la rejilla los 230 px que se
 	# comia la columna -- con celdas de 96 eso es una columna entera de objetos mas.
@@ -211,7 +220,7 @@ func _ready() -> void:
 # ESC va en _input y CONSUME el evento: _input corre SIEMPRE antes que _unhandled_input, asi que el
 # menu de PAUSA (que escucha ahi) no llega a ver la tecla y no se abre por detras al cerrar la bolsa.
 func _input(event: InputEvent) -> void:
-	if not _root.visible:
+	if _root == null or not _root.visible:
 		return
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
@@ -242,6 +251,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 
 func _toggle() -> void:
+	_construir()
 	if not _root.visible:
 		# No abrir sobre un combate/extraccion, ni con el panel DEBUG, ni encima de OTRO MENU. Lo del
 		# otro menu antes lo tapaba la pausa del arbol ("con el menu de personaje abierto esto ni
@@ -259,6 +269,7 @@ func _cerrar() -> void:
 
 
 func _set_open(open: bool) -> void:
+	_construir()
 	_root.visible = open
 	if open:
 		Game.abrir_menu(self)    # para el mundo entero: nada de que te embosquen con la bolsa abierta
@@ -291,6 +302,7 @@ var _solo_seleccion := false
 func _rebuild() -> void:
 	if _reconstruyendo:
 		return
+	_construir()
 	_reconstruyendo = true
 	# El baul se cuenta UNA vez por repintado (ver Game.abrir_recuento_hogar).
 	Game.abrir_recuento_hogar()

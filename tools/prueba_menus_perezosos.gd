@@ -1,7 +1,7 @@
 # PRUEBA: los menus que el jugador crea en CADA escena se montan PEREZOSOS (optimizacion 1D, 16/10/2026): al entrar
 # en escena no construyen su interfaz, y al abrirlos por primera vez se construye entera, UNA sola vez.
 # Talleres (ver taller_menu.asegurar_ui): boticaria, cocina, herreria, carpinteria, peleteria, runas, pescador, taberna.
-# Pausa y ayuda de teclas (F1): su _construir.
+# Pausa, ayuda de teclas (F1) e inventario: su _construir.
 extends Node
 
 var fallos := 0
@@ -57,7 +57,8 @@ func _ready() -> void:
 		men.queue_free()
 		await _frames(1)
 	# LA PAUSA y LA AYUDA DE TECLAS (F1): _construir al abrirlas.
-	for m in [["pausa", "res://scripts/ui/pause_menu.gd"], ["ayuda F1", "res://scripts/ui/keys_help.gd"]]:
+	for m in [["pausa", "res://scripts/ui/pause_menu.gd"], ["ayuda F1", "res://scripts/ui/keys_help.gd"],
+			["inventario", "res://scripts/ui/inventory_menu.gd"]]:
 		var men = load(m[1]).new()
 		add_child(men)
 		await _frames(1)
