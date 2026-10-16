@@ -35,6 +35,16 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para con el menu abierto
 	add_to_group("fishing_menu")
 
+	# LA INTERFAZ SE MONTA AL ABRIRLO (_construir): el jugador crea este menu en CADA escena y montarlo eran ~1,6 ms
+	# de cada cambio de escena (medido 16/10).
+
+
+var _construido := false
+
+func _construir() -> void:
+	if _construido:
+		return
+	_construido = true
 	var m: Dictionary = MenuScaffold.construir(self, "ESTANQUE",
 		"Pon cebo si lo llevas y echa el sedal. Los peces que estén ahí abajo son los que hay.",
 		_cerrar)
@@ -45,6 +55,7 @@ func _ready() -> void:
 
 
 func abrir(spot: Node) -> void:
+	_construir()
 	if Game._active_layer != null or Game.debug_panel_open:
 		return
 	_spot = spot
@@ -57,12 +68,14 @@ func abrir(spot: Node) -> void:
 
 
 func _cerrar() -> void:
+	if _root == null:
+		return   # sin montar: nunca se abrio
 	_root.visible = false
 	Game.cerrar_menu(self)
 
 
 func _input(event: InputEvent) -> void:
-	if not _root.visible:
+	if _root == null or not _root.visible:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if (event as InputEventKey).keycode == KEY_ESCAPE:
@@ -77,6 +90,7 @@ func _input(event: InputEvent) -> void:
 var _reconstruyendo := false
 
 func _rebuild() -> void:
+	_construir()
 	if _reconstruyendo:
 		return
 	_reconstruyendo = true

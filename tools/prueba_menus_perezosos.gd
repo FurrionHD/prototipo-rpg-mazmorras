@@ -32,6 +32,7 @@ func _ready() -> void:
 		["tienda", "res://scripts/ui/shop_menu.gd", ""],
 		["hogar", "res://scripts/ui/home_menu.gd", ""],
 		["maestro", "res://scripts/ui/maestro_menu.gd", ""],
+		["selector de piso", "res://scripts/ui/floor_select_menu.gd", ""],
 	]
 	for t in talleres:
 		var men = load(t[1]).new()
@@ -82,13 +83,25 @@ func _ready() -> void:
 		men._set_open(false)
 		men.queue_free()
 		await _frames(1)
-	# Los que se abren con datos que aqui no hay (el mercadillo necesita un puesto abierto a esta hora): solo que al
+	# Los que se abren con datos que aqui no hay (el mercadillo necesita un puesto abierto a esta hora; el estanque, un charco): solo que al
 	# montarse no construyan nada. Lo de abrirlos lo cubren sus visores (dev_mercadillo).
-	for m in [["mercadillo", "res://scripts/ui/mercadillo_menu.gd"]]:
+	for m in [["mercadillo", "res://scripts/ui/mercadillo_menu.gd"], ["estanque", "res://scripts/ui/fishing_menu.gd"]]:
 		var men = load(m[1]).new()
 		add_child(men)
 		await _frames(1)
 		_ok(men._root == null, "%s: al montarse no construye la interfaz" % m[0])
+		if m[0] == "estanque":
+			# Con un charco de mentira: abrirlo construye la interfaz y pinta la lista de cebos.
+			var charco := Node2D.new()
+			add_child(charco)
+			Game.cerrar_menus_abiertos()
+			Game._active_layer = null
+			men.abrir(charco)
+			await _frames(1)
+			_ok(men._root != null and men._root.visible and men._content.get_child_count() > 0,
+				"estanque: al abrirlo se construye y se pinta")
+			men._cerrar()
+			charco.queue_free()
 		men.queue_free()
 	print("[perezosos] RESULTADO: ", "FIN: TODO BIEN" if fallos == 0 else "FALLAN %d" % fallos)
 	get_tree().quit(0 if fallos == 0 else 1)
