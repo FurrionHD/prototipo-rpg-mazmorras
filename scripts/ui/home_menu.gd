@@ -182,7 +182,10 @@ func contador(txt: String, alerta: bool = false) -> void:
 # El OTRO jugador cambio el estado compartido: si tengo el hogar abierto, me re-dibujo.
 func _on_hogar_cambiado() -> void:
 	if _root != null and _root.visible:
-		_rebuild()
+		# Uno por fotograma (ver MenuScaffold.repintar_al_final).
+		MenuScaffold.repintar_al_final(self, func() -> void:
+			if _root.visible:
+				_rebuild())
 
 
 func abrir() -> void:

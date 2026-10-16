@@ -1111,6 +1111,9 @@ func abrir_taller() -> bool:
 		_taller_dueno = multiplayer.get_unique_id()
 	_foto_taller = _conteo_almacen()
 	_foto_activa = true
+	# LOS REPINTADOS DE RED APUNTADOS, YA: la accion que va a gastar tiene que ver el baul de ahora (la ficha del
+	# taller recorta la seleccion al repintar). Ver MenuScaffold.repintar_al_final.
+	MenuScaffold.repintar_pendientes()
 	return true
 
 
@@ -1124,6 +1127,7 @@ func abrir_taller_host_ya() -> bool:
 	_taller_dueno = 1
 	_foto_taller = _conteo_almacen()
 	_foto_activa = true
+	MenuScaffold.repintar_pendientes()   # igual que abrir_taller
 	return true
 
 

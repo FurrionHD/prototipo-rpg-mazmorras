@@ -230,7 +230,10 @@ func _al_cerrar() -> void:
 
 func _on_cambio_externo() -> void:
 	if _root != null and _root.visible:
-		_rebuild()
+		# Uno por fotograma (ver MenuScaffold.repintar_al_final).
+		MenuScaffold.repintar_al_final(self, func() -> void:
+			if _root.visible:
+				_rebuild())
 
 
 func ocupado() -> void:

@@ -346,10 +346,10 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 - `scripts/items/weapon_data.gd`: `prueba_cargar_turno.gd`, `prueba_tactico_turno.gd`, `prueba_taller_runas.gd`
 - `scripts/net/cloud.gd`: `prueba_bd_nube.gd`, `prueba_bd_un_jugador.gd`, `prueba_nube_sin_red.gd`, `prueba_sala.gd`, `prueba_sala_dos_jugadores.gd`, `prueba_sala_entrar.gd` y 2 más
 - `scripts/net/cloud_store_local.gd`: `prueba_identidad_y_cerrojo.gd`
-- `scripts/net/net.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_andar_apuntando.gd`, `prueba_anim_por_red.gd`, `prueba_apartarse_fuera.gd`, `prueba_arena.gd` y 66 más
+- `scripts/net/net.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_andar_apuntando.gd`, `prueba_anim_por_red.gd`, `prueba_apartarse_fuera.gd`, `prueba_arena.gd` y 67 más
 - `scripts/net/net_enemigos.gd`: `prueba_tactico_turno.gd`, `prueba_town_dos_comun.gd`, `prueba_town_dos_jugadores_guion.gd`, `prueba_town_tactico_guion.gd`, `prueba_town_trabajadores_guion.gd`, `prueba_town_zona_ajena_guion.gd`
 - `scripts/net/net_formacion.gd`: `prueba_sala_cliente_guion.gd`
-- `scripts/net/net_hogar.gd`: `prueba_roster_duplicados.gd`, `prueba_sala_cliente_guion.gd`, `prueba_town_baul_cliente.gd`, `prueba_town_baul_red.gd`, `prueba_town_dos_cliente_guion.gd`, `prueba_town_dos_jugadores_guion.gd` y 1 más
+- `scripts/net/net_hogar.gd`: `prueba_repintado_red.gd`, `prueba_roster_duplicados.gd`, `prueba_sala_cliente_guion.gd`, `prueba_town_baul_cliente.gd`, `prueba_town_baul_red.gd`, `prueba_town_dos_cliente_guion.gd` y 2 más
 - `scripts/net/net_jefes.gd`: `prueba_bd_mazmorra_viva.gd`
 - `scripts/net/net_jugadores.gd`: `prueba_town_dos_jugadores_guion.gd`
 - `scripts/net/net_mapa.gd`: `prueba_marcas_mapa.gd`
@@ -373,12 +373,12 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 - `scripts/ui/combat_formas.gd`: `prueba_charcos_baba.gd`, `prueba_formas_area.gd`, `prueba_minotauro_tactico.gd`, `prueba_mut_profundo.gd`, `prueba_mut_veneno.gd`, `prueba_retraso_barra.gd` y 2 más
 - `scripts/ui/combat_tactico.gd`: `prueba_formas_area.gd`, `prueba_tactico_turno.gd`
 - `scripts/ui/combate_detalle.gd`: `prueba_huella_combate.gd`
-- `scripts/ui/craft_menu.gd`: `prueba_taller_clic.gd`
+- `scripts/ui/craft_menu.gd`: `prueba_repintado_red.gd`, `prueba_taller_clic.gd`
 - `scripts/ui/debug_panel.gd`: `prueba_debug_panel.gd`
 - `scripts/ui/herreria/herreria_reparar.gd`: `prueba_reparar_escudo.gd`
 - `scripts/ui/inventory_menu.gd`: `prueba_inventario_clic.gd`, `prueba_scroll_rejilla.gd`
 - `scripts/ui/maestro_menu.gd`: `prueba_maestro_clic.gd`
-- `scripts/ui/menu_scaffold.gd`: `prueba_inventario_clic.gd`, `prueba_maestro_clic.gd`, `prueba_runas_en_menu.gd`, `prueba_scroll_rejilla.gd`, `prueba_taller_clic.gd`, `prueba_taller_runas.gd` y 1 más
+- `scripts/ui/menu_scaffold.gd`: `prueba_inventario_clic.gd`, `prueba_maestro_clic.gd`, `prueba_repintado_red.gd`, `prueba_runas_en_menu.gd`, `prueba_scroll_rejilla.gd`, `prueba_taller_clic.gd` y 2 más
 - `scripts/ui/munecos_reusables.gd`: `unitarias/test_munecos_reusables.gd`
 - `scripts/ui/rueda_cristales.gd`: `prueba_rueda_cristales.gd`
 - `scripts/ui/tramo_escudo.gd`: `prueba_escudo_agua.gd`

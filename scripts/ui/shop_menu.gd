@@ -241,7 +241,10 @@ func _ready() -> void:
 	if Net.has_signal("hogar_cambiado"):
 		Net.hogar_cambiado.connect(func():
 			if _root.visible and _tab == TAB_VENDER:
-				_rebuild())
+				# Uno por fotograma (ver MenuScaffold.repintar_al_final).
+				MenuScaffold.repintar_al_final(self, func() -> void:
+					if _root.visible and _tab == TAB_VENDER:
+						_rebuild()))
 	if Net.has_signal("venta_cofre"):
 		Net.venta_cofre.connect(func(txt: String):
 			decir(txt)

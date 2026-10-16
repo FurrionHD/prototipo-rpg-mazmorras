@@ -62,6 +62,36 @@ const LADO_ICONO := 44.0
 
 static var _tema: Theme = null
 
+# ============================================================
+#  REPINTAR UNA VEZ POR FOTOGRAMA LO QUE AVISA LA RED
+#  Net.hogar_cambiado / reservas_cambiadas llegan de dos en dos (y de tres en tres) por cada accion del
+#  compañero, y cada una rehacia la pantalla entera. Ahora el aviso APUNTA el repintado y se hace UNO al
+#  final del fotograma, con lo ultimo.
+#
+#  LA GUARDA: el repintado inmediato hacia de seguro sin que nadie lo pusiera a proposito -- la ficha del
+#  taller recorta tu seleccion a lo que queda (_capar_y_publicar) y craftear_con no lo vuelve a mirar.
+#  Por eso Net.hogar.abrir_taller llama a repintar_pendientes() ANTES de dar el permiso: ninguna accion
+#  empieza con un repintado colgando.
+# ============================================================
+static var _pendientes: Array = []   # [[nodo, Callable]], uno por nodo
+
+static func repintar_al_final(nodo: Object, repintar: Callable) -> void:
+	for e in _pendientes:
+		if e[0] == nodo:
+			return   # ya hay uno apuntado para este menu: con ese basta (pinta lo ultimo)
+	_pendientes.append([nodo, repintar])
+	if _pendientes.size() == 1:
+		(func() -> void: repintar_pendientes()).call_deferred()
+
+
+# Hace YA los repintados apuntados. La llama el fin del fotograma y, antes, quien vaya a gastar del baul.
+static func repintar_pendientes() -> void:
+	var lista: Array = _pendientes
+	_pendientes = []
+	for e in lista:
+		if is_instance_valid(e[0]):
+			(e[1] as Callable).call()
+
 static func tema() -> Theme:
 	if _tema != null:
 		return _tema
