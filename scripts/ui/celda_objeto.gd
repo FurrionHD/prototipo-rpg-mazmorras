@@ -151,12 +151,48 @@ func _ready() -> void:
 		p = p.get_parent()
 	if p != null:
 		_scroll = p as ScrollContainer
-		_scroll.get_v_scroll_bar().value_changed.connect(func(_v):
-			if _pendiente:
-				queue_redraw())
-		_scroll.resized.connect(func():
-			if _pendiente:
-				queue_redraw())
+		_enganchar_scroll(_scroll)
+
+
+# UNA SOLA CONEXION POR SCROLL, no dos por celda: con el baul lleno eran 1.400 conexiones y cada paso de rueda
+# avisaba a 700 celdas para que casi todas dijeran "no es conmigo". Ahora la celda que se salta el dibujo por estar
+# fuera de la vista se APUNTA en la lista del scroll (ver _draw), y al moverse o cambiar de tamaño el scroll se
+# avisa solo a las apuntadas; la que siga fuera se vuelve a apuntar al intentar pintarse.
+const META_PENDIENTES := "celdas_pendientes"
+var _apuntada: bool = false
+
+static func _enganchar_scroll(sc: ScrollContainer) -> void:
+	if sc.has_meta(META_PENDIENTES):
+		return
+	sc.set_meta(META_PENDIENTES, [])
+	sc.get_v_scroll_bar().value_changed.connect(func(_v): _despertar(sc))
+	sc.resized.connect(func(): _despertar(sc))
+
+
+static func _despertar(sc: ScrollContainer) -> void:
+	if not is_instance_valid(sc):
+		return
+	var lista: Array = sc.get_meta(META_PENDIENTES, [])
+	if lista.is_empty():
+		return
+	sc.set_meta(META_PENDIENTES, [])
+	for c in lista:
+		if is_instance_valid(c):
+			(c as CeldaObjeto)._apuntada = false
+			if (c as CeldaObjeto)._pendiente:
+				(c as CeldaObjeto).queue_redraw()
+
+
+func _apuntarse() -> void:
+	if _apuntada or _scroll == null or not is_instance_valid(_scroll):
+		return
+	_apuntada = true
+	var lista: Array = _scroll.get_meta(META_PENDIENTES, [])
+	# Cambiar de pestaña muchas veces sin mover el scroll la llenaria de celdas ya liberadas: se limpia de vez en cuando.
+	if lista.size() > 2048:
+		lista = lista.filter(func(c): return is_instance_valid(c))
+		_scroll.set_meta(META_PENDIENTES, lista)
+	lista.append(self)
 
 
 # Saltarse el ahorro de abajo. Lo ponen las celdas SUELTAS (las de dentro de una ficha, ver
@@ -186,6 +222,7 @@ func _draw() -> void:
 	if not _a_la_vista():
 		_pendiente = true
 		_retrato.visible = false   # su dibujo tampoco: se enseña cuando la celda se pinte
+		_apuntarse()   # el scroll la avisara al moverse (ver _enganchar_scroll)
 		return
 	_pendiente = false
 	var col: Color = IconoItem.color_escala(item) if item != null else Color(0.5, 0.5, 0.55)
