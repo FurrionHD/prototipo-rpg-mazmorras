@@ -2763,28 +2763,36 @@ static func _retrato(fila: HBoxContainer, pj: PersonajeData, i: int, elegido: bo
 	marco.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(marco)
 
-	var mu := MunecoJugador.new()
-	mu.montar(pj)
-	mu.tenir(pj.color, 0.0)
-	mu.poner_cara(pj.textura())
-	if mu.hay_dibujo():
-		# LA CARA, encuadrada. Mirando al SUR ("idle_0"): es la unica direccion en la que se te ve la
-		# cara de frente (ver MunecoJugador.CARA_DIRS, donde 0 = S y 4 = N). Un retrato de espaldas no
-		# es un retrato, y de espaldas es justo como estaba.
-		#
-		# Se escala grande y se baja el origen para que el recorte deje SOLO la cabeza y los hombros:
-		# el cuerpo entero en 74 px es un monigote en el que no se distingue quien es.
-		# EL ENCUADRE VA MEDIDO, no calculado con ALTO_MUNDO: el dibujo real no ocupa esos 60 px por
-		# encima del origen (el lienzo horneado tiene sus propios margenes), asi que la cuenta "teorica"
-		# dejaba fuera justo la cara. Estos dos numeros salen de mirar la captura: con esta escala, la
-		# cara cae en el centro del cuadro y se ven cabeza y hombros.
-		var esc: float = LADO_RETRATO * 2.1 / PoseJugador.ALTO_MUNDO
-		mu.scale = Vector2.ONE * esc
-		mu.position = Vector2(LADO_RETRATO * 0.5, LADO_RETRATO * 1.02)
-		mu.animar("idle_0")
-		marco.add_child(mu)
+	# HORNEADO si ya lo esta (1D, 16/10: ver RetratoHorneado). Si no, el muneco vivo de siempre, y se pide hornear
+	# para la proxima vez que se rehaga la fila (en cada clic).
+	var horneado: Dictionary = RetratoHorneado.de(pj)
+	if not horneado.is_empty():
+		marco.add_child(RetratoHorneado.crear(horneado))
 	else:
-		mu.queue_free()
+		var mu := MunecoJugador.new()
+		mu.montar(pj)
+		mu.tenir(pj.color, 0.0)
+		mu.poner_cara(pj.textura())
+		if mu.hay_dibujo():
+			RetratoHorneado.pedir(pj)
+			# LA CARA, encuadrada. Mirando al SUR ("idle_0"): es la unica direccion en la que se te ve la
+			# cara de frente (ver MunecoJugador.CARA_DIRS, donde 0 = S y 4 = N). Un retrato de espaldas no
+			# es un retrato, y de espaldas es justo como estaba.
+			#
+			# Se escala grande y se baja el origen para que el recorte deje SOLO la cabeza y los hombros:
+			# el cuerpo entero en 74 px es un monigote en el que no se distingue quien es.
+			# EL ENCUADRE VA MEDIDO, no calculado con ALTO_MUNDO: el dibujo real no ocupa esos 60 px por
+			# encima del origen (el lienzo horneado tiene sus propios margenes), asi que la cuenta "teorica"
+			# dejaba fuera justo la cara. Estos dos numeros salen de mirar la captura: con esta escala, la
+			# cara cae en el centro del cuadro y se ven cabeza y hombros.
+			# (Los numeros viven en RetratoHorneado: el horneado tiene que encuadrar EXACTAMENTE igual.)
+			var esc: float = LADO_RETRATO * RetratoHorneado.ESCALA_POR_LADO / PoseJugador.ALTO_MUNDO
+			mu.scale = Vector2.ONE * esc
+			mu.position = Vector2(LADO_RETRATO * 0.5, LADO_RETRATO * RetratoHorneado.ORIGEN_Y)
+			mu.animar("idle_0")
+			marco.add_child(mu)
+		else:
+			mu.queue_free()
 
 	# LAS MARCAS DE LAS ESQUINAS (la corona del que va en cabeza y el punto de "algo pendiente") en
 	# una capa ENCIMA del muñeco, con z 4096. Pintadas en el draw del boton quedaban DEBAJO: el muñeco

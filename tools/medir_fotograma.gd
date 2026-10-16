@@ -443,6 +443,30 @@ func _medir_retratos() -> void:
 	print("[FOTOGRAMA] retratos: %d personas, montar la fila %.2f ms, %d munecos con %d capas, vivos %.1f us por fotograma" % [
 		gente.size(), mejor / 1000.0, munecos.size(), capas, float(Time.get_ticks_usec() - t1) / VECES])
 	fila.queue_free()
+	# Por partes, un muneco: montar (decidir capas) / tenir+cara / meterlo en la escena / animar.
+	var pj0: PersonajeData = Game.party[0]
+	var tm := [0, 0, 0, 0]
+	for k in 10:
+		var a: int = Time.get_ticks_usec()
+		var mu := MunecoJugador.new()
+		mu.montar(pj0)
+		var b: int = Time.get_ticks_usec()
+		mu.tenir(pj0.color, 0.0)
+		mu.poner_cara(pj0.textura())
+		var c: int = Time.get_ticks_usec()
+		add_child(mu)
+		var d: int = Time.get_ticks_usec()
+		mu.animar("idle_0")
+		var e: int = Time.get_ticks_usec()
+		tm[0] += b - a; tm[1] += c - b; tm[2] += d - c; tm[3] += e - d
+		mu.queue_free()
+	var tc: int = Time.get_ticks_usec()
+	var nc: int = 0
+	for k in 20:
+		nc = JugadorSprites.capas_de(pj0).size()
+	print("[FOTOGRAMA] capas_de (la huella del retrato): %.3f ms, %d capas" % [float(Time.get_ticks_usec() - tc) / 20000.0, nc])
+	print("[FOTOGRAMA] un muneco: montar %.2f ms | tenir+cara %.2f | meter en escena %.2f | animar %.2f" % [
+		tm[0] / 10000.0, tm[1] / 10000.0, tm[2] / 10000.0, tm[3] / 10000.0])
 
 
 func _juntar_cuenta(n: Node, f: Callable) -> void:
