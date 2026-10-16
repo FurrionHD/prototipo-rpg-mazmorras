@@ -38,7 +38,7 @@ func _correr() -> void:
 		await get_tree().process_frame
 	print("[PANTALLAS] party=%d plantilla=%d  bolsa=%d  baul=%d  cofre_equipo=%d" % [Game.party.size(),
 		Game.plantilla.size(), Game.bolsa.total(), Game.baul.total(), Game.cofre_equipo.size()])
-	for p in ["inventario", "tienda", "hogar", "taller", "personaje", "maestro"]:
+	for p in ["inventario", "tienda", "hogar", "taller", "personaje", "maestro", "montar"]:
 		if _solo != "" and _solo != p:
 			continue
 		print("[PANTALLAS] ===== %s" % p)
@@ -309,10 +309,52 @@ func _p_maestro() -> void:
 	var pj: PersonajeData = men._pj()
 	await _medir("   tecnicas: retratos", func():
 		MenuScaffold.retratos(men._fila_retratos, men._gente(), men._pj_sel, Game.party.size(), men._pick_persona))
+	await _medir("   retratos: solo huellas (x%d)" % men._gente().size(), func():
+		var esc: float = RetratoHorneado.escala_pantalla()
+		for q in men._gente():
+			RetratoHorneado.huella(q, esc))
+	await _medir("   retratos: capas_de", func():
+		for q in men._gente():
+			JugadorSprites.capas_de(q))
+	await _medir("   retratos: hash(imagen)", func():
+		for q in men._gente():
+			hash(q.imagen))
+	print("[PANTALLAS]        (bytes de imagen: %s)" % str(men._gente().map(func(q): return q.imagen.size())))
+	await _medir("   retratos: solo de() (x%d)" % men._gente().size(), func():
+		for q in men._gente():
+			RetratoHorneado.de(q))
 	await _medir("   tecnicas: _pintar_armas", func(): men._pintar_armas(pj))
 	await _medir("   tecnicas: _pintar_tecnicas", func(): MenuScaffold.vaciar(men._lista); men._pintar_tecnicas(pj, men._arma()))
 	await _medir("   tecnicas: _pintar_ficha", func(): MenuScaffold.vaciar(men._content); men._pintar_ficha(pj))
 	men.queue_free()
+
+
+# LO QUE CUESTA MONTAR CADA MENU al entrar en una escena (player.gd los crea todos en su _ready, se abran o no).
+# Solo con --solo montar: los menus montados se quedan colgando del arbol y estorbarian a las demas medidas.
+func _p_montar() -> void:
+	if _solo != "montar":
+		return
+	var total: float = 0.0
+	var filas: Array = []
+	var menus: Array = ["hud", "inventory_menu", "rueda_cristales", "craft_menu", "craft_menu", "shop_menu",
+		"mercadillo_menu", "forge_menu", "forge_menu", "tannery_menu", "runas_menu", "tavern_menu", "maestro_menu",
+		"fishing_book_menu", "fishing_menu", "home_menu", "peticion_formacion", "floor_select_menu",
+		"character_menu", "map_menu", "altar_menu", "retorno_menu", "desarrollo_menu", "debug_panel", "spawner",
+		"material_spawner", "keys_help", "pause_menu", "multiplayer_panel"]
+	for m in menus:
+		var sc: Script = load("res://scripts/ui/%s.gd" % m)
+		var t0: int = Time.get_ticks_usec()
+		var n: Node = sc.new()
+		var t1: int = Time.get_ticks_usec()
+		add_child(n)
+		var t2: int = Time.get_ticks_usec()
+		var ms: float = float(t2 - t0) / 1000.0
+		total += ms
+		filas.append([m, float(t1 - t0) / 1000.0, float(t2 - t1) / 1000.0])
+	filas.sort_custom(func(a, b): return a[1] + a[2] > b[1] + b[2])
+	print("[PANTALLAS]   TOTAL montar %d menus: %.1f ms" % [menus.size(), total])
+	for f in filas:
+		print("[PANTALLAS]   %-22s new %6.2f ms   add_child %6.2f ms" % f)
 
 
 func _falso_jugador() -> void:

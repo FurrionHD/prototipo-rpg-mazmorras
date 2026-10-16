@@ -3,7 +3,7 @@
 Generado por `python tools/indice_pruebas.py` (no editar a mano: se rehace). "Lo nombra" no es "lo cubre
 entero": sirve para ver los **huecos** y para saber qué pruebas pasar después de tocar un archivo.
 
-**249 de 363 scripts no tienen ninguna prueba que los nombre.**
+**248 de 363 scripts no tienen ninguna prueba que los nombre.**
 
 | Carpeta | Scripts | Sin prueba |
 |---|---|---|
@@ -14,7 +14,7 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 | `scripts/items` | 19 | 5 |
 | `scripts/net` | 21 | 4 |
 | `scripts/town` | 23 | 19 |
-| `scripts/ui` | 90 | 75 |
+| `scripts/ui` | 90 | 74 |
 | `scripts/ui/herreria` | 6 | 5 |
 | `scripts/ui/hogar` | 5 | 5 |
 | `scripts/ui/peleteria` | 2 | 2 |
@@ -192,7 +192,6 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 - `scripts/ui/cuadro_carga.gd`
 - `scripts/ui/cuadro_equipo.gd`
 - `scripts/ui/cuadro_farol.gd`
-- `scripts/ui/debug_panel.gd`
 - `scripts/ui/desarrollo_menu.gd`
 - `scripts/ui/extraction.gd`
 - `scripts/ui/ficha_tactil.gd`
@@ -294,7 +293,7 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 - `scripts/core/elements.gd`: `prueba_bestias_tactico.gd`, `prueba_constructos_tactico.gd`, `prueba_mut_fuego.gd`, `prueba_mut_profundo.gd`
 - `scripts/core/encargos.gd`: `prueba_encargos_excelia.gd`, `prueba_town_dos_cliente_guion.gd`, `prueba_town_dos_jugadores_guion.gd`, `unitarias/test_estados_y_encargos.gd`
 - `scripts/core/forge.gd`: `prueba_armadura_magica.gd`
-- `scripts/core/game.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_andar_apuntando.gd`, `prueba_anim_por_red.gd`, `prueba_apartarse_fuera.gd`, `prueba_arena.gd` y 101 más
+- `scripts/core/game.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_andar_apuntando.gd`, `prueba_anim_por_red.gd`, `prueba_apartarse_fuera.gd`, `prueba_arena.gd` y 102 más
 - `scripts/core/huella_save.gd`: `prueba_bd_ida_vuelta.gd`, `prueba_bd_nube.gd`, `prueba_bd_partida.gd`, `prueba_bd_ranura.gd`, `prueba_huella_save.gd`
 - `scripts/core/identity.gd`: `prueba_bd_nube.gd`, `prueba_bd_un_jugador.gd`, `prueba_roster_duplicados.gd`, `prueba_sala.gd`, `prueba_sala_cliente_guion.gd`, `prueba_sala_dos_jugadores.gd` y 3 más
 - `scripts/core/informe.gd`: `unitarias/test_medidor.gd`
@@ -375,6 +374,7 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 - `scripts/ui/combat_tactico.gd`: `prueba_formas_area.gd`, `prueba_tactico_turno.gd`
 - `scripts/ui/combate_detalle.gd`: `prueba_huella_combate.gd`
 - `scripts/ui/craft_menu.gd`: `prueba_taller_clic.gd`
+- `scripts/ui/debug_panel.gd`: `prueba_debug_panel.gd`
 - `scripts/ui/herreria/herreria_reparar.gd`: `prueba_reparar_escudo.gd`
 - `scripts/ui/inventory_menu.gd`: `prueba_inventario_clic.gd`, `prueba_scroll_rejilla.gd`
 - `scripts/ui/maestro_menu.gd`: `prueba_maestro_clic.gd`

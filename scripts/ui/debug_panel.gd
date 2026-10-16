@@ -105,7 +105,16 @@ func _ready() -> void:
 	_panel.grow_vertical = Control.GROW_DIRECTION_END
 	_panel.visible = false
 	add_child(_panel)
+	# EL CONTENIDO SE MONTA AL ABRIRLO (_construir), no aqui: el jugador crea este panel en CADA escena (pueblo y cada
+	# piso) y montarlo eran ~190 ms de cada cambio de escena para un panel que casi nunca se abre (medido 16/10).
 
+
+var _construido := false
+
+func _construir() -> void:
+	if _construido:
+		return
+	_construido = true
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 10)
 	margin.add_theme_constant_override("margin_right", 10)
@@ -1267,6 +1276,7 @@ func _rebuild_mejoras() -> void:
 # --- Acciones -------------------------------------------------
 
 func _toggle() -> void:
+	_construir()
 	_open = not _open
 	_panel.visible = _open
 	Game.debug_panel_open = _open
