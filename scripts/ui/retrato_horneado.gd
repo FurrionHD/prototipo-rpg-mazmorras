@@ -73,7 +73,8 @@ static func de(pj: PersonajeData) -> Dictionary:
 
 # Que se hornee, para la proxima vez. Si ya esta (o se esta haciendo), nada.
 static func pedir(pj: PersonajeData) -> void:
-	pedir_modo(pj, "fila", MenuScaffold.LADO_RETRATO, -1, colocar_fila)
+	pedir_modo(pj, "fila", Vector2.ONE * MenuScaffold.LADO_RETRATO, -1,
+		func(mu: MunecoJugador, px: Vector2) -> void: colocar_fila(mu, px.x))
 
 
 # Donde va el muneco de la fila dentro de un cuadro de 'lado' (en px de lo que se pinta): lo usan el vivo
@@ -92,24 +93,25 @@ static func de_modo(pj: PersonajeData, modo: String) -> Dictionary:
 	return _cache.get(huella(pj, escala_pantalla(), modo), {})
 
 
-# 'lado' en unidades de la interfaz; 'marcos' = cuantos fotogramas de ANIM (-1 = todos: respira; 1 = quieto);
-# 'colocar' = func(mu: MunecoJugador, lado_px: float): deja el muneco como lo dejaria quien lo pinta vivo dentro de
-# un cuadro de lado_px.
-static func pedir_modo(pj: PersonajeData, modo: String, lado: float, marcos: int, colocar: Callable) -> void:
-	if pj == null or not se_puede():
+# 'tam' = el cuadro en unidades de la interfaz; 'marcos' = cuantos fotogramas de ANIM (-1 = todos: respira; 1 =
+# quieto); 'colocar' = func(mu: MunecoJugador, tam_px: Vector2): deja el muneco como lo dejaria quien lo pinta vivo
+# dentro de un cuadro de tam_px. El tamaño tiene que ir dentro de 'modo' si puede cambiar.
+static func pedir_modo(pj: PersonajeData, modo: String, tam: Vector2, marcos: int, colocar: Callable) -> void:
+	if pj == null or not se_puede() or tam.x <= 1.0 or tam.y <= 1.0:
 		return
 	var k: float = escala_pantalla()
 	var h: String = huella(pj, k, modo)
 	if _cache.has(h) or _horneando.has(h):
 		return
-	_hornear(pj, h, ceili(lado * k), marcos, colocar)
+	_hornear(pj, h, Vector2i(ceili(tam.x * k), ceili(tam.y * k)), marcos, colocar)
 
 
-static func _hornear(pj: PersonajeData, h: String, lado: int, marcos_pide: int, colocar: Callable) -> void:
+static func _hornear(pj: PersonajeData, h: String, tam: Vector2i, marcos_pide: int, colocar: Callable) -> void:
 	_horneando[h] = true
 	var arbol := Engine.get_main_loop() as SceneTree
 	# Cada fotograma va en el centro de un hueco TRES veces mas ancho: el muneco a esta escala se sale de su cuadro
 	# por los lados, y con los huecos pegados se colaria en el de al lado.
+	var lado: int = tam.x   # el ANCHO de cada fotograma (el alto es tam.y)
 	var hueco: int = lado * 3
 	var vp := SubViewport.new()
 	vp.transparent_bg = true
@@ -126,7 +128,7 @@ static func _hornear(pj: PersonajeData, h: String, lado: int, marcos_pide: int, 
 		mu.montar(pj)
 		mu.tenir(pj.color, 0.0)
 		mu.poner_cara(pj.textura())
-		colocar.call(mu, float(lado))
+		colocar.call(mu, Vector2(tam))
 		mu.position += Vector2(float(i * hueco + lado), 0.0)   # al cuadro del medio de su hueco
 		vp.add_child(mu)
 		mu.fijar(ANIM, i)
@@ -135,7 +137,7 @@ static func _hornear(pj: PersonajeData, h: String, lado: int, marcos_pide: int, 
 				marcos = maxi(1, int(mu.get("_marcos")))
 			fps = maxf(0.1, float(mu.get("_fps")))
 		i += 1
-	vp.size = Vector2i(hueco * marcos, lado)
+	vp.size = Vector2i(hueco * marcos, tam.y)
 	# Dos vueltas: en la primera se monta todo (y la viewport toma su tamaño); en la segunda ya se ha pintado.
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
@@ -145,12 +147,12 @@ static func _hornear(pj: PersonajeData, h: String, lado: int, marcos_pide: int, 
 	_horneando.erase(h)
 	if img == null or img.is_empty():
 		return
-	var atlas := Image.create(lado * marcos, lado, false, img.get_format())
+	var atlas := Image.create(lado * marcos, tam.y, false, img.get_format())
 	for m in marcos:
-		atlas.blit_rect(img, Rect2i(m * hueco + lado, 0, lado, lado), Vector2i(m * lado, 0))
+		atlas.blit_rect(img, Rect2i(m * hueco + lado, 0, lado, tam.y), Vector2i(m * lado, 0))
 	if _cache.size() >= MAX_EN_CACHE:
 		_cache.clear()
-	_cache[h] = {"tex": ImageTexture.create_from_image(atlas), "marcos": marcos, "fps": fps, "lado": lado}
+	_cache[h] = {"tex": ImageTexture.create_from_image(atlas), "marcos": marcos, "fps": fps, "lado": lado, "alto": tam.y}
 
 
 # ------------------------------------------------------------
@@ -190,4 +192,4 @@ func _draw() -> void:
 	# una columna al lado de donde los pinta el muneco vivo; tambien el vivo los cambia segun donde caiga en pantalla
 	# (probado 16/10 con tools/capturas_retratos: a 1280x720 salen identicos; dibujarlo 1:1 daba MAS diferencias).
 	var lado: float = float(_e["lado"])
-	draw_texture_rect_region(_e["tex"], Rect2(Vector2.ZERO, size), Rect2(float(_i) * lado, 0.0, lado, lado))
+	draw_texture_rect_region(_e["tex"], Rect2(Vector2.ZERO, size), Rect2(float(_i) * lado, 0.0, lado, float(_e["alto"])))

@@ -128,8 +128,8 @@ static func _cara_de_muneco(padre: Control, pj: PersonajeData) -> bool:
 	hueco.resized.connect(colocar)
 	colocar.call()
 	if lado > 1.0:
-		RetratoHorneado.pedir_modo(solo, modo, lado, 1,
-			func(mu: MunecoJugador, px: float) -> void: colocar_cara(mu, Vector2(px, px)))
+		RetratoHorneado.pedir_modo(solo, modo, Vector2(lado, lado), 1,
+			func(mu: MunecoJugador, px: Vector2) -> void: colocar_cara(mu, px))
 	return true
 
 

@@ -356,7 +356,17 @@ func _z_relativo(m: MunecoJugador) -> void:
 # Va DENTRO de un hueco propio con recorte, y no colgando del boton: el muñeco se dibuja en unidades
 # de mundo y se saldria del marco. Y se recoloca por 'resized' porque el boton no sabe lo que mide
 # hasta que la tira reparte (la misma trampa que la figura grande).
+# El ultimo tamaño de hueco de la tira (lo sabe al repartir): con el se busca el retrato horneado en el siguiente
+# clic, que rehace la tira entera (1D, 16/10).
+static var _tam_tira: Vector2 = Vector2.ZERO
+
 func _muneco_retrato(b: Button, pj: PersonajeData) -> bool:
+	var horneado: Dictionary = RetratoHorneado.de_modo(pj, _modo_tira(_tam_tira)) if _tam_tira != Vector2.ZERO else {}
+	if not horneado.is_empty():
+		var r := RetratoHorneado.crear(horneado)
+		_encajar(r)
+		b.add_child(r)
+		return true
 	var m := MunecoJugador.new()
 	m.montar(pj)
 	m.tenir(pj.color, 0.0)
@@ -376,15 +386,24 @@ func _muneco_retrato(b: Button, pj: PersonajeData) -> bool:
 		var z: Vector2 = hueco.size
 		if z.x <= 1.0 or z.y <= 1.0:
 			return
-		var esc: float = minf(z.y / PoseJugador.ALTO_MUNDO,
-			z.x / (PoseJugador.ALTO_MUNDO * 0.55))
-		m.scale = Vector2.ONE * esc
-		var alto: float = PoseJugador.ALTO_MUNDO * esc
-		m.position = Vector2(z.x * 0.5, (z.y - alto) * 0.5
-			+ (PoseJugador.ALTO_MUNDO - PoseJugador.PIES_BAJO_NODO) * esc)
+		_colocar_retrato(m, z)
+		_tam_tira = z.round()
+		RetratoHorneado.pedir_modo(pj, _modo_tira(_tam_tira), _tam_tira, -1, _colocar_retrato)
 	hueco.resized.connect(colocar)
 	colocar.call()
 	return true
+
+
+static func _modo_tira(tam: Vector2) -> String:
+	return "detalle%dx%d" % [roundi(tam.x), roundi(tam.y)]
+
+
+# Donde va el muneco del retrato dentro de un hueco de tamaño 'z': lo usan el vivo y el horneado.
+static func _colocar_retrato(m: MunecoJugador, z: Vector2) -> void:
+	var esc: float = minf(z.y / PoseJugador.ALTO_MUNDO, z.x / (PoseJugador.ALTO_MUNDO * 0.55))
+	m.scale = Vector2.ONE * esc
+	var alto: float = PoseJugador.ALTO_MUNDO * esc
+	m.position = Vector2(z.x * 0.5, (z.y - alto) * 0.5 + (PoseJugador.ALTO_MUNDO - PoseJugador.PIES_BAJO_NODO) * esc)
 
 
 # Mete el retrato DENTRO del marco del boton, dejando ver su borde (el anillo del elegido).
