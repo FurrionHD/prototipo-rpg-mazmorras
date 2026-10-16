@@ -185,12 +185,11 @@ func _muneco(b: Button, pj: PersonajeData, atenuado: bool) -> void:
 	caja.clip_contents = true
 	caja.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(caja)
-	var mu := MunecoJugador.new()
-	mu.montar(pj)
-	mu.tenir(pj.color, 0.0)
-	mu.poner_cara(pj.textura())
+	# REUTILIZADO entre clics (1D, 16/10: ver MunecosReusables), uno por puesto.
+	var clave: String = "hogar_equipo|%d" % b.get_index()
+	var mu := MunecosReusables.dar(clave, pj)
 	if not mu.hay_dibujo():
-		mu.queue_free()
+		MunecosReusables.soltar(clave)
 		return
 	var alto_dibujo: float = PoseJugador.ALTO_MUNDO + PoseJugador.PIES_BAJO_NODO
 	var esc: float = (ALTO_MUNECO - 20.0) / alto_dibujo

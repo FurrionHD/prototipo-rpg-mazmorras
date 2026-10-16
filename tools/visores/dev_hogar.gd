@@ -43,7 +43,10 @@ func _ready() -> void:
 	_menu.abrir()
 	_barra()
 
-	if args.has("encargos"):
+	if args.has("reutilizar"):
+		await _pasada_reutilizar()
+		get_tree().quit()
+	elif args.has("encargos"):
 		await _pasada_encargos()
 		get_tree().quit()
 	elif args.has("guardar"):
@@ -406,3 +409,70 @@ func _captura(nombre: String) -> void:
 	var ruta: String = "%s%s_%s.png" % [SALIDA, _prefijo, nombre]
 	get_viewport().get_texture().get_image().save_png(ruta)
 	print("[hogar] ", ProjectSettings.globalize_path(ruta))
+
+
+# LOS MUNECOS GRANDES DEL EQUIPO, REUTILIZADOS (fase 1D, 16/10: MunecosReusables). Reconstruye la pestaña 10 veces
+# (lo que hace cada clic) y mira que sean LOS MISMOS munecos, que ninguno quede marcado "muriendo" y que se vea igual.
+#   godot --path . res://tools/visores/dev_hogar.tscn -- reutilizar
+func _pasada_reutilizar() -> void:
+	DirAccess.make_dir_recursive_absolute(SALIDA)
+	for i in 5:
+		await get_tree().process_frame
+	var antes: Array = _munecos_del_menu()
+	var ids: Array = antes.map(func(m): return m.get_instance_id())
+	_congelar(antes)
+	var img_antes: Image = await _imagen()
+	var peor_ms: float = 0.0
+	var suma: float = 0.0
+	for k in 10:
+		var t0: int = Time.get_ticks_usec()
+		_menu._rebuild()
+		var ms: float = (Time.get_ticks_usec() - t0) / 1000.0
+		suma += ms
+		peor_ms = maxf(peor_ms, ms)
+		await get_tree().process_frame
+	var despues: Array = _munecos_del_menu()
+	var mismos: int = despues.filter(func(m): return ids.has(m.get_instance_id())).size()
+	var marcados: int = 0
+	for m in despues:
+		if MenuScaffold.muriendo(m):
+			marcados += 1
+	_congelar(despues)
+	var img_despues: Image = await _imagen()
+	var distintos: int = 0
+	for y in img_antes.get_height():
+		for x in img_antes.get_width():
+			var a: Color = img_antes.get_pixel(x, y)
+			var b: Color = img_despues.get_pixel(x, y)
+			if maxf(maxf(absf(a.r - b.r), absf(a.g - b.g)), absf(a.b - b.b)) > 8.0 / 255.0:
+				distintos += 1
+	img_antes.save_png(SALIDA + "hogar_reutilizar_antes.png")
+	img_despues.save_png(SALIDA + "hogar_reutilizar_despues.png")
+	print("[REUTILIZAR] reconstruir el equipo: %.2f ms de media, el peor %.2f ms" % [suma / 10.0, peor_ms])
+	print("[REUTILIZAR] munecos: %d antes, %d despues, %d son los mismos, %d marcados muriendo" % [
+		antes.size(), despues.size(), mismos, marcados])
+	print("[REUTILIZAR] pantalla antes/despues: %d pixeles distintos" % distintos)
+	var ok: bool = antes.size() > 0 and mismos == despues.size() and despues.size() == antes.size() 		and marcados == 0 and distintos == 0
+	print("[REUTILIZAR] FIN: %s" % ("TODO BIEN" if ok else "HAY FALLOS"))
+
+
+func _munecos_del_menu() -> Array:
+	var out: Array = []
+	var pila: Array = [_menu]
+	while not pila.is_empty():
+		var n: Node = pila.pop_back()
+		if n is MunecoJugador and n.is_inside_tree() and not n.is_queued_for_deletion():
+			out.append(n)
+		pila.append_array(n.get_children())
+	return out
+
+
+func _congelar(munecos: Array) -> void:
+	for m in munecos:
+		m.fijar("idle_0", 0)
+
+
+func _imagen() -> Image:
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	return get_viewport().get_texture().get_image()

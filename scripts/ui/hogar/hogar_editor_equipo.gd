@@ -247,20 +247,30 @@ func _pintar_hueco(h: Control, i: int) -> void:
 	marco.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.add_child(marco)
 	var pj: PersonajeData = p["pj"]
-	var mu := MunecoJugador.new()
-	mu.montar(pj)
-	mu.tenir(pj.color, 0.0)
-	mu.poner_cara(pj.textura())
-	if mu.hay_dibujo():
-		var esc: float = lado * 2.1 / PoseJugador.ALTO_MUNDO
-		mu.scale = Vector2.ONE * esc
-		mu.position = Vector2(lado * 0.5, lado * 1.02)
-		mu.animar("idle_0")
+	# HORNEADO si ya lo esta (1D, 16/10): mismo encuadre que la fila de retratos (RetratoHorneado.colocar_fila).
+	var atenuado := Color(0.78, 0.78, 0.82)
+	var modo: String = "editor%d" % roundi(lado)
+	var horneado: Dictionary = RetratoHorneado.de_modo(pj, modo)
+	if not horneado.is_empty():
+		var r := RetratoHorneado.crear(horneado)
 		if not mio:
-			mu.modulate = Color(0.78, 0.78, 0.82)
-		marco.add_child(mu)
+			r.modulate = atenuado
+		marco.add_child(r)
 	else:
-		mu.queue_free()
+		var mu := MunecoJugador.new()
+		mu.montar(pj)
+		mu.tenir(pj.color, 0.0)
+		mu.poner_cara(pj.textura())
+		if mu.hay_dibujo():
+			RetratoHorneado.colocar_fila(mu, lado)
+			mu.animar("idle_0")
+			if not mio:
+				mu.modulate = atenuado
+			marco.add_child(mu)
+			RetratoHorneado.pedir_modo(pj, modo, Vector2(lado, lado), -1,
+				func(m: MunecoJugador, tam: Vector2) -> void: RetratoHorneado.colocar_fila(m, tam.x))
+		else:
+			mu.queue_free()
 	if not mio:
 		_insignia_jugador(h, centro + Vector2(LADO_CIRCULO * 0.36, -LADO_CIRCULO * 0.36), int(p["jugador"]))
 

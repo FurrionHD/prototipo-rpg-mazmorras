@@ -112,8 +112,20 @@ static func pedir_modo(pj: PersonajeData, modo: String, tam: Vector2, marcos: in
 	_hornear(pj, h, tam, k, marcos, colocar, anim)
 
 
+# Al cerrar el juego, fuera: las imagenes guardadas en una variable estatica sobreviven al servidor de dibujo y Godot
+# avisa de texturas sin soltar al salir.
+static var _limpieza_puesta: bool = false
+
+static func vaciar() -> void:
+	_cache.clear()
+	_bytes = 0
+
+
 static func _hornear(pj: PersonajeData, h: String, tam_ui: Vector2, k: float, marcos_pide: int, colocar: Callable,
 		anim: String) -> void:
+	if not _limpieza_puesta:
+		_limpieza_puesta = true
+		(Engine.get_main_loop() as SceneTree).root.tree_exiting.connect(vaciar)
 	var tam := Vector2i(ceili(tam_ui.x * k), ceili(tam_ui.y * k))
 	var escala_img := Vector2(float(tam.x) / tam_ui.x, float(tam.y) / tam_ui.y)
 	_horneando[h] = true

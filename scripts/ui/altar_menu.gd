@@ -337,12 +337,10 @@ func _muneco_grande(pj: PersonajeData) -> void:
 		caja.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE))
 	caja.resized.connect(caja.queue_redraw)
 
-	var mu := MunecoJugador.new()
-	mu.montar(pj)
-	mu.tenir(pj.color, 0.0)
-	mu.poner_cara(pj.textura())
+	# REUTILIZADO entre clics (1D, 16/10: ver MunecosReusables): montarlo de cero eran ~3 ms en cada repintado.
+	var mu := MunecosReusables.dar("altar", pj)
 	if not mu.hay_dibujo():
-		mu.queue_free()
+		MunecosReusables.soltar("altar")
 		return
 	caja.add_child(mu)
 	mu.animar("idle_0")
