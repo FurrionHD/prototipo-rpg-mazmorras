@@ -316,6 +316,32 @@ func _p_maestro() -> void:
 	await _medir("   retratos: capas_de", func():
 		for q in men._gente():
 			JugadorSprites.capas_de(q))
+	await _medir("   capas_de: _capas_armadura", func():
+		for q in men._gente():
+			JugadorSprites._capas_armadura(q))
+	await _medir("   capas_de: _capas_arma", func():
+		for q in men._gente():
+			JugadorSprites._capas_arma(q))
+	var base_clave: String = ArmaduraSprites.clave("placas", "pecho")
+	await _medir("   x100 ArmaduraSprites.frames", func():
+		for k in 100:
+			ArmaduraSprites.frames(base_clave, 1.0))
+	await _medir("   x100 PaletaEquipo.lut", func():
+		for k in 100:
+			PaletaEquipo.lut(ArmaduraSprites.CLAVE_ROLES, ArmaduraSprites.ROLES, "metal", 2, 3))
+	await _medir("   x100 PaletaEquipo.luz_ref", func():
+		for k in 100:
+			PaletaEquipo.luz_ref("metal", 2, 3))
+	await _medir("   x100 PaletaEquipo.metal_de", func():
+		for k in 100:
+			PaletaEquipo.metal_de("metal", 3))
+	await _medir("   x100 ArmaSprites.frames", func():
+		for k in 100:
+			ArmaSprites.frames("arma_espada_mano_der", 1.0))
+	await _medir("   capas_de: base CAPAS frames()", func():
+		for q in men._gente():
+			for c in JugadorSprites.CAPAS:
+				c["gen"].frames(1.0))
 	await _medir("   retratos: hash(imagen)", func():
 		for q in men._gente():
 			hash(q.imagen))

@@ -53,7 +53,42 @@ static func escala_pantalla() -> float:
 
 
 static func huella(pj: PersonajeData, escala: float, modo: String = "fila") -> String:
-	var partes := PackedStringArray([modo])
+	return "|".join(PackedStringArray([modo, texto_capas(pj), str(pj.color),
+		"%d:%d" % [pj.imagen.size(), hash(pj.imagen)], "%.3f" % escala]))
+
+
+# EL TEXTO DE LAS CAPAS de un personaje, RECORDADO. capas_de cuesta ~0,2 ms por persona (decenas de llamadas
+# pequeñas: paletas, fotogramas...) y la fila de retratos lo pedia para cada cara en cada repintado.
+# Se recuerda junto a una FIRMA de todo lo que capas_de lee del personaje: su aspecto, su color, si tiene foto,
+# la marca de barba, las siete piezas que lleva (por instancia) y su equip_meta (tier y mejoras). Los fotogramas
+# horneados se guardan por clave para siempre (CapaJugador.frames), y la clave sale de esas mismas entradas.
+# Si capas_de empieza a leer algo NUEVO del personaje, hay que añadirlo a _firma_capas (prueba_retrato_huella).
+static var _capas_txt: Dictionary = {}   # pj.get_instance_id() -> [firma, texto]
+
+static func texto_capas(pj: PersonajeData) -> String:
+	var firma: Array = _firma_capas(pj)
+	var id: int = pj.get_instance_id()
+	var e: Array = _capas_txt.get(id, [])
+	if not e.is_empty() and e[0] == firma:
+		return e[1]
+	var txt: String = texto_capas_calculado(pj)
+	_capas_txt[id] = [firma, txt]
+	return txt
+
+
+static func _firma_capas(pj: PersonajeData) -> Array:
+	return [hash(pj.aspecto), pj.color, pj.imagen.is_empty(), pj.has_meta(JugadorSprites.BARBA_NPC),
+		hash(pj.equip_meta), _id(pj.equipped_main), _id(pj.equipped_off), _id(pj.equipped_casco),
+		_id(pj.equipped_pecho), _id(pj.equipped_manos), _id(pj.equipped_pantalones), _id(pj.equipped_botas)]
+
+
+static func _id(o: Object) -> int:
+	return o.get_instance_id() if o != null else 0
+
+
+# Sin recordar: lo que hacia huella antes. Lo usa texto_capas al cambiar la firma, y la prueba para comparar.
+static func texto_capas_calculado(pj: PersonajeData) -> String:
+	var partes := PackedStringArray()
 	for c in JugadorSprites.capas_de(pj):
 		var claves: Array = (c as Dictionary).keys()
 		claves.sort()
@@ -61,9 +96,6 @@ static func huella(pj: PersonajeData, escala: float, modo: String = "fila") -> S
 			var v = c[k]
 			partes.append("%s=%s" % [k, str(v.get_instance_id()) if v is Object else str(v)])
 		partes.append("/")
-	partes.append(str(pj.color))
-	partes.append("%d:%d" % [pj.imagen.size(), hash(pj.imagen)])
-	partes.append("%.3f" % escala)
 	return "|".join(partes)
 
 
