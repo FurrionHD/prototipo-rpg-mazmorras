@@ -76,7 +76,11 @@ func _boticaria() -> void:
 		await get_tree().process_frame
 		var ajenas: bool = men.stacks.any(func(r): return R._tipo_de((r as RecipeData).resultado) != f - 1)
 		_ok("el filtro %s deja solo las suyas" % R.FILTROS[f], not men.stacks.is_empty() and not ajenas)
-	_ok("las menores no tienen antídotos: su filtro no sale", men.barra_sub.get_child_count() == 3)
+	# Todo, Vida, Maná y UNTURAS (el T1 tiene unturas y no antídotos, ver TallerRecetas._filtrar). Se miran los
+	# NOMBRES y no solo cuantos: con las unturas el recuento paso de 3 a 4 y esta comprobacion se quedo vieja.
+	var filtros_t1: Array = _nombres_filtros(men)
+	_ok("las menores: Todo, Vida, Maná y Unturas, sin antídotos (%s)" % str(filtros_t1),
+		filtros_t1.size() == 4 and filtros_t1.has("Unturas") and not filtros_t1.has("Antídotos"))
 	R._on_filtro(0)
 	await get_tree().process_frame
 	_ok("Todo las devuelve todas", men.stacks.size() == Game.recetas_boticaria_tier(1).size())
@@ -127,7 +131,9 @@ func _boticaria() -> void:
 		await _captura(men, "pociones_medianas")
 		R._on_filtro(3)
 		await get_tree().process_frame
-		_ok("en las medianas sale el filtro de antídotos", men.barra_sub.get_child_count() == 4)
+		var filtros_t2: Array = _nombres_filtros(men)
+		_ok("en las medianas salen antídotos y unturas (%s)" % str(filtros_t2),
+			filtros_t2.size() == 5 and filtros_t2.has("Antídotos") and filtros_t2.has("Unturas"))
 		var no_antidoto: bool = men.stacks.any(func(r): return not (r as RecipeData).resultado.es_brebaje_de_estado())
 		_ok("y deja solo antídotos", not men.stacks.is_empty() and not no_antidoto)
 		await _captura(men, "pociones_antidotos")
@@ -263,3 +269,12 @@ func _captura(men: Node, nombre: String) -> void:
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png("%staller_%s.png" % [SALIDA, nombre])
+
+
+# Los nombres de los filtros de la barra (el tooltip de cada pestaña-icono lleva su nombre).
+func _nombres_filtros(men: Node) -> Array:
+	var out: Array = []
+	for b in men.barra_sub.get_children():
+		if not MenuScaffold.muriendo(b):
+			out.append(String((b as Control).tooltip_text))
+	return out

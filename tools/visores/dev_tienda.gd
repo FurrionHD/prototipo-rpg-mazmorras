@@ -171,13 +171,17 @@ func _ready() -> void:
 	print("\n=== COMPRAR ===")
 	for tier in [1, 2]:
 		C._tier = tier
-		if tier == 2:
-			_ok("el mostrador T2 no enseña Comida", not C._subs_visibles().has(C.SUB_COMIDA))
+		# LA COMIDA SE COMPRA EN EL MERCADILLO desde el 95c6653b: ningun mostrador tiene seccion de comida ni platos
+		# (antes se comprobaba que el T2 no tuviera la suya, C.SUB_COMIDA, que ya no existe).
+		_ok("T%d: el mostrador no tiene sección de comida" % tier, not C._subs_visibles().any(
+			func(i): return String(C.SUBS[i]) == "Comida"))
 		for sub in C._subs_visibles():
 			await _ir(men, men.TAB_COMPRAR, C, sub)
 			var nombre: String = C.SUBS[sub]
 			_ok("T%d %s no está vacía" % [tier, nombre], not men.stacks.is_empty())
 			_ok("T%d %s no vende magia" % [tier, nombre], not _hay(men.stacks, func(s): return s["base"] is ConsumableData and s["base"].es_grimorio()))
+			_ok("T%d %s no vende comida (va al mercadillo)" % [tier, nombre], not _hay(men.stacks,
+				func(s): return s["base"] is ConsumableData and s["base"].es_plato()))
 			if sub == C.SUB_ARMAS or sub == C.SUB_ARMADURAS:
 				_ok("T%d %s: las celdas dicen T%d" % [tier, nombre, tier], not _hay(men.stacks, func(s): return IconoItem.tier_de(s["modelo"]) != tier))
 			if sub == C.SUB_ARMAS or (tier == 2 and sub == C.SUB_ARMADURAS):

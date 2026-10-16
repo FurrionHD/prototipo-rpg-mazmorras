@@ -198,7 +198,13 @@ func _carpinteria() -> void:
 		_ok("%s pinta algo" % men.tab_id(), not men.stacks.is_empty())
 		await _captura(men, "carpinteria_%d_%s" % [i, men.tab_id()])
 	await _ir(men, _tab(men, "forjar"))
-	_ok("solo armas mágicas", not men.stacks.is_empty() and men.stacks.all(func(b): return Game._es_arma_magica(b)))
+	# Solo lo del CARPINTERO (Game.es_de_carpintero): las armas magicas Y, desde el 85a472f8, el arco y la ballesta.
+	# Antes decia "solo armas magicas" y se quedo vieja al entrar las de distancia.
+	var nombres: Array = men.stacks.map(func(b): return String(b.resource_path.get_file().get_basename()))
+	_ok("solo lo del carpintero: mágicas, arco y ballesta (%s)" % str(nombres), not men.stacks.is_empty()
+		and men.stacks.all(func(b): return Game.es_de_carpintero(b))
+		and men.stacks.any(func(b): return Game._es_arma_magica(b))
+		and nombres.has("arco") and nombres.has("ballesta"))
 	await _ir(men, _tab(men, "tablones"))
 	var carp: PersonajeData = Game.party[2]
 	men._on_artesano(men._gente().find(carp))
