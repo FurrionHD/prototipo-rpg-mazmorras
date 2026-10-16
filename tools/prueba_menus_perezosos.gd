@@ -33,6 +33,8 @@ func _ready() -> void:
 		["hogar", "res://scripts/ui/home_menu.gd", ""],
 		["maestro", "res://scripts/ui/maestro_menu.gd", ""],
 		["selector de piso", "res://scripts/ui/floor_select_menu.gd", ""],
+		["altar", "res://scripts/ui/altar_menu.gd", ""],
+		["subir de nivel", "res://scripts/ui/desarrollo_menu.gd", ""],
 	]
 	for t in talleres:
 		var men = load(t[1]).new()

@@ -34,6 +34,16 @@ func _ready() -> void:
 	layer = 95   # por encima del menu del altar
 	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para: hay que seguir respondiendo
 	add_to_group("desarrollo_menu")
+	# LA INTERFAZ SE MONTA AL ABRIRLO (_construir): el jugador crea este menu en CADA escena y montarlo eran ~1,1 ms
+	# de cada cambio de escena (medido 16/10).
+
+
+var _construido := false
+
+func _construir() -> void:
+	if _construido:
+		return
+	_construido = true
 	var m: Dictionary = MenuScaffold.construir(self, "SUBIR DE NIVEL", "", _cerrar, false, true)
 	_root = m["root"]
 	_lista = m["lista"]
@@ -70,6 +80,7 @@ func _ready() -> void:
 var _desde_altar := false
 
 func abrir(desde_altar: bool = false) -> void:
+	_construir()
 	if Game.debug_panel_open:
 		return
 	_sel = 0
@@ -80,6 +91,8 @@ func abrir(desde_altar: bool = false) -> void:
 
 
 func _cerrar() -> void:
+	if _root == null:
+		return   # sin montar: nunca se abrio
 	_root.visible = false
 	Game.cerrar_menu(self)
 	if _desde_altar:
@@ -90,7 +103,7 @@ func _cerrar() -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if not _root.visible:
+	if _root == null or not _root.visible:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if (event as InputEventKey).keycode == KEY_ESCAPE:
@@ -105,6 +118,7 @@ func _input(event: InputEvent) -> void:
 var _reconstruyendo := false
 
 func _rebuild() -> void:
+	_construir()
 	if _reconstruyendo:
 		return
 	_reconstruyendo = true
