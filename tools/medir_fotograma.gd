@@ -125,6 +125,7 @@ func _medir_guardado() -> void:
 		print("[FOTOGRAMA] no se pudo abrir la BD de prueba")
 		return
 	# QUIEN SE LLEVA EL PASO A FILAS: tarea a tarea (paso(0) hace una y vuelve), sumado por campo / clase de objeto.
+	BDFilas.a_filas(Game.exportar_partida(), ids)   # en caliente, como en partida (lo aprendido de la vez anterior)
 	var v := BDFilas.Volcado.new(Game.exportar_partida(), ids)
 	var por: Dictionary = {}
 	var t_ant: int = Time.get_ticks_usec()
@@ -149,6 +150,20 @@ func _medir_guardado() -> void:
 	claves.sort_custom(func(a, b): return por[a][0] > por[b][0])
 	for c in claves.slice(0, 18):
 		print("[FOTOGRAMA]   a filas: %-40s %7.2f ms  (%d)" % [c, por[c][0] / 1000.0, por[c][1]])
+	# LAS FICHAS DE PERSONAJE: cuanto es la foto y cuanto el resto.
+	var fichas: Array = []
+	for o in ids.por_instancia.keys():
+		var r = instance_from_id(o)
+		if r is PersonajeData:
+			fichas.append(r)
+	for pj in fichas:
+		var t0: int = Time.get_ticks_usec()
+		var txt_foto: String = var_to_str(pj.imagen)
+		var t1: int = Time.get_ticks_usec()
+		var txt_todo: String = var_to_str(BDFilas._cosa(pj, {"ids": BDFilas.Ids.new(), "out": {"objetos": {}}, "vistos": {}, "por_clave": {}, "contables": {}, "cola": []}))
+		var t2: int = Time.get_ticks_usec()
+		print("[FOTOGRAMA] ficha %-14s foto %6d bytes -> %7d letras %.2f ms | ficha entera %7d letras %.2f ms" % [
+			pj.nombre, pj.imagen.size(), txt_foto.length(), (t1 - t0) / 1000.0, txt_todo.length(), (t2 - t1) / 1000.0])
 	# ¿El atajo del texto contado da LO MISMO? Las filas de una foto con un Ids calentado contra uno nuevo.
 	var foto: SaveData = Game.exportar_partida()
 	var caliente := BDFilas.Ids.new()
@@ -156,6 +171,14 @@ func _medir_guardado() -> void:
 	var fa: Dictionary = BDFilas.a_filas(foto, caliente)
 	var fb: Dictionary = BDFilas.a_filas(foto, BDFilas.Ids.new())
 	var dif: int = 0
+	# objetos: los ids salen de cada Ids, asi que se comparan como CONJUNTO de textos (sin mirar el id)
+	var ta: Array = fa["objetos"].values()
+	var tb: Array = fb["objetos"].values()
+	ta.sort()
+	tb.sort()
+	if ta != tb:
+		dif += 1
+		print("[FOTOGRAMA] DIFIEREN los objetos: %d / %d" % [ta.size(), tb.size()])
 	for parte in ["campos", "contables"]:
 		for k2 in fa[parte]:
 			if not fb[parte].has(k2) or str(fb[parte][k2]) != str(fa[parte][k2]):

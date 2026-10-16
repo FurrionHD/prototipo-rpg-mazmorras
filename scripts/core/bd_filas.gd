@@ -51,6 +51,11 @@ class Ids:
 	# Y por lo que ES (ruta + calidad + talla, ver _clave_texto): Monton.a_lista hace COPIAS nuevas en cada exportar,
 	# asi que por instancia no acertaba nunca y el baul se pasaba entero a texto cada 2 s (optimizacion 1C, 16/10).
 	var contable_txt: Dictionary = {}   # clave -> texto
+	# Las FOTOS ya pasadas a texto (ver _texto_bytes): "tamaño|hash" -> [bytes, texto].
+	var fotos_txt: Dictionary = {}
+	# El texto de cada fila de objeto con los datos de los que salio: id -> [datos, texto]. Si los datos de ahora son
+	# IGUALES (==, profundo), el texto tambien: no se vuelve a escribir (ver _texto_objeto).
+	var obj_txt: Dictionary = {}
 
 	func nuevo() -> String:
 		var id := "o%d" % siguiente
@@ -98,7 +103,7 @@ class Volcado:
 				"campo":
 					_campo(t[1])
 				"obj":
-					out["objetos"][t[2]] = var_to_str(BDFilas._cosa(t[1], ctx, t[2]))
+					out["objetos"][t[2]] = BDFilas._texto_objeto(BDFilas._cosa(t[1], ctx, t[2]), ctx["ids"], t[2])
 				"sub":
 					var clave: String = "%s/%s" % [t[1], var_to_str(t[2])]
 					out["campos"][clave] = var_to_str(BDFilas._a_valor(_s.get(t[1])[t[2]], clave, ctx))
@@ -138,6 +143,9 @@ class Volcado:
 		for iid in ids.por_instancia.keys():
 			if not vivos.has(iid):
 				ids.por_instancia.erase(iid)
+		for id in ids.obj_txt.keys():
+			if not out["objetos"].has(id):
+				ids.obj_txt.erase(id)   # ya no sale: su texto recordado tampoco
 		ids.contable = ctx["contables"]
 
 
@@ -248,6 +256,49 @@ static func _contar(ruta: String, v: Array, desde: int, cuantos: int, ctx: Dicti
 	return hasta >= v.size()
 
 
+# EL TEXTO DE UNA FILA DE OBJETO = var_to_str(d), letra por letra, pero las FOTOS (PackedByteArray grandes: la cara
+# que te pones en el creador) se pasan a texto UNA vez y no en cada guardado (optimizacion 1C, 16/10). Una foto de
+# 17 KB son 77.000 letras y 1,6 ms cada 2 s, y casi nunca cambia. Se pone una marca en su sitio, se pasa el resto y
+# se cambia la marca por el texto de la foto: mismo resultado que de una vez (lo mira test_bd_filas).
+const FOTO_MIN := 1024
+const _MARCA_FOTO := "\u0001foto%d\u0001"
+
+static func _texto_objeto(d: Dictionary, ids: Ids, id: String = "") -> String:
+	# LOS MISMOS DATOS QUE LA VEZ ANTERIOR -> el mismo texto. Comparar dos diccionarios es mucho mas barato que
+	# pasarlos a texto, y asi no hace falta saber quien puede tocar un objeto: si cambia algo, no son iguales.
+	if id != "":
+		var e = ids.obj_txt.get(id)
+		if e != null and e[0] == d:
+			return e[1]
+	var datos: Dictionary = d.duplicate()   # antes de poner las marcas de las fotos
+	var fotos: Dictionary = {}   # marca -> texto de la foto
+	for k in d:
+		var v = d[k]
+		if v is PackedByteArray and (v as PackedByteArray).size() >= FOTO_MIN:
+			var marca: String = _MARCA_FOTO % fotos.size()
+			fotos[marca] = _texto_bytes(v, ids)
+			d[k] = marca
+	var txt: String = var_to_str(d)
+	for marca in fotos:
+		txt = txt.replace(var_to_str(marca), fotos[marca])
+	if id != "":
+		ids.obj_txt[id] = [datos, txt]
+	return txt
+
+
+# var_to_str(bytes), recordado. Se compara la foto ENTERA (no solo su hash) antes de dar por bueno el texto viejo.
+static func _texto_bytes(v: PackedByteArray, ids: Ids) -> String:
+	var k: String = "%d|%d" % [v.size(), hash(v)]
+	var e = ids.fotos_txt.get(k)
+	if e != null and (e[0] as PackedByteArray) == v:
+		return e[1]
+	if ids.fotos_txt.size() > 64:
+		ids.fotos_txt.clear()   # no hay tantas fotos: si crece, es que van cambiando; se empieza de nuevo
+	var txt: String = var_to_str(v)
+	ids.fotos_txt[k] = [v.duplicate(), txt]
+	return txt
+
+
 # Lo que decide el texto de un material / cristal contado: sus campos (_campos, sin la n). Con METADATOS sueltos
 # ("" = sin clave) se calcula siempre: van en el texto y aqui no se ven. El material tiene que ser del proyecto
 # (su texto es la ruta); si no, tambien se calcula.
@@ -291,7 +342,15 @@ static func _ref(r: Resource, ctx: Dictionary):
 static func _cosa(r: Resource, ctx: Dictionary, ruta: String = "") -> Dictionary:
 	var d: Dictionary = {"_clase": _clase(r)}
 	for n in _campos(r):
-		d[n] = _a_valor(r.get(n), "%s.%s" % [ruta, n], ctx)
+		var v = r.get(n)
+		# La RUTA del campo solo la usan las listas (por si van contadas) y lo que llevan dentro: montarla para cada
+		# numero de cada objeto era la mitad de lo que costaba un arma (optimizacion 1C, 16/10). Mismo resultado.
+		if v is Array or v is Dictionary:
+			d[n] = _a_valor(v, "%s.%s" % [ruta, n], ctx)
+		elif v is Resource:
+			d[n] = _ref(v, ctx)
+		else:
+			d[n] = v
 	return d
 
 

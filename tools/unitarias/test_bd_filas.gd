@@ -170,3 +170,22 @@ func test_atajo_del_texto_contado_da_lo_mismo() -> void:
 	var fb: Dictionary = BDFilas.a_filas(s, BDFilas.Ids.new())
 	igual(fa["contables"], fb["contables"], "mismas filas contadas con atajo y sin el")
 	igual(BDFilas._clave_texto(raro), "", "con metadatos no hay atajo")
+
+
+# LAS FOTOS (1C, 16/10): una fila con una foto grande se pasa a texto con la foto recordada y tiene que salir LETRA POR
+# LETRA igual que var_to_str de todo; la segunda vez (foto recordada) tambien, y si la foto cambia, el texto nuevo.
+func test_fila_con_foto_da_el_mismo_texto() -> void:
+	var foto := PackedByteArray()
+	for i in 3000:
+		foto.append(i % 251)
+	var ids := BDFilas.Ids.new()
+	var d := {"_clase": "PersonajeData", "nombre": "Dawnsin", "imagen": foto, "color": Color(1, 0.5, 0.2)}
+	var esperado: String = var_to_str(d)
+	igual(BDFilas._texto_objeto(d.duplicate(), ids), esperado, "primera vez")
+	igual(BDFilas._texto_objeto(d.duplicate(), ids), esperado, "con la foto recordada")
+	var otra: PackedByteArray = foto.duplicate()
+	otra[10] = 7
+	var d2 := {"_clase": "PersonajeData", "nombre": "Dawnsin", "imagen": otra, "color": Color(1, 0.5, 0.2)}
+	igual(BDFilas._texto_objeto(d2.duplicate(), ids), var_to_str(d2), "foto cambiada: texto nuevo")
+	var chica := {"imagen": PackedByteArray([1, 2, 3])}
+	igual(BDFilas._texto_objeto(chica.duplicate(), ids), var_to_str(chica), "foto pequeña, tal cual")
