@@ -3,18 +3,18 @@
 Generado por `python tools/indice_pruebas.py` (no editar a mano: se rehace). "Lo nombra" no es "lo cubre
 entero": sirve para ver los **huecos** y para saber qué pruebas pasar después de tocar un archivo.
 
-**253 de 363 scripts no tienen ninguna prueba que los nombre.**
+**250 de 363 scripts no tienen ninguna prueba que los nombre.**
 
 | Carpeta | Scripts | Sin prueba |
 |---|---|---|
 | `scripts/actors/enemy` | 5 | 0 |
 | `scripts/actors/player` | 5 | 2 |
-| `scripts/core` | 38 | 6 |
+| `scripts/core` | 38 | 4 |
 | `scripts/fx` | 123 | 110 |
 | `scripts/items` | 19 | 5 |
 | `scripts/net` | 21 | 4 |
 | `scripts/town` | 23 | 19 |
-| `scripts/ui` | 90 | 77 |
+| `scripts/ui` | 90 | 76 |
 | `scripts/ui/herreria` | 6 | 5 |
 | `scripts/ui/hogar` | 5 | 5 |
 | `scripts/ui/peleteria` | 2 | 2 |
@@ -29,9 +29,7 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 - `scripts/core/arena_foto.gd`
 - `scripts/core/battle.gd`
 - `scripts/core/battle_test.gd`
-- `scripts/core/catalogo_equipo.gd`
 - `scripts/core/econ_test.gd`
-- `scripts/core/libros.gd`
 - `scripts/fx/aberracion3d_sprites.gd`
 - `scripts/fx/aberracion_sprites.gd`
 - `scripts/fx/acechador3d_sprites.gd`
@@ -225,7 +223,6 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 - `scripts/ui/iconos.gd`
 - `scripts/ui/iconos_equipo.gd`
 - `scripts/ui/keys_help.gd`
-- `scripts/ui/maestro_menu.gd`
 - `scripts/ui/main_menu.gd`
 - `scripts/ui/map_menu.gd`
 - `scripts/ui/material_spawner.gd`
@@ -291,18 +288,20 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 - `scripts/core/abilities.gd`: `prueba_armadura_magica.gd`, `prueba_ataques_magicos.gd`, `prueba_dot_del_golpe.gd`, `prueba_escudo_agua.gd`, `prueba_magias_regla.gd`, `prueba_mut_fuego.gd` y 5 más
 - `scripts/core/ambiente.gd`: `prueba_huella_combate.gd`
 - `scripts/core/bd_filas.gd`: `prueba_bd_ida_vuelta.gd`, `prueba_bd_mazmorra_viva.gd`, `prueba_bd_partida.gd`, `prueba_bd_ranura.gd`, `unitarias/test_bd_filas.gd`
+- `scripts/core/catalogo_equipo.gd`: `prueba_maestro_clic.gd`
 - `scripts/core/ciclo_dia.gd`: `prueba_town_dos_cliente_guion.gd`
 - `scripts/core/combatant.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_anim_por_red.gd`, `prueba_apartarse_fuera.gd`, `prueba_armadura_magica.gd`, `prueba_ataques_magicos.gd` y 40 más
 - `scripts/core/cuerpos.gd`: `prueba_iniciativa_red.gd`, `prueba_orden_dibujo.gd`, `prueba_pasivas_mut.gd`, `prueba_slimes_tactico.gd`, `prueba_tactico_turno.gd`
 - `scripts/core/elements.gd`: `prueba_bestias_tactico.gd`, `prueba_constructos_tactico.gd`, `prueba_mut_fuego.gd`, `prueba_mut_profundo.gd`
 - `scripts/core/encargos.gd`: `prueba_encargos_excelia.gd`, `prueba_town_dos_cliente_guion.gd`, `prueba_town_dos_jugadores_guion.gd`, `unitarias/test_estados_y_encargos.gd`
 - `scripts/core/forge.gd`: `prueba_armadura_magica.gd`
-- `scripts/core/game.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_andar_apuntando.gd`, `prueba_anim_por_red.gd`, `prueba_apartarse_fuera.gd`, `prueba_arena.gd` y 99 más
+- `scripts/core/game.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_andar_apuntando.gd`, `prueba_anim_por_red.gd`, `prueba_apartarse_fuera.gd`, `prueba_arena.gd` y 100 más
 - `scripts/core/huella_save.gd`: `prueba_bd_ida_vuelta.gd`, `prueba_bd_nube.gd`, `prueba_bd_partida.gd`, `prueba_bd_ranura.gd`, `prueba_huella_save.gd`
 - `scripts/core/identity.gd`: `prueba_bd_nube.gd`, `prueba_bd_un_jugador.gd`, `prueba_roster_duplicados.gd`, `prueba_sala.gd`, `prueba_sala_cliente_guion.gd`, `prueba_sala_dos_jugadores.gd` y 3 más
 - `scripts/core/informe.gd`: `unitarias/test_medidor.gd`
 - `scripts/core/jugador_data.gd`: `prueba_baul_sala.gd`, `prueba_caida_en_pelea.gd`, `prueba_foto_arena_invitado.gd`, `prueba_roster_duplicados.gd`, `prueba_sala.gd`, `prueba_sala_dos_jugadores.gd` y 3 más
 - `scripts/core/lampara.gd`: `unitarias/test_bolsa_juego.gd`
+- `scripts/core/libros.gd`: `prueba_maestro_clic.gd`
 - `scripts/core/medidor.gd`: `unitarias/test_medidor.gd`
 - `scripts/core/migracion_bd.gd`: `prueba_bd_nube.gd`, `prueba_bd_partida.gd`, `prueba_bd_ranura.gd`, `prueba_bd_un_jugador.gd`
 - `scripts/core/mundos.gd`: `prueba_bd_nube.gd`, `prueba_roster_duplicados.gd`, `prueba_sala.gd`, `prueba_sala_cliente_guion.gd`, `prueba_sala_dos_jugadores.gd`, `prueba_sala_entrar.gd` y 1 más
@@ -311,7 +310,7 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 - `scripts/core/personaje_data.gd`: `prueba_arena.gd`, `prueba_armadura_magica.gd`, `prueba_caida_en_pelea.gd`, `prueba_cargar_turno.gd`, `prueba_encargos_excelia.gd`, `prueba_ficha_fiel.gd` y 25 más
 - `scripts/core/profile.gd`: `prueba_bd_altf4.gd`, `prueba_bd_mazmorra_viva.gd`, `prueba_bd_ranura.gd`, `prueba_bd_un_jugador.gd`, `prueba_caida_en_pelea.gd`, `prueba_pelea_a_medias.gd` y 1 más
 - `scripts/core/runas.gd`: `prueba_runas.gd`, `prueba_runas_en_menu.gd`, `prueba_taller_runas.gd`
-- `scripts/core/save_data.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_andar_apuntando.gd`, `prueba_anim_por_red.gd`, `prueba_apartarse_fuera.gd`, `prueba_arena.gd` y 71 más
+- `scripts/core/save_data.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_andar_apuntando.gd`, `prueba_anim_por_red.gd`, `prueba_apartarse_fuera.gd`, `prueba_arena.gd` y 72 más
 - `scripts/core/save_io.gd`: `prueba_bd_nube.gd`, `prueba_bd_ranura.gd`
 - `scripts/core/sonido.gd`: `prueba_ventana_ajustes.gd`
 - `scripts/core/spell_book.gd`: `prueba_magias_regla.gd`
@@ -378,7 +377,8 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 - `scripts/ui/combate_detalle.gd`: `prueba_huella_combate.gd`
 - `scripts/ui/herreria/herreria_reparar.gd`: `prueba_reparar_escudo.gd`
 - `scripts/ui/inventory_menu.gd`: `prueba_inventario_clic.gd`, `prueba_scroll_rejilla.gd`
-- `scripts/ui/menu_scaffold.gd`: `prueba_inventario_clic.gd`, `prueba_runas_en_menu.gd`, `prueba_scroll_rejilla.gd`, `prueba_taller_runas.gd`, `unitarias/test_munecos_reusables.gd`
+- `scripts/ui/maestro_menu.gd`: `prueba_maestro_clic.gd`
+- `scripts/ui/menu_scaffold.gd`: `prueba_inventario_clic.gd`, `prueba_maestro_clic.gd`, `prueba_runas_en_menu.gd`, `prueba_scroll_rejilla.gd`, `prueba_taller_runas.gd`, `unitarias/test_munecos_reusables.gd`
 - `scripts/ui/munecos_reusables.gd`: `unitarias/test_munecos_reusables.gd`
 - `scripts/ui/rueda_cristales.gd`: `prueba_rueda_cristales.gd`
 - `scripts/ui/tramo_escudo.gd`: `prueba_escudo_agua.gd`

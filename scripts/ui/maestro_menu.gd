@@ -279,12 +279,28 @@ func _de_encargo_avisa(pj: PersonajeData) -> bool:
 
 # Las plantillas base de todo lo que aporta habilidades: las armas y las secundarias (escudos y
 # varita tambien traen las suyas, y compiten por los mismos cuatro huecos).
+#
+# Se calculan UNA vez por menu: el catalogo es fijo y cada repintado la pedia varias veces (_arma, _tecnicas, la fila
+# de armas), con un load() por plantilla cada vez.
+var _plantillas_cache: Array = []
+
+# Lo mismo para los libros (grimorios, tochos, la biblioteca): un load() por libro en cada repintado se notaba.
+var _cargados: Dictionary = {}   # ruta -> Resource
+
+func _cargar(ruta: String) -> Resource:
+	if not _cargados.has(ruta):
+		_cargados[ruta] = load(ruta)
+	return _cargados[ruta]
+
 func _plantillas() -> Array:
+	if not _plantillas_cache.is_empty():
+		return _plantillas_cache
 	var out: Array = []
 	for ruta in CatalogoEquipo.ARMAS + CatalogoEquipo.SECUNDARIAS:
 		var it: Resource = load(ruta)
 		if it != null and not it.habilidades.is_empty():
 			out.append(it)
+	_plantillas_cache = out
 	return out
 
 
@@ -342,7 +358,30 @@ func _pick_arma(i: int) -> void:
 
 func _pick(i: int) -> void:
 	_sel = i
+	# EL ATAJO DEL CLIC en Tecnicas: la lista ya esta pintada, asi que se marca la fila y se repinta solo la ficha.
+	# Rehacerlo todo (retratos, fila de armas, lista) costaba ~20 ms por clic.
+	if _tab == TAB_TECNICAS and not _reconstruyendo and _marcar_tecnica(i):
+		_reconstruyendo = true
+		MenuScaffold.vaciar(_content)
+		_pintar_ficha(_pj())
+		_reconstruyendo = false
+		return
 	_rebuild()
+
+
+# Marca la fila i de la lista de tecnicas pintada. false si no hay lista o no cuadra (entonces, repintado entero).
+func _marcar_tecnica(i: int) -> bool:
+	var n: int = _tecnicas().size()
+	if i < 0 or i >= n:
+		return false
+	for h in _lista.get_children():
+		if h is GridContainer and not MenuScaffold.muriendo(h):
+			if h.get_child_count() != n:
+				return false
+			for k in n:
+				(h.get_child(k) as BaseButton).button_pressed = (k == i)
+			return true
+	return false
 
 
 # ============================================================
@@ -1760,7 +1799,7 @@ func _matar_tweens_res() -> void:
 func _pool_tochos() -> Array:
 	var out: Array = []
 	for ruta in Libros.TOCHOS:
-		var c: ConsumableData = load(ruta) as ConsumableData
+		var c: ConsumableData = _cargar(ruta) as ConsumableData
 		if c != null:
 			out.append(c)
 	return out
@@ -2228,7 +2267,7 @@ func _banner_nombre() -> String:
 func _todos_los_grimorios() -> Array:
 	var out: Array = []
 	for ruta in Libros.GRIMORIOS:
-		var c: ConsumableData = load(ruta) as ConsumableData
+		var c: ConsumableData = _cargar(ruta) as ConsumableData
 		if c != null and c.spell != null:
 			out.append(c.spell)
 	return out
@@ -2261,7 +2300,7 @@ func _pintar_biblioteca(_pj: PersonajeData) -> void:
 	# el propio libro (ConsumableData.seccion_biblioteca), no una lista de aqui.
 	var secciones := {}
 	for ruta in todos:
-		var c: ConsumableData = load(ruta) as ConsumableData
+		var c: ConsumableData = _cargar(ruta) as ConsumableData
 		if c == null or not c.en_biblioteca():
 			continue
 		var s: String = c.seccion_biblioteca()

@@ -167,6 +167,14 @@ func _p_maestro() -> void:
 		await _medir("pestaña %s" % men.TABS[i], func(): men._tab = -1; men._on_tab(i))
 		await _medir("   clic", func(): men._pick(1 if men._sel != 1 else 0))
 	await _medir("cambiar de persona", func(): men._pick_persona(1 if men._pj_sel != 1 else 0))
+	# DESGLOSE de Tecnicas.
+	men._on_tab(men.TAB_TECNICAS)
+	var pj: PersonajeData = men._pj()
+	await _medir("   tecnicas: retratos", func():
+		MenuScaffold.retratos(men._fila_retratos, men._gente(), men._pj_sel, Game.party.size(), men._pick_persona))
+	await _medir("   tecnicas: _pintar_armas", func(): men._pintar_armas(pj))
+	await _medir("   tecnicas: _pintar_tecnicas", func(): MenuScaffold.vaciar(men._lista); men._pintar_tecnicas(pj, men._arma()))
+	await _medir("   tecnicas: _pintar_ficha", func(): MenuScaffold.vaciar(men._content); men._pintar_ficha(pj))
 	men.queue_free()
 
 
