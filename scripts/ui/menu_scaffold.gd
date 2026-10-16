@@ -2785,10 +2785,8 @@ static func _retrato(fila: HBoxContainer, pj: PersonajeData, i: int, elegido: bo
 			# encima del origen (el lienzo horneado tiene sus propios margenes), asi que la cuenta "teorica"
 			# dejaba fuera justo la cara. Estos dos numeros salen de mirar la captura: con esta escala, la
 			# cara cae en el centro del cuadro y se ven cabeza y hombros.
-			# (Los numeros viven en RetratoHorneado: el horneado tiene que encuadrar EXACTAMENTE igual.)
-			var esc: float = LADO_RETRATO * RetratoHorneado.ESCALA_POR_LADO / PoseJugador.ALTO_MUNDO
-			mu.scale = Vector2.ONE * esc
-			mu.position = Vector2(LADO_RETRATO * 0.5, LADO_RETRATO * RetratoHorneado.ORIGEN_Y)
+			# (La cuenta vive en RetratoHorneado.colocar_fila: el horneado tiene que encuadrar EXACTAMENTE igual.)
+			RetratoHorneado.colocar_fila(mu, LADO_RETRATO)
 			mu.animar("idle_0")
 			marco.add_child(mu)
 		else:

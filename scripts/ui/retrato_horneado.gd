@@ -48,8 +48,8 @@ static func escala_pantalla() -> float:
 	return maxf(1.0, absf(arbol.root.get_stretch_transform().x.x))
 
 
-static func huella(pj: PersonajeData, escala: float) -> String:
-	var partes := PackedStringArray()
+static func huella(pj: PersonajeData, escala: float, modo: String = "fila") -> String:
+	var partes := PackedStringArray([modo])
 	for c in JugadorSprites.capas_de(pj):
 		var claves: Array = (c as Dictionary).keys()
 		claves.sort()
@@ -63,28 +63,51 @@ static func huella(pj: PersonajeData, escala: float) -> String:
 	return "|".join(partes)
 
 
+# ------------------------------------------------------------
+#  LA FILA DE RETRATOS (MenuScaffold._retrato): cabeza y hombros, respirando
+# ------------------------------------------------------------
 # El retrato horneado de 'pj', o {} si aun no esta (o no se puede). Barato: lo de capas_de (~0,15 ms).
 static func de(pj: PersonajeData) -> Dictionary:
-	if pj == null or not se_puede():
-		return {}
-	return _cache.get(huella(pj, escala_pantalla()), {})
+	return de_modo(pj, "fila")
 
 
 # Que se hornee, para la proxima vez. Si ya esta (o se esta haciendo), nada.
 static func pedir(pj: PersonajeData) -> void:
+	pedir_modo(pj, "fila", MenuScaffold.LADO_RETRATO, -1, colocar_fila)
+
+
+# Donde va el muneco de la fila dentro de un cuadro de 'lado' (en px de lo que se pinta): lo usan el vivo
+# (MenuScaffold._retrato) y el horneado, para que encuadren igual.
+static func colocar_fila(mu: MunecoJugador, lado: float) -> void:
+	mu.scale = Vector2.ONE * (lado * ESCALA_POR_LADO / PoseJugador.ALTO_MUNDO)
+	mu.position = Vector2(lado * 0.5, lado * ORIGEN_Y)
+
+
+# ------------------------------------------------------------
+#  CUALQUIER ENCUADRE: 'modo' distingue la cache (fila, cara de la barra de turnos...)
+# ------------------------------------------------------------
+static func de_modo(pj: PersonajeData, modo: String) -> Dictionary:
+	if pj == null or not se_puede():
+		return {}
+	return _cache.get(huella(pj, escala_pantalla(), modo), {})
+
+
+# 'lado' en unidades de la interfaz; 'marcos' = cuantos fotogramas de ANIM (-1 = todos: respira; 1 = quieto);
+# 'colocar' = func(mu: MunecoJugador, lado_px: float): deja el muneco como lo dejaria quien lo pinta vivo dentro de
+# un cuadro de lado_px.
+static func pedir_modo(pj: PersonajeData, modo: String, lado: float, marcos: int, colocar: Callable) -> void:
 	if pj == null or not se_puede():
 		return
 	var k: float = escala_pantalla()
-	var h: String = huella(pj, k)
+	var h: String = huella(pj, k, modo)
 	if _cache.has(h) or _horneando.has(h):
 		return
-	_hornear(pj, h, k)
+	_hornear(pj, h, ceili(lado * k), marcos, colocar)
 
 
-static func _hornear(pj: PersonajeData, h: String, k: float) -> void:
+static func _hornear(pj: PersonajeData, h: String, lado: int, marcos_pide: int, colocar: Callable) -> void:
 	_horneando[h] = true
 	var arbol := Engine.get_main_loop() as SceneTree
-	var lado: int = ceili(MenuScaffold.LADO_RETRATO * k)
 	# Cada fotograma va en el centro de un hueco TRES veces mas ancho: el muneco a esta escala se sale de su cuadro
 	# por los lados, y con los huecos pegados se colaria en el de al lado.
 	var hueco: int = lado * 3
@@ -95,23 +118,22 @@ static func _hornear(pj: PersonajeData, h: String, k: float) -> void:
 	# EN DIFERIDO: se pide desde quien monta una fila de retratos, y eso puede pasar en el _ready de una pantalla,
 	# con la raiz aun montando sus hijos (add_child falla y no se pinta nada).
 	arbol.root.add_child.call_deferred(vp)
-	var marcos: int = 1
+	var marcos: int = maxi(1, marcos_pide)
 	var fps: float = 1.0
-	var munecos: Array = []
 	var i: int = 0
 	while i < marcos:
 		var mu := MunecoJugador.new()
 		mu.montar(pj)
 		mu.tenir(pj.color, 0.0)
 		mu.poner_cara(pj.textura())
-		mu.scale = Vector2.ONE * (MenuScaffold.LADO_RETRATO * ESCALA_POR_LADO / PoseJugador.ALTO_MUNDO) * k
-		mu.position = Vector2(float(i * hueco) + float(hueco) * 0.5, float(lado) * ORIGEN_Y)
+		colocar.call(mu, float(lado))
+		mu.position += Vector2(float(i * hueco + lado), 0.0)   # al cuadro del medio de su hueco
 		vp.add_child(mu)
 		mu.fijar(ANIM, i)
 		if i == 0:
-			marcos = maxi(1, int(mu.get("_marcos")))
+			if marcos_pide < 0:
+				marcos = maxi(1, int(mu.get("_marcos")))
 			fps = maxf(0.1, float(mu.get("_fps")))
-		munecos.append(mu)
 		i += 1
 	vp.size = Vector2i(hueco * marcos, lado)
 	# Dos vueltas: en la primera se monta todo (y la viewport toma su tamaño); en la segunda ya se ha pintado.
@@ -148,6 +170,10 @@ static func crear(e: Dictionary) -> RetratoHorneado:
 		_mat = CanvasItemMaterial.new()
 		_mat.blend_mode = CanvasItemMaterial.BLEND_MODE_PREMULT_ALPHA
 	r.material = _mat
+	# PIXEL DURO, como las capas del muneco: con el filtro por defecto, estirar la imagen a su cuadro (59 px en 58,8)
+	# la emborronaba, y en una cara de 40 px eso se come los ojos (visto el 16/10 en la captura a 1920x1080).
+	r.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	r.set_process(int(e["marcos"]) > 1)   # quieto: nada que avanzar
 	return r
 
 

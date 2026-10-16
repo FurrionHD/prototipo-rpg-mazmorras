@@ -84,6 +84,47 @@ func _ready() -> void:
 		# los bordes bailan segun donde caiga el dibujo, y eso no es un defecto del horneado. A 1280x720 sale 0.
 		if d[0] > maxi(dv[0], 50):
 			mal += 1
+	# 4) LA CARA DE LA BARRA DE TURNOS (RetratoCombate._cara_de_muneco): quieta, sin equipo, en 40 px.
+	var RC = preload("res://scripts/ui/retrato_combate.gd")
+	_fila.queue_free()
+	await get_tree().process_frame
+	_fila = HBoxContainer.new()
+	_fila.position = Vector2(40, 60)
+	add_child(_fila)
+	var cuadros: Array = []
+	for pj in gente:
+		var r := ColorRect.new()
+		r.custom_minimum_size = Vector2(40, 40)
+		r.size = Vector2(40, 40)
+		r.color = Color(0.2, 0.2, 0.25)
+		r.clip_contents = true
+		_fila.add_child(r)
+		cuadros.append(r)
+	await get_tree().process_frame
+	for i in gente.size():
+		RC._cara_de_muneco(cuadros[i], gente[i])
+	var cara_viva: Image = await _captura()
+	for i in 300:
+		await get_tree().process_frame
+		if RetratoHorneado._horneando.is_empty():
+			break
+	for r in cuadros:
+		for h in r.get_children():
+			h.free()
+	var tc: int = Time.get_ticks_usec()
+	for i in gente.size():
+		RC._cara_de_muneco(cuadros[i], gente[i])
+	print("[RETRATOS] caras de la barra HORNEADAS: %.2f ms las %d" % [(Time.get_ticks_usec() - tc) / 1000.0, gente.size()])
+	var hc: Array = []   # un Array y no un int: la lambda captura por valor
+	_juntar(_fila, hc, func(n): return n is RetratoHorneado)
+	var n_hc: int = hc.size()
+	var cara_h: Image = await _captura()
+	cara_viva.save_png("%s/cara_viva.png" % CARPETA)
+	cara_h.save_png("%s/cara_horneada.png" % CARPETA)
+	var dc: Array = _diferencia(cara_viva, cara_h, 50)
+	print("[RETRATOS] caras: %d horneadas de %d; %d pixeles distintos, el peor %d/255" % [n_hc, gente.size(), dc[0], dc[1]])
+	if dc[0] > maxi(dv[0] / 4, 50):
+		mal += 1
 	print("[RETRATOS] FIN: %s" % ("IGUALES A LA VISTA" if mal == 0 else "%d FOTOGRAMAS CON DIFERENCIAS GRANDES" % mal))
 	get_tree().quit()
 
@@ -127,3 +168,4 @@ func _diferencia(a: Image, b: Image, m: int) -> Array:
 			d.set_pixel(x, y, Color(minf(1.0, dif * 8 / 255.0), 0, 0, 1))
 	d.save_png("%s/diferencia_%d.png" % [CARPETA, m])
 	return [n, peor]
+

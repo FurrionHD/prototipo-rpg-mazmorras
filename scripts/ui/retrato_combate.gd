@@ -22,6 +22,8 @@ const VENTANA_CABEZA := 23.0
 # mitad de abajo (arriba es pelo), asi que centrar en la cabeza dejaria la cara en el borde.
 const BAJA_CARA := 0.30
 
+static var _recortes: Dictionary = {}   # id del fotograma -> su recorte (ver miniatura_enemigo)
+
 
 # Rellena 'padre' (un Control cuadrado, con clip) con el retrato de 'c'. Devuelve si ha pintado algo;
 # si no, quien llama se queda con el color que ya tuviera de fondo.
@@ -59,6 +61,11 @@ static func miniatura_enemigo(c: Combatant) -> Texture2D:
 	var at := tex as AtlasTexture
 	if at == null or at.atlas == null:
 		return tex
+	# EL RECORTE SE GUARDA por fotograma (1D, 16/10): sacar la imagen para buscar su caja util es leer el trozo de
+	# la hoja entera, y la barra de turnos y la ficha de detalle lo pedian por cada enemigo cada vez.
+	var clave: int = tex.get_instance_id()
+	if _recortes.has(clave):
+		return _recortes[clave]
 	var img: Image = tex.get_image()
 	if img == null:
 		return tex
@@ -68,6 +75,9 @@ static func miniatura_enemigo(c: Combatant) -> Texture2D:
 	var recorte := AtlasTexture.new()
 	recorte.atlas = at.atlas
 	recorte.region = Rect2(at.region.position + Vector2(usado.position), Vector2(usado.size))
+	if _recortes.size() > 256:
+		_recortes.clear()
+	_recortes[clave] = recorte
 	return recorte
 
 
@@ -90,6 +100,14 @@ static func _cara_de_muneco(padre: Control, pj: PersonajeData) -> bool:
 	solo.color = pj.color
 	solo.aspecto = PersonajeData.aspecto_nuevo(pj.color)
 	solo.aplicar_aspecto({"piezas": pj.aspecto_completo()["piezas"]})
+	# HORNEADA si ya lo esta (1D, 16/10: ver RetratoHorneado). Montar el muneco eran ~3 ms por aliado, al entrar en
+	# cada pelea. Quieta (un marco), como la viva.
+	var lado: float = minf(padre.size.x, padre.size.y)
+	var modo: String = "cara%d" % roundi(lado)
+	var e: Dictionary = RetratoHorneado.de_modo(solo, modo)
+	if not e.is_empty():
+		padre.add_child(RetratoHorneado.crear(e))
+		return true
 	var m := MunecoJugador.new()
 	m.montar(solo)
 	m.tenir(solo.color, 0.0)
@@ -105,26 +123,30 @@ static func _cara_de_muneco(padre: Control, pj: PersonajeData) -> bool:
 	_z_relativo(m)
 	# De frente y QUIETO: un retrato que respira hace bailar la barra entera.
 	m.fijar("idle_0", 0)
-
-	# Donde cae el centro de la cabeza respecto al NODO del muñeco, en unidades de mundo. El nodo esta
-	# a la altura de los pies menos PIES_BAJO_NODO (ver PoseJugador.offset_sprite), y el centro de la
-	# cabeza sale de la misma cuenta que usan los ojos (CaraSprites.centro_cabeza), asi el retrato
-	# encuadra exactamente la cabeza que se dibuja.
-	var esq: Dictionary = PoseJugador.esqueleto("idle", 0, 0)
-	var cab_px: Vector2 = Vector2(CaraSprites.centro_cabeza(esq)) + Vector2(0.5, 0.5)
-	var rel: Vector2 = (cab_px - PoseJugador.origen()) * PoseJugador.escala_sprite() \
-		+ Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
 	var colocar := func() -> void:
-		var z: Vector2 = hueco.size
-		if z.x <= 1.0 or z.y <= 1.0:
-			return
-		var lado: float = minf(z.x, z.y)
-		var k: float = lado / (VENTANA_CABEZA * PoseJugador.escala_sprite())
-		m.scale = Vector2.ONE * k
-		m.position = z * 0.5 + Vector2(0.0, -lado * BAJA_CARA) - rel * k
+		colocar_cara(m, hueco.size)
 	hueco.resized.connect(colocar)
 	colocar.call()
+	if lado > 1.0:
+		RetratoHorneado.pedir_modo(solo, modo, lado, 1,
+			func(mu: MunecoJugador, px: float) -> void: colocar_cara(mu, Vector2(px, px)))
 	return true
+
+
+# Donde va el muneco de la cara dentro de un cuadro de tamaño 'z': lo usan el vivo y el horneado, para que encuadren
+# igual. Donde cae el centro de la cabeza respecto al NODO del muñeco, en unidades de mundo: el nodo esta a la altura
+# de los pies menos PIES_BAJO_NODO (ver PoseJugador.offset_sprite), y el centro de la cabeza sale de la misma cuenta
+# que usan los ojos (CaraSprites.centro_cabeza), asi el retrato encuadra exactamente la cabeza que se dibuja.
+static func colocar_cara(m: MunecoJugador, z: Vector2) -> void:
+	if z.x <= 1.0 or z.y <= 1.0:
+		return
+	var esq: Dictionary = PoseJugador.esqueleto("idle", 0, 0)
+	var cab_px: Vector2 = Vector2(CaraSprites.centro_cabeza(esq)) + Vector2(0.5, 0.5)
+	var rel: Vector2 = (cab_px - PoseJugador.origen()) * PoseJugador.escala_sprite() + Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
+	var lado: float = minf(z.x, z.y)
+	var k: float = lado / (VENTANA_CABEZA * PoseJugador.escala_sprite())
+	m.scale = Vector2.ONE * k
+	m.position = z * 0.5 + Vector2(0.0, -lado * BAJA_CARA) - rel * k
 
 
 # DEVUELVE EL MUÑECO AL Z RELATIVO, que es lo unico que hace falta para que se VEA dentro de una UI.
