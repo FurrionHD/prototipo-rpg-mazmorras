@@ -79,7 +79,28 @@ func montar(sitio: String, nombres: Array, iconos: Array, ancho_rejilla: float =
 		Net.hogar_cambiado.connect(_on_cambio_externo)
 	if Net.has_signal("reservas_cambiadas"):
 		Net.reservas_cambiadas.connect(_on_cambio_externo)
+	# LA INTERFAZ SE MONTA AL ABRIRLO (asegurar_ui), no aqui: el jugador crea los ocho talleres en CADA escena
+	# (pueblo y cada piso) y montarlos eran ~18 ms de cada cambio de escena para menus que casi nunca se abren.
+	_montaje = [sitio, nombres, iconos, ancho_rejilla, ancho_ficha]
 
+
+var _montaje: Array = []   # lo que pidio montar(), hasta que se abra
+
+# Monta la interfaz si aun no esta. La llaman abrir_taller y _rebuild; quien toque la UI de un taller
+# cerrado desde fuera tiene que llamarla antes.
+func asegurar_ui() -> void:
+	if _root != null or _montaje.is_empty():
+		return
+	_montar_ui(_montaje[0], _montaje[1], _montaje[2], _montaje[3], _montaje[4])
+	_al_montar_ui()
+
+
+# Lo que cada taller añade a la interfaz recien montada (ver runas_menu).
+func _al_montar_ui() -> void:
+	pass
+
+
+func _montar_ui(sitio: String, nombres: Array, iconos: Array, ancho_rejilla: float, ancho_ficha: float) -> void:
 	# El SITIO, no la persona: aqui no hay nadie trabajando por ti, lo haces tu con tus personajes.
 	var m: Dictionary = MenuScaffold.construir(self, sitio.to_upper(), "", _cerrar, false, false)
 	_root = m["root"]
@@ -207,6 +228,7 @@ func anchos(rejilla: float, ficha: float) -> void:
 func abrir_taller() -> bool:
 	if Game._active_layer != null or Game.debug_panel_open:
 		return false
+	asegurar_ui()
 	sel = 0
 	sel_elegida = false
 	_aviso = ""
@@ -217,6 +239,8 @@ func abrir_taller() -> bool:
 
 
 func _cerrar() -> void:
+	if _root == null:
+		return   # sin montar: nunca se abrio
 	_root.visible = false
 	_al_cerrar()
 	Game.cerrar_menu(self)
@@ -285,6 +309,7 @@ var _solo_seleccion := false
 func _rebuild() -> void:
 	if _reconstruyendo:
 		return
+	asegurar_ui()
 	_reconstruyendo = true
 	Game.abrir_recuento_hogar()
 	_rebuild_real()

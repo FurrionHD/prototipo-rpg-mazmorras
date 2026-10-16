@@ -69,7 +69,11 @@ var _sin_filtrar: Array = []
 func _ready() -> void:
 	add_to_group("runas_menu")
 	montar("Taller de runas", TABS, TAB_ICONOS)
-	# La barra de abajo, debajo de la rejilla (en su columna, fuera del scroll).
+
+
+# La barra de abajo, debajo de la rejilla (en su columna, fuera del scroll). Al montar la interfaz, que ya no es en
+# el _ready (ver taller_menu.asegurar_ui).
+func _al_montar_ui() -> void:
 	_barra_pie = HBoxContainer.new()
 	_barra_pie.add_theme_constant_override("separation", 10)
 	_scroll_lista.get_parent().add_child(_barra_pie)
