@@ -393,6 +393,26 @@ func _p_mapa() -> void:
 	if not tiempos.is_empty():
 		print("[PANTALLAS]   dibujo del plano (piso %d): mejor %.2f ms  mediana %.2f ms  (%d dibujos)" % [grande, tiempos[0],
 			tiempos[tiempos.size() / 2], tiempos.size()])
+	# El SUELO horneado va en su propio Control (map_menu._suelo), si lo hay.
+	if "_suelo" in men and men._suelo != null:
+		var ts: Array = []
+		men._suelo.draw.disconnect(men._dibujar_suelo)
+		men._suelo.draw.connect(func():
+			var t0: int = Time.get_ticks_usec()
+			men._dibujar_suelo()
+			ts.append(float(Time.get_ticks_usec() - t0) / 1000.0))
+		men._suelo_cache.clear()
+		for k in 6:
+			men._ver_piso(grande)
+			await get_tree().process_frame
+			await get_tree().process_frame
+		print("[PANTALLAS]   suelo horneado: primera %.2f ms (hornea), luego %s" % [ts[0] if not ts.is_empty() else -1.0,
+			str(ts.slice(1).map(func(x): return snappedf(x, 0.01)))])
+	# LA CAPTURA, para comparar a ojo antes / despues.
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	DirAccess.make_dir_recursive_absolute("res://tools/salida/")
+	get_viewport().get_texture().get_image().save_png("res://tools/salida/mapa_piso%d.png" % grande)
 	men.queue_free()
 
 

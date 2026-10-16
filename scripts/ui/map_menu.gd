@@ -37,6 +37,11 @@ const Y_TIRA := 60.0        # debajo del titulo
 
 var _root: Control = null
 var _lienzo: Control = null
+# EL SUELO DEL PLANO, HORNEADO: una imagen de un pixel por celda que se escala sin suavizar. Va en su propio Control,
+# DEBAJO del lienzo y con filtro NEAREST solo el (el lienzo lleva texto, y el texto con NEAREST se ve a dientes).
+# Antes eran miles de draw_rect en cada repintado (el piso 8 entero: 3.573).
+var _suelo: Control = null
+var _suelo_cache: Dictionary = {}   # piso -> {"suelo": el Array de la libreta, "tex": ImageTexture}
 var _titulo: Label = null
 var _tira: ScrollContainer = null
 var _tira_col: VBoxContainer = null
@@ -57,6 +62,13 @@ func _ready() -> void:
 	fondo.color = COLOR_FONDO
 	fondo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_root.add_child(fondo)
+
+	_suelo = Control.new()
+	_suelo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_suelo.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_suelo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_suelo.draw.connect(_dibujar_suelo)
+	_root.add_child(_suelo)
 
 	_lienzo = Control.new()
 	_lienzo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -255,6 +267,7 @@ func _refrescar() -> void:
 	_titulo.text = "MAPA · Piso %d" % _piso_viendo
 	for t in _tira_col.get_children():
 		(t as Control).queue_redraw()   # la marca de "lo que miras" se ha movido
+	_suelo.queue_redraw()
 	_lienzo.queue_redraw()
 
 
@@ -262,6 +275,49 @@ func _refrescar() -> void:
 # porque lo miran el dibujo del plano Y el aviso de "sin cartografiar".
 func _x_plano() -> float:
 	return 12.0 + ANCHO_TIRA + MARGEN * 0.5
+
+
+# Donde y a que escala va el plano: [offset, celda_px]. Lo comparten el suelo horneado y el lienzo.
+func _geometria(snap: Dictionary) -> Array:
+	var ancho: int = int(snap["ancho"])
+	var alto: int = int(snap["alto"])
+	# Escala: que el mapa entero quepa en la pantalla con margen, manteniendo proporcion. El ancho
+	# util arranca DESPUES de la tira de pisos (_x_plano), o el plano se dibujaria por debajo de las
+	# tarjetas y no habria forma de leerlo.
+	var x0: float = _x_plano()
+	var area := get_viewport().get_visible_rect().size \
+		- Vector2(x0 + MARGEN, MARGEN * 2.0)
+	var celda_px: float = minf(area.x / float(ancho), area.y / float(alto))
+	var offset := Vector2(x0, MARGEN) \
+		+ (area - Vector2(ancho, alto) * celda_px) * 0.5
+	return [offset, celda_px]
+
+
+# 1) EL SUELO: la imagen horneada del piso, escalada a celda_px por pixel.
+func _dibujar_suelo() -> void:
+	var snap: Dictionary = Game.mapa_visible().get(_piso_viendo, {})
+	if snap.is_empty() or not snap.has("suelo"):
+		return
+	var geo: Array = _geometria(snap)
+	var tam := Vector2(int(snap["ancho"]), int(snap["alto"]))
+	_suelo.draw_texture_rect(_textura_suelo(_piso_viendo, snap), Rect2(geo[0], tam * float(geo[1])), false)
+
+
+# La imagen del suelo de un piso: un pixel por celda (COLOR_SUELO lo explorado, transparente lo demas). Se rehace
+# solo si la libreta de ese piso es OTRA (al cartografiar se cambia el Array entero) o cambia de tamaño.
+func _textura_suelo(piso: int, snap: Dictionary) -> Texture2D:
+	var suelo: Array = snap["suelo"]
+	var e: Dictionary = _suelo_cache.get(piso, {})
+	if not e.is_empty() and is_same(e["suelo"], suelo) and int(e["n"]) == suelo.size():
+		return e["tex"]
+	var img := Image.create(maxi(1, int(snap["ancho"])), maxi(1, int(snap["alto"])), false, Image.FORMAT_RGBA8)
+	for c in suelo:
+		var v := Vector2i(c)
+		if v.x >= 0 and v.y >= 0 and v.x < img.get_width() and v.y < img.get_height():
+			img.set_pixelv(v, COLOR_SUELO)
+	var tex := ImageTexture.create_from_image(img)
+	_suelo_cache[piso] = {"suelo": suelo, "n": suelo.size(), "tex": tex}
+	return tex
 
 
 func _dibujar() -> void:
@@ -274,24 +330,12 @@ func _dibujar() -> void:
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.7, 0.7, 0.75))
 		return
 
-	var ancho: int = int(snap["ancho"])
-	var alto: int = int(snap["alto"])
 	var agotados: Dictionary = snap["agotados"]
+	var geo: Array = _geometria(snap)
+	var celda_px: float = geo[1]
+	var offset: Vector2 = geo[0]
 
-	# Escala: que el mapa entero quepa en la pantalla con margen, manteniendo proporcion. El ancho
-	# util arranca DESPUES de la tira de pisos (_x_plano), o el plano se dibujaria por debajo de las
-	# tarjetas y no habria forma de leerlo.
-	var x0: float = _x_plano()
-	var area := get_viewport().get_visible_rect().size \
-		- Vector2(x0 + MARGEN, MARGEN * 2.0)
-	var celda_px: float = minf(area.x / float(ancho), area.y / float(alto))
-	var offset := Vector2(x0, MARGEN) \
-		+ (area - Vector2(ancho, alto) * celda_px) * 0.5
-
-	# 1) SUELO de las zonas cartografiadas (horneado en la libreta; la niebla es no dibujar el resto).
-	for c in (snap["suelo"] as Array):
-		var p: Vector2 = offset + Vector2(c) * celda_px
-		_lienzo.draw_rect(Rect2(p, Vector2(celda_px, celda_px)), COLOR_SUELO)
+	# 1) EL SUELO de las zonas cartografiadas lo pinta _suelo, debajo (ver _dibujar_suelo).
 
 	# 2) NODOS que estaban VIVOS al cartografiar: color del material (congelado en la libreta).
 	for n in (snap["vivos"] as Array):

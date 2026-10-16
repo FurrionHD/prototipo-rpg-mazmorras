@@ -3,7 +3,7 @@
 Generado por `python tools/indice_pruebas.py` (no editar a mano: se rehace). "Lo nombra" no es "lo cubre
 entero": sirve para ver los **huecos** y para saber qué pruebas pasar después de tocar un archivo.
 
-**248 de 363 scripts no tienen ninguna prueba que los nombre.**
+**247 de 363 scripts no tienen ninguna prueba que los nombre.**
 
 | Carpeta | Scripts | Sin prueba |
 |---|---|---|
@@ -14,7 +14,7 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 | `scripts/items` | 19 | 5 |
 | `scripts/net` | 21 | 4 |
 | `scripts/town` | 23 | 19 |
-| `scripts/ui` | 90 | 74 |
+| `scripts/ui` | 90 | 73 |
 | `scripts/ui/herreria` | 6 | 5 |
 | `scripts/ui/hogar` | 5 | 5 |
 | `scripts/ui/peleteria` | 2 | 2 |
@@ -222,7 +222,6 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 - `scripts/ui/iconos_equipo.gd`
 - `scripts/ui/keys_help.gd`
 - `scripts/ui/main_menu.gd`
-- `scripts/ui/map_menu.gd`
 - `scripts/ui/material_spawner.gd`
 - `scripts/ui/medidor_faena.gd`
 - `scripts/ui/mercadillo_menu.gd`
@@ -378,6 +377,7 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 - `scripts/ui/herreria/herreria_reparar.gd`: `prueba_reparar_escudo.gd`
 - `scripts/ui/inventory_menu.gd`: `prueba_inventario_clic.gd`, `prueba_scroll_rejilla.gd`
 - `scripts/ui/maestro_menu.gd`: `prueba_maestro_clic.gd`
+- `scripts/ui/map_menu.gd`: `prueba_mapa_suelo.gd`
 - `scripts/ui/menu_scaffold.gd`: `prueba_inventario_clic.gd`, `prueba_maestro_clic.gd`, `prueba_repintado_red.gd`, `prueba_runas_en_menu.gd`, `prueba_scroll_rejilla.gd`, `prueba_taller_clic.gd` y 2 más
 - `scripts/ui/munecos_reusables.gd`: `unitarias/test_munecos_reusables.gd`
 - `scripts/ui/rueda_cristales.gd`: `prueba_rueda_cristales.gd`
