@@ -277,9 +277,21 @@ func expandir() -> Array:
 func a_lista() -> Array:
 	var out: Array = []
 	for e in _por_clave.values():
-		var c: Resource = _copia(e)
-		c.set("n", int(e.get("n")))
-		out.append(c)
+		# Copia TAL CUAL, sin _copia: la talla de una entrada ya esta redondeada (se redondea al entrar), y volver a
+		# pasarla por texto era la mitad del exportado del baul (1C, 16/10: 702 montones, 1,5 ms en UN fotograma).
+		if e is MaterialItem:
+			var m := MaterialItem.new()
+			m.data = e.data
+			m.calidad = e.calidad
+			m.cm = e.cm
+			m.n = e.n
+			out.append(m)
+		else:
+			var c := Cristal.new()
+			c.categoria = e.categoria
+			c.calidad = e.calidad
+			c.n = e.n
+			out.append(c)
 	return out
 
 

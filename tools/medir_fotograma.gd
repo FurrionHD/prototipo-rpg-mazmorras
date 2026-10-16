@@ -165,6 +165,43 @@ func _medir_guardado() -> void:
 		var t2: int = Time.get_ticks_usec()
 		print("[FOTOGRAMA] ficha %-14s foto %6d bytes -> %7d letras %.2f ms | ficha entera %7d letras %.2f ms" % [
 			pj.nombre, pj.imagen.size(), txt_foto.length(), (t1 - t0) / 1000.0, txt_todo.length(), (t2 - t1) / 1000.0])
+	# EL EXPORTADO POR DENTRO: sus copias mas grandes, una a una (la mejor de 5).
+	var copias: Array = [
+		["baul.a_lista", func(): Game.baul.a_lista()],
+		["bolsa.a_lista", func(): Game.bolsa.a_lista()],
+		["cristales.a_lista", func(): Game.cristales.a_lista()],
+		["cofre_equipo dup", func(): Game.cofre_equipo.duplicate(true)],
+		["cofre_consumibles dup", func(): Game.cofre_consumibles.duplicate(true)],
+		["encargos dup", func(): Game.encargos.duplicate(true)],
+		["equip_meta dup", func(): Game.equip_meta.duplicate(true)],
+		["item_meta (bucle)", func():
+			var por_defecto: Dictionary = Game._meta_por_defecto()
+			var a: Array = []
+			for item in Game.item_meta:
+				if (item is MaterialItem or item is Cristal) and Game.item_meta[item] == por_defecto:
+					continue
+				a.append((Game.item_meta[item] as Dictionary).duplicate(true))],
+		["memoria_pisos dup", func(): Game.memoria_pisos.duplicate(true)],
+		["mazmorra_persistente dup", func(): Game.mazmorra_persistente.duplicate(true)],
+		["mapa_snapshot dup", func(): Game.mapa_snapshot.duplicate(true)],
+		["mapa_trabajo dup", func(): Game.mapa_trabajo.duplicate(true)],
+		["registro_pesca dup", func(): Game.registro_pesca.duplicate(true)],
+		["materiales_vistos dup", func(): Game.materiales_vistos.duplicate()],
+		["owned_* dup", func(): Game.owned_weapons.duplicate(); Game.owned_armor.duplicate()],
+		["jugadores_mundo dup", func(): Game.jugadores_mundo.duplicate()],
+		["companeros()", func(): Game.companeros()],
+		["volcar piso", func(): var pi = get_tree().get_first_node_in_group("dungeon_floor"); if pi: pi.volcar_a_memoria()],
+		["exportar ENTERO", func(): Game.exportar_partida()],
+		["exportar PARA VOLCADO", func(): Game.exportar_partida(true)],
+	]
+	for c in copias:
+		var mejor: float = INF
+		for tanda in 5:
+			var t0: int = Time.get_ticks_usec()
+			c[1].call()
+			mejor = minf(mejor, float(Time.get_ticks_usec() - t0))
+		print("[FOTOGRAMA]   exportar: %-26s %7.2f ms" % [c[0], mejor / 1000.0])
+	print("[FOTOGRAMA]   item_meta: %d entradas, baul %d montones" % [Game.item_meta.size(), Game.baul.montones().size()])
 	# ¿El atajo del texto contado da LO MISMO? Las filas de una foto con un Ids calentado contra uno nuevo.
 	var foto: SaveData = Game.exportar_partida()
 	var caliente := BDFilas.Ids.new()
@@ -194,7 +231,7 @@ func _medir_guardado() -> void:
 	print("[FOTOGRAMA] atajo contado: %d diferencias" % dif)
 	for k in 4:
 		var t0: int = Time.get_ticks_usec()
-		var datos: SaveData = Game.exportar_partida()
+		var datos: SaveData = Game.exportar_partida(true)   # como Profile._process
 		var t1: int = Time.get_ticks_usec()
 		var filas: Dictionary = BDFilas.a_filas(datos, ids)
 		if k > 0:

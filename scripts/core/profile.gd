@@ -369,7 +369,7 @@ func _process(delta: float) -> void:
 			return
 		_t = 0.0
 		var t_exp: int = Time.get_ticks_usec()
-		_volcado = BDFilas.Volcado.new(Game.exportar_partida(), _ids)
+		_volcado = BDFilas.Volcado.new(Game.exportar_partida(true), _ids)
 		Medidor.medida("guardado_exportar", (Time.get_ticks_usec() - t_exp) / 1000.0)   # va en UN fotograma
 	if _volcado.paso(PRESUPUESTO_US):
 		var filas: Dictionary = _volcado.out

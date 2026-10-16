@@ -2973,7 +2973,11 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -
 	print("[partida] mundo nuevo. Semilla: ", semilla_mundo)
 
 
-func exportar_partida() -> SaveData:
+# 'para_volcado' = es para el GUARDADO CONTINUO (Profile._process -> BDFilas.Volcado): las metas de los objetos van
+# VIVAS, sin copiar (optimizacion 1C, 16/10: 1.137 copias profundas en UN fotograma). El volcado las vuelve a copiar
+# al pasarlas a valor, unos fotogramas despues (un valor un pelin mas nuevo, como el resto de su foto). Cualquier otro
+# uso (ficheros, red, pruebas) necesita la copia: por defecto, false.
+func exportar_partida(para_volcado: bool = false) -> SaveData:
 	if en_foto_de_arena() and not _sin_arena_en_curso:
 		return _sin_arena(exportar_partida)
 	var d := SaveData.new()
@@ -3112,7 +3116,7 @@ func exportar_partida() -> SaveData:
 		if (item is MaterialItem or item is Cristal) and item_meta[item] == por_defecto:
 			continue
 		d.meta_items.append(item)
-		d.meta_datos.append((item_meta[item] as Dictionary).duplicate(true))
+		d.meta_datos.append(item_meta[item] if para_volcado else (item_meta[item] as Dictionary).duplicate(true))
 
 	# Consumibles: la clave es el .tres de la pocion, o sea un fichero -> basta su ruta.
 	d.consumibles = {}
