@@ -92,6 +92,30 @@ func _ready() -> void:
 	vender = TiendaVender.new(self)
 	comprar = TiendaComprar.new(self)
 
+	# MULTI: el cofre del hogar lo cambia el host (y lo que vendes de el se cobra cuando llega). Se conecta YA (puede
+	# llegar con la tienda sin montar: entonces no hay nada que repintar).
+	if Net.has_signal("hogar_cambiado"):
+		Net.hogar_cambiado.connect(func():
+			if _root != null and _root.visible and _tab == TAB_VENDER:
+				# Uno por fotograma (ver MenuScaffold.repintar_al_final).
+				MenuScaffold.repintar_al_final(self, func() -> void:
+					if _root.visible and _tab == TAB_VENDER:
+						_rebuild()))
+	if Net.has_signal("venta_cofre"):
+		Net.venta_cofre.connect(func(txt: String):
+			decir(txt)
+			if _root != null and _root.visible:
+				_rebuild())
+	# LA INTERFAZ SE MONTA AL ABRIRLA (_construir): el jugador crea la tienda en CADA escena y montarla eran ~3 ms de
+	# cada cambio de escena (medido 16/10).
+
+
+var _construido := false
+
+func _construir() -> void:
+	if _construido:
+		return
+	_construido = true
 	# El MISMO montaje que el inventario (ver inventory_menu._ready, que explica cada paso): barra arriba
 	# sin lateral, pestañas-icono centradas en la pantalla, rejilla que manda y ficha de ancho fijo.
 	var m: Dictionary = MenuScaffold.construir(self, "TIENDA", "", _cerrar, true, false)
@@ -237,20 +261,6 @@ func _ready() -> void:
 		barra.add_child(l)
 		barra.move_child(l, barra.get_child_count() - 2)
 
-	# MULTI: el cofre del hogar lo cambia el host (y lo que vendes de el se cobra cuando llega).
-	if Net.has_signal("hogar_cambiado"):
-		Net.hogar_cambiado.connect(func():
-			if _root.visible and _tab == TAB_VENDER:
-				# Uno por fotograma (ver MenuScaffold.repintar_al_final).
-				MenuScaffold.repintar_al_final(self, func() -> void:
-					if _root.visible and _tab == TAB_VENDER:
-						_rebuild()))
-	if Net.has_signal("venta_cofre"):
-		Net.venta_cofre.connect(func(txt: String):
-			decir(txt)
-			if _root.visible:
-				_rebuild())
-
 
 func abrir() -> void:
 	# No abrir sobre un combate/extraccion ni con el panel DEBUG abierto.
@@ -261,12 +271,15 @@ func abrir() -> void:
 	sel = 0
 	cant = -1
 	_aviso = ""
+	_construir()
 	_root.visible = true
 	Game.abrir_menu(self)   # para el mundo entero mientras el menu esta abierto
 	_rebuild()
 
 
 func _cerrar() -> void:
+	if _root == null:
+		return   # sin montar: nunca se abrio
 	_cerrar_modal()
 	vender.al_cerrar()
 	comprar.al_cerrar()
@@ -277,7 +290,7 @@ func _cerrar() -> void:
 # ESC: primero el modal que haya encima, y solo despues la tienda. En _input y consumido, para que la
 # pausa (que escucha en _unhandled_input) no se abra por detras.
 func _input(event: InputEvent) -> void:
-	if not _root.visible:
+	if _root == null or not _root.visible:
 		return
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
@@ -321,6 +334,7 @@ var _solo_seleccion := false
 func _rebuild() -> void:
 	if _reconstruyendo:
 		return
+	_construir()
 	_reconstruyendo = true
 	_rebuild_real()
 	_reconstruyendo = false

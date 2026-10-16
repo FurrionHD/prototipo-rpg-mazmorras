@@ -1,7 +1,7 @@
 # PRUEBA: los menus que el jugador crea en CADA escena se montan PEREZOSOS (optimizacion 1D, 16/10/2026): al entrar
 # en escena no construyen su interfaz, y al abrirlos por primera vez se construye entera, UNA sola vez.
 # Talleres (ver taller_menu.asegurar_ui): boticaria, cocina, herreria, carpinteria, peleteria, runas, pescador, taberna.
-# Pausa, ayuda de teclas (F1) e inventario: su _construir.
+# Tienda, pausa, ayuda de teclas (F1) e inventario: su _construir.
 extends Node
 
 var fallos := 0
@@ -29,6 +29,7 @@ func _ready() -> void:
 		["runas", "res://scripts/ui/runas_menu.gd", ""],
 		["pescador", "res://scripts/ui/fishing_book_menu.gd", ""],
 		["taberna", "res://scripts/ui/tavern_menu.gd", ""],
+		["tienda", "res://scripts/ui/shop_menu.gd", ""],
 	]
 	for t in talleres:
 		var men = load(t[1]).new()
