@@ -73,8 +73,8 @@ func _p_inventario() -> void:
 		var n: int = inv._stacks.size()
 		if n > 1:
 			await _medir("   clic (de %d celdas)" % n, func(): inv._pick(n / 2 if inv._sel != n / 2 else 1))
-	# LAS TANDAS DE DESPUES: al abrir Materiales se crean 8 filas y el resto va de 6 en 6 en los fotogramas
-	# siguientes (MenuScaffold._resto_de_rejilla). Se mide cuanto se va en cada uno de esos fotogramas.
+	# LAS TANDAS DE DESPUES: al abrir Materiales se crean 8 filas y el resto va de 6 en 6 SOLO AL BAJAR
+	# (MenuScaffold._rejilla_perezosa). Se mide cada fotograma: primero sin bajar, luego bajando del todo.
 	inv._on_tab(inv.TABS.find("Bolsa"))
 	await get_tree().process_frame
 	inv._on_tab(inv.TABS.find("Materiales"))
@@ -84,13 +84,21 @@ func _p_inventario() -> void:
 		if h is GridContainer and not MenuScaffold.muriendo(h):
 			grid = h
 	var antes_n: int = grid.get_child_count() if grid else 0
+	var sin_bajar: Array = []
+	for k in 15:
+		var t0: int = Time.get_ticks_usec()
+		await get_tree().process_frame
+		sin_bajar.append(float(Time.get_ticks_usec() - t0) / 1000.0)
+	print("[PANTALLAS]   Materiales SIN BAJAR: %d celdas de %d tras 15 fotogramas; ms de cada uno: %s" % [
+		grid.get_child_count() if grid else -1, inv._stacks.size(), str(sin_bajar.map(func(x): return snappedf(x, 0.1)))])
+	MenuScaffold._scroll_de(inv._lista).scroll_vertical = 1000000
 	for k in 40:
 		var t0: int = Time.get_ticks_usec()
 		await get_tree().process_frame
 		por_frame.append(float(Time.get_ticks_usec() - t0) / 1000.0)
 		if grid != null and grid.get_child_count() >= inv._stacks.size():
 			break
-	print("[PANTALLAS]   tandas de Materiales: %d fotogramas hasta las %d celdas (empezo con %d); ms de cada fotograma: %s" % [
+	print("[PANTALLAS]   tandas de Materiales BAJANDO: %d fotogramas hasta las %d celdas (empezo con %d); ms de cada fotograma: %s" % [
 		por_frame.size(), grid.get_child_count() if grid else -1, antes_n, str(por_frame.map(func(x): return snappedf(x, 0.1)))])
 	var quieto: Array = []
 	for k in 10:

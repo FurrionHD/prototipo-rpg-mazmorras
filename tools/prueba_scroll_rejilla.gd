@@ -25,21 +25,37 @@ func _ready() -> void:
 	get_tree().root.add_child.call_deferred(menu)
 	await _frames(3)
 	menu._set_open(true)
-	await _frames(60)   # que se creen todas las tandas de celdas
-	var scroll: ScrollContainer = null
-	var p: Node = menu._lista.get_parent()
-	while p != null and not (p is ScrollContainer):
-		p = p.get_parent()
-	scroll = p
+	await _frames(30)
+	var scroll: ScrollContainer = MenuScaffold._scroll_de(menu._lista)
 	var grid: GridContainer = null
 	for h in menu._lista.get_children():
 		if h is GridContainer:
 			grid = h
-	_ok(grid != null and grid.get_child_count() > 60, "rejilla llena (%d celdas)" % (grid.get_child_count() if grid else 0))
+	var total: int = menu._stacks.size()
+	# REJILLA PEREZOSA (optimizacion 1D, 16/10/2026): sin bajar, solo las de arriba y un espaciador debajo.
+	var hueco: Control = grid.get_meta(MenuScaffold.META_HUECO_REJILLA, null) if grid else null
+	_ok(grid != null and grid.get_child_count() > 60 and grid.get_child_count() < total,
+		"sin bajar se crean pocas (%d de %d)" % [grid.get_child_count() if grid else 0, total])
+	_ok(hueco != null and hueco.custom_minimum_size.y > 1000, "hay espaciador con el alto de lo que falta (%d px)" % (hueco.custom_minimum_size.y if hueco else 0))
+	var alto_lista: float = menu._lista.size.y
 	scroll.scroll_vertical = 1000000
-	await _frames(5)
+	await _frames(2)
 	var abajo: int = scroll.scroll_vertical
 	_ok(abajo > 200, "el scroll baja (%d px)" % abajo)
+	var saltos := 0
+	for k in 300:
+		if grid.get_child_count() >= total:
+			break
+		await _frames(1)
+		if absi(scroll.scroll_vertical - abajo) > 12:
+			saltos += 1
+	await _frames(3)
+	_ok(grid.get_child_count() == total, "bajando se crean todas (%d de %d)" % [grid.get_child_count(), total])
+	_ok(not is_instance_valid(hueco) or hueco.is_queued_for_deletion(), "el espaciador se va al acabar")
+	_ok(saltos == 0 and absi(scroll.scroll_vertical - abajo) <= 12,
+		"el scroll no salta mientras se crean (%d, antes %d; %d saltos)" % [scroll.scroll_vertical, abajo, saltos])
+	_ok(absf(menu._lista.size.y - alto_lista) <= 12, "la lista mide lo mismo antes y despues (%d -> %d)" % [alto_lista, menu._lista.size.y])
+	abajo = scroll.scroll_vertical
 	var idx: int = grid.get_child_count() - 2
 	(grid.get_child(idx) as BaseButton).pressed.emit()
 	await _frames(20)

@@ -2277,8 +2277,26 @@ static func rejilla_objetos(vb: VBoxContainer, piezas: Array, sel: int, pulsado:
 	grid.set_meta(META_ESTIRAR_REJILLA, estirar and piezas.size() >= maxi(1, columnas))
 	for i in de_golpe:
 		_celda_de_rejilla(grid, piezas[i], i, sel, pulsado, lado)
-	if de_golpe < piezas.size():
-		_resto_de_rejilla(grid, piezas, de_golpe, sel, pulsado, lado, maxi(1, columnas) * CELDAS_FILAS_POR_TANDA)
+	if de_golpe >= piezas.size():
+		return
+	var por_tanda: int = maxi(1, columnas) * CELDAS_FILAS_POR_TANDA
+	var scroll: ScrollContainer = _scroll_de(vb)
+	if scroll == null:
+		_resto_de_rejilla(grid, piezas, de_golpe, sel, pulsado, lado, por_tanda)
+		return
+	# DENTRO DE UN SCROLL, EL RESTO SOLO CUANDO SE VA A VER. Con el baul lleno (702 montones) crear las
+	# de abajo aunque nadie bajara eran 14 fotogramas de +4-6 ms cada uno. Ahora un ESPACIADOR ocupa el
+	# alto de las filas que faltan (la barra del scroll ya mide la lista entera) y se van creando tandas
+	# al acercarse al borde de abajo; el espaciador encoge lo mismo que crece la rejilla, asi que el
+	# scroll no salta. Se crean y NO se reciclan: el hijo i de la rejilla sigue siendo la pieza i (lo
+	# usan marcar_en_rejilla, los arrastres del hogar y las pruebas).
+	var hueco := Control.new()
+	hueco.name = "HuecoRejilla"
+	hueco.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vb.add_child(hueco)
+	vb.move_child(hueco, grid.get_index() + 1)
+	grid.set_meta(META_HUECO_REJILLA, hueco)
+	_rejilla_perezosa(grid, hueco, scroll, piezas, de_golpe, sel, pulsado, lado, por_tanda)
 
 
 const CELDAS_FILAS_AL_ABRIR := 8    # filas que se crean en el acto (una pantalla y algo)
@@ -2321,6 +2339,49 @@ static func _resto_de_rejilla(grid: GridContainer, piezas: Array, desde: int, se
 		while i < hasta:
 			_celda_de_rejilla(grid, piezas[i], i, sel, pulsado, lado)
 			i += 1
+
+
+const META_HUECO_REJILLA := "rejilla_hueco"
+const CELDAS_FILAS_MARGEN := 2   # filas de mas por debajo de la vista: al bajar ya estan
+
+
+# El ScrollContainer que contiene a 'n' (o null).
+static func _scroll_de(n: Node) -> ScrollContainer:
+	var p: Node = n
+	while p != null and not (p is ScrollContainer):
+		p = p.get_parent()
+	return p as ScrollContainer
+
+
+# Sondeo por fotograma (sin señales: muere con la rejilla). Una tanda por fotograma como mucho, asi
+# que arrastrar la barra al fondo es lo mismo que antes: tandas seguidas.
+static func _rejilla_perezosa(grid: GridContainer, hueco: Control, scroll: ScrollContainer,
+		piezas: Array, desde: int, sel: int, pulsado: Callable, lado: float, por_tanda: int) -> void:
+	var cols: int = maxi(1, grid.columns)
+	var alto_fila: float = lado + float(grid.get_theme_constant("v_separation"))
+	var i: int = desde
+	hueco.custom_minimum_size.y = ceilf(float(piezas.size() - i) / cols) * alto_fila
+	while i < piezas.size():
+		await grid.get_tree().process_frame
+		if not is_instance_valid(grid) or not grid.is_inside_tree() or muriendo(grid) \
+				or not is_instance_valid(hueco) or not is_instance_valid(scroll):
+			return
+		if not grid.is_visible_in_tree():
+			continue
+		# Lo que falta de rejilla por debajo del borde de abajo de la vista, en pixeles de la rejilla.
+		var escala: float = grid.get_global_transform().get_scale().y
+		var falta: float = (grid.get_global_rect().end.y - scroll.get_global_rect().end.y) / maxf(0.001, escala)
+		if falta > alto_fila * CELDAS_FILAS_MARGEN:
+			continue
+		var hasta: int = mini(piezas.size(), i + por_tanda)
+		while i < hasta:
+			_celda_de_rejilla(grid, piezas[i], i, sel, pulsado, lado)
+			i += 1
+		hueco.custom_minimum_size.y = ceilf(float(piezas.size() - i) / cols) * alto_fila
+	if is_instance_valid(hueco):
+		hueco.queue_free()
+	if is_instance_valid(grid):
+		grid.remove_meta(META_HUECO_REJILLA)
 
 
 static func _celda_de_rejilla(grid: GridContainer, p: Dictionary, i: int, sel: int,

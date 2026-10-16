@@ -35,9 +35,11 @@ func _ready() -> void:
 	for t in menu.TABS.size():
 		menu._on_tab(t)
 		var n: int = menu._stacks.size()
-		for k in 300:   # la rejilla se crea por tandas (MenuScaffold._resto_de_rejilla): esperar a la ultima celda
+		var scroll: ScrollContainer = MenuScaffold._scroll_de(menu._lista)
+		for k in 300:   # la rejilla se crea por tandas AL BAJAR (MenuScaffold._rejilla_perezosa): bajar hasta la ultima celda
 			if _celdas(menu._lista) >= n:
 				break
+			scroll.scroll_vertical = 1000000
 			await _frames(1)
 		if n < 2:
 			print("[clic] pestaña %s: %d celdas, sin nada que pulsar" % [menu.TABS[t], n])
