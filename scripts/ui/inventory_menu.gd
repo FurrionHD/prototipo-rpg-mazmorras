@@ -315,6 +315,7 @@ func _rebuild_real() -> void:
 	_subpestanas([], [], -1, Callable())
 	for zona in ([_header, _content] if _solo_seleccion else [_header, _lista, _content]):
 		MenuScaffold.vaciar(zona)
+	_preview_pintado = Callable()   # lo vuelve a poner _grid_detail si esta pasada pinta rejilla
 	for i in _tab_buttons.size():
 		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
 	match _tab:
@@ -500,7 +501,13 @@ func _on_lista_redimensionada() -> void:
 #
 # 'piezas' son los diccionarios que pide MenuScaffold.rejilla_objetos, y salen SIEMPRE de _stacks en
 # el mismo orden: es lo que garantiza que la celda que pulsas y la ficha que sale sean la misma cosa.
+# La ficha pintada y de que pestaña: es lo que repite el atajo de _pick.
+var _preview_pintado: Callable = Callable()
+var _tab_pintado: int = -1
+
 func _grid_detail(piezas: Array, preview: Callable) -> void:
+	_preview_pintado = Callable() if piezas.is_empty() else preview
+	_tab_pintado = _tab
 	if piezas.is_empty():
 		# Las columnas se apuntan TAMBIEN sin rejilla que pintar (ver taller_menu.grid_detail): si no,
 		# el 'resized' siguiente pide otro rebuild, que vuelve a no pintar rejilla, y el menu se
@@ -536,6 +543,17 @@ func _piezas_stacks(stacks: Array) -> Array:
 
 func _pick(i: int) -> void:
 	_sel = i
+	# EL ATAJO DEL CLIC: la rejilla pintada ya es la de _stacks, asi que basta con marcar la celda y repintar la
+	# ficha. Volver por _rebuild agrupaba, ordenaba y rotulaba la pestaña entera para nada (Materiales con el baul
+	# real: 702 montones de 18.000 materiales, 23 ms por clic).
+	if not _reconstruyendo and _preview_pintado.is_valid() and _tab_pintado == _tab and i >= 0 			and i < _stacks.size() and MenuScaffold.marcar_en_rejilla(_lista, i):
+		_reconstruyendo = true
+		Game.abrir_recuento_hogar()
+		MenuScaffold.vaciar(_content)
+		_preview_pintado.call(_content)
+		Game.cerrar_recuento_hogar()
+		_reconstruyendo = false
+		return
 	_solo_seleccion = true
 	_rebuild()
 	_solo_seleccion = false
@@ -1440,22 +1458,25 @@ func _nombre_orden(s: Dictionary) -> String:
 # MEJOR A PEOR -- puro, intacto, normal, dañado (lo pidio el jefe). Cada material sigue saliendo
 # donde salio la primera vez; lo unico que cambia es que sus montones ya no van desperdigados ni con
 # el dañado delante del puro. Los cristales, igual, por categoria.
+#
+# Las claves se calculan UNA vez por monton y el comparador solo compara numeros: calcularlas dentro del
+# comparador era rehacer la cadena del grupo y la calidad miles de veces (702 montones: ~16 ms por pasada).
 func _orden_predeterminado(stacks: Array) -> Array:
 	var primero: Dictionary = {}
+	var grupo := PackedInt32Array()
+	var rango := PackedFloat64Array()
 	for i in stacks.size():
 		var k: String = _grupo_orden(stacks[i]["modelo"], i)
 		if not primero.has(k):
 			primero[k] = i
+		grupo.append(int(primero[k]))
+		rango.append(_rango_estado(stacks[i]["modelo"]))
 	var idx: Array = range(stacks.size())
 	idx.sort_custom(func(a, b):
-		var ga: int = primero[_grupo_orden(stacks[a]["modelo"], a)]
-		var gb: int = primero[_grupo_orden(stacks[b]["modelo"], b)]
-		if ga != gb:
-			return ga < gb
-		var ra: float = _rango_estado(stacks[a]["modelo"])
-		var rb: float = _rango_estado(stacks[b]["modelo"])
-		if ra != rb:
-			return ra > rb
+		if grupo[a] != grupo[b]:
+			return grupo[a] < grupo[b]
+		if rango[a] != rango[b]:
+			return rango[a] > rango[b]
 		return a < b)   # a igualdad, el orden de siempre (sort_custom no es estable)
 	var out: Array = []
 	for i in idx:
@@ -1492,17 +1513,16 @@ func _ordenar(stacks: Array) -> Array:
 	if campo == "":
 		return _orden_predeterminado(stacks)
 	var desc: bool = bool(o["desc"])
-	var out: Array = stacks.duplicate()
-	if campo == "nombre":
-		out.sort_custom(func(a, b):
-			var na: String = _nombre_orden(a)
-			var nb: String = _nombre_orden(b)
-			return (na > nb) if desc else (na < nb))
-		return out
-	out.sort_custom(func(a, b):
-		var va: float = _valor_orden(a, campo)
-		var vb: float = _valor_orden(b, campo)
-		return (va > vb) if desc else (va < vb))
+	# Igual que en el predeterminado: la clave de cada monton se calcula una vez y se ordenan INDICES.
+	var clave: Array = []
+	for st in stacks:
+		clave.append(_nombre_orden(st) if campo == "nombre" else _valor_orden(st, campo))
+	var idx: Array = range(stacks.size())
+	idx.sort_custom(func(a, b):
+		return (clave[a] > clave[b]) if desc else (clave[a] < clave[b]))
+	var out: Array = []
+	for i in idx:
+		out.append(stacks[i])
 	return out
 
 
