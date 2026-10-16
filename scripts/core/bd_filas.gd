@@ -56,6 +56,8 @@ class Ids:
 	# El texto de cada fila de objeto con los datos de los que salio: id -> [datos, texto]. Si los datos de ahora son
 	# IGUALES (==, profundo), el texto tambien: no se vuelve a escribir (ver _texto_objeto).
 	var obj_txt: Dictionary = {}
+	# Las listas grandes (las que van a trozos), elemento a elemento: nombre -> [[valor, texto], ...] por posicion.
+	var arr_txt: Dictionary = {}
 
 	func nuevo() -> String:
 		var id := "o%d" % siguiente
@@ -89,7 +91,7 @@ class Volcado:
 
 	func _init(s: SaveData, ids: Ids) -> void:
 		_s = s
-		ctx = {"ids": ids, "out": out, "vistos": {}, "por_clave": {}, "contables": {}, "cola": _cola}
+		ctx = {"ids": ids, "out": out, "vistos": {}, "por_clave": {}, "contables": {}, "cola": _cola, "arr_txt": {}}
 		for n in BDFilas._campos(s):
 			_cola.append(["campo", n])
 
@@ -113,8 +115,20 @@ class Volcado:
 				"arr":
 					var l: Array = t[2]
 					var hasta: int = mini(l.size(), t[3] + TROZO_LISTA)
+					# Cada elemento recuerda su valor y su texto por POSICION (1C, 16/10): si el valor de ahora es igual
+					# (==), el mismo texto. _a_valor se hace SIEMPRE: es lo que apunta los objetos a los que se refiere.
+					var previos: Array = (ctx["ids"] as BDFilas.Ids).arr_txt.get(t[1], [])
+					var nuevos: Array = ctx["arr_txt"].get(t[1], [])
 					for i in range(t[3], hasta):
-						t[4].append(var_to_str(BDFilas._a_valor(l[i], t[1], ctx)))
+						var val = BDFilas._a_valor(l[i], t[1], ctx)
+						var txt: String
+						if i < previos.size() and typeof(previos[i][0]) == typeof(val) and previos[i][0] == val:
+							txt = previos[i][1]
+						else:
+							txt = var_to_str(val)
+						t[4].append(txt)
+						nuevos.append([val, txt])
+					ctx["arr_txt"][t[1]] = nuevos
 					if hasta < l.size():
 						_cola.append(["arr", t[1], l, hasta, t[4]])
 					else:
@@ -147,6 +161,7 @@ class Volcado:
 			if not out["objetos"].has(id):
 				ids.obj_txt.erase(id)   # ya no sale: su texto recordado tampoco
 		ids.contable = ctx["contables"]
+		ids.arr_txt = ctx["arr_txt"]   # solo las listas de ESTE guardado: las que ya no salen se olvidan
 
 
 ## Filas -> SaveData nuevo (y los ids de sus objetos apuntados en `ids`, para que el guardado

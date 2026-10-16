@@ -12,6 +12,7 @@ extends Node
 
 const MUESTRAS := 240
 const VECES := 30
+var _filas_antes: Dictionary = {}
 
 
 func _ready() -> void:
@@ -196,6 +197,23 @@ func _medir_guardado() -> void:
 		var datos: SaveData = Game.exportar_partida()
 		var t1: int = Time.get_ticks_usec()
 		var filas: Dictionary = BDFilas.a_filas(datos, ids)
+		if k > 0:
+			for parte in ["campos", "objetos", "contables"]:
+				for c in filas[parte]:
+					if not _filas_antes[parte].has(c) or str(_filas_antes[parte][c]) != str(filas[parte][c]):
+						var a: String = str(_filas_antes[parte].get(c, "<no estaba>"))
+						var b: String = str(filas[parte][c])
+						var j: int = 0
+						while j < mini(a.length(), b.length()) and a[j] == b[j]:
+							j += 1
+						print("[FOTOGRAMA] CAMBIA %s %s en la letra %d: ...%s... -> ...%s..." % [parte, str(c).left(60), j,
+							a.substr(maxi(0, j - 40), 80).replace("
+", " "), b.substr(maxi(0, j - 40), 80).replace("
+", " ")])
+				for c in _filas_antes[parte]:
+					if not filas[parte].has(c):
+						print("[FOTOGRAMA] SE VA %s %s" % [parte, str(c).left(80)])
+		_filas_antes = filas
 		var t2: int = Time.get_ticks_usec()
 		var esc: int = bd.escribir(filas)
 		var t3: int = Time.get_ticks_usec()
