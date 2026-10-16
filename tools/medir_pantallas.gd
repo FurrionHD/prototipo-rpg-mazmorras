@@ -73,6 +73,31 @@ func _p_inventario() -> void:
 		var n: int = inv._stacks.size()
 		if n > 1:
 			await _medir("   clic (de %d celdas)" % n, func(): inv._pick(n / 2 if inv._sel != n / 2 else 1))
+	# LAS TANDAS DE DESPUES: al abrir Materiales se crean 8 filas y el resto va de 6 en 6 en los fotogramas
+	# siguientes (MenuScaffold._resto_de_rejilla). Se mide cuanto se va en cada uno de esos fotogramas.
+	inv._on_tab(inv.TABS.find("Bolsa"))
+	await get_tree().process_frame
+	inv._on_tab(inv.TABS.find("Materiales"))
+	var por_frame: Array = []
+	var grid: GridContainer = null
+	for h in inv._lista.get_children():
+		if h is GridContainer and not MenuScaffold.muriendo(h):
+			grid = h
+	var antes_n: int = grid.get_child_count() if grid else 0
+	for k in 40:
+		var t0: int = Time.get_ticks_usec()
+		await get_tree().process_frame
+		por_frame.append(float(Time.get_ticks_usec() - t0) / 1000.0)
+		if grid != null and grid.get_child_count() >= inv._stacks.size():
+			break
+	print("[PANTALLAS]   tandas de Materiales: %d fotogramas hasta las %d celdas (empezo con %d); ms de cada fotograma: %s" % [
+		por_frame.size(), grid.get_child_count() if grid else -1, antes_n, str(por_frame.map(func(x): return snappedf(x, 0.1)))])
+	var quieto: Array = []
+	for k in 10:
+		var t0: int = Time.get_ticks_usec()
+		await get_tree().process_frame
+		quieto.append(float(Time.get_ticks_usec() - t0) / 1000.0)
+	print("[PANTALLAS]   y en reposo (la misma pantalla, ya llena): %s" % str(quieto.map(func(x): return snappedf(x, 0.1))))
 	# DESGLOSE de la pestaña de Materiales: calcular la lista contra pintar la rejilla.
 	inv._on_tab(inv.TABS.find("Materiales"))
 	var c: Array = [[], [], [], []]   # una CAJA: las lambdas capturan por valor y una variable suelta no sale
