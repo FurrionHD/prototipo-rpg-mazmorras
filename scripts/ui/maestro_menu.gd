@@ -89,6 +89,16 @@ func _ready() -> void:
 	# desconectara con la pantalla, una respuesta que llegara con el menu ya cerrado se perderia y la
 	# tirada quedaria cobrada del cupo sin darse.
 	Net.hogar.tiradas_novato_concedidas.connect(_cupo_concedido)
+	# LA INTERFAZ SE MONTA AL ABRIRLO (_construir): el jugador crea el maestro en CADA escena y montarlo eran ~1,7 ms
+	# de cada cambio de escena (medido 16/10).
+
+
+var _construido := false
+
+func _construir() -> void:
+	if _construido:
+		return
+	_construido = true
 
 	# con_lateral = FALSE: las armas van en una FILA ARRIBA, no en una columna. Es la misma forma
 	# que el inventario, y por el mismo motivo: con trece armas la columna seria una lista larga y
@@ -208,18 +218,21 @@ func abrir() -> void:
 	_pj_sel = 0
 	_sel = 0
 	_abrir_por_su_arma()   # se abre por el arma que lleva en la mano, no por la primera del catalogo
+	_construir()
 	_root.visible = true
 	Game.abrir_menu(self)   # para el mundo entero mientras el menu esta abierto
 	_rebuild()
 
 
 func _cerrar() -> void:
+	if _root == null:
+		return   # sin montar: nunca se abrio
 	_root.visible = false
 	Game.cerrar_menu(self)
 
 
 func _input(event: InputEvent) -> void:
-	if not _root.visible:
+	if _root == null or not _root.visible:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if (event as InputEventKey).keycode == KEY_ESCAPE:
@@ -396,6 +409,7 @@ var _reconstruyendo := false
 func _rebuild() -> void:
 	if _reconstruyendo:
 		return
+	_construir()
 	_reconstruyendo = true
 	_rebuild_real()
 	_reconstruyendo = false

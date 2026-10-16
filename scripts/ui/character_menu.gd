@@ -139,6 +139,16 @@ func _ready() -> void:
 	layer = 92   # encima del inventario (91), debajo del combate (100)
 	process_mode = Node.PROCESS_MODE_ALWAYS   # abrirlo pausa el arbol: hay que seguir respondiendo
 	add_to_group("menu_personaje")   # lo busca el boton de la barra tactil (ver hud.gd)
+	# LA INTERFAZ SE MONTA AL ABRIRLO (_construir): el jugador crea este menu en CADA escena y montarlo eran ~2 ms de
+	# cada cambio de escena (medido 16/10).
+
+
+var _construido := false
+
+func _construir() -> void:
+	if _construido:
+		return
+	_construido = true
 
 	# con_lateral = TRUE: las secciones van en COLUMNA A LA IZQUIERDA, con su icono y su NOMBRE
 	# escrito. Es el reparto de la pantalla de referencia, y aqui hace mas falta todavia que alli:
@@ -267,7 +277,7 @@ func _ready() -> void:
 # ESC va en _input y CONSUME el evento: _input corre SIEMPRE antes que _unhandled_input, asi que el
 # menu de PAUSA (que escucha ahi) no llega a ver la tecla y no se abre por detras al cerrar la ficha.
 func _input(event: InputEvent) -> void:
-	if not _root.visible:
+	if _root == null or not _root.visible:
 		return
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
@@ -299,6 +309,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 
 func _toggle() -> void:
+	_construir()
 	if not _root.visible:
 		# hay_modal() en vez de solo inventory_open: cubre la pila ENTERA de menus (tienda, taberna,
 		# herrero, mapa...). En solitario lo tapaba la pausa del arbol; en MULTI nada pausa y la ficha
@@ -313,6 +324,8 @@ func _toggle() -> void:
 # La ✕ de la esquina. Dentro de Cambiar hace de "volver", como el Esc: Cambiar es una pantalla
 # dentro de la seccion, y cerrar el menu entero desde ahi te sacaba dos niveles de golpe.
 func _cerrar() -> void:
+	if _root == null:
+		return   # sin montar: nunca se abrio
 	if _cambiando and _root.visible:
 		_cancelar_cambio()
 		return
@@ -320,6 +333,7 @@ func _cerrar() -> void:
 
 
 func _set_open(open: bool) -> void:
+	_construir()
 	_root.visible = open
 	Game.fijar_modal(Game.Modal.PERSONAJE, self, open)
 	if open:
@@ -493,6 +507,7 @@ var _solo_seleccion := false   # el rebuild viene de elegir otro candidato (ver 
 func _rebuild() -> void:
 	if _reconstruyendo:
 		return
+	_construir()
 	_reconstruyendo = true
 	_rebuild_real()
 	_reconstruyendo = false
