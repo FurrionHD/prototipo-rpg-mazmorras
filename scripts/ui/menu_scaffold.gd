@@ -2360,12 +2360,21 @@ static func _rejilla_perezosa(grid: GridContainer, hueco: Control, scroll: Scrol
 	var cols: int = maxi(1, grid.columns)
 	var alto_fila: float = lado + float(grid.get_theme_constant("v_separation"))
 	var i: int = desde
+	var recien: bool = false
 	hueco.custom_minimum_size.y = ceilf(float(piezas.size() - i) / cols) * alto_fila
-	while i < piezas.size():
+	while i < piezas.size() or recien:
 		await grid.get_tree().process_frame
 		if not is_instance_valid(grid) or not grid.is_inside_tree() or muriendo(grid) \
 				or not is_instance_valid(hueco) or not is_instance_valid(scroll):
 			return
+		# LA TANDA DE ANTES, A PINTAR. Una celda que nace con el scroll quieto intenta pintarse antes de que la
+		# rejilla la coloque, se ve "fuera de la vista" y se apunta a esperar un movimiento del scroll que no llega
+		# (ver CeldaObjeto._apuntarse): ya colocada, se la avisa aqui.
+		if recien:
+			recien = false
+			CeldaObjeto._despertar(scroll)
+			if i >= piezas.size():
+				break
 		if not grid.is_visible_in_tree():
 			continue
 		# Lo que falta de rejilla por debajo del borde de abajo de la vista, en pixeles de la rejilla.
@@ -2377,6 +2386,7 @@ static func _rejilla_perezosa(grid: GridContainer, hueco: Control, scroll: Scrol
 		while i < hasta:
 			_celda_de_rejilla(grid, piezas[i], i, sel, pulsado, lado)
 			i += 1
+		recien = true
 		hueco.custom_minimum_size.y = ceilf(float(piezas.size() - i) / cols) * alto_fila
 	if is_instance_valid(hueco):
 		hueco.queue_free()
