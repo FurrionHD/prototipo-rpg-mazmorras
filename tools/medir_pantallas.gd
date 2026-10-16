@@ -134,6 +134,45 @@ func _p_taller() -> void:
 		var n: int = men.stacks.size()
 		if n > 1:
 			await _medir("   clic (de %d celdas)" % n, func(): men._pick(n / 2 if men.sel != n / 2 else 1))
+	# DESGLOSE del clic.
+	await _medir("   boticaria: pintar_artesanos", func():
+		men.pintar_artesanos(men.oficio(), "pocion", "Tiene Mezcla"))
+	await _medir("   boticaria: _cuantas_salen x todas", func():
+		Game.abrir_recuento_hogar()
+		for r in men.stacks:
+			men.recetas._cuantas_salen(r)
+		Game.cerrar_recuento_hogar())
+	await _medir("   boticaria: _cuantas_salen SIN recuento", func():
+		for r in men.stacks:
+			men.recetas._cuantas_salen(r))
+	await _medir("   boticaria: _ficha", func():
+		Game.abrir_recuento_hogar()
+		MenuScaffold.vaciar(men._content)
+		men.recetas._ficha(men._content)
+		Game.cerrar_recuento_hogar())
+	var R = men.recetas
+	var r: RecipeData = men.stacks[men.sel]
+	var vb: VBoxContainer = men._content
+	# Cada medida VACIA antes su zona: sin esto las 5 repeticiones se apilaban en pantalla (5 filas de "Auto"
+	# iguales en la ventana, visto el 16/10; en el juego no pasa, ver prueba_taller_clic).
+	var envuelto := func(f: Callable) -> Callable:
+		return func():
+			MenuScaffold.vaciar(men._content)
+			MenuScaffold.vaciar(men._acciones)
+			Game.abrir_recuento_hogar()
+			f.call()
+			Game.cerrar_recuento_hogar()
+	await _medir("   ficha: _capar_y_publicar", envuelto.call(func(): R._capar_y_publicar(r)))
+	await _medir("   ficha: banner_item", func(): MenuScaffold.vaciar(vb); MenuScaffold.banner_item(vb, r.resultado, "", "x"))
+	await _medir("   ficha: resumen", func(): r.resultado.resumen(Game.player_max_hp(), Game.player_max_mp()))
+	await _medir("   ficha: pociones_de_seleccion", func(): Game.pociones_de_seleccion(r, R._seleccion))
+	await _medir("   ficha: _ingrediente x todos", envuelto.call(func():
+		for i in r.ingredientes.size():
+			if r.ingredientes[i] != null and r.ingredientes[i].material != null:
+				R._ingrediente(vb, i, r.ingredientes[i].material, 4)))
+	await _medir("   ficha: _doble", envuelto.call(func(): R._doble(vb, r, 1)))
+	await _medir("   ficha: _pie", envuelto.call(func(): R._pie(r, 1)))
+	await _medir("   ficha: _partir_lineas", func(): men._partir_lineas(men._content))
 	men.queue_free()
 
 

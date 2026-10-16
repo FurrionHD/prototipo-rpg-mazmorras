@@ -341,10 +341,25 @@ func _gente() -> Array:
 
 # 'oficio' = el id del desarrollo (y la clave del artesano). 'icono' y 'pista' = la marca de quien lo
 # tiene. Con 'oficio' vacio la fila se esconde (una pestaña donde no trabaja nadie).
+var _firma_artesanos: Array = []   # con que se pinto la fila la ultima vez (ver pintar_artesanos)
+
+func _fila_viva() -> bool:
+	for h in _fila_artesano.get_children():
+		if not MenuScaffold.muriendo(h):
+			return true
+	return false
+
+
 func pintar_artesanos(oficio: String, icono: String, pista: String) -> void:
+	var gente: Array = _gente() if oficio != "" else []
+	# EN UN CLIC DE CELDA no cambia quien trabaja: si la fila ya esta pintada con lo mismo, se deja (eran ~3 ms por
+	# clic). Fuera del clic se repinta siempre (el oficio aprendido o un encargo cambian las marcas).
+	var firma: Array = [oficio, gente, Game.artesano(oficio) if oficio != "" else null]
+	if _solo_seleccion and firma == _firma_artesanos and _fila_viva():
+		return
+	_firma_artesanos = firma
 	_oficio_artesano = oficio
 	_fila_artesano_rotulo.text = "QUIÉN TRABAJA"
-	var gente: Array = _gente() if oficio != "" else []
 	# Con una sola persona no hay nada que elegir y retratos() no pinta nada: fuera tambien el rotulo.
 	_fila_artesano_rotulo.visible = gente.size() > 1
 	(_fila_artesano.get_parent().get_parent() as Control).visible = gente.size() > 1
@@ -360,6 +375,10 @@ func pintar_artesanos(oficio: String, icono: String, pista: String) -> void:
 # orden y 'elegido' su indice; 'al_pulsar' recibe el indice.
 func pintar_personas(rotulo: String, gente: Array, elegido: int, en_equipo: int,
 		al_pulsar: Callable) -> void:
+	var firma: Array = [rotulo, gente, elegido]
+	if _solo_seleccion and firma == _firma_artesanos and _fila_viva():
+		return
+	_firma_artesanos = firma
 	_oficio_artesano = ""
 	_fila_artesano_rotulo.text = rotulo
 	_fila_artesano_rotulo.visible = gente.size() > 1

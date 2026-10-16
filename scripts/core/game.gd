@@ -13421,10 +13421,18 @@ func recetas_cocina_tier(tier: int) -> Array:
 	return _cargar_recetas(_RECIPE_PATHS_PLATOS_T2 if tier >= 2 else _RECIPE_PATHS_PLATOS_T1)
 
 
+# Las recetas se RECUERDAN por ruta: son plantillas fijas y un load() por receta en cada pregunta se notaba (la ficha
+# de la boticaria preguntaba decenas de veces por repintado: ~15 ms). La lista que se devuelve es nueva cada vez.
+var _recetas_cargadas: Dictionary = {}   # ruta -> Resource
+
 func _cargar_recetas(rutas: Array) -> Array:
 	var out: Array = []
 	for ruta in rutas:
-		var r: Resource = load(ruta)
+		var r: Resource = _recetas_cargadas.get(ruta)
+		if r == null:
+			r = load(ruta)
+			if r != null:
+				_recetas_cargadas[ruta] = r
 		if r != null:
 			out.append(r)
 	return out
