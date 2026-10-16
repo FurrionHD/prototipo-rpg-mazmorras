@@ -19,6 +19,16 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	add_to_group("peticion_formacion")
 	Net.formacion.peticion_recibida.connect(_on_peticion)
+	# EL PANEL SE MONTA CON LA PRIMERA PETICION (_construir, desde _siguiente): el jugador crea este aviso en CADA
+	# escena y montarlo eran ~0,85 ms de cada cambio de escena (medido 16/10).
+
+
+var _construido := false
+
+func _construir() -> void:
+	if _construido:
+		return
+	_construido = true
 
 	var ancla := CenterContainer.new()
 	ancla.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
@@ -71,6 +81,7 @@ func _on_peticion(id: int, _de_nombre: String, texto: String) -> void:
 
 
 func _siguiente() -> void:
+	_construir()
 	if _cola.is_empty():
 		_actual = -1
 		_panel.visible = false

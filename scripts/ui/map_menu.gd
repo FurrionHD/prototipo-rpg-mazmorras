@@ -53,6 +53,16 @@ func _ready() -> void:
 	layer = 92   # como el menu de personaje: por encima del HUD
 	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para: hay que seguir respondiendo
 	add_to_group("menu_mapa")   # lo busca el boton del pergamino del HUD (ver hud.gd)
+	# LA INTERFAZ SE MONTA AL ABRIRLO (_construir): el jugador crea este menu en CADA escena y montarlo eran ~0,3 ms
+	# de cada cambio de escena (medido 16/10).
+
+
+var _construido := false
+
+func _construir() -> void:
+	if _construido:
+		return
+	_construido = true
 	_root = Control.new()
 	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_root.visible = false
@@ -106,7 +116,7 @@ func _ready() -> void:
 # ESC va en _input y CONSUME el evento: _input corre SIEMPRE antes que _unhandled_input, asi que el
 # menu de PAUSA (que escucha ahi) no llega a ver la tecla y no se abre por detras al cerrar el mapa.
 func _input(event: InputEvent) -> void:
-	if not _root.visible:
+	if _root == null or not _root.visible:
 		return
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
@@ -128,7 +138,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return   # con el foco en un campo de texto, una tecla es una LETRA y no un atajo
 	if event.is_action_pressed(&"mapa"):
 		_toggle()
-	elif not _root.visible:
+	elif _root == null or not _root.visible:
 		return
 	elif event.is_action_pressed(&"move_left"):
 		_cambiar_viendo(-1)
@@ -137,6 +147,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 
 func _toggle() -> void:
+	_construir()
 	if _root.visible:
 		_cerrar()
 		return
@@ -160,6 +171,8 @@ func _toggle() -> void:
 
 
 func _cerrar() -> void:
+	if _root == null:
+		return   # sin montar: nunca se abrio
 	_root.visible = false
 	Game.cerrar_menu(self)
 

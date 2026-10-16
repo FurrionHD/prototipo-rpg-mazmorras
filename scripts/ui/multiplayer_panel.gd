@@ -21,6 +21,16 @@ func _ready() -> void:
 	add_to_group("multiplayer_panel")   # el pause_menu me encuentra por aqui
 	Net.estado_cambiado.connect(_on_estado)
 
+	# LA INTERFAZ SE MONTA AL ABRIRLO (_construir): el jugador crea este menu en CADA escena y montarlo eran ~1,4 ms
+	# de cada cambio de escena (medido 16/10).
+
+
+var _construido := false
+
+func _construir() -> void:
+	if _construido:
+		return
+	_construido = true
 	_root = Control.new()
 	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_root.visible = false
@@ -103,12 +113,15 @@ func _boton(caja: BoxContainer, txt: String, fn: Callable) -> void:
 
 
 func abrir() -> void:
+	_construir()
 	_root.visible = true
 	Game.fijar_modal(Game.Modal.SISTEMA, self, true)
 	_refrescar_estado_inicial()
 
 
 func cerrar() -> void:
+	if _root == null:
+		return   # sin montar: nunca se abrio
 	_root.visible = false
 	Game.fijar_modal(Game.Modal.SISTEMA, self, false)
 
@@ -153,7 +166,7 @@ func _on_estado(texto: String) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	# ESC cierra el panel si esta abierto (y se traga el evento para no abrir la pausa debajo).
-	if not _root.visible:
+	if _root == null or not _root.visible:
 		return
 	if event is InputEventKey and event.pressed and not event.echo \
 			and (event as InputEventKey).keycode == KEY_ESCAPE:

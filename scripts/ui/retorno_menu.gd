@@ -44,6 +44,16 @@ func _ready() -> void:
 	layer = 94   # encima de los menus del pueblo (93), debajo del combate (100)
 	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para en solitario: hay que seguir vivo
 	add_to_group("retorno_menu")
+	# LA TARJETA Y LA PILDORA SE MONTAN CON LA PRIMERA OFERTA (_construir, desde _process): el jugador crea este menu
+	# en CADA escena y casi nunca llega una oferta; montarlo eran ~0,9 ms de cada cambio de escena (medido 16/10).
+
+
+var _construido := false
+
+func _construir() -> void:
+	if _construido:
+		return
+	_construido = true
 	_crear_tarjeta()
 	_crear_pildora()
 
@@ -158,10 +168,11 @@ func _process(delta: float) -> void:
 	# Sin oferta, o sin sesion: fuera. Lo segundo cubre que se caiga la conexion con la oferta
 	# delante -- sin esto te quedarias con un modal que ya no puede llevarte a ninguna parte.
 	if not Game.hay_oferta_retorno() or not Net.activo:
-		if _root.visible or _pildora.visible:
+		if _construido and (_root.visible or _pildora.visible):
 			_ocultar_todo()
 		Game.descartar_oferta_retorno()
 		return
+	_construir()   # hay oferta: hace falta la tarjeta
 	if _root.visible:
 		return   # con el modal delante no corre el reloj: la decision no tiene prisa
 	var libre: bool = _jugador_libre()
@@ -253,7 +264,7 @@ func _aceptar() -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if not _root.visible:
+	if _root == null or not _root.visible:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if (event as InputEventKey).keycode == KEY_ESCAPE:
