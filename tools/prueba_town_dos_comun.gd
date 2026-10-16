@@ -88,16 +88,21 @@ func huir() -> bool:
 # Pulsa Atacar en mis turnos hasta que la pelea acabe; luego Continuar. Devuelve si acabo en plazo.
 func pelear_hasta_el_final(plazo: float) -> bool:
 	var t := 0.0
+	var actue: int = 0
 	var p: Node = pantalla()
 	while p != null and is_instance_valid(p) and not p.acabada() and t < plazo:
 		# (12/10) Si el enemigo esta lejos, Atacar esta apagado y el guion no sabe andar: se pasa el turno (Huir es
 		# "Pasar" lejos del borde) para que el bicho venga. Antes se quedaba esperando y la pelea no acababa nunca.
-		if not pulsar(0):
-			pulsar(5)
+		if pulsar(0) or pulsar(5):
+			actue += 1
 		await _esperar(0.25)
 		t += 0.25
 		p = pantalla()
 	var acabo: bool = p != null and is_instance_valid(p) and p.acabada()
+	# PARA SABER SI UN FALLO ES LENTITUD O ATASCO: con el PC cargado (la bateria entera) una pelea puede no
+	# acabar en el plazo aunque avance. Muchas veces actuando = iba lenta; ninguna = la pelea estaba parada.
+	print("[dev] pelear_hasta_el_final: %s en %.1f s de %.0f; pude actuar %d veces" % [
+		"acabada" if acabo else "SIN ACABAR", t, plazo, actue])
 	if acabo:
 		p._on_continue_pressed()
 	t = 0.0
