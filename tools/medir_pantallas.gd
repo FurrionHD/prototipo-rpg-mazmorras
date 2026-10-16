@@ -38,7 +38,7 @@ func _correr() -> void:
 		await get_tree().process_frame
 	print("[PANTALLAS] party=%d plantilla=%d  bolsa=%d  baul=%d  cofre_equipo=%d" % [Game.party.size(),
 		Game.plantilla.size(), Game.bolsa.total(), Game.baul.total(), Game.cofre_equipo.size()])
-	for p in ["inventario", "tienda", "hogar", "taller", "personaje", "maestro", "montar"]:
+	for p in ["inventario", "tienda", "hogar", "taller", "personaje", "maestro", "mapa", "montar"]:
 		if _solo != "" and _solo != p:
 			continue
 		print("[PANTALLAS] ===== %s" % p)
@@ -326,6 +326,73 @@ func _p_maestro() -> void:
 	await _medir("   tecnicas: _pintar_armas", func(): men._pintar_armas(pj))
 	await _medir("   tecnicas: _pintar_tecnicas", func(): MenuScaffold.vaciar(men._lista); men._pintar_tecnicas(pj, men._arma()))
 	await _medir("   tecnicas: _pintar_ficha", func(): MenuScaffold.vaciar(men._content); men._pintar_ficha(pj))
+	men.queue_free()
+
+
+# EL MAPA (M): abrir, cambiar de piso y lo que cuesta el dibujo del plano (que va en la señal draw del lienzo).
+func _p_mapa() -> void:
+	var men: CanvasLayer = preload("res://scripts/ui/map_menu.gd").new()
+	add_child(men)
+	await get_tree().process_frame
+	# La partida de referencia no trae libreta: se monta un piso de verdad, se da por EXPLORADO entero y se
+	# cartografia (lo mismo que al salir del piso). El peor caso: todo el piso en el plano.
+	if Game.mapa_visible().is_empty():
+		# Fuera de la escena actual, o el cambio de escena se lleva por delante a esta herramienta (ver medir_fotograma).
+		if get_tree().current_scene == self:
+			reparent(get_tree().root)
+			var hueco := Node.new()
+			get_tree().root.add_child(hueco)
+			get_tree().current_scene = hueco
+		# Fuera el jugador de mentira: el piso de verdad trae el suyo y buscan "el primero del grupo player".
+		var falso: Node = get_node_or_null("JugadorDePrueba")
+		if falso != null:
+			falso.remove_from_group("player")
+			falso.queue_free()
+		Game.semilla_mundo = 4016831469
+		Game.current_floor = 8
+		get_tree().change_scene_to_file("res://scenes/levels/main.tscn")
+		var piso: Node = null
+		for i in 900:
+			await get_tree().process_frame
+			piso = get_tree().get_first_node_in_group("dungeon_floor")
+			if piso != null and piso.gen != null and not get_tree().paused:
+				break
+		for k in 30:
+			await get_tree().process_frame
+		var vistas: Dictionary = Game.persistente_piso(8)["zonas_vistas"]
+		for z in piso.gen.zonas.size():
+			vistas[z] = true
+		Game.capturar_mapa()
+		Game.mapa_snapshot[8] = Game.mapa_trabajo[8]
+	var pisos: Array = Game.mapa_visible().keys()
+	pisos.sort()
+	var grande: int = -1
+	var celdas: int = 0
+	for k in pisos:
+		var n: int = (Game.mapa_visible()[k].get("suelo", []) as Array).size()
+		if n > celdas:
+			celdas = n
+			grande = k
+	print("[PANTALLAS]   pisos cartografiados %s; el mas grande: %d (%d celdas de suelo)" % [str(pisos), grande, celdas])
+	# El dibujo se cronometra envolviendo _dibujar en la señal draw del lienzo.
+	var tiempos: Array = []
+	men._lienzo.draw.disconnect(men._dibujar)
+	men._lienzo.draw.connect(func():
+		var t0: int = Time.get_ticks_usec()
+		men._dibujar()
+		tiempos.append(float(Time.get_ticks_usec() - t0) / 1000.0))
+	Game.current_floor = grande
+	await _medir("abrir (sin el dibujo)", func(): Game.cerrar_menus_abiertos(); Game._active_layer = null; men._root.visible = false; men._toggle())
+	await _medir("cambiar de piso (sin el dibujo)", func(): men._ver_piso(pisos[0] if men._piso_viendo != pisos[0] else grande))
+	tiempos.clear()
+	for k in 6:
+		men._ver_piso(grande)
+		await get_tree().process_frame
+		await get_tree().process_frame
+	tiempos.sort()
+	if not tiempos.is_empty():
+		print("[PANTALLAS]   dibujo del plano (piso %d): mejor %.2f ms  mediana %.2f ms  (%d dibujos)" % [grande, tiempos[0],
+			tiempos[tiempos.size() / 2], tiempos.size()])
 	men.queue_free()
 
 
