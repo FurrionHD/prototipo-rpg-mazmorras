@@ -121,17 +121,19 @@ func _init() -> void:
 	toggle_mode = true
 	_retrato = RetratoPieza.nodo()
 	add_child(_retrato)
-
-
-func _ready() -> void:
 	# El estilo del tema se quita entero: lo pinta _draw(). Hay que poner los CINCO estados o Godot
 	# rellena los que falten con su gris y la celda cambia de aspecto al pasar el raton por encima.
 	# UNO para todas las celdas, no cinco por celda: con el baul lleno eran casi tres mil objetos
 	# identicos creados para nada al abrir la pestaña.
+	# AQUI, FUERA DEL ARBOL, y no en _ready: dentro, cada override avisa de un cambio de tema y recoloca la celda;
+	# eran ~0,11 ms por celda (40 celdas: 4,3 ms de cada cambio de pestaña). Fuera no cuesta nada (medido 16/10).
 	if _vacio == null:
 		_vacio = StyleBoxEmpty.new()
 	for estado in ["normal", "hover", "pressed", "focus", "disabled"]:
 		add_theme_stylebox_override(estado, _vacio)
+
+
+func _ready() -> void:
 	mouse_entered.connect(func():
 		_hover = true
 		queue_redraw())

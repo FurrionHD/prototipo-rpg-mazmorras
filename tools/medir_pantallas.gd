@@ -98,6 +98,104 @@ func _p_tienda() -> void:
 		var n: int = men.stacks.size()
 		if n > 1:
 			await _medir("   clic (de %d celdas)" % n, func(): men._pick(n / 2 if men.sel != n / 2 else 1))
+	# DESGLOSE de Vender.
+	men._on_tab(men.TAB_VENDER)
+	await _medir("   vender: build (rejilla entera)", func():
+		for z in [men._lista, men._content, men._acciones]:
+			MenuScaffold.vaciar(z)
+		men.vender.build())
+	await _medir("   vender: build (solo seleccion)", func():
+		for z in [men._content, men._acciones]:
+			MenuScaffold.vaciar(z)
+		men._solo_seleccion = true
+		men.vender.build()
+		men._solo_seleccion = false)
+	await _medir("   vender: _pintar_bandeja", func(): men._pintar_bandeja())
+	await _medir("   vender: _pintar_barra_pie", func(): men._pintar_barra_pie())
+	await _medir("   vender: _partir_lineas", func(): men._partir_lineas(men._content))
+	# DESGLOSE DE UNA CELDA (x40, las de la rejilla de vender), dentro de la rejilla de verdad (con su scroll).
+	var piezas: Array = []
+	for st in men.stacks:
+		piezas.append(st)
+	var grid: GridContainer = null
+	for h in men._lista.get_children():
+		if h is GridContainer and not MenuScaffold.muriendo(h):
+			grid = h
+	var cajas: Array = [[]]
+	await _medir("   celda x40: new()", func():
+		cajas[0] = []
+		for k in 40:
+			cajas[0].append(CeldaObjeto.new()))
+	await _medir("   celda x40: add_child", func():
+		for k in 40:
+			var c: CeldaObjeto = CeldaObjeto.new()
+			cajas[0][k] = c
+		var t0: int = Time.get_ticks_usec()
+		for c in cajas[0]:
+			grid.add_child(c)
+		print("[PANTALLAS]        (solo add_child: %.2f ms)" % (float(Time.get_ticks_usec() - t0) / 1000.0))
+		for c in cajas[0]:
+			grid.remove_child(c)
+			c.queue_free())
+	var tema := Theme.new()
+	for e in ["normal", "hover", "pressed", "focus", "disabled"]:
+		tema.set_stylebox(e, "Button", StyleBoxEmpty.new())
+	for tipo in ["Button", "Button+5 estilos", "Button+5 estilos ANTES", "Button+theme ANTES", "Button+theme"]:
+		var bs: Array = []
+		for k in 40:
+			var b := Button.new()
+			b.toggle_mode = true
+			if tipo == "Button+5 estilos ANTES":
+				for e in ["normal", "hover", "pressed", "focus", "disabled"]:
+					b.add_theme_stylebox_override(e, StyleBoxEmpty.new())
+			elif tipo == "Button+theme ANTES":
+				b.theme = tema
+			bs.append(b)
+		var vacio := StyleBoxEmpty.new()
+		var t0: int = Time.get_ticks_usec()
+		for b in bs:
+			grid.add_child(b)
+			if tipo == "Button+5 estilos":
+				for e in ["normal", "hover", "pressed", "focus", "disabled"]:
+					b.add_theme_stylebox_override(e, vacio)
+			elif tipo == "Button+theme":
+				b.theme = tema
+			elif tipo == "Button+4 conexiones":
+				b.mouse_entered.connect(func(): b.queue_redraw())
+				b.mouse_exited.connect(func(): b.queue_redraw())
+				b.toggled.connect(func(_o): b.queue_redraw())
+				b.resized.connect(b.queue_redraw)
+			elif tipo == "Button+scroll":
+				var q: Node = b.get_parent()
+				while q != null and not (q is ScrollContainer):
+					q = q.get_parent()
+				if q != null:
+					(q as ScrollContainer).get_v_scroll_bar().value_changed.connect(func(_v): b.queue_redraw())
+					(q as ScrollContainer).resized.connect(func(): b.queue_redraw())
+		print("[PANTALLAS]        add_child x40 %-22s %.2f ms" % [tipo, float(Time.get_ticks_usec() - t0) / 1000.0])
+		for b in bs:
+			grid.remove_child(b)
+			b.queue_free()
+		await get_tree().process_frame
+	var items: Array = men.vender._items_rejilla() if men.vender.has_method("_items_rejilla") else []
+	await _medir("   celda x40: configurar", func():
+		var cs: Array = []
+		for k in 40:
+			var c: CeldaObjeto = CeldaObjeto.new()
+			grid.add_child(c)
+			cs.append(c)
+		var t0: int = Time.get_ticks_usec()
+		var gc: Array = grid.get_children()
+		for k in 40:
+			var mod: Resource = null
+			var src = gc[k % mini(gc.size(), 40)]
+			if src is CeldaObjeto and (src as CeldaObjeto).item != null:
+				mod = (src as CeldaObjeto).item
+			cs[k].configurar(mod, "x1", "")
+		print("[PANTALLAS]        (solo configurar: %.2f ms)" % (float(Time.get_ticks_usec() - t0) / 1000.0))
+		for c in cs:
+			grid.remove_child(c)
+			c.queue_free())
 	men.queue_free()
 
 
