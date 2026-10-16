@@ -61,7 +61,18 @@ func _ready() -> void:
 	layer = 91
 	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para: hay que seguir respondiendo
 	add_to_group("home_menu")
+	if Net.has_signal("hogar_cambiado"):
+		Net.hogar_cambiado.connect(_on_hogar_cambiado)   # con el hogar sin montar no hace nada
+	# LA INTERFAZ SE MONTA AL ABRIRLO (_construir): el jugador crea el hogar en CADA escena y montarlo eran ~1,7 ms de
+	# cada cambio de escena (medido 16/10).
 
+
+var _construido := false
+
+func _construir() -> void:
+	if _construido:
+		return
+	_construido = true
 	# con_dinero = true y con_lateral = false: la barra de arriba, como el inventario.
 	var m: Dictionary = MenuScaffold.construir(self, "HOGAR", "", _cerrar, true, false)
 	_root = m["root"]
@@ -72,8 +83,6 @@ func _ready() -> void:
 	_aviso_lbl = m["aviso"]
 	_dinero_lbl = m["dinero"]
 	_montar_barra(m["side"])
-	if Net.has_signal("hogar_cambiado"):
-		Net.hogar_cambiado.connect(_on_hogar_cambiado)
 
 
 # La barra de arriba, con la misma receta que inventory_menu._ready (ver sus notas): el titulo en dos
@@ -193,12 +202,15 @@ func abrir() -> void:
 		return
 	_tab = 0
 	_aviso = ""
+	_construir()
 	_root.visible = true
 	Game.abrir_menu(self)
 	_rebuild()
 
 
 func _cerrar() -> void:
+	if _root == null:
+		return   # sin montar: nunca se abrio
 	# Si has mandado a TODOS a casa, alguien tiene que llevar el cuerpo: baja tu original.
 	# Va aqui porque _cerrar es el embudo de los TRES caminos de cierre -- la tecla Esc (_input de
 	# abajo), el boton del scaffold, y el cierre a la fuerza cuando te embiste un bicho
@@ -219,7 +231,7 @@ func _cerrar() -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if not _root.visible:
+	if _root == null or not _root.visible:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if (event as InputEventKey).keycode == KEY_ESCAPE:
@@ -258,6 +270,7 @@ func _rebuild() -> void:
 	if _reconstruyendo:
 		_rebuild_pendiente = true
 		return
+	_construir()
 	_reconstruyendo = true
 	# El baul se cuenta UNA vez por repintado (ver Game.abrir_recuento_hogar).
 	Game.abrir_recuento_hogar()
