@@ -58,7 +58,7 @@ func _pedir_extraccion(id: int, lugar: String) -> void:
 
 
 func _encaminar_extraccion(id: int, lugar: String, quien: int) -> void:
-	if Net._mi_lugar == lugar and Net._soy_dueno:
+	if PisoVivo.dueno_de(lugar):
 		_resolver_extraccion(id, quien)
 		return
 	var dueno: int = Net._dueno_de(lugar)
@@ -70,7 +70,7 @@ func _encaminar_extraccion(id: int, lugar: String, quien: int) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _pedir_extraccion_dueno(id: int, lugar: String, para: int) -> void:
-	if Net._mi_lugar != lugar or not Net._soy_dueno:
+	if not PisoVivo.dueno_de(lugar):
 		return
 	_resolver_extraccion(id, para)
 
@@ -147,7 +147,7 @@ func _pedir_consumir(id: int, lugar: String) -> void:
 
 
 func _encaminar_consumir(id: int, lugar: String) -> void:
-	if Net._mi_lugar == lugar and Net._soy_dueno:
+	if PisoVivo.dueno_de(lugar):
 		_consumir_cadaver(id)
 		return
 	var dueno: int = Net._dueno_de(lugar)
@@ -157,7 +157,7 @@ func _encaminar_consumir(id: int, lugar: String) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _rel_consumir(id: int, lugar: String) -> void:
-	if Net._mi_lugar != lugar or not Net._soy_dueno:
+	if not PisoVivo.dueno_de(lugar):
 		return
 	_consumir_cadaver(id)
 
@@ -184,7 +184,7 @@ func _pedir_soltar_cuerpo(id: int, lugar: String) -> void:
 
 
 func _encaminar_soltar_cuerpo(id: int, lugar: String) -> void:
-	if Net._mi_lugar == lugar and Net._soy_dueno:
+	if PisoVivo.dueno_de(lugar):
 		_liberar_cadaver(id)
 		return
 	var dueno: int = Net._dueno_de(lugar)
@@ -194,7 +194,7 @@ func _encaminar_soltar_cuerpo(id: int, lugar: String) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _rel_soltar_cuerpo(id: int, lugar: String) -> void:
-	if Net._mi_lugar != lugar or not Net._soy_dueno:
+	if not PisoVivo.dueno_de(lugar):
 		return
 	_liberar_cadaver(id)
 

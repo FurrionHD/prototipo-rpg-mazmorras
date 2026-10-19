@@ -132,12 +132,13 @@ func _registrar_agotado(celda: Vector2i, piso: int, retraso: float = 0.0) -> voi
 @rpc("any_peer", "call_remote", "reliable")
 func _agotar_celda(celda: Vector2i, piso: int, retraso: float = 0.0) -> void:
 	_agotados_sesion[_sitio(piso, celda)] = Game.reloj_mundo() + retraso
-	if not Net._mi_lugar.begins_with("piso:") or Game.current_floor != piso:
+	if not _llevo_el_piso(piso):
 		return
-	var piso_nodo: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	var pv: PisoVivo = _piso_vivo_de(piso)
+	var piso_nodo: Node = pv.primero(&"dungeon_floor") if pv != null else get_tree().get_first_node_in_group("dungeon_floor")
 	if piso_nodo != null and piso_nodo.has_method("marcar_agotado"):
 		piso_nodo.marcar_agotado(celda, retraso)
-	for n in get_tree().get_nodes_in_group("recolectable"):
+	for n in (pv.nodos(&"recolectable") if pv != null else get_tree().get_nodes_in_group("recolectable")):
 		if is_instance_valid(n) and n.celda == celda:
 			n.agotar()
 			return
@@ -200,11 +201,31 @@ func _revivir_celda(celda: Vector2i, piso: int, nonce: int = 0) -> void:
 	# solitario. Solo el host: en el invitado ese diccionario es de SU mundo, no de este.
 	if Net.es_host:
 		(Game.persistente_piso(piso)["agotados"] as Dictionary).erase(celda)
-	if not Net._mi_lugar.begins_with("piso:") or Game.current_floor != piso:
+	if not _llevo_el_piso(piso):
 		return
-	var piso_nodo: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	var pv: PisoVivo = _piso_vivo_de(piso)
+	var piso_nodo: Node = pv.primero(&"dungeon_floor") if pv != null else get_tree().get_first_node_in_group("dungeon_floor")
 	if piso_nodo != null and piso_nodo.has_method("revivir_celda"):
 		piso_nodo.revivir_celda(celda, nonce)
+
+
+# ¿Llevo el piso 'piso' (numero de juego)? Con un solo piso vivo es la cuenta de antes (mi lugar es un piso y
+# Game.current_floor es ese); en el servidor (fase 2), si tengo vivo uno con ese numero.
+func _llevo_el_piso(piso: int) -> bool:
+	if not PisoVivo.hay_varios():
+		return Net._mi_lugar.begins_with("piso:") and Game.current_floor == piso
+	return _piso_vivo_de(piso) != null
+
+
+# El piso vivo con ese numero. Con un solo piso vivo, ese (o null si me han montado el suelo sin main.tscn: entonces
+# se busca en el arbol entero, como antes).
+func _piso_vivo_de(piso: int) -> PisoVivo:
+	if not PisoVivo.hay_varios():
+		return PisoVivo.unico()
+	for pv in PisoVivo.vivos():
+		if pv.lugar.begins_with("piso:") and pv.numero == piso:
+			return pv
+	return null
 
 
 # ¿Este sitio ya se agoto en ESTA expedicion? Lo consulta dungeon_floor al construir el piso.

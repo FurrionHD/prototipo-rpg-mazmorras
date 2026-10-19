@@ -29,6 +29,17 @@ var numero: int:
 	get:
 		return numero_fijo if numero_fijo >= 0 else Game.current_floor
 
+# EL LUGAR PARA LA RED ("pueblo", "piso:N") y SI SOY SU DUEÑO (quien simula sus enemigos). En un cliente son los de la
+# maquina (Net._mi_lugar, Net._soy_dueno): un sitio y un dueño por proceso. El servidor los fija en cada piso.
+var lugar_fijo: String = ""
+var lugar: String:
+	get:
+		return lugar_fijo if lugar_fijo != "" else Net._mi_lugar
+var dueno_fijo: int = -1   # -1 = el de la maquina; 0 = no; 1 = si
+var soy_dueno: bool:
+	get:
+		return Net._soy_dueno if dueno_fijo < 0 else dueno_fijo == 1
+
 # Las listas por fotograma de fisica: grupo -> [fotograma, Array]. Ver lista_fisica.
 var _listas: Dictionary = {}
 
@@ -93,6 +104,69 @@ static func numero_de(n: Node) -> int:
 static func raiz_de(n: Node) -> Node:
 	var p: PisoVivo = de(n)
 	return p if p != null else n.get_tree().current_scene
+
+
+# ------------------------------------------------------------
+#  POR LUGAR: lo que llega por red dice A QUE SITIO va ("piso:N")
+# ------------------------------------------------------------
+# Con UN piso vivo (o ninguno) es EXACTAMENTE lo de antes: Net._mi_lugar == lugar, Net._soy_dueno y current_scene,
+# tambien en mitad de un cambio de escena (el lugar cambia antes de que exista la escena nueva y eso no se toca aqui).
+# Con varios, el piso que lleva ese lugar.
+static func del_lugar(l: String) -> PisoVivo:
+	if not hay_varios():
+		return unico() if Net._mi_lugar == l else null
+	for p in _vivos:
+		if p.lugar == l:
+			return p
+	return null
+
+
+# ¿Llevo yo ese lugar? (antes: Net._mi_lugar == lugar)
+static func lleva(l: String) -> bool:
+	if not hay_varios():
+		return Net._mi_lugar == l
+	return del_lugar(l) != null
+
+
+# ¿Llevo ese lugar Y soy su dueño? (antes: Net._mi_lugar == lugar and Net._soy_dueno)
+static func dueno_de(l: String) -> bool:
+	if not hay_varios():
+		return Net._mi_lugar == l and Net._soy_dueno
+	var p: PisoVivo = del_lugar(l)
+	return p != null and p.soy_dueno
+
+
+# ¿Llevo ese lugar SIN ser su dueño (lo espejo)? (antes: Net._mi_lugar == lugar and not Net._soy_dueno)
+static func espejo_de(l: String) -> bool:
+	if not hay_varios():
+		return Net._mi_lugar == l and not Net._soy_dueno
+	var p: PisoVivo = del_lugar(l)
+	return p != null and not p.soy_dueno
+
+
+# ¿Soy dueño del piso de este nodo? (antes: Net._soy_dueno a secas, mirando un bicho o un drop concreto)
+static func dueno_del_nodo(n: Node) -> bool:
+	if not hay_varios():
+		return Net._soy_dueno
+	var p: PisoVivo = de(n)
+	return p != null and p.soy_dueno
+
+
+# ¿Soy dueño de ALGUN piso? (antes: Net._soy_dueno en lo que corre una vez por proceso, como difundir posiciones)
+static func dueno_de_alguno() -> bool:
+	if not hay_varios():
+		return Net._soy_dueno
+	for p in _vivos:
+		if p.soy_dueno:
+			return true
+	return false
+
+
+# Donde se cuelga lo que llega por red para ese lugar (enemigos, drops). Con un piso: current_scene, lo de antes.
+static func raiz_del_lugar(l: String, arbol: SceneTree) -> Node:
+	if not hay_varios():
+		return arbol.current_scene
+	return del_lugar(l)
 
 
 # ------------------------------------------------------------

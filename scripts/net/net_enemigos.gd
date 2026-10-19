@@ -32,7 +32,7 @@ var _enem_acum: float = 0.0
 # que si el dueño es un cliente sus bichos van cliente -> HOST -> los demas. Si el dueño es el
 # host, difunde directo. (En LAN el salto extra son ~1-2 ms, nada al lado del tick de 20 Hz.)
 func registrar_enemigo(nodo: Node2D, lugar: String) -> void:
-	if not Net.activo or not Net._soy_dueno or nodo == null or multiplayer.multiplayer_peer == null:
+	if not Net.activo or nodo == null or not PisoVivo.dueno_del_nodo(nodo) or multiplayer.multiplayer_peer == null:
 		return
 	# El id lleva DENTRO quien lo creo: con varios dueños simulando pisos a la vez, un contador
 	# suelto en cada maquina chocaria. Asi son unicos sin preguntarle nada a nadie.
@@ -95,7 +95,7 @@ func _datos_enemigo(nodo: Node) -> Dictionary:
 # del registro y avisa para que quiten su cuerpo. Un cadaver NO llama a esto: la muerte replicada
 # es de una sub-fase posterior (con el combate).
 func baja_enemigo(nodo: Node) -> void:
-	if not Net.activo or not Net._soy_dueno or multiplayer.multiplayer_peer == null:
+	if not Net.activo or nodo == null or not PisoVivo.dueno_del_nodo(nodo) or multiplayer.multiplayer_peer == null:
 		return
 	if nodo == null or not nodo.has_meta("net_id"):
 		return
@@ -119,7 +119,7 @@ func _rel_spawn(id: int, lugar: String, pos: Vector2, d: Dictionary) -> void:
 	if not Net.es_host:
 		return
 	var de := multiplayer.get_remote_sender_id()
-	if Net._mi_lugar == lugar and not Net._soy_dueno:
+	if PisoVivo.espejo_de(lugar):
 		_spawn_enemigo(id, lugar, pos, d)
 	for pid in Net._peers:
 		if pid != de and Net._peers[pid].get("lugar", "") == lugar:
@@ -129,7 +129,7 @@ func _rel_spawn(id: int, lugar: String, pos: Vector2, d: Dictionary) -> void:
 # Lo llama enemy.morir() en la maquina que SIMULA el piso: el bicho pasa a cadaver y hay que
 # decirselo a los demas (el nodo NO se libera al morir, asi que _exit_tree/baja_enemigo no salta).
 func enemigo_muerto(nodo: Node) -> void:
-	if not Net.activo or not Net._soy_dueno or multiplayer.multiplayer_peer == null:
+	if not Net.activo or nodo == null or not PisoVivo.dueno_del_nodo(nodo) or multiplayer.multiplayer_peer == null:
 		return
 	if nodo == null or not nodo.has_meta("net_id"):
 		return
@@ -149,7 +149,7 @@ func enemigo_muerto(nodo: Node) -> void:
 # lo que dura la transformacion). Mismo camino que la muerte: el dueño difunde, o pasa por el host si es un
 # cliente. Sin esto el invitado veria a un bicho normal donde el anfitrion ya pelea un mutante.
 func aviso_comer(nodo: Node, tipo: String, valor: float, extra: String = "") -> void:
-	if not Net.activo or not Net._soy_dueno or multiplayer.multiplayer_peer == null:
+	if not Net.activo or nodo == null or not PisoVivo.dueno_del_nodo(nodo) or multiplayer.multiplayer_peer == null:
 		return
 	if nodo == null or not nodo.has_meta("net_id"):
 		return
@@ -165,7 +165,7 @@ func aviso_comer(nodo: Node, tipo: String, valor: float, extra: String = "") -> 
 
 @rpc("authority", "call_remote", "reliable")
 func _aviso_comer(id: int, lugar: String, tipo: String, valor: float, extra: String = "") -> void:
-	if lugar != Net._mi_lugar:
+	if not PisoVivo.lleva(lugar):
 		return
 	var n = _enem_nodos.get(id)
 	if n != null and is_instance_valid(n) and n.has_method("aviso_comer"):
@@ -177,7 +177,7 @@ func _rel_aviso_comer(id: int, lugar: String, tipo: String, valor: float, extra:
 	if not Net.es_host:
 		return
 	var de := multiplayer.get_remote_sender_id()
-	if Net._mi_lugar == lugar and not Net._soy_dueno:
+	if PisoVivo.espejo_de(lugar):
 		_aviso_comer(id, lugar, tipo, valor, extra)
 	for pid in Net._peers:
 		if pid != de and Net._peers[pid].get("lugar", "") == lugar:
@@ -186,7 +186,7 @@ func _rel_aviso_comer(id: int, lugar: String, tipo: String, valor: float, extra:
 
 @rpc("authority", "call_remote", "reliable")
 func _marcar_cadaver(id: int, lugar: String) -> void:
-	if lugar != Net._mi_lugar:
+	if not PisoVivo.lleva(lugar):
 		return
 	var n = _enem_nodos.get(id)
 	if n != null and is_instance_valid(n) and n.has_method("marcar_cadaver"):
@@ -198,7 +198,7 @@ func _rel_cadaver(id: int, lugar: String) -> void:
 	if not Net.es_host:
 		return
 	var de := multiplayer.get_remote_sender_id()
-	if Net._mi_lugar == lugar and not Net._soy_dueno:
+	if PisoVivo.espejo_de(lugar):
 		_marcar_cadaver(id, lugar)
 	for pid in Net._peers:
 		if pid != de and Net._peers[pid].get("lugar", "") == lugar:
@@ -210,7 +210,7 @@ func _rel_despawn(id: int, lugar: String) -> void:
 	if not Net.es_host:
 		return
 	var de := multiplayer.get_remote_sender_id()
-	if Net._mi_lugar == lugar and not Net._soy_dueno:
+	if PisoVivo.espejo_de(lugar):
 		_despawn_enemigo(id)
 	for pid in Net._peers:
 		if pid != de and Net._peers[pid].get("lugar", "") == lugar:
@@ -222,7 +222,7 @@ func _rel_tick(lugar: String, lote: Array) -> void:
 	if not Net.es_host:
 		return
 	var de := multiplayer.get_remote_sender_id()
-	if Net._mi_lugar == lugar and not Net._soy_dueno:
+	if PisoVivo.espejo_de(lugar):
 		_tick_enemigos(lote)
 	for pid in Net._peers:
 		if pid != de and Net._peers[pid].get("lugar", "") == lugar:
@@ -233,7 +233,7 @@ func _rel_tick(lugar: String, lote: Array) -> void:
 # La respuesta vuelve a pasar por el host, que la reenvia solo a ese peer.
 @rpc("any_peer", "call_remote", "reliable")
 func _pedir_roster(lugar: String, para: int) -> void:
-	if Net._mi_lugar != lugar or not Net._soy_dueno:
+	if not PisoVivo.dueno_de(lugar):
 		return
 	for id in _enemigos:
 		var e: Dictionary = _enemigos[id]
@@ -254,11 +254,11 @@ func _rel_spawn_a(para: int, id: int, lugar: String, pos: Vector2, d: Dictionary
 
 @rpc("authority", "call_remote", "reliable")
 func _spawn_enemigo(id: int, lugar: String, pos: Vector2, d: Dictionary) -> void:
-	if lugar != Net._mi_lugar:
+	if not PisoVivo.lleva(lugar):
 		return   # eso esta en OTRO piso: aqui no se pinta
 	if _enem_nodos.has(id) and is_instance_valid(_enem_nodos[id]):
 		return   # ya lo tengo (llego dos veces: difusion + peticion de late-join)
-	var mundo: Node = get_tree().current_scene
+	var mundo: Node = PisoVivo.raiz_del_lugar(lugar, get_tree())
 	if mundo == null:
 		return
 	var cuerpo: Node2D = _REMOTE_ENEMY.new()
@@ -308,9 +308,12 @@ func _difundir_posiciones_enemigos() -> void:
 	# Cada bicho manda [id, pos, angulo_de_mirada, avisando_el_golpe]. Los dos ultimos NO son
 	# adorno: con ellos el que solo lo ve espejado pinta su CONO DE VISION y su linea de direccion,
 	# que es lo unico que permite jugar al sigilo.
-	var lote: Array = []
+	# UN LOTE POR LUGAR (fase 2, 19/10): en un cliente todos son de su piso (un lote, lo de siempre); en el servidor
+	# cada piso manda los suyos a los que estan en el.
+	var lotes: Dictionary = {}
 	for id in _enemigos:
 		var nd = _enemigos[id]["nodo"]
+		var lote: Array = lotes.get_or_add(String(_enemigos[id]["lugar"]), [])
 		var est: Array = nd.estado_visual_red() if nd.has_method("estado_visual_red") else [0.0, false, 0]
 		# El QUINTO, de quien es la pelea en la que esta metido (0 = suelto). Va en el tick y no en un
 		# aviso suelto a proposito: una pelea se abre y se cierra por media docena de caminos (reservar,
@@ -321,12 +324,13 @@ func _difundir_posiciones_enemigos() -> void:
 		# ataque ENTERO y no solo el parpadeo del aviso (ver enemy.estado_visual_red).
 		lote.append([id, (nd as Node2D).global_position, est[0], est[1], Net.peleas._anfitrion_de_enemigo(id, nd),
 			est[2] if est.size() >= 3 else 0, est[3] if est.size() >= 4 else false])
-	if Net.es_host:
-		for peer_id in Net._peers:
-			if Net._peers[peer_id].get("lugar", "") == Net._mi_lugar:
-				_tick_enemigos.rpc_id(peer_id, lote)
-	else:
-		_rel_tick.rpc_id(1, Net._mi_lugar, lote)
+	for lug in lotes:
+		if Net.es_host:
+			for peer_id in Net._peers:
+				if Net._peers[peer_id].get("lugar", "") == lug:
+					_tick_enemigos.rpc_id(peer_id, lotes[lug])
+		else:
+			_rel_tick.rpc_id(1, lug, lotes[lug])
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
@@ -364,7 +368,7 @@ func _pedir_enemigos(lugar: String) -> void:
 	if not Net.es_host:
 		return
 	var quien := multiplayer.get_remote_sender_id()
-	if Net._mi_lugar == lugar and Net._soy_dueno:
+	if PisoVivo.dueno_de(lugar):
 		for id in _enemigos:
 			var e: Dictionary = _enemigos[id]
 			if is_instance_valid(e["nodo"]):
@@ -380,7 +384,7 @@ func _pedir_enemigos(lugar: String) -> void:
 # El DUEÑO del piso difunde las posiciones de SUS enemigos a ~20 Hz. En solitario, o si solo espejo el
 # piso, no hace nada. Va en _physics_process para leer las posiciones ya resueltas por la fisica del bicho.
 func _physics_process(delta: float) -> void:
-	if not Net.activo or not Net._soy_dueno or _enemigos.is_empty() or multiplayer.multiplayer_peer == null:
+	if not Net.activo or _enemigos.is_empty() or not PisoVivo.dueno_de_alguno() or multiplayer.multiplayer_peer == null:
 		return
 	_enem_acum += delta
 	if _enem_acum < _ENEM_TICK:

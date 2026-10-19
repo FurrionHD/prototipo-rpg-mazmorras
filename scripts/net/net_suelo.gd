@@ -125,10 +125,10 @@ func _hacer_hueco_en(lugar: String) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _spawn_drop(id: int, d: Dictionary, pos: Vector2, lugar: String) -> void:
-	if lugar != Net._mi_lugar:
+	if not PisoVivo.lleva(lugar):
 		return   # eso esta en OTRO sitio (otro piso, o el pueblo): aqui no se pinta
 	var item := _item_de_dict(d)
-	var mundo: Node = get_tree().current_scene
+	var mundo: Node = PisoVivo.raiz_del_lugar(lugar, get_tree())
 	if item == null or mundo == null:
 		return
 	var pickup: Node2D = _DROP_PICKUP.new()

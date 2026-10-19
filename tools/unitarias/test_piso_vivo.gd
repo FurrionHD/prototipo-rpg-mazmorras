@@ -75,3 +75,32 @@ func test_numero() -> void:
 	p.numero_fijo = 7
 	igual(p.numero, 7, "fijado, el suyo")
 	_soltar([p])
+
+
+func test_por_lugar_con_dos_pisos() -> void:
+	var a := _piso_con(1)
+	a.lugar_fijo = "piso:3"
+	a.dueno_fijo = 1
+	var b := _piso_con(1)
+	b.lugar_fijo = "piso:5"
+	b.dueno_fijo = 0
+	igual(PisoVivo.del_lugar("piso:5"), b, "del_lugar encuentra el suyo")
+	cierto(PisoVivo.lleva("piso:3") and PisoVivo.lleva("piso:5"), "llevo los dos")
+	cierto(not PisoVivo.lleva("piso:9"), "uno que no tengo, no")
+	cierto(PisoVivo.dueno_de("piso:3") and not PisoVivo.dueno_de("piso:5"), "dueño de A, no de B")
+	cierto(PisoVivo.espejo_de("piso:5") and not PisoVivo.espejo_de("piso:3"), "espejo de B, no de A")
+	cierto(PisoVivo.dueno_del_nodo(a.get_child(0)) and not PisoVivo.dueno_del_nodo(b.get_child(0)), "por nodo")
+	cierto(PisoVivo.dueno_de_alguno(), "dueño de alguno")
+	igual(PisoVivo.raiz_del_lugar("piso:3", arbol.get_tree()), a, "lo que llega para piso:3 se cuelga en A")
+	_soltar([a, b])
+
+
+func test_por_lugar_con_un_piso_es_net() -> void:
+	var p := _piso_con(0)
+	var antes: String = Net._mi_lugar
+	Net._mi_lugar = "piso:4"
+	cierto(PisoVivo.lleva("piso:4") and not PisoVivo.lleva("piso:2"), "con un piso, lleva = Net._mi_lugar")
+	igual(PisoVivo.dueno_de("piso:4"), Net._soy_dueno, "y dueno_de = Net._soy_dueno")
+	igual(PisoVivo.raiz_del_lugar("piso:4", arbol.get_tree()), arbol.get_tree().current_scene, "y la raiz, current_scene")
+	Net._mi_lugar = antes
+	_soltar([p])
