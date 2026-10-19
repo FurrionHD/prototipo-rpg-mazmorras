@@ -63,7 +63,7 @@ func _ready() -> void:
 
 	# El cuerpo del jugador comparte capa con la roca: se le excluye para poder atravesarlo.
 	# (ver caja_cuerpo() al final: es lo que hace que a un compañero le peguen igual que a ti)
-	var lider: Node = get_tree().get_first_node_in_group("player")
+	var lider: Node = PisoVivo.primero_de(self, &"player")
 	if lider is CollisionObject2D:
 		add_collision_exception_with(lider)
 
@@ -163,7 +163,7 @@ func seguir(destino: Vector2, delta: float) -> void:
 func _animar(moviendose: bool) -> void:
 	if _muneco == null or not _muneco.hay_dibujo():
 		return
-	var lider: Node = get_tree().get_first_node_in_group("player")
+	var lider: Node = PisoVivo.primero_de(self, &"player")
 	var modo: int = int(lider.get("movement_mode")) if lider != null else 1
 	# Desenvaina cuando el lider desenvaina: el grupo entra en guardia a la vez, como va al mismo
 	# paso. El compañero no ataca en el mapa, asi que la variante de golpe se queda en 0.

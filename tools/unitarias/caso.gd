@@ -14,6 +14,9 @@ extends RefCounted
 #   entre(x, minimo, maximo, "que es")                    # ambos incluidos
 
 var fallos: Array[String] = []
+# Un nodo DENTRO del arbol (el propio lanzador), para las pocas que necesitan grupos o subir por padres: de la raiz no
+# se puede colgar nada mientras arranca ("Parent node is busy setting up children").
+var arbol: Node = null
 var comprobaciones: int = 0
 var _test: String = ""
 

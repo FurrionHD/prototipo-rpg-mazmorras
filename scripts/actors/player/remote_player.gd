@@ -81,7 +81,7 @@ func _ready() -> void:
 	add_to_group("aliado")
 
 	# El cuerpo del jugador local comparte capa con la roca: se le excluye para atravesarlo.
-	var yo: Node = get_tree().get_first_node_in_group("player")
+	var yo: Node = PisoVivo.primero_de(self, &"player")
 	if yo is CollisionObject2D:
 		add_collision_exception_with(yo)
 
@@ -274,7 +274,7 @@ func _sonar_golpe(variante: int) -> void:
 # Cuanto se oye algo que pasa en 'donde', segun lo lejos que este de MI jugador: 0 = no suena. La usan
 # tambien las embestidas de los bichos (enemy.gd y su espejo remote_enemy.gd), con los mismos umbrales.
 static func peso_de_oido(donde: Node2D) -> float:
-	var yo: Node2D = donde.get_tree().get_first_node_in_group("player") as Node2D
+	var yo: Node2D = PisoVivo.primero_de(donde, &"player") as Node2D
 	if yo == null:
 		return 0.0
 	var d: float = donde.global_position.distance_to(yo.global_position)
@@ -475,7 +475,7 @@ func _faena_impacto_remoto() -> void:
 	var obj: Node2D = _FAENA.buscar_objetivo(get_tree(), base, global_position)
 	if obj != null:
 		_FAENA.reaccionar(obj, base, _faena_golpe_tipo, lado)
-	var yo: Node2D = get_tree().get_first_node_in_group("player") as Node2D
+	var yo: Node2D = PisoVivo.primero_de(self, &"player") as Node2D
 	if yo != null:
 		_FAENA.sonar_lejos(base, _faena_golpe_tipo, global_position, yo.global_position,
 			OYE_LLENO, OYE_NADA)

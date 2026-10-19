@@ -77,7 +77,7 @@ func mirar(delta: float) -> bool:
 	t_mirar = MIRAR_CADA
 	var mejor: Node2D = null
 	var mejor_d: float = INF
-	for p in e.get_tree().get_nodes_in_group("pickup"):
+	for p in PisoVivo.nodos_de(e, &"pickup"):
 		if not _es_cristal(p) or p.has_meta("reservado"):
 			continue
 		var d: float = e.global_position.distance_to(p.global_position)

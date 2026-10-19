@@ -337,10 +337,11 @@ func _ready() -> void:
 		_crear_fx_elemental()
 		_marcar_mutante()
 		current_move_speed = randf_range(data.move_speed_min, data.move_speed_max)
-		var band: Vector2 = data.sum_band()
-		var ab: Abilities = data.crear_abilities(current_t)
-		print(data.enemy_name, " (piso ", Game.current_floor, ") -> t=", snappedf(current_t, 0.01),
-			"  suma~", data.suma_habilidades(current_t),
+		var mi_n: int = PisoVivo.numero_de(self)
+		var band: Vector2 = data.sum_band(mi_n)
+		var ab: Abilities = data.crear_abilities(current_t, &"", mi_n)
+		print(data.enemy_name, " (piso ", mi_n, ") -> t=", snappedf(current_t, 0.01),
+			"  suma~", data.suma_habilidades(current_t, mi_n),
 			"  [F", ab.fuerza, " R", ab.resistencia, " D", ab.destreza,
 			" A", ab.agilidad, " M", ab.magia, "]",
 			"  (franja ", roundi(band.x), "-", roundi(band.y), ")")
@@ -490,8 +491,8 @@ func mutar(dur: float = 0.0) -> bool:
 # Se convierte en la mutacion 'id' (la decide mutar() aqui, o llega por red al espejo). Conserva la PROPORCION de vida.
 func aplicar_mutacion(id: StringName, dur: float = 0.0) -> void:
 	if hp_restante >= 0.0:
-		var antes: float = float(data.crear_combatant(current_t, mutante, es_boss, mutacion).max_hp)
-		var despues: float = float(data.crear_combatant(current_t, true, es_boss, id).max_hp)
+		var antes: float = float(data.crear_combatant(current_t, mutante, es_boss, mutacion, PisoVivo.numero_de(self)).max_hp)
+		var despues: float = float(data.crear_combatant(current_t, true, es_boss, id, PisoVivo.numero_de(self)).max_hp)
 		hp_restante *= despues / maxf(1.0, antes)
 	var esc_antes: Vector2 = _sprite.scale
 	var alto_antes: float = _alto_fotograma()
@@ -699,7 +700,7 @@ func _actualizar_rastro(delta: float) -> void:
 	if _rastro_timer > 0.0:
 		return
 	_rastro_timer = RASTRO_INTERVALO
-	Particulas.marca_en_suelo(get_tree().current_scene, global_position, data.color_visual(current_t))
+	Particulas.marca_en_suelo(PisoVivo.raiz_de(self), global_position, data.color_visual(current_t))
 
 
 func _physics_process(delta: float) -> void:
@@ -1044,28 +1045,27 @@ func _todo_lo_ve() -> bool:
 # UNA lista para TODOS los bichos y UNA vez por fotograma de fisica (optimizacion 1B, 16/10): cada bicho la pedia hasta
 # cinco veces por fotograma (detectar, a tiro, contacto, el mas cercano, los rayos). Quien la use solo la RECORRE.
 # Lo que se borre a mitad de fotograma sigue valido hasta el final (queue_free), asi que no hay nada muerto dentro.
-static var _aliados_lista: Array[Node2D] = []
-static var _aliados_frame: int = -1
-
+# (Fase 2, 19/10) La lista es la de SU PISO (PisoVivo.lista_fisica): con varios pisos en el servidor, la de antes era
+# estatica y mezclaba los de todos. OJO, AL CAMBIAR DE ESCENA la vieja se libera de golpe y los bichos de la nueva
+# nacen en el MISMO fotograma de fisica: lista_fisica mira que lo de dentro siga valido y si no la rehace.
 func _aliados() -> Array[Node2D]:
-	var f: int = Engine.get_physics_frames()
-	# OJO, AL CAMBIAR DE ESCENA la vieja se libera de golpe y los bichos de la nueva nacen en el MISMO fotograma de
-	# fisica: la lista era la del piso de antes, con el grupo ya liberado (bajar de un piso a otro). Se mira que sigan.
-	if f == _aliados_frame:
-		var vivos: bool = true
-		for n in _aliados_lista:
-			if not is_instance_valid(n):
-				vivos = false
-				break
-		if vivos:
-			return _aliados_lista
-	_aliados_frame = f
+	var p: PisoVivo = _piso_vivo()
+	if p != null:
+		return p.lista_fisica(&"aliado")
 	var out: Array[Node2D] = []
 	for n in get_tree().get_nodes_in_group("aliado"):
 		if is_instance_valid(n) and n is Node2D:
 			out.append(n as Node2D)
-	_aliados_lista = out
 	return out
+
+
+# Mi piso (PisoVivo), recordado. null si me han montado suelto (pruebas, visores): entonces el arbol entero.
+var _pv: PisoVivo = null
+
+func _piso_vivo() -> PisoVivo:
+	if _pv == null or not is_instance_valid(_pv):
+		_pv = PisoVivo.de(self)
+	return _pv
 
 
 # El miembro del grupo que tiene mas a mano. Es a quien va por defecto (al nacer, o si pierde de
@@ -1714,7 +1714,7 @@ func _cancelar_aviso() -> void:
 # El aguante es de GRUPO (correr lo pagan todos, ver player.gd), asi que se pregunta al cuerpo
 # que llevas: si el grupo va sin fuelle, el bicho golpea sin avisar, persiga a quien persiga.
 func _player_exhausted() -> bool:
-	var p: Node = get_tree().get_first_node_in_group("player")
+	var p: Node = PisoVivo.primero_de(self, &"player")
 	return p != null and is_instance_valid(p) and p.has_method("is_exhausted") and p.is_exhausted()
 
 
@@ -1755,7 +1755,7 @@ func atacado_por_jugador(golpe_dur: float = -1.0) -> bool:
 	# La pelea es de QUIEN ME ATACA, aunque yo viniera persiguiendo a otro. Sin esto, si venia
 	# detras del compañero (_objetivo = su avatar), el empuje del hito 5.4-B mandaba la pelea a EL
 	# y al que me ataco no se le abria nada: "no me deja pelear".
-	var yo: Node = get_tree().get_first_node_in_group("player")
+	var yo: Node = PisoVivo.primero_de(self, &"player")
 	if yo != null:
 		_objetivo = yo
 	_iniciar_impacto(false, golpe_dur)
@@ -1873,12 +1873,12 @@ func morir() -> void:
 	if es_boss:
 		# EL PISO DEL JEFE, no el del jugador (ver piso_nacido). Los tres avisos de abajo van al
 		# MISMO numero: si se desacompasaran, se abriria un piso y se sellaria otro.
-		var mi_piso: int = piso_nacido if piso_nacido > 0 else Game.current_floor
+		var mi_piso: int = piso_nacido if piso_nacido > 0 else PisoVivo.numero_de(self)
 		Game.marcar_boss_derrotado(mi_piso)
 		# Y arranca su cuenta atras: el jefe ya no vuelve por que la mazmorra se olvide al pasar por el
 		# pueblo (ya no se olvida), vuelve por reloj (ver Game.BOSS_RESPAWN).
 		Game.sellar_boss_caido(mi_piso)
-		var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+		var piso: Node = PisoVivo.primero_de(self, &"dungeon_floor")
 		if piso != null and piso.has_method("abrir_salidas"):
 			piso.abrir_salidas()
 		# MULTIJUGADOR: el atajo y la tienda se abren para TODA la sesion, y a quien este en este
@@ -1921,7 +1921,7 @@ func _tick_estados_fuera(delta: float) -> void:
 	# Sin vida arrastrada (nunca peleo) el DoT no tiene de donde morder: se le pone su vida entera y
 	# se le resta de ahi.
 	if hp_restante < 0.0:
-		hp_restante = float(data.crear_combatant(current_t, mutante, es_boss).max_hp)
+		hp_restante = float(data.crear_combatant(current_t, mutante, es_boss, &"", PisoVivo.numero_de(self)).max_hp)
 	hp_restante -= dano
 	print("[estado] %s sufre %.1f por el mapa | HP %.1f" % [data.enemy_name, dano, hp_restante])
 	if hp_restante <= 0.0:
@@ -2121,20 +2121,19 @@ var _migrando: bool = false
 # manadas, refuerzos): son el dibujo de la simulacion de otra maquina, no compañeros mios, y no cumplen medio contrato
 # del grupo (ver remote_enemy). Quien la use solo la RECORRE y mira is_instance_valid: al cambiar de escena se libera
 # todo de golpe dentro del mismo fotograma de fisica (ver _aliados).
-static var _enemigos_lista: Array[Node2D] = []
-static var _enemigos_frame: int = -1
-
 func _enemigos() -> Array[Node2D]:
-	var f: int = Engine.get_physics_frames()
-	if f == _enemigos_frame:
-		return _enemigos_lista
-	_enemigos_frame = f
+	var p: PisoVivo = _piso_vivo()
+	if p != null:
+		return p.lista_fisica(&"enemy", _no_es_espejo, &"enemy_sin_espejos")
 	var out: Array[Node2D] = []
 	for n in get_tree().get_nodes_in_group("enemy"):
 		if is_instance_valid(n) and n is Node2D and not n.has_meta("es_espejo"):
 			out.append(n as Node2D)
-	_enemigos_lista = out
 	return out
+
+
+static func _no_es_espejo(n: Node) -> bool:
+	return not n.has_meta("es_espejo")
 
 
 func _separacion() -> Vector2:
@@ -2215,7 +2214,7 @@ func _corro_al_que_unirse():
 	var ya_conmigo: Array = _companeros_de_manada()   # los que ya cuentan como mi corro
 	# El piso lleva el aforo de cada sala: no me mudo a una que ya este llena (asi el tope por
 	# tamaño de sala se respeta tambien migrando, no solo pariendo). Sin piso (arena/dev) no filtra.
-	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	var piso: Node = PisoVivo.primero_de(self, &"dungeon_floor")
 	var mejor = null
 	var best: float = INF
 	for n in _enemigos():
@@ -2321,7 +2320,7 @@ func vecinos() -> Array:
 	# entra en grupo como en cualquier pelea normal, que es lo que se queria probar. Si lo que
 	# quieres es medir DPS limpio, pon un solo bicho.)
 	var cand: Array = []
-	for n in get_tree().get_nodes_in_group("enemy"):
+	for n in PisoVivo.nodos_de(self, &"enemy"):
 		# Filtrar a los que YA estan en un combate es imprescindible: si no, un bicho que se
 		# quedo enganchado de una pelea anterior volveria a entrar en esta. Los ESPEJOS tampoco:
 		# no son mios, son el dibujo de lo que simula otra maquina.

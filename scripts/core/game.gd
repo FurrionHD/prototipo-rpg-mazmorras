@@ -4355,8 +4355,8 @@ func _perder_de(m: Monton) -> int:
 #    enemy_ability_sum_band); cada arquetipo ocupa un sub-tramo y reparte por sus pesos.
 const FLOOR_STAT_GROWTH := 1.10     # +10%/piso a hp/ataque base (piso13 ~= piso8 de antes)
 
-func enemy_floor_stat_factor() -> float:
-	return pow(FLOOR_STAT_GROWTH, float(current_floor - 1))
+func enemy_floor_stat_factor(piso: int = -1) -> float:
+	return pow(FLOOR_STAT_GROWTH, float((current_floor if piso < 0 else piso) - 1))
 
 # Franja [min, max] de la SUMA de habilidades del enemigo segun el piso. Cada
 # arquetipo ocupa un sub-tramo (franja_low/high en EnemyData) y reparte esa suma por
@@ -15652,7 +15652,8 @@ func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array) -> bool
 		# La MUTACION, como la 't', es del NODO: el mismo .tres pare bichos normales y mini-jefes.
 		# La bandera de jefe va con ella porque un jefe mutante lleva multiplicadores mas suaves.
 		var ec: Combatant = n.data.crear_combatant(t, bool(n.get("mutante")),
-			bool(n.get("es_boss")), StringName(n.get("mutacion")) if n.get("mutacion") != null else &"")
+			bool(n.get("es_boss")), StringName(n.get("mutacion")) if n.get("mutacion") != null else &"",
+			PisoVivo.numero_de(n))
 		# VIDA ARRASTRADA: si huiste de este bicho, sigue con las heridas que le dejaste. El
 		# Combatant nace siempre a tope (crear_combatant), asi que la vida guardada se aplica
 		# aqui encima. hp_restante < 0 = intacto (nunca ha peleado o ya se curo).

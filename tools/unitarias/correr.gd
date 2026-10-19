@@ -44,6 +44,7 @@ func _ready() -> void:
 			malos.append("%s: no se puede cargar (¿error de sintaxis?)" % ruta.get_file())
 			continue
 		var caso = guion.new()
+		caso.arbol = self
 		var n := 0
 		for m in guion.get_script_method_list():
 			var nombre: String = m["name"]

@@ -467,7 +467,7 @@ func _physics_process(delta: float) -> void:
 	# Y lo que frena EL SUELO QUE PISAS: hoy, los charcos de limo de la sala del jefe (ver
 	# DungeonFloor.freno_en). Va aqui, en la cola de la cadena y no tocando los modos de movimiento,
 	# por lo mismo que los estados: correr por el limo sigue siendo mas rapido que andar por el limo.
-	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	var piso: Node = PisoVivo.primero_de(self, &"dungeon_floor")
 	if piso != null and piso.has_method("freno_en"):
 		speed *= float(piso.freno_en(global_position))
 
@@ -1261,12 +1261,12 @@ func _reset_huida() -> void:
 # Antes solo miraba persigue_a(self) y por eso huir de algo que perseguia a un companero no pagaba
 # NADA, aunque acabaras en combate con el.
 func _perseguidor() -> Array:
-	for e in get_tree().get_nodes_in_group("enemy"):
+	for e in PisoVivo.nodos_de(self, &"enemy"):
 		if not (is_instance_valid(e) and e.has_method("persigue_a")):
 			continue
 		if e.persigue_a(self):
 			return [e as Node2D, self as Node2D]
-		for c in get_tree().get_nodes_in_group("aliado"):
+		for c in PisoVivo.nodos_de(self, &"aliado"):
 			if c == self or not is_instance_valid(c) or not (c is Node2D):
 				continue
 			# MULTIJUGADOR: los cuerpos de OTROS JUGADORES estan en "aliado" (para que los bichos
@@ -1343,7 +1343,7 @@ func _vision_libre(punto: Vector2) -> bool:
 # rayo ya no los ve: solo detecta muros.
 func _excluir_del_rayo() -> Array[RID]:
 	var out: Array[RID] = []
-	for n in get_tree().get_nodes_in_group("aliado"):
+	for n in PisoVivo.nodos_de(self, &"aliado"):
 		if n is CollisionObject2D:
 			out.append((n as CollisionObject2D).get_rid())
 	return out
@@ -1356,7 +1356,7 @@ func _excluir_del_rayo() -> Array[RID]:
 func _enemigo_mas_cercano() -> Array:
 	var best: float = INF
 	var nearest: Node = null
-	for e in get_tree().get_nodes_in_group("enemy"):
+	for e in PisoVivo.nodos_de(self, &"enemy"):
 		if not is_instance_valid(e):
 			continue
 		var d: float = global_position.distance_to(e.global_position)
@@ -1645,7 +1645,7 @@ func _enemigos_a_tiro(alcance: float = -1.0) -> Array:
 		return _enemigos_en_zona_golpe()
 	var rango: float = alcance
 	var out: Array = []
-	for e in get_tree().get_nodes_in_group("enemy"):
+	for e in PisoVivo.nodos_de(self, &"enemy"):
 		if not is_instance_valid(e):
 			continue
 		var to_e: Vector2 = e.global_position - global_position
@@ -1686,7 +1686,7 @@ func _enemigos_en_zona_golpe() -> Array:
 	var zona: Rect2 = zona_golpe()
 	var punta: Vector2 = zona.get_center()
 	var out: Array = []
-	for e in get_tree().get_nodes_in_group("enemy"):
+	for e in PisoVivo.nodos_de(self, &"enemy"):
 		if not is_instance_valid(e) or not (e is Node2D):
 			continue
 		if Cuerpos.hueco_entre(zona, Cuerpos.caja_de(e)) > 0.0:
@@ -2207,7 +2207,7 @@ func bloquear_interaccion() -> void:
 func _mas_cercano_en_grupo(grupo: String, skip_extracted: bool, excluir: String = "") -> Node:
 	var nearest: Node = null
 	var best: float = INF
-	for n in get_tree().get_nodes_in_group(grupo):
+	for n in PisoVivo.nodos_de(self, grupo):
 		if not is_instance_valid(n):
 			continue
 		if excluir != "" and n.is_in_group(excluir):

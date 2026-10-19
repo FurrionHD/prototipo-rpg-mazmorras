@@ -8,8 +8,10 @@
 #
 #  Nada de esto depende de nombres de nodo: el juego detecta el pueblo por la ruta de la escena
 #  (Game.en_pueblo) y el multijugador coloca a los demas por posicion.
+#
+#  Es un PisoVivo (fase 2, 19/10): el pueblo tambien es un sitio con su propio mundo en el servidor.
 # ============================================================
-extends Node2D
+extends PisoVivo
 
 # El suelo y lo que va pegado a el, por DEBAJO del jugador (que esta a z 0).
 var _suelo: Node2D = null
@@ -130,6 +132,7 @@ func _crear_guardias() -> void:
 # En solitario, irse del pueblo (bajar a la mazmorra) estrena semilla: al volver, las cañas estan en
 # otro sitio. En sesion no se toca: la renueva el host para todos (ver Game.semilla_pueblo).
 func _exit_tree() -> void:
+	super()
 	if not Net.activo:
 		Game.semilla_pueblo = randi() | 1
 

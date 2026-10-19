@@ -500,14 +500,15 @@ func peso_total() -> float:
 
 # Sub-franja [min, max] de la SUMA de habilidades para ESTE arquetipo en el piso
 # actual = tramo [franja_low, franja_high] de la franja global del piso.
-func sum_band() -> Vector2:
-	var band: Vector2 = Game.enemy_ability_sum_band(Game.current_floor)
+# 'piso' (fase 2, 19/10): el del bicho, que en el servidor no tiene por que ser Game.current_floor. -1 = ese de siempre.
+func sum_band(piso: int = -1) -> Vector2:
+	var band: Vector2 = Game.enemy_ability_sum_band(Game.current_floor if piso < 0 else piso)
 	return Vector2(lerpf(band.x, band.y, franja_low), lerpf(band.x, band.y, franja_high))
 
 
 # Suma OBJETIVO de habilidades para un 't' (0..1 = posicion dentro de la sub-franja).
-func _target_sum(t: float) -> float:
-	var sub: Vector2 = sum_band()
+func _target_sum(t: float, piso: int = -1) -> float:
+	var sub: Vector2 = sum_band(piso)
 	return lerpf(sub.x, sub.y, clampf(t, 0.0, 1.0))
 
 
@@ -515,12 +516,12 @@ func _target_sum(t: float) -> float:
 # capando cada stat a 999. Encima, el panel de DEBUG puede pisar stats SUELTAS
 # (Game.debug_enemy_override): las que no toque se quedan en su valor natural.
 # 'mutacion' = la de este bicho, si tiene pesos propios (MutacionData.pesos); vacia = los de su enemigo.
-func crear_abilities(t: float = 0.5, mutacion: StringName = &"") -> Abilities:
+func crear_abilities(t: float = 0.5, mutacion: StringName = &"", piso: int = -1) -> Abilities:
 	var a := Abilities.new()
 	var p: Dictionary = pesos_de(mutacion)
 	var wt: float = float(p["fuerza"] + p["resistencia"] + p["destreza"] + p["agilidad"] + p["magia"])
 	if wt > 0.0:
-		var target: float = _target_sum(t)
+		var target: float = _target_sum(t, piso)
 		for clave in ["fuerza", "resistencia", "destreza", "agilidad", "magia", "voluntad"]:
 			a.set(clave, clampi(int(round(target * float(p[clave]) / wt)), 0, 999))
 	# DEBUG: pisa solo las stats que el panel haya fijado.
@@ -531,8 +532,8 @@ func crear_abilities(t: float = 0.5, mutacion: StringName = &"") -> Abilities:
 
 # Suma REAL de las habilidades (ya distribuidas y capadas). Se usa para la dificultad
 # de la extraccion / reto. Deterministica dado 't'.
-func suma_habilidades(t: float) -> int:
-	var a := crear_abilities(t)
+func suma_habilidades(t: float, piso: int = -1) -> int:
+	var a := crear_abilities(t, &"", piso)
 	return a.fuerza + a.resistencia + a.destreza + a.agilidad + a.magia
 
 
@@ -782,15 +783,16 @@ func siguiente_mutacion(mutante: bool, id: StringName) -> Dictionary:
 
 
 func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = false,
-		mutacion: StringName = &"") -> Combatant:
-	var fstat: float = Game.enemy_floor_stat_factor()
+		mutacion: StringName = &"", piso: int = -1) -> Combatant:
+	var pis: int = Game.current_floor if piso < 0 else piso
+	var fstat: float = Game.enemy_floor_stat_factor(pis)
 	# 'es_jefe' solo se usa para elegir la TABLA de multiplicadores (un jefe mutante va mucho mas
 	# suave, ver mult_mutante). Sin mutacion no cambia nada, asi que pasarlo de mas es inofensivo.
 	var mm: Dictionary = mult_mutante(es_jefe, grado_de(mutante, mutacion))
 	var m_hp: float = float(mm["hp"]) if mutante else 1.0
 	var m_atk: float = float(mm["atk"]) if mutante else 1.0
 	var m_def: float = float(mm["def"]) if mutante else 1.0
-	var c := Combatant.new(nombre_mostrado(mutante, mutacion), level, crear_abilities(t, mutacion if mutante else &""),
+	var c := Combatant.new(nombre_mostrado(mutante, mutacion), level, crear_abilities(t, mutacion if mutante else &"", pis),
 		base_hp * fstat * m_hp,
 		base_attack * fstat * m_atk,
 		base_defense * fstat * m_def,
@@ -898,8 +900,8 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	# hacen falta y hacen cosas distintas: la resistencia decide lo que TE aguanta, la eficacia lo
 	# bien que TE mete a ti sus venenos y aturdimientos.
 	var m_est: float = float(mm["est"]) if mutante else 1.0
-	c.status_resist = resist_de_piso(Game.current_floor) * status_resist * m_est
-	c.eficacia = eficacia_de_piso(Game.current_floor) * eficacia * m_est
+	c.status_resist = resist_de_piso(pis) * status_resist * m_est
+	c.eficacia = eficacia_de_piso(pis) * eficacia * m_est
 	# Familia del bicho (para las pasivas slayer del jugador).
 	c.familia = int(familia)
 	# Sequito (Rey Slime): etiqueta de familia + config de la reduccion de daño por acompañantes.
