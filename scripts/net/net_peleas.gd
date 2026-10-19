@@ -85,7 +85,7 @@ func _pedir_pelea(id: int, lugar: String) -> void:
 
 # SOLO host: le pasa la peticion a quien simule ese piso (o la resuelve el mismo si es suyo).
 func _encaminar_pelea(id: int, lugar: String, quien: int) -> void:
-	if Net._mi_lugar == lugar and Net._soy_dueno:
+	if PisoVivo.dueno_de(lugar):
 		_resolver_pelea(id, quien, lugar)
 		return
 	var dueno: int = Net._dueno_de(lugar)
@@ -99,7 +99,7 @@ func _encaminar_pelea(id: int, lugar: String, quien: int) -> void:
 @rpc("any_peer", "call_remote", "reliable")
 func _pedir_pelea_dueno(id: int, lugar: String, para: int) -> void:
 	Medidor.marca("pelea", "dueno_recibe")
-	if Net._mi_lugar != lugar or not Net._soy_dueno:
+	if not PisoVivo.dueno_de(lugar):
 		return
 	_resolver_pelea(id, para, lugar)
 
@@ -201,7 +201,7 @@ func empujar_pelea(nodo: Node, peer: int, emboscada: bool = true) -> bool:
 	# YA NO ESTA EN ESTE PISO (va de camino a otro, o se ha ido): su avatar puede seguir un momento aqui, pero
 	# la pelea no es suya. Sin esto se le reservaba el grupo y la pelea acababa rebotando por ahi.
 	var lugar_suyo: String = str(Net._peers.get(peer, {}).get("lugar", Net._mi_lugar))
-	if lugar_suyo != Net._mi_lugar:
+	if not PisoVivo.lleva(lugar_suyo):
 		return false
 	var id: int = nodo.get_meta("net_id")
 	var ids: Array = _reservar_grupo(nodo, id, peer)
@@ -669,7 +669,7 @@ func _pedir_reasignacion(ids: Array, lugar: String, para: int) -> void:
 
 
 func _encaminar_reasignacion(ids: Array, lugar: String, para: int) -> void:
-	if Net._mi_lugar == lugar and Net._soy_dueno:
+	if PisoVivo.dueno_de(lugar):
 		_aplicar_reasignacion(ids, para)
 		return
 	var dueno: int = Net._dueno_de(lugar)
@@ -679,7 +679,7 @@ func _encaminar_reasignacion(ids: Array, lugar: String, para: int) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _rel_reasignacion(ids: Array, lugar: String, para: int) -> void:
-	if Net._mi_lugar != lugar or not Net._soy_dueno:
+	if not PisoVivo.dueno_de(lugar):
 		return
 	_aplicar_reasignacion(ids, para)
 
@@ -710,7 +710,7 @@ func _pedir_resultado(id: int, ha_muerto: bool, hp: float, lugar: String) -> voi
 
 
 func _encaminar_resultado(id: int, ha_muerto: bool, hp: float, lugar: String) -> void:
-	if Net._mi_lugar == lugar and Net._soy_dueno:
+	if PisoVivo.dueno_de(lugar):
 		_aplicar_resultado(id, ha_muerto, hp)
 		return
 	var dueno: int = Net._dueno_de(lugar)
@@ -720,7 +720,7 @@ func _encaminar_resultado(id: int, ha_muerto: bool, hp: float, lugar: String) ->
 
 @rpc("any_peer", "call_remote", "reliable")
 func _rel_resultado(id: int, ha_muerto: bool, hp: float, lugar: String) -> void:
-	if Net._mi_lugar != lugar or not Net._soy_dueno:
+	if not PisoVivo.dueno_de(lugar):
 		return
 	_aplicar_resultado(id, ha_muerto, hp)
 
@@ -1863,7 +1863,7 @@ func _pedir_mover(lote: Array, lugar: String) -> void:
 
 
 func _encaminar_mover(lote: Array, lugar: String, desde: int) -> void:
-	if Net._mi_lugar == lugar and Net._soy_dueno:
+	if PisoVivo.dueno_de(lugar):
 		_aplicar_mover(lote, desde)
 		return
 	var dueno: int = Net._dueno_de(lugar)
@@ -1873,7 +1873,7 @@ func _encaminar_mover(lote: Array, lugar: String, desde: int) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _rel_mover(lote: Array, lugar: String, desde: int) -> void:
-	if Net._mi_lugar != lugar or not Net._soy_dueno:
+	if not PisoVivo.dueno_de(lugar):
 		return
 	_aplicar_mover(lote, desde)
 
@@ -1912,7 +1912,7 @@ func _pedir_cria(slot: int, ruta: String, pos: Vector2, t: float, lugar: String)
 
 
 func _encaminar_cria(slot: int, ruta: String, pos: Vector2, t: float, lugar: String, para: int) -> void:
-	if Net._mi_lugar == lugar and Net._soy_dueno:
+	if PisoVivo.dueno_de(lugar):
 		_nacer_cria_dueno(slot, ruta, pos, t, para)
 		return
 	var dueno: int = Net._dueno_de(lugar)
@@ -1922,7 +1922,7 @@ func _encaminar_cria(slot: int, ruta: String, pos: Vector2, t: float, lugar: Str
 
 @rpc("any_peer", "call_remote", "reliable")
 func _rel_cria(slot: int, ruta: String, pos: Vector2, t: float, lugar: String, para: int) -> void:
-	if Net._mi_lugar != lugar or not Net._soy_dueno:
+	if not PisoVivo.dueno_de(lugar):
 		return
 	_nacer_cria_dueno(slot, ruta, pos, t, para)
 

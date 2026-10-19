@@ -33,7 +33,7 @@ func _rel_brote(paredes_px: Array, dur: float, amp: float, col: Color, lugar: St
 	if not Net.es_host:
 		return
 	var de := multiplayer.get_remote_sender_id()
-	if Net._mi_lugar == lugar:
+	if PisoVivo.lleva(lugar):
 		_pintar_brote(paredes_px, dur, amp, col)   # yo tambien estoy ahi
 	for pid in Net._peers:
 		if pid != de and (Net._peers[pid] as Dictionary).get("lugar", "") == lugar:
@@ -651,7 +651,7 @@ func _pedir_forzar_jefe(lugar: String) -> void:
 
 
 func _encaminar_forzar_jefe(lugar: String) -> void:
-	if Net._mi_lugar == lugar and Net._soy_dueno:
+	if PisoVivo.dueno_de(lugar):
 		print("[dev] traer al jefe: ", Game.dev_forzar_jefe())
 		return
 	var dueno: int = Net._dueno_de(lugar)
@@ -664,7 +664,7 @@ func _encaminar_forzar_jefe(lugar: String) -> void:
 # Corre en el DUEÑO del piso: lo planta por el camino normal, igual que si hubiera pulsado el boton el.
 @rpc("any_peer", "call_remote", "reliable")
 func _forzar_jefe_dueno(lugar: String) -> void:
-	if Net._mi_lugar != lugar or not Net._soy_dueno:
+	if not PisoVivo.dueno_de(lugar):
 		return
 	print("[dev] traer al jefe (me lo piden): ", Game.dev_forzar_jefe())
 
@@ -712,7 +712,7 @@ func _difundir_piso_arena(lugar: String, piso: int) -> void:
 @rpc("authority", "call_remote", "reliable")
 func _piso_arena(lugar: String, piso: int) -> void:
 	Game.arena_piso_juego = clampi(piso, 1, 30)
-	if Net._mi_lugar == lugar:
+	if PisoVivo.lleva(lugar):
 		_piso_arena_aqui(piso)
 
 
@@ -749,7 +749,7 @@ func _pedir_arena(lugar: String, que: String, args: Array) -> void:
 func _encaminar_arena(lugar: String, que: String, args: Array) -> void:
 	if lugar != "piso:%d" % Game.PISO_ARENA:
 		return
-	if Net._mi_lugar == lugar and Net._soy_dueno:
+	if PisoVivo.dueno_de(lugar):
 		_hacer_en_arena(lugar, que, args)
 		return
 	var dueno: int = Net._dueno_de(lugar)
@@ -766,7 +766,7 @@ func _arena_dueno(lugar: String, que: String, args: Array) -> void:
 
 
 func _hacer_en_arena(lugar: String, que: String, args: Array) -> void:
-	if Net._mi_lugar != lugar or not Net._soy_dueno:
+	if not PisoVivo.dueno_de(lugar):
 		return
 	if que == "spawn" and args.size() >= 3:
 		_spawn_arena_aqui(String(args[0]), args[1] as Vector2, args[2] as Dictionary)
@@ -800,6 +800,12 @@ func simulo_mi_piso() -> bool:
 	# La arena de pruebas ya NO es una sala local aparte ("sandbox"): es el piso Game.PISO_ARENA y tiene
 	# dueño como cualquier otro (un trabajador, en compañia).
 	return (not Net.activo) or Net._soy_dueno
+
+
+# Lo mismo, preguntado DESDE algo del piso (el suelo, un bicho, el estanque): ¿simulo yo el piso de este nodo? Con un
+# solo piso vivo es simulo_mi_piso(); en el servidor (fase 2) cada piso tiene su dueño.
+func simulo_el_piso_de(n: Node) -> bool:
+	return (not Net.activo) or PisoVivo.dueno_del_nodo(n)
 
 
 # CUANTOS personajes hay en MI piso, contando los grupos de los otros humanos que esten aqui.
@@ -902,7 +908,7 @@ func _soltar_piso(quien: int, foto: Dictionary) -> void:
 	for pid in Net._peers:
 		if pid != heredero and Net._peers[pid].get("lugar", "") == lugar:
 			_limpiar_espejo.rpc_id(pid)
-	if heredero != 1 and Net._mi_lugar == lugar:
+	if heredero != 1 and PisoVivo.lleva(lugar):
 		_limpiar_espejo()
 	if heredero == 1:
 		_asumir_piso(piso, foto)
@@ -928,7 +934,7 @@ func _asignar_dueno(piso: int, quien: int) -> bool:
 # Solo host: un peer (distinto de 'salvo') que este en ese piso, o 0 si no hay nadie.
 func _alguien_en(piso: int, salvo: int) -> int:
 	var lugar := "piso:%d" % piso
-	if salvo != 1 and Net._mi_lugar == lugar:
+	if salvo != 1 and PisoVivo.lleva(lugar):
 		return 1            # el host tambien cuenta como candidato
 	# Los TRABAJADORES no cuentan: esto pregunta por humanos (quien hereda un piso, si se ha quedado vacio).
 	for id in Net._peers:
@@ -955,7 +961,7 @@ func _piso_de(quien: int) -> int:
 func _sigue_en(quien: int, piso: int) -> bool:
 	var lugar := "piso:%d" % piso
 	if quien == 1:
-		return Net._mi_lugar == lugar
+		return PisoVivo.lleva(lugar)
 	if not Net._peers.has(quien):
 		return false
 	if Net._viajando.has(quien):
@@ -1215,7 +1221,7 @@ func _alboroto_a(de: int, lugar: String, cuanto: float) -> void:
 
 
 func _alboroto_en_dueno(de: int, lugar: String, cuanto: float) -> void:
-	if Net._mi_lugar != lugar or not Net._soy_dueno:
+	if not PisoVivo.dueno_de(lugar):
 		return
 	# (si el ruido es MIO -el dueño humano peleando en un trabajador-, el brote sale delante de mi jugador)
 	Game.sumar_alboroto(cuanto, 0 if de == multiplayer.get_unique_id() else de)

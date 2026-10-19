@@ -91,7 +91,7 @@ func _rel_estado(pos: Vector2, facing: Vector2, comps: Array = [], pose: int = 0
 		return
 	var de := multiplayer.get_remote_sender_id()
 	var lugar: String = Net._peers.get(de, {}).get("lugar", "")
-	if Net._mi_lugar == lugar:
+	if PisoVivo.lleva(lugar):
 		Net.pisos._recibir_estado(de, pos, facing, comps, pose)
 	for pid in Net._peers:
 		if pid != de and Net._peers[pid].get("lugar", "") == lugar:
@@ -157,7 +157,7 @@ func _rel_impacto(pos: Vector2) -> void:
 
 func _repartir_impacto(de: int, pos: Vector2) -> void:
 	var lugar: String = _lugar_de(de)
-	if de != Net._mi_id() and Net._mi_lugar == lugar:
+	if de != Net._mi_id() and PisoVivo.lleva(lugar):
 		Game.impacto_ajeno(de, pos)
 	for pid in Net._peers:
 		if pid != de and not Net.es_trabajador(pid) and Net._peers[pid].get("lugar", "") == lugar:
@@ -189,7 +189,7 @@ func _rel_zona(anfitrion: int, r: Array, mascara: PackedByteArray) -> void:
 
 func _repartir_zona(de: int, anfitrion: int, r: Array, mascara: PackedByteArray) -> void:
 	var lugar: String = _lugar_de(de)
-	if de != Net._mi_id() and Net._mi_lugar == lugar:
+	if de != Net._mi_id() and PisoVivo.lleva(lugar):
 		_zona(de, anfitrion, r, mascara)
 	for pid in Net._peers:
 		if pid != de and not Net.es_trabajador(pid) and Net._peers[pid].get("lugar", "") == lugar:
@@ -508,7 +508,7 @@ func _rel_fx_cura(que: int, lugar: String) -> void:
 	if not Net.es_host:
 		return
 	var de := multiplayer.get_remote_sender_id()
-	if Net._mi_lugar == lugar:
+	if PisoVivo.lleva(lugar):
 		_set_fx_cura(de, que)
 	for pid in Net._peers:
 		if pid != de and Net._peers[pid].get("lugar", "") == lugar:
@@ -543,7 +543,7 @@ func _rel_circulo(ruta: String, dichas: int, fin: int, lugar: String) -> void:
 	if not Net.es_host:
 		return
 	var de := multiplayer.get_remote_sender_id()
-	if Net._mi_lugar == lugar:
+	if PisoVivo.lleva(lugar):
 		_set_circulo(de, ruta, dichas, fin)
 	for pid in Net._peers:
 		if pid != de and Net._peers[pid].get("lugar", "") == lugar:
@@ -741,7 +741,7 @@ func _rel_canto(texto: String, color: Color, lugar: String) -> void:
 	if not Net.es_host:
 		return
 	var de := multiplayer.get_remote_sender_id()
-	if Net._mi_lugar == lugar:
+	if PisoVivo.lleva(lugar):
 		_set_canto(de, texto, color)
 	for pid in Net._peers:
 		if pid != de and Net._peers[pid].get("lugar", "") == lugar:
@@ -786,7 +786,7 @@ func _rel_conjuro(id: int, color: Color, ruta: String, lugar: String) -> void:
 	if not Net.es_host:
 		return
 	var de := multiplayer.get_remote_sender_id()
-	if Net._mi_lugar == lugar:
+	if PisoVivo.lleva(lugar):
 		_set_conjuro(de, id, color, ruta)
 	for pid in Net._peers:
 		if pid != de and Net._peers[pid].get("lugar", "") == lugar:

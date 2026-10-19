@@ -293,7 +293,7 @@ var _t_corcho: float = 0.0
 
 # ¿Simulo YO este charco? En solitario siempre. En multi, solo el dueño del piso.
 func _soy_dueno() -> bool:
-	return Net.pisos.simulo_mi_piso()
+	return Net.pisos.simulo_el_piso_de(self)
 
 
 func _ready() -> void:

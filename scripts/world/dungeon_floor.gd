@@ -577,7 +577,7 @@ func _construir_arena() -> void:
 		(puerta as Node2D).visible = true
 		(puerta as Node2D).global_position = puerta_pos
 	# Relevo en multi (el trabajador se cayo y lo hereda quien este dentro): vuelven los mismos enemigos.
-	if Game.memoria_pisos.has(_piso_construido) and Net.pisos.simulo_mi_piso():
+	if Game.memoria_pisos.has(_piso_construido) and Net.pisos.simulo_el_piso_de(self):
 		call_deferred("_restaurar_estado")
 	print("[mazmorra] ARENA de pruebas: sala %dx%d celdas (piso de juego %d)" % [
 		ARENA_SALA.x, ARENA_SALA.y, _numero()])
@@ -1216,7 +1216,7 @@ func _colocar_boss() -> void:
 	# el rio, el musgo y el decorado del jefe la leen, y con este corte encima del marcado el espejo
 	# se quedaba sin sala del jefe, la metia en el sorteo del estanque y dibujaba OTRO mapa (playtest
 	# del 11/09/2026: agua, musgo y peces en sitios distintos para cada uno).
-	if not Net.pisos.simulo_mi_piso():
+	if not Net.pisos.simulo_el_piso_de(self):
 		return
 
 	# Si el piso se RESTAURA de memoria, el boss ya vendra con los demas enemigos: no duplicar.
@@ -2033,7 +2033,7 @@ func _repoblar_boss(delta: float) -> void:
 	_t_boss = RESPAWN_CHECK_CADA
 	# MULTIJUGADOR: lo planta el DUEÑO del piso, el mismo que lo coloca al construirlo. El que espeja
 	# lo vera aparecer por red.
-	if not Net.pisos.simulo_mi_piso() or not Game.boss_disponible(_piso_construido):
+	if not Net.pisos.simulo_el_piso_de(self) or not Game.boss_disponible(_piso_construido):
 		return
 	# ¿Ya hay uno de pie? Los cadaveres estan en el grupo "corpse", asi que basta con mirar "enemy".
 	for n in PisoVivo.nodos_de(self, "enemy"):
@@ -2451,7 +2451,7 @@ func _crear_zonas() -> void:
 	# Va tambien cuando el piso viene RECORDADO: los bichos restaurados necesitan su sprite igual.
 	_precalentar_sprites()
 
-	var simulo_bichos: bool = Net.pisos.simulo_mi_piso()
+	var simulo_bichos: bool = Net.pisos.simulo_el_piso_de(self)
 	if not recordado and simulo_bichos:
 		_poblar_el_piso(zona_entrada)
 
@@ -2745,7 +2745,7 @@ func hay_sitio(reciclar: bool = true, forzar: bool = false) -> bool:
 	# MULTIJUGADOR (hito 5.2): este es el embudo por el que pasan la poblacion inicial, el goteo y
 	# los brotes (SpawnZone._nacer pregunta aqui antes de crear nada). Solo crea bichos el DUEÑO
 	# del piso; el que solo lo espeja no crea ninguno en local (los ve por Net).
-	if not Net.pisos.simulo_mi_piso():
+	if not Net.pisos.simulo_el_piso_de(self):
 		return false
 	if _vivos_en_el_piso() < max_vivos():
 		return true
@@ -2980,7 +2980,7 @@ func _tintar_cadaveres() -> void:
 
 
 func _pudrir_cadaveres() -> void:
-	if not Net.pisos.simulo_mi_piso():
+	if not Net.pisos.simulo_el_piso_de(self):
 		return
 	for c in PisoVivo.nodos_de(self, "corpse"):
 		if not is_instance_valid(c) or c.has_meta("es_espejo"):
@@ -3088,7 +3088,7 @@ func dev_brote_cercano() -> void:
 # Devuelve el motivo cuando no se puede, para que el boton lo cante en pantalla: sin esto, pulsar y
 # que no pase nada era indistinguible de un bug.
 func dev_forzar_jefe() -> String:
-	if not Net.pisos.simulo_mi_piso():
+	if not Net.pisos.simulo_el_piso_de(self):
 		return "este piso lo simula el otro: que lo fuerce quien lo lleve"
 	if _boss_pos == Vector2.INF:
 		return "el piso %d no tiene jefe" % _piso_construido

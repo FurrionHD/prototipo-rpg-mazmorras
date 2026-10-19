@@ -98,7 +98,7 @@ func _rel_charco(lugar: String, snap: Dictionary) -> void:
 	if not Net.es_host:
 		return
 	var de := multiplayer.get_remote_sender_id()
-	if Net._mi_lugar == lugar and not Net._soy_dueno:
+	if PisoVivo.espejo_de(lugar):
 		_tick_charco(snap)
 	for peer_id in Net._peers:
 		if peer_id != de and Net._peers[peer_id].get("lugar", "") == lugar:
@@ -139,7 +139,7 @@ func _corcho_pesca(lugar: String, pos: Vector2, modo: int) -> void:
 # el agua --, cada uno miraba su propio sedal y el charco parecia vacio. El dueño sigue siendo el
 # unico que DECIDE (ver fishing_spot.corcho_de); los demas solo lo PINTAN.
 func _encaminar_corcho(de: int, lugar: String, pos: Vector2, modo: int) -> void:
-	if Net._mi_lugar == lugar and _charco != null and is_instance_valid(_charco):
+	if PisoVivo.lleva(lugar) and _charco != null and is_instance_valid(_charco):
 		_charco.corcho_de(de, pos, modo)
 	if not Net.es_host:
 		return
@@ -150,7 +150,7 @@ func _encaminar_corcho(de: int, lugar: String, pos: Vector2, modo: int) -> void:
 
 @rpc("authority", "call_remote", "unreliable_ordered")
 func _corcho_pesca_a(de: int, lugar: String, pos: Vector2, modo: int) -> void:
-	if Net._mi_lugar == lugar and _charco != null and is_instance_valid(_charco):
+	if PisoVivo.lleva(lugar) and _charco != null and is_instance_valid(_charco):
 		_charco.corcho_de(de, pos, modo)
 
 
@@ -214,7 +214,7 @@ func _fin_pesca(lugar: String, nonce: int, cobrado: bool) -> void:
 
 # SOLO host (o el propio host haciendose de pescador): el resultado va a quien simule ese piso.
 func _encaminar_fin_pesca(de: int, lugar: String, nonce: int, cobrado: bool) -> void:
-	if Net._mi_lugar == lugar and Net._soy_dueno and _charco != null and is_instance_valid(_charco):
+	if PisoVivo.dueno_de(lugar) and _charco != null and is_instance_valid(_charco):
 		_charco.resolver_pez_remoto(de, nonce, cobrado)
 		return
 	if not Net.es_host:
@@ -226,7 +226,7 @@ func _encaminar_fin_pesca(de: int, lugar: String, nonce: int, cobrado: bool) -> 
 
 @rpc("authority", "call_remote", "reliable")
 func _fin_pesca_a(de: int, lugar: String, nonce: int, cobrado: bool) -> void:
-	if Net._mi_lugar == lugar and Net._soy_dueno and _charco != null and is_instance_valid(_charco):
+	if PisoVivo.dueno_de(lugar) and _charco != null and is_instance_valid(_charco):
 		_charco.resolver_pez_remoto(de, nonce, cobrado)
 
 
