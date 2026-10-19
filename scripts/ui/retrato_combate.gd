@@ -95,11 +95,33 @@ static func _textura(tex: Texture2D, pixel: bool) -> TextureRect:
 # TU CARA SACADA DEL MUÑECO. Se monta un personaje de mentira con SOLO tu aspecto (piel, ojos, boca,
 # pelo y ropa) y nada de equipo: sin armadura ni casco ni arma, que en un cuadrado de 40 px taparian
 # justo lo que sirve para reconocerte. Y se encuadra la CABEZA, no el cuerpo entero.
-static func _cara_de_muneco(padre: Control, pj: PersonajeData) -> bool:
+# La ficha con la que se pinta la cara de 'pj': solo su aspecto (sin equipo), como la del muneco de la barra.
+static func _solo_de(pj: PersonajeData) -> PersonajeData:
 	var solo := PersonajeData.new()
 	solo.color = pj.color
 	solo.aspecto = PersonajeData.aspecto_nuevo(pj.color)
 	solo.aplicar_aspecto({"piezas": pj.aspecto_completo()["piezas"]})
+	return solo
+
+
+# DEJAR LISTA la cara de 'pj' para un cuadro de 'lado' ANTES de la pelea (optimizacion 1E, 19/10/2026): lo llama
+# Game.precalentar_pelea mientras la pantalla de carga tapa el piso. La primera pelea de la sesion montaba aqui un
+# muneco vivo y empezaba a hornear su cara: ~45 ms en el fotograma de abrirla. La foto (si la tiene) se decodifica.
+static func precalentar(pj: PersonajeData, lado: float) -> void:
+	if pj == null:
+		return
+	if not pj.imagen.is_empty():
+		pj.textura()
+		return
+	var solo: PersonajeData = _solo_de(pj)
+	var modo: String = "cara%d" % roundi(lado)
+	if RetratoHorneado.de_modo(solo, modo).is_empty():
+		RetratoHorneado.pedir_modo(solo, modo, Vector2(lado, lado), 1,
+			func(mu: MunecoJugador, tam: Vector2) -> void: colocar_cara(mu, tam))
+
+
+static func _cara_de_muneco(padre: Control, pj: PersonajeData) -> bool:
+	var solo: PersonajeData = _solo_de(pj)
 	# HORNEADA si ya lo esta (1D, 16/10: ver RetratoHorneado). Montar el muneco eran ~3 ms por aliado, al entrar en
 	# cada pelea. Quieta (un marco), como la viva.
 	var lado: float = minf(padre.size.x, padre.size.y)

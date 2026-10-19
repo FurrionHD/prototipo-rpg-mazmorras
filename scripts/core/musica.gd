@@ -248,6 +248,13 @@ func _siguiente_pista(contexto: String) -> AudioStream:
 	return lista[i]
 
 
+# Cargar YA las pistas de estos contextos (optimizacion 1E, 19/10/2026): la primera pelea de la sesion las leia todas
+# al apilar la musica de pelea (~37 ms en el fotograma de abrirla). Lo llama Game.precalentar_pelea tras la carga.
+func precargar(contextos: Array) -> void:
+	for c in contextos:
+		_lista(String(c))
+
+
 func _lista(contexto: String) -> Array:
 	if _listas.has(contexto):
 		return _listas[contexto]

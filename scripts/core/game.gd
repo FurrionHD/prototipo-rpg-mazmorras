@@ -15557,6 +15557,18 @@ func aguante_para_combate(pj: PersonajeData) -> Vector2:
 	return Vector2(-1.0, -1.0)
 
 
+# LO QUE LA PRIMERA PELEA DE LA SESION PAGABA AL ABRIRSE, adelantado a la carga del piso (optimizacion 1E, 19/10/2026),
+# que va tapada por la pantalla de carga: la musica de pelea y de jefe (~37 ms) y las caras del grupo en la barra de
+# turnos (~45 ms, ver RetratoCombate.precalentar). Si ya esta hecho, no cuesta nada.
+const _RETRATO_COMBATE := preload("res://scripts/ui/retrato_combate.gd")
+const _TURN_TIMELINE := preload("res://scripts/ui/turn_timeline.gd")
+
+func precalentar_pelea() -> void:
+	Musica.precargar(["combate", "jefe"])
+	for pj in party:
+		_RETRATO_COMBATE.precalentar(pj, _TURN_TIMELINE.RADIO * 2.0)
+
+
 func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array) -> bool:
 	if not _active_enemies.is_empty() or enemy_nodes.is_empty():
 		return false  # ya hay un combate o faltan datos

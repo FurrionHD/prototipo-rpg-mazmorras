@@ -396,6 +396,7 @@ func _ready() -> void:
 		return
 
 	_construir()
+	Game.precalentar_pelea()  # lo que pagaba la primera pelea, ahora tapado por la pantalla de carga
 	Cargando.piso_montado()   # la pantalla de carga se va cuando el piso va fluido (ver Cargando)
 
 
