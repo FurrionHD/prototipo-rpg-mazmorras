@@ -39,13 +39,14 @@ func _correr() -> void:
 	if ref is SaveData:
 		Game.importar_partida(ref)
 	Game.semilla_mundo = 4016831469
-	Game.current_floor = _arg("--piso", 1)
-	get_tree().change_scene_to_file("res://scenes/levels/main.tscn")
+	var n_piso: int = _arg("--piso", 1)   # -1 = el pueblo (town.tscn)
+	Game.current_floor = maxi(0, n_piso)
+	get_tree().change_scene_to_file("res://scenes/levels/town.tscn" if n_piso < 0 else "res://scenes/levels/main.tscn")
 	var piso: Node = null
 	var jugador: Node2D = null
 	for i in 900:
 		await get_tree().process_frame
-		piso = get_tree().get_first_node_in_group("dungeon_floor")
+		piso = get_tree().get_first_node_in_group("dungeon_floor") if n_piso >= 0 else get_tree().current_scene
 		jugador = get_tree().get_first_node_in_group("player") as Node2D
 		if piso != null and jugador != null and not get_tree().paused:
 			break
