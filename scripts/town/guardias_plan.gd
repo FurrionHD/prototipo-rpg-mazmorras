@@ -87,7 +87,7 @@ static func _evaluar(tr: Dictionary, tau: float) -> Dictionary:
 	var ruta: PackedVector2Array = tr["ruta"]
 	var dur: float = float(tr["t1"]) - float(tr["t0"])
 	var u: float = clampf((tau - float(tr["t0"])) / maxf(dur, 0.001), 0.0, 1.0)
-	var r: Array = _punto_en(ruta, u * _largo(ruta))
+	var r: Array = _punto_en(ruta, u * float(tr.get("largo", _largo(ruta))))
 	out["pos"] = r[0]
 	out["mira"] = r[1]
 	out["moviendose"] = true
@@ -102,7 +102,7 @@ static var _lineas: Dictionary = {}
 # Los tramos del guardia 'g' en un cambio de turno: si 'entra', los de entrar de guardia; si no, los
 # de ser relevado. Contados desde el cambio. Se calculan una vez (las rutas no cambian).
 static func linea(g: int, entra: bool) -> Array:
-	var clave: String = "%d_%s" % [g, entra]
+	var clave: int = g * 2 + int(entra)   # numero y no texto: se pide en cada fotograma (optimizacion 1E, 19/10)
 	if not _lineas.has(clave):
 		_lineas[clave] = _linea_entra(g) if entra else _linea_sale(g)
 	return _lineas[clave]
@@ -183,8 +183,10 @@ static func _relevo(g: int) -> Dictionary:
 
 # Añade el tramo de andar 'ruta' desde 't' y devuelve la hora a la que se acaba.
 static func _anda(out: Array, t: float, r: PackedVector2Array, armado: bool) -> float:
-	var dur: float = _largo(r) / VELOCIDAD
-	out.append({"t0": t, "t1": t + dur, "tipo": Tipo.ANDA, "armado": armado, "ruta": r})
+	var largo: float = _largo(r)
+	var dur: float = largo / VELOCIDAD
+	# El largo va guardado: estado() lo pedia en cada fotograma por cada guardia que anda (optimizacion 1E, 19/10).
+	out.append({"t0": t, "t1": t + dur, "tipo": Tipo.ANDA, "armado": armado, "ruta": r, "largo": largo})
 	return t + dur
 
 

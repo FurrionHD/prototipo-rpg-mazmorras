@@ -112,8 +112,15 @@ func _process(delta: float) -> void:
 	var objetivo: float = 1.0 if siempre else CicloDia.luces(retraso)
 	# Encender o apagar lleva ~0.6 s aunque la hora salte de golpe (el panel de debug).
 	var k: float = move_toward(_encendida, objetivo, delta / 0.6)
-	_aplicar(k, false)
-	_vigilar_sonido()
+	# SOLO SI CAMBIA (optimizacion 1E, 19/10/2026): de dia esta apagada fija y de noche encendida fija; ponerle la llama,
+	# las chispas y el volumen en cada fotograma, a las 48 del pueblo, era trabajo para nada. Solo cambia en el fundido.
+	if k != _encendida:
+		_aplicar(k, false)
+	# Y el sonido, cada SONIDO_CADA fotogramas (cada una en el suyo): acercarse o alejarse no va a fotograma.
+	_sonido_cuenta -= 1
+	if _sonido_cuenta <= 0:
+		_sonido_cuenta = SONIDO_CADA
+		_vigilar_sonido()
 	if _encendida <= 0.0:
 		return
 	_hasta_rafaga -= delta
@@ -126,6 +133,8 @@ func _process(delta: float) -> void:
 
 # Margen sobre el alcance: arranca un poco antes de que se le pueda oir, para no empezar de golpe ya dentro.
 const MARGEN_SONIDO := 64.0
+const SONIDO_CADA := 6
+var _sonido_cuenta: int = randi() % SONIDO_CADA
 var _alcance: float = 180.0
 
 func _vigilar_sonido() -> void:
