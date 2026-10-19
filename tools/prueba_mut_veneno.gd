@@ -85,7 +85,10 @@ func _correr() -> void:
 
 	print("1) acido en la piel: le pegas cuerpo a cuerpo")
 	var cu_a: Node2D = tm.cuerpo_de(al)
-	cu_a.global_position = cu_e.global_position + Vector2(-34, 0)
+	# Pegado a su posicion en el TABLERO (tm._pos), que es con la que se mide el cuerpo a cuerpo, y no a su figura: la
+	# pelea sigue corriendo y, con el PC cargado (la bateria entera), la figura podia ir a mitad de un paso y el acido
+	# lo veia lejos (fallo 1 vez de 4 el 19/10).
+	cu_a.global_position = (tm._pos[e] as Vector2) + Vector2(-34, 0)
 	tm._pos[al] = cu_a.global_position
 	e.acido_prob = 1.0
 	al.status_resist = 0.0
