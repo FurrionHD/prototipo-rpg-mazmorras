@@ -88,6 +88,20 @@ func _correr() -> void:
 		_ver(lista.all(func(n): return is_instance_valid(n)), "en el mismo fotograma, la lista ya no lo trae")
 		bicho._aliado_mas_cercano()
 		bicho._excluir_del_rayo()
+		# Y LA DE LOS ENEMIGOS (optimizacion 1E, 19/10): uno pegado al bicho entra en la lista compartida, se libera en
+		# ese mismo fotograma y la separacion y la manada no petan (el lanzador da MAL con un SCRIPT ERROR).
+		var otro: Node2D = null
+		for e in get_tree().get_nodes_in_group("enemy"):
+			if e != bicho and is_instance_valid(e) and e.has_method("_aliados"):
+				otro = e
+		_ver(otro != null, "hay otro enemigo")
+		if otro != null:
+			await get_tree().physics_frame
+			otro.global_position = (bicho as Node2D).global_position + Vector2(4, 0)
+			_ver(bicho._enemigos().has(otro), "el otro enemigo esta en la lista compartida de enemigos")
+			otro.free()
+			bicho._separacion()
+			bicho._companeros_de_manada()
 
 	print("4) las hojas de los enemigos del piso no se sueltan al acabar de montarlo")
 	# precalentar las cargaba y Game._soltar_hojas_sin_usar (que corre DESPUES de montarse el piso) las soltaba en el acto

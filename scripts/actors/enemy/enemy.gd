@@ -798,9 +798,15 @@ func _physics_process(delta: float) -> void:
 	if _state != State.EMBESTIDA and _state != State.COMER and not _winding and comer.mirar(delta):
 		_state = State.COMER
 
-	# Si no estamos ya persiguiendo (ni embistiendo, ni comiendo), miramos si vemos u oimos a alguno.
+	# Si no estamos ya persiguiendo (ni embistiendo, ni comiendo), miramos si vemos u oimos a alguno. A DETECTAR_HZ y
+	# no en cada fotograma (optimizacion 1E, 19/10/2026): es lo que hacen TODOS los quietos y rondando del piso, y
+	# mirar 15 veces por segundo solo retrasa como mucho ~66 ms que te vean. Cada bicho empieza en un punto distinto
+	# del reloj (_ready) para que no miren todos en el mismo fotograma.
 	if _state != State.CHASE and _state != State.EMBESTIDA and _state != State.COMER:
-		_try_detect()
+		_detectar_t -= delta
+		if _detectar_t <= 0.0:
+			_detectar_t += 1.0 / DETECTAR_HZ
+			_try_detect()
 
 	# La memoria del lado por el que viene rodeando se gasta sola. Cada frame que la sonda vuelve a
 	# encontrar pared la recarga (ver _direccion_esquivando), asi que solo caduca cuando de verdad
@@ -965,6 +971,9 @@ func _desatascar_bordeando() -> void:
 # Comprueba si VE (cono) u OYE (ruido) a ALGUIEN del grupo. Si si, va a por EL que lo delato (no
 # a por el lider): cada miembro se delata por su cuenta, con su propio ruido y su propia posicion.
 # Por eso mandar al que va en cabeza por un lado no protege al que se queda detras a la vista.
+const DETECTAR_HZ := 15.0
+var _detectar_t: float = randf() / DETECTAR_HZ
+
 func _try_detect() -> void:
 	for aliado in _aliados():
 		if _detecta_a(aliado):
@@ -1160,13 +1169,27 @@ const SONDA_MIN := 34.0        # lo que mira por delante como minimo (poco mas d
 const SONDA_SEG := 0.45        # ...o lo que recorreria en este tiempo, si va mas rapido
 const DESVIO_MEMORIA := 1.0    # cuanto dura el compromiso con un lado tras despejarse el camino
 
+# CAMINO DESPEJADO, RECORDADO (optimizacion 1E, 19/10/2026): con el camino libre (lo normal) eran 3 rayos por bicho y
+# fotograma. Si hace menos de DESPEJADO_FOTOGRAMAS (0,1 s) estaba libre en casi la misma direccion, sigue libre: la
+# sonda mira ~0,45 s por delante, asi que una respuesta de hace 0,1 s aun cubre de sobra. Con pared se mira siempre.
+const DESPEJADO_FOTOGRAMAS := 6
+const DESPEJADO_COS := 0.985   # ~10 grados
+var _despejado_frame: int = -1000
+var _despejado_dir: Vector2 = Vector2.ZERO
+
 func _direccion_esquivando(hacia: Vector2) -> Vector2:
 	if hacia.length_squared() < 0.0001:
 		return hacia
 	var dir: Vector2 = hacia.normalized()
+	var f: int = Engine.get_physics_frames()
+	if f - _despejado_frame < DESPEJADO_FOTOGRAMAS and dir.dot(_despejado_dir) >= DESPEJADO_COS:
+		return dir
 	var sonda: float = maxf(SONDA_MIN, current_move_speed * SONDA_SEG)
 	if _cabe_por(dir, sonda):
+		_despejado_frame = f
+		_despejado_dir = dir
 		return dir
+	_despejado_frame = -1000
 	# Bloqueado: se recarga la memoria (mientras haya pared delante, el compromiso no caduca).
 	var comprometido: bool = _lado_desvio != 0 and _desvio_t > 0.0
 	_desvio_t = DESVIO_MEMORIA
@@ -2092,17 +2115,37 @@ var _migrando: bool = false
 
 # Empujon (vector normalizado, o casi) que lo aparta de los bichos que tenga ENCIMA. Cuanto mas
 # pegado, mas fuerte empuja; a partir de SEPARACION_MIN, cero. Ver el bloque de arriba.
+# LOS ENEMIGOS DEL PISO, SIN ESPEJOS: UNA lista para todos y UNA vez por fotograma de fisica (optimizacion 1E,
+# 19/10/2026). Cada bicho pedia al arbol la lista entera (una copia nueva) para separarse de los demas y otra para su
+# manada, en cada fotograma: con 23 persiguiendo, 46 listas. Los ESPEJOS no cuentan para NADA de la IA (separacion,
+# manadas, refuerzos): son el dibujo de la simulacion de otra maquina, no compañeros mios, y no cumplen medio contrato
+# del grupo (ver remote_enemy). Quien la use solo la RECORRE y mira is_instance_valid: al cambiar de escena se libera
+# todo de golpe dentro del mismo fotograma de fisica (ver _aliados).
+static var _enemigos_lista: Array[Node2D] = []
+static var _enemigos_frame: int = -1
+
+func _enemigos() -> Array[Node2D]:
+	var f: int = Engine.get_physics_frames()
+	if f == _enemigos_frame:
+		return _enemigos_lista
+	_enemigos_frame = f
+	var out: Array[Node2D] = []
+	for n in get_tree().get_nodes_in_group("enemy"):
+		if is_instance_valid(n) and n is Node2D and not n.has_meta("es_espejo"):
+			out.append(n as Node2D)
+	_enemigos_lista = out
+	return out
+
+
 func _separacion() -> Vector2:
 	var out: Vector2 = Vector2.ZERO
-	for n in get_tree().get_nodes_in_group("enemy"):
-		# Los ESPEJOS no cuentan para NADA de la IA (separacion, manadas, refuerzos): son el dibujo
-		# de la simulacion de otra maquina, no compañeros mios. Ademas no cumplen medio contrato del
-		# grupo, asi que preguntarles revienta (ver remote_enemy).
+	var min2: float = SEPARACION_MIN * SEPARACION_MIN
+	for n in _enemigos():
 		if n == self or not is_instance_valid(n):
 			continue
-		var d: Vector2 = global_position - (n as Node2D).global_position
-		# Lejos primero (sin raiz cuadrada) y el meta despues: casi todos los del piso estan lejos (1B, 16/10).
-		if d.length_squared() >= SEPARACION_MIN * SEPARACION_MIN or n.has_meta("es_espejo"):
+		var d: Vector2 = global_position - n.global_position
+		# Lejos primero (sin raiz cuadrada): casi todos los del piso estan lejos (1B, 16/10).
+		if d.length_squared() >= min2:
 			continue
 		var dist: float = d.length()
 		if dist < 0.01:
@@ -2120,8 +2163,8 @@ func _separacion() -> Vector2:
 # lo que usa para saber si aun le falta compañia y tiene que mudarse a otra sala.
 func _companeros_de_manada() -> Array:
 	var out: Array = []
-	for n in get_tree().get_nodes_in_group("enemy"):
-		if n == self or not is_instance_valid(n) or n.has_meta("es_espejo"):
+	for n in _enemigos():
+		if n == self or not is_instance_valid(n):
 			continue
 		if n.esta_muerto() or n._combat_triggered:
 			continue
@@ -2175,8 +2218,8 @@ func _corro_al_que_unirse():
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	var mejor = null
 	var best: float = INF
-	for n in get_tree().get_nodes_in_group("enemy"):
-		if n == self or not is_instance_valid(n) or n.has_meta("es_espejo"):
+	for n in _enemigos():
+		if n == self or not is_instance_valid(n):
 			continue
 		if n.esta_muerto() or n._combat_triggered:
 			continue
