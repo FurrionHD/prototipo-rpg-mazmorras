@@ -179,9 +179,17 @@ func ojos_en_mundo() -> Array:
 # ============================================================
 # Deja el muñeco con las capas que le tocan a este personaje. Se puede llamar las veces que haga
 # falta (al cambiar de arma, al equiparse un peto): reaprovecha los nodos que siguen valiendo.
+# HOJAS FIJAS (optimizacion 1E, 19/10/2026): las de este muneco no se sueltan al cambiar de escena (ver
+# CapaJugador.fijar). La ponen los guardias y los vendedores del pueblo: sus hojas se soltaban al bajar a la mazmorra y
+# volver al pueblo era recargarlas todas (~180 ms de los ~365). Cuesta ~65 MB de memoria grafica fijos (decidido el 19/10).
+var hojas_fijas: bool = false
+
 func montar(pj: PersonajeData) -> void:
 	_pj = pj
 	var quiere: Array = JugadorSprites.capas_de(pj)
+	if hojas_fijas:
+		for c in quiere:
+			CapaJugador.fijar(c.get("frames") as SpriteFrames)
 	# LA HERRAMIENTA DE LA FAENA, al final (ver poner_herramienta): va en la mano y se ordena por
 	# profundidad como un arma mas.
 	if not _herramienta.is_empty():

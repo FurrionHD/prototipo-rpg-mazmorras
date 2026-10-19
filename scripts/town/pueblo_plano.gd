@@ -501,7 +501,17 @@ const CAJA_ADORNO := {
 const ADORNO_APOYO := 20.0
 const VERJA_GROSOR := 6.0
 
+# RECORDADO (optimizacion 1E, 19/10/2026): el plano es fijo y esto se recalculaba en cada visita al pueblo. Quien lo
+# pida solo lo RECORRE (no lo cambies: es la misma lista para todos).
+static var _cajas_pequenas_hecho: Array[Rect2] = []
+
 static func cajas_pequenas() -> Array[Rect2]:
+	if _cajas_pequenas_hecho.is_empty():
+		_cajas_pequenas_hecho = _cajas_pequenas_calculado()
+	return _cajas_pequenas_hecho
+
+
+static func _cajas_pequenas_calculado() -> Array[Rect2]:
 	var out: Array[Rect2] = []
 	var cel: float = float(CELDA)
 	for a in adornos():
@@ -552,7 +562,17 @@ static func cajas_pequenas() -> Array[Rect2]:
 
 # Rectangulos de choque FUNDIDOS (tiras horizontales unidas hacia abajo), como hace la mazmorra con
 # sus muros: un par de centenares de cajas en vez de mil y pico.
+# RECORDADO (optimizacion 1E, 19/10/2026): el plano es fijo y esto se recalculaba en cada visita al pueblo. Quien lo
+# pida solo lo RECORRE (no lo cambies: es la misma lista para todos).
+static var _solidos_fusionados_hecho: Array[Rect2i] = []
+
 static func solidos_fusionados() -> Array[Rect2i]:
+	if _solidos_fusionados_hecho.is_empty():
+		_solidos_fusionados_hecho = _solidos_fusionados_calculado()
+	return _solidos_fusionados_hecho
+
+
+static func _solidos_fusionados_calculado() -> Array[Rect2i]:
 	var usado := {}
 	var out: Array[Rect2i] = []
 	for y in ALTO:

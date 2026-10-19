@@ -52,6 +52,7 @@ func _ready() -> void:
 	_pj_paisano = paisano(indice)
 	_pj_armado = armado(indice)
 	_muneco = MunecoJugador.new()
+	_muneco.hojas_fijas = true   # sus hojas no se sueltan al irte del pueblo (ver MunecoJugador)
 	add_child(_muneco)
 	_muneco.z_index = Game.Z_PERSONAJES
 	var cuerpo := StaticBody2D.new()

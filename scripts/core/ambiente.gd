@@ -229,7 +229,9 @@ func _sueltos_de(contexto: String) -> Array:
 
 # Cuelga un bucle de 'nodo' y lo devuelve. Quien lo pide no tiene que apagarlo: al morir el nodo
 # se va con el. 'distancia' es a cuantos pixeles deja de oirse.
-func pegar(nodo: Node2D, clave: String, db: float = -14.0, distancia: float = 220.0) -> AudioStreamPlayer2D:
+# 'arrancar' = false: se pega sin sonar y lo arranca quien lo lleva cuando haga falta (la antorcha, al acercarte y
+# encendida: ver Antorcha._vigilar_sonido).
+func pegar(nodo: Node2D, clave: String, db: float = -14.0, distancia: float = 220.0, arrancar: bool = true) -> AudioStreamPlayer2D:
 	if nodo == null:
 		return null
 	var s: AudioStream = _una_version("bucle_" + clave)
@@ -248,7 +250,8 @@ func pegar(nodo: Node2D, clave: String, db: float = -14.0, distancia: float = 22
 	# Cada uno arranca por un sitio distinto del bucle: si no, dos antorchas en la misma sala
 	# chisporrotean a la vez y se oye el eco de un solo fuego, no dos.
 	nodo.add_child(p)
-	p.play(randf() * maxf(0.1, s.get_length()))
+	if arrancar:
+		p.play(randf() * maxf(0.1, s.get_length()))
 	return p
 
 

@@ -170,6 +170,22 @@ func _pintar_suelo() -> void:
 		tml.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		_suelo.add_child(tml)
 		_tm[capa] = tml
+	# DE LA SEGUNDA VISITA EN ADELANTE, COPIADO (optimizacion 1E, 19/10/2026): el plano es fijo y las baldosas solo
+	# dependen de la casilla, pero se recalculaban celda a celda con sus mascaras de borde en cada vuelta (~34 ms).
+	# La primera vez se guarda lo que ha salido en cada capa y despues se pega entero (tools/prueba_pueblo_suelo).
+	if not _suelo_hecho.is_empty():
+		for capa in PuebloTerreno.CAPAS_ORDEN:
+			(_tm[capa] as TileMapLayer).tile_map_data = _suelo_hecho.get(capa, PackedByteArray())
+		return
+	_calcular_suelo()
+	for capa in PuebloTerreno.CAPAS_ORDEN:
+		_suelo_hecho[capa] = (_tm[capa] as TileMapLayer).tile_map_data
+
+
+static var _suelo_hecho: Dictionary = {}   # capa -> tile_map_data de la primera visita
+
+
+func _calcular_suelo() -> void:
 	var S := PuebloPlano.Suelo
 	var es := func(tipos: Array) -> Callable:
 		return func(v: Vector2i) -> bool: return tipos.has(PuebloPlano.suelo(v))

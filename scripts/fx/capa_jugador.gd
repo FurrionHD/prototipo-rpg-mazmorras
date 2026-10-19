@@ -51,6 +51,14 @@ static var _cache_plantillas: Dictionary = {}
 static var _cache: Dictionary = {}
 # Lo leido de disco. Un null cacheado significa "ya se miro y no estaba", para no volver a mirar.
 static var _horneado: Dictionary = {}
+# Las que NO se sueltan nunca (MunecoJugador.hojas_fijas): tenerlas aqui les sube la cuenta de referencias, y
+# SpriteLienzo.soltar_sin_usar solo suelta las que nadie mas tiene.
+static var _fijas: Array[SpriteFrames] = []
+
+
+static func fijar(sf: SpriteFrames) -> void:
+	if sf != null and not _fijas.has(sf):
+		_fijas.append(sf)
 
 
 # ============================================================

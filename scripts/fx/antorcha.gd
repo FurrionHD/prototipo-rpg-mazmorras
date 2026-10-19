@@ -98,7 +98,11 @@ func _ready() -> void:
 	# EL SONIDO: el mismo chisporroteo que el farolillo (lo pidio el usuario), pegado al fuego. Se oye
 	# al acercarte; el brasero, algo mas fuerte y de mas lejos. Apagada, en silencio.
 	_volumen = -12.0 if brasero else -17.0
-	_sonido = Ambiente.pegar(self, "antorcha", _volumen, 260.0 if brasero else 180.0)
+	# SOLO SUENA ENCENDIDA Y A TU ALCANCE (optimizacion 1E, 19/10/2026): antes sonaban TODAS siempre (de dia a -60 dB y
+	# en la otra punta del pueblo): ~48 OGG decodificandose a la vez, y arrancarlos al llegar eran ~17 ms. Se oye igual:
+	# arranca al acercarte, en un punto al azar del bucle como antes (ver _vigilar_sonido).
+	_alcance = 260.0 if brasero else 180.0
+	_sonido = Ambiente.pegar(self, "antorcha", _volumen, _alcance, false)
 
 	_hasta_rafaga = _rng.randf_range(1.0, 8.0)
 	_aplicar(1.0 if siempre else CicloDia.luces(retraso), true)
@@ -109,6 +113,7 @@ func _process(delta: float) -> void:
 	# Encender o apagar lleva ~0.6 s aunque la hora salte de golpe (el panel de debug).
 	var k: float = move_toward(_encendida, objetivo, delta / 0.6)
 	_aplicar(k, false)
+	_vigilar_sonido()
 	if _encendida <= 0.0:
 		return
 	_hasta_rafaga -= delta
@@ -117,6 +122,23 @@ func _process(delta: float) -> void:
 	if _hasta_rafaga <= 0.0:
 		_hasta_rafaga = _rng.randf_range(3.0, 9.0)
 		_rafaga.restart()
+
+
+# Margen sobre el alcance: arranca un poco antes de que se le pueda oir, para no empezar de golpe ya dentro.
+const MARGEN_SONIDO := 64.0
+var _alcance: float = 180.0
+
+func _vigilar_sonido() -> void:
+	if _sonido == null or not is_instance_valid(_sonido) or Ambiente._pausado:
+		return
+	var cerca: bool = _encendida > 0.0
+	if cerca:
+		var cam: Camera2D = get_viewport().get_camera_2d()
+		cerca = cam == null or global_position.distance_to(cam.get_screen_center_position()) <= _alcance + MARGEN_SONIDO
+	if cerca and not _sonido.playing:
+		_sonido.play(_rng.randf() * maxf(0.1, _sonido.stream.get_length()))
+	elif not cerca and _sonido.playing:
+		_sonido.stop()
 
 
 func _aplicar(k: float, inicio: bool) -> void:

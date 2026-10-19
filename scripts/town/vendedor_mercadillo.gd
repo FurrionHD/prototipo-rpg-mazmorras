@@ -61,6 +61,7 @@ func _ready() -> void:
 	_vista.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	add_child(_vista)
 	_muneco = MunecoJugador.new()
+	_muneco.hojas_fijas = true   # sus hojas no se sueltan al irte del pueblo (ver MunecoJugador)
 	_vista.add_child(_muneco)
 	_muneco.montar(_pj)
 	_muneco.tenir(_pj.color, 0.0)
@@ -72,6 +73,7 @@ func _ready() -> void:
 	_calle.name = "Calle"
 	add_child(_calle)
 	_muneco_calle = MunecoJugador.new()
+	_muneco_calle.hojas_fijas = true   # sus hojas no se sueltan al irte del pueblo (ver MunecoJugador)
 	_calle.add_child(_muneco_calle)
 	_muneco_calle.z_index = Game.Z_PERSONAJES
 	_muneco_calle.montar(_pj)
