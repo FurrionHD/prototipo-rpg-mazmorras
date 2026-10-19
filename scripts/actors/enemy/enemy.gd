@@ -1040,8 +1040,16 @@ static var _aliados_frame: int = -1
 
 func _aliados() -> Array[Node2D]:
 	var f: int = Engine.get_physics_frames()
+	# OJO, AL CAMBIAR DE ESCENA la vieja se libera de golpe y los bichos de la nueva nacen en el MISMO fotograma de
+	# fisica: la lista era la del piso de antes, con el grupo ya liberado (bajar de un piso a otro). Se mira que sigan.
 	if f == _aliados_frame:
-		return _aliados_lista
+		var vivos: bool = true
+		for n in _aliados_lista:
+			if not is_instance_valid(n):
+				vivos = false
+				break
+		if vivos:
+			return _aliados_lista
 	_aliados_frame = f
 	var out: Array[Node2D] = []
 	for n in get_tree().get_nodes_in_group("aliado"):
