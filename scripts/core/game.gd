@@ -6396,6 +6396,29 @@ func _soltar_hojas_sin_usar() -> void:
 # MAX_BANDAS aunque el pueblo tenga cien vecinos. Los de otras ventanas (el creador, el menu de personaje) ni se tocan.
 const MARGEN_BANDAS := 200.0
 
+# LAS PIEZAS DEL PUEBLO NO SE MUEVEN (optimizacion 1E, 19/10/2026): su linea de suelo y su rectangulo se apuntan UNA
+# vez y cada fotograma solo se mira cuales caen en la vista. Antes eran ~185 piezas con cuatro preguntas cada una en
+# cada fotograma (visible, viewport, capa, rectangulo). Se rehace si cambia la escena o cuantas hay (las cañas del
+# muelle se recolocan con la semilla). OJO: si algun dia una pieza se mueve despues de nacer, que lo diga aqui.
+var _piezas_cache: Array = []   # [linea_suelo, pieza, orden, rect_global]
+var _piezas_firma: Array = [0, -1]   # [escena, cuantas]
+
+func _piezas_ordenables(vp: Viewport) -> Array:
+	var escena: Node = get_tree().current_scene
+	var firma: Array = [escena.get_instance_id() if escena != null else 0,
+		get_tree().get_node_count_in_group(PiezaPueblo.GRUPO)]
+	if firma == _piezas_firma:
+		return _piezas_cache
+	_piezas_firma = firma
+	_piezas_cache = []
+	for n in get_tree().get_nodes_in_group(PiezaPueblo.GRUPO):
+		var p := n as PiezaPueblo
+		if p == null or p.get_viewport() != vp or p.get_canvas_layer_node() != null:
+			continue
+		_piezas_cache.append([p.linea_suelo(), p, p.orden, p.rect_global()])
+	return _piezas_cache
+
+
 func _ordenar_munecos() -> void:
 	var vp: Viewport = get_viewport()
 	var vista: Rect2 = vp.get_canvas_transform().affine_inverse() * vp.get_visible_rect()
@@ -6421,12 +6444,10 @@ func _ordenar_munecos() -> void:
 			lista.append([Cuerpos.caja_de(e).get_center().y, e, e.get_instance_id()])
 	# LAS PIEZAS DEL PUEBLO TAMBIEN (12/10, C2 del playtest 11/10): la farola, el puesto, la casa... por la linea de
 	# su suelo. Antes tenian una sola z para todos y con uno delante y otro detras tapaban al de delante.
-	for n in get_tree().get_nodes_in_group(PiezaPueblo.GRUPO):
-		var p := n as PiezaPueblo
-		if p == null or not p.is_visible_in_tree() or p.get_viewport() != vp or p.get_canvas_layer_node() != null:
-			continue
-		if vista.intersects(p.rect_global()):
-			lista.append([p.linea_suelo(), p, p.orden])
+	for e in _piezas_ordenables(vp):
+		var p: PiezaPueblo = e[1]
+		if vista.intersects(e[3]) and is_instance_valid(p) and p.is_visible_in_tree():
+			lista.append([e[0], p, e[2]])
 	# A la misma altura desempata algo fijo (si no, el orden bailaria de un fotograma a otro y parpadearian). Las
 	# piezas, por el orden en que se crearon (el frente del puesto encima del vendedor y este encima del puesto).
 	lista.sort_custom(func(a: Array, b: Array) -> bool:
