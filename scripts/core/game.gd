@@ -1279,6 +1279,10 @@ func _log_forma_arena(gen: DungeonGenerator, forma: Dictionary, dentro: Array, q
 	var piezas: Array = ArenaCalculo.trozos(rect, mascara)
 	print("[zona] ---- pelea en el piso %d: rect %s, %d celdas, %d trozo(s)%s" % [current_floor, rect,
 			ArenaCalculo.celdas_de(rect, mascara), piezas.size(), "  <<< TROZOS SEPARADOS" if piezas.size() > 1 else ""])
+	# EL DETALLE (la traza, quien es cada punto y el dibujo, ~40 lineas) SOLO EN EL CASO MALO (optimizacion 1E, 19/10/2026):
+	# escribirlo en cada pelea eran 8-11 ms de los ~40 que cuesta abrirla. Lo que se buscaba son los trozos separados.
+	if piezas.size() <= 1:
+		return
 	for k in dentro.size():
 		print("[zona] punto %d = %s" % [k, quien[k] if k < quien.size() else "?"])
 	for l in ArenaCalculo.traza:

@@ -343,12 +343,20 @@ func _crear_estados_dev() -> void:
 	toggle.custom_minimum_size = Vector2(36, 28)
 	toggle.focus_mode = Control.FOCUS_NONE
 	toggle.tooltip_text = "Panel de pruebas de estados (dev)"
-	toggle.toggled.connect(func(on: bool): _estados_panel.visible = on)
+	# EL PANEL SE MONTA AL ABRIRLO la primera vez (optimizacion 1E, 19/10/2026): con sus 31 estados eran ~12 ms en
+	# CADA pelea, para una herramienta que arranca cerrada y casi nunca se abre.
+	toggle.toggled.connect(func(on: bool) -> void:
+		if on and _estados_panel == null:
+			_montar_panel_estados()
+		if _estados_panel != null:
+			_estados_panel.visible = on)
 	if _pantalla.montaje._log_fila != null and is_instance_valid(_pantalla.montaje._log_fila):
 		_pantalla.montaje._log_fila.add_child(toggle)
 	else:
 		_pantalla.add_child(toggle)
 
+
+func _montar_panel_estados() -> void:
 	# Panel anclado ABAJO-izda; crece hacia ARRIBA (encima del toggle).
 	_estados_panel = PanelContainer.new()
 	_estados_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)

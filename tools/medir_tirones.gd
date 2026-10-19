@@ -1,7 +1,7 @@
 # ============================================================
 #  MEDIR LOS TIRONES (plan de optimizacion, fase 1E): los fotogramas SUELTOS que se alargan, que son lo que se nota
 #  aunque el fotograma normal vaya sobrado (ver medir_dibujo). Con ventana y sin vsync, con la partida de referencia:
-#    1) cargar el pueblo;  2) bajar a un piso;  3) abrir una pelea con el enemigo mas cercano.
+#    1) cargar el pueblo;  2) bajar a un piso y volver;  3) abrir tres peleas seguidas con el enemigo mas cercano.
 #  De cada cosa: lo que tarda la llamada, el fotograma mas largo de despues y los que pasan de 20 ms.
 #    godot --path . res://tools/medir_tirones.tscn -- --piso 8 > salida.txt
 # OJO: la salida a un FICHERO, nunca por una tuberia (ver medir_fotograma.gd).
@@ -62,21 +62,45 @@ func _correr() -> void:
 	await _tramo("bajar al piso %d (3a vez)" % Game.current_floor,
 		func(): get_tree().change_scene_to_file("res://scenes/levels/main.tscn"), _hay_jugador)
 	await _reposo(60)
-	# 3) UNA PELEA
-	var jugador: Node2D = get_tree().get_first_node_in_group("player") as Node2D
-	var presa: Node = null
-	var mejor: float = INF
-	for e in get_tree().get_nodes_in_group("enemy"):
-		if is_instance_valid(e) and e.has_method("esta_muerto") and not e.esta_muerto():
-			var d: float = (e as Node2D).global_position.distance_to(jugador.global_position)
-			if d < mejor:
-				mejor = d
-				presa = e
-	if presa == null:
-		print("[TIRONES] no hay enemigo para pelear")
-	else:
-		await _tramo("abrir una pelea (%s)" % presa.name, func(): Game.start_combat([presa], false),
+	# 3) TRES PELEAS SEGUIDAS: la primera paga lo de una vez (cargar la musica de pelea...); las otras, lo de siempre.
+	# Cada una con el enemigo vivo mas cercano; se gana a la fuerza (enemigos a 0 y Continuar) para abrir la siguiente.
+	for vez in 3:
+		var jugador: Node2D = get_tree().get_first_node_in_group("player") as Node2D
+		var presa: Node = null
+		var mejor: float = INF
+		for e in get_tree().get_nodes_in_group("enemy"):
+			if is_instance_valid(e) and e.has_method("esta_muerto") and not e.esta_muerto():
+				var d: float = (e as Node2D).global_position.distance_to(jugador.global_position)
+				if d < mejor:
+					mejor = d
+					presa = e
+		if presa == null:
+			print("[TIRONES] no hay enemigo para pelear")
+			break
+		# Como en el juego, la pelea empieza PEGADOS: el grupo se planta junto al enemigo en el mismo fotograma (si no, la
+		# zona se arma con dos trozos, el del enemigo y el de la sala donde estabas, y su registro cuesta 10 ms).
+		var junto: Vector2 = (presa as Node2D).global_position
+		await _tramo("abrir una pelea (%da)" % (vez + 1), func():
+			var k: int = 0
+			for a in get_tree().get_nodes_in_group("aliado"):
+				if a is Node2D:
+					(a as Node2D).global_position = junto + Vector2(40 + 16 * k, 0)
+					k += 1
+			Game.start_combat([presa], false),
 			func(): return Game.hay_pelea_en_pantalla())
+		var pantalla: Node = Game._active_layer.get_child(0) if Game._active_layer != null else null
+		if pantalla == null or not pantalla.has_method("_end"):
+			break
+		for e in pantalla._enemies:
+			e.current_hp = 0.0
+		pantalla._end(true)
+		await get_tree().process_frame
+		pantalla._on_continue_pressed()
+		for k in 120:
+			await get_tree().process_frame
+			if not Game.hay_pelea_en_pantalla() and Game._active_layer == null:
+				break
+		await _reposo(30)
 	get_tree().quit(0)
 
 
