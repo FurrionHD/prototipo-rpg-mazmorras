@@ -453,7 +453,7 @@ func _physics_process(delta: float) -> void:
 	speed *= Game.overload_speed_factor()
 	# Armadura: la categoria modula la velocidad de movimiento (placas te frenan,
 	# ir ligero/sin armadura te acelera un pelin). Igual que en el ATB de combate.
-	speed *= Game.armor_speed_mult()
+	speed *= _freno_armadura()
 	# La AGILIDAD del que marca el paso: normalmente el que va en cabeza (por eso cambiar de lider
 	# con 1/2/3 se nota tambien fuera del combate), pero si alguien va sin fuelle manda EL, que es
 	# quien se arrastra. Con dos agotados, el de menos Agilidad (ver _pj_agotado).
@@ -2333,11 +2333,39 @@ var _chips_de_pelea: Callable = Callable()
 func usar_barras_de_pelea(f: Callable, chips: Callable = Callable()) -> void:
 	_combatiente_de = f
 	_chips_de_pelea = chips if f.is_valid() else Callable()
+	_maximos.clear()
 	_refrescar_barras()
 
 
 func refrescar_barras() -> void:
+	_maximos.clear()   # quien lo pide acaba de cambiar algo (el equipo, la formacion): los maximos, al dia ya
+	_freno[0] = -1000
 	_refrescar_barras()
+
+
+# LOS MAXIMOS DE CADA BARRA (vida, aguante, mana), recordados MAXIMOS_FOTOGRAMAS (optimizacion 1E, 19/10/2026): salen
+# de las estadisticas, el equipo y las runas de cada uno, y recalcularlos para todo el grupo en cada fotograma era lo
+# que mas gastaba el jugador (~80 us). Lo de ahora (la vida que te queda...) se sigue leyendo en cada fotograma; un
+# maximo que cambia (una comida, un estado) llega a la barra en 0,1 s, y refrescar_barras() lo pone al momento.
+const MAXIMOS_FOTOGRAMAS := 6
+# Y EL FRENO DE LA ARMADURA AL ANDAR (Game.armor_speed_mult recorre las cinco piezas con sus metas, ~40 us): igual.
+var _freno: Array = [-1000, 1.0]   # [fotograma, multiplicador]
+
+func _freno_armadura() -> float:
+	var f: int = Engine.get_physics_frames()
+	if f - int(_freno[0]) >= MAXIMOS_FOTOGRAMAS:
+		_freno = [f, Game.armor_speed_mult()]
+	return float(_freno[1])
+
+var _maximos: Dictionary = {}   # PersonajeData -> [fotograma, vida, aguante, mana]
+
+func _maximos_de(pj: PersonajeData) -> Array:
+	var f: int = Engine.get_physics_frames()
+	var m: Array = _maximos.get(pj, [])
+	if m.is_empty() or f - int(m[0]) >= MAXIMOS_FOTOGRAMAS:
+		m = [f, Game.player_max_hp(pj), _calc_max_aguante(pj), Game.player_max_mp(pj)]
+		_maximos[pj] = m
+	return m
 
 
 # De quien es la columna de arriba bajo ese punto de la PANTALLA (null = de nadie). Por la transformada
@@ -2373,9 +2401,10 @@ func _refrescar_barras() -> void:
 		# de combate, que nace del aguante y es la que gastan las habilidades. Quien es su combatiente
 		# lo dice la pelea (combat_tactico.combatiente_de_mi_pj): en el espejo no pasa por Game.
 		var c: Combatant = _combatiente_de.call(pj) if _combatiente_de.is_valid() else null
+		var maximos: Array = _maximos_de(pj) if c == null else []
 		# El maximo UNA vez (optimizacion 1B, 16/10): player_hp(pj) lo volvia a calcular entero cuando la vida esta llena
 		# (current_hp = -1), y es lo mas caro de las barras (stats con estados + runas). Mismo resultado que player_hp.
-		var maxhp_c: float = c.max_hp if c != null else Game.player_max_hp(pj)
+		var maxhp_c: float = c.max_hp if c != null else float(maximos[1])
 		var hp_c: float = c.current_hp if c != null else (pj.current_hp if pj.current_hp >= 0.0 else maxhp_c)
 		(fila["hp"] as ProgressBar).max_value = maxf(1.0, maxhp_c)
 		(fila["hp"] as ProgressBar).value = hp_c
@@ -2383,7 +2412,7 @@ func _refrescar_barras() -> void:
 		var escudo_c: float = c.runa_escudo_agua if c != null else 0.0
 		(fila["hp_lbl"] as Label).text = "%.1f/%.1f" % [hp_c, maxhp_c] 			+ TramoEscudo.poner(fila["hp"] as ProgressBar, hp_c, maxhp_c, escudo_c)
 		var en_bar: ProgressBar = fila["en"]
-		var maxen_c: float = c.max_energy if c != null else _calc_max_aguante(pj)
+		var maxen_c: float = c.max_energy if c != null else float(maximos[2])
 		var en_c: float = c.current_energy if c != null else (maxen_c if pj.stamina < 0.0 else clampf(pj.stamina, 0.0, maxen_c))   # = _aguante_de
 		en_bar.max_value = maxf(1.0, maxen_c)
 		en_bar.value = en_c
@@ -2392,7 +2421,7 @@ func _refrescar_barras() -> void:
 			else Color(0.4, 1.0, 0.5)
 		(fila["en_lbl"] as Label).text = "%.0f/%.0f" % [en_c, maxen_c]
 		var mp_bar: ProgressBar = fila["mp"]
-		var maxmp_c: float = c.max_mp if c != null else Game.player_max_mp(pj)
+		var maxmp_c: float = c.max_mp if c != null else float(maximos[3])
 		var mp_c: float = c.current_mp if c != null else (pj.current_mp if pj.current_mp >= 0.0 else maxmp_c)   # = player_mp
 		mp_bar.max_value = maxf(1.0, maxmp_c)
 		mp_bar.value = mp_c
