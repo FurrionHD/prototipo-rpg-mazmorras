@@ -186,6 +186,7 @@ var hojas_fijas: bool = false
 
 func montar(pj: PersonajeData) -> void:
 	_pj = pj
+	_escrito = -1
 	var quiere: Array = JugadorSprites.capas_de(pj)
 	if hojas_fijas:
 		for c in quiere:
@@ -289,6 +290,7 @@ func _aplicar_imbue() -> void:
 		return
 	_imbue_cod = cod
 	_montar_auras()
+	_escrito = -1
 
 
 func _montar_auras() -> void:
@@ -903,13 +905,18 @@ func _process(delta: float) -> void:
 		return
 	_reloj += delta * velocidad
 	var i: int = int(_reloj * _fps)
+	# SOLO SI CAMBIA EL FOTOGRAMA DE LA ANIMACION (optimizacion 1E, 19/10/2026): van a 8-12 fps y el juego a 60, asi
+	# que casi siempre es el mismo, y _escribir repasaba igual todas las capas, el arma en mano, las auras y la cara.
+	# Lo que cambie el muñeco desde fuera (montar, imbuicion) pone _escrito = -1 y fuerza la siguiente.
 	if _loop:
 		i = i % _marcos
-		_escribir(i)
+		if i != _escrito:
+			_escribir(i)
 		return
 	if i >= _marcos - 1:
 		i = _marcos - 1     # las que no repiten se quedan en el ultimo fotograma
-		_escribir(i)
+		if i != _escrito:
+			_escribir(i)
 		# SOLO UNA VEZ: sin este guarda, cada fotograma que sigue pasando (la animacion terminada se
 		# queda clavada en el ultimo) volveria a emitir. 'finished' DESPUES de escribir, para que
 		# quien la escuche vea ya el ultimo fotograma puesto (igual que animation_finished de Godot).
@@ -917,10 +924,14 @@ func _process(delta: float) -> void:
 			_fin_emitido = true
 			finished.emit()
 		return
-	_escribir(i)
+	if i != _escrito:
+		_escribir(i)
 
+
+var _escrito: int = -1   # el fotograma de la animacion que hay puesto (ver _process)
 
 func _escribir(i: int) -> void:
+	_escrito = i
 	for c in _capas:
 		var s: AnimatedSprite2D = c["nodo"]
 		# Solo si CAMBIA (optimizacion 1B, 16/10): esto corre en cada fotograma y la animacion va mas lenta que el juego,
