@@ -89,5 +89,16 @@ func _correr() -> void:
 		bicho._aliado_mas_cercano()
 		bicho._excluir_del_rayo()
 
+	print("4) las hojas de los enemigos del piso no se sueltan al acabar de montarlo")
+	# precalentar las cargaba y Game._soltar_hojas_sin_usar (que corre DESPUES de montarse el piso) las soltaba en el acto
+	# porque aun no las llevaba ningun bicho: cada bajada las pagaba dos veces (19/10). SpritesEnemigo._del_piso las sujeta.
+	Game._soltar_hojas_sin_usar()
+	var sujetas: Array = SpritesEnemigo._del_piso
+	var siguen: int = 0
+	for sf in sujetas:
+		if SpritesEnemigo._horneado.values().has(sf):
+			siguen += 1
+	_ver(sujetas.size() > 0 and siguen == sujetas.size(), "tras la limpieza siguen las %d hojas del piso (%d)" % [sujetas.size(), siguen])
+
 	print("FIN: %s (%d MAL)" % ["TODO BIEN" if _mal == 0 else "HAY FALLOS", _mal])
 	get_tree().quit(0 if _mal == 0 else 1)

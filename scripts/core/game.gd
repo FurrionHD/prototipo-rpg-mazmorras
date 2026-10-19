@@ -6383,6 +6383,9 @@ func _tema_de_capa(n: Node) -> void:
 # momento de carga, asi que recargar una si vuelve a hacer falta no se nota. No a mitad de juego: recargar la del
 # cuerpo cuesta ~125 ms, y empezar una faena tras soltar su herramienta daria un tiron.
 func _soltar_hojas_sin_usar() -> void:
+	# Fuera de la mazmorra no hacen falta las hojas del ultimo piso (ver SpritesEnemigo._del_piso).
+	if get_tree().get_first_node_in_group("dungeon_floor") == null:
+		SpritesEnemigo._del_piso.clear()
 	var n: int = SpriteLienzo.soltar_sin_usar(CapaJugador._horneado) + SpriteLienzo.soltar_sin_usar(SpritesEnemigo._horneado)
 	if n > 0:
 		print("[hojas] sueltas %d hojas que no llevaba nadie" % n)

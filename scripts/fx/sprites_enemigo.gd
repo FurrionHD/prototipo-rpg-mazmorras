@@ -355,8 +355,17 @@ const _MUESTRAS_T := 24
 
 # Deja listos los sprites de estos EnemyData. Devuelve los milisegundos que ha costado, para poder
 # medirlo desde fuera sin instrumentar esto.
+# LAS DEL PISO DE AHORA, SUJETAS (optimizacion 1E, 19/10/2026): Game._soltar_hojas_sin_usar suelta al cambiar de
+# escena las hojas que no lleva nadie, y corre DESPUES de montarse el piso nuevo. Lo recien precalentado aun no lo lleva
+# ningun bicho (nacen despues), asi que se soltaba en el acto y cada bicho la volvia a leer al nacer: cada bajada pagaba
+# las hojas dos veces (106-170 ms de precalentar tirados). Esta lista las sujeta mientras dure el piso; precalentar la
+# rehace y, en una escena sin mazmorra (el pueblo), Game la vacia.
+static var _del_piso: Array[SpriteFrames] = []
+
+
 static func precalentar(datas: Array) -> int:
 	var t0: int = Time.get_ticks_msec()
+	_del_piso.clear()
 	var vistos := {}
 	for d in datas:
 		var ed: EnemyData = d as EnemyData
@@ -366,7 +375,9 @@ static func precalentar(datas: Array) -> int:
 		if _generador(ed) == null:
 			continue      # sigue siendo un ColorRect: no hay nada que generar
 		for i in _MUESTRAS_T:
-			frames_de(ed, float(i) / float(_MUESTRAS_T - 1))
+			var sf: SpriteFrames = frames_de(ed, float(i) / float(_MUESTRAS_T - 1))
+			if sf != null and not _del_piso.has(sf):
+				_del_piso.append(sf)
 		# Y SUS PARPADOS, los suyos y los de cada mutacion (08/10, el tiron al transformarse): esos no van horneados y se
 		# montaban en el mismo fotograma de la transformacion. Con un color basta: lo caro (leer las hojas) es igual para
 		# todos los colores y se queda guardado (Sprites3D._estructura); cada color nuevo despues solo repinta.
