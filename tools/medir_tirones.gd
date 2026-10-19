@@ -40,7 +40,11 @@ func _correr() -> void:
 		Game.importar_partida(ref)
 	Game.semilla_mundo = 4016831469
 
-	# 1) EL PUEBLO
+	# 1) EL PUEBLO. Primero, aparte, LEER la escena (y compilar sus scripts): lo que hace change_scene_to_file antes de
+	# crear nada. Asi el cambio de escena de despues ya la encuentra leida y solo cuenta crear y montar.
+	var tl: int = Time.get_ticks_usec()
+	var _escena: PackedScene = load("res://scenes/levels/town.tscn")
+	print("[TIRONES] leer town.tscn (load)          %6.1f ms" % (float(Time.get_ticks_usec() - tl) / 1000.0))
 	Game.current_floor = 0
 	await _tramo("cargar el pueblo", func(): get_tree().change_scene_to_file("res://scenes/levels/town.tscn"), _hay_jugador)
 	await _reposo(60)
@@ -50,6 +54,14 @@ func _correr() -> void:
 		await _tramo("bajar al piso %d (%s)" % [Game.current_floor, "1a vez" if vez == 0 else "2a vez"],
 			func(): get_tree().change_scene_to_file("res://scenes/levels/main.tscn"), _hay_jugador)
 		await _reposo(60)
+	# 2b) VOLVER AL PUEBLO: lo que se paga en CADA expedicion (lo de la primera vez, compilar, ya no cuenta).
+	Game.current_floor = 0
+	await _tramo("volver al pueblo (2a vez)", func(): get_tree().change_scene_to_file("res://scenes/levels/town.tscn"), _hay_jugador)
+	await _reposo(60)
+	Game.current_floor = _arg("--piso", 8)
+	await _tramo("bajar al piso %d (3a vez)" % Game.current_floor,
+		func(): get_tree().change_scene_to_file("res://scenes/levels/main.tscn"), _hay_jugador)
+	await _reposo(60)
 	# 3) UNA PELEA
 	var jugador: Node2D = get_tree().get_first_node_in_group("player") as Node2D
 	var presa: Node = null

@@ -880,12 +880,14 @@ func _aplicar_anim(nombre: String, reinicia: bool) -> void:
 func _que_anim(sf: SpriteFrames, nombre: String) -> String:
 	if sf == null:
 		return ""
-	if sf.has_animation(nombre):
+	# asegurar_anim y no has_animation: las hojas del jugador son PEREZOSAS (cada animacion se monta la primera vez
+	# que se pide, ver SpriteLienzo.cargar_horneado). Este es EL sitio por donde pasa toda animacion del muñeco.
+	if SpriteLienzo.asegurar_anim(sf, nombre):
 		return nombre
 	# La anim solo existe en su direccion ANCLA (0 = sur salvo encaje/muerte, que van al norte).
 	var base: String = nombre.rsplit("_", true, 1)[0]
 	var anc: String = "%s_%d" % [base, PoseJugador.ancla_de(base)]
-	return anc if sf.has_animation(anc) else ""
+	return anc if SpriteLienzo.asegurar_anim(sf, anc) else ""
 
 
 func _process(delta: float) -> void:

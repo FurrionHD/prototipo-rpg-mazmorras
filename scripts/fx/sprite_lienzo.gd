@@ -423,7 +423,7 @@ static func limpiar_huerfanos(carpetas: Array) -> int:
 			continue
 		for f in d.get_files():
 			# El .import lo regenera Godot solo, asi que se va detras de su png y no se mira aparte.
-			if not (f.ends_with(".png") or f.ends_with(".json")):
+			if not (f.ends_with(".png") or f.ends_with(".json") or f.ends_with(".res")):
 				continue
 			if _escritos.has(carpeta + f):
 				continue
@@ -437,7 +437,7 @@ static func limpiar_huerfanos(carpetas: Array) -> int:
 	return fuera
 
 
-# Escribe el par .png + .json de una variante ya generada. Devuelve los bytes del png, o 0 si falla.
+# Escribe el .png + .json (+ su .res, DescripcionHoja) de una variante ya generada. Devuelve los bytes del png, o 0 si falla.
 static func hornear(sf: SpriteFrames, clave: String, carpeta: String = CARPETA_HORNO) -> int:
 	# El PRIMER fotograma real (un AtlasTexture): solo hace falta para llegar a 'at.atlas', la hoja
 	# compartida. No se puede coger el frame 0 de la primera animacion a ciegas -- una capa cuya
@@ -461,12 +461,18 @@ static func hornear(sf: SpriteFrames, clave: String, carpeta: String = CARPETA_H
 	var f := FileAccess.open(carpeta + clave + ".json", FileAccess.WRITE)
 	if f == null:
 		return 0
-	f.store_string(JSON.stringify(describir(sf)))
+	var texto: String = JSON.stringify(describir(sf))
+	f.store_string(texto)
 	f.close()
+	# Y su DescripcionHoja en binario, que es lo que lee el juego (ver 'descripcion'). OJO: compactar_hojas.py
+	# reescribe el json despues; tools/hojas_a_res la rehace y tools/prueba_hojas_res avisa si se queda vieja.
+	ResourceSaver.save(DescripcionHoja.desde_json(JSON.parse_string(texto), texto.hash()), carpeta + clave + ".res",
+		ResourceSaver.FLAG_COMPRESS)
 	# Apuntado como ESCRITO EN ESTA PASADA, para que 'limpiar_huerfanos' sepa distinguir lo que se
 	# acaba de generar de lo que sobro de una escala o un color anteriores.
 	_escritos[png] = true
 	_escritos[carpeta + clave + ".json"] = true
+	_escritos[carpeta + clave + ".res"] = true
 	var g := FileAccess.open(png, FileAccess.READ)
 	var n: int = g.get_length() if g != null else 0
 	if g != null:
@@ -492,46 +498,116 @@ static func soltar_sin_usar(cache: Dictionary) -> int:
 
 
 # Reconstruye el SpriteFrames desde el horneado, o null si esa variante no esta en disco.
-static func cargar_horneado(clave: String, carpeta: String = CARPETA_HORNO) -> SpriteFrames:
+#
+# 'perezosa' (optimizacion 1E, 19/10/2026): el SpriteFrames sale VACIO y cada animacion se monta la primera vez que
+# alguien la pide (asegurar_anim). Una capa del jugador trae 1.654 animaciones -- todos los golpes de todas las armas
+# en todas las direcciones -- y montarlas todas eran 20-50 ms por hoja aunque la hoja fuera la boca: volver al pueblo
+# congelaba ~1 s solo con la ropa de los guardias y los vendedores, que no hacen mas que estar quietos y andar. Quien
+# use una hoja perezosa tiene que pedir cada animacion antes de ponerla (MunecoJugador._que_anim lo hace).
+static func cargar_horneado(clave: String, carpeta: String = CARPETA_HORNO, perezosa: bool = false) -> SpriteFrames:
+	var desc: DescripcionHoja = descripcion(clave, carpeta)
+	if desc == null:
+		return null
 	var png: String = carpeta + clave + ".png"
-	var js: String = carpeta + clave + ".json"
-	if not FileAccess.file_exists(js):
-		return null
-	var f := FileAccess.open(js, FileAccess.READ)
-	if f == null:
-		return null
-	var d = JSON.parse_string(f.get_as_text())
-	f.close()
-	if typeof(d) != TYPE_DICTIONARY:
-		return null
-	var hoja: Texture2D = _hoja_gris(png) if bool(d.get("gris", false)) else 		(load(png) as Texture2D if ResourceLoader.exists(png) else null)
+	var hoja: Texture2D = _hoja_gris(png) if desc.gris else 		(load(png) as Texture2D if ResourceLoader.exists(png) else null)
 	if hoja == null:
 		return null
 	var sf := SpriteFrames.new()
 	sf.remove_animation("default")
 	# Los fotogramas REPETIDOS (tools/compactar_hojas.py los deja apuntando al mismo recorte) comparten tambien el
-	# mismo AtlasTexture: la hoja del cuerpo creaba 14.596 y la mitad eran iguales.
-	var recortes: Dictionary = {}
-	for a in d["anims"]:
-		sf.add_animation(a["n"])
-		sf.set_animation_loop(a["n"], bool(a["loop"]))
-		sf.set_animation_speed(a["n"], float(a["fps"]))
-		for m in a["f"]:
-			# Fotograma vacio: se guardo con tamaño cero y vuelve como la textura transparente.
-			if int(m[2]) <= 0 or int(m[3]) <= 0:
-				sf.add_frame(a["n"], vacia())
-				continue
-			var k := Vector4i(int(m[0]), int(m[1]), int(m[2]) * 4096 + int(m[3]), int(m[4]) * 4096 + int(m[5]))
-			var at: AtlasTexture = recortes.get(k)
-			if at == null:
-				at = AtlasTexture.new()
-				at.atlas = hoja
-				at.region = Rect2(m[0], m[1], m[2], m[3])
-				at.margin = Rect2(m[4], m[5], int(d["w"]) - int(m[2]), int(d["h"]) - int(m[3]))
-				at.filter_clip = true
-				recortes[k] = at
-			sf.add_frame(a["n"], at)
+	# mismo AtlasTexture: la hoja del cuerpo creaba 14.596 y la mitad eran iguales. La tabla se queda con la hoja
+	# perezosa para que las animaciones que se monten despues sigan compartiendo.
+	var datos: Dictionary = {"desc": desc, "hoja": hoja, "recortes": {}}
+	if perezosa:
+		sf.set_meta(META_PEREZOSA, datos)
+		return sf
+	for i in desc.nombres.size():
+		_montar_anim(sf, datos, i)
 	return sf
+
+
+const META_PEREZOSA := &"hoja_perezosa"
+
+
+# Que 'sf' tenga la animacion 'nombre': si es una hoja perezosa y aun no estaba, se monta ahora (una animacion son
+# como mucho ~150 fotogramas: microsegundos). false si la hoja no la tiene.
+static func asegurar_anim(sf: SpriteFrames, nombre: StringName) -> bool:
+	if sf == null:
+		return false
+	if sf.has_animation(nombre):
+		return true
+	if not sf.has_meta(META_PEREZOSA):
+		return false
+	var datos: Dictionary = sf.get_meta(META_PEREZOSA)
+	var i: int = (datos["desc"] as DescripcionHoja).indice(String(nombre))
+	if i < 0:
+		return false
+	_montar_anim(sf, datos, i)
+	return true
+
+
+# Monta TODAS las que falten (las herramientas que recorren la hoja entera: visores, horno, pruebas).
+static func completar(sf: SpriteFrames) -> void:
+	if sf == null or not sf.has_meta(META_PEREZOSA):
+		return
+	var datos: Dictionary = sf.get_meta(META_PEREZOSA)
+	var desc: DescripcionHoja = datos["desc"]
+	for i in desc.nombres.size():
+		if not sf.has_animation(desc.nombres[i]):
+			_montar_anim(sf, datos, i)
+	sf.remove_meta(META_PEREZOSA)
+
+
+static func _montar_anim(sf: SpriteFrames, datos: Dictionary, i: int) -> void:
+	var desc: DescripcionHoja = datos["desc"]
+	var hoja: Texture2D = datos["hoja"]
+	var recortes: Dictionary = datos["recortes"]
+	var n: String = desc.nombres[i]
+	sf.add_animation(n)
+	sf.set_animation_loop(n, desc.bucle[i] != 0)
+	sf.set_animation_speed(n, desc.fps[i])
+	var m: PackedInt32Array = desc.marcos
+	var b: int = desc.inicio[i] * 6
+	for f in desc.cuantos[i]:
+		var x: int = m[b]
+		var y: int = m[b + 1]
+		var an: int = m[b + 2]
+		var al: int = m[b + 3]
+		var mx: int = m[b + 4]
+		var my: int = m[b + 5]
+		b += 6
+		# Fotograma vacio: se guardo con tamaño cero y vuelve como la textura transparente.
+		if an <= 0 or al <= 0:
+			sf.add_frame(n, vacia())
+			continue
+		var k := Vector4i(x, y, an * 4096 + al, mx * 4096 + my)
+		var at: AtlasTexture = recortes.get(k)
+		if at == null:
+			at = AtlasTexture.new()
+			at.atlas = hoja
+			at.region = Rect2(x, y, an, al)
+			at.margin = Rect2(mx, my, desc.w - an, desc.h - al)
+			at.filter_clip = true
+			recortes[k] = at
+		sf.add_frame(n, at)
+
+
+# La descripcion de una hoja horneada: el .res (DescripcionHoja, tools/hojas_a_res) si esta, y si no el .json de
+# siempre (una hoja recien horneada, antes de pasarla a .res). null si no hay ninguno.
+static func descripcion(clave: String, carpeta: String = CARPETA_HORNO) -> DescripcionHoja:
+	var res: String = carpeta + clave + ".res"
+	if ResourceLoader.exists(res):
+		var r: DescripcionHoja = load(res) as DescripcionHoja
+		if r != null:
+			return r
+	var js: String = carpeta + clave + ".json"
+	if not FileAccess.file_exists(js):
+		return null
+	var texto: String = FileAccess.get_file_as_string(js)
+	var d = JSON.parse_string(texto)
+	if typeof(d) != TYPE_DICTIONARY:
+		return null
+	return DescripcionHoja.desde_json(d, texto.hash())
 
 
 # LA HOJA GRIS (tools/compactar_hojas.py): un PNG de gris + alfa que Godot exporta TAL CUAL (su .import es "keep"; con

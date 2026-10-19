@@ -150,7 +150,8 @@ static func frames(clave: String, pintor: Callable, colores: Array, esc: float =
 	var e: float = snappedf(esc, 0.05)
 	var ck: String = "%s_%.2f" % [clave, e]
 	if not _horneado.has(ck):
-		_horneado[ck] = SpriteLienzo.cargar_horneado(ck, CARPETA)
+		# PEREZOSA: cada animacion se monta al pedirla (ver SpriteLienzo.cargar_horneado y MunecoJugador._que_anim).
+		_horneado[ck] = SpriteLienzo.cargar_horneado(ck, CARPETA, true)
 	if _horneado[ck] != null:
 		return _horneado[ck]
 	return generar(clave, pintor, colores, e)
