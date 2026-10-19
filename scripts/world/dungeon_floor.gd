@@ -411,7 +411,7 @@ func regenerar(por_la_bajada: bool = false) -> void:
 	_limpiar()
 	_construir(por_la_bajada)
 	Cargando.piso_montado()
-	var player := get_tree().get_first_node_in_group("player")
+	var player := PisoVivo.primero_de(self, &"player")
 	if player != null and player.has_method("bloquear_interaccion"):
 		player.bloquear_interaccion()  # bajar es pulsar F: que no dispare nada al aterrizar
 
@@ -419,7 +419,7 @@ func regenerar(por_la_bajada: bool = false) -> void:
 func _limpiar() -> void:
 	_guardar_estado()   # ANTES de tirar nada: el piso que dejas se queda como lo dejas
 	for grupo in ["enemy", "corpse", "pickup", "recolectable"]:
-		for n in get_tree().get_nodes_in_group(grupo):
+		for n in PisoVivo.nodos_de(self, grupo):
 			if not is_instance_valid(n):
 				continue
 			# SACARLOS DEL GRUPO YA, no solo liberarlos: queue_free() no borra al instante
@@ -523,11 +523,11 @@ func _construir(por_la_bajada: bool = false) -> void:
 	# en la escena: un piso entero sin un solo mineral a la vista.
 	call_deferred("_colocar_recolectables")
 
-	print("[mazmorra] piso ", Game.current_floor, " | semilla ", gen.semilla,
+	print("[mazmorra] piso ", _numero(), " | semilla ", gen.semilla,
 		" | ", gen.salas.size(), " salas, ", gen.zonas.size(), " zonas",
 		" | ", gen.ancho, "x", gen.alto, " celdas")
 	if spawn_table != null:
-		print("[mazmorra] paren las paredes: ", spawn_table.resumen(Game.current_floor))
+		print("[mazmorra] paren las paredes: ", spawn_table.resumen(_numero()))
 	else:
 		push_warning("[mazmorra] el piso no tiene tabla de spawns: no va a parir nada")
 
@@ -569,7 +569,7 @@ func _construir_arena() -> void:
 	Game.entrada_por_atajo = false
 	Game.pos_cargada = Vector2.INF
 	_zona_aterrizaje = gen.zona_en(Vector2i((destino / celda).floor()))
-	var player := get_tree().get_first_node_in_group("player")
+	var player := PisoVivo.primero_de(self, &"player")
 	if player != null and player.has_method("recolocar"):
 		player.recolocar(destino)
 	var puerta := get_node_or_null(puerta_pueblo)
@@ -580,12 +580,12 @@ func _construir_arena() -> void:
 	if Game.memoria_pisos.has(_piso_construido) and Net.pisos.simulo_mi_piso():
 		call_deferred("_restaurar_estado")
 	print("[mazmorra] ARENA de pruebas: sala %dx%d celdas (piso de juego %d)" % [
-		ARENA_SALA.x, ARENA_SALA.y, Game.current_floor])
+		ARENA_SALA.x, ARENA_SALA.y, _numero()])
 
 
 # De que piso se PINTA: la arena, con la piedra del piso de juego (el 1), no con la del 1000.
 func _piso_estilo() -> int:
-	return Game.current_floor if Game.es_arena() else _piso_construido
+	return _numero() if Game.es_arena() else _piso_construido
 
 
 # El spawner de la arena coloca aqui. Lo llama quien lleva la sala (en multi, el trabajador dueño, al
@@ -613,7 +613,7 @@ func limpiar_arena() -> void:
 	if not Game.es_arena():
 		return
 	for grupo in ["enemy", "corpse"]:
-		for e in get_tree().get_nodes_in_group(grupo):
+		for e in PisoVivo.nodos_de(self, grupo):
 			if not is_instance_valid(e) or e.has_meta("es_espejo") or bool(e.get("_combat_triggered")):
 				continue   # los de una pelea en marcha se quedan: la pelea los necesita
 			e.remove_from_group(grupo)
@@ -624,6 +624,12 @@ func limpiar_arena() -> void:
 # Cada piso, su mapa. La base es la SEMILLA DEL MUNDO de ESTA PARTIDA: cada jugador (y cada
 # ranura de guardado) tiene SU mazmorra, y le dura. El numero primo evita que pisos
 # consecutivos salgan parecidos. Si no hubiera partida cargada, el @export hace de reserva.
+# El piso que es ESTE (fase 2, 19/10): el de su PisoVivo, que en un cliente es Game.current_floor como siempre y en el
+# servidor el que le toca a cada uno.
+func _numero() -> int:
+	return PisoVivo.numero_de(self)
+
+
 func _semilla_del_piso() -> int:
 	var base: int = Game.semilla_mundo if Game.semilla_mundo != 0 else semilla_base
 	# MULTIJUGADOR: se juega en el MUNDO DEL HOST. El cliente usa la semilla que le llego en el
@@ -631,7 +637,7 @@ func _semilla_del_piso() -> int:
 	# semilla (la de SU save) no se toca. En el host semilla_host vale 0: usa la suya.
 	if Net.activo and Net.semilla_host != 0:
 		base = Net.semilla_host
-	return base + Game.current_floor * 7919
+	return base + _numero() * 7919
 
 
 # ------------------------------------------------------------
@@ -1113,7 +1119,7 @@ func _colocar_actores(por_la_bajada: bool = false) -> void:
 	# misma, y si la matas se abre ahi.
 	_marcar_seguras([entrada.get_center(), lejana.get_center() if lejana.size != Vector2i.ZERO else entrada.get_center()])
 
-	var player := get_tree().get_first_node_in_group("player")
+	var player := PisoVivo.primero_de(self, &"player")
 	if player != null and player.has_method("recolocar"):
 		player.recolocar(destino)  # recolocar, no mover a pelo: no regala excelia de distancia
 
@@ -1124,13 +1130,13 @@ func _colocar_actores(por_la_bajada: bool = false) -> void:
 	var boca: Vector2 = centro + Vector2(0.0, -2.0 * float(DungeonGenerator.CELDA))
 	var puerta := get_node_or_null(puerta_pueblo)
 	if puerta is Node2D:
-		var en_superficie: bool = Game.current_floor <= 1
+		var en_superficie: bool = _numero() <= 1
 		(puerta as Node2D).visible = en_superficie
 		# Fuera del alcance del jugador (la interaccion va por distancia): si solo la
 		# ocultamos, seguiria siendo pulsable con F desde la sala de entrada.
 		(puerta as Node2D).global_position = boca if en_superficie else Vector2(-1e6, -1e6)
 
-	if Game.current_floor > 1:
+	if _numero() > 1:
 		var subir = _stairs_script.new()
 		subir.sube = true
 		subir.position = boca
@@ -1147,7 +1153,7 @@ func _colocar_actores(por_la_bajada: bool = false) -> void:
 	# EXCEPCION: en un piso con boss SIN MATAR no hay bajada ni salida. Es un callejon: o lo
 	# matas, o te vuelves por donde has venido.
 	_salida_pos = fondo + Vector2(0.0, -2.0 * float(DungeonGenerator.CELDA))
-	if lejana.size != Vector2i.ZERO and not Game.piso_bloqueado(Game.current_floor):
+	if lejana.size != Vector2i.ZERO and not Game.piso_bloqueado(_numero()):
 		abrir_salidas()
 
 
@@ -1165,7 +1171,7 @@ func abrir_salidas() -> void:
 	# Salida al PUEBLO junto a la bajada: el premio del boss es no tener que desandar el
 	# camino. Van separadas 3 celdas porque el jugador solo puede interactuar con el
 	# interactable MAS CERCANO (player._try_interact): pegadas, una taparia a la otra.
-	if not Game.BOSSES.has(Game.current_floor):
+	if not Game.BOSSES.has(_numero()):
 		return
 	var puerta = _exit_script.new()
 	puerta.position = _salida_pos + Vector2(3.0 * float(DungeonGenerator.CELDA), 0.0)
@@ -1738,13 +1744,13 @@ func _colocar_recolectables() -> void:
 	print("[mazmorra] despensa: ", sal, " de sal y ", silvestres, " silvestres")
 	print("[mazmorra] carbon: ", carbon, " vetas")
 	if tabla_vetas != null:
-		print("[mazmorra] vetas del piso: ", tabla_vetas.resumen(Game.current_floor))
+		print("[mazmorra] vetas del piso: ", tabla_vetas.resumen(_numero()))
 	if tabla_plantas != null:
-		print("[mazmorra] plantas del piso: ", tabla_plantas.resumen(Game.current_floor))
+		print("[mazmorra] plantas del piso: ", tabla_plantas.resumen(_numero()))
 	if tabla_maderas != null:
-		print("[mazmorra] maderas del piso: ", tabla_maderas.resumen(Game.current_floor))
+		print("[mazmorra] maderas del piso: ", tabla_maderas.resumen(_numero()))
 	if tabla_silvestres != null:
-		print("[mazmorra] silvestres del piso: ", tabla_silvestres.resumen(Game.current_floor))
+		print("[mazmorra] silvestres del piso: ", tabla_silvestres.resumen(_numero()))
 
 
 # PLANTAS y ENREDADERAS: en los PASILLOS. Es el botin del transito: los pisas yendo a
@@ -1931,7 +1937,7 @@ func _material_del_sitio(celda: Vector2i, nonce: int = 0) -> MaterialData:
 		return null
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash([_semilla_del_piso(), Game.epoca_actual(), celda.x, celda.y, nonce])
-	return tabla.elegir(Game.current_floor, rng)
+	return tabla.elegir(_numero(), rng)
 
 
 func _tabla_de_tipo(tipo: int) -> MaterialTable:
@@ -2030,7 +2036,7 @@ func _repoblar_boss(delta: float) -> void:
 	if not Net.pisos.simulo_mi_piso() or not Game.boss_disponible(_piso_construido):
 		return
 	# ¿Ya hay uno de pie? Los cadaveres estan en el grupo "corpse", asi que basta con mirar "enemy".
-	for n in get_tree().get_nodes_in_group("enemy"):
+	for n in PisoVivo.nodos_de(self, "enemy"):
 		if is_instance_valid(n) and n.es_boss:
 			return
 	var data: EnemyData = Game.boss_del_piso(_piso_construido)
@@ -2107,7 +2113,7 @@ func _refrescar_cartel_boss() -> void:
 
 
 func _jugador_en_la_sala_del_jefe() -> bool:
-	var player := get_tree().get_first_node_in_group("player")
+	var player := PisoVivo.primero_de(self, &"player")
 	if not (player is Node2D):
 		return false
 	# El mismo radio con el que merodea (lo calcula _colocar_boss): su sala, ni mas ni menos.
@@ -2191,7 +2197,7 @@ func _anunciar_boss(data: EnemyData) -> void:
 		fx.romper()
 	# Alguien pudo plantarlo mientras temblaba (otro jugador entrando al piso, una carga de memoria):
 	# se comprueba otra vez, que dos jefes en la misma sala no los quita nadie.
-	for n in get_tree().get_nodes_in_group("enemy"):
+	for n in PisoVivo.nodos_de(self, "enemy"):
 		if is_instance_valid(n) and n.es_boss:
 			return
 	_parir_boss(data, _boss_pos, piso)
@@ -2210,7 +2216,7 @@ func revivir_celda(celda: Vector2i, nonce: int = 0) -> void:
 	if sitio.is_empty():
 		return   # sello de una partida vieja, sin sitio apuntado: se limpia y ya brotara al regenerar
 	# Si ya hay algo plantado ahi, no se duplica (un mensaje repetido no debe dar dos vetas).
-	for n in get_tree().get_nodes_in_group("recolectable"):
+	for n in PisoVivo.nodos_de(self, "recolectable"):
 		if is_instance_valid(n) and n.celda == celda and not n.agotado:
 			return
 	var m: MaterialData = _material_del_sitio(celda, nonce)
@@ -2464,17 +2470,17 @@ func _crear_zonas() -> void:
 func _precalentar_sprites() -> void:
 	var datas: Array = []
 	if spawn_table != null:
-		for e in spawn_table.aplanar(Game.current_floor):
+		for e in spawn_table.aplanar(_numero()):
 			datas.append(e["data"])
 	# El jefe va aparte: no esta en la tabla de partos, y es justo el mas caro de generar.
-	var jefe: EnemyData = Game.boss_del_piso(Game.current_floor)
+	var jefe: EnemyData = Game.boss_del_piso(_numero())
 	if jefe != null:
 		datas.append(jefe)
 	if datas.is_empty():
 		return
 	var ms: int = SpritesEnemigo.precalentar(datas)
 	if ms > 0:
-		print("[mazmorra] sprites listos para el piso ", Game.current_floor, ": ",
+		print("[mazmorra] sprites listos para el piso ", _numero(), ": ",
 			datas.size(), " tipos en ", ms, " ms")
 
 
@@ -2525,7 +2531,7 @@ func _poblar_el_piso(zona_entrada: int) -> void:
 func _log_poblacion(recordado: bool) -> void:
 	print("[mazmorra] ", "RESTAURADO (ya lo habias pisado): " if recordado else "poblacion inicial: ",
 		_vivos_en_el_piso(), " bichos vivos (tope ", max_vivos(), ")",
-		", ", get_tree().get_nodes_in_group("corpse").size(), " cadaveres")
+		", ", PisoVivo.nodos_de(self, "corpse").size(), " cadaveres")
 
 
 # El "hogar" de una zona: el punto PISABLE mas cercano a su centro. Se usa el mas cercano
@@ -2579,7 +2585,7 @@ func _guardar_estado() -> void:
 	# Vivos y CADAVERES. Los cadaveres tambien: llevan tu cristal dentro y perderlos por subir
 	# un piso es justo lo que escuece. (Los ya extraidos no estan: se desvanecen al extraerlos.)
 	for grupo in ["enemy", "corpse"]:
-		for e in get_tree().get_nodes_in_group(grupo):
+		for e in PisoVivo.nodos_de(self, grupo):
 			if not is_instance_valid(e) or e.data == null:
 				continue
 			# MULTIJUGADOR: los cuerpos ESPEJADOS (remote_enemy) tambien estan en estos grupos para
@@ -2616,7 +2622,7 @@ func _guardar_estado() -> void:
 			})
 
 	var suelo: Array = []
-	for p in get_tree().get_nodes_in_group("pickup"):
+	for p in PisoVivo.nodos_de(self, "pickup"):
 		if is_instance_valid(p) and p.item != null:
 			# "n": un monton (flechas recuperadas) vuelve con las que tenia, no como 1 (prueba_suelo_monton)
 			suelo.append({"item": p.item, "pos": p.global_position, "n": int(p.cantidad)})
@@ -2727,7 +2733,7 @@ func _zona(idx: int):
 func elegir_enemigo() -> EnemyData:
 	if spawn_table == null:
 		return null
-	return spawn_table.elegir(Game.current_floor)
+	return spawn_table.elegir(_numero())
 
 
 # ¿Cabe un bicho mas en el piso? Si estamos al tope, se intenta hacer sitio reciclando al
@@ -2747,7 +2753,7 @@ func hay_sitio(reciclar: bool = true, forzar: bool = false) -> bool:
 
 
 func _vivos_en_el_piso() -> int:
-	return get_tree().get_nodes_in_group("enemy").size()
+	return PisoVivo.nodos_de(self, "enemy").size()
 
 
 # Cuantos bichos VIVOS estan asignados AHORA a una zona (por su zona_idx), contando tanto los
@@ -2756,7 +2762,7 @@ func _vivos_en_el_piso() -> int:
 # sala podia rebosar de bichos mudados sin que su aforo se enterara. Esta es la cuenta buena.
 func enemigos_en_zona(idx: int) -> int:
 	var n: int = 0
-	for e in get_tree().get_nodes_in_group("enemy"):
+	for e in PisoVivo.nodos_de(self, "enemy"):
 		if is_instance_valid(e) and int(e.zona_idx) == idx:
 			n += 1
 	return n
@@ -2791,7 +2797,7 @@ func _reciclar_lejano(forzar: bool = false) -> bool:
 	# Forzando, el liston de distancia se cae: vale cualquiera (arranca en -1 para aceptar hasta el
 	# de distancia 0). Sin forzar, solo los que esten mas lejos que dist_reciclar.
 	var best: float = -1.0 if forzar else dist_reciclar
-	for e in get_tree().get_nodes_in_group("enemy"):
+	for e in PisoVivo.nodos_de(self, "enemy"):
 		if not is_instance_valid(e) or not (e is Node2D):
 			continue
 		# Ya marcado para borrar en este mismo frame (varios _nacer seguidos de un brote): no lo
@@ -2895,7 +2901,7 @@ func _process(delta: float) -> void:
 	_pudrir_cadaveres()
 	_tintar_cadaveres()
 
-	var player := get_tree().get_first_node_in_group("player")
+	var player := PisoVivo.primero_de(self, &"player")
 	if not (player is Node2D):
 		return
 	var pj: Vector2 = (player as Node2D).global_position
@@ -2926,17 +2932,17 @@ func _process(delta: float) -> void:
 # reciclado.
 func _posiciones_de_jugadores() -> Array[Vector2]:
 	var out: Array[Vector2] = []
-	var player := get_tree().get_first_node_in_group("player")
+	var player := PisoVivo.primero_de(self, &"player")
 	if player is Node2D and not Net.soy_trabajador:
 		out.append((player as Node2D).global_position)
-	for a in get_tree().get_nodes_in_group("aliado"):
+	for a in PisoVivo.nodos_de(self, "aliado"):
 		if is_instance_valid(a) and a is Node2D:
 			out.append((a as Node2D).global_position)
 	return out
 
 
 func _congelar_lejanos(referencias: Array[Vector2]) -> void:
-	for e in get_tree().get_nodes_in_group("enemy"):
+	for e in PisoVivo.nodos_de(self, "enemy"):
 		if not is_instance_valid(e) or not (e is Node2D):
 			continue
 		# Los ESPEJOS no se tocan: no tienen IA que apagar (su _physics_process es la interpolacion
@@ -2968,7 +2974,7 @@ func _congelar_lejanos(referencias: Array[Vector2]) -> void:
 func _tintar_cadaveres() -> void:
 	if Net.soy_trabajador:
 		return
-	for c in get_tree().get_nodes_in_group("corpse"):
+	for c in PisoVivo.nodos_de(self, "corpse"):
 		if is_instance_valid(c) and c.has_method("pintar_podrido"):
 			c.pintar_podrido()
 
@@ -2976,7 +2982,7 @@ func _tintar_cadaveres() -> void:
 func _pudrir_cadaveres() -> void:
 	if not Net.pisos.simulo_mi_piso():
 		return
-	for c in get_tree().get_nodes_in_group("corpse"):
+	for c in PisoVivo.nodos_de(self, "corpse"):
 		if not is_instance_valid(c) or c.has_meta("es_espejo"):
 			continue
 		if not ("sello_pudre" in c):
@@ -3004,14 +3010,14 @@ func test_proporciones(tiradas: int = 200) -> void:
 		return
 	var cuenta: Dictionary = {}
 	for _i in range(tiradas):
-		var d: EnemyData = spawn_table.elegir(Game.current_floor)
+		var d: EnemyData = spawn_table.elegir(_numero())
 		var nombre: String = d.enemy_name if d != null else "(nada)"
 		cuenta[nombre] = int(cuenta.get(nombre, 0)) + 1
-	print("[dev] ", tiradas, " tiradas de la tabla en el piso ", Game.current_floor, ":")
+	print("[dev] ", tiradas, " tiradas de la tabla en el piso ", _numero(), ":")
 	for nombre in cuenta:
 		var n: int = cuenta[nombre]
 		print("   ", nombre, ": ", n, "  (", snappedf(100.0 * float(n) / float(tiradas), 0.1), "%)")
-	print("[dev] esperado -> ", spawn_table.resumen(Game.current_floor))
+	print("[dev] esperado -> ", spawn_table.resumen(_numero()))
 
 
 # A que distancia del jugador puede reventar la pared de un brote. Ni encima (no naces dentro de
@@ -3035,7 +3041,7 @@ func provocar_brote(centro: Vector2 = Vector2.INF) -> bool:
 		return false
 	var pj: Vector2 = centro
 	if pj == Vector2.INF:
-		var player := get_tree().get_first_node_in_group("player")
+		var player := PisoVivo.primero_de(self, &"player")
 		if not (player is Node2D) or Net.soy_trabajador:
 			return false
 		pj = (player as Node2D).global_position
@@ -3090,7 +3096,7 @@ func dev_forzar_jefe() -> String:
 		return "el jefe ya viene de camino"
 	# El mismo criterio que _repoblar_boss: los cadaveres estan en "corpse", asi que un boss en
 	# "enemy" es un boss DE PIE.
-	for n in get_tree().get_nodes_in_group("enemy"):
+	for n in PisoVivo.nodos_de(self, "enemy"):
 		if is_instance_valid(n) and n.es_boss:
 			return "el jefe ya está de pie"
 	var data: EnemyData = Game.boss_del_piso(_piso_construido)
