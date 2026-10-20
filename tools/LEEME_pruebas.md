@@ -62,7 +62,12 @@ salida de cada una en `tools/resultados_pruebas/<nombre>.log` y dice BIEN / MAL 
   - `prueba_sala_steam` (15/10): 5 fallos SEGUIDOS (~95 s cada uno, el tunel de Steam se abre pero Ana no llega a entrar
     en el mundo) y despues 20 bien seguidas: apunta a un mal rato de la red de Steam (Valve), no al codigo. Si vuelve a
     fallar, guardar ANTES de repetir `%APPDATA%/DungeonOratoria/logs/prueba_sala_steam_S.log` (cada pasada lo pisa).
-  - `prueba_town_trabajadores`: SIN REVISAR a proposito (los trabajadores se van a rehacer enteros).
+  - `prueba_retraso_barra` (paso 8, OTRA VEZ el 20/10): fallo UNA vez en la bateria entera (rama feat/f2-piso-vivo),
+    los dos MAL del paso 8 a la vez (se aparta dentro de tu area / se mueve sin sitio). Sola 3/3 y 4 a la vez 0/24. El
+    registro se perdio (pasar la prueba suelta lo pisa): SI VUELVE, COPIAR tools/resultados_pruebas/prueba_retraso_barra.log
+    ANTES de repetirla. Sin mirar aun si es del juego.
+  - `prueba_town_trabajadores`: SIN REVISAR a proposito (los trabajadores se van a rehacer enteros en la fase 2). 20/10:
+    con carga ha salido tambien "los dobles pelean con mis mismos numeros" (def 1217.95 vs 1219.78); sola 2/2.
   Si fallan, se repiten antes de dar nada por roto.
 
 Se lanzan así (sin ventana, cada una dice `FIN: TODO BIEN` o lista sus `MAL:`):
