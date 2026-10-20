@@ -1442,6 +1442,11 @@ func _alternar_ajustes() -> void:
 		_ajustes.add_child(velo)
 		_ajustes.move_child(velo, 0)   # por DEBAJO de los mandos, o los tapa
 		capa.add_child(_ajustes)
+		# Es un MENU: jugando uno solo por la sala, la pelea espera mientras esta abierto (Net.pausa_solo). Se cierre
+		# por donde se cierre, o se vaya con la pelea.
+		var aj: Control = _ajustes
+		aj.visibility_changed.connect(func() -> void: Game.fijar_modal(Game.Modal.SISTEMA, aj, aj.visible))
+		aj.tree_exiting.connect(func() -> void: Game.fijar_modal(Game.Modal.SISTEMA, aj, false))
 	if _ajustes.visible:
 		_ajustes.cerrar()   # es quien escribe en disco lo que hayas movido
 	else:
@@ -1505,6 +1510,10 @@ func _process(delta: float) -> void:
 		# posicion le llega por el canal del jugador y sellada con mi accion).
 		if tactico:
 			turno_mapa.tick(delta)
+		return
+	# JUGANDO UNO SOLO POR LA SALA con un menu abierto: la pelea espera, como el resto del mundo (ver Net.pausa_solo).
+	# Lo que ya estaba en el aire (una embestida a medias) acaba; el turno siguiente no llega.
+	if Net.pausa_solo >= Net.PAUSA_SOLO_TODO:
 		return
 	_tick_platos(delta)   # los buffs de comida se gastan por RELOJ, no por turnos (ver mas abajo)
 	espejo._difundir_atb(delta)

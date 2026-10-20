@@ -276,6 +276,78 @@ func _pausa_red(on: bool) -> void:
 		Cargando.ocultar()
 
 
+# CON UN SOLO HUMANO SE JUEGA COMO EL SOLO DE SIEMPRE (fase 2, 20/10: toda partida va por la sala, tambien la de
+# uno). En solitario un menu congelaba el arbol entero, y una pelea congelaba el mapa (no nacia ni se movia nadie
+# mientras peleabas). Por la sala eso pasa en otros procesos, asi que lo decide ella y lo reparte:
+#   0 = nada parado;
+#   1 = el MAPA quieto (el unico humano esta peleando): los trabajadores paran su arbol; la pelea, que va en
+#       PROCESS_MODE_ALWAYS, sigue;
+#   2 = TODO quieto (el unico humano tiene un menu abierto): ademas la pelea para su barra (combat._process) y el
+#       juego del humano se pausa como en solitario.
+# Desde el segundo humano, siempre 0: el mundo es de todos y tu menu es asunto tuyo (el multi de siempre).
+const PAUSA_SOLO_MAPA := 1
+const PAUSA_SOLO_TODO := 2
+var pausa_solo := 0
+# EN EL CLIENTE: lo ultimo que le conte a la sala de mis pantallas ([menu, pelea]), para no repetirlo.
+var _mis_modales: Array = []
+# EN LA SALA: peer -> [menu, pelea] de cada humano.
+var _modales_de: Dictionary = {}
+
+
+# EN EL CLIENTE: lo llama Game._refrescar_pausa cada vez que se abre o cierra algo. Solo habla si ha cambiado.
+func avisar_modales() -> void:
+	if not activo or es_host or soy_trabajador or multiplayer.multiplayer_peer == null:
+		_mis_modales = []
+		return
+	if multiplayer.multiplayer_peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
+		return
+	var ahora: Array = [Game.menu_de_jugador_abierto(), Game.hay_modal_de(Game.Modal.COMBATE)]
+	if ahora == _mis_modales:
+		return
+	_mis_modales = ahora
+	print("[multi] a la sala: menu=%s pelea=%s %s" % [ahora[0], ahora[1],
+		str(Game._modal_stack.map(func(m): return [m["tipo"], str(m["fuente"])]))])
+	_estado_modales.rpc_id(1, ahora[0], ahora[1])
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _estado_modales(menu: bool, pelea: bool) -> void:
+	if not (es_host and soy_sala):
+		return
+	_modales_de[multiplayer.get_remote_sender_id()] = [menu, pelea]
+	_revisar_pausa_solo()
+
+
+# EN LA SALA: recalcula el nivel y lo reparte si ha cambiado. Se mira al llegar un aviso y al entrar o irse alguien.
+func _revisar_pausa_solo() -> void:
+	if not (es_host and soy_sala):
+		return
+	var n := 0
+	var humanos: Array = []
+	for pid in _peers:   # los registrados: el que se esta yendo ya no esta
+		if not es_trabajador(pid):
+			humanos.append(pid)
+	if humanos.size() == 1:
+		var m: Array = _modales_de.get(humanos[0], [false, false])
+		if m[0]:
+			n = PAUSA_SOLO_TODO
+		elif m[1]:
+			n = PAUSA_SOLO_MAPA
+	if n == pausa_solo:
+		return
+	print("[sala] pausa de solo: %d -> %d" % [pausa_solo, n])
+	pausa_solo = n
+	_pausa_solo.rpc(n)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _pausa_solo(n: int) -> void:
+	if pausa_solo == n:
+		return
+	pausa_solo = n
+	Game._refrescar_pausa()
+
+
 # El panel de conexion se suscribe para pintar "Conectado / Rechazado / Host caido...".
 signal estado_cambiado(texto: String)
 # La semilla del pueblo ha cambiado (ver Game.semilla_pueblo): el pueblo vuelve a colocar sus cañas.
@@ -606,6 +678,9 @@ func desconectar() -> void:
 	_posiciones.clear()
 	if pausa_red:
 		_pausa_red(false)
+	pausa_solo = 0   # el _refrescar_pausa de abajo lo aplica
+	_mis_modales = []
+	_modales_de.clear()
 	_traspasos.clear()
 	Game.vistos_mundo.clear()   # lo descubierto por los demas era de la sesion, no mio
 	_soy_dueno = false
@@ -828,6 +903,7 @@ func _sync_humanos() -> void:
 		if not es_trabajador(pid):
 			_num_humanos += 1
 	_set_num_humanos.rpc(_num_humanos)
+	_revisar_pausa_solo()   # con uno solo se juega como en solitario; con dos, ya no
 	if not soy_sala:
 		_aplicar_cupo()
 	hogar._difundir_hogar()   # alguien entra o se va: la formacion se reconcilia y viaja ya
@@ -1523,6 +1599,7 @@ func _on_peer_disconnected(id: int) -> void:
 			mia.sacar_a(id)
 	# Solo avisar de gente que llego a ENTRAR (registrada): un intento rechazado por codigo
 	# tambien dispara esta señal y no es "un jugador que se va".
+	_modales_de.erase(id)
 	if conocido and not trabajador:
 		estado_cambiado.emit("Un jugador se ha ido.")
 		# Somos uno menos: el host recuenta y difunde; los apartados por cupo van volviendo.

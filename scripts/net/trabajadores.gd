@@ -347,6 +347,9 @@ func _saludar_trabajador(token: String, protocolo: int, pid: int = 0) -> void:
 	# trabajador que se presentaba DESPUES de cambiarlo no se lo decia nadie, y al montar la pelea de la arena sacaba
 	# los numeros del piso 1.
 	Net.pisos.contar_piso_arena(quien)
+	# ...y si el unico humano tiene ahora el mundo parado (Net.pausa_solo), que nazca parado tambien.
+	if Net.pausa_solo != 0:
+		Net._pausa_solo.rpc_id(quien, Net.pausa_solo)
 	print("[trabajadores] se presenta el peer %d (reserva: %d)" % [quien, _libres()])
 	# ¿Hay algun piso con gente esperando a su trabajador de pelea? (el que salio de la reserva hacia falta.)
 	for piso in Net._dueno_piso.keys():

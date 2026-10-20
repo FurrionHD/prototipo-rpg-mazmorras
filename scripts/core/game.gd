@@ -1133,6 +1133,19 @@ func hay_modal() -> bool:
 	return not _modal_stack.is_empty()
 
 
+# ¿Tiene el jugador un MENU delante (inventario, personaje, pausa, ayuda...)? Es lo que, jugando uno solo por la sala,
+# para el mundo entero (Net.pausa_solo). No cuentan la pelea (para solo el mapa) ni la pantalla de carga de un piso:
+# mientras viajas, el trabajador del piso nuevo tiene que poder montarlo.
+func menu_de_jugador_abierto() -> bool:
+	for m in _modal_stack:
+		if m["tipo"] == Modal.COMBATE or m["tipo"] == Modal.EXTRACCION or m["tipo"] == Modal.RECOLECCION:
+			continue
+		if is_same(m["fuente"], Cargando._TOKEN_PISO):
+			continue
+		return true
+	return false
+
+
 # ¿El jugador esta ESCRIBIENDO en un campo de texto ahora mismo? Lo consulta todo el que escucha
 # teclas de LETRA (las de dev, y las que abren menus): mientras escribes, una tecla es una letra y no
 # un atajo. Escribir "Rodrigo" en el nombre de un compañero no puede recargar la escena (R) ni
@@ -1158,7 +1171,12 @@ func escribiendo() -> bool:
 # tiempo no se pare. Net llama a esto al abrir/cerrar sesion para aplicar el regimen que toque.
 func _refrescar_pausa() -> void:
 	# Y en multi, si la sala se ha quedado sin nube (Net.pausa_red): todos quietos hasta que vuelva.
-	get_tree().paused = ((not Net.activo) and (not _modal_stack.is_empty())) or Net.pausa_red
+	# JUGANDO UNO SOLO POR LA SALA (Net.pausa_solo): como en solitario. Los trabajadores paran el mapa ya con la pelea;
+	# el juego del humano solo con un menu (con la pelea, sus enemigos del mapa se mueven por la red y tienen que verse).
+	var solo: bool = Net.pausa_solo >= (Net.PAUSA_SOLO_MAPA if Net.soy_trabajador else Net.PAUSA_SOLO_TODO) \
+		and not Net.soy_sala
+	get_tree().paused = ((not Net.activo) and (not _modal_stack.is_empty())) or Net.pausa_red or solo
+	Net.avisar_modales()
 
 # Profundidad actual de la mazmorra (para escalar dificultad). Aun sin pisos: 1.
 var current_floor: int = 1
