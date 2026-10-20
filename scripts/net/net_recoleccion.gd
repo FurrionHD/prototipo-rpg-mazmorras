@@ -212,7 +212,7 @@ func _revivir_celda(celda: Vector2i, piso: int, nonce: int = 0) -> void:
 # ¿Llevo el piso 'piso' (numero de juego)? Con un solo piso vivo es la cuenta de antes (mi lugar es un piso y
 # Game.current_floor es ese); en el servidor (fase 2), si tengo vivo uno con ese numero.
 func _llevo_el_piso(piso: int) -> bool:
-	if not PisoVivo.hay_varios():
+	if PisoVivo.un_sitio():
 		return Net._mi_lugar.begins_with("piso:") and Game.current_floor == piso
 	return _piso_vivo_de(piso) != null
 
@@ -220,7 +220,7 @@ func _llevo_el_piso(piso: int) -> bool:
 # El piso vivo con ese numero. Con un solo piso vivo, ese (o null si me han montado el suelo sin main.tscn: entonces
 # se busca en el arbol entero, como antes).
 func _piso_vivo_de(piso: int) -> PisoVivo:
-	if not PisoVivo.hay_varios():
+	if PisoVivo.un_sitio():
 		return PisoVivo.unico()
 	for pv in PisoVivo.vivos():
 		if pv.lugar.begins_with("piso:") and pv.numero == piso:

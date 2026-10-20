@@ -439,7 +439,7 @@ func _limpiar() -> void:
 func _construir(por_la_bajada: bool = false) -> void:
 	# El numero de piso PARA LA RED (1000 en la arena): con el se registran los enemigos y se guarda la
 	# foto. La fuerza de los enemigos sigue saliendo de Game.current_floor. Ver Game.PISO_ARENA.
-	_piso_construido = Game.piso_de_red()
+	_piso_construido = _piso_red()
 	# Estado del boss: se recalcula en cada piso (las salidas se colocan mas abajo, y la sala
 	# del boss se decide al colocarlo).
 	_salida_pos = Vector2.INF
@@ -462,7 +462,7 @@ func _construir(por_la_bajada: bool = false) -> void:
 	_zonas_seguras.clear()
 	_zona_estanque = -1
 	_celda_estanque = Vector2i.MAX
-	if Game.es_arena():
+	if _es_arena():
 		_construir_arena()
 		return
 	gen = DungeonGenerator.new()
@@ -585,13 +585,13 @@ func _construir_arena() -> void:
 
 # De que piso se PINTA: la arena, con la piedra del piso de juego (el 1), no con la del 1000.
 func _piso_estilo() -> int:
-	return _numero() if Game.es_arena() else _piso_construido
+	return _numero() if _es_arena() else _piso_construido
 
 
 # El spawner de la arena coloca aqui. Lo llama quien lleva la sala (en multi, el trabajador dueño, al
 # que se lo encamina el host: ver Net.pisos.pedir_spawn_arena). 'muneco' = {modo, hp} o {} si va normal.
 func colocar_en_arena(data: EnemyData, pos: Vector2, muneco: Dictionary = {}):
-	if not Game.es_arena() or data == null:
+	if not _es_arena() or data == null:
 		return null
 	# Dentro de la sala, aunque el clic caiga en la pared (o fuera, desde otra maquina con otra camara).
 	var celda: float = float(DungeonGenerator.CELDA)
@@ -610,7 +610,7 @@ func colocar_en_arena(data: EnemyData, pos: Vector2, muneco: Dictionary = {}):
 # Borra lo que hay en la arena (enemigos vivos y cadaveres). Mismo cuidado que el spawner de siempre:
 # que el combate se entere, o creeria que sigue habiendo pelea con nodos ya liberados.
 func limpiar_arena() -> void:
-	if not Game.es_arena():
+	if not _es_arena():
 		return
 	for grupo in ["enemy", "corpse"]:
 		for e in PisoVivo.nodos_de(self, grupo):
@@ -628,6 +628,18 @@ func limpiar_arena() -> void:
 # servidor el que le toca a cada uno.
 func _numero() -> int:
 	return PisoVivo.numero_de(self)
+
+
+# Si ESTE piso es la arena y su numero para la red (1000 en la arena). Sin PisoVivo (pruebas que montan el suelo suelto),
+# los de la maquina, como antes.
+func _es_arena() -> bool:
+	var pv: PisoVivo = PisoVivo.de(self)
+	return pv.es_arena if pv != null else Game.es_arena()
+
+
+func _piso_red() -> int:
+	var pv: PisoVivo = PisoVivo.de(self)
+	return pv.piso_red if pv != null else Game.piso_de_red()
 
 
 func _semilla_del_piso() -> int:
@@ -2918,7 +2930,7 @@ func _process(delta: float) -> void:
 	if gen != null:
 		var celda: Vector2i = Vector2i((pj / DungeonGenerator.CELDA).floor())
 		var z: int = gen.zona_en(celda)
-		if z >= 0 and not Game.es_arena():   # la arena no va a la libreta
+		if z >= 0 and not _es_arena():   # la arena no va a la libreta
 			Game.vistas_de_piso(_piso_construido)[z] = true
 
 	# MULTIJUGADOR (hito 5.4): el congelado se mide contra el aliado MAS CERCANO, no solo contra mi.

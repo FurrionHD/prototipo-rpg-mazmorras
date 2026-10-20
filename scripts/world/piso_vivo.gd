@@ -22,6 +22,10 @@ const GRUPO := &"piso_vivo"
 
 static var _vivos: Array[PisoVivo] = []
 
+# EL SERVIDOR (la sala, etapa 2) lo enciende: cada pregunta va SIEMPRE a cada piso, aunque solo lleve uno. Sin el, con
+# un piso montado la sala caeria en "un sitio por maquina" y miraria Net._mi_lugar, que en ella es "sala".
+static var por_piso: bool = false
+
 # El numero de este piso cuando lo fija quien lo monta (el servidor). -1 = el de Game.current_floor, que es lo de
 # siempre en un cliente: el piso se reutiliza al bajar (dungeon_floor.regenerar) y Game.fijar_piso es quien lo cambia.
 var numero_fijo: int = -1
@@ -39,6 +43,19 @@ var dueno_fijo: int = -1   # -1 = el de la maquina; 0 = no; 1 = si
 var soy_dueno: bool:
 	get:
 		return Net._soy_dueno if dueno_fijo < 0 else dueno_fijo == 1
+
+# EL NUMERO PARA LA RED (el de su lugar: 1000 en la arena, Game.PISO_ARENA) y si es la arena. Sin lugar fijado, los de la
+# maquina (Game.piso_de_red, Game.es_arena), como siempre. En la arena 'numero' es el piso de juego que imita.
+var piso_red: int:
+	get:
+		if lugar_fijo.begins_with("piso:"):
+			return int(lugar_fijo.substr(5))
+		return Game.piso_de_red()
+var es_arena: bool:
+	get:
+		if lugar_fijo != "":
+			return piso_red == Game.PISO_ARENA
+		return Game.es_arena()
 
 # Las listas por fotograma de fisica: grupo -> [fotograma, Array]. Ver lista_fisica.
 var _listas: Dictionary = {}
@@ -66,7 +83,7 @@ static func de(n: Node) -> PisoVivo:
 		if p is PisoVivo:
 			return p as PisoVivo
 		p = p.get_parent()
-	return unico()
+	return null if por_piso else unico()
 
 
 # El piso vivo si solo hay uno (lo normal fuera del servidor); null si no hay ninguno o hay varios.
@@ -76,6 +93,12 @@ static func unico() -> PisoVivo:
 
 static func hay_varios() -> bool:
 	return _vivos.size() > 1
+
+
+# ¿Va esta maquina con "un sitio por proceso" (todo cliente, tambien jugando solo)? Entonces las preguntas son las de
+# siempre, a Net y al arbol entero. En el servidor (por_piso) o con varios pisos vivos, NO.
+static func un_sitio() -> bool:
+	return not por_piso and _vivos.size() <= 1
 
 
 static func vivos() -> Array[PisoVivo]:
@@ -113,7 +136,7 @@ static func raiz_de(n: Node) -> Node:
 # tambien en mitad de un cambio de escena (el lugar cambia antes de que exista la escena nueva y eso no se toca aqui).
 # Con varios, el piso que lleva ese lugar.
 static func del_lugar(l: String) -> PisoVivo:
-	if not hay_varios():
+	if un_sitio():
 		return unico() if Net._mi_lugar == l else null
 	for p in _vivos:
 		if p.lugar == l:
@@ -123,14 +146,14 @@ static func del_lugar(l: String) -> PisoVivo:
 
 # ¿Llevo yo ese lugar? (antes: Net._mi_lugar == lugar)
 static func lleva(l: String) -> bool:
-	if not hay_varios():
+	if un_sitio():
 		return Net._mi_lugar == l
 	return del_lugar(l) != null
 
 
 # ¿Llevo ese lugar Y soy su dueño? (antes: Net._mi_lugar == lugar and Net._soy_dueno)
 static func dueno_de(l: String) -> bool:
-	if not hay_varios():
+	if un_sitio():
 		return Net._mi_lugar == l and Net._soy_dueno
 	var p: PisoVivo = del_lugar(l)
 	return p != null and p.soy_dueno
@@ -138,7 +161,7 @@ static func dueno_de(l: String) -> bool:
 
 # ¿Llevo ese lugar SIN ser su dueño (lo espejo)? (antes: Net._mi_lugar == lugar and not Net._soy_dueno)
 static func espejo_de(l: String) -> bool:
-	if not hay_varios():
+	if un_sitio():
 		return Net._mi_lugar == l and not Net._soy_dueno
 	var p: PisoVivo = del_lugar(l)
 	return p != null and not p.soy_dueno
@@ -146,7 +169,7 @@ static func espejo_de(l: String) -> bool:
 
 # ¿Soy dueño del piso de este nodo? (antes: Net._soy_dueno a secas, mirando un bicho o un drop concreto)
 static func dueno_del_nodo(n: Node) -> bool:
-	if not hay_varios():
+	if un_sitio():
 		return Net._soy_dueno
 	var p: PisoVivo = de(n)
 	return p != null and p.soy_dueno
@@ -154,7 +177,7 @@ static func dueno_del_nodo(n: Node) -> bool:
 
 # ¿Soy dueño de ALGUN piso? (antes: Net._soy_dueno en lo que corre una vez por proceso, como difundir posiciones)
 static func dueno_de_alguno() -> bool:
-	if not hay_varios():
+	if un_sitio():
 		return Net._soy_dueno
 	for p in _vivos:
 		if p.soy_dueno:
@@ -164,7 +187,7 @@ static func dueno_de_alguno() -> bool:
 
 # Donde se cuelga lo que llega por red para ese lugar (enemigos, drops). Con un piso: current_scene, lo de antes.
 static func raiz_del_lugar(l: String, arbol: SceneTree) -> Node:
-	if not hay_varios():
+	if un_sitio():
 		return arbol.current_scene
 	return del_lugar(l)
 
@@ -175,7 +198,7 @@ static func raiz_del_lugar(l: String, arbol: SceneTree) -> Node:
 # Los nodos de 'grupo' que son de este piso. Con un solo piso vivo, el grupo entero tal cual (lo mismo que antes).
 func nodos(grupo: StringName) -> Array[Node]:
 	var todos: Array[Node] = get_tree().get_nodes_in_group(grupo)
-	if not hay_varios():
+	if un_sitio():
 		return todos
 	var out: Array[Node] = []
 	for n in todos:
@@ -185,7 +208,7 @@ func nodos(grupo: StringName) -> Array[Node]:
 
 
 func primero(grupo: StringName) -> Node:
-	if not hay_varios():
+	if un_sitio():
 		return get_tree().get_first_node_in_group(grupo)
 	for n in get_tree().get_nodes_in_group(grupo):
 		if is_ancestor_of(n):
