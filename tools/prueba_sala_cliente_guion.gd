@@ -2,6 +2,8 @@
 #   A: la dueña. Tiene personaje en el mundo. Entra, acepta a B cuando la sala se lo pregunta, echa 30 al
 #      bote y "cierra el juego" (guarda por el camino del invitado y se va).
 #   B: nuevo. Espera a que le acepten, se hace a Berto, espera a quedarse solo, saca 10 del bote y se va.
+#   R: el dueño de una RANURA abierta por su sala (prueba_sala_ranura, fase 2): entra con lo suyo, gana 25 monedas,
+#      espera a que la sala autoguarde y se va guardando.
 extends Node
 
 const PASO := 0.25
@@ -49,7 +51,7 @@ func _ready() -> void:
 	var clave_sala: String = args[i + 2]
 	Identidad.id = args[i + 3]   # solo en memoria: cada proceso es otra persona
 	rol = args[i + 4]
-	Identidad.nombre = "Ana" if rol in ["A", "S"] else "Berto"
+	Identidad.nombre = "Ana" if rol in ["A", "S"] else ("Ranura" if rol == "R" else "Berto")
 	# Como hace el menu de multijugador: al tener personaje, al pueblo y anunciar el lugar.
 	Net.partida.entrada_lista.connect(func():
 		var arbol := get_tree()
@@ -77,6 +79,8 @@ func _ready() -> void:
 	await _esperar(1.0)
 	if rol == "S":
 		await _guion_s()
+	elif rol == "R":
+		await _guion_r()
 	elif rol == "A":
 		await _guion_a()
 	else:
@@ -100,6 +104,18 @@ func _guion_a() -> void:
 	ok(await _hasta(func(): return Net.hogar.bote_visible() == 30, 10.0), "el bote tiene 30")
 	await _esperar(6.0)   # que B tenga tiempo de verme dentro antes de irme
 	# "Cierro el juego": guardar por el camino del invitado y fuera. La sala tiene que seguir para B.
+	await Ventana.guardar_al_cerrar()
+	Net.desconectar()
+
+
+# R: el dueño de la ranura. Entra con su grupo y su dinero de siempre (los de la ranura), gana 25, deja pasar un
+# autoguardado de la sala y se va guardando.
+func _guion_r() -> void:
+	print("[R] dato dinero_al_entrar=%d" % Game.money)
+	ok(not Game.party.is_empty(), "entro con mi grupo de la ranura (%d)" % Game.party.size())
+	ok(Net._num_humanos == 1, "estoy solo: somos %d" % Net._num_humanos)
+	Game.money += 25
+	await _esperar(12.0)   # la sala de una ranura autoguarda cada 10 s
 	await Ventana.guardar_al_cerrar()
 	Net.desconectar()
 

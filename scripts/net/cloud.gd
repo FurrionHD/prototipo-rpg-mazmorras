@@ -395,30 +395,43 @@ func vinculo_poner(steam_id: int, id: String, clave := "") -> Dictionary:
 # ============================================================
 #  LAS PARTIDAS DE UN JUGADOR (fase 3 de la BD): sin cerrojo, con la clave de mi identidad. Ver
 #  servidor/nube y Perfil. Si esta identidad no tiene clave (una sala), no se habla con la nube.
+#  CUENTA AJENA (fase 2, 20/10): la sala que lleva TU ranura (toda partida va por la sala) sube a TU nube personal,
+#  con tu id y tu clave. Las lee del identidad.cfg de este PC, que es el mismo: una ranura solo se abre en el tuyo.
 # ------------------------------------------------------------
+var cuenta_ajena: String = ""
+
+
+func _cuenta() -> String:
+	return cuenta_ajena if cuenta_ajena != "" else Identidad.id
+
+
+func _clave_cuenta() -> String:
+	return String(Identidad.claves.get(cuenta_ajena, "")) if cuenta_ajena != "" else Identidad.clave()
+
+
 func cuenta_lista() -> Dictionary:
-	if Identidad.clave() == "":
+	if _clave_cuenta() == "":
 		return {"ok": false, "error": "sin_clave", "mensaje": "Sin clave no hay nube."}
-	return await almacen.cuenta_lista(Identidad.id, Identidad.clave())
+	return await almacen.cuenta_lista(_cuenta(), _clave_cuenta())
 
 
 # p = {base, completa, filas, foto, foto_antes}. r["rev"] = el rev de la nube tras subir.
 func partida_sync(partida: String, p: Dictionary, meta: Dictionary) -> Dictionary:
-	if Identidad.clave() == "":
+	if _clave_cuenta() == "":
 		return {"ok": false, "error": "sin_clave", "mensaje": "Sin clave no hay nube."}
-	return await almacen.p_sync(Identidad.id, Identidad.clave(), partida, p, meta)
+	return await almacen.p_sync(_cuenta(), _clave_cuenta(), partida, p, meta)
 
 
 func partida_bajar(partida: String, desde: int) -> Dictionary:
-	if Identidad.clave() == "":
+	if _clave_cuenta() == "":
 		return {"ok": false, "error": "sin_clave", "mensaje": "Sin clave no hay nube."}
-	return await almacen.p_bajar(Identidad.id, Identidad.clave(), partida, desde)
+	return await almacen.p_bajar(_cuenta(), _clave_cuenta(), partida, desde)
 
 
 func partida_borrar(partida: String) -> Dictionary:
-	if Identidad.clave() == "":
+	if _clave_cuenta() == "":
 		return {"ok": false, "error": "sin_clave", "mensaje": "Sin clave no hay nube."}
-	return await almacen.p_borrar(Identidad.id, Identidad.clave(), partida)
+	return await almacen.p_borrar(_cuenta(), _clave_cuenta(), partida)
 
 
 # ============================================================

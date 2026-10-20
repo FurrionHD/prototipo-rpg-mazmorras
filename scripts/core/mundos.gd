@@ -77,6 +77,77 @@ const RESPALDOS_CONFLICTO := "user://respaldos/conflictos"
 # cabecera (ver _meta). Se suelta al cerrar o al abandonar: si no es del mundo abierto, no vale.
 var _cab_en_mano: SaveData = null
 
+# UNA RANURA ABIERTA COMO MUNDO (fase 2, 20/10): toda partida va por la sala, tambien la de solo. Su clave es
+# "ranura_<n>" y su base de datos es la de la ranura (Perfil.ruta_bd): el mismo fichero, la misma copia en tu nube
+# personal, el mismo historial (decision del usuario). No va al catalogo de mundos ni usa el cerrojo de la nube de los
+# mundos: lleva un cerrojo de FICHERO con el pid (no la abren dos programas a la vez), guarda cada SEG_AUTOGUARDADO_RANURA
+# y sube a tu nube personal como la subia Perfil (Perfil._subir, sin cerrojo, por rev, con historial y conflicto).
+const PREFIJO_RANURA := "ranura_"
+const SEG_AUTOGUARDADO_RANURA := 10.0   # en solo antes eran 2 s, pero aqui cada vez se pide la ficha entera al jugador
+const SEG_NUBE_RANURA := 30.0
+var _t_nube_ranura := 0.0
+
+
+static func clave_de_ranura(n: int) -> String:
+	return PREFIJO_RANURA + str(n)
+
+
+static func ranura_de(clave: String) -> int:
+	return int(clave.substr(PREFIJO_RANURA.length())) if clave.begins_with(PREFIJO_RANURA) else 0
+
+
+func ruta_cerrojo(clave: String) -> String:
+	return "user://salas/%s.cerrojo" % clave
+
+
+# ¿La tiene otro programa vivo? (el pid de su cerrojo sigue corriendo). Uno de un programa que ya no esta, no cuenta.
+func _cerrojo_ajeno(clave: String) -> bool:
+	var f := FileAccess.open(ruta_cerrojo(clave), FileAccess.READ)
+	if f == null:
+		return false
+	var pid: int = int(f.get_as_text().strip_edges())
+	f.close()
+	return pid > 0 and pid != OS.get_process_id() and OS.is_process_running(pid)
+
+
+func _coger_cerrojo(clave: String) -> bool:
+	if _cerrojo_ajeno(clave):
+		return false
+	DirAccess.make_dir_recursive_absolute("user://salas")
+	var f := FileAccess.open(ruta_cerrojo(clave), FileAccess.WRITE)
+	if f == null:
+		return false
+	f.store_string(str(OS.get_process_id()))
+	f.close()
+	return true
+
+
+func _soltar_cerrojo(clave: String) -> void:
+	if not _cerrojo_ajeno(clave):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(ruta_cerrojo(clave)))
+
+
+# Abrir una ranura (ya convertida: Perfil.convertir_a_mundo). La copia de este disco es la buena; lo de la nube
+# personal (bajar lo de otro PC, conflictos) lo resuelve el menu al cargarla, como siempre (Perfil.preparar_carga).
+func _abrir_ranura(clave: String, contrasena: String) -> Dictionary:
+	var n: int = ranura_de(clave)
+	if not Perfil.es_mundo(n):
+		return {"ok": false, "mensaje": "Esa partida no está preparada para abrirse (falta convertirla)."}
+	if not _coger_cerrojo(clave):
+		return {"ok": false, "error": "abierto", "mensaje": "Esa partida ya está abierta en otro programa."}
+	_contrasena = contrasena
+	_t_nube_ranura = 0.0
+	return {"ok": true, "resultado": "host", "clave": clave, "direcciones": Nube.direcciones_locales()}
+
+
+# Subir lo cambiado a la nube personal (lo de Perfil). 'foto' al cerrar, para el historial.
+func _subir_ranura(foto: bool) -> Dictionary:
+	if _bd == null or not Perfil.nube_activa:
+		return {"ok": true, "nada": true}
+	if _bd.meta_leer("conflicto", "") == "1":
+		return {"ok": false, "error": "conflicto"}
+	return await Perfil._subir(_bd, Perfil._nube_id_de(_bd), foto)
+
 # SOLO LA SALA: su entrada por Steam ("steam:<id>"), que abrir() publica al final de las direcciones.
 # Vacia = sin Steam: la sala va solo por Hamachi, como antes. Ver tunel_steam.gd.
 const _TUNEL = preload("res://scripts/net/tunel_steam.gd")
@@ -114,7 +185,7 @@ func _process(delta: float) -> void:
 		return
 	_posiciones_cada_poco(delta)
 	_acum += delta
-	if _acum < SEG_AUTOGUARDADO:
+	if _acum < (SEG_AUTOGUARDADO_RANURA if ranura_de(abierto) > 0 else SEG_AUTOGUARDADO):
 		return
 	# LA SALA no tiene jugador, ni pelea en pantalla, ni pueblo delante: guarda siempre (lo de cada uno
 	# se lo pide a cada uno, ver Net.partida.recoger_estados).
@@ -164,6 +235,8 @@ func ruta(clave: String) -> String:
 
 
 func ruta_bd(clave: String) -> String:
+	if ranura_de(clave) > 0:
+		return Perfil.ruta_bd(ranura_de(clave))
 	return PartidaBD.ruta_de("mundo_" + clave)
 
 
@@ -324,6 +397,8 @@ func borrar(clave: String) -> void:
 func abrir(clave: String, contrasena: String, forzar_build := false) -> Dictionary:
 	if abierto != "":
 		return {"ok": false, "mensaje": "Ya tienes un mundo abierto."}
+	if ranura_de(clave) > 0:
+		return _abrir_ranura(clave, contrasena)
 	var e: Dictionary = entrada(clave)
 	if e.is_empty():
 		return {"ok": false, "mensaje": "Ese mundo no está en tu lista."}
@@ -677,7 +752,7 @@ func _lanzar_sala(clave: String, contrasena: String, forzar_build: bool) -> Dict
 		"--", _SALA.ARG, clave, str(Net.PUERTO), Identidad.id])
 	# La sala habla con la MISMA nube que yo (las pruebas van contra la local o contra wrangler dev).
 	for a in OS.get_cmdline_user_args():
-		if a.begins_with("nube_url=") or a == "nube_local" or a.begins_with("sala_vacia=") \
+		if a.begins_with("nube_url=") or a == "nube_local" or a == "sin_nube" or a.begins_with("sala_vacia=") \
 				or a.begins_with("sala_espera="):
 			args.append(a)
 	if forzar_build:
@@ -863,6 +938,8 @@ func guardar_actual() -> bool:
 	# Lo que se acaba de escribir, para que la cabecera de la nube salga de aqui y no de releer el
 	# fichero (ver _meta). Es el MISMO objeto que ha ido al disco, asi que dice exactamente lo mismo.
 	_cab_en_mano = datos
+	if ranura_de(abierto) > 0:
+		return true   # una ranura no va al catalogo de mundos: ya sale en la lista de partidas
 	_escribir_entrada(abierto, {
 		"fecha": Time.get_datetime_string_from_system(),
 		"cab": datos.resumen(),
@@ -914,6 +991,12 @@ func _autoguardar_ya() -> bool:
 	if not guardar_actual():
 		_avisar_hud("No se pudo guardar")
 		return false
+	if ranura_de(abierto) > 0:
+		_t_nube_ranura += SEG_AUTOGUARDADO_RANURA
+		if _t_nube_ranura >= SEG_NUBE_RANURA:
+			_t_nube_ranura = 0.0
+			await _subir_ranura(false)   # sin red queda apuntado y sube la proxima vez, como en Perfil
+		return true
 	var r: Dictionary
 	if _bd != null:
 		r = await _subir_bd(false)
@@ -952,6 +1035,17 @@ func cerrar_y_subir() -> Dictionary:
 		await Net.partida.recoger_estados(true)
 	if not guardar_actual():
 		return {"ok": false, "mensaje": "No se pudo guardar el mundo (no se cierra)."}
+	if ranura_de(clave) > 0:
+		var rr: Dictionary = await _subir_ranura(true)
+		if not rr.get("ok", false) and not rr.get("nada", false):
+			push_warning("[mundos] la ranura queda guardada en el disco, sin subir (%s)" % str(rr.get("error", "")))
+		_cerrar_bd()
+		_soltar_cerrojo(clave)
+		abierto = ""
+		_cab_en_mano = null
+		_contrasena = ""
+		_hostear_al_llegar = false
+		return {"ok": true}
 	var r: Dictionary
 	if _bd != null:
 		r = await _subir_bd(true)
@@ -1001,6 +1095,8 @@ func abandonar() -> String:
 	# antes, porque reconoce mi identidad).
 	if Nube.estado == Nube.HOST:
 		Nube._olvidar()
+	if ranura_de(clave) > 0:
+		_soltar_cerrojo(clave)
 	_cerrar_bd()
 	abierto = ""
 	_cab_en_mano = null

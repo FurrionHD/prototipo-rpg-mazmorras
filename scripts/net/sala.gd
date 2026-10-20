@@ -98,10 +98,15 @@ func arrancar(args: PackedStringArray) -> void:
 	Game.sala_dueno = lanza
 
 	var contrasena := _leer_pedido()
+	# TU RANURA (fase 2, 20/10: toda partida va por la sala, tambien la de solo): la sala sube a TU nube personal, con
+	# tu cuenta (Nube.cuenta_ajena). Y sin Steam: a una ranura se entra desde este PC o por la red de casa.
+	var es_ranura: bool = Mundos.ranura_de(clave) > 0
+	if es_ranura:
+		Nube.cuenta_ajena = lanza
 	# POR STEAM (sin Hamachi): la sala entra como servidor de juego anonimo ANTES de abrir el mundo,
 	# porque su SteamID va en las direcciones que se publican al abrir. Sin Steam, sigue por Hamachi.
 	var id_steam := 0
-	if not OS.get_cmdline_user_args().has("sin_steam"):
+	if not es_ranura and not OS.get_cmdline_user_args().has("sin_steam"):
 		id_steam = await _TUNEL.iniciar_servidor(get_tree(), puerto)
 	if id_steam != 0:
 		Mundos.direccion_steam = _TUNEL.PREFIJO + str(id_steam)

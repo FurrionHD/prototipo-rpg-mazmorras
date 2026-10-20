@@ -117,6 +117,7 @@ COMO_SE_LANZA = {
     "prueba_nube_sin_red": NUBE_LOCAL,
     "prueba_sala": NUBE_LOCAL,
     "prueba_sala_dos_jugadores": NUBE_LOCAL,
+    "prueba_sala_ranura": NUBE_LOCAL,
     "prueba_sala_steam": NUBE_LOCAL,
     "prueba_vinculo_steam": NUBE_LOCAL,
     "prueba_sala_entrar": [{"despues": ["nube_local", "sala_vacia=4"]}],
@@ -132,7 +133,7 @@ COMO_SE_LANZA = {
 # a la vez se pisan (12/10: con 6 a la vez fallaron bd_altf4 y bd_ranura, y solas pasan).
 def va_sola(nombre: str) -> bool:
     return es_de_red(nombre) or nombre.startswith("prueba_bd_") or nombre in {
-        "prueba_pelea_a_medias", "prueba_huella_save", "prueba_nube_sin_red"}
+        "prueba_pelea_a_medias", "prueba_huella_save", "prueba_nube_sin_red", "prueba_ranura_a_mundo"}
 
 
 TOPE_NORMAL = 120     # s. Regla del jefe: topes de 3-5 veces lo que tarda, nada de 500 s.
