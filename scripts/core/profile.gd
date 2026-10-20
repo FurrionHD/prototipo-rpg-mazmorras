@@ -309,6 +309,93 @@ func guardar_actual_con(datos: SaveData) -> bool:
 
 
 # ============================================================
+#  LA RANURA PASA A FORMATO DE MUNDO (fase 2 del plan de optimizacion, 20/10)
+#  Toda partida va por la sala, tambien la de solo (como el servidor por dentro de Minecraft), y la sala abre MUNDOS.
+#  La ranura se convierte UNA VEZ, pero sigue siendo tu ranura: el mismo fichero, la misma copia en tu nube, el mismo
+#  historial (decision del usuario). Se hace aqui, en el juego del humano, porque es quien tiene su identidad de verdad.
+#
+#  NO vale la mudanza (Game.jugador_data_desde_ranura): esa tira el baul, el piso y la posicion. Y no se exporta
+#  desde el menu (sin escena, exportar_partida creeria que no estas en la mazmorra): se cogen los datos de la ranura
+#  TAL CUAL y solo se les añade tu ficha de jugador con la marca de mundo.
+#  Antes de tocar nada, la copia de seguridad entera (con sus ficheros de WAL) en RESPALDOS_RANURAS.
+#  Prueba: tools/prueba_ranura_a_mundo.tscn
+# ------------------------------------------------------------
+const RESPALDOS_RANURAS := "user://respaldos/ranuras"
+
+
+## ¿La ranura esta ya en formato de mundo?
+func es_mundo(slot: int) -> bool:
+	if not usa_bd(slot):
+		return false
+	var bd := _bd if (_bd != null and _bd_slot == slot) else PartidaBD.new()
+	if not bd.abierta() and not bd.abrir(ruta_bd(slot)):
+		return false
+	var si: bool = bd.meta_leer("formato", "") == "mundo"
+	if bd != _bd:
+		bd.cerrar()
+	return si
+
+
+## La convierte (si hace falta). Devuelve {ok, ya (si ya lo estaba), respaldo (ruta), mensaje}.
+func convertir_a_mundo(slot: int) -> Dictionary:
+	if not existe(slot):
+		return {"ok": false, "mensaje": "Esa ranura está vacía."}
+	_asegurar_migrada(slot)
+	if not usa_bd(slot):
+		return {"ok": false, "mensaje": "No se pudo preparar la partida: %s" % String(_no_migradas.get(slot, "?"))}
+	if es_mundo(slot):
+		return {"ok": true, "ya": true}
+	_cerrar_bd()   # cerrada antes de copiar: asi el WAL queda volcado en el fichero
+	var respaldo: String = _respaldar_ranura(slot)
+	if respaldo == "":
+		return {"ok": false, "mensaje": "No se pudo hacer la copia de seguridad: la partida no se toca."}
+	if not _abrir_bd(slot):
+		return {"ok": false, "mensaje": "No se pudo abrir la partida."}
+	var ids := BDFilas.Ids.new()
+	var datos: SaveData = _inspeccionar_bd(slot, ids).get("datos")
+	if datos == null:
+		_cerrar_bd()
+		return {"ok": false, "mensaje": "No se pudo leer la partida."}
+	_ids = ids   # con los ids de esta lectura: solo se escribe lo nuevo
+	# Tu ficha sale del estado vivo (plantilla, grupo, bolsa...), asi que primero se carga la partida en Game.
+	Game.importar_partida(datos)
+	# DONDE ESTAS, como lo decidiria cargarla en solo (main_menu._cargar): si el piso se rehace con este build (el sello
+	# del trazado), importar_partida te saca al pueblo con Game.forzar_pueblo_al_cargar; si no, sigues en tu piso. Sin
+	# escena no hay cuerpo del que leer la posicion, e importar_partida no deja el piso en Game.current_floor desde el
+	# menu: los dos, los de la ranura.
+	var dentro: bool = datos.en_mazmorra and not Game.forzar_pueblo_al_cargar
+	Game.forzar_pueblo_al_cargar = false
+	var jd: JugadorData = Game._mi_jugador_data(dentro, null)
+	if dentro:
+		jd.pos = datos.pos_jugador
+		jd.current_floor = datos.current_floor
+	datos.mundo_compartido = true
+	datos.version_mundo = SaveData.VERSION_MUNDO
+	datos.jugadores = {Identidad.id: jd}
+	var ok: bool = _bd.escribir(BDFilas.a_filas(datos, _ids)) >= 0 and _bd.meta_poner("formato", "mundo")
+	_cerrar_bd()
+	ranura_actual = 0   # la lleva su sala a partir de ahora, no este juego
+	if not ok:
+		return {"ok": false, "respaldo": respaldo, "mensaje": "No se pudo guardar la partida convertida (tienes la copia)."}
+	print("[perfil] ranura %d en formato de mundo (copia en %s)" % [slot, respaldo])
+	return {"ok": true, "ya": false, "respaldo": respaldo}
+
+
+# Copia la BD de la ranura (y sus -wal/-shm si los hay) a RESPALDOS_RANURAS. Devuelve la ruta, o "" si falla.
+func _respaldar_ranura(slot: int) -> String:
+	DirAccess.make_dir_recursive_absolute(RESPALDOS_RANURAS)
+	var origen: String = ProjectSettings.globalize_path(ruta_bd(slot))
+	var sello: String = Time.get_datetime_string_from_system().replace(":", "-")
+	var destino: String = ProjectSettings.globalize_path("%s/slot_%d_%s.sqlite" % [RESPALDOS_RANURAS, slot, sello])
+	for extra in ["", "-wal", "-shm"]:
+		if not FileAccess.file_exists(origen + extra):
+			continue
+		if DirAccess.copy_absolute(origen + extra, destino + extra) != Error.OK:
+			return ""
+	return destino if FileAccess.file_exists(destino) else ""
+
+
+# ============================================================
 #  LA BD DE LA RANURA EN JUEGO Y EL GUARDADO CONTINUO
 # ------------------------------------------------------------
 func _abrir_bd(slot: int) -> bool:
