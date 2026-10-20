@@ -126,14 +126,31 @@ func cerrar() -> void:
 	Game.fijar_modal(Game.Modal.SISTEMA, self, false)
 
 
+# ¿Estoy en MI partida, que lleva mi sala? (paso 5: toda partida va por la sala.) Entonces "Hostear" es abrirla a la
+# LAN y "Unirse" es salir de ella para entrar en la de otro.
+func _en_mi_partida() -> bool:
+	return Net.activo and not Net.es_host and Mundos.uniendome.begins_with(Mundos.PREFIJO_RANURA)
+
+
 func _refrescar_estado_inicial() -> void:
-	if Net.activo:
+	if _en_mi_partida():
+		_estado.text = ("Tu partida está abierta a la LAN." if Net.lan_abierta
+			else "Pon un código y pulsa Hostear para que tus amigos de casa entren en tu partida.")
+	elif Net.activo:
 		_estado.text = "Sesion en marcha (%s)." % ("host" if Net.es_host else "cliente")
 	else:
 		_estado.text = "Sin conexion. Hostea o unete a una partida."
 
 
 func _hostear() -> void:
+	if _en_mi_partida():
+		var cod: String = _codigo.text.strip_edges()
+		if cod == "":
+			_estado.text = "Pon un código: es la contraseña que tendrán que escribir tus amigos."
+			return
+		_estado.text = "Abriendo tu partida a la LAN..."
+		Net.abrir_lan(cod)
+		return
 	if Net.activo:
 		_estado.text = "Ya hay una sesion en marcha. Desconecta primero."
 		return
@@ -141,17 +158,32 @@ func _hostear() -> void:
 
 
 func _unirse() -> void:
-	if Net.activo:
-		_estado.text = "Ya hay una sesion en marcha. Desconecta primero."
-		return
 	var ip := _ip.text.strip_edges()
 	if ip.is_empty():
 		_estado.text = "Pon la IP del host."
+		return
+	if _en_mi_partida():
+		# Para entrar en la de otro hay que salir de la mia: se guarda (lo hace mi sala) y se sigue en la pantalla de
+		# multijugador, que es la que sabe hacerte un personaje si ese mundo no te conoce.
+		_estado.text = "Guardando tu partida..."
+		await Ventana.pedir_guardado_al_anfitrion()
+		await get_tree().create_timer(0.2).timeout
+		Mundos.union_ip = {"ip": ip, "codigo": _codigo.text.strip_edges()}
+		cerrar()
+		Game.limpiar_modales()
+		Net.desconectar()
+		get_tree().change_scene_to_file(Mundos.MENU_MULTI)
+		return
+	if Net.activo:
+		_estado.text = "Ya hay una sesion en marcha. Desconecta primero."
 		return
 	Net.unirse(ip, _codigo.text.strip_edges())
 
 
 func _desconectar() -> void:
+	if _en_mi_partida():
+		Net.abrir_lan("")   # en mi partida no me desconecto de mi sala: se cierra la puerta a la LAN
+		return
 	if not Net.activo:
 		_estado.text = "No hay sesion que cerrar."
 		return

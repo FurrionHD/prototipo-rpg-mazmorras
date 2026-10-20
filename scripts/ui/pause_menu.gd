@@ -109,7 +109,8 @@ func _construir() -> void:
 	# EL PANEL DE LAN es el de hostear/unirse por IP a mano, y dentro de un mundo compartido no pinta
 	# nada: ya estas conectado, y la partida esta abierta de base. Solo se ofrece jugando a solas.
 	# (El panel y el modo LAN de siempre siguen existiendo: lo que desaparece es la puerta.)
-	if not en_mundo_compartido:
+	# TU PARTIDA va por su sala y cuenta como mundo (paso 5), pero es la que se abre a la LAN: ahi si sale.
+	if not en_mundo_compartido or Mundos.uniendome.begins_with(Mundos.PREFIJO_RANURA):
 		_boton(vb, "Multijugador (LAN)", _abrir_multi)
 	# INVITAR POR STEAM: solo dentro de un mundo compartido y con Steam (ver invitaciones_steam.gd). Se
 	# decide al abrir la pausa y no aqui: al invitado la pausa le nace antes de terminar de entrar.

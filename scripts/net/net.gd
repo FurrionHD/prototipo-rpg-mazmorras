@@ -154,6 +154,10 @@ var _identidades: Dictionary = {}
 var _en_la_puerta: Dictionary = {}
 
 var _codigo := ""                  # codigo de sala que hay que casar para entrar
+# LA LAN DE TU PARTIDA (fase 2, paso 5): la sala de una ranura entra con una contraseña que nadie escribe (sale de tu
+# clave, ver Mundos.codigo_de_ranura). Para que entren tus amigos de casa, su dueño le da un codigo de LAN y la sala
+# deja pasar tambien con ese. Vacio = cerrada a la LAN. Solo en la SALA.
+var _codigo_lan := ""
 
 # --- QUIEN es cada peer y DONDE esta (hito 3b) ---
 # _peers guarda los DATOS de cada peer (aspecto, lugar, ultima pos): sobrevive a cambios de
@@ -338,6 +342,47 @@ func _revisar_pausa_solo() -> void:
 	print("[sala] pausa de solo: %d -> %d" % [pausa_solo, n])
 	pausa_solo = n
 	_pausa_solo.rpc(n)
+
+
+# --- ABRIR TU PARTIDA A LA LAN (paso 5) ---------------------------------------------------------
+# EN EL CLIENTE (el menu de LAN): le pido a mi sala que deje entrar con 'codigo'. La respuesta llega como un
+# estado_cambiado (lo pinta el panel). Vacio = cerrarla.
+func abrir_lan(codigo: String) -> void:
+	if not activo or es_host or multiplayer.multiplayer_peer == null:
+		return
+	_pedir_abrir_lan.rpc_id(1, codigo)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_abrir_lan(codigo: String) -> void:
+	if not (es_host and soy_sala):
+		return
+	var quien := multiplayer.get_remote_sender_id()
+	# Solo el DUEÑO de la partida: un amigo que ya esta dentro no puede cambiarle la puerta.
+	if String(_identidades.get(quien, "")) != Game.sala_dueno:
+		_lan_respuesta.rpc_id(quien, false, [], "Solo quien abrió la partida puede abrirla a la LAN.")
+		return
+	_codigo_lan = codigo
+	print("[sala] %s a la LAN" % ("ABIERTA" if codigo != "" else "cerrada"))
+	_lan_respuesta.rpc_id(quien, codigo != "", Nube.direcciones_locales(), "")
+
+
+@rpc("authority", "call_remote", "reliable")
+func _lan_respuesta(abierta: bool, direcciones: Array, motivo: String) -> void:
+	lan_abierta = abierta
+	if motivo != "":
+		estado_cambiado.emit(motivo)
+	elif not abierta:
+		estado_cambiado.emit("Tu partida ya no admite a nadie más por la LAN.")
+	elif direcciones.is_empty():
+		estado_cambiado.emit("Abierta a la LAN, pero no encuentro tu IP: mírala en tu PC (ipconfig).")
+	else:
+		estado_cambiado.emit("Abierta a la LAN. Tus amigos se unen a %s con tu código." % " o ".join(
+			direcciones.map(func(d): return String(d))))
+
+
+# EN EL CLIENTE: lo ultimo que dijo mi sala de la LAN (lo pinta el panel).
+var lan_abierta := false
 
 
 @rpc("authority", "call_remote", "reliable")
@@ -679,8 +724,10 @@ func desconectar() -> void:
 	if pausa_red:
 		_pausa_red(false)
 	pausa_solo = 0   # el _refrescar_pausa de abajo lo aplica
+	_codigo_lan = ""
 	_mis_modales = []
 	_modales_de.clear()
+	lan_abierta = false
 	_traspasos.clear()
 	Game.vistos_mundo.clear()   # lo descubierto por los demas era de la sesion, no mio
 	_soy_dueno = false
@@ -1057,7 +1104,7 @@ func _saludar(codigo: String, protocolo: int, identidad: String, nombre_visible:
 		imagen: PackedByteArray = PackedByteArray(), alpha: float = 1.0,
 		piezas: Dictionary = {}, invitacion: String = "") -> void:
 	var quien := multiplayer.get_remote_sender_id()
-	if codigo != _codigo:
+	if codigo != _codigo and (_codigo_lan == "" or codigo != _codigo_lan):
 		estado_cambiado.emit("Rechazado un intento con codigo incorrecto.")
 		await _echar(quien, "No hay ninguna sala con ese codigo en esa IP.")
 		return

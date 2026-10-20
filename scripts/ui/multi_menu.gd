@@ -88,7 +88,9 @@ func _ready() -> void:
 	_pintar()
 	# Con una INVITACION de Steam delante se atiende ella; lo de tu cuenta de Steam se mira la proxima vez
 	# (son dos preguntas y la del vinculo taparia a la otra).
-	if not Mundos.invitacion.is_empty():
+	if not Mundos.union_ip.is_empty():
+		_unirse_por_ip()
+	elif not Mundos.invitacion.is_empty():
 		atender_invitacion()
 	else:
 		_mirar_steam()
@@ -673,6 +675,20 @@ func _entrar(clave: String, pass_: String, forzar_build := false, token := "") -
 				_decir("Mundo abierto en %s%s. Entrando..." % [String(ips[0]), " y por Steam" if por_steam else ""])
 	else:
 		_decir("Conectando a %s..." % String(r.get("direccion", "")))
+
+
+# UNIRSE POR IP a la partida de alguien de tu LAN (viene del panel de LAN, ver Mundos.union_ip). Se entra como a
+# cualquier mundo: si ya tienes personaje ahi te lo dan, y si no, te lo haces o te traes una copia de uno tuyo.
+func _unirse_por_ip() -> void:
+	var u: Dictionary = Mundos.union_ip
+	Mundos.union_ip = {}
+	var ip: String = String(u.get("ip", ""))
+	_entrando = true
+	await Cargando.mostrar("Uniéndote a %s..." % ip)
+	if Net.unirse(ip, String(u.get("codigo", "")), Net.PUERTO, true) != OK:
+		_entrando = false
+		Cargando.ocultar()
+		_decir("No se pudo conectar a %s." % ip, false)
 
 
 # Lo que cuenta la red mientras entras va en la capa de carga; si la conexion se cae (o te rechazan),

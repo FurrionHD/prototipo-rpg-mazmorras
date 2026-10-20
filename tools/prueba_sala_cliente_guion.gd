@@ -4,9 +4,14 @@
 #   B: nuevo. Espera a que le acepten, se hace a Berto, espera a quedarse solo, saca 10 del bote y se va.
 #   R: el dueño de una RANURA abierta por su sala (prueba_sala_ranura, fase 2): entra con lo suyo, gana 25 monedas,
 #      espera a que la sala autoguarde y se va guardando.
+#   O: el dueño de una ranura que la ABRE A LA LAN (prueba_lan_por_sala, paso 5): pone el codigo, acepta al amigo
+#      cuando la sala se lo pregunta y se va guardando cuando el amigo ya se ha ido.
+#   L: el amigo de la LAN: entra con el codigo de LAN, se hace a Berto, intenta abrir la partida a la LAN (no le
+#      deja: no es suya) y se va guardando.
 extends Node
 
 const PASO := 0.25
+const SEÑAL_LAN := "user://logs/prueba_lan_abrir.txt"   # ver _guion_o
 
 var rol := ""
 var fallos := 0
@@ -51,7 +56,7 @@ func _ready() -> void:
 	var clave_sala: String = args[i + 2]
 	Identidad.id = args[i + 3]   # solo en memoria: cada proceso es otra persona
 	rol = args[i + 4]
-	Identidad.nombre = "Ana" if rol in ["A", "S"] else ("Ranura" if rol == "R" else "Berto")
+	Identidad.nombre = "Ana" if rol in ["A", "S"] else ("Ranura" if rol in ["R", "O"] else "Berto")
 	# Como hace el menu de multijugador: al tener personaje, al pueblo y anunciar el lugar.
 	Net.partida.entrada_lista.connect(func():
 		var arbol := get_tree()
@@ -81,6 +86,10 @@ func _ready() -> void:
 		await _guion_s()
 	elif rol == "R":
 		await _guion_r()
+	elif rol == "O":
+		await _guion_o()
+	elif rol == "L":
+		await _guion_l()
 	elif rol == "A":
 		await _guion_a()
 	else:
@@ -116,6 +125,42 @@ func _guion_r() -> void:
 	ok(Net._num_humanos == 1, "estoy solo: somos %d" % Net._num_humanos)
 	Game.money += 25
 	await _esperar(12.0)   # la sala de una ranura autoguarda cada 10 s
+	await Ventana.guardar_al_cerrar()
+	Net.desconectar()
+
+
+# O: abro mi partida a la LAN y dejo pasar al amigo.
+func _guion_o() -> void:
+	var dicho: Array = [""]
+	Net.estado_cambiado.connect(func(t: String): dicho[0] = t)
+	ok(not Net.lan_abierta, "mi partida empieza cerrada a la LAN")
+	# La prueba prueba antes que con el codigo de LAN no se entra; me avisa con este fichero cuando ha acabado.
+	ok(await _hasta(func(): return FileAccess.file_exists(SEÑAL_LAN), 120.0), "me dicen que ya puedo abrirla")
+	Net.abrir_lan("casa")
+	ok(await _hasta(func(): return Net.lan_abierta, 10.0), "la abro a la LAN con mi codigo (%s)" % dicho[0])
+	print("[O] dato lan_abierta=1")   # la prueba lanza al amigo al leer esto
+	ok(await _hasta(func(): return _boton("Aceptar") != null, 60.0), "me preguntan si dejo entrar al amigo")
+	var b := _boton("Aceptar")
+	if b != null:
+		b.pressed.emit()
+	ok(await _hasta(func(): return Net._num_humanos == 2, 60.0), "el amigo esta dentro: somos %d" % Net._num_humanos)
+	ok(await _hasta(func(): return Net._num_humanos == 1, 90.0), "el amigo se ha ido")
+	Net.abrir_lan("")
+	ok(await _hasta(func(): return not Net.lan_abierta, 10.0), "la cierro a la LAN")
+	await Ventana.guardar_al_cerrar()
+	Net.desconectar()
+
+
+# L: el amigo de la LAN.
+func _guion_l() -> void:
+	ok(Game.lider() != null and Game.lider().nombre == "Berto", "soy Berto, recien hecho en la partida de mi amigo")
+	ok(await _hasta(func(): return Net._num_humanos == 2, 30.0), "estamos los dos")
+	var dicho: Array = [""]
+	Net.estado_cambiado.connect(func(t: String): dicho[0] = t)
+	Net.abrir_lan("otro")
+	ok(await _hasta(func(): return dicho[0].begins_with("Solo quien"), 10.0), "no puedo abrir a la LAN una partida que no es mia (%s)" % dicho[0])
+	Game.money += 3
+	await _esperar(2.0)
 	await Ventana.guardar_al_cerrar()
 	Net.desconectar()
 

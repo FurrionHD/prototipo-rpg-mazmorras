@@ -861,6 +861,12 @@ var uniendome: String = ""
 const MENU_PRINCIPAL := "res://scenes/ui/main_menu.tscn"
 const MENU_MULTI := "res://scenes/ui/multi_menu.tscn"
 
+# UNIRSE POR IP desde dentro de tu partida (el panel de LAN, paso 5): para entrar en la de otro hay que salir de la
+# tuya, y quien se une es la pantalla de multijugador (es la que sabe crear o traer tu personaje si ese mundo no te
+# conoce). El panel deja aqui {ip, codigo} y cambia de escena; multi_menu lo atiende al abrirse.
+var union_ip: Dictionary = {}
+
+
 func menu_al_salir() -> String:
 	return MENU_PRINCIPAL if uniendome.begins_with(PREFIJO_RANURA) else MENU_MULTI
 
