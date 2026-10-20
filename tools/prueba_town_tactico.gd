@@ -1,9 +1,8 @@
-# PRUEBA DEL COMBATE EN EL MAPA CON DOS JUGADORES: este proceso es el HOST y lanza al jugador B
-# (tools/prueba_town_tactico_b.tscn) como otro Godot sin ventana. Guion en prueba_town_tactico_guion.gd.
-# El nombre lleva "town" para pasar la guarda _en_el_pueblo de Net.hostear. El guion cuelga de root:
-# entrar en la arena libera esta escena.
+# PRUEBA DEL COMBATE EN EL MAPA CON DOS JUGADORES: este proceso es el jugador A; abre la sala de una ranura de prueba,
+# entra y lanza al jugador B (tools/prueba_town_tactico_b.tscn) como otro Godot sin ventana, por la misma sala. Guion en
+# prueba_town_tactico_guion.gd. El guion cuelga de root: entrar al pueblo libera esta escena.
 #
-#   godot --headless --path . res://tools/prueba_town_tactico.tscn
+#   godot --headless --path . res://tools/prueba_town_tactico.tscn -- nube_local
 extends Node
 
 

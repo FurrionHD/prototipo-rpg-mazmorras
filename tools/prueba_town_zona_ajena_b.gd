@@ -1,4 +1,4 @@
-# Ver tools/prueba_town_zona_ajena_b_guion.gd. El nombre lleva "town" para pasar la guarda _en_el_pueblo de Net. El guion cuelga de root.
+# Ver tools/prueba_town_zona_ajena_b_guion.gd. El guion cuelga de root.
 extends Node
 
 

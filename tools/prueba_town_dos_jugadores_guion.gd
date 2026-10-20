@@ -1,70 +1,58 @@
-# PRUEBA DE DOS JUGADORES, guion del HOST: abre la sala, lanza al jugador B, marca las fases y comprueba lo
-# que se ve desde el host y lo que B apunta en su registro (lineas "[B] ...").
+# PRUEBA DE DOS JUGADORES, guion de A. POR LA SALA (fase 2, paso 6): A (este proceso) y B entran como clientes en la
+# sala de la RANURA 86 (ver prueba_town_sala_comun.gd); lo de dentro de la sala se lee de su registro ([S] dato).
+# Comprueba lo que se ve desde A y lo que B apunta en su registro (lineas "[B] ...").
+#   0) las fotos de los personajes de casa y el equipo de B
 #   1) los dos bajan al piso 1
 #   2) DOS PELEAS A LA VEZ, cada una en un trabajador de pelea distinto
-#   3) B se UNE a la pelea del host y HUYE: la pelea sigue para el host
-extends "res://tools/prueba_town_dos_comun.gd"
-
-const PUERTO := 24601
-const REGISTRO_B := "user://logs/prueba_jugador_b.log"
-var _pid_b := 0
+#   3) B se UNE a la pelea de A y HUYE: la pelea sigue para A
+#   4) la arena de pruebas, compartida
+extends "res://tools/prueba_town_sala_comun.gd"
 
 
 func _ready() -> void:
 	prefijo = ""
+	slot = 86
+	puerto = 24601
+	registro_b = "user://logs/prueba_jugador_b.log"
 	escribir_fase(0)
-	if FileAccess.file_exists(REGISTRO_B):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(REGISTRO_B))
-	cargar_grupo([4, 0])
+	if not preparar_mundo(GRUPO_A, CASA_A, GRUPO_B, CASA_B) or not await abrir_sala_y_entrar():
+		await _fin()
+		return
 	# Uno de CASA (no va en el equipo) con foto: B tiene que verle la cara y la foto en Encargos.
-	var de_casa: PersonajeData = Game.plantilla[1]
-	de_casa.set_imagen(foto_de_prueba(Color(0.9, 0.2, 0.2)))
-	Game.semilla_mundo = 424242
-	await _esperar(0.5)
-	_ok(Net.hostear("abc", PUERTO) == OK, "sala abierta")
-	_pid_b = _lanzar_b()
-	_ok(_pid_b > 0, "jugador B lanzado")
-	var t := 0.0
-	while Net._num_humanos < 2 and t < 40.0:
-		await _esperar(0.5)
-		t += 0.5
-	_ok(Net._num_humanos == 2, "B entra en la sala (%.1f s)" % t)
-	if Net._num_humanos < 2:
+	for pj in Game.plantilla:
+		if String((pj as PersonajeData).uid) == String(uid_casa["a"]):
+			(pj as PersonajeData).set_imagen(foto_de_prueba(Color(0.9, 0.2, 0.2)))
+	Net.hogar.marcar_hogar_sucio()
+	if not await lanzar_b("prueba_town_dos_cliente"):
 		await _fin()
 		return
 
-	# 0) LAS FOTOS DEL ROSTER. B sube la de uno de SUS personajes de casa; a B le llega la del mio.
-	t = 0.0
-	while Net.hogar._fotos.is_empty() and t < 20.0:
-		await _esperar(0.5)
-		t += 0.5
-	_ok(not Net.hogar._fotos.is_empty(), "B me sube la foto de su personaje de casa (%.1f s)" % t)
+	# 0) LAS FOTOS DEL ROSTER. Los dos subimos la de nuestro personaje de casa a la sala, y cada uno ve la del otro.
+	_ok(await hasta_sala("fotos", func(v): return int(v) >= 2, 20.0), "la sala tiene las fotos de los dos (%s)" % dato_sala("fotos"))
+	_ok(await _veo_foto_de(String(uid_casa["b"]), 20.0), "veo la cara Y la foto del personaje de casa de B")
 	_ok(await _dato_de_b("foto_del_host", 20.0) == 1, "B ve la cara Y la foto de mi personaje de casa")
-	var ya: Dictionary = (Net.hogar._fotos_mandadas.get(_b(), {}) as Dictionary).duplicate()
-	Net.hogar._difundir_hogar()
-	_ok(Net.hogar._fotos_mandadas.get(_b(), {}) == ya and ya.has(String(de_casa.uid)),
-		"una segunda difusion no le reenvia la foto")
+	_ok(await hasta_sala("reenvio_fotos_igual", func(v): return v != "", 20.0) and dato_sala("reenvio_fotos_igual") == "1",
+		"una segunda difusion no reenvia las fotos")
 
 	# 0b) EL EQUIPO DE B (10/10, playtest 09/10): su hogar me llega al entrar SIN que toque nada, con sus dos del equipo
-	# marcados. (Sus barras, abajo: en esta prueba B no tiene personaje hasta que baja al piso.)
-	var ident_b: String = Net._identidad_de_peer(_b())
-	t = 0.0
-	while not Net.hogar._roster_ajeno.has(ident_b) and t < 10.0:
+	# marcados. (Sus barras, abajo: salen al bajar al piso.)
+	var t := 0.0
+	var van_b := 0
+	while van_b != 2 and t < 10.0:
+		van_b = Net.hogar.roster_hogar().filter(func(f): return String(f.get("dueno", "")) == IDENT_B 			and bool(f.get("en_equipo", false))).size()
 		await _esperar(0.5)
 		t += 0.5
-	var van_b: int = (Net.hogar._roster_ajeno.get(ident_b, []) as Array).filter(
-		func(f): return bool(f.get("en_equipo", false))).size()
-	_ok(van_b == 2, "B me manda su hogar al entrar, con sus 2 del equipo (%d, %.1f s)" % [van_b, t])
+	_ok(van_b == 2, "me llega el hogar de B al entrar, con sus 2 del equipo (%d, %.1f s)" % [van_b, t])
 
 	# 1) Los dos al piso 1.
 	Net.pisos.solicitar_entrar(1)
 	escribir_fase(1)
 	await _esperar(10.0)
 	t = 0.0
-	while Net.pisos._piso_de(_b()) != 1 and t < 20.0:
+	while piso_de_b() != 1 and t < 20.0:
 		await _esperar(0.5)
 		t += 0.5
-	_ok(Net.pisos._piso_de(_b()) == 1, "B esta en el piso 1")
+	_ok(piso_de_b() == 1, "B esta en el piso 1")
 	# Y SU GRUPO EN MI BARRA DE ARRIBA (BarrasOtros, 10/10), con sus numeros.
 	t = 0.0
 	while Net.jugadores.barras_de_otros().is_empty() and t < 10.0:
@@ -77,31 +65,22 @@ func _ready() -> void:
 	var bo = yo.get("_barras_otros") if yo != null else null
 	await _esperar(0.5)
 	_ok(bo != null and bo.ancho() > 0.0, "y salen en mi barra de arriba, detras de las mias")
-	t = 0.0
-	while Net._trab.pelea_libre_en(1) == 0 and t < 40.0:
-		await _esperar(0.5)
-		t += 0.5
-	_ok(Net._trab.pelea_libre_en(1) != 0, "hay un trabajador de pelea esperando en el piso 1 (%.1f s)" % t)
+	_ok(await hasta_sala("pelea_libre_1", func(v): return int(v) != 0, 40.0),
+		"hay un trabajador de pelea esperando en el piso 1 (%s)" % dato_sala("pelea_libre_1"))
 	await _esperar(3.0)
 
 	# 2) DOS PELEAS A LA VEZ. Abro la mia; en cuanto haya otro de pelea esperando (y haya cargado), B abre la suya.
 	var excelia_antes := excelia_grupo()
 	await pelear_con(enemigo_libre(Net.posicion_de_peer(_b())))
 	var f_mia: int = Net.peleas._pelea_anfitrion
-	_ok(Net.peleas.espejando() and Net._trab._de_pelea.has(f_mia), "mi pelea la ejecuta un trabajador de pelea (%d)" % f_mia)
-	t = 0.0
-	while (Net._trab.pelea_libre_en(1) == 0 or Net._trab.pelea_libre_en(1) == f_mia) and t < 30.0:
-		await _esperar(0.5)
-		t += 0.5
+	_ok(Net.peleas.espejando() and _de_pelea(f_mia), "mi pelea la ejecuta un trabajador de pelea (%d)" % f_mia)
+	await hasta_sala("pelea_libre_1", func(v): return int(v) != 0 and int(v) != f_mia, 30.0)
 	await _esperar(4.0)   # que cargue el piso y reciba los enemigos
 	escribir_fase(2)
-	t = 0.0
-	while Net._trab._peleando.size() < 2 and t < 20.0:
-		await _esperar(0.25)
-		t += 0.25
-	_ok(Net._trab._peleando.size() >= 2, "DOS peleas a la vez, en %d trabajadores de pelea" % Net._trab._peleando.size())
+	_ok(await hasta_sala("peleando", func(v): return int(v) >= 2, 20.0),
+		"DOS peleas a la vez, en %s trabajadores de pelea" % dato_sala("peleando"))
 	var f_b: int = await _dato_de_b("anfitrion_fase2", 20.0)
-	_ok(f_b != 0 and f_b != f_mia and Net._trab._de_pelea.has(f_b), "la de B va en OTRO trabajador de pelea (%d, la mia %d)" % [f_b, f_mia])
+	_ok(f_b != 0 and f_b != f_mia and _de_pelea(f_b), "la de B va en OTRO trabajador de pelea (%d, la mia %d)" % [f_b, f_mia])
 	_ok(await pelear_hasta_el_final(60.0), "mi pelea termina")
 	_ok(excelia_grupo() > excelia_antes, "me llega la excelia de mi pelea")
 	await _dato_de_b("fase2_fin", 60.0)
@@ -149,13 +128,13 @@ func _ready() -> void:
 	Game.entrar_arena_de_pruebas()
 	escribir_fase(4)
 	t = 0.0
-	while (Net._mi_lugar != "piso:%d" % Game.PISO_ARENA or Net.pisos._piso_de(_b()) != Game.PISO_ARENA) and t < 30.0:
+	while (Net._mi_lugar != "piso:%d" % Game.PISO_ARENA or piso_de_b() != Game.PISO_ARENA) and t < 30.0:
 		await _esperar(0.5)
 		t += 0.5
-	_ok(Net._mi_lugar == "piso:%d" % Game.PISO_ARENA and Net.pisos._piso_de(_b()) == Game.PISO_ARENA,
+	_ok(Net._mi_lugar == "piso:%d" % Game.PISO_ARENA and piso_de_b() == Game.PISO_ARENA,
 		"los dos estamos en la arena (%.1f s)" % t)
-	var dueno_arena: int = int(Net._dueno_piso.get(Game.PISO_ARENA, 0))
-	_ok(Net.es_trabajador(dueno_arena), "la arena la lleva un trabajador (%d)" % dueno_arena)
+	var dueno_arena: int = int(dato_sala("dueno_piso_%d" % Game.PISO_ARENA))
+	_ok(es_trabajador(dueno_arena), "la arena la lleva un trabajador (%d)" % dueno_arena)
 	var visto := false
 	t = 0.0
 	while not visto and t < 30.0:
@@ -184,65 +163,22 @@ func _ready() -> void:
 	await _fin()
 
 
-func _b() -> int:
-	for pid in Net._peers:
-		if not Net.es_trabajador(pid):
-			return pid
-	return 0
+# ¿Ese peer es un trabajador puesto en su piso para peleas? (lo dice la sala)
+func _de_pelea(peer: int) -> bool:
+	return peer != 0 and dato_sala("de_pelea").split(",").has(str(peer))
 
 
-func _lanzar_b() -> int:
-	var args: PackedStringArray = ["--headless"]
-	if OS.has_feature("editor"):
-		args.append_array(["--path", ProjectSettings.globalize_path("res://")])
-	args.append_array(["--log-file", ProjectSettings.globalize_path(REGISTRO_B),
-		"res://tools/prueba_town_dos_cliente.tscn", "--", "cliente", "127.0.0.1", str(PUERTO), "abc"])
-	return OS.create_process(OS.get_executable_path(), args)
-
-
-func _texto_b() -> String:
-	if not FileAccess.file_exists(REGISTRO_B):
-		return ""
-	var f := FileAccess.open(REGISTRO_B, FileAccess.READ)
-	var s := f.get_as_text()
-	f.close()
-	return s
-
-
-func _hay_linea_b(clave: String) -> bool:
-	return _texto_b().contains("[B] dato " + clave)
-
-
-# El valor que B apunto como "[B] dato clave=valor" (0 si no aparece en el plazo).
-func _dato_de_b(clave: String, plazo: float) -> int:
+# Veo la cara y la foto del personaje de casa 'uid' de otro, como las pinta Encargos.
+func _veo_foto_de(uid: String, plazo: float) -> bool:
 	var t := 0.0
 	while t <= plazo:
-		for linea in _texto_b().split("\n"):
-			if linea.begins_with("[B] dato " + clave):
-				return int(linea.get_slice("=", 1)) if linea.contains("=") else 1
+		for f in Net.hogar.roster_hogar():
+			var fila := f as Dictionary
+			if String(fila.get("uid", "")) != uid or int(fila.get("imagen_huella", 0)) == 0:
+				continue
+			var pj: PersonajeData = Net.hogar.pj_de_fila(fila)
+			if pj != null and not pj.aspecto.is_empty() and not pj.imagen.is_empty():
+				return true
 		await _esperar(0.5)
 		t += 0.5
-	return 0
-
-
-func _fin() -> void:
-	escribir_fase(9)
-	await _esperar(6.0)   # que B apunte su resultado y se vaya
-	var texto := _texto_b()
-	var fallos_b := 0
-	for linea in texto.split("\n"):
-		if linea.begins_with("[B] [PASA]") or linea.begins_with("[B] [FALLA]") or linea.begins_with("[B] RESULTADO"):
-			print(linea)
-		if linea.begins_with("[B] [FALLA]"):
-			fallos_b += 1
-	if not texto.contains("[B] RESULTADO"):
-		_ok(false, "B no ha llegado al final de su guion")
-	var pids: Array = Net._trab._pids.duplicate()
-	Net.desconectar()
-	await _esperar(3.0)
-	if _pid_b > 0 and OS.is_process_running(_pid_b):
-		OS.kill(_pid_b)
-	var vivos := pids.filter(func(x): return OS.is_process_running(x))
-	_ok(vivos.is_empty(), "los trabajadores se cierran con la sala (%d vivos)" % vivos.size())
-	print("[dev] RESULTADO: ", "TODO PASA" if fallos.is_empty() and fallos_b == 0 else "FALLAN %d (+%d de B)" % [fallos.size(), fallos_b])
-	get_tree().quit()
+	return false

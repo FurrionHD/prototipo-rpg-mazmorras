@@ -1,4 +1,4 @@
-# PRUEBA DEL COMBATE EN EL MAPA CON DOS JUGADORES, guion del JUGADOR B. Obedece las fases del host
+# PRUEBA DEL COMBATE EN EL MAPA CON DOS JUGADORES, guion del JUGADOR B. Obedece las fases de A
 # (prueba_town_tactico_guion.gd) y apunta lo que ve con "[B] dato clave=valor": el host lo lee de su
 # registro.
 extends "res://tools/prueba_town_dos_comun.gd"
@@ -6,15 +6,13 @@ extends "res://tools/prueba_town_dos_comun.gd"
 
 func _ready() -> void:
 	prefijo = "[B] "
-	var args := OS.get_cmdline_user_args()
-	var i := args.find("cliente")
-	if i < 0 or args.size() < i + 4:
-		print("[B] faltan argumentos: cliente <ip> <puerto> <codigo>")
+	await _esperar(0.5)
+	var f0: Array = await entrar_en_la_sala()
+	if f0.size() < 2:
+		print("[B] RESULTADO: FALLAN %d" % maxi(1, fallos.size()))
 		get_tree().quit(1)
 		return
-	cargar_grupo([2, 3])
-	await _esperar(0.5)
-	_ok(Net.unirse(args[i + 1], args[i + 3], int(args[i + 2])) == OK, "me conecto a la sala")
+	var peer_a: int = int(f0[1])   # A ya no es el anfitrion (el peer 1 es la sala)
 	var t := 0.0
 	while Net._num_humanos < 2 and t < 30.0:
 		await _esperar(0.5)
@@ -47,13 +45,13 @@ func _ready() -> void:
 		return
 
 	# FASE 2-3: jugar mis turnos (andar y Defender) y mirar como se mueven los demas.
-	var host: Node2D = Game.cuerpo_de_red(1, 0)
+	var host: Node2D = Game.cuerpo_de_red(peer_a, 0)
 	var host_desde: Vector2 = host.global_position if host != null else Vector2.ZERO
 	# TODOS los personajes del host, no solo el primero (09/10): con los cuerpos marcados el primero empieza pegado a un
 	# slime y con uno de los mios encima, y la regla de choque no le deja meterse mas; el que anda es el otro.
 	var hosts: Dictionary = {}
 	for k in 4:
-		var hk: Node2D = Game.cuerpo_de_red(1, k)
+		var hk: Node2D = Game.cuerpo_de_red(peer_a, k)
 		if hk != null:
 			hosts[hk] = hk.global_position
 	# TODOS los bichos de la pelea, no solo por el que entre: el que anda en su turno puede ser otro.

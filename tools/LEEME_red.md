@@ -27,14 +27,23 @@ atasca en fila, asi que el "termina en 150 s" de la larga puede fallar sin que e
 Si una pasada se corta a medias, quedan Godots vivos con el puerto 24599: cerrarlos antes de relanzar.
 
 ```sh
-"$G" --headless --path . res://tools/prueba_town_dos_jugadores.tscn   # host + jugador B + trabajadores (~2 min)
+"$G" --headless --path . res://tools/prueba_town_dos_jugadores.tscn -- nube_local   # A + sala + B + trabajadores (~2 min)
 ```
 
 La de DOS JUGADORES lanza ademas al jugador B como otro proceso (`prueba_town_dos_cliente.tscn`): dos peleas
-a la vez en dos trabajadores de pelea, B se une a la pelea del host y huye (la pelea sigue para el host).
+a la vez en dos trabajadores de pelea, B se une a la pelea de A y huye (la pelea sigue para A).
 Se coordinan por un fichero de fase (`user://logs/prueba_dos_fase.txt`) y B apunta lo suyo en
-`logs/prueba_jugador_b.log`, que el host lee al final. Ojo al elegir grupos de la partida de referencia: el
-personaje 1 es enorme y acaba las peleas del piso 1 antes de que al otro le llegue un turno.
+`logs/prueba_jugador_b.log`, que A lee.
+
+**POR LA SALA (20/10, fase 2 paso 6):** `town_dos_jugadores`, `town_tactico`, `town_zona_ajena` y `town_baul_red` ya
+no hostean: hacen una ranura temporal de `mundo_ref` (ranuras 86-89) con A y B dentro, lanzan su sala y entran los dos
+como clientes (`prueba_town_sala_comun.gd`). Van con `-- nube_local`. Lo de dentro de la sala (en que piso esta cada
+uno, quien lleva cada piso, los trabajadores de pelea, las fotos) lo apunta la sala en su registro
+(`logs/prueba_ranura_<n>_sala.log`) con lineas `[S] dato clave=valor` cuando cambia: la pone `tools/sonda_sala.gd` si
+la sala se lanza con la palabra `sonda`, y avisa tambien de sus tirones (`[S] tiron`). Los grupos se eligen por NOMBRE
+(el orden de la plantilla cambia segun como se cargue): A = Agirato + Catalardio, B = Dasui + Daniel; Dawnsin es
+enorme y acaba las peleas antes de que a los demas les llegue un turno. `town_trabajadores` sigue hosteando hasta la
+etapa 2.
 
 ### La sala de los mundos compartidos (fase 3)
 

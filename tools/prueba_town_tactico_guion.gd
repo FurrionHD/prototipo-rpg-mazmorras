@@ -1,4 +1,4 @@
-# PRUEBA DEL COMBATE EN EL MAPA CON DOS JUGADORES, guion del HOST. El caso de su playtest del 23/09:
+# PRUEBA DEL COMBATE EN EL MAPA CON DOS JUGADORES, guion de A. El caso de su playtest del 23/09:
 # la arena la lleva un TRABAJADOR (los bichos no son ni del host ni de B), la pelea la EJECUTA un trabajador
 # de pelea (27/09) y los dos la vemos en espejo; B se une a ella.
 #   1) los dos entran en la arena; pongo dos bichos
@@ -6,42 +6,30 @@
 #   3) turnos: en el mio ando y B ve moverse a mi personaje; en el de un bicho, el bicho anda y B lo ve
 #      moverse (su dueño es el trabajador: se le ha contado); en el de B, B anda en SU maquina y a mi
 #      me llega su posicion sellada con su accion
-extends "res://tools/prueba_town_dos_comun.gd"
-
-const PUERTO := 24611
-const REGISTRO_B := "user://logs/prueba_tactico_b.log"
-var _pid_b := 0
+# POR LA SALA (fase 2, paso 6): A y B entran como clientes en la sala de la RANURA 87 (ver prueba_town_sala_comun.gd).
+extends "res://tools/prueba_town_sala_comun.gd"
 
 
 func _ready() -> void:
 	prefijo = ""
+	slot = 87
+	puerto = 24611
+	registro_b = "user://logs/prueba_tactico_b.log"
 	escribir_fase(0)
-	if FileAccess.file_exists(REGISTRO_B):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(REGISTRO_B))
-	cargar_grupo([4, 0])
-	Game.semilla_mundo = 424242
-	await _esperar(0.5)
-	_ok(Net.hostear("abc", PUERTO) == OK, "sala abierta")
-	_pid_b = _lanzar_b()
-	var t := 0.0
-	while Net._num_humanos < 2 and t < 40.0:
-		await _esperar(0.5)
-		t += 0.5
-	_ok(Net._num_humanos == 2, "B entra en la sala (%.1f s)" % t)
-	if Net._num_humanos < 2:
+	if not await empezar("prueba_town_tactico_b"):
 		await _fin()
 		return
 
 	# 1) LA ARENA, los dos.
 	Game.entrar_arena_de_pruebas()
 	escribir_fase(1)
-	t = 0.0
-	while (Net._mi_lugar != "piso:%d" % Game.PISO_ARENA or Net.pisos._piso_de(_b()) != Game.PISO_ARENA) and t < 40.0:
+	var t := 0.0
+	while (Net._mi_lugar != "piso:%d" % Game.PISO_ARENA or piso_de_b() != Game.PISO_ARENA) and t < 40.0:
 		await _esperar(0.5)
 		t += 0.5
-	_ok(Net.pisos._piso_de(_b()) == Game.PISO_ARENA, "los dos estamos en la arena (%.1f s)" % t)
-	var dueno_arena: int = int(Net._dueno_piso.get(Game.PISO_ARENA, 0))
-	print("[dev] la arena la lleva el peer %d (trabajador=%s)" % [dueno_arena, str(Net.es_trabajador(dueno_arena))])
+	_ok(piso_de_b() == Game.PISO_ARENA, "los dos estamos en la arena (%.1f s)" % t)
+	var dueno_arena: int = int(dato_sala("dueno_piso_%d" % Game.PISO_ARENA))
+	print("[dev] la arena la lleva el peer %d (trabajador=%s)" % [dueno_arena, str(es_trabajador(dueno_arena))])
 	await _esperar(3.0)
 	var yo: Node2D = get_tree().get_first_node_in_group("player") as Node2D
 	var slime := "res://scenes/actors/enemy/slime.tres"
@@ -61,7 +49,7 @@ func _ready() -> void:
 		t += 0.25
 		p = pantalla()
 	_ok(p != null and bool(p.tactico), "la pelea se abre EN EL MAPA")
-	_ok(p != null and Net.peleas.espejando() and Net.es_trabajador(Net.peleas._pelea_anfitrion),
+	_ok(p != null and Net.peleas.espejando() and es_trabajador(Net.peleas._pelea_anfitrion),
 		"la pelea la ejecuta un TRABAJADOR (anfitrion=%d) y yo la veo en espejo" % Net.peleas._pelea_anfitrion)
 	_ok(Game.pelea_tactica_en_curso(), "con su arena montada en mi mapa")
 	if p == null or not bool(p.tactico):
@@ -157,9 +145,21 @@ func _ready() -> void:
 			var cb: Node2D = tm.cuerpo_de(c)
 			var k: int = int(fila.get("cuerpo", -1))
 			var que: String = "el avatar" if cb == lider_b else ("el compañero %d" % comps_b.find(cb) if comps_b.has(cb) else str(cb))
-			var bx: int = await _ultimo_de_b("b_pos_x_" + c.nombre, 2.0)
-			var by: int = await _ultimo_de_b("b_pos_y_" + c.nombre, 2.0)
-			var lejos: float = cb.global_position.distance_to(Vector2(bx, by)) if cb != null and (bx != 0 or by != 0) else -1.0
+			# B apunta donde queda cada uno AL ACABAR SU TURNO; si ahora esta en mitad de otro, el que anda ya no esta en
+			# el ultimo numero que apunto (20/10: salian 13-31 px "de desfase" y era solo eso; mirandolo segundo a segundo,
+			# A y B le ven en el mismo sitio). Se repite con su ultimo dato hasta que acabe ese turno.
+			var bx := 0
+			var by := 0
+			var lejos := -1.0
+			var tr := 0.0
+			while tr < 6.0:
+				bx = await _ultimo_de_b("b_pos_x_" + c.nombre, 2.0)
+				by = await _ultimo_de_b("b_pos_y_" + c.nombre, 2.0)
+				lejos = cb.global_position.distance_to(Vector2(bx, by)) if cb != null and (bx != 0 or by != 0) else -1.0
+				if lejos < 5.0:
+					break
+				await _esperar(0.5)
+				tr += 0.5
 			print("[dev] %s (de B, cuerpo %d): en mi pantalla es %s, en %s; B lo tiene en (%d, %d): a %.1f px" % [
 				c.nombre, k, que, str(cb.global_position.round()) if cb != null else "-", bx, by, lejos])
 			_ok(cb != null and (cb == lider_b) == (k == 0) and (k <= 0 or comps_b.find(cb) == k - 1),
@@ -177,7 +177,7 @@ func _ready() -> void:
 			_ok(de_quien == c and r_golpe.get_center().distance_to(r_suyo.get_center()) < 2.0,
 				"los golpes a %s de B se pintan en SU cuerpo" % c.nombre)
 			if lejos >= 0.0:
-				_ok(lejos < 30.0, "%s de B esta donde B dice (a %.1f px)" % [c.nombre, lejos])
+				_ok(lejos < 5.0, "%s de B esta donde B dice (a %.1f px)" % [c.nombre, lejos])
 
 	escribir_fase(3)
 	_ok(await _dato_de_b("host_se_movio", 20.0) > 10, "B ve moverse a mi personaje")
@@ -212,48 +212,11 @@ func _b_en_pelea(p: Node) -> bool:
 	return false
 
 
-func _b() -> int:
-	for pid in Net._peers:
-		if not Net.es_trabajador(pid):
-			return pid
-	return 0
-
-
-func _lanzar_b() -> int:
-	var args: PackedStringArray = ["--headless"]
-	if OS.has_feature("editor"):
-		args.append_array(["--path", ProjectSettings.globalize_path("res://")])
-	args.append_array(["--log-file", ProjectSettings.globalize_path(REGISTRO_B),
-		"res://tools/prueba_town_tactico_b.tscn", "--", "cliente", "127.0.0.1", str(PUERTO), "abc"])
-	return OS.create_process(OS.get_executable_path(), args)
-
-
-func _texto_b() -> String:
-	if not FileAccess.file_exists(REGISTRO_B):
-		return ""
-	var f := FileAccess.open(REGISTRO_B, FileAccess.READ)
-	var s := f.get_as_text()
-	f.close()
-	return s
-
-
-func _dato_de_b(clave: String, plazo: float) -> int:
-	var t := 0.0
-	while t <= plazo:
-		for linea in _texto_b().split("\n"):
-			if linea.begins_with("[B] dato " + clave):
-				return int(linea.get_slice("=", 1)) if linea.contains("=") else 1
-		await _esperar(0.5)
-		t += 0.5
-	return 0
-
-
-# El ULTIMO valor que B apunto con esa clave (la apunta en cada turno suyo).
 func _ultimo_de_b(clave: String, plazo: float) -> int:
 	var t := 0.0
 	while t <= plazo:
 		var v := -999999
-		for linea in _texto_b().split("\n"):
+		for linea in _texto(registro_b).split("\n"):
 			if linea.begins_with("[B] dato " + clave + "="):
 				v = int(linea.get_slice("=", 1))
 		if v != -999999:
@@ -261,28 +224,3 @@ func _ultimo_de_b(clave: String, plazo: float) -> int:
 		await _esperar(0.5)
 		t += 0.5
 	return 0
-
-
-func _fin() -> void:
-	escribir_fase(9)
-	await _esperar(6.0)
-	var texto := _texto_b()
-	var fallos_b := 0
-	for linea in texto.split("\n"):
-		if linea.begins_with("[B] [PASA]") or linea.begins_with("[B] [FALLA]") or linea.begins_with("[B] RESULTADO") \
-				or linea.begins_with("[B] [dev]") or linea.contains("SCRIPT ERROR"):
-			print(linea)
-		if linea.begins_with("[B] [FALLA]"):
-			fallos_b += 1
-	if not texto.contains("[B] RESULTADO"):
-		_ok(false, "B no ha llegado al final de su guion")
-	var pids: Array = Net._trab._pids.duplicate()
-	Net.desconectar()
-	await _esperar(3.0)
-	if _pid_b > 0 and OS.is_process_running(_pid_b):
-		OS.kill(_pid_b)
-	for x in pids:
-		if OS.is_process_running(x):
-			OS.kill(x)
-	print("[dev] RESULTADO: ", "TODO PASA" if fallos.is_empty() and fallos_b == 0 else "FALLAN %d (+%d de B)" % [fallos.size(), fallos_b])
-	get_tree().quit()

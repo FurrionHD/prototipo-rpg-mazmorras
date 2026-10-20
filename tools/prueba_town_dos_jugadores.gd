@@ -1,6 +1,7 @@
-# PRUEBA DE DOS JUGADORES con trabajadores de pelea (ver tools/LEEME_red.md): este proceso es el HOST y lanza
-# al jugador B (tools/prueba_town_dos_cliente.tscn) como otro Godot sin ventana. El nombre lleva "town" para
-# pasar la guarda _en_el_pueblo de Net.hostear. El guion cuelga de root: entrar a la mazmorra libera la escena.
+# PRUEBA DE DOS JUGADORES con trabajadores de pelea (ver tools/LEEME_red.md): este proceso es el jugador A. Lanza la
+# sala de una ranura de prueba, entra en ella y lanza al jugador B (tools/prueba_town_dos_cliente.tscn) como otro
+# Godot sin ventana, que entra por la misma sala. El guion cuelga de root: entrar al pueblo libera la escena.
+#   godot --headless --path . res://tools/prueba_town_dos_jugadores.tscn -- nube_local
 extends Node
 
 

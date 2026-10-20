@@ -121,6 +121,11 @@ COMO_SE_LANZA = {
     "prueba_sala_ranura": NUBE_LOCAL,
     "prueba_solo_por_sala": NUBE_LOCAL,
     "prueba_lan_por_sala": NUBE_LOCAL,
+    # Las town_* van por la sala de una ranura de prueba (paso 6): sin nube_local escribirian en la nube de verdad.
+    "prueba_town_dos_jugadores": NUBE_LOCAL,
+    "prueba_town_tactico": NUBE_LOCAL,
+    "prueba_town_zona_ajena": NUBE_LOCAL,
+    "prueba_town_baul_red": NUBE_LOCAL,
     "prueba_menu_por_sala": [{"despues": ["nube_local", "sala_vacia=6"]}],
     "prueba_sala_steam": NUBE_LOCAL,
     "prueba_vinculo_steam": NUBE_LOCAL,

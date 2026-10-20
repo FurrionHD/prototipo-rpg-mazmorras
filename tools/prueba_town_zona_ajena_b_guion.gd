@@ -1,19 +1,15 @@
 # LA PELEA DE OTRO VISTA DESDE FUERA, guion del JUGADOR B (ver prueba_town_zona_ajena_guion.gd). Apunta lo que ve con
-# "[B] dato clave=valor" y el host lo lee de su registro.
+# "[B] dato clave=valor" y A lo lee de su registro.
 extends "res://tools/prueba_town_dos_comun.gd"
 
 
 func _ready() -> void:
 	prefijo = "[B] "
-	var args := OS.get_cmdline_user_args()
-	var i := args.find("cliente")
-	if i < 0 or args.size() < i + 4:
-		print("[B] faltan argumentos: cliente <ip> <puerto> <codigo>")
+	await _esperar(0.5)
+	if (await entrar_en_la_sala()).is_empty():
+		print("[B] RESULTADO: FALLAN %d" % maxi(1, fallos.size()))
 		get_tree().quit(1)
 		return
-	cargar_grupo([2, 3])
-	await _esperar(0.5)
-	_ok(Net.unirse(args[i + 1], args[i + 3], int(args[i + 2])) == OK, "me conecto a la sala")
 	var t := 0.0
 	while Net._num_humanos < 2 and t < 30.0:
 		await _esperar(0.5)

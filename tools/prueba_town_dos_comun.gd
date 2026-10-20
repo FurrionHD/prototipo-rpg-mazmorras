@@ -174,6 +174,34 @@ func foto_de_prueba(col: Color) -> PackedByteArray:
 	return img.save_png_to_buffer()
 
 
+# B ENTRA EN LA SALA DE LA PRUEBA (paso 6, todo por la sala), con lo que la prueba le dejo en la ranura:
+#   -- cliente <ip> <puerto> <codigo> <identidad>
+# Apunta su peer ("dato mi_peer") y devuelve la fase 0 de A: [0, peer de A, uid de su personaje de casa].
+func entrar_en_la_sala() -> Array:
+	var args := OS.get_cmdline_user_args()
+	var i := args.find("cliente")
+	if i < 0 or args.size() < i + 5:
+		print(prefijo, "faltan argumentos: cliente <ip> <puerto> <codigo> <identidad>")
+		return []
+	Identidad.id = args[i + 4]   # solo en memoria: cada proceso es otra persona
+	var dentro := [false]
+	Net.partida.entrada_lista.connect(func():
+		var arbol := get_tree()
+		arbol.change_scene_to_file("res://scenes/levels/town.tscn")
+		await arbol.process_frame
+		Net.anunciar_lugar("pueblo")
+		dentro[0] = true)
+	_ok(Net.unirse(args[i + 1], args[i + 3], int(args[i + 2]), true) == OK, "me conecto a la sala")
+	var t := 0.0
+	while not dentro[0] and t < 60.0:
+		await _esperar(0.25)
+		t += 0.25
+	_ok(dentro[0], "entro en el mundo con mi grupo (%.1f s)" % t)
+	print(prefijo, "[dev] mi grupo: ", ", ".join(Game.party.map(func(p): return p.nombre)))
+	print(prefijo, "dato mi_peer=%d" % multiplayer.get_unique_id())
+	return leer_fase() if dentro[0] else []
+
+
 # 'cuales' = posiciones en la plantilla de la partida de referencia. Dos personajes cada uno (el cupo de dos
 # humanos) y DISTINTOS entre jugadores (otros uid). Ojo con la 1: es un personaje enorme que acaba las
 # peleas del piso 1 antes de que al otro le llegue un turno.
@@ -189,3 +217,4 @@ func cargar_grupo(cuales: Array) -> void:
 			Game.party.append(pj)
 		Game.lider_idx = 0
 	print(prefijo, "[dev] mi grupo: ", ", ".join(Game.party.map(func(p): return p.nombre)))
+

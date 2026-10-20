@@ -1,44 +1,41 @@
-# PRUEBA DE DOS JUGADORES, guion del JUGADOR B. Obedece las fases que escribe el host (ver
-# prueba_town_dos_jugadores_guion.gd) y apunta lo que ve con el prefijo [B]: el host lo lee de su registro.
+# PRUEBA DE DOS JUGADORES, guion del JUGADOR B. Obedece las fases que escribe A (ver
+# prueba_town_dos_jugadores_guion.gd) y apunta lo que ve con el prefijo [B]: A lo lee de su registro.
 extends "res://tools/prueba_town_dos_comun.gd"
 
 
 func _ready() -> void:
 	prefijo = "[B] "
-	var args := OS.get_cmdline_user_args()
-	var i := args.find("cliente")
-	if i < 0 or args.size() < i + 4:
-		print("[B] faltan argumentos: cliente <ip> <puerto> <codigo>")
-		get_tree().quit(1)
-		return
-	cargar_grupo([2, 3])
-	# Uno de MIS personajes de casa con foto: el host la tiene que recibir (_subir_fotos).
-	(Game.plantilla[5] as PersonajeData).set_imagen(foto_de_prueba(Color(0.2, 0.4, 0.9)))
-	# Un reloj "mal puesto": el host tiene que corregirlo al entrar (CicloDia, Net._set_hora_pueblo). Los
-	# dos procesos van en el mismo PC, asi que tras la correccion la diferencia es casi cero.
+	# Un reloj "mal puesto": la sala tiene que corregirlo al entrar (CicloDia, Net._set_hora_pueblo). Los
+	# procesos van en el mismo PC, asi que tras la correccion la diferencia es casi cero.
 	CicloDia.desfase = 777.0
 	await _esperar(0.5)
-	var err := Net.unirse(args[i + 1], args[i + 3], int(args[i + 2]))
-	_ok(err == OK, "me conecto a la sala")
+	var f0: Array = await entrar_en_la_sala()
+	if f0.size() < 3:
+		print("[B] RESULTADO: FALLAN %d" % maxi(1, fallos.size()))
+		get_tree().quit(1)
+		return
+	var peer_a: int = int(f0[1])   # A ya no es el anfitrion (el peer 1 es la sala)
 	var t := 0.0
 	while Net._num_humanos < 2 and t < 30.0:
 		await _esperar(0.5)
 		t += 0.5
-	_ok(Net._num_humanos == 2, "el host me admite (%.1f s)" % t)
+	_ok(Net._num_humanos == 2, "estamos los dos (%.1f s)" % t)
+	# Uno de MIS personajes de casa (el que no va en el equipo) con foto: A la tiene que recibir (_subir_fotos).
+	var mio_de_casa: Array = Game.plantilla.filter(func(pj): return not Game.party.has(pj))
+	if not mio_de_casa.is_empty():
+		(mio_de_casa[0] as PersonajeData).set_imagen(foto_de_prueba(Color(0.2, 0.4, 0.9)))
 	# La hora va al final del alta, detras de los paquetes gordos (baul, cofre...): puede tardar segundos.
 	var th := 0.0
 	while absf(CicloDia.desfase - 777.0) < 0.01 and th < 20.0:
 		await _esperar(0.5)
 		th += 0.5
-	_ok(absf(CicloDia.desfase) < 2.0, "el host me pone su hora del pueblo (desfase %.2f s, tras %.1f s)"
+	_ok(absf(CicloDia.desfase) < 2.0, "la sala me pone su hora del pueblo (desfase %.2f s, tras %.1f s)"
 		% [CicloDia.desfase, th])
 
-	# FASE 0: LA CARA Y LA FOTO de un personaje de casa del host, como las pinta Encargos.
-	# Los dos procesos corren en el MISMO PC (misma identidad) y cargan la MISMA partida de referencia
-	# (mismos uid): el de casa del host se reconoce por su uid, el de la plantilla[1].
+	# FASE 0: LA CARA Y LA FOTO de un personaje de casa de A, como las pinta Encargos (A me dice su uid).
 	# Mi hogar se publica al cambiar el equipo; aqui no ha cambiado nada, asi que se fuerza.
 	Net.hogar.marcar_hogar_sucio()
-	var uid_host: String = String((Game.plantilla[1] as PersonajeData).uid)
+	var uid_host: String = String(f0[2])
 	var visto := 0
 	var tf := 0.0
 	while visto == 0 and tf < 15.0:
@@ -52,7 +49,7 @@ func _ready() -> void:
 		if visto == 0:
 			await _esperar(0.5)
 			tf += 0.5
-	_ok(visto == 1, "veo la cara y la foto de un personaje de casa del host")
+	_ok(visto == 1, "veo la cara y la foto de un personaje de casa de A")
 	print("[B] dato foto_del_host=%d" % visto)
 
 	# FASE 1: bajo al piso 1.
@@ -61,10 +58,10 @@ func _ready() -> void:
 	await _esperar(8.0)
 	_ok(Net.pisos.mi_piso() == 1, "estoy en el piso 1")
 
-	# FASE 2: DOS PELEAS A LA VEZ. El host ya esta peleando; yo me voy a por otro enemigo lejos de el.
+	# FASE 2: DOS PELEAS A LA VEZ. A ya esta peleando; yo me voy a por otro enemigo lejos de el.
 	await esperar_fase(2, 90.0)
 	var excelia_antes := excelia_grupo()
-	await pelear_con(enemigo_libre(Net.posicion_de_peer(1)))
+	await pelear_con(enemigo_libre(Net.posicion_de_peer(peer_a)))
 	_ok(Net.peleas.espejando() and not Game.combate_activo(),
 		"mi pelea la ejecuta otro y yo la espejo (anfitrion=%d)" % Net.peleas._pelea_anfitrion)
 	print("[B] dato anfitrion_fase2=%d" % Net.peleas._pelea_anfitrion)
@@ -72,13 +69,13 @@ func _ready() -> void:
 	_ok(excelia_grupo() > excelia_antes, "me llega la excelia de mi pelea (%.2f -> %.2f)" % [excelia_antes, excelia_grupo()])
 	print("[B] dato fase2_fin")
 
-	# FASE 3: ME UNO A LA PELEA DEL HOST (me pasa el id de un enemigo de su pelea y quien la ejecuta) y HUYO.
+	# FASE 3: ME UNO A LA PELEA DE A (me pasa el id de un enemigo de su pelea y quien la ejecuta) y HUYO.
 	var fase: Array = await esperar_fase(3, 120.0)
 	var id_enemigo: int = int(fase[1]) if fase.size() > 1 else 0
 	var su_anfitrion: int = int(fase[2]) if fase.size() > 2 else 0
 	await pelear_con(enemigo_libre(Vector2.INF, id_enemigo))
 	_ok(Net.peleas.espejando() and Net.peleas._pelea_anfitrion == su_anfitrion,
-		"me uno a la pelea del host (anfitrion=%d, el suyo=%d)" % [Net.peleas._pelea_anfitrion, su_anfitrion])
+		"me uno a la pelea de A (anfitrion=%d, el suyo=%d)" % [Net.peleas._pelea_anfitrion, su_anfitrion])
 	# EL REGISTRO ENTERO al unirme a mitad: la primera frase de la pelea (la de la iniciativa) se escribio
 	# antes de que yo llegara, asi que solo la tengo si el espejo ha pedido el registro por el hueco.
 	var reg: Array = []
@@ -108,7 +105,7 @@ func _ready() -> void:
 	while (Game.hay_pelea_en_pantalla() or Net.peleas._desgaste_pendiente) and t < 10.0:
 		await _esperar(0.25)
 		t += 0.25
-	_ok(not Net.peleas.espejando() and not Game.hay_pelea_en_pantalla(), "huyo y salgo de la pelea del host")
+	_ok(not Net.peleas.espejando() and not Game.hay_pelea_en_pantalla(), "huyo y salgo de la pelea de A")
 	_ok(agilidad_grupo() > agilidad_antes, "huir me entrena la Agilidad (%.3f -> %.3f)" % [agilidad_antes, agilidad_grupo()])
 	print("[B] dato fase3_fin")
 

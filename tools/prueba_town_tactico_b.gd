@@ -1,5 +1,5 @@
 # PRUEBA DEL COMBATE EN EL MAPA CON DOS JUGADORES, el JUGADOR B (lo lanza tools/prueba_town_tactico.gd).
-# El nombre lleva "town" para pasar la guarda _en_el_pueblo de Net.unirse. El guion cuelga de root.
+# Entra en la sala de A como en un mundo compartido. El guion cuelga de root.
 extends Node
 
 

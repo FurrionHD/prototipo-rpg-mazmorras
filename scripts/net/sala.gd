@@ -29,6 +29,7 @@ const CARPETA := "user://salas"
 const FPS := 20                # no hay nada que pintar: lo que corre es la red y el reloj
 const SEG_VACIA := 10.0        # sin nadie dentro este rato -> se cierra
 const SEG_ESPERA := 60.0       # nadie ha llegado a entrar en este rato -> se cierra
+const SONDA := "res://tools/sonda_sala.gd"
 
 var clave: String = ""
 var puerto: int = 0
@@ -147,6 +148,9 @@ func arrancar(args: PackedStringArray) -> void:
 	_direcciones = r.get("direcciones", [])
 	_escribir({"estado": "lista"})
 	print("[sala] lista: esperando jugadores")
+	# Las pruebas town_* (paso 6) leen lo de dentro de la sala de su registro: ver tools/sonda_sala.gd.
+	if OS.get_cmdline_user_args().has("sonda") and ResourceLoader.exists(SONDA):
+		add_child((load(SONDA) as GDScript).new())
 
 
 func _process(delta: float) -> void:
