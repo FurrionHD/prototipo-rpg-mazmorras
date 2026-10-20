@@ -102,7 +102,7 @@ AYUDANTES = {
 # Las de RED: lanzan procesos (sala, trabajadores, otro jugador) y usan puertos fijos -> de una en una.
 def es_de_red(nombre: str) -> bool:
     return (nombre.startswith("prueba_town_") or nombre.startswith("prueba_sala")
-            or nombre in {"prueba_tunel", "prueba_solo_por_sala", "prueba_baul_sala", "prueba_zona_otra_sala",
+            or nombre in {"prueba_tunel", "prueba_solo_por_sala", "prueba_menu_por_sala", "prueba_baul_sala", "prueba_zona_otra_sala",
                           "prueba_vinculo_steam", "prueba_bd_nube"})
 
 # Las que NO son una prueba sin ventana (necesitan pantalla de verdad): no se pasan.
@@ -120,6 +120,7 @@ COMO_SE_LANZA = {
     "prueba_sala_dos_jugadores": NUBE_LOCAL,
     "prueba_sala_ranura": NUBE_LOCAL,
     "prueba_solo_por_sala": NUBE_LOCAL,
+    "prueba_menu_por_sala": [{"despues": ["nube_local", "sala_vacia=6"]}],
     "prueba_sala_steam": NUBE_LOCAL,
     "prueba_vinculo_steam": NUBE_LOCAL,
     "prueba_sala_entrar": [{"despues": ["nube_local", "sala_vacia=4"]}],

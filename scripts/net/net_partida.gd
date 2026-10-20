@@ -633,7 +633,7 @@ func _dame_tu_estado(cerrando: bool) -> void:
 	await get_tree().create_timer(0.4).timeout
 	Net.desconectar()
 	Net.estado_cambiado.emit("Se cerró el mundo. Tu personaje queda guardado dentro.")
-	Net._sacar_a_escena("res://scenes/ui/multi_menu.tscn")
+	Net._sacar_a_escena(Mundos.menu_al_salir())
 
 
 # Lo que manda el invitado. Corre EN EL HOST: lo mete en el mundo, tal cual, a nombre de su identidad.

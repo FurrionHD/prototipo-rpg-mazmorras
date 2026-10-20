@@ -10,8 +10,6 @@
 
 extends Control
 
-const PUEBLO := "res://scenes/levels/town.tscn"
-const MAZMORRA := "res://scenes/levels/main.tscn"
 const MULTIJUGADOR := "res://scenes/ui/multi_menu.tscn"
 # EL MISMO panel de ajustes que el menu de pausa, no una copia: el volumen y el modo de pantalla se
 # tienen que poder tocar ANTES de entrar a jugar (que es donde se tocan en cualquier juego), y dos
@@ -121,6 +119,12 @@ func _ready() -> void:
 	vb.add_child(salir)
 
 	_montar_ajustes()
+
+	# TU PARTIDA VA POR SU SALA (fase 2, paso 4): al cargarla se conecta como al mundo de otro, y lo de despues lo
+	# cuenta la red.
+	Net.partida.entrada_lista.connect(_al_tener_mi_ficha)
+	Net.partida.pedir_personaje.connect(_no_me_reconoce)
+	Net.estado_cambiado.connect(_al_estado_red)
 
 	# En el menu principal NO puede quedar ningun mundo compartido abierto. Si llegamos aqui con uno
 	# (algun camino anomalo que no paso por "guardar y salir"), hay que soltarlo: si no, el siguiente
@@ -306,32 +310,68 @@ func _boton_borrar(al_pulsar: Callable) -> Button:
 	return b
 
 
+# CARGAR = ENTRAR POR SU SALA (fase 2, 20/10: toda partida va por la sala, tambien la de uno). La partida sigue en su
+# ranura (mismo fichero, misma nube), pero en formato de mundo y la abre su sala; aqui se entra como al mundo de otro
+# y la sala te devuelve a tu sitio (Mundos.entrar_al_mundo).
+var _entrando := false
+
 func _cargar(slot: int) -> void:
 	await Cargando.mostrar("Cargando partida...")
-	# Primero, al dia con la nube (si se jugo en otro PC). Sin red se carga lo de aqui.
-	var prep: Dictionary = await Perfil.preparar_carga(slot)
-	if bool(prep.get("conflicto", false)):
+	# Con su sala aun viva (saliste al menu hace un momento) la partida la tiene ella: ni nube ni conversion, se vuelve.
+	if Mundos.sala_en_este_pc(Mundos.clave_de_ranura(slot)).is_empty():
+		# Primero, al dia con la nube (si se jugo en otro PC). Sin red se carga lo de aqui.
+		var prep: Dictionary = await Perfil.preparar_carga(slot)
+		if bool(prep.get("conflicto", false)):
+			Cargando.ocultar()
+			_preguntar_conflicto(slot, prep)
+			return
+		if not prep.get("ok", false):
+			Cargando.ocultar()
+			_aviso.text = "No se pudo traer lo último de la nube. Vuelve a probar."
+			return
+		# La primera vez, al formato de mundo (con su copia de seguridad intacta).
+		if not Perfil.es_mundo(slot):
+			Cargando.poner_texto("Preparando tu partida...
+(solo esta vez)")
+			await get_tree().process_frame
+			var conv: Dictionary = Perfil.convertir_a_mundo(slot)
+			if not conv.get("ok", false):
+				Cargando.ocultar()
+				_aviso.text = String(conv.get("mensaje", "Esa partida no se puede cargar."))
+				return
+	Perfil.dejar_a_su_sala()
+	_entrando = true
+	var r: Dictionary = await Mundos.entrar_ranura(slot)
+	if not r.get("ok", false):
+		_entrando = false
 		Cargando.ocultar()
-		_preguntar_conflicto(slot, prep)
+		_aviso.text = String(r.get("mensaje", "Esa partida no se puede cargar."))
+
+
+# Ya tengo mi ficha: a mi sitio.
+func _al_tener_mi_ficha() -> void:
+	_entrando = false
+	Mundos.entrar_al_mundo()
+
+
+# La sala no me conoce: la ranura se convirtio con OTRA identidad (otro jugador en este PC, o cambiaste la tuya en
+# «TÚ Y TU CONEXIÓN»). No se le hace un personaje nuevo encima de una partida ajena.
+func _no_me_reconoce(_nombre: String) -> void:
+	_entrando = false
+	Net.desconectar()
+	Cargando.ocultar()
+	_aviso.text = "Esta partida es de otra identidad de jugador: no se puede abrir con la tuya."
+
+
+func _al_estado_red(t: String) -> void:
+	if not _entrando:
 		return
-	if not prep.get("ok", false):
+	if Net.activo:
+		Cargando.poner_texto(t)
+	else:
+		_entrando = false
 		Cargando.ocultar()
-		_aviso.text = "No se pudo traer lo último de la nube. Vuelve a probar."
-		return
-	if not Perfil.cargar(slot):
-		Cargando.ocultar()
-		_aviso.text = "Esa partida no se puede cargar."
-		return
-	# Vuelves EXACTAMENTE donde guardaste: si fue dentro de la mazmorra, a tu piso y tu sitio
-	# (el DungeonFloor lee Game.pos_cargada y restaura los bichos de Game.memoria_pisos).
-	#
-	# SALVO que el piso que pisabas se rehaga con este build (ver Game._rehacer_pisos_de_otro_trazado):
-	# entonces sales al pueblo. Va por la bandera de Game y no releyendo la cabecera porque el que
-	# decide es quien acaba de importar la partida, y esa cabecera puede venir de la cache de Godot.
-	var datos: SaveData = Perfil.cabecera_ligera(slot)
-	var al_pueblo: bool = Game.forzar_pueblo_al_cargar or not datos.en_mazmorra
-	Game.forzar_pueblo_al_cargar = false   # de un solo uso
-	await Cargando.cambiar_escena(get_tree(), PUEBLO if al_pueblo else MAZMORRA, "Cargando partida...")
+		_aviso.text = t
 
 
 # Una partida NUEVA va siempre a un hueco nuevo (no hay tope): nunca encima de otra.
@@ -442,7 +482,8 @@ func _empezar(slot: int, nombre: String, asp: Dictionary) -> void:
 	Game.nueva_partida(nombre, asp)
 	Perfil.ranura_actual = slot
 	Perfil.guardar(slot)   # la ranura queda ocupada desde el minuto uno, ya con nombre y aspecto
-	await Cargando.cambiar_escena(get_tree(), PUEBLO, "Creando la partida...")
+	# Y se entra como a cualquier otra: por su sala (la convierte al formato de mundo y la abre).
+	_cargar(slot)
 
 
 # ============================================================

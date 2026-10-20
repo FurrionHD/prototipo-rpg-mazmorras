@@ -428,8 +428,9 @@ func _guardar_y_salir() -> void:
 			await Ventana.pedir_guardado_al_anfitrion()
 			await get_tree().create_timer(0.2).timeout   # respiro antes de cortar (ver desconectar)
 			Game.limpiar_modales()
+			var menu: String = Mundos.menu_al_salir()
 			Net.desconectar()
-			get_tree().change_scene_to_file("res://scenes/ui/multi_menu.tscn")
+			get_tree().change_scene_to_file(menu)
 			return
 		Net.partida.pedir_guardar_todos(true)
 		_aviso.text = "Guardando y cerrando: se lo pides al anfitrión."

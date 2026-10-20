@@ -372,6 +372,16 @@ func convertir_a_mundo(slot: int) -> Dictionary:
 	datos.mundo_compartido = true
 	datos.version_mundo = SaveData.VERSION_MUNDO
 	datos.jugadores = {Identidad.id: jd}
+	# LA MAZMORRA Y TU SITIO, en el formato de la sala (paso 4): los pisos congelados de la ranura pasan a ser los de
+	# la sesion del mundo, y tu sitio a sus posiciones. Asi la sala te devuelve a tu piso (Net.pisos._pedir_volver),
+	# con sus bichos como los dejaste, o a tu calle del pueblo.
+	for piso in Game.memoria_pisos:
+		datos.sesion_fotos_piso[piso] = Net.pisos._mem_a_red(Game.memoria_pisos[piso])
+	datos.sesion_bosses.merge(Game.bosses_sello)   # los dos: piso -> instante (reloj de pared) en que cayo
+	if dentro:
+		datos.posiciones[Identidad.id] = {"lugar": "piso:%d" % datos.current_floor, "pos": datos.pos_jugador}
+	elif datos.pos_jugador != Vector2.ZERO:
+		datos.posiciones[Identidad.id] = {"lugar": "pueblo", "pos": datos.pos_jugador}
 	var ok: bool = _bd.escribir(BDFilas.a_filas(datos, _ids)) >= 0 and _bd.meta_poner("formato", "mundo")
 	_cerrar_bd()
 	ranura_actual = 0   # la lleva su sala a partir de ahora, no este juego
@@ -379,6 +389,12 @@ func convertir_a_mundo(slot: int) -> Dictionary:
 		return {"ok": false, "respaldo": respaldo, "mensaje": "No se pudo guardar la partida convertida (tienes la copia)."}
 	print("[perfil] ranura %d en formato de mundo (copia en %s)" % [slot, respaldo])
 	return {"ok": true, "ya": false, "respaldo": respaldo}
+
+
+## La ranura pasa a llevarla su sala (paso 4): este juego la suelta y deja de guardarla.
+func dejar_a_su_sala() -> void:
+	_cerrar_bd()
+	ranura_actual = 0
 
 
 # Copia la BD de la ranura (y sus -wal/-shm si los hay) a RESPALDOS_RANURAS. Devuelve la ruta, o "" si falla.

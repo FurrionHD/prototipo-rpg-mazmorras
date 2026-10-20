@@ -1101,7 +1101,10 @@ func _saludar(codigo: String, protocolo: int, identidad: String, nombre_visible:
 		var jd = Game.jugadores_mundo.get(identidad)
 		if jd is JugadorData:
 			estado_cambiado.emit("%s vuelve al mundo." % nombre_visible)
-			partida._tu_jugador.rpc_id(quien, partida.jd_a_dict(jd as JugadorData), Game.semilla_mundo)
+			# Con DONDE ESTABAS (fase 4 de la BD): sin el, el que volvia al mundo aparecia siempre en la plaza, aunque se
+			# hubiera ido desde un piso (solo se lo decia a los que entraban por primera vez).
+			partida._tu_jugador.rpc_id(quien, partida.jd_a_dict(jd as JugadorData), Game.semilla_mundo,
+				partida._donde_estaba(quien))
 		else:
 			# ALGUIEN NUEVO: tener el codigo y la contraseña no basta, alguien de dentro le tiene que
 			# dejar pasar. Si no, cualquiera a quien le llegaran los dos datos se haria un sitio en el
@@ -1663,7 +1666,7 @@ func _on_server_disconnected() -> void:
 		desconectar()
 		if not rechazado:
 			estado_cambiado.emit("Se cerró el mundo. Tu personaje queda guardado dentro de él.")
-		_sacar_a_escena("res://scenes/ui/multi_menu.tscn")
+		_sacar_a_escena(Mundos.menu_al_salir())
 		return
 	# Si me pilla DENTRO de la mazmorra, de vuelta al pueblo: ese piso era del MUNDO DEL HOST
 	# (su semilla); sin sesion no tiene sentido seguir alli.

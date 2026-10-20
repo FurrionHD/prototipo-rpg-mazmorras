@@ -83,6 +83,7 @@ var _cab_en_mano: SaveData = null
 # mundos: lleva un cerrojo de FICHERO con el pid (no la abren dos programas a la vez), guarda cada SEG_AUTOGUARDADO_RANURA
 # y sube a tu nube personal como la subia Perfil (Perfil._subir, sin cerrojo, por rev, con historial y conflicto).
 const PREFIJO_RANURA := "ranura_"
+const PUEBLO := "res://scenes/levels/town.tscn"
 const SEG_AUTOGUARDADO_RANURA := 10.0   # en solo antes eran 2 s, pero aqui cada vez se pide la ficha entera al jugador
 const SEG_NUBE_RANURA := 30.0
 var _t_nube_ranura := 0.0
@@ -715,6 +716,52 @@ func entrar(clave: String, contrasena: String, forzar_build := false) -> Diction
 	return await _lanzar_sala(clave, contrasena, forzar_build)
 
 
+# ENTRAR A TU RANURA POR SU SALA (paso 4): lo que hace el menu principal al cargar una partida. La ranura ya esta en
+# formato de mundo (Perfil.convertir_a_mundo). Si su sala sigue viva en este PC (saliste al menu hace nada) se vuelve a
+# ella; si no, se lanza. Lo de despues es lo de siempre del que entra: llega tu ficha (Net.partida.entrada_lista) y
+# entrar_al_mundo te lleva a tu sitio.
+func entrar_ranura(slot: int) -> Dictionary:
+	if abierto != "":
+		return {"ok": false, "mensaje": "Tienes un mundo abierto: ciérralo antes."}
+	if Net.activo:
+		return {"ok": false, "mensaje": "Ya estás en una sesión."}
+	var clave: String = clave_de_ranura(slot)
+	var codigo: String = codigo_de_ranura(clave)
+	var viva: Dictionary = await _sala_viva(clave)
+	if not viva.is_empty():
+		print("[mundos] %s: su sala sigue abierta en este PC, me reconecto" % clave)
+		return await _conectar_a_mi_sala(clave, codigo, int(viva.get("pid", 0)))
+	return await _lanzar_sala(clave, codigo, false)
+
+
+# La contraseña de la sala de una ranura: nadie la escribe (es tu partida, entras tu desde este PC), pero la sala la
+# pide como cualquier otra. Sale de tu clave secreta, asi que es siempre la misma (para volver a una sala que sigue
+# viva) y no la adivina nadie de tu red.
+func codigo_de_ranura(clave: String) -> String:
+	return (Identidad.clave() + ":" + clave).sha256_text().substr(0, 16)
+
+
+# YA TENGO MI FICHA DEL MUNDO: al pueblo, o de vuelta a mi piso. Lo llaman el menu de mundos y el principal al oir
+# Net.partida.entrada_lista. El anuncio del lugar va DESPUES del cambio de escena (el patron de todo el proyecto: es lo
+# que reconstruye avatares y suelo en la escena nueva). Va aqui, en un autoload, porque el menu que lo pide ES la
+# escena que se va: con su get_tree() a null tras el cambio, anunciar_lugar no llegaba a correr.
+func entrar_al_mundo() -> void:
+	var arbol := get_tree()
+	# DONDE ESTABAS al guardarse el mundo (fase 4 de la BD): en el pueblo, en esa calle; en la mazmorra,
+	# se pide volver a ese piso nada mas llegar (si la mazmorra sigue: si no, te quedas en el pueblo).
+	var donde: Dictionary = Net.partida.donde_volver
+	Net.partida.donde_volver = {}
+	var lugar: String = String(donde.get("lugar", ""))
+	var pos = donde.get("pos", Vector2.INF)
+	if lugar == "pueblo" and pos is Vector2:
+		Game.pos_cargada_pueblo = pos
+	await Cargando.cambiar_escena(arbol, PUEBLO, "Entrando en el mundo...")
+	Net.anunciar_lugar("pueblo")
+	if lugar.begins_with("piso:") and pos is Vector2:
+		Game.pos_cargada = pos
+		Net.pisos.solicitar_volver(int(lugar.substr(5)))
+
+
 # La sala de ESTE mundo que sigue viva en este PC (su estado), o vacio. Si esta cerrandose, se espera a
 # que acabe: su cierre es la ultima escritura del mundo y la nueva sala tiene que partir de ella.
 func _sala_viva(clave: String) -> Dictionary:
@@ -806,6 +853,16 @@ func sala_en_este_pc(clave: String) -> Dictionary:
 # La clave del mundo AJENO al que me estoy uniendo (vacio = a ninguno). No es `abierto`: ese mundo no
 # es mio y yo no tengo su cerrojo ni su fichero; solo estoy jugando dentro.
 var uniendome: String = ""
+
+
+# A QUE MENU SE VUELVE al salir del mundo en el que estoy: de mi ranura, al principal (es donde estan mis partidas); de
+# un mundo compartido, al de multijugador. Se pregunta ANTES de desconectar (desconectar no lo borra, pero el menu
+# principal si: ver abandonar).
+const MENU_PRINCIPAL := "res://scenes/ui/main_menu.tscn"
+const MENU_MULTI := "res://scenes/ui/multi_menu.tscn"
+
+func menu_al_salir() -> String:
+	return MENU_PRINCIPAL if uniendome.begins_with(PREFIJO_RANURA) else MENU_MULTI
 
 
 func dejar_de_unirse() -> void:
