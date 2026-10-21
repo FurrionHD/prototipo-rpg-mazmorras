@@ -29,7 +29,7 @@ func _ready() -> void:
 		t += 0.5
 	_ok(piso_de_b() == Game.PISO_ARENA, "los dos estamos en la arena (%.1f s)" % t)
 	var dueno_arena: int = int(dato_sala("dueno_piso_%d" % Game.PISO_ARENA))
-	print("[dev] la arena la lleva el peer %d (trabajador=%s)" % [dueno_arena, str(es_trabajador(dueno_arena))])
+	print("[dev] la arena la lleva el peer %d (1 = la sala)" % dueno_arena)
 	await _esperar(3.0)
 	var yo: Node2D = get_tree().get_first_node_in_group("player") as Node2D
 	var slime := "res://scenes/actors/enemy/slime.tres"

@@ -237,7 +237,7 @@ func _pedir_roster(lugar: String, para: int) -> void:
 		return
 	for id in _enemigos:
 		var e: Dictionary = _enemigos[id]
-		if is_instance_valid(e["nodo"]):
+		if is_instance_valid(e["nodo"]) and String(e["lugar"]) == lugar:
 			_rel_spawn_a.rpc_id(1, para, id, lugar, (e["nodo"] as Node2D).global_position,
 				_datos_enemigo(e["nodo"]))
 
@@ -369,9 +369,10 @@ func _pedir_enemigos(lugar: String) -> void:
 		return
 	var quien := multiplayer.get_remote_sender_id()
 	if PisoVivo.dueno_de(lugar):
+		# Solo los de ESE piso: en la sala (etapa 2) llevo varios, y sin filtrar le llegaban los de todos con su lugar.
 		for id in _enemigos:
 			var e: Dictionary = _enemigos[id]
-			if is_instance_valid(e["nodo"]):
+			if is_instance_valid(e["nodo"]) and String(e["lugar"]) == lugar:
 				_spawn_enemigo.rpc_id(quien, id, lugar, (e["nodo"] as Node2D).global_position,
 					_datos_enemigo(e["nodo"]))
 		return

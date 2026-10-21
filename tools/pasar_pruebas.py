@@ -97,6 +97,7 @@ AYUDANTES = {
     "prueba_town_baul_cliente",
     "prueba_sala_cliente",
     "prueba_solo_por_sala_cliente",
+    "prueba_sala_pisos_cliente",
 }
 
 # Las de RED: lanzan procesos (sala, trabajadores, otro jugador) y usan puertos fijos -> de una en una.
@@ -120,6 +121,7 @@ COMO_SE_LANZA = {
     "prueba_sala_dos_jugadores": NUBE_LOCAL,
     "prueba_sala_ranura": NUBE_LOCAL,
     "prueba_solo_por_sala": NUBE_LOCAL,
+    "prueba_sala_pisos": NUBE_LOCAL,
     "prueba_lan_por_sala": NUBE_LOCAL,
     # Las town_* van por la sala de una ranura de prueba (paso 6): sin nube_local escribirian en la nube de verdad.
     "prueba_town_dos_jugadores": NUBE_LOCAL,

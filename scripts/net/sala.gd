@@ -138,6 +138,10 @@ func arrancar(args: PackedStringArray) -> void:
 	# Mi LUGAR no es ninguno de los del juego: asi ningun "¿estoy yo en ese piso?" del anfitrion me cuenta,
 	# y a los clientes no les sale mi cuerpo (me presento con este lugar y nadie esta nunca en el).
 	Net._mi_lugar = ARG
+	# LOS PISOS los lleva la sala (etapa 2): cada uno en su mundo, montado al bajar alguien.
+	Net.servidor = preload("res://scripts/net/servidor_pisos.gd").new()
+	Net.servidor.name = "Pisos"
+	Net.add_child(Net.servidor)
 	if Net.hostear(contrasena, puerto) != OK:
 		await Mundos.cerrar_y_subir()
 		_acabar({"estado": "error", "mensaje": "No se pudo abrir el puerto %d (¿otro juego abierto?)." % puerto})
@@ -156,6 +160,7 @@ func arrancar(args: PackedStringArray) -> void:
 func _process(delta: float) -> void:
 	if not _lista or _cerrando:
 		return
+	Net.pisos.sala_reloj(delta)   # los pisos vacios que toca congelar
 	var n := humanos()
 	if n != _humanos:
 		_humanos = n

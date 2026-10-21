@@ -15,6 +15,7 @@
 #   montar(piso_red, numero_juego, foto)  -> el PisoVivo (si ya estaba, el mismo)
 #   desmontar(piso_red)                   -> su foto, en el formato de Game.memoria_pisos (para congelarlo)
 #   piso(piso_red), pisos()
+#   pausar(si)                            -> para todos los pisos (jugando uno solo con un menu o una pelea abierta)
 # Prueba: tools/prueba_servidor_dos_pisos.tscn
 extends Node
 
@@ -22,6 +23,8 @@ const _MAIN := preload("res://scenes/levels/main.tscn")
 
 # piso_red -> SubViewport (su hijo es el PisoVivo)
 var _vistas: Dictionary = {}
+# Parados (Net.pausa_solo): los que se monten mientras tanto nacen parados tambien.
+var _pausado := false
 
 
 func _ready() -> void:
@@ -55,6 +58,7 @@ func montar(piso_red: int, numero_juego: int, foto: Dictionary = {}) -> PisoVivo
 	vp.disable_3d = true
 	vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	vp.size = Vector2i(2, 2)
+	vp.process_mode = Node.PROCESS_MODE_DISABLED if _pausado else Node.PROCESS_MODE_INHERIT
 	var pv: PisoVivo = _MAIN.instantiate() as PisoVivo
 	pv.numero_fijo = numero_juego
 	pv.lugar_fijo = "piso:%d" % piso_red
@@ -70,6 +74,16 @@ func montar(piso_red: int, numero_juego: int, foto: Dictionary = {}) -> PisoVivo
 	print("[servidor] monto el piso %d (juega como el %d)%s" % [piso_red, numero_juego,
 		" desde su foto" if not foto.is_empty() else ""])
 	return pv
+
+
+# JUGANDO UNO SOLO, con un menu o una pelea abierta, el mundo espera (Net.pausa_solo): sus pisos dejan de correr (IA,
+# fisica, partos). La red sigue: solo se para lo de dentro de los pisos.
+func pausar(si: bool) -> void:
+	_pausado = si
+	for p in _vistas:
+		var vp: SubViewport = _vistas[p]
+		if is_instance_valid(vp):
+			vp.process_mode = Node.PROCESS_MODE_DISABLED if si else Node.PROCESS_MODE_INHERIT
 
 
 # Lo congela: saca su foto (lo mismo que guarda un piso al dejarlo) y lo quita. {} si no estaba.

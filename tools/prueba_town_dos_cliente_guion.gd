@@ -109,7 +109,7 @@ func _ready() -> void:
 	_ok(agilidad_grupo() > agilidad_antes, "huir me entrena la Agilidad (%.3f -> %.3f)" % [agilidad_antes, agilidad_grupo()])
 	print("[B] dato fase3_fin")
 
-	# FASE 4: LA ARENA. No soy su dueño (la lleva un trabajador), y aun asi todo lo que pulso funciona.
+	# FASE 4: LA ARENA. No soy su dueño (la lleva la sala), y aun asi todo lo que pulso funciona.
 	await esperar_fase(4, 180.0)
 	var excelia_arena := excelia_grupo()
 	Game.entrar_arena_de_pruebas()

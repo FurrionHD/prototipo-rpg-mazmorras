@@ -395,6 +395,10 @@ func revisar_vacio(piso: int, salvo: int = 0) -> void:
 		return
 	# Sin gente no hay peleas que esperar (lleve el piso quien lo lleve).
 	_soltar_los_de_pelea(piso)
+	# En la SALA el piso es suyo (etapa 2): se congela a los 10 s si sigue vacio.
+	if Net.soy_sala:
+		Net.pisos.sala_vaciado(piso)
+		return
 	var w: int = Net._dueno_piso.get(piso, 0)
 	if not es_trabajador(w):
 		return
@@ -411,6 +415,8 @@ func _fotos_periodicas(delta: float) -> void:
 	if _t_fotos < SEG_FOTOS_VIVAS:
 		return
 	_t_fotos = 0.0
+	if Net.soy_sala:
+		Net.pisos.sala_fotos_vivas()   # los pisos son suyos: la foto se saca aqui mismo
 	for w in _estado:
 		var piso: int = int(_estado[w])
 		if piso > 0 and piso != Game.PISO_ARENA and int(Net._dueno_piso.get(piso, 0)) == int(w):

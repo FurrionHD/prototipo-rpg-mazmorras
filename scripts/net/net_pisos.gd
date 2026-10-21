@@ -256,7 +256,7 @@ func _conceder_entrada(quien: int, piso: int = 1, volver := false) -> void:
 		Net.recoleccion._barrer_respawns()
 	Net._dentro[quien] = true
 	Net._muertos.erase(quien)   # el que vuelve a bajar ya no cuenta como caido (ver _registrar_muerte)
-	Net._trab.asegurar_dueno(piso)   # si hay un trabajador libre, el piso es suyo y yo entro de espejo
+	_asegurar_dueno(piso)   # la sala lo monta (o un trabajador libre lo lleva) y yo entro de espejo
 	Net._trab.asegurar_pelea(piso, true)   # y otro dentro esperando peleas, si queda en la reserva
 	var dueno: bool = _asignar_dueno(piso, quien)
 	var mem: Dictionary = {}
@@ -285,6 +285,8 @@ func _conceder_entrada(quien: int, piso: int = 1, volver := false) -> void:
 # ------------------------------------------------------------
 ## Lo que hay que guardar de la sesion.
 func sesion_para_guardar() -> Dictionary:
+	if Net.soy_sala:
+		sala_fotos_vivas()   # los pisos montados, como estan AHORA (no los de hace hasta 30 s)
 	var fotos: Dictionary = Net._fotos_piso.duplicate(true)
 	# Los pisos que estan vivos ahora en un trabajador, con su ultima foto periodica.
 	for p in Net._fotos_vivas:
@@ -660,7 +662,7 @@ func _difundir_piso_arena(lugar: String, piso: int) -> void:
 func _piso_arena(lugar: String, piso: int) -> void:
 	Game.arena_piso_juego = clampi(piso, 1, 30)
 	if PisoVivo.lleva(lugar):
-		_piso_arena_aqui(piso)
+		_piso_arena_aqui(piso, lugar)
 
 
 # El HOST se lo cuenta al que llega despues (un trabajador nuevo, el que entra a la sala): sin esto arrancaba en el 1.
@@ -669,8 +671,15 @@ func contar_piso_arena(pid: int) -> void:
 		_piso_arena.rpc_id(pid, "piso:%d" % Game.PISO_ARENA, Game.arena_piso_juego)
 
 
-func _piso_arena_aqui(piso: int) -> void:
+func _piso_arena_aqui(piso: int, lugar: String = "") -> void:
 	Game.arena_piso_juego = clampi(piso, 1, 30)
+	# EN LA SALA (etapa 2) la arena es un piso montado mas: cambia el piso que imita ESE piso, no Game.current_floor (que
+	# en la sala no es el de nadie).
+	var pv: PisoVivo = PisoVivo.del_lugar(lugar) if lugar != "" and not PisoVivo.un_sitio() else null
+	if pv != null:
+		pv.numero_fijo = Game.arena_piso_juego
+		print("[arena] la arena de la sala simula el piso %d" % pv.numero_fijo)
+		return
 	Game.current_floor = Game.arena_piso_juego
 	print("[arena] simulo el piso %d" % Game.current_floor)
 	for n in get_tree().get_nodes_in_group("panel_dev"):
@@ -716,20 +725,29 @@ func _hacer_en_arena(lugar: String, que: String, args: Array) -> void:
 	if not PisoVivo.dueno_de(lugar):
 		return
 	if que == "spawn" and args.size() >= 3:
-		_spawn_arena_aqui(String(args[0]), args[1] as Vector2, args[2] as Dictionary)
+		_spawn_arena_aqui(String(args[0]), args[1] as Vector2, args[2] as Dictionary, lugar)
 	elif que == "limpiar":
-		_limpiar_arena_aqui()
+		_limpiar_arena_aqui(lugar)
 
 
-func _spawn_arena_aqui(ruta: String, pos: Vector2, muneco: Dictionary) -> void:
-	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+# El suelo del piso de ese lugar ("" = el de esta maquina): en la sala lleva varios, y el primero del arbol puede ser
+# otro piso.
+func _suelo_de(lugar: String) -> Node:
+	if lugar != "" and not PisoVivo.un_sitio():
+		var pv: PisoVivo = PisoVivo.del_lugar(lugar)
+		return pv.primero(&"dungeon_floor") if pv != null else null
+	return get_tree().get_first_node_in_group("dungeon_floor")
+
+
+func _spawn_arena_aqui(ruta: String, pos: Vector2, muneco: Dictionary, lugar: String = "") -> void:
+	var piso: Node = _suelo_de(lugar)
 	var data: EnemyData = load(ruta) as EnemyData if ResourceLoader.exists(ruta) else null
 	if piso != null and piso.has_method("colocar_en_arena") and data != null:
 		piso.colocar_en_arena(data, pos, muneco)
 
 
-func _limpiar_arena_aqui() -> void:
-	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+func _limpiar_arena_aqui(lugar: String = "") -> void:
+	var piso: Node = _suelo_de(lugar)
 	if piso != null and piso.has_method("limpiar_arena"):
 		piso.limpiar_arena()
 
@@ -802,7 +820,7 @@ func _conceder_piso(quien: int, nuevo: int, bajando: bool, foto: Dictionary) -> 
 		return
 	var viejo: int = _piso_de(quien)
 	_soltar_piso(quien, foto)
-	Net._trab.asegurar_dueno(nuevo)
+	_asegurar_dueno(nuevo)
 	Net._trab.asegurar_pelea(nuevo, true)
 	var dueno_nuevo: bool = _asignar_dueno(nuevo, quien)
 	if quien != 1:
@@ -859,7 +877,7 @@ func _soltar_piso(quien: int, foto: Dictionary) -> void:
 	for pid in Net._peers:
 		if pid != heredero and Net._peers[pid].get("lugar", "") == lugar:
 			_limpiar_espejo.rpc_id(pid)
-	if heredero != 1 and PisoVivo.lleva(lugar):
+	if heredero != 1 and not Net.soy_sala and PisoVivo.lleva(lugar):
 		_limpiar_espejo()
 	if heredero == 1:
 		_asumir_piso(piso, foto)
@@ -868,6 +886,86 @@ func _soltar_piso(quien: int, foto: Dictionary) -> void:
 		# copia que queda.
 		Net._traspasos[piso] = {"heredero": heredero, "foto": foto}
 		_asumir_piso.rpc_id(heredero, piso, foto)
+
+
+# Solo host: que 'piso' tenga dueño ANTES de repartirlo al humano (que asi entra de espejo). En la SALA lo monta ella
+# (etapa 2); fuera de ella, un trabajador libre si lo hay.
+func _asegurar_dueno(piso: int) -> void:
+	if Net.soy_sala and Net.servidor != null:
+		sala_montar(piso)
+	else:
+		Net._trab.asegurar_dueno(piso)
+
+
+# ============================================================
+#  LA SALA, DUEÑA DE LOS PISOS (fase 2, etapa 2)
+#  Cada piso con gente va montado en la sala (Net.servidor, cada uno en su mundo) y ella simula sus enemigos: los
+#  humanos son todos espejos. Al vaciarse se deja VIVO SEG_VIVO_VACIO (decidido el 21/10: subir y bajar la escalera
+#  no lo rehace) y luego se congela en su foto, como hacia el trabajador.
+# ------------------------------------------------------------
+const SEG_VIVO_VACIO := 10.0
+# piso -> segundos que le quedan antes de congelarse (solo los vacios).
+var _sala_congelar: Dictionary = {}
+
+
+func sala_montar(piso: int) -> void:
+	_sala_congelar.erase(piso)   # vuelve alguien antes de los 10 s: sigue tal cual
+	var lugar := "piso:%d" % piso
+	if Net.servidor.piso(piso) == null:
+		var foto: Dictionary = Net._fotos_piso.get(piso, {})
+		Net._fotos_piso.erase(piso)
+		Net._fotos_vivas.erase(piso)
+		var juega: int = Game.arena_piso_juego if piso == Game.PISO_ARENA else piso
+		Net.servidor.montar(piso, juega, _mem_de_red(foto) if not foto.is_empty() else {})
+		Net.montar_cuerpos_del_lugar(lugar)
+	Net._dueno_piso[piso] = 1
+
+
+# Un piso se ha quedado sin humanos: se apunta para congelarlo (si no vuelve nadie).
+func sala_vaciado(piso: int) -> void:
+	if Net.servidor != null and Net.servidor.piso(piso) != null and not _sala_congelar.has(piso):
+		_sala_congelar[piso] = SEG_VIVO_VACIO
+
+
+# El reloj de la sala (sala._process): congela los pisos vacios que ya han cumplido su rato.
+func sala_reloj(delta: float) -> void:
+	for piso in _sala_congelar.keys():
+		if _alguien_en(int(piso), 0) != 0:
+			_sala_congelar.erase(piso)   # ha vuelto alguien (o viene de camino): sigue vivo
+			continue
+		_sala_congelar[piso] = float(_sala_congelar[piso]) - delta
+		if float(_sala_congelar[piso]) <= 0.0:
+			_sala_congelar.erase(piso)
+			sala_congelar(int(piso))
+
+
+# Saca la foto del piso y lo quita. Sus enemigos se borran de la red SIN avisar: no queda nadie que los vea (y la
+# purga del tick, al encontrarlos liberados, mandaria una baja a todo el mundo).
+func sala_congelar(piso: int) -> void:
+	var lugar := "piso:%d" % piso
+	for id in Net.enemigos._enemigos.keys():
+		if String(Net.enemigos._enemigos[id]["lugar"]) == lugar:
+			Net.enemigos._enemigos.erase(id)
+	var foto: Dictionary = Net.servidor.desmontar(piso)
+	Game.memoria_pisos.erase(piso)   # la buena es la de _fotos_piso; esta, al volver a montar, resucitaria rancia
+	Net._fotos_vivas.erase(piso)
+	if int(Net._dueno_piso.get(piso, 0)) == 1:
+		Net._dueno_piso.erase(piso)
+	# La ARENA no se congela: vacia, vuelve a estar vacia la proxima vez.
+	if piso == Game.PISO_ARENA:
+		Net._fotos_piso.erase(piso)
+	elif not foto.is_empty():
+		Net._fotos_piso[piso] = _mem_a_red(foto)
+	print("[sala] piso %d congelado (%d enemigos)" % [piso, (foto.get("enemigos", []) as Array).size()])
+
+
+# Las fotos de los pisos montados, para el guardado del mundo (Net._fotos_vivas, como las de los trabajadores).
+func sala_fotos_vivas() -> void:
+	if Net.servidor == null:
+		return
+	for piso in Net.servidor.pisos():
+		if int(piso) != Game.PISO_ARENA:
+			Net._fotos_vivas[int(piso)] = _mem_a_red(Net.servidor.foto_de(int(piso)))
 
 
 # Solo host: nombra dueño de 'piso' a 'quien' si esta libre. Devuelve si le toca simularlo.
@@ -885,8 +983,9 @@ func _asignar_dueno(piso: int, quien: int) -> bool:
 # Solo host: un peer (distinto de 'salvo') que este en ese piso, o 0 si no hay nadie.
 func _alguien_en(piso: int, salvo: int) -> int:
 	var lugar := "piso:%d" % piso
-	if salvo != 1 and PisoVivo.lleva(lugar):
-		return 1            # el host tambien cuenta como candidato
+	# El host tambien cuenta como candidato... salvo LA SALA: lleva el piso montado (etapa 2) pero no es nadie.
+	if salvo != 1 and not Net.soy_sala and PisoVivo.lleva(lugar):
+		return 1
 	# Los TRABAJADORES no cuentan: esto pregunta por humanos (quien hereda un piso, si se ha quedado vacio).
 	for id in Net._peers:
 		if id != salvo and Net._peers[id].get("lugar", "") == lugar and not Net._viajando.has(id) \

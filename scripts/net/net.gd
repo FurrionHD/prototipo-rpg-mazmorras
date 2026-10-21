@@ -342,6 +342,9 @@ func _revisar_pausa_solo() -> void:
 	print("[sala] pausa de solo: %d -> %d" % [pausa_solo, n])
 	pausa_solo = n
 	_pausa_solo.rpc(n)
+	# Los pisos los lleva la sala (etapa 2): se paran aqui mismo, como antes paraba su programa el trabajador.
+	if servidor != null:
+		servidor.pausar(n != 0)
 
 
 # --- ABRIR TU PARTIDA A LA LAN (paso 5) ---------------------------------------------------------
@@ -564,6 +567,8 @@ var suelo: NetSuelo = null
 # --- LA SALA (ver sala.gd) ---
 const _SALA = preload("res://scripts/net/sala.gd")
 var sala: Node = null
+# LOS PISOS DE LA SALA (fase 2, etapa 2): solo en el proceso de la sala, que es la dueña de todos (servidor_pisos.gd).
+var servidor: Node = null
 # ¿Soy YO la sala (el Godot sin ventana que tiene el mundo abierto y no es ningun jugador)?
 var soy_sala := false
 

@@ -122,7 +122,7 @@ func _ready() -> void:
 	_ok(se_fue_b and Net.peleas.espejando(), "B huye y la pelea SIGUE para mi")
 	_ok(await pelear_hasta_el_final(60.0), "termino la pelea yo solo")
 
-	# 4) LA ARENA DE PRUEBAS, compartida: la lleva un trabajador y B (que no es el dueño) pone, pelea,
+	# 4) LA ARENA DE PRUEBAS, compartida: la lleva la sala y B (que no es el dueño) pone, pelea,
 	# limpia y sale sin llevarse nada. Yo entro para ver lo que coloca.
 	await _esperar(2.0)
 	Game.entrar_arena_de_pruebas()
@@ -134,7 +134,8 @@ func _ready() -> void:
 	_ok(Net._mi_lugar == "piso:%d" % Game.PISO_ARENA and piso_de_b() == Game.PISO_ARENA,
 		"los dos estamos en la arena (%.1f s)" % t)
 	var dueno_arena: int = int(dato_sala("dueno_piso_%d" % Game.PISO_ARENA))
-	_ok(es_trabajador(dueno_arena), "la arena la lleva un trabajador (%d)" % dueno_arena)
+	# Desde la etapa 2 los pisos (tambien la arena) los lleva LA SALA: su dueño es el peer 1.
+	_ok(dueno_arena == 1, "la arena la lleva la sala (%d)" % dueno_arena)
 	var visto := false
 	t = 0.0
 	while not visto and t < 30.0:
