@@ -139,7 +139,7 @@ func _refrescar_estado_inicial() -> void:
 	elif Net.activo:
 		_estado.text = "Sesion en marcha (%s)." % ("host" if Net.es_host else "cliente")
 	else:
-		_estado.text = "Sin conexion. Hostea o unete a una partida."
+		_estado.text = "Sin conexion. Unete a una partida por IP."
 
 
 func _hostear() -> void:
@@ -151,10 +151,9 @@ func _hostear() -> void:
 		_estado.text = "Abriendo tu partida a la LAN..."
 		Net.abrir_lan(cod)
 		return
-	if Net.activo:
-		_estado.text = "Ya hay una sesion en marcha. Desconecta primero."
-		return
-	Net.hostear(_codigo.text.strip_edges())
+	# Paso 7: tu juego ya no hace de anfitrion. Solo se abre a la LAN TU partida, que la lleva tu sala.
+	_estado.text = ("Ya hay una sesion en marcha. Desconecta primero." if Net.activo
+		else "Para abrir a la LAN, entra en tu partida desde el menu principal.")
 
 
 func _unirse() -> void:

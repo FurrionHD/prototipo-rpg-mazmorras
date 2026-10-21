@@ -359,59 +359,6 @@ func _volver_no() -> void:
 	Game.pos_cargada = Vector2.INF
 
 
-# ABRIR LA SALA ESTANDO YA DENTRO DE UN PISO. Es _conceder_entrada + _entrar_ok sin viajar: el piso
-# ya esta construido (en solitario) y hay que convertirlo en el de una sesion. Sin esto el host se
-# quedaba con _mi_lugar "pueblo", la expedicion cerrada (las escaleras no contestaban), sin simular
-# nada (los enemigos congelados) y con los enemigos fuera de _enemigos (al compañero le llegaba el
-# piso vacio).
-func _montar_sesion_desde_dentro(piso: int) -> void:
-	if Net.epoca_sesion == 0:
-		if Game.epoca_mazmorra == 0:
-			Game.renovar_epoca()
-		Net.epoca_sesion = Game.epoca_mazmorra
-	Net.expedicion_abierta = true
-	Net.recoleccion._sembrar_agotados_del_save()
-	# Los NONCES tambien: las vetas de este piso nacieron con los de MI save (el piso se construyo en
-	# solitario), y el que baje construira el suyo con los de la sesion. Sin sembrarlos veria otro
-	# material en la misma veta.
-	for p in Game.mazmorra_persistente:
-		var nn = (Game.mazmorra_persistente[p] as Dictionary).get("nonces", {})
-		if nn is Dictionary:
-			for celda in nn:
-				Net.recoleccion._nonces_sesion[Net.recoleccion._sitio(int(p), celda as Vector2i)] = int(nn[celda])
-	Net.recoleccion._barrer_respawns()
-	Net._dentro[1] = true
-	Net._dueno_piso[piso] = 1
-	Net._soy_dueno = true
-	var lugar := "piso:%d" % piso
-	Net.anunciar_lugar(lugar)
-	# Lo que ya existe se da de alta en la red, igual que si hubiera nacido con la sesion abierta.
-	var n_enem: int = 0
-	for grupo in ["enemy", "corpse"]:
-		for e in get_tree().get_nodes_in_group(grupo):
-			if is_instance_valid(e) and not e.has_meta("net_id") and e is Node2D:
-				Net.enemigos.registrar_enemigo(e, lugar)
-				n_enem += 1
-	# Y lo que hay por el suelo: los pickups locales pasan a ser drops de la sesion (_suelo), o el
-	# compañero no los veria y yo los recogeria por la rama de solitario.
-	var n_suelo: int = 0
-	for pk in get_tree().get_nodes_in_group("pickup"):
-		if not is_instance_valid(pk) or pk.has_meta("net_id") or pk.get("item") == null:
-			continue
-		var d: Dictionary = Net.suelo._item_a_dict(pk.item)
-		if d.is_empty():
-			continue
-		d.erase("n")
-		if int(pk.get("cantidad")) > 1:
-			d["n"] = int(pk.get("cantidad"))   # el monton entero, no una pieza
-		var pos: Vector2 = (pk as Node2D).global_position
-		pk.queue_free()
-		Net.suelo._registrar_y_difundir(d, pos, lugar)
-		n_suelo += 1
-	print("[multi] sala abierta desde el piso %d: %d Net.enemigos y %d cosas del Net.suelo a la sesion" % [
-		piso, n_enem, n_suelo])
-
-
 # {piso: segundos que le faltan a ese jefe}. Solo tiene sentido en el host, que es quien lleva la
 # cuenta. Ver _conceder_entrada y _marcar_boss: es la moneda con la que los jefes cruzan la red.
 func _restantes_boss() -> Dictionary:

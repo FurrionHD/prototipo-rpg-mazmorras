@@ -52,15 +52,6 @@ var abierto: String = ""
 # demas. Asi se escribe una vez.
 var _contrasena: String = ""
 
-# Hay que hostear en cuanto se llegue a la partida: Net.hostear() no se puede llamar desde el menu
-# (exige pueblo o un piso ya construido, ver Net.puede_abrir_sala) y el mundo tiene que quedar ABIERTO
-# desde el minuto uno para que los demas entren cuando quieran.
-var _hostear_al_llegar := false
-# Cuanto lleva la escena lista para abrir sala. Se espera un poco en la mazmorra: el piso pare y
-# restaura a sus enemigos DIFERIDOS, y los que nacieran despues de registrar se quedarian fuera.
-var _t_listo := 0.0
-const ESPERA_SALA := 1.0
-
 var _acum := 0.0
 
 # LA BASE DE DATOS del mundo abierto (null = un mundo que no se pudo migrar: va con su .tres, como antes).
@@ -160,28 +151,13 @@ signal catalogo_cambiado
 
 
 func _ready() -> void:
-	# Como Nube: el autoguardado y el "hostear al llegar" tienen que seguir vivos con el arbol
+	# Como Nube: el autoguardado tiene que seguir vivo con el arbol
 	# pausado, porque los menus de este juego pausan.
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	DirAccess.make_dir_recursive_absolute(CARPETA)
 
 
 func _process(delta: float) -> void:
-	# LA SALA abre la sesion ella misma al arrancar (ver sala.gd) y no tiene escena de juego delante.
-	if Net.soy_sala:
-		_hostear_al_llegar = false
-	if _hostear_al_llegar and not Net.activo and Net.puede_abrir_sala():
-		_t_listo += delta
-		if _t_listo >= ESPERA_SALA:
-			_hostear_al_llegar = false
-			_t_listo = 0.0
-			if Net.hostear(_contrasena) == OK:
-				aviso.emit("Mundo abierto. Tus compañeros ya pueden entrar.")
-			else:
-				_hostear_al_llegar = true   # p.ej. te han metido en una pelea justo ahora: se reintenta
-	else:
-		_t_listo = 0.0
-
 	if abierto == "":
 		return
 	_posiciones_cada_poco(delta)
@@ -930,7 +906,6 @@ func estrenar(clave: String) -> bool:
 	if not guardar_actual():
 		abierto = ""
 		return false
-	_hostear_al_llegar = true
 	return true
 
 
@@ -958,7 +933,6 @@ func cargar(clave: String) -> bool:
 	# despistado escribiera el mundo encima de una partida de un jugador.
 	Perfil.ranura_actual = 0
 	_acum = 0.0
-	_hostear_al_llegar = true
 	print("[mundos] mundo cargado: ", clave, " -> ", datos.resumen())
 	return true
 
@@ -1107,7 +1081,6 @@ func cerrar_y_subir() -> Dictionary:
 		abierto = ""
 		_cab_en_mano = null
 		_contrasena = ""
-		_hostear_al_llegar = false
 		return {"ok": true}
 	var r: Dictionary
 	if _bd != null:
@@ -1122,7 +1095,6 @@ func cerrar_y_subir() -> Dictionary:
 	abierto = ""
 	_cab_en_mano = null
 	_contrasena = ""
-	_hostear_al_llegar = false
 	if not r.get("ok", false):
 		_escribir_entrada(clave, {"pendiente": true})
 		return {"ok": false, "mensaje": String(r.get("mensaje", "No se pudo subir el mundo."))}
@@ -1164,7 +1136,6 @@ func abandonar() -> String:
 	abierto = ""
 	_cab_en_mano = null
 	_contrasena = ""
-	_hostear_al_llegar = false
 	_acum = 0.0
 	Game.mundo_compartido = false
 	Game.jugadores_mundo.clear()

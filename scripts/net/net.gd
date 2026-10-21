@@ -597,33 +597,13 @@ func _en_el_pueblo() -> bool:
 	return esc != null and esc.scene_file_path.contains("town")
 
 
-# ¿Se puede abrir sala AQUI? En el pueblo, siempre. Y en la MAZMORRA tambien (playtest del
-# 11/09/2026): si el host guardaba dentro y reabria el mundo, la sala no existia hasta que pisaba el
-# pueblo y su compañero se comia un "no se encontro ninguna partida". Dentro hace falta el piso ya
-# construido (sus enemigos se registran al abrir, ver _montar_sesion_desde_dentro) y nada delante: ni
-# una pelea ni una faena, que se montaron en solitario y no sabrian pasar a sesion.
-func puede_abrir_sala() -> bool:
-	if _en_el_pueblo():
-		return true
-	return _piso_listo_para_sesion() != null
-
-
-# El piso en el que estoy, si se puede convertir en el de una sesion; null si no.
-func _piso_listo_para_sesion():
-	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
-	if piso == null or not piso.is_node_ready() or int(piso.get("_piso_construido")) <= 0:
-		return null
-	if Game.hay_pelea_en_pantalla() or Game.combate_activo():
-		return null
-	return piso
-
-
+# ABRIR LA SESION. Desde la etapa 2-bis (paso 7) solo la abre LA SALA, desde su escena vacia: el juego del humano
+# nunca hace de anfitrion, entra en su sala como un jugador mas. La unica excepcion son las pruebas viejas que hostean
+# desde el pueblo (town_trabajadores, crias_red) hasta que la etapa 2 quite los trabajadores.
 func hostear(codigo: String, puerto: int = PUERTO) -> int:
-	# La SALA no tiene pueblo ni piso delante: abre desde su escena vacia.
-	if not soy_sala and not puede_abrir_sala():
-		estado_cambiado.emit("Ahora no se puede abrir la sala: sal de la pelea o de la faena.")
+	if not soy_sala and not _en_el_pueblo():
+		estado_cambiado.emit("La sesion la abre la sala.")
 		return ERR_UNAVAILABLE
-	var piso_dentro = null if (soy_sala or _en_el_pueblo()) else _piso_listo_para_sesion()
 	var peer := ENetMultiplayerPeer.new()
 	var err := peer.create_server(puerto, MAX_CONEXIONES)
 	if err != OK:
@@ -640,8 +620,6 @@ func hostear(codigo: String, puerto: int = PUERTO) -> int:
 	if mundo_compartido:
 		pisos.sembrar_sesion(Game.sesion_guardada)
 	Game._refrescar_pausa()   # regimen multi: los menus dejan de pausar el arbol
-	if piso_dentro != null:
-		pisos._montar_sesion_desde_dentro(int(piso_dentro.get("_piso_construido")))
 	_trab.al_abrir_sala(puerto)   # el primer trabajador de reserva, arrancando ya
 	estado_cambiado.emit("Servidor abierto. Esperando a que se unan...")
 	return OK

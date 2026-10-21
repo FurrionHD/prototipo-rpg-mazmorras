@@ -262,11 +262,22 @@ func _ready() -> void:
 	var f_pelea: int = Net.peleas._pelea_anfitrion
 	var dueno_vivo: int = int(Net._dueno_piso.get(1, 0))
 	var espejos_antes := _espejos_vivos()
+	# La marca "esta en la pelea X" llega en el tick de enemigos del dueño (no fiable, 20 por segundo): justo al abrir
+	# la pantalla puede no haber llegado aun. Se espera a que llegue (hasta 3 s) y se apunta cuanto tardo.
 	var en_pelea := 0
-	for id in Net.enemigos._enem_nodos:
-		var n = Net.enemigos._enem_nodos[id]
-		if is_instance_valid(n) and int(n.get("pelea_de")) == f_pelea:
-			en_pelea += 1
+	var t_marca := 0.0
+	while t_marca <= 3.0:
+		en_pelea = 0
+		for id in Net.enemigos._enem_nodos:
+			var n = Net.enemigos._enem_nodos[id]
+			if is_instance_valid(n) and int(n.get("pelea_de")) == f_pelea:
+				en_pelea += 1
+		if en_pelea > 0:
+			break
+		await _esperar(0.1)
+		t_marca += 0.1
+	print("[dev] la marca de pelea llego a %d espejo(s) en %.1f s" % [en_pelea, t_marca])
+	espejos_antes = _espejos_vivos()
 	var pid_dueno: int = int(Net._trab._pid_de.get(dueno_vivo, 0))
 	_ok(pid_dueno > 0 and en_pelea > 0, "tengo el proceso del dueño (%d) y %d enemigo(s) en la pelea" % [pid_dueno, en_pelea])
 	if pid_dueno > 0:

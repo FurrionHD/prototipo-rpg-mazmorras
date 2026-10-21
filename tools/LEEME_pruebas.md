@@ -68,6 +68,10 @@ salida de cada una en `tools/resultados_pruebas/<nombre>.log` y dice BIEN / MAL 
     ANTES de repetirla. Sin mirar aun si es del juego.
   - `prueba_town_trabajadores`: SIN REVISAR a proposito (los trabajadores se van a rehacer enteros en la fase 2). 20/10:
     con carga ha salido tambien "los dobles pelean con mis mismos numeros" (def 1217.95 vs 1219.78); sola 2/2.
+    20-21/10 (paso 7): fallo 4 veces seguidas "tengo el proceso del dueño y 0 enemigo(s) en la pelea" (la marca de
+    pelea viaja en el tick no fiable del dueño y la prueba la miraba al abrir la pantalla: ahora la espera hasta 3 s y
+    apunta "[dev] la marca de pelea llego ... en X s"), otra "cabo 2: la pelea la lleva OTRO trabajador" y otra los
+    "mismos numeros". Luego 3/3 bien. Falla en sitios distintos: inestable de la prueba vieja, se rehace en la etapa 2.
   Si fallan, se repiten antes de dar nada por roto.
 
 Se lanzan así (sin ventana, cada una dice `FIN: TODO BIEN` o lista sus `MAL:`):
