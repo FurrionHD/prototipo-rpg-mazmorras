@@ -264,15 +264,18 @@ func _ofrecer_retorno(piso_max: int, quien: String) -> void:
 	Game.recibir_oferta_retorno(quien, piso_max)
 
 
-# Donde esta cada OTRO jugador de mi mismo lugar y si esta peleando. Lo consultan las zonas de
-# parto para no hacer nacer bichos encima de nadie (y menos aun encima de quien pelea).
-func jugadores_remotos_aqui() -> Array:
+# Donde esta cada OTRO jugador de un lugar (por defecto, el mio) y si esta peleando. Lo consultan las zonas de
+# parto para no hacer nacer bichos encima de nadie (y menos aun encima de quien pelea). En la sala, cada zona pregunta
+# por el lugar de SU piso.
+func jugadores_remotos_aqui(lugar: String = "") -> Array:
 	var out: Array = []
 	if not Net.activo:
 		return out
+	if lugar == "":
+		lugar = Net._mi_lugar
 	for id in Net._peers:
 		var p: Dictionary = Net._peers[id]
-		if p.get("lugar", "") == Net._mi_lugar and p.get("pos", Vector2.INF) != Vector2.INF:
+		if p.get("lugar", "") == lugar and p.get("pos", Vector2.INF) != Vector2.INF:
 			out.append({"pos": p["pos"], "peleando": bool(p.get("peleando", false))})
 	return out
 
@@ -776,7 +779,7 @@ func _set_conjuro(emisor: int, id: int, color: Color, ruta: String = "") -> void
 	var p: Node2D = _PROYECTIL_HECHIZO.new()
 	p.setup(obj, color, load(ruta) as SpellData if ruta != "" else null)
 	p.global_position = (a as Node2D).global_position
-	var mundo: Node = get_tree().current_scene
+	var mundo: Node = PisoVivo.raiz_de(a)
 	if mundo != null:
 		mundo.add_child(p)
 

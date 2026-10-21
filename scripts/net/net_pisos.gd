@@ -93,7 +93,7 @@ func _recibir_estado(emisor: int, pos: Vector2, facing: Vector2, comps: Array = 
 
 # Coloca (y crea si hacen falta) los cuerpos de los acompañantes de un peer.
 func _mover_companeros(peer_id: int, posiciones: Array) -> void:
-	if not Net._peers.has(peer_id) or Net._peers[peer_id].get("lugar", "") != Net._mi_lugar:
+	if not Net._peers.has(peer_id) or not PisoVivo.lleva(String(Net._peers[peer_id].get("lugar", ""))):
 		return
 	var lista: Array = Net._avatares_comp.get(peer_id, [])
 	# NO crear un cuerpo de acompañante hasta tener su ASPECTO. Las posiciones llegan a 60 Hz y el
@@ -122,7 +122,7 @@ func _mover_companeros(peer_id: int, posiciones: Array) -> void:
 # "aliado" con su interpolacion), asi que los bichos pueden perseguirlo y saltarle encima; la meta
 # peer_id dice a quien mandarle la pelea.
 func _crear_cuerpo_companero(peer_id: int, idx: int):
-	var mundo: Node = get_tree().current_scene
+	var mundo: Node = PisoVivo.raiz_del_lugar(String(Net._peers[peer_id].get("lugar", "")), get_tree())
 	if mundo == null:
 		return null
 	var c: Node2D = Net._REMOTE_PLAYER.new()
@@ -755,18 +755,22 @@ func simulo_el_piso_de(n: Node) -> bool:
 	return (not Net.activo) or PisoVivo.dueno_del_nodo(n)
 
 
-# CUANTOS personajes hay en MI piso, contando los grupos de los otros humanos que esten aqui.
+# CUANTOS personajes hay en un piso (por defecto, MI piso), contando los grupos de los otros humanos que esten alli.
 # Lo usa el tamaño del brote: contar solo Game.party hacia que el brote saliera pequeño cuando
 # estabais dos en el mismo piso, justo cuando la regla de diseño ("siempre te superan por uno")
-# tenia que dar mas. En solitario devuelve tu grupo, igual que antes.
-func personajes_en_mi_piso() -> int:
-	# El trabajador no trae grupo: su Game.party es un personaje inventado que nadie ve.
-	var n: int = 0 if Net.soy_trabajador else Game.party.size()
+# tenia que dar mas. En solitario devuelve tu grupo, igual que antes. 'lugar' lo pasa el que pregunta DESDE su piso
+# (la zona de parto): en la sala hay varios.
+func personajes_en_mi_piso(lugar: String = "") -> int:
+	if lugar == "":
+		lugar = Net._mi_lugar
 	if not Net.activo:
-		return n
+		return Game.party.size()
+	# El trabajador y la sala no traen grupo: su Game.party es un personaje inventado que nadie ve. Y mi grupo solo
+	# cuenta si ese piso es el mio.
+	var n: int = Game.party.size() if (not Net.soy_trabajador and not Net.soy_sala and lugar == Net._mi_lugar) else 0
 	for pid in Net._peers:
 		var p: Dictionary = Net._peers[pid]
-		if p.get("lugar", "") == Net._mi_lugar and not bool(p.get("trabajador", false)):
+		if p.get("lugar", "") == lugar and not bool(p.get("trabajador", false)):
 			# El humano + su sequito ("comps" son sus acompañantes, los que ves andando con el).
 			n += 1 + (p.get("comps", []) as Array).size()
 	return n

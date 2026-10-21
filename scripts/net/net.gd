@@ -820,7 +820,13 @@ func _cambiar_lugar(emisor: int, lugar: String) -> void:
 	_peers[emisor]["lugar"] = lugar
 	# ¿Ahora compartimos lugar? Su avatar aparece. ¿Ya no? Desaparece.
 	var a = _avatares.get(emisor)   # SIN tipar: puede ser una instancia ya liberada (ver nota abajo)
-	if lugar == _mi_lugar:
+	if PisoVivo.lleva(lugar):
+		# EN LA SALA (etapa 2) llevo VARIOS pisos: si pasa del 2 al 3, su cuerpo del 2 no vale, se rehace en el 3.
+		if a != null and is_instance_valid(a) and not PisoVivo.un_sitio() and PisoVivo.de(a) != PisoVivo.del_lugar(lugar):
+			a.queue_free()
+			_avatares.erase(emisor)
+			jugadores._quitar_companeros(emisor)
+			a = null
 		if a == null or not is_instance_valid(a):
 			_crear_avatar_nodo(emisor)
 		Game.reanunciar_mi_zona()   # llega con mi pelea empezada: que la vea desde fuera
@@ -1464,7 +1470,7 @@ func _registrar_peer(peer_id: int, color: Color, metal: float, nombre: String, l
 	_peers[peer_id] = {"color": color, "metal": metal, "nombre": nombre,
 		"lugar": lugar, "pos": Vector2.INF, "peleando": false, "comps": [],
 		"imagen": imagen, "alpha": alpha, "piezas": piezas}
-	if lugar == _mi_lugar:
+	if PisoVivo.lleva(lugar):
 		_crear_avatar_nodo(peer_id)
 	if es_host:
 		pisos.contar_piso_arena(peer_id)
@@ -1521,6 +1527,14 @@ func _olvidar_peer(peer_id: int) -> void:
 	peleas.al_olvidar_peer(peer_id)
 
 
+# LA SALA ACABA DE MONTAR UN PISO (etapa 2): los cuerpos de los que ya estan en ese lugar nacen en el. Sus
+# acompañantes llegan solos con su proxima posicion (_mover_companeros).
+func montar_cuerpos_del_lugar(lugar: String) -> void:
+	for id in _peers:
+		if String(_peers[id].get("lugar", "")) == lugar:
+			_crear_avatar_nodo(id)
+
+
 # Monta el nodo visual de un peer YA registrado (solo si compartimos lugar).
 func _crear_avatar_nodo(peer_id: int) -> void:
 	if not _peers.has(peer_id):
@@ -1529,10 +1543,12 @@ func _crear_avatar_nodo(peer_id: int) -> void:
 		return   # un trabajador de piso no tiene cuerpo
 	if _avatares.has(peer_id) and is_instance_valid(_avatares[peer_id]):
 		return
-	var mundo: Node = get_tree().current_scene
+	var p: Dictionary = _peers[peer_id]
+	# Su cuerpo va al piso de SU lugar: en un cliente es la escena actual (lo de siempre); en la sala, que lleva varios
+	# pisos, el de ese lugar (para que los enemigos de ese piso le vean y le persigan).
+	var mundo: Node = PisoVivo.raiz_del_lugar(String(p["lugar"]), get_tree())
 	if mundo == null:
 		return
-	var p: Dictionary = _peers[peer_id]
 	var av: Node2D = _REMOTE_PLAYER.new()
 	mundo.add_child(av)
 	# De quien es este cuerpo: al alcanzarlo un bicho hay que mandarle la pelea a SU dueño. Va como

@@ -78,7 +78,14 @@ var prob_brote: float = 0.01    # ~1 de cada 100 partos (brote espontaneo; el go
 # imposible. En multi cuenta tambien el grupo del otro humano si esta en este piso: con Game.party
 # a secas el brote salia PEQUEÑO justo cuando estabais dos, que es cuando deberia dar mas.
 func brote_tamano() -> int:
-	return mini(Enemy.MAX_COMBATIENTES, Net.pisos.personajes_en_mi_piso() + 1)
+	return mini(Enemy.MAX_COMBATIENTES, Net.pisos.personajes_en_mi_piso(_lugar()) + 1)
+
+
+# El lugar de red de MI piso ("piso:N"). En un cliente es el suyo de siempre; en la sala, que lleva varios pisos, el
+# del piso del que cuelga esta zona. "" = el de la maquina.
+func _lugar() -> String:
+	var pv: PisoVivo = PisoVivo.de(self)
+	return pv.lugar if pv != null else ""
 
 # Enemigos vivos que ha parido ESTA zona. Sin tipar el elemento: los enemigos exponen
 # metodos propios (esta_muerto) que un Array[Node] no dejaria llamar.
@@ -317,10 +324,10 @@ func _cerca_del_jugador(sitio: Dictionary) -> bool:
 	if piso == null or sitio.is_empty():
 		return false
 	var suelo: Vector2 = piso.gen.centro_px(sitio["suelo"])
-	# En un TRABAJADOR de piso no hay jugador propio (su cuerpo esta apagado en la entrada): cuentan los
-	# humanos que ve.
-	if Net.soy_trabajador:
-		for r in Net.jugadores.jugadores_remotos_aqui():
+	# En un TRABAJADOR de piso no hay jugador propio (su cuerpo esta apagado en la entrada), ni en la sala (monta los
+	# pisos sin jugador): cuentan los humanos que ve.
+	if Net.soy_trabajador or Net.soy_sala:
+		for r in Net.jugadores.jugadores_remotos_aqui(_lugar()):
 			if suelo.distance_to(r["pos"]) <= RECICLA_CERCA:
 				return true
 		return false
@@ -335,11 +342,11 @@ func _cerca_del_jugador(sitio: Dictionary) -> bool:
 func _puestos_a_respetar() -> Array:
 	var out: Array = []
 	var jugador := get_tree().get_first_node_in_group("player")
-	if jugador is Node2D and not Net.soy_trabajador:   # el cuerpo de un trabajador no es nadie
+	if jugador is Node2D and not Net.soy_trabajador and not Net.soy_sala:   # el cuerpo de un trabajador no es nadie
 		# Espejar la pelea de otro cuenta como estar peleando: tampoco ves venir al que nace al lado.
 		var d: float = DIST_MIN_PELEANDO if Game.hay_pelea_en_pantalla() else dist_min_jugador
 		out.append([(jugador as Node2D).global_position, d])
-	for r in Net.jugadores.jugadores_remotos_aqui():
+	for r in Net.jugadores.jugadores_remotos_aqui(_lugar()):
 		out.append([r["pos"], DIST_MIN_PELEANDO if r["peleando"] else dist_min_jugador])
 	return out
 
