@@ -485,6 +485,11 @@ func al_irse(peer_id: int) -> void:
 func pelea_libre_en(piso: int) -> int:
 	var ahora: int = Time.get_ticks_msec()
 	for w in _de_pelea:
+		# Uno que ya se ha ido NO esta libre (21/10, cabo 2 de town_trabajadores): al caerse, Net._olvidar_peer lo
+		# quita de _peers y pide otro ejecutor ANTES de que al_irse lo quite de aqui, y como su reserva ya habia
+		# vencido (la caida tarda ~5 s en notarse) se le volvia a mandar la pelea a el.
+		if not Net._peers.has(w):
+			continue
 		if int(_estado.get(w, 0)) == piso and not _peleando.has(w) and ahora >= int(_reservado_hasta.get(w, 0)):
 			return w
 	return 0

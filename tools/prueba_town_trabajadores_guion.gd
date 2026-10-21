@@ -53,6 +53,40 @@ func _linea_de_registros(prefijo: String) -> String:
 	return ultima
 
 
+# DESDE UN PUNTO: lo que llevan escrito ahora los registros de los trabajadores (fichero -> largo). Con _linea_desde se
+# busca solo en lo escrito despues: un trabajador lleva varias peleas en su registro (y los numeros de un personaje
+# cambian de una a otra: la armadura se gasta), y comparar con la de otra pelea fallaba "a veces" (21/10).
+func _marca_registros() -> Dictionary:
+	var dir := OS.get_user_data_dir().path_join("logs")
+	var m := {}
+	for f in DirAccess.get_files_at(dir):
+		if f.begins_with("trabajador_"):
+			var fa := FileAccess.open(dir.path_join(f), FileAccess.READ)
+			if fa != null:
+				m[f] = fa.get_as_text().length()
+	return m
+
+
+func _linea_desde(prefijo: String, marca: Dictionary) -> String:
+	var dir := OS.get_user_data_dir().path_join("logs")
+	var ultima := ""
+	for f in DirAccess.get_files_at(dir):
+		if not f.begins_with("trabajador_"):
+			continue
+		var fa := FileAccess.open(dir.path_join(f), FileAccess.READ)
+		if fa == null:
+			continue
+		var texto: String = fa.get_as_text()
+		# Si el fichero es mas corto que la marca, es OTRO trabajador con el mismo numero (relanzado): entero.
+		var desde: int = int(marca.get(f, 0))
+		if desde > texto.length():
+			desde = 0
+		for l in texto.substr(desde).split("\n"):
+			if l.begins_with(prefijo):
+				ultima = l.strip_edges()
+	return ultima
+
+
 func _trabajador_libre() -> int:
 	for w in Net._trab._estado:
 		if int(Net._trab._estado[w]) == 0:
@@ -143,6 +177,7 @@ func _ready() -> void:
 	var f1: int = Net._trab.pelea_libre_en(1)
 	_ok(f1 != 0 and f1 != dueno2, "en el piso 1 espera un trabajador de pelea que no es el dueño (%.1f s)" % t)
 	await _esperar(3.0)   # que cargue el piso y reciba los enemigos
+	var marca_pelea := _marca_registros()   # los numeros de ESTA pelea: lo que se escriba a partir de aqui
 	await _abrir_pelea_con_un_enemigo()
 	_ok(Game.hay_pelea_en_pantalla(), "se abre la pelea contra un enemigo del trabajador")
 	# EN LA MAZMORRA LA PELEA ES TACTICA (03/10): la arena la calcula el trabajador y me llega con su forma.
@@ -168,7 +203,7 @@ func _ready() -> void:
 	var comparados := 0
 	var distintos: Array = []
 	for pj in [Game.lider()] + Game.companeros():
-		var linea := _linea_de_registros("[pelea] doble %s " % pj.uid)
+		var linea := _linea_desde("[pelea] doble %s " % pj.uid, marca_pelea)
 		if linea == "":
 			continue
 		comparados += 1
@@ -186,7 +221,7 @@ func _ready() -> void:
 		var ne = Net.enemigos._enem_nodos[nid]
 		if not is_instance_valid(ne) or ne.data == null:
 			continue
-		var linea_e := _linea_de_registros("[pelea] enemigo %d " % int(nid))
+		var linea_e := _linea_desde("[pelea] enemigo %d " % int(nid), marca_pelea)
 		if linea_e == "":
 			continue
 		enem_comp += 1

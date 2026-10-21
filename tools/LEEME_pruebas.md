@@ -72,6 +72,11 @@ salida de cada una en `tools/resultados_pruebas/<nombre>.log` y dice BIEN / MAL 
     pelea viaja en el tick no fiable del dueño y la prueba la miraba al abrir la pantalla: ahora la espera hasta 3 s y
     apunta "[dev] la marca de pelea llego ... en X s"), otra "cabo 2: la pelea la lleva OTRO trabajador" y otra los
     "mismos numeros". Luego 3/3 bien. Falla en sitios distintos: inestable de la prueba vieja, se rehace en la etapa 2.
+    21/10 RESUELTO, eran dos cosas: (1) "mismos numeros" era la PRUEBA: leia la linea del doble de OTRA pelea (un
+    trabajador lleva varias en su registro y la armadura se gasta de una a otra; o de una pasada anterior): ahora solo
+    mira lo escrito desde que abre su pelea (_marca_registros/_linea_desde). (2) "cabo 2" era del JUEGO: al caerse el
+    trabajador con tus fichas se pedia otro ANTES de quitarlo de la lista, y como su reserva ya habia vencido se le
+    volvia a mandar a el (trabajadores.pelea_libre_en ahora salta a los que no estan en Net._peers). 10/10 seguidas.
   Si fallan, se repiten antes de dar nada por roto.
 
 Se lanzan así (sin ventana, cada una dice `FIN: TODO BIEN` o lista sus `MAL:`):
