@@ -26,7 +26,11 @@ extends Node
 const ARG := "sala"
 const _TUNEL = preload("res://scripts/net/tunel_steam.gd")
 const CARPETA := "user://salas"
-const FPS := 20                # no hay nada que pintar: lo que corre es la red y el reloj
+# A 60 desde la etapa 2 de la fase 2 (21/10): la sala lleva los PISOS (sus enemigos, su fisica), no solo la red y el
+# reloj. A 20 cada fotograma hacia 3 pasos de fisica seguidos y los enemigos andaban a saltos. Medido con
+# tools/medir_servidor_pisos (sin dibujar): 1 piso ~10 ms por fotograma y +200 MB; 4 pisos ~10 ms y +364 MB; 8 pisos
+# (119 enemigos) ~15 ms y +740 MB; con 8 sigue a 60.
+const FPS := 60
 const SEG_VACIA := 10.0        # sin nadie dentro este rato -> se cierra
 const SEG_ESPERA := 60.0       # nadie ha llegado a entrar en este rato -> se cierra
 const SONDA := "res://tools/sonda_sala.gd"

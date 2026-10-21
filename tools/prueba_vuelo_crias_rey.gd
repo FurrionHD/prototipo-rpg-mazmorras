@@ -167,7 +167,11 @@ func _correr() -> void:
 			muestra.append("%dms %s %.0f" % [int(r[i][0]), str((r[i][1] as Vector2).round()), float(r[i][2])])
 		print("      ", " | ".join(muestra))
 		_ver(ini.distance_to(p_rey) < 40.0, "sale de donde esta el Rey (%.0f px)" % ini.distance_to(p_rey))
-		_ver(largo > 60.0, "y acaba lejos de el")
+		# FUERA DEL CUERPO DEL REY, no "a mas de 60 px" (21/10): la cria cae DETRAS del jugador mas cercano para acorralarlo
+		# (sitio_cria_acorrala, 09/10), y si ese jugador esta pegado al Rey cae a ~50 px de el, que es lo correcto.
+		var caja_rey: Rect2 = tm.bulto_de(e)
+		_ver(not caja_rey.grow(4.0).has_point(fin) and largo > 30.0,
+			"y acaba fuera del Rey (a %.0f px; su cuerpo mide %.0fx%.0f)" % [largo, caja_rey.size.x, caja_rey.size.y])
 		_ver(a_medias >= 4, "pasa por el camino (no aparece de golpe)")
 		_ver(salto_max < largo * 0.5, "sin saltos de golpe")
 		_ver(sube > 20.0, "y su dibujo sube por el aire (%.0f px)" % sube)
