@@ -1,17 +1,14 @@
-extends Node
+# PRUEBA DE LOS TRABAJADORES DE PELEA, POR LA SALA (rehecha el 21/10, fase 2 etapa 2). Desde la etapa 2 los PISOS los
+# lleva la sala (ver prueba_sala_pisos y prueba_town_dos_pisos); lo que queda de los trabajadores son los de PELEA: uno
+# espera dentro de cada piso con gente y ejecuta la siguiente pelea, y el jugador la ve en espejo. Esto mira que la
+# pelea vaya a un trabajador, que los dobles y los enemigos peleen con los mismos numeros que en mi PC, que la pelea
+# acabe y me devuelva lo mio (excelia, stats, desgaste), que la siguiente la lleve otro, y las caidas (todos a la vez;
+# y, con PRUEBA_CABOS=1, el ruido de su pelea a mi nombre y la caida del trabajador con mis fichas en la mano).
+# El jugador entra como un cliente mas de la sala de una ranura de prueba (83); lo de dentro, de las lineas "[S] dato".
+#   <godot> --headless --path . res://tools/prueba_town_trabajadores.tscn -- nube_local
+extends "res://tools/prueba_town_sala_comun.gd"
 
-const PUERTO := 24599
-var fallos: Array = []
-
-
-func _ok(cond: bool, texto: String) -> void:
-	print(("[PASA] " if cond else "[FALLA] ") + texto)
-	if not cond:
-		fallos.append(texto)
-
-
-func _esperar(seg: float) -> void:
-	await get_tree().create_timer(seg).timeout
+const TODO_EL_GRUPO := ["Agirato ochinan", "Catalardio", "Dasui", "Daniel"]
 
 
 func _espejos_vivos() -> int:
@@ -20,6 +17,35 @@ func _espejos_vivos() -> int:
 		if is_instance_valid(Net.enemigos._enem_nodos[id]):
 			n += 1
 	return n
+
+
+# Lo que dice la sala de sus trabajadores.
+func _pelea_libre() -> int:
+	return int(dato_sala("pelea_libre_1"))
+
+
+func _de_pelea() -> Array:
+	return Array(dato_sala("de_pelea").split(",", false)).map(func(x): return int(x))
+
+
+func _trabajadores() -> Array:
+	return Array(dato_sala("trabajadores").split(",", false)).map(func(x): return int(x))
+
+
+func _pid_de(w: int) -> int:
+	for par in dato_sala("pid_de").split(",", false):
+		var kv: PackedStringArray = par.split(":")
+		if kv.size() == 2 and int(kv[0]) == w:
+			return int(kv[1])
+	return 0
+
+
+func _hasta(cond: Callable, tope: float) -> bool:
+	var t := 0.0
+	while not cond.call() and t < tope:
+		await _esperar(0.25)
+		t += 0.25
+	return cond.call()
 
 
 # Cuantas lineas con 'texto' hay en los registros de los trabajadores de esta pasada. Los registros se
@@ -35,22 +61,6 @@ func _lineas_en_registros(texto: String) -> int:
 			continue
 		n += fa.get_as_text().count(texto)
 	return n
-
-
-# La ultima linea de los registros de los trabajadores que empieza por 'prefijo' ("" si no hay).
-func _linea_de_registros(prefijo: String) -> String:
-	var dir := OS.get_user_data_dir().path_join("logs")
-	var ultima := ""
-	for f in DirAccess.get_files_at(dir):
-		if not f.begins_with("trabajador_"):
-			continue
-		var fa := FileAccess.open(dir.path_join(f), FileAccess.READ)
-		if fa == null:
-			continue
-		for l in fa.get_as_text().split("\n"):
-			if l.begins_with(prefijo):
-				ultima = l.strip_edges()
-	return ultima
 
 
 # DESDE UN PUNTO: lo que llevan escrito ahora los registros de los trabajadores (fichero -> largo). Con _linea_desde se
@@ -87,95 +97,47 @@ func _linea_desde(prefijo: String, marca: Dictionary) -> String:
 	return ultima
 
 
-func _trabajador_libre() -> int:
-	for w in Net._trab._estado:
-		if int(Net._trab._estado[w]) == 0:
-			return w
-	return 0
-
-
 func _ready() -> void:
-	print("[dev] datos de usuario: ", OS.get_user_data_dir())
-	# El grupo de la partida de referencia de la huella: con uno recien creado la pelea del paso 5 se
-	# perderia a la primera y morir cambia de escena (se lleva la prueba por delante).
-	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
-	if ref is SaveData:
-		Game.importar_partida(ref)
-	Game.semilla_mundo = 424242
-	await _esperar(0.5)
-	var err := Net.hostear("abc", PUERTO)
-	_ok(err == OK, "sala abierta")
-
-	# 1) El de reserva arranca y se presenta.
-	var t := 0.0
-	while _trabajador_libre() == 0 and t < 40.0:
-		await _esperar(0.5)
-		t += 0.5
-	var w := _trabajador_libre()
-	_ok(w != 0, "un trabajador se presenta en %.1f s" % t)
-	if w == 0:
-		_fin()
+	slot = 83
+	puerto = 24615
+	# Con el grupo entero de la partida de referencia (4): con dos la pelea tactica se alarga y el guion no sabe andar.
+	if not preparar_mundo(TODO_EL_GRUPO, CASA_A, [], CASA_B) or not await abrir_sala_y_entrar():
+		await _fin_solo()
 		return
-	_ok(not Net._avatares.has(w), "el trabajador no tiene avatar en el host")
-	_ok(Net._num_humanos == 1, "el trabajador no cuenta como humano (humanos=%d)" % Net._num_humanos)
 
-	# 2) Entro al piso 1: el dueño tiene que ser el trabajador y yo espejo.
+	# 1) Los de reserva arrancan y se presentan (no son humanos ni tienen cuerpo).
+	_ok(await hasta_sala("trabajadores", func(v): return v != "", 40.0), "los trabajadores de la sala se presentan (%s)" % dato_sala("trabajadores"))
+	_ok(Net._num_humanos == 1, "los trabajadores no cuentan como humanos (humanos=%d)" % Net._num_humanos)
+	for w in _trabajadores():
+		_ok(not Net._avatares.has(w), "el trabajador %d no tiene cuerpo" % w)
+
+	# 2) Entro al piso 1: lo lleva la sala y yo soy espejo.
 	Net.pisos.solicitar_entrar(1)
-	await _esperar(10.0)
-	_ok(int(Net._dueno_piso.get(1, 0)) == w, "el piso 1 lo simula el trabajador (dueño=%s)" % str(Net._dueno_piso.get(1, 0)))
-	_ok(not Net._soy_dueno, "el host entra de espejo")
-	var espejos := _espejos_vivos()
-	_ok(espejos > 0, "el host ve los enemigos del trabajador (%d espejos)" % espejos)
-	print("[dev] nodos en grupo enemy: ", get_tree().get_nodes_in_group("enemy").size())
+	_ok(await _hasta(func(): return Net._mi_lugar == "piso:1" and _espejos_vivos() > 0, 40.0), "bajo al piso 1 y veo sus enemigos (%d)" % _espejos_vivos())
+	_ok(dato_sala("dueno_piso_1") == "1", "el piso 1 lo lleva la sala")
+	_ok(not Net._soy_dueno, "entro de espejo")
 
-	# 3) Subo al pueblo: el piso se congela y el trabajador vuelve a la reserva.
-	Net.pisos.viajar_al_pueblo()
-	await _esperar(4.0)
-	var foto: Dictionary = Net._fotos_piso.get(1, {})
-	var n_foto := (foto.get("enemigos", []) as Array).size()
-	_ok(Net._fotos_piso.has(1) and n_foto > 0, "piso 1 congelado con %d enemigos" % n_foto)
-	# Habia otro esperando: este sobra y se cierra (si no, volveria a la reserva).
-	_ok(int(Net._trab._estado.get(w, 0)) == 0, "el trabajador suelta el piso (reserva o cerrado)")
-	# Entre RESERVA y RESERVA_MAX: desde el 19/09 el que queda libre se CONSERVA hasta RESERVA_MAX para
-	# reaprovecharlo en la pelea siguiente (ver trabajadores.gd). Antes esto pedia exactamente RESERVA.
-	_ok(Net._trab._libres() >= Net._trab.RESERVA and Net._trab._libres() <= Net._trab.RESERVA_MAX,
-		"quedan libres entre la reserva y su tope (%d)" % Net._trab._libres())
-	_ok(not Net._dueno_piso.has(1), "el piso 1 ya no tiene dueño")
-
-	# 4) Vuelvo a bajar: lo recoge un trabajador con la foto y veo los mismos enemigos.
-	Net.pisos.solicitar_entrar(1)
-	await _esperar(10.0)
-	var dueno2: int = int(Net._dueno_piso.get(1, 0))
-	_ok(Net.es_trabajador(dueno2), "al volver, el piso lo simula un trabajador otra vez")
-	var espejos2 := _espejos_vivos()
-	_ok(espejos2 == n_foto, "vuelven los mismos enemigos (%d de %d)" % [espejos2, n_foto])
-
-	# 4b) EL ALBOROTO: yo soy espejo, asi que mi ruido tiene que llegarle al trabajador y reventar una
-	# pared delante de MI (su cuerpo esta apagado en la entrada).
-	var brotes_antes := _lineas_en_registros("[brote] revienta")
-	Game.sumar_alboroto(Game.ALBOROTO_MAX + 10.0)
-	t = 0.0
-	while _lineas_en_registros("[brote] revienta") <= brotes_antes and t < 6.0:
+	# 3) EL ALBOROTO: soy espejo, asi que mi ruido le llega a la sala y revienta una pared delante de mi.
+	var brotes_antes := _texto(registro_sala).count("en piso:1! Brote disparado")
+	var t := 0.0
+	while _texto(registro_sala).count("en piso:1! Brote disparado") <= brotes_antes and t < 20.0:
+		Game.sumar_alboroto(40.0)
 		await _esperar(0.5)
 		t += 0.5
-	_ok(_lineas_en_registros("[brote] revienta") > brotes_antes,
-		"mi ruido de espejo llega al trabajador y revienta una pared (%.1f s)" % t)
+	_ok(_texto(registro_sala).count("en piso:1! Brote disparado") > brotes_antes,
+		"mi ruido de espejo llega a la sala y revienta una pared (%.1f s)" % t)
 	_ok(Game.alboroto == 0.0, "el espejo no acumula alboroto propio (%.0f)" % Game.alboroto)
 	# PRUEBA_CABOS=1 -> solo los dos cabos sueltos del 07/10 (ver _cabos_sueltos) y se acaba: sin esperar a que
 	# termine ninguna pelea (en las pruebas el grupo solo sabe ir recto y se atasca en fila: no acaban).
 	if OS.get_environment("PRUEBA_CABOS") != "":
 		await _cabos_sueltos()
-		_fin()
+		await _fin_solo()
 		return
 
 	# 5) LA PELEA LA EJECUTA UN TRABAJADOR DE PELEA (Parte 3): en el piso espera uno dentro, que no es el
 	# dueño. Me planto al lado de un enemigo o le ataco; monta la pelea con mis fichas y yo la veo en ESPEJO.
-	t = 0.0
-	while Net._trab.pelea_libre_en(1) == 0 and t < 30.0:
-		await _esperar(0.5)
-		t += 0.5
-	var f1: int = Net._trab.pelea_libre_en(1)
-	_ok(f1 != 0 and f1 != dueno2, "en el piso 1 espera un trabajador de pelea que no es el dueño (%.1f s)" % t)
+	_ok(await _hasta(func(): return _pelea_libre() != 0, 30.0), "en el piso 1 espera un trabajador de pelea")
+	var f1: int = _pelea_libre()
 	await _esperar(3.0)   # que cargue el piso y reciba los enemigos
 	var marca_pelea := _marca_registros()   # los numeros de ESTA pelea: lo que se escriba a partir de aqui
 	await _abrir_pelea_con_un_enemigo()
@@ -189,13 +151,8 @@ func _ready() -> void:
 		print("[dev] arena en mi mapa: %s, forma %s, %d tramos de borde" % [str(ar.rect_celdas),
 			"relleno" if not (ar.mascara as PackedByteArray).is_empty() else "rectangulo", ar.tramos.size()])
 	_ok(Net.peleas.espejando() and Net.peleas._pelea_anfitrion == f1,
-		"la pelea la ejecuta el de pelea y yo la espejo (anfitrion=%d, de pelea=%d, dueño=%d)" % [
-			Net.peleas._pelea_anfitrion, f1, dueno2])
-	t = 0.0
-	while (Net._trab.pelea_libre_en(1) == 0 or Net._trab.pelea_libre_en(1) == f1) and t < 30.0:
-		await _esperar(0.5)
-		t += 0.5
-	_ok(Net._trab.pelea_libre_en(1) not in [0, f1], "mientras peleo, entra otro a esperar la siguiente (%.1f s)" % t)
+		"la pelea la ejecuta el de pelea y yo la espejo (anfitrion=%d, de pelea=%d)" % [Net.peleas._pelea_anfitrion, f1])
+	_ok(await _hasta(func(): return _pelea_libre() not in [0, f1], 30.0), "mientras peleo, entra otro a esperar la siguiente")
 	_ok(not Game.combate_activo(), "en mi PC no se simula ningun enemigo de la pelea")
 	# LOS DOBLES PELEAN CON MIS NUMEROS: el trabajador apunta los de cada doble al montar la pelea
 	# (Game.abrir_pelea_de_fichas); aqui se comparan con los que tendria el personaje en solitario.
@@ -282,91 +239,29 @@ func _ready() -> void:
 	_ok(Game.lider().equipped_main == null or dur_despues < dur_antes,
 		"el arma del lider se gasta en la pelea del trabajador (%.4f -> %.4f)" % [dur_antes, dur_despues])
 
-	_ok(not Net._trab._de_pelea.has(f1) or Net._trab.pelea_libre_en(1) != 0,
-		"al acabar, el que peleo deja sitio al que ya esperaba")
+	_ok(not _de_pelea().has(f1) or _pelea_libre() != 0, "al acabar, el que peleo deja sitio al que ya esperaba")
 
 	# 5c) Otra pelea, para el paso 6: la lleva el que estaba esperando.
 	await _esperar(3.0)
 	await _abrir_pelea_con_un_enemigo()
-	_ok(Net.peleas.espejando() and Net._trab._de_pelea.has(Net.peleas._pelea_anfitrion),
+	_ok(Net.peleas.espejando() and _de_pelea().has(Net.peleas._pelea_anfitrion),
 		"la segunda pelea la ejecuta otro trabajador de pelea")
 
-	# 6a) SE CAE SOLO EL DUEÑO DEL PISO mientras otro trabajador lleva mi pelea. El piso lo hereda el humano de
-	# dentro con la foto de sus espejos, MENOS los enemigos que estan en esa pelea (si no, saldrian duplicados:
-	# uno suelto y otro peleando). La pelea sigue en el de pelea y se termina.
-	var f_pelea: int = Net.peleas._pelea_anfitrion
-	var dueno_vivo: int = int(Net._dueno_piso.get(1, 0))
-	var espejos_antes := _espejos_vivos()
-	# La marca "esta en la pelea X" llega en el tick de enemigos del dueño (no fiable, 20 por segundo): justo al abrir
-	# la pantalla puede no haber llegado aun. Se espera a que llegue (hasta 3 s) y se apunta cuanto tardo.
-	var en_pelea := 0
-	var t_marca := 0.0
-	while t_marca <= 3.0:
-		en_pelea = 0
-		for id in Net.enemigos._enem_nodos:
-			var n = Net.enemigos._enem_nodos[id]
-			if is_instance_valid(n) and int(n.get("pelea_de")) == f_pelea:
-				en_pelea += 1
-		if en_pelea > 0:
-			break
-		await _esperar(0.1)
-		t_marca += 0.1
-	print("[dev] la marca de pelea llego a %d espejo(s) en %.1f s" % [en_pelea, t_marca])
-	espejos_antes = _espejos_vivos()
-	var pid_dueno: int = int(Net._trab._pid_de.get(dueno_vivo, 0))
-	_ok(pid_dueno > 0 and en_pelea > 0, "tengo el proceso del dueño (%d) y %d enemigo(s) en la pelea" % [pid_dueno, en_pelea])
-	if pid_dueno > 0:
-		OS.kill(pid_dueno)
-	t = 0.0
-	while not Net._soy_dueno and t < 15.0:
-		await _esperar(0.5)
-		t += 0.5
-	_ok(Net._soy_dueno, "al caerse el dueño, el piso lo hereda el humano de dentro (%.1f s)" % t)
-	await _esperar(1.0)
-	var reales := get_tree().get_nodes_in_group("enemy").filter(
-		func(e): return is_instance_valid(e) and not e.has_meta("es_espejo")).size()
-	_ok(reales > 0 and reales <= espejos_antes - en_pelea,
-		"hereda los enemigos que veia SIN los de la pelea (%d reales, veia %d, %d en la pelea)" % [reales, espejos_antes, en_pelea])
-	_ok(Net.peleas.espejando() and Net.peleas._pelea_anfitrion == f_pelea, "mi pelea SIGUE en el trabajador de pelea")
-	# (12/10) YA NO SE ESPERA A QUE ACABE: el guion no sabe andar y la pelea tactica puede durar minutos (eso es "el
-	# limite de la prueba", no el juego). Lo que importa aqui es que la pelea SIGUE VIVA tras caerse el dueño: el
-	# trabajador me pide mis turnos y los contesto. Si da tiempo a que acabe, se mira tambien la vuelta al mapa.
-	var mia2: Node = Net.peleas._pantalla_combate()
-	var turnos: int = 0
-	t = 0.0
-	while is_instance_valid(mia2) and not mia2.acabada() and t < 25.0:
-		if int(mia2.get("_state")) == 1 and not _caja_abierta(mia2):
-			var b2: BaseButton = (mia2.get("_action_buttons") as Dictionary).get(0)
-			# Si el enemigo esta LEJOS, Atacar esta apagado: se pasa el turno (Huir es "Pasar" lejos del borde).
-			if b2 == null or b2.disabled or not b2.is_visible_in_tree():
-				b2 = (mia2.get("_action_buttons") as Dictionary).get(5)
-			if b2 != null and not b2.disabled and b2.is_visible_in_tree():
-				b2.pressed.emit()
-				turnos += 1
-		await _esperar(0.25)
-		t += 0.25
-	_ok(turnos >= 3 or (is_instance_valid(mia2) and mia2.acabada()),
-		"la pelea sigue viva tras caerse el dueño: contesto mis turnos (%d en %.0f s)" % [turnos, t])
-	if is_instance_valid(mia2) and mia2.acabada():
-		mia2._on_continue_pressed()
-		t = 0.0
-		while (Game.hay_pelea_en_pantalla() or Net.peleas._desgaste_pendiente) and t < 10.0:
-			await _esperar(0.25)
-			t += 0.25
-		_ok(not Game.hay_pelea_en_pantalla(), "vuelvo al mapa del piso heredado")
+	# (El 6a viejo, "se cae el dueño del piso y lo hereda el humano de dentro", ya no existe: el piso lo lleva la sala.)
+	# La segunda pelea no hace falta acabarla: la dejo (como al cerrarla) y espero a que el trabajador la suelte.
+	if Net.peleas.espejando():
+		Game._on_combate_espejo_cerrado()
+	await _hasta(func(): return not Net.peleas.ocupado_en_pelea(), 15.0)
 
 	# 6b) SE CAE TODO (F4) EN PLENA PELEA: se matan todos los procesos a lo bruto. La pelea SE DESHACE (la
 	# llevaba un trabajador, decidido asi) y la reserva vuelve a llenarse.
-	t = 0.0
-	while Net._trab.pelea_libre_en(1) == 0 and t < 30.0:
-		await _esperar(0.5)
-		t += 0.5
+	await _hasta(func(): return _pelea_libre() != 0, 30.0)
 	await _esperar(3.0)
 	await _abrir_pelea_con_un_enemigo()
-	_ok(Net.peleas.espejando(), "con el piso en mi PC, la pelea sigue yendo a un trabajador de pelea")
-	var muertos: Array = Net._trab._estado.keys()   # los que voy a matar: la reserva tiene que ser OTRO
-	for pid in Net._trab._pids:
-		if OS.is_process_running(pid):
+	_ok(Net.peleas.espejando(), "la pelea va a un trabajador de pelea")
+	var muertos: Array = _trabajadores()   # los que voy a matar: la reserva tiene que ser OTRO
+	for pid in Array(dato_sala("pids_trab").split(",", false)).map(func(x): return int(x)):
+		if proceso_vivo(pid):
 			OS.kill(pid)
 	# Que se deshace = ya no espejo nada. Puede haber pantalla igual: el enemigo que tengo al lado es MIO y me
 	# embiste, y esa pelea nueva ya va en mi PC (no hay trabajador).
@@ -376,14 +271,10 @@ func _ready() -> void:
 		t += 0.5
 	_ok(not Net.peleas.espejando(), "la pelea del trabajador caido se deshace (ahora %s)" % [
 		"peleo en mi PC" if Game.combate_activo() else "sin pelea"])
-	t = 0.0
-	while (_trabajador_libre() == 0 or muertos.has(_trabajador_libre())) and t < 45.0:
-		await _esperar(0.5)
-		t += 0.5
-	_ok(_trabajador_libre() != 0 and not muertos.has(_trabajador_libre()),
-		"la reserva se repone con un trabajador NUEVO tras la caida (%.1f s)" % t)
+	_ok(await _hasta(func(): return _trabajadores().any(func(w): return not muertos.has(w)), 45.0),
+		"la reserva se repone con un trabajador NUEVO tras la caida (%s)" % dato_sala("trabajadores"))
 
-	_fin()
+	await _fin_solo()
 
 
 # LOS DOS CABOS SUELTOS DE LOS TRABAJADORES DE PELEA (07/10; apuntados el 21/09):
@@ -394,35 +285,30 @@ func _ready() -> void:
 #     darlo por caido, asi que le manda mis fichas a un proceso muerto que nunca contesta. Antes los enemigos se
 #     quedaban reservados a mi nombre y congelados; ahora la pelea me vuelve y va en mi PC.
 func _cabos_sueltos() -> void:
-	var t := 0.0
-	while Net._trab.pelea_libre_en(1) == 0 and t < 30.0:
-		await _esperar(0.5)
-		t += 0.5
+	await _hasta(func(): return _pelea_libre() != 0, 30.0)
 	await _esperar(3.0)
-	var f1: int = Net._trab.pelea_libre_en(1)
+	var f1: int = _pelea_libre()
 	await _abrir_pelea_con_un_enemigo()
 	_ok(Net.peleas.espejando() and Net.peleas._pelea_anfitrion == f1, "cabo 1: la pelea la ejecuta el trabajador %d" % f1)
 	await _esperar(2.0)
-	var ruido_antes := _lineas_en_registros("[alboroto] la pelea que ejecuto es de 1:")
+	var mio := "[alboroto] la pelea que ejecuto es de %d:" % multiplayer.get_unique_id()
+	var ruido_antes := _lineas_en_registros(mio)
 	Game._on_combate_espejo_cerrado()   # salgo de su pelea, como al cerrarla
-	t = 0.0
-	while _lineas_en_registros("[alboroto] la pelea que ejecuto es de 1:") <= ruido_antes and t < 20.0:
+	var t := 0.0
+	while _lineas_en_registros(mio) <= ruido_antes and t < 20.0:
 		await _esperar(0.5)
 		t += 0.5
-	_ok(_lineas_en_registros("[alboroto] la pelea que ejecuto es de 1:") > ruido_antes,
+	_ok(_lineas_en_registros(mio) > ruido_antes,
 		"cabo 1: al cerrarse, el ruido de la pelea del trabajador va a MI nombre (%.1f s)" % t)
 	t = 0.0
 	while Net.peleas.ocupado_en_pelea() and t < 15.0:
 		await _esperar(0.5)
 		t += 0.5
 
-	t = 0.0
-	while (Net._trab.pelea_libre_en(1) == 0 or Net._trab.pelea_libre_en(1) == f1) and t < 30.0:
-		await _esperar(0.5)
-		t += 0.5
+	await _hasta(func(): return _pelea_libre() not in [0, f1], 30.0)
 	await _esperar(3.0)
-	var f_cae: int = Net._trab.pelea_libre_en(1)
-	var pid_cae: int = int(Net._trab._pid_de.get(f_cae, 0))
+	var f_cae: int = _pelea_libre()
+	var pid_cae: int = _pid_de(f_cae)
 	_ok(f_cae != 0 and pid_cae > 0, "cabo 2: tengo el trabajador de pelea que voy a tirar (%d, pid %d)" % [f_cae, pid_cae])
 	if pid_cae > 0:
 		OS.kill(pid_cae)
@@ -442,8 +328,7 @@ func _cabos_sueltos() -> void:
 func _abrir_pelea_con_un_enemigo() -> void:
 	var jugador: Node2D = get_tree().get_first_node_in_group("player") as Node2D
 	var presa = null
-	# Espejos si el piso lo simula otro; los de VERDAD si lo he heredado yo (paso 6).
-	var ids: Array = Net.enemigos._enemigos.keys() if Net._soy_dueno else Net.enemigos._enem_nodos.keys()
+	var ids: Array = Net.enemigos._enem_nodos.keys()   # espejos: el piso lo lleva la sala
 	# Mejor uno que este en una SALA: en un pasillo de 3 celdas con el grupo en fila solo pelea el de delante y
 	# la pelea tactica se alarga mucho (eso se juega, pero aqui solo se quiere que acabe y devuelva lo mio).
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
@@ -575,11 +460,26 @@ func _excelia_grupo() -> float:
 	return s
 
 
-func _fin() -> void:
-	var pids: Array = Net._trab._pids.duplicate()
+# El final, sin jugador B: me voy, la sala se cierra sola y se lleva a sus trabajadores.
+func _fin_solo() -> void:
+	var pids: Array = Array(dato_sala("pids_trab").split(",", false)).map(func(x): return int(x))
+	for linea in _texto(registro_sala).split("\n"):
+		if linea.contains("SCRIPT ERROR"):
+			print("[sala] ", linea)
 	Net.desconectar()
-	await _esperar(3.0)
-	var vivos := pids.filter(func(p): return OS.is_process_running(p))
-	_ok(vivos.is_empty(), "los trabajadores se cierran con la sala (%d vivos)" % vivos.size())
+	var t := 0.0
+	while OS.is_process_running(_pid_sala) and t < 20.0:
+		await _esperar(0.5)
+		t += 0.5
+	_ok(not OS.is_process_running(_pid_sala), "la sala se cierra sola al irme (%.1f s)" % t)
+	await _esperar(2.0)
+	var vivos := pids.filter(func(x): return proceso_vivo(x))
+	_ok(not pids.is_empty() and vivos.is_empty(), "los trabajadores (%d) se cierran con la sala (%d vivos)" % [pids.size(), vivos.size()])
+	for p in [_pid_sala] + pids:
+		if proceso_vivo(p):
+			OS.kill(p)
+	if _nube_id != "":
+		await Nube.partida_borrar(_nube_id)
+	_borrar_ranura()
 	print("[dev] RESULTADO: ", "TODO PASA" if fallos.is_empty() else "FALLAN %d" % fallos.size())
 	get_tree().quit()

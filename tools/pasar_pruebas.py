@@ -130,6 +130,7 @@ COMO_SE_LANZA = {
     "prueba_town_zona_ajena": NUBE_LOCAL,
     "prueba_town_baul_red": NUBE_LOCAL,
     "prueba_town_dos_pisos": NUBE_LOCAL,
+    "prueba_town_crias_red": NUBE_LOCAL,
     "prueba_menu_por_sala": [{"despues": ["nube_local", "sala_vacia=6"]}],
     "prueba_sala_steam": NUBE_LOCAL,
     "prueba_vinculo_steam": NUBE_LOCAL,
@@ -139,7 +140,7 @@ COMO_SE_LANZA = {
     "prueba_bd_altf4": [{"env": {"ALTF4_FASE": "1"}, "prepara": True}, {"env": {"ALTF4_FASE": "2"}}],
     "prueba_pelea_a_medias": [{"env": {"PELEA_FASE": "1"}, "prepara": True}, {"env": {"PELEA_FASE": "2"}}],
     # La larga y, aparte, los dos "cabos sueltos" (el trabajador de pelea se cae con tus fichas, etc.).
-    "prueba_town_trabajadores": [{}, {"env": {"PRUEBA_CABOS": "1"}}],
+    "prueba_town_trabajadores": [{"despues": ["nube_local"]}, {"despues": ["nube_local"], "env": {"PRUEBA_CABOS": "1"}}],
 }
 
 # LAS QUE VAN DE UNA EN UNA aunque no sean de red: tocan las mismas ranuras de guardado (user://, la ranura 97...) y

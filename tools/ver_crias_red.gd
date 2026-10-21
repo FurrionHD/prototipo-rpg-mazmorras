@@ -1,22 +1,23 @@
 # HERRAMIENTA (CON VENTANA). Las CRIAS EN MULTIJUGADOR (13/10, C3 del playtest 11/10: el slime brotado y el Rey
 # Slime, sus crias en red salian mal "incluso siendo solo una persona"). Sala de verdad con trabajadores: la pelea
-# la ejecuta un trabajador de pelea y esta ventana es el ESPEJO, lo que ve el jugador.
+# la ejecuta un trabajador de pelea y esta ventana es el ESPEJO, lo que ve el jugador. Desde el 21/10 (fase 2, etapa 2)
+# entra como en el juego: por la sala de una ranura de prueba (82), que lleva la arena; lo de dentro de la sala se lee de
+# sus lineas "[S] dato" (tools/sonda_sala.gd).
 #   1) Un slime brotado: le pegas hasta que cae y se divide, y luego solo PASAS turnos para que les toque a las crias.
 #   2) El Rey Slime: solo pasas turnos hasta que suelta su Brote y las crias juegan.
 # De verdad, no muñecos: el muñeco de la arena no usa habilidades (ni el Brote del Rey ni las de las crias).
 # Un solo personaje en el grupo (los compañeros mataban a las crias antes de que les tocara).
-#   godot --path . res://tools/ver_crias_red.tscn
+#   godot --path . res://tools/ver_crias_red.tscn -- nube_local
 # EN VIDEO: VER_SALIR=1 godot --path . --write-movie X.avi --fixed-fps 30 res://tools/ver_crias_red.tscn
 # Solo una: VER_SOLO=brotado o VER_SOLO=rey. VER_TRAZA=1: lo que se ve de cada enemigo en el espejo, linea a linea.
 # COMO PRUEBA (tools/prueba_town_crias_red.tscn, prueba = true): sin ventana, menos turnos, y comprueba en el espejo que
 # ninguna cria se ve antes de caer de su vuelo (antes salian formadas y andando) y que todas nacen a tiempo (las del Rey
 # se quedaban escondidas toda la pelea).
-#   godot --headless --path . res://tools/prueba_town_crias_red.tscn
-extends Node
+#   godot --headless --path . res://tools/prueba_town_crias_red.tscn -- nube_local
+extends "res://tools/prueba_town_sala_comun.gd"
 
 @export var prueba: bool = false
 
-const PUERTO := 24599
 const TURNOS_CRIAS := 6       # turnos tuyos que pasas despues de que salgan las crias
 const T_NACER_PRUEBA := 3.0   # (prueba) de que llega su cuerpo a que se levanta, como mucho
 const T_ESCENA_S := 120.0
@@ -124,27 +125,23 @@ func _esperar(seg: float) -> void:
 
 
 func _correr() -> void:
-	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
-	if ref is SaveData:
-		Game.importar_partida(ref)
-	Game.semilla_mundo = 424242
-	var solo: Array[PersonajeData] = [Game.lider()]
-	Game.party = solo
-	Game.lider_idx = 0
+	slot = 82
+	puerto = 24616
+	# Un solo personaje en el grupo (ver la cabecera), por la sala de su ranura.
+	if not preparar_mundo(["Agirato ochinan"], CASA_A, [], CASA_B) or not await abrir_sala_y_entrar():
+		_ver(false, "entro en la sala")
+		await _acabar_sala()
+		return
 	# UN ARMA CHETADA (lo propuso el, 13/10): una espada larga T3 pristina +15, para rematar rapido al brotado y a las
 	# crias (con el baston de la partida de referencia la pelea del brotado se iba a mas de un minuto).
 	Game.equipar_arma(load("res://resources/weapons/espada_larga.tres") as WeaponData)
 	Game.lider().equip_meta["main"] = {"tier": 3, "rareza": Upgrades.RAREZA_SLOTS.size() - 1,
 		"mejoras": {Upgrades.AGUDEZA: 15}, "durabilidad": 1.0, "banda": 0}
-	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
-	await _esperar(1.5)
-	var err := Net.hostear("abc", PUERTO)
-	print("[ver] sala abierta: %s" % ("si" if err == OK else "NO (%d)" % err))
 	var t := 0.0
-	while _trabajador_libre() == 0 and t < 40.0:
+	while dato_sala("trabajadores") == "" and t < 40.0:
 		await _esperar(0.5)
 		t += 0.5
-	print("[ver] trabajador listo en %.1f s" % t)
+	print("[ver] trabajadores de la sala listos en %.1f s" % t)
 	Game.entrar_arena_de_pruebas()
 	t = 0.0
 	while (get_tree().get_first_node_in_group("dungeon_floor") == null or not Game.es_arena()) and t < 30.0:
@@ -152,7 +149,7 @@ func _correr() -> void:
 		t += 0.5
 	await _esperar(3.0)
 	Cargando.ocultar()
-	print("[ver] en la arena (dueño del piso: %s)" % str(Net._dueno_piso.get(Game.PISO_ARENA, 0)))
+	print("[ver] en la arena (dueño del piso: %s; 1 = la sala)" % dato_sala("dueno_piso_%d" % Game.PISO_ARENA))
 	var que: String = OS.get_environment("VER_SOLO")
 	if que in ["", "brotado"]:
 		await _escena("SLIME BROTADO", "res://scenes/actors/enemy/slime.tres", {"mutacion": "brotado"}, true)
@@ -164,16 +161,28 @@ func _correr() -> void:
 	if prueba:
 		print("FIN: TODO BIEN" if _mal == 0 else "FIN: %d MAL" % _mal)
 	if _salir:
-		Net.desconectar()
-		await _esperar(2.0)
-		get_tree().quit(0 if _mal == 0 else 1)
+		await _acabar_sala()
 
 
-func _trabajador_libre() -> int:
-	for w in Net._trab._estado:
-		if int(Net._trab._estado[w]) == 0:
-			return w
-	return 0
+# Me voy, la sala se cierra sola (con sus trabajadores) y se borra la ranura de prueba.
+func _acabar_sala() -> void:
+	var pids: Array = Array(dato_sala("pids_trab").split(",", false)).map(func(x): return int(x))
+	Net.desconectar()
+	var t := 0.0
+	while OS.is_process_running(_pid_sala) and t < 20.0:
+		await _esperar(0.5)
+		t += 0.5
+	for pid in [_pid_sala] + pids:
+		if proceso_vivo(pid):
+			OS.kill(pid)
+	if _nube_id != "":
+		await Nube.partida_borrar(_nube_id)
+	_borrar_ranura()
+	get_tree().quit(0 if _mal == 0 else 1)
+
+
+func _pelea_libre_arena() -> int:
+	return int(dato_sala("pelea_libre_%d" % Game.PISO_ARENA))
 
 
 # En la prueba la pelea TIENE que ir por el trabajador (lo que se mira es el espejo): si cae en mi PC, otra vez.
@@ -195,10 +204,10 @@ func _escena_una(titulo: String, ruta: String, muneco: Dictionary, pegarle: bool
 		tc += 0.25
 	# Como en el juego: la pelea la monta el trabajador DE PELEA que espera en el piso (si no lo hay aun, iria en mi PC).
 	var tw := 0.0
-	while Net._trab.pelea_libre_en(Game.PISO_ARENA) == 0 and tw < 30.0:
+	while _pelea_libre_arena() == 0 and tw < 30.0:
 		await _esperar(0.5)
 		tw += 0.5
-	print("[ver] trabajador de pelea esperando en la arena: %d (%.1f s)" % [Net._trab.pelea_libre_en(Game.PISO_ARENA), tw])
+	print("[ver] trabajador de pelea esperando en la arena: %d (%.1f s)" % [_pelea_libre_arena(), tw])
 	# Recien llegado aun no conoce los enemigos del piso: rechazaria la pelea ("0 de 1 bichos") y la montaria yo.
 	if tw > 0.0:
 		await _esperar(3.0)

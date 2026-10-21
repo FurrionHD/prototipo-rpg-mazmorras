@@ -29,6 +29,19 @@ var _nube_id := ""
 var _entrado := false
 
 
+# ¿SIGUE VIVO ESE PROCESO? Para los que NO ha lanzado este programa (los trabajadores los lanza la sala):
+# OS.is_process_running solo sabe de los suyos y de los demas dice siempre que no (21/10: "los trabajadores se cierran con
+# la sala" salia bien aunque quedaran vivos, y matarlos con esa guarda no mataba a nadie). Se le pregunta a Windows.
+func proceso_vivo(pid: int) -> bool:
+	if pid <= 0:
+		return false
+	if OS.is_process_running(pid):
+		return true
+	var salida: Array = []
+	OS.execute("tasklist", ["/FI", "PID eq %d" % pid, "/NH", "/FO", "CSV"], salida)
+	return salida.size() > 0 and String(salida[0]).contains("\"%d\"" % pid)
+
+
 func _ruta(log_: String) -> String:
 	return ProjectSettings.globalize_path(log_)
 
@@ -267,10 +280,10 @@ func _fin() -> void:
 		t += 0.5
 	_ok(not OS.is_process_running(_pid_sala), "la sala se cierra sola al irnos (%.1f s)" % t)
 	await _esperar(2.0)
-	var vivos := pids.filter(func(x): return OS.is_process_running(x))
-	_ok(vivos.is_empty(), "los trabajadores se cierran con la sala (%d vivos)" % vivos.size())
+	var vivos := pids.filter(func(x): return proceso_vivo(x))
+	_ok(not pids.is_empty() and vivos.is_empty(), "los trabajadores (%d) se cierran con la sala (%d vivos)" % [pids.size(), vivos.size()])
 	for p in [_pid_b, _pid_sala] + pids:
-		if p > 0 and OS.is_process_running(p):
+		if proceso_vivo(p):
 			OS.kill(p)
 	if _nube_id != "":
 		await Nube.partida_borrar(_nube_id)   # de la nube LOCAL de pruebas: que no se quede ahi

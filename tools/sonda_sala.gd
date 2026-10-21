@@ -56,6 +56,14 @@ func _datos() -> Dictionary:
 		d["peleando"] = trab._peleando.size()
 		d["pids_trab"] = _lista(trab._pids)
 		d["pelea_libre_1"] = trab.pelea_libre_en(1)
+		for piso in Net._dueno_piso:
+			d["pelea_libre_%d" % int(piso)] = trab.pelea_libre_en(int(piso))
+		# El proceso de cada trabajador ("peer:pid,..."), para que una prueba pueda tirar a uno concreto.
+		var pares: Array = []
+		for w in trab._pid_de:
+			pares.append("%d:%d" % [int(w), int(trab._pid_de[w])])
+		pares.sort()
+		d["pid_de"] = ",".join(pares)
 	for piso in Net._dueno_piso:
 		d["dueno_piso_%d" % int(piso)] = int(Net._dueno_piso[piso])
 	# LOS PISOS DE LA SALA (etapa 2): cuales tiene montados, cuantos enemigos lleva cada uno y cuantos trae la foto de

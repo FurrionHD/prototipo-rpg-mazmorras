@@ -602,11 +602,11 @@ func _en_el_pueblo() -> bool:
 	return esc != null and esc.scene_file_path.contains("town")
 
 
-# ABRIR LA SESION. Desde la etapa 2-bis (paso 7) solo la abre LA SALA, desde su escena vacia: el juego del humano
-# nunca hace de anfitrion, entra en su sala como un jugador mas. La unica excepcion son las pruebas viejas que hostean
-# desde el pueblo (town_trabajadores, crias_red) hasta que la etapa 2 quite los trabajadores.
+# ABRIR LA SESION. Solo la abre LA SALA, desde su escena vacia (etapa 2-bis, paso 7; desde el 21/10 sin excepciones: las
+# pruebas que hosteaban en su proceso, town_trabajadores y crias_red, van ya por la sala): el juego del humano nunca hace
+# de anfitrion, entra en su sala como un jugador mas.
 func hostear(codigo: String, puerto: int = PUERTO) -> int:
-	if not soy_sala and not _en_el_pueblo():
+	if not soy_sala:
 		estado_cambiado.emit("La sesion la abre la sala.")
 		return ERR_UNAVAILABLE
 	var peer := ENetMultiplayerPeer.new()

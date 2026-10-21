@@ -1,5 +1,5 @@
-# PRUEBA de los trabajadores de piso: host + trabajadores reales en headless (ver tools/LEEME_red.md). El nombre lleva "town" para pasar la
-# guarda _en_el_pueblo de Net.hostear. El guion cuelga de root: entrar a la mazmorra libera esta escena.
+# PRUEBA de los trabajadores de PELEA por la sala: ver tools/prueba_town_trabajadores_guion.gd. El guion cuelga de root:
+# entrar a la mazmorra libera esta escena.
 extends Node
 
 const PUERTO := 24599
