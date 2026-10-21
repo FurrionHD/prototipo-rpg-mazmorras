@@ -1913,7 +1913,7 @@ func _pedir_cria(slot: int, ruta: String, pos: Vector2, t: float, lugar: String)
 
 func _encaminar_cria(slot: int, ruta: String, pos: Vector2, t: float, lugar: String, para: int) -> void:
 	if PisoVivo.dueno_de(lugar):
-		_nacer_cria_dueno(slot, ruta, pos, t, para)
+		_nacer_cria_dueno(slot, ruta, pos, t, para, lugar)
 		return
 	var dueno: int = Net._dueno_de(lugar)
 	if dueno != 0 and dueno != 1:
@@ -1924,12 +1924,12 @@ func _encaminar_cria(slot: int, ruta: String, pos: Vector2, t: float, lugar: Str
 func _rel_cria(slot: int, ruta: String, pos: Vector2, t: float, lugar: String, para: int) -> void:
 	if not PisoVivo.dueno_de(lugar):
 		return
-	_nacer_cria_dueno(slot, ruta, pos, t, para)
+	_nacer_cria_dueno(slot, ruta, pos, t, para, lugar)
 
 
-func _nacer_cria_dueno(slot: int, ruta: String, pos: Vector2, t: float, para: int) -> void:
+func _nacer_cria_dueno(slot: int, ruta: String, pos: Vector2, t: float, para: int, lugar: String = "") -> void:
 	var data: EnemyData = load(ruta) as EnemyData if ResourceLoader.exists(ruta) else null
-	var n = Game.nacer_cria_aqui(data, pos, t, para) if data != null else null
+	var n = Game.nacer_cria_aqui(data, pos, t, para, lugar) if data != null else null
 	if n == null or not n.has_meta("net_id"):
 		return
 	var id: int = int(n.get_meta("net_id"))

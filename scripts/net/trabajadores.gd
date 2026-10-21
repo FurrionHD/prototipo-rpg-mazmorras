@@ -391,7 +391,10 @@ func asegurar_dueno(piso: int) -> bool:
 func revisar_vacio(piso: int, salvo: int = 0) -> void:
 	if not Net.es_host or piso < 1:
 		return
-	if Net.pisos._alguien_en(piso, salvo) != 0:
+	var queda: int = Net.pisos._alguien_en(piso, salvo)
+	if queda != 0:
+		if Net.soy_sala:
+			print("[sala] piso %d: se va %d pero queda %d" % [piso, salvo, queda])
 		return
 	# Sin gente no hay peleas que esperar (lleve el piso quien lo lleve).
 	_soltar_los_de_pelea(piso)

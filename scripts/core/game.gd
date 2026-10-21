@@ -1973,7 +1973,13 @@ func tick_alboroto(delta: float, movement_mode: int) -> void:
 # los minijuegos, no solo el movimiento.
 #
 # 'causante' = el peer que hizo el ruido (0 = yo): lo pone la red al entregarle al dueño el ruido de otro.
-func sumar_alboroto(cuanto: float, causante: int = 0) -> void:
+func sumar_alboroto(cuanto: float, causante: int = 0, lugar: String = "") -> void:
+	# EN LA SALA (etapa 2) cada piso lleva su medidor: 'lugar' dice de cual es el ruido.
+	if lugar != "" and not PisoVivo.un_sitio():
+		var pv: PisoVivo = PisoVivo.del_lugar(lugar)
+		if pv != null and pv.soy_dueno:
+			_sumar_alboroto_piso(pv, cuanto, causante)
+		return
 	if en_pueblo():
 		return
 	# MULTIJUGADOR: el alboroto es del PISO y lo lleva quien lo SIMULA (es el unico que puede engendrar
@@ -1988,6 +1994,30 @@ func sumar_alboroto(cuanto: float, causante: int = 0) -> void:
 		_alboroto_causante = causante
 	if alboroto >= ALBOROTO_MAX and _segundos_motor() >= _alboroto_enfriando:
 		_disparar_brote_por_alboroto()
+
+
+# Lo mismo, con el medidor de UN piso de la sala. El brote revienta la pared de ESE piso a la vista de quien hizo el
+# ruido (o del primer humano que haya en el, si ese ya no esta).
+func _sumar_alboroto_piso(pv: PisoVivo, cuanto: float, causante: int) -> void:
+	pv.alboroto = clampf(pv.alboroto + cuanto, 0.0, ALBOROTO_MAX)
+	if cuanto > 0.0:
+		pv.alboroto_causante = causante
+	if pv.alboroto < ALBOROTO_MAX or _segundos_motor() < pv.alboroto_enfriando:
+		return
+	var suelo: Node = pv.primero(&"dungeon_floor")
+	if suelo == null or not suelo.has_method("provocar_brote"):
+		return
+	var donde: Vector2 = Net.posicion_de_peer(pv.alboroto_causante)
+	if donde == Vector2.INF or PisoVivo.de(Net._avatares.get(pv.alboroto_causante)) != pv:
+		donde = Vector2.INF
+		for a in pv.nodos(&"aliado"):
+			if is_instance_valid(a) and a.has_meta("peer_id"):
+				donde = (a as Node2D).global_position
+				break
+	if donde != Vector2.INF and suelo.provocar_brote(donde):
+		pv.alboroto = 0.0
+		pv.alboroto_enfriando = _segundos_motor() + ALBOROTO_ENFRIAMIENTO
+		print("[alboroto] ¡el jaleo ha llamado a algo en %s! Brote disparado." % pv.lugar)
 
 
 func _segundos_motor() -> float:
@@ -14919,7 +14949,13 @@ func dev_brote() -> void:
 # Devuelve "" si se ha plantado, o el motivo por el que no. En sesion NO toca la tabla del host: el
 # jefe sale en la maquina que simula el piso -- que es la unica que puede parirlo -- y los demas lo
 # ven por red como cualquier otro.
-func dev_forzar_jefe() -> String:
+func dev_forzar_jefe(lugar: String = "") -> String:
+	# EN LA SALA (etapa 2) se lo piden para un piso concreto, que es suyo: se planta alli y ya.
+	if lugar != "" and not PisoVivo.un_sitio():
+		var suelo: Node = Net.pisos._suelo_de(lugar)
+		if suelo == null or not suelo.has_method("dev_forzar_jefe"):
+			return "la sala no lleva %s" % lugar
+		return suelo.dev_forzar_jefe()
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	if piso == null or not piso.has_method("dev_forzar_jefe"):
 		return "no estás en la mazmorra"
@@ -15419,8 +15455,8 @@ func dar_cuerpo_a_cria(slot: int, data: EnemyData, pos: Vector2, t: float) -> vo
 
 
 # SOLO quien simula el piso: la cria, congelada y reservada para la pelea de 'para' (0 = la mia, en solitario).
-func nacer_cria_aqui(data: EnemyData, pos: Vector2, t: float, para: int) -> Node:
-	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+func nacer_cria_aqui(data: EnemyData, pos: Vector2, t: float, para: int, lugar: String = "") -> Node:
+	var piso: Node = Net.pisos._suelo_de(lugar)   # en la sala, el de ESE piso
 	if piso == null or not piso.has_method("crear_enemigo"):
 		return null
 	var n = piso.crear_enemigo(data, pos, 0.0, t, 0)   # mut 0: una cria no muta

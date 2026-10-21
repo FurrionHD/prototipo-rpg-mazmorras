@@ -161,6 +161,31 @@ func _correr() -> void:
 	var comps: Array = Net._avatares_comp.get(BEA, [])
 	_ver(comps.size() == 1 and PisoVivo.de(comps[0]) == b, "el acompañante de Bea nace en el piso 5")
 
+	print("7) cada charco de pesca, en su piso (paso 3)")
+	var charcos := 0
+	for pv in [a, b, c7]:
+		for ch in pv.nodos(&"estanque"):
+			if not is_instance_valid(ch):
+				continue
+			charcos += 1
+			_ver(Net.pesca._charco_de(pv.lugar) == ch, "el charco del %s esta apuntado en su lugar" % pv.lugar)
+			_ver(int(ch.call("_piso")) == pv.numero, "y lee su piso (%d)" % int(ch.call("_piso")))
+	if charcos < 2:
+		# Se busca otro piso con charco: los charcos no salen en todos.
+		for n in range(3, 16):
+			var pv_n: PisoVivo = srv.montar(n, n)
+			await _hasta_poblado(pv_n)
+			var hay: bool = not pv_n.nodos(&"estanque").is_empty()
+			if hay:
+				var ch2: Node = pv_n.nodos(&"estanque")[0]
+				charcos += 1
+				_ver(Net.pesca._charco_de(pv_n.lugar) == ch2, "el charco del %s esta apuntado en su lugar" % pv_n.lugar)
+				_ver(int(ch2.call("_piso")) == n, "y lee su piso (%d)" % int(ch2.call("_piso")))
+			srv.desmontar(n)
+			if charcos >= 2:
+				break
+	_ver(charcos >= 2, "hay al menos dos charcos en pisos distintos para mirarlo (%d)" % charcos)
+
 	for pid in [ANA, BEA, CRIS]:
 		Net._olvidar_peer(pid)
 	srv.desmontar(2)

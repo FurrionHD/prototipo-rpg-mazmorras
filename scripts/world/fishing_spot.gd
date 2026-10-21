@@ -581,7 +581,7 @@ func _poblar() -> void:
 func _guardar_estado() -> void:
 	if not _soy_dueno():
 		return
-	var piso: Dictionary = Game.persistente_piso(Game.current_floor)
+	var piso: Dictionary = Game.persistente_piso(_piso())
 	if not piso.has("charcos"):
 		piso["charcos"] = {}   # las partidas anteriores a la pesca no traen la clave
 	var estado := {
@@ -590,7 +590,7 @@ func _guardar_estado() -> void:
 	}
 	(piso["charcos"] as Dictionary)[celda] = estado
 	# En multi el dueño suele ser un TRABAJADOR, cuyo Game no se guarda: a la sala (ver Net.pesca).
-	Net.pesca.charco_a_la_sala(Game.current_floor, celda, estado)
+	Net.pesca.charco_a_la_sala(_piso(), celda, estado)
 
 
 func _cargar_estado() -> void:
@@ -605,7 +605,7 @@ func _cargar_estado() -> void:
 	# arranca vacio y su banco lo pone la primera foto que le llega.
 	var guardado: Dictionary = {}
 	if _soy_dueno():
-		guardado = ((Game.persistente_piso(Game.current_floor).get("charcos", {}) as Dictionary)
+		guardado = ((Game.persistente_piso(_piso()).get("charcos", {}) as Dictionary)
 			.get(celda, {}) as Dictionary)
 	if guardado.is_empty():
 		return   # charco virgen: lleno, como debe estar
@@ -642,8 +642,13 @@ func _revisar_aforo() -> void:
 	_t_aforo = Game.reloj_mundo()
 
 
+# El piso de ESTE charco: en un cliente, Game.current_floor de siempre; en la sala (etapa 2), que lleva varios, el suyo.
+func _piso() -> int:
+	return PisoVivo.numero_de(self)
+
+
 func _semilla() -> int:
-	var piso = get_tree().get_first_node_in_group("dungeon_floor")
+	var piso = PisoVivo.primero_de(self, &"dungeon_floor")
 	if piso != null and piso.has_method("_semilla_del_piso"):
 		return int(piso._semilla_del_piso())
 	return int(Game.semilla_mundo)
@@ -690,7 +695,7 @@ func _nacer_pez(rng: RandomNumberGenerator = null) -> void:
 		# convertiria en otro pez justo al reaparecer.
 		nonce = int(vuelve.get("nonce", _nonce_usado))
 	else:
-		d = tabla.elegir(Game.current_floor, r)
+		d = tabla.elegir(_piso(), r)
 		if d == null:
 			return
 		cm = d.talla_desde(MaterialData.tirada_talla(r))
@@ -1110,7 +1115,7 @@ func _process(delta: float) -> void:
 		_t_red += delta
 		if _t_red >= RED_TICK:
 			_t_red = 0.0
-			Net.pesca.difundir_charco(estado_red())
+			Net.pesca.difundir_charco(estado_red(), self)
 	else:
 		_interpolar_peces(delta)
 	# EL CORCHO SE PUBLICA SIEMPRE, tambien si el piso es mio: es lo que los demas pintan para verme
@@ -2022,7 +2027,7 @@ func _nacer_pez_espejo(nonce: int, pos: Vector2) -> Dictionary:
 		return {}
 	var r := RandomNumberGenerator.new()
 	r.seed = hash([_semilla(), Game.epoca_actual(), celda.x, celda.y, nonce])
-	var d: MaterialData = tabla.elegir(Game.current_floor, r)
+	var d: MaterialData = tabla.elegir(_piso(), r)
 	if d == null:
 		return {}
 	var cm: float = d.talla_desde(MaterialData.tirada_talla(r))

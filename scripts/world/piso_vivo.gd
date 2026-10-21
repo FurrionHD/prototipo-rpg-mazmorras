@@ -57,6 +57,12 @@ var es_arena: bool:
 			return piso_red == Game.PISO_ARENA
 		return Game.es_arena()
 
+# EL ALBOROTO DE ESTE PISO, en la sala (etapa 2): alli cada piso lleva su medidor (Game.sumar_alboroto con lugar). En
+# un cliente vive en Game, como siempre: un piso por maquina.
+var alboroto: float = 0.0
+var alboroto_enfriando: float = 0.0   # hasta cuando dura el respiro tras un brote (reloj del motor)
+var alboroto_causante: int = 0        # el peer que hizo el ultimo ruido: el brote sale a SU vista
+
 # Las listas por fotograma de fisica: grupo -> [fotograma, Array]. Ver lista_fisica.
 var _listas: Dictionary = {}
 

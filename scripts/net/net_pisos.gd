@@ -601,7 +601,7 @@ func _pedir_forzar_jefe(lugar: String) -> void:
 
 func _encaminar_forzar_jefe(lugar: String) -> void:
 	if PisoVivo.dueno_de(lugar):
-		print("[dev] traer al jefe: ", Game.dev_forzar_jefe())
+		print("[dev] traer al jefe: ", Game.dev_forzar_jefe(lugar))
 		return
 	var dueno: int = Net._dueno_de(lugar)
 	if dueno != 0 and dueno != Net._mi_id():
@@ -615,7 +615,7 @@ func _encaminar_forzar_jefe(lugar: String) -> void:
 func _forzar_jefe_dueno(lugar: String) -> void:
 	if not PisoVivo.dueno_de(lugar):
 		return
-	print("[dev] traer al jefe (me lo piden): ", Game.dev_forzar_jefe())
+	print("[dev] traer al jefe (me lo piden): ", Game.dev_forzar_jefe(lugar))
 
 
 # ============================================================
@@ -925,13 +925,17 @@ func sala_montar(piso: int) -> void:
 func sala_vaciado(piso: int) -> void:
 	if Net.servidor != null and Net.servidor.piso(piso) != null and not _sala_congelar.has(piso):
 		_sala_congelar[piso] = SEG_VIVO_VACIO
+		print("[sala] piso %d sin nadie: se congela en %d s si no vuelve nadie" % [piso, int(SEG_VIVO_VACIO)])
 
 
 # El reloj de la sala (sala._process): congela los pisos vacios que ya han cumplido su rato.
 func sala_reloj(delta: float) -> void:
 	for piso in _sala_congelar.keys():
+		# Si se ve a alguien dentro, la cuenta vuelve a empezar PERO NO SE BORRA: el que se acaba de ir sigue apuntado en
+		# el piso hasta que llega su aviso de lugar (va detras del de salir), y borrandola el piso se quedaba montado para
+		# siempre sin nadie (21/10, prueba_town_dos_pisos). Quien entra de verdad la borra en sala_montar.
 		if _alguien_en(int(piso), 0) != 0:
-			_sala_congelar.erase(piso)   # ha vuelto alguien (o viene de camino): sigue vivo
+			_sala_congelar[piso] = SEG_VIVO_VACIO
 			continue
 		_sala_congelar[piso] = float(_sala_congelar[piso]) - delta
 		if float(_sala_congelar[piso]) <= 0.0:
@@ -1274,4 +1278,4 @@ func _alboroto_en_dueno(de: int, lugar: String, cuanto: float) -> void:
 	if not PisoVivo.dueno_de(lugar):
 		return
 	# (si el ruido es MIO -el dueño humano peleando en un trabajador-, el brote sale delante de mi jugador)
-	Game.sumar_alboroto(cuanto, 0 if de == multiplayer.get_unique_id() else de)
+	Game.sumar_alboroto(cuanto, 0 if de == multiplayer.get_unique_id() else de, lugar)

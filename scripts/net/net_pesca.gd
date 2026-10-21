@@ -27,6 +27,14 @@ extends Node
 
 # El charco vivo de MI piso (solo hay uno por piso). Lo registra fishing_spot._ready.
 var _charco: Node = null
+# EN LA SALA (etapa 2) hay un charco por piso montado: lugar -> charco. En un cliente, el de arriba (uno por maquina).
+var _charcos: Dictionary = {}
+
+
+# El charco de ese lugar (null si no hay o no lo llevo).
+func _charco_de(lugar: String) -> Node:
+	var c = _charco if PisoVivo.un_sitio() else _charcos.get(lugar)
+	return c if c != null and is_instance_valid(c) else null
 
 
 # ============================================================
@@ -65,10 +73,17 @@ func _charcos_del_piso(piso: int, charcos: Dictionary) -> void:
 
 
 func registrar_charco(nodo: Node) -> void:
+	var pv: PisoVivo = PisoVivo.de(nodo) if not PisoVivo.un_sitio() else null
+	if pv != null:
+		_charcos[pv.lugar] = nodo
+		return
 	_charco = nodo
 
 
 func olvidar_charco(nodo: Node) -> void:
+	for l in _charcos.keys():
+		if _charcos[l] == nodo:
+			_charcos.erase(l)
 	if _charco == nodo:
 		_charco = null
 
@@ -76,15 +91,20 @@ func olvidar_charco(nodo: Node) -> void:
 # --- 1) EL BANCO: del dueño a los demas ---
 # Lo llama fishing_spot._process en el dueño, ya con su propio ritmo (no hace falta acumulador
 # aqui: el charco sabe mejor que Net cada cuanto merece la pena mandar su foto).
-func difundir_charco(snap: Dictionary) -> void:
-	if not Net.activo or not Net._soy_dueno or multiplayer.multiplayer_peer == null:
+func difundir_charco(snap: Dictionary, charco: Node = null) -> void:
+	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
+	if not (PisoVivo.dueno_del_nodo(charco) if charco != null else Net._soy_dueno):
+		return
+	# El lugar del CHARCO: en la sala (etapa 2) el de su piso, no el de la maquina ("sala").
+	var pv: PisoVivo = PisoVivo.de(charco) if charco != null and not PisoVivo.un_sitio() else null
+	var lugar: String = pv.lugar if pv != null else Net._mi_lugar
 	if Net.es_host:
 		for peer_id in Net._peers:
-			if Net._peers[peer_id].get("lugar", "") == Net._mi_lugar:
+			if Net._peers[peer_id].get("lugar", "") == lugar:
 				_tick_charco.rpc_id(peer_id, snap)
 	else:
-		_rel_charco.rpc_id(1, Net._mi_lugar, snap)
+		_rel_charco.rpc_id(1, lugar, snap)
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
@@ -139,8 +159,8 @@ func _corcho_pesca(lugar: String, pos: Vector2, modo: int) -> void:
 # el agua --, cada uno miraba su propio sedal y el charco parecia vacio. El dueño sigue siendo el
 # unico que DECIDE (ver fishing_spot.corcho_de); los demas solo lo PINTAN.
 func _encaminar_corcho(de: int, lugar: String, pos: Vector2, modo: int) -> void:
-	if PisoVivo.lleva(lugar) and _charco != null and is_instance_valid(_charco):
-		_charco.corcho_de(de, pos, modo)
+	if PisoVivo.lleva(lugar) and _charco_de(lugar) != null:
+		_charco_de(lugar).corcho_de(de, pos, modo)
 	if not Net.es_host:
 		return
 	for peer_id in Net._peers:
@@ -150,8 +170,8 @@ func _encaminar_corcho(de: int, lugar: String, pos: Vector2, modo: int) -> void:
 
 @rpc("authority", "call_remote", "unreliable_ordered")
 func _corcho_pesca_a(de: int, lugar: String, pos: Vector2, modo: int) -> void:
-	if PisoVivo.lleva(lugar) and _charco != null and is_instance_valid(_charco):
-		_charco.corcho_de(de, pos, modo)
+	if PisoVivo.lleva(lugar) and _charco_de(lugar) != null:
+		_charco_de(lugar).corcho_de(de, pos, modo)
 
 
 # El CUERPO de otro jugador en mi mundo, o null. Lo pide el charco para colgarle el sedal del sitio
@@ -214,8 +234,8 @@ func _fin_pesca(lugar: String, nonce: int, cobrado: bool) -> void:
 
 # SOLO host (o el propio host haciendose de pescador): el resultado va a quien simule ese piso.
 func _encaminar_fin_pesca(de: int, lugar: String, nonce: int, cobrado: bool) -> void:
-	if PisoVivo.dueno_de(lugar) and _charco != null and is_instance_valid(_charco):
-		_charco.resolver_pez_remoto(de, nonce, cobrado)
+	if PisoVivo.dueno_de(lugar) and _charco_de(lugar) != null:
+		_charco_de(lugar).resolver_pez_remoto(de, nonce, cobrado)
 		return
 	if not Net.es_host:
 		return
@@ -226,8 +246,8 @@ func _encaminar_fin_pesca(de: int, lugar: String, nonce: int, cobrado: bool) -> 
 
 @rpc("authority", "call_remote", "reliable")
 func _fin_pesca_a(de: int, lugar: String, nonce: int, cobrado: bool) -> void:
-	if PisoVivo.dueno_de(lugar) and _charco != null and is_instance_valid(_charco):
-		_charco.resolver_pez_remoto(de, nonce, cobrado)
+	if PisoVivo.dueno_de(lugar) and _charco_de(lugar) != null:
+		_charco_de(lugar).resolver_pez_remoto(de, nonce, cobrado)
 
 
 # Al desconectarse alguien, sus corchos y sus peces enganchados se sueltan: un pez reservado por un
@@ -235,3 +255,6 @@ func _fin_pesca_a(de: int, lugar: String, nonce: int, cobrado: bool) -> void:
 func _liberar_pesca_de(quien: int) -> void:
 	if _charco != null and is_instance_valid(_charco):
 		_charco.soltar_todo_de(quien)
+	for l in _charcos:
+		if is_instance_valid(_charcos[l]):
+			_charcos[l].soltar_todo_de(quien)
