@@ -2372,7 +2372,7 @@ func olvidar_mazmorra() -> void:
 #     solo, pero el que estas pisando al salir por la puerta no se guardaba nunca. Con la mazmorra
 #     persistente ese es el caso mas comun (bajas al 4, tiras cosas y te vuelves andando: el 4 quedaba
 #     guardado y el 1, por el que sales, nacia repoblado).
-#     En sesion esto no se hace: alli la foto la saca Net.pisos._foto_de_mi_piso y se la queda el host.
+#     En sesion esto no se hace: el piso lo lleva la sala, que es quien saca su foto (Net.pisos.sala_congelar).
 #  2. Apaga el ALBOROTO. El jaleo es de la bajada, no del piso: si se quedara puesto, volver a entrar
 #     te reventaria una pared en la cara por el escandalo que armaste hace media hora.
 func cerrar_bajada() -> void:

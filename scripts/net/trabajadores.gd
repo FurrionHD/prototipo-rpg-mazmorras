@@ -1,25 +1,21 @@
 # ============================================================
 #  trabajadores.gd  (hijo de Net: /root/Net/Trabajadores)
-#  LOS TRABAJADORES DE PISO: un Godot SIN VENTANA por cada piso ocupado, que es el DUEÑO de ese piso.
+#  LOS TRABAJADORES DE PELEA: un Godot SIN VENTANA que espera dentro de un piso con gente y ejecuta la siguiente pelea
+#  de ese piso; el jugador la ve en espejo, y ningun PC de jugador lleva la pelea.
 #
-#  Por que existen: con el dueño por piso de siempre, el piso lo simulaba el PC de uno de los jugadores
-#  que estaba dentro, y cada caida, relevo o carrera entre maquinas acababa en "para uno ha pasado y
-#  para el otro no". Un trabajador es un dueño que no juega, no se va a por pociones y no se cuelga
-#  porque alguien abra un menu: los humanos pasan a ser TODOS espejos del piso.
+#  Hasta la etapa 2 de la fase 2 (21/10) habia tambien trabajadores de PISO (el dueño de cada piso ocupado) y, si no
+#  quedaba ninguno, el piso lo heredaba el PC de un jugador. Eso se fue: los PISOS los lleva la sala (net_pisos,
+#  sala_montar / sala_congelar). Las peleas pasaran a la sala en la etapa 3 y entonces se va este archivo entero.
 #
-#  COMO ENCAJA CON LO QUE YA HABIA (y por que casi no toca nada): el trabajador es un CLIENTE mas de la
-#  sala, apuntado en Net._peers con "trabajador": true. Todo lo que el host reparte "a los que estan en
-#  ese piso" (posiciones, corchos, peleas, relevos de bichos) le llega igual que le llegaba al cliente
-#  que era dueño. Lo unico que hay que hacer es NO contarle como humano: ni avatar, ni cupo, ni
-#  recuento, ni guardado, ni "¿queda alguien en el piso?" (ver Net.es_trabajador y sus usos).
+#  COMO ENCAJA: el trabajador es un CLIENTE mas de la sala, apuntado en Net._peers con "trabajador": true, que entra al
+#  piso de ESPEJO como un jugador (Net.pisos._entrar_ok). NO se le cuenta como humano: ni avatar, ni cupo, ni recuento,
+#  ni guardado, ni "¿queda alguien en el piso?" (ver Net.es_trabajador y sus usos).
 #
-#  EL CICLO (todo lo decide el host):
-#    - Al abrir la sala se lanza uno de RESERVA, que espera en una escena vacia.
-#    - Alguien entra a un piso sin dueño -> se le da a un trabajador de reserva (Net.pisos._entrar_ok con
-#      dueño=true y la foto congelada) y se lanza otro de repuesto. Si no hay ninguno listo, el dueño es
-#      el humano, como siempre: nunca queda peor que antes.
-#    - El piso se queda sin humanos -> se le pide la FOTO, se congela en _fotos_piso y el trabajador
-#      vuelve a la reserva (o se cierra si ya sobra).
+#  EL CICLO (todo lo decide la sala):
+#    - Al abrir la sala se lanzan los de RESERVA, que esperan en una escena vacia.
+#    - Alguien entra a un piso -> uno de reserva entra a esperar peleas alli (asegurar_pelea) y se lanza otro.
+#    - Empieza una pelea -> la ejecuta el que esperaba (y entra otro a esperar la siguiente).
+#    - El piso se queda sin humanos -> los que esperaban alli vuelven a la reserva (o se cierran si sobran).
 #
 #  NADA ATADO AL PC DEL HOST: el trabajador recibe ip, puerto y token por argumentos, asi que el dia que
 #  la sala viva en un servidor lanza los mismos procesos y ya.
@@ -93,38 +89,11 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
 
-# EL PARTE DEL TRABAJADOR: sin ventana, su registro es lo unico que dice que esta haciendo. Cada
-# PARTE_CADA segundos, una linea por piso: cuantos enemigos lleva, a que humanos ve y a que distancia
-# tiene cada uno al enemigo mas cercano (y en que estado va ese enemigo).
-const PARTE_CADA := 5.0
-var _t_parte := 0.0
-
+# Las fotos de los pisos de la sala para el guardado (_fotos_periodicas). El "parte" que escribia el trabajador
+# DUEÑO de un piso se fue con los trabajadores de piso (etapa 2): los pisos los lleva la sala.
 func _process(delta: float) -> void:
-	if Net.activo and Net.es_host:
+	if Net.activo and Net.es_host and Net.soy_sala:
 		_fotos_periodicas(delta)
-	if not Net.soy_trabajador or not Net._soy_dueno:
-		return
-	_t_parte -= delta
-	if _t_parte > 0.0:
-		return
-	_t_parte = PARTE_CADA
-	var enemigos: Array = get_tree().get_nodes_in_group("enemy").filter(
-		func(e): return is_instance_valid(e) and not e.has_meta("es_espejo"))
-	var humanos: Array = []
-	for id in Net._avatares:
-		var a = Net._avatares[id]
-		if not is_instance_valid(a):
-			continue
-		var mejor := INF
-		var estado := "-"
-		for e in enemigos:
-			var d: float = (e as Node2D).global_position.distance_to((a as Node2D).global_position)
-			if d < mejor:
-				mejor = d
-				estado = "%s%s" % [str(e.get("_state")), " (pelea)" if e.get("_combat_triggered") else ""]
-		humanos.append("peer %d a %.0f px de un enemigo en estado %s" % [id, mejor, estado])
-	print("[trabajador] piso %d: %d enemigos | %s" % [Net.pisos.mi_piso(), enemigos.size(),
-		", ".join(humanos) if not humanos.is_empty() else "sin humanos a la vista"])
 
 
 # ============================================================
@@ -172,27 +141,10 @@ func me_han_soltado(motivo: String) -> void:
 	get_tree().quit()
 
 
-# El host pide la foto del piso que simulo, porque se ha quedado sin humanos. NO me voy todavia: si
-# alguien entra mientras la foto viaja, el host la descarta y sigo siendo el dueño.
-@rpc("authority", "call_remote", "reliable")
-func _dame_foto(piso: int) -> void:
-	if Net.pisos.mi_piso() != piso or not Net._soy_dueno:
-		_foto.rpc_id(1, piso, {})
-		return
-	_foto.rpc_id(1, piso, Net.pisos._foto_de_mi_piso())
-
-
-# El host quiere una foto de mi piso SIN que me vaya (para guardarla: ver _fotos_periodicas).
-@rpc("authority", "call_remote", "reliable")
-func _dame_foto_viva(piso: int) -> void:
-	if Net.pisos.mi_piso() == piso and Net._soy_dueno:
-		_foto_viva.rpc_id(1, piso, Net.pisos._foto_de_mi_piso())
-
-
-# El host se ha quedado la foto: a la reserva, a esperar otro piso.
+# Ya no me necesitan en ese piso: a la reserva, a esperar otro.
 @rpc("authority", "call_remote", "reliable")
 func _a_la_reserva() -> void:
-	print("[trabajador] piso %d congelado: vuelvo a la reserva" % Net.pisos.mi_piso())
+	print("[trabajador] dejo el piso %d: vuelvo a la reserva" % Net.pisos.mi_piso())
 	Net._soy_dueno = false
 	Net.pisos._olvidar_mis_enemigos()
 	Game.memoria_pisos.clear()
@@ -356,36 +308,6 @@ func _saludar_trabajador(token: String, protocolo: int, pid: int = 0) -> void:
 		asegurar_pelea(int(piso))
 
 
-# Un piso sin dueño vivo: se le da a uno de reserva. Devuelve si ha habido trabajador para el. Lo llaman
-# _conceder_entrada y _conceder_piso ANTES de repartir al humano, para que el humano ya lo encuentre con
-# dueño y entre de espejo.
-func asegurar_dueno(piso: int) -> bool:
-	if not Net.es_host or piso < 1:
-		return false
-	var actual: int = Net._dueno_piso.get(piso, 0)
-	if actual != 0 and Net.pisos._sigue_en(actual, piso):
-		return es_trabajador(actual)
-	var w := 0
-	for id in _estado:
-		if int(_estado[id]) == 0:
-			w = id
-			break
-	if w == 0:
-		_rellenar_reserva()
-		return false
-	_estado[w] = piso
-	Net._dueno_piso[piso] = w
-	Net._viajando[w] = piso
-	var mem: Dictionary = Net._fotos_piso.get(piso, {})
-	Net._fotos_piso.erase(piso)
-	Net.pesca.mandar_charcos(w, piso)
-	Net.pisos._entrar_ok.rpc_id(w, piso, Net.recoleccion._agotados_sesion, true, mem, Net.pisos._restantes_boss(),
-		Net.epoca_sesion, Net.recoleccion._nonces_sesion)
-	print("[trabajadores] el piso %d lo simula el peer %d" % [piso, w])
-	_rellenar_reserva()
-	return true
-
-
 # 'piso' puede haberse quedado sin humanos (alguien ha subido, bajado, muerto o se ha ido). Si lo
 # simula un trabajador, se le pide la foto; el resto lo hace _foto al llegar.
 func revisar_vacio(piso: int, salvo: int = 0) -> void:
@@ -396,16 +318,10 @@ func revisar_vacio(piso: int, salvo: int = 0) -> void:
 		if Net.soy_sala:
 			print("[sala] piso %d: se va %d pero queda %d" % [piso, salvo, queda])
 		return
-	# Sin gente no hay peleas que esperar (lleve el piso quien lo lleve).
+	# Sin gente no hay peleas que esperar.
 	_soltar_los_de_pelea(piso)
-	# En la SALA el piso es suyo (etapa 2): se congela a los 10 s si sigue vacio.
-	if Net.soy_sala:
-		Net.pisos.sala_vaciado(piso)
-		return
-	var w: int = Net._dueno_piso.get(piso, 0)
-	if not es_trabajador(w):
-		return
-	_dame_foto.rpc_id(w, piso)
+	# El piso es de la sala (etapa 2): se congela a los 10 s si sigue vacio.
+	Net.pisos.sala_vaciado(piso)
 
 
 # CADA SEG_FOTOS_VIVAS, la foto de cada piso que simula un trabajador: solo para el guardado del mundo
@@ -418,54 +334,10 @@ func _fotos_periodicas(delta: float) -> void:
 	if _t_fotos < SEG_FOTOS_VIVAS:
 		return
 	_t_fotos = 0.0
-	if Net.soy_sala:
-		Net.pisos.sala_fotos_vivas()   # los pisos son suyos: la foto se saca aqui mismo
-	for w in _estado:
-		var piso: int = int(_estado[w])
-		if piso > 0 and piso != Game.PISO_ARENA and int(Net._dueno_piso.get(piso, 0)) == int(w):
-			_dame_foto_viva.rpc_id(int(w), piso)
+	Net.pisos.sala_fotos_vivas()   # los pisos son de la sala: la foto se saca aqui mismo
 
 
-@rpc("any_peer", "call_remote", "reliable")
-func _foto_viva(piso: int, foto: Dictionary) -> void:
-	if not Net.es_host or foto.is_empty():
-		return
-	if int(Net._dueno_piso.get(piso, 0)) != multiplayer.get_remote_sender_id():
-		return
-	Net._fotos_vivas[piso] = foto
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _foto(piso: int, foto: Dictionary) -> void:
-	if not Net.es_host:
-		return
-	Net._fotos_vivas.erase(piso)
-	var w := multiplayer.get_remote_sender_id()
-	if int(_estado.get(w, -1)) != piso:
-		return
-	# Alguien ha entrado mientras la foto venia: el trabajador sigue, la foto sobra.
-	if Net.pisos._alguien_en(piso, 0) != 0:
-		return
-	# Una foto vacia es "no la tengo", no "piso vacio" (esa trae la clave aunque sea sin bichos).
-	# La ARENA no se congela: vacia, vuelve a estar vacia la proxima vez que entre alguien.
-	if piso == Game.PISO_ARENA:
-		Net._fotos_piso.erase(piso)
-	elif not foto.is_empty() or not Net._fotos_piso.has(piso):
-		Net._fotos_piso[piso] = foto
-	if int(Net._dueno_piso.get(piso, 0)) == w:
-		Net._dueno_piso.erase(piso)
-	_estado[w] = 0
-	if _libres() > RESERVA_MAX:   # el que queda libre se guarda caliente: ver RESERVA_MAX
-		_estado.erase(w)
-		Net._peers.erase(w)
-		_cierrate.rpc_id(w)
-	else:
-		_a_la_reserva.rpc_id(w)
-	print("[trabajadores] piso %d congelado (%d enemigos)" % [piso, (foto.get("enemigos", []) as Array).size()])
-
-
-# Se ha ido un trabajador (cerrado o caido). El piso que llevara lo hereda un humano que este dentro por
-# el camino de siempre (_soltar_piso, que ya se ha llamado); aqui solo se repone la reserva.
+# Se ha ido un trabajador (cerrado o caido): se repone la reserva y, si esperaba peleas en un piso, que entre otro.
 func al_irse(peer_id: int) -> void:
 	if not _estado.has(peer_id):
 		return
@@ -529,7 +401,7 @@ func asegurar_pelea(piso: int, entra_alguien: bool = false) -> void:
 	_de_pelea[w] = true
 	Net._viajando[w] = piso
 	# Entra como ESPEJO (dueño=false): ve los enemigos del dueño igual que un jugador.
-	Net.pisos._entrar_ok.rpc_id(w, piso, Net.recoleccion._agotados_sesion, false, {}, Net.pisos._restantes_boss(),
+	Net.pisos._entrar_ok.rpc_id(w, piso, Net.recoleccion._agotados_sesion, Net.pisos._restantes_boss(),
 		Net.epoca_sesion, Net.recoleccion._nonces_sesion)
 	print("[trabajadores] el peer %d espera peleas en el piso %d" % [w, piso])
 	_rellenar_reserva()

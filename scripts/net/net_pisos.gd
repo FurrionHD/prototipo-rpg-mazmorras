@@ -256,26 +256,16 @@ func _conceder_entrada(quien: int, piso: int = 1, volver := false) -> void:
 		Net.recoleccion._barrer_respawns()
 	Net._dentro[quien] = true
 	Net._muertos.erase(quien)   # el que vuelve a bajar ya no cuenta como caido (ver _registrar_muerte)
-	_asegurar_dueno(piso)   # la sala lo monta (o un trabajador libre lo lleva) y yo entro de espejo
+	sala_montar(piso)   # la sala lo monta (si no lo estaba) y yo entro de espejo
 	Net._trab.asegurar_pelea(piso, true)   # y otro dentro esperando peleas, si queda en la reserva
-	var dueno: bool = _asignar_dueno(piso, quien)
-	var mem: Dictionary = {}
-	if dueno:
-		mem = Net._fotos_piso.get(piso, {})
-		Net._fotos_piso.erase(piso)
-		if quien != 1:
-			Net.pesca.mandar_charcos(quien, piso)
 	# Va el diccionario ENTERO, no solo las claves: el valor es el momento en que se pico, y sin el
 	# quien entra no sabria cuanto le queda a cada sitio para revivir.
 	# Los jefes viajan como SEGUNDOS QUE FALTAN, no como el instante en que cayeron: el instante esta
 	# en el reloj de PARED DEL HOST, y el del que recibe no tiene por que ir a la misma hora. Con
 	# timestamps crudos el contador de la sala del jefe le saldria corrido por el desfase entre los dos
 	# relojes (y con uno mal puesto, absurdo). Los segundos que faltan son los mismos en cualquier reloj.
-	if quien == 1:
-		_entrar_ok(piso, Net.recoleccion._agotados_sesion, dueno, mem, _restantes_boss(), Net.epoca_sesion, Net.recoleccion._nonces_sesion)
-	else:
-		_entrar_ok.rpc_id(quien, piso, Net.recoleccion._agotados_sesion, dueno, mem, _restantes_boss(),
-			Net.epoca_sesion, Net.recoleccion._nonces_sesion)
+	_entrar_ok.rpc_id(quien, piso, Net.recoleccion._agotados_sesion, _restantes_boss(), Net.epoca_sesion,
+		Net.recoleccion._nonces_sesion)
 
 
 # ============================================================
@@ -381,8 +371,8 @@ func _restantes_boss() -> Dictionary:
 # foto que el te manda tres lineas mas abajo. Borrarla aqui es lo que impide que tu mundo propio se
 # mezcle con el suyo.
 @rpc("any_peer", "call_remote", "reliable")
-func _entrar_ok(piso: int, agotados: Dictionary, dueno: bool, mem: Dictionary,
-		sellos_boss: Dictionary = {}, epoca: int = 0, nonces: Dictionary = {}) -> void:
+func _entrar_ok(piso: int, agotados: Dictionary, sellos_boss: Dictionary = {}, epoca: int = 0,
+		nonces: Dictionary = {}) -> void:
 	if Net.soy_trabajador:
 		Net._trab.al_recibir_piso()
 	Net.recoleccion._agotados_sesion = agotados.duplicate()
@@ -409,12 +399,8 @@ func _entrar_ok(piso: int, agotados: Dictionary, dueno: bool, mem: Dictionary,
 	if epoca != 0:
 		Net.epoca_sesion = epoca
 	_olvidar_mis_enemigos()
-	# ¿Simulo yo este piso? Si si, y venia congelado, se siembra la memoria LOCAL con su foto para
-	# que _restaurar_estado lo levante igual que en solitario (va DESPUES de olvidar_mazmorra,
-	# que la vacia entera).
-	Net._soy_dueno = dueno
-	if dueno and not mem.is_empty():
-		Game.memoria_pisos[piso] = _mem_de_red(mem)
+	# El piso lo lleva LA SALA (etapa 2): yo solo lo espejo, sus enemigos me llegan por red.
+	Net._soy_dueno = false
 	# Por un ATAJO se aparece en la salida al pueblo de ESE piso (en el fondo), no en su boca:
 	# mismo recado que pone floor_select_menu en solitario (lo consume DungeonFloor al construirse).
 	Game.entrada_por_atajo = piso > 1 and piso != Game.PISO_ARENA
@@ -426,18 +412,11 @@ func _entrar_ok(piso: int, agotados: Dictionary, dueno: bool, mem: Dictionary,
 
 # La llama la puerta de vuelta / la salida del boss (rama multi), DESPUES de consolidar el mapa.
 func viajar_al_pueblo() -> void:
-	# Me llevo la foto del piso que dejo (si lo simulaba yo) para que no se pierdan sus bichos:
-	# se la queda el host, o pasa al que siga dentro. Hay que sacarla ANTES de cambiar de escena.
-	var foto: Dictionary = _foto_de_mi_piso()
-	# El jaleo es de la bajada y se queda aqui (en sesion la foto del piso ya la lleva _foto_de_mi_piso,
-	# asi que de cerrar_bajada solo hace falta esa mitad; ver Game).
+	# El jaleo es de la bajada y se queda aqui (en sesion el piso y su foto los lleva la sala, asi que de
+	# cerrar_bajada solo hace falta esa mitad; ver Game).
 	Game.cerrar_bajada()
-	Net._soy_dueno = false
 	_olvidar_mis_enemigos()
-	if Net.es_host:
-		_registrar_salida(1, foto)
-	else:
-		_pedir_salir.rpc_id(1, foto)
+	_pedir_salir.rpc_id(1)
 	# EN EL PUEBLO ESTAS EN EL PISO 1, como en solitario (door.gd / dungeon_exit.gd lo ponen en su rama de
 	# un jugador). Faltaba aqui: en sesion te quedabas "en el piso 6" paseando por el pueblo, y todo lo que
 	# lee el piso actual sin mirar la escena -- el liston de Agilidad que frena el paso, sobre todo -- te
@@ -449,17 +428,16 @@ func viajar_al_pueblo() -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _pedir_salir(foto: Dictionary) -> void:
+func _pedir_salir() -> void:
 	if not Net.es_host:
 		return
-	_registrar_salida(multiplayer.get_remote_sender_id(), foto)
+	_registrar_salida(multiplayer.get_remote_sender_id())
 
 
-func _registrar_salida(quien: int, foto: Dictionary = {}) -> void:
+func _registrar_salida(quien: int) -> void:
 	var viejo: int = _piso_de(quien)
 	Net._liberar_vetas_de(quien)
 	Net.pesca._liberar_pesca_de(quien)   # sus corchos y el pez que tuviera enganchado
-	_soltar_piso(quien, foto)
 	Net._viajando.erase(quien)
 	Net._trab.revisar_vacio(viejo, quien)
 	Net._dentro.erase(quien)
@@ -479,21 +457,16 @@ func _registrar_salida(quien: int, foto: Dictionary = {}) -> void:
 func morir_en_la_mazmorra() -> void:
 	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
-	var foto: Dictionary = _foto_de_mi_piso()
-	Net._soy_dueno = false
 	_olvidar_mis_enemigos()
-	if Net.es_host:
-		_registrar_muerte(1, foto)
-	else:
-		_pedir_muerte.rpc_id(1, foto)
+	_pedir_muerte.rpc_id(1)
 	Net.anunciar_lugar("pueblo")
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _pedir_muerte(foto: Dictionary) -> void:
+func _pedir_muerte() -> void:
 	if not Net.es_host:
 		return
-	_registrar_muerte(multiplayer.get_remote_sender_id(), foto)
+	_registrar_muerte(multiplayer.get_remote_sender_id())
 
 
 # Solo host: 'quien' ha caido. Sale del piso igual que si volviera andando (el relevo de la
@@ -502,9 +475,9 @@ func _pedir_muerte(foto: Dictionary) -> void:
 # La mazmorra compartida solo se OLVIDA cuando habeis caido todos: mientras quede un humano en pie,
 # los pisos siguen como estaban. Que muera uno no puede castigar al otro —era justo el bug que se
 # arreglaba aqui—, y tampoco puede borrarle la mazmorra al que esta arriba vendiendo.
-func _registrar_muerte(quien: int, foto: Dictionary = {}) -> void:
+func _registrar_muerte(quien: int) -> void:
 	Net._muertos[quien] = true
-	_registrar_salida(quien, foto)   # suelta vetas, piso y cargos (y cierra si era el ultimo dentro)
+	_registrar_salida(quien)   # suelta vetas y cargos (y cierra si era el ultimo dentro)
 	if Net._dentro.is_empty() and Net._muertos.size() >= maxi(1, Net._num_humanos):
 		_olvidar_expedicion()
 	else:
@@ -521,7 +494,6 @@ func _registrar_muerte(quien: int, foto: Dictionary = {}) -> void:
 func _olvidar_expedicion() -> void:
 	Net._fotos_piso.clear()
 	Net._fotos_vivas.clear()
-	Net._traspasos.clear()
 	Net._muertos.clear()
 	# EPOCA NUEVA, como en solitario (Game.olvidar_mazmorra): la mazmorra vuelve a nacer, asi que se
 	# rebaraja QUE hay en ella. Los nonces vivos se van con ella —ya no significan nada— y a los
@@ -559,13 +531,8 @@ func _olvidar_expedicion() -> void:
 #     (Game.BOSS_RESPAWN); limpiarlo aqui seria un jefe nuevo por cada viaje al pueblo.
 func _cerrar_expedicion() -> void:
 	Net.expedicion_abierta = false
-	# Los pisos de los TRABAJADORES se quedan apuntados: su foto viene de camino (ver
-	# Trabajadores.revisar_vacio) y hasta que llegue siguen siendo suyos. Borrarlos aqui perdia la foto y
-	# dejaba al trabajador simulando un piso que ya nadie sabia que era suyo.
-	for p in Net._dueno_piso.keys():
-		if not Net.es_trabajador(int(Net._dueno_piso[p])):
-			Net._dueno_piso.erase(p)
-	Net._traspasos.clear()
+	# Los pisos se quedan apuntados a la sala: siguen montados hasta que se congelan (sala_reloj, a los 10 s) y es
+	# sala_congelar quien los suelta.
 	Net._viajando.clear()
 	Net.recoleccion._vetas_ocupadas.clear()
 	Net.recoleccion._t_barrido = 0.0
@@ -799,102 +766,28 @@ func personajes_en_mi_piso(lugar: String = "") -> int:
 func solicitar_piso(nuevo: int, bajando: bool) -> void:
 	if nuevo < 1:
 		return
-	var foto: Dictionary = _foto_de_mi_piso()   # lo que dejo atras, si yo lo simulaba
-	if Net.es_host:
-		_conceder_piso(1, nuevo, bajando, foto)
-	else:
-		_pedir_viaje.rpc_id(1, nuevo, bajando, foto)
+	_pedir_viaje.rpc_id(1, nuevo, bajando)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _pedir_viaje(nuevo: int, bajando: bool, foto: Dictionary) -> void:
+func _pedir_viaje(nuevo: int, bajando: bool) -> void:
 	if not Net.es_host:
 		return
-	_conceder_piso(multiplayer.get_remote_sender_id(), nuevo, bajando, foto)
+	_conceder_piso(multiplayer.get_remote_sender_id(), nuevo, bajando)
 
 
-# Solo host: arbitra el viaje de 'quien' al piso 'nuevo'. Suelta el piso viejo (con su foto) y
-# reparte el nuevo. Responde SIEMPRE, porque el viajero espera para reconstruir su piso.
-func _conceder_piso(quien: int, nuevo: int, bajando: bool, foto: Dictionary) -> void:
+# Solo host: arbitra el viaje de 'quien' al piso 'nuevo': la sala monta el nuevo (si no lo estaba) y el viejo puede
+# quedarse vacio (se congelara). Responde SIEMPRE, porque el viajero espera para reconstruir su piso.
+func _conceder_piso(quien: int, nuevo: int, bajando: bool) -> void:
 	if not Net.expedicion_abierta:
 		return
 	var viejo: int = _piso_de(quien)
-	_soltar_piso(quien, foto)
-	_asegurar_dueno(nuevo)
+	sala_montar(nuevo)
 	Net._trab.asegurar_pelea(nuevo, true)
-	var dueno_nuevo: bool = _asignar_dueno(nuevo, quien)
-	if quien != 1:
-		Net._viajando[quien] = nuevo   # hasta que llegue su _rel_lugar (ver _sigue_en)
-	# El piso que deja puede quedarse sin humanos: si lo lleva un trabajador, se congela.
+	Net._viajando[quien] = nuevo   # hasta que llegue su _rel_lugar (ver _alguien_en)
 	if viejo != nuevo:
 		Net._trab.revisar_vacio(viejo, quien)
-	# Si voy a simularlo, me llevo la foto congelada de ese piso (bichos y cadaveres tal cual).
-	var mem: Dictionary = {}
-	if dueno_nuevo:
-		mem = Net._fotos_piso.get(nuevo, {})
-		Net._fotos_piso.erase(nuevo)   # ya no esta congelado: pasa a estar vivo en su dueño
-		if quien != 1:
-			Net.pesca.mandar_charcos(quien, nuevo)
-	if quien == 1:
-		_viaje_ok(nuevo, bajando, dueno_nuevo, mem)
-	else:
-		_viaje_ok.rpc_id(quien, nuevo, bajando, dueno_nuevo, mem)
-
-
-# Solo host: 'quien' deja de simular el piso que tuviera. Si queda gente alli, se le pasa el
-# relevo con la foto (traspaso fiel: mismos bichos, mismas posiciones). Si no queda nadie, el piso
-# se CONGELA en la foto de sesion hasta que alguien vuelva.
-func _soltar_piso(quien: int, foto: Dictionary) -> void:
-	var piso: int = -1
-	for p in Net._dueno_piso:
-		if Net._dueno_piso[p] == quien:
-			piso = p
-			break
-	if piso < 0:
-		return
-	Net._dueno_piso.erase(piso)
-	# EL RELEVO A MEDIAS. Si 'quien' era el heredero de un traspaso que aun no ha confirmado, su foto
-	# llega VACIA (no llego a simular el piso: _foto_de_mi_piso exige ser dueño), pero la de verdad la
-	# tengo yo, la que le mande. Sin esto el piso se congelaba con {} y perdia todos sus enemigos.
-	var pend: Dictionary = Net._traspasos.get(piso, {})
-	Net._traspasos.erase(piso)
-	if foto.is_empty() and int(pend.get("heredero", 0)) == quien:
-		foto = pend.get("foto", {})
-	var heredero: int = _alguien_en(piso, quien)
-	if heredero == 0:
-		# Nadie mas: el piso queda congelado tal cual. Una foto VACIA no significa "piso vacio" (esa
-		# trae la clave "enemigos" aunque sea sin nadie), significa "no tengo foto": nunca pisa una buena.
-		# La ARENA no se congela (ver trabajadores._foto).
-		if piso == Game.PISO_ARENA:
-			Net._fotos_piso.erase(piso)
-		elif not foto.is_empty() or not Net._fotos_piso.has(piso):
-			Net._fotos_piso[piso] = foto
-		return
-	Net._dueno_piso[piso] = heredero
-	# Los OTROS que sigan en ese piso tiran sus espejos: el dueño nuevo va a recrear los bichos con
-	# ids nuevos y, sin esto, los verian por duplicado (se nota con 3-4 jugadores).
-	var lugar := "piso:%d" % piso
-	for pid in Net._peers:
-		if pid != heredero and Net._peers[pid].get("lugar", "") == lugar:
-			_limpiar_espejo.rpc_id(pid)
-	if heredero != 1 and not Net.soy_sala and PisoVivo.lleva(lugar):
-		_limpiar_espejo()
-	if heredero == 1:
-		_asumir_piso(piso, foto)
-	else:
-		# Me QUEDO la foto hasta que confirme (_piso_asumido): si se va antes de procesarla, es la unica
-		# copia que queda.
-		Net._traspasos[piso] = {"heredero": heredero, "foto": foto}
-		_asumir_piso.rpc_id(heredero, piso, foto)
-
-
-# Solo host: que 'piso' tenga dueño ANTES de repartirlo al humano (que asi entra de espejo). En la SALA lo monta ella
-# (etapa 2); fuera de ella, un trabajador libre si lo hay.
-func _asegurar_dueno(piso: int) -> void:
-	if Net.soy_sala and Net.servidor != null:
-		sala_montar(piso)
-	else:
-		Net._trab.asegurar_dueno(piso)
+	_viaje_ok.rpc_id(quien, nuevo, bajando)
 
 
 # ============================================================
@@ -909,6 +802,8 @@ var _sala_congelar: Dictionary = {}
 
 
 func sala_montar(piso: int) -> void:
+	if Net.servidor == null:
+		return
 	_sala_congelar.erase(piso)   # vuelve alguien antes de los 10 s: sigue tal cual
 	var lugar := "piso:%d" % piso
 	if Net.servidor.piso(piso) == null:
@@ -972,18 +867,6 @@ func sala_fotos_vivas() -> void:
 			Net._fotos_vivas[int(piso)] = _mem_a_red(Net.servidor.foto_de(int(piso)))
 
 
-# Solo host: nombra dueño de 'piso' a 'quien' si esta libre. Devuelve si le toca simularlo.
-func _asignar_dueno(piso: int, quien: int) -> bool:
-	var actual: int = Net._dueno_piso.get(piso, 0)
-	if actual == 0 or actual == quien or not _sigue_en(actual, piso):
-		Net._dueno_piso[piso] = quien
-		# Un HUMANO simula el piso (no habia trabajador libre): que se vea en el registro (12/10).
-		if quien != actual and not Net.es_trabajador(quien) and Net._trab.hay_trabajadores():
-			print("[autoridad] el piso %d lo simula el PC del jugador %d: no habia trabajador libre" % [piso, quien])
-		return true
-	return false
-
-
 # Solo host: un peer (distinto de 'salvo') que este en ese piso, o 0 si no hay nadie.
 func _alguien_en(piso: int, salvo: int) -> int:
 	var lugar := "piso:%d" % piso
@@ -1011,72 +894,15 @@ func _piso_de(quien: int) -> int:
 	return int(lugar.substr(5)) if lugar.begins_with("piso:") else -1
 
 
-# Solo host: ¿ese peer sigue realmente en ese piso? (dueño fantasma si se fue sin avisar).
-func _sigue_en(quien: int, piso: int) -> bool:
-	var lugar := "piso:%d" % piso
-	if quien == 1:
-		return PisoVivo.lleva(lugar)
-	if not Net._peers.has(quien):
-		return false
-	if Net._viajando.has(quien):
-		return int(Net._viajando[quien]) == piso   # va de camino: cuenta el piso AL QUE va, no el que deja
-	return Net._peers[quien].get("lugar", "") == lugar
-
-
-# Corre en EL VIAJERO: ya se sabe si simula el piso nuevo, asi que se puede reconstruir.
+# Corre en EL VIAJERO: ya puede reconstruir su piso (de espejo: lo lleva la sala).
 @rpc("any_peer", "call_remote", "reliable")
-func _viaje_ok(nuevo: int, bajando: bool, dueno: bool, mem: Dictionary) -> void:
+func _viaje_ok(nuevo: int, bajando: bool) -> void:
 	_olvidar_mis_enemigos()   # los del piso que dejo mueren con su escena
-	Net._soy_dueno = dueno
-	# Sembrar la memoria LOCAL con la foto de sesion: asi _restaurar_estado (el mismo codigo que
-	# en solitario) reconstruye el piso tal cual quedo. Si no lo simulo, se limpia para que no
-	# resucite bichos mios rancios: los vere por red.
-	if dueno and not mem.is_empty():
-		Game.memoria_pisos[nuevo] = _mem_de_red(mem)
-	else:
-		Game.memoria_pisos.erase(nuevo)
+	Net._soy_dueno = false
+	# Sin memoria local de ese piso: no resucita bichos mios rancios, los veo por red.
+	Game.memoria_pisos.erase(nuevo)
 	Game._cambiar_piso(nuevo, bajando)
 	Net.anunciar_lugar("piso:%d" % nuevo)
-
-
-# Corre en QUIEN HEREDA un piso donde ya esta de pie: sus cuerpos espejados se van y en su lugar
-# nacen los bichos de verdad, en las mismas posiciones y con las mismas stats.
-@rpc("any_peer", "call_remote", "reliable")
-func _asumir_piso(piso: int, mem: Dictionary) -> void:
-	if mi_piso() != piso:
-		# Ya no estoy ahi (me fui entre medias): que el host se lo pase a otro con la foto que guarda.
-		if not Net.es_host:
-			_piso_asumido.rpc_id(1, piso, false)
-		return
-	Net._soy_dueno = true
-	if not Net.es_host:
-		_piso_asumido.rpc_id(1, piso, true)
-	# CAIDA BRUSCA: al que se le corto la conexion no le dio tiempo a mandar la foto de su piso, y
-	# antes se heredaba PELADO (las paredes lo repoblaban de cero, delante de tus narices). Pero yo
-	# estaba alli VIENDO sus bichos: mis propios espejos son una foto casi fiel —tipo, posicion,
-	# tirada y heridas—. Se toma ANTES de tirarlos, que es justo lo siguiente que pasa.
-	if (mem.get("enemigos", []) as Array).is_empty():
-		mem = _foto_de_mis_espejos()
-	_limpiar_espejo()   # respeta los que esté peleando (ver alli)
-	var piso_nodo: Node = get_tree().get_first_node_in_group("dungeon_floor")
-	if piso_nodo != null and piso_nodo.has_method("adoptar_foto"):
-		piso_nodo.adoptar_foto(_mem_de_red(mem))
-
-
-# Solo host: el heredero de un traspaso contesta. Bien -> la copia guardada ya sobra. Mal (ya no estaba
-# en ese piso) -> si sigue apuntado como dueño, se suelta otra vez y la foto guardada va al siguiente.
-@rpc("any_peer", "call_remote", "reliable")
-func _piso_asumido(piso: int, ok: bool) -> void:
-	if not Net.es_host:
-		return
-	var de := multiplayer.get_remote_sender_id()
-	var pend: Dictionary = Net._traspasos.get(piso, {})
-	if ok:
-		if int(pend.get("heredero", 0)) == de:
-			Net._traspasos.erase(piso)
-		return
-	if int(Net._dueno_piso.get(piso, 0)) == de:
-		_soltar_piso(de, {})
 
 
 # --- FOTO de un piso: el formato de Game.memoria_pisos, apto para la red -----------------------
@@ -1084,45 +910,6 @@ func _piso_asumido(piso: int, ok: bool) -> void:
 # materiales del suelo (ver _item_a_dict). load() cachea, asi que al rehidratar sale la MISMA
 # instancia y la comparacion de identidad del boss (dungeon_floor._restaurar_estado) sigue valiendo.
 # El "suelo" NO va: en sesion los drops los lleva Net (_suelo/_drops); meterlos aqui los duplicaria.
-func _foto_de_mi_piso() -> Dictionary:
-	if not Net.activo or not Net._soy_dueno:
-		return {}
-	var piso := mi_piso()
-	if piso < 0:
-		return {}
-	var f: Node = get_tree().get_first_node_in_group("dungeon_floor")
-	if f != null and f.has_method("volcar_a_memoria"):
-		f.volcar_a_memoria()   # vuelca los bichos VIVOS de ahora mismo a Game.memoria_pisos
-	return _mem_a_red(Game.memoria_pisos.get(piso, {}))
-
-
-# La foto del piso reconstruida a partir de MIS ESPEJOS. Solo se usa al heredar un piso cuyo dueño
-# se cayo de golpe (ver _asumir_piso). No sale la ZONA (un espejo no la sabe: la ocupacion de cada
-# sala la llevaba el dueño), asi que se deja en -1 y la resuelve por posicion el que restaura.
-func _foto_de_mis_espejos() -> Dictionary:
-	var out: Array = []
-	for id in Net.enemigos._enem_nodos.keys():
-		var n = Net.enemigos._enem_nodos[id]   # SIN tipar: puede estar liberado (ver cabecera)
-		if not is_instance_valid(n) or n.data == null:
-			continue
-		if String(n.data.resource_path).is_empty():
-			continue
-		# LOS QUE ESTAN EN LA PELEA DE OTRA MAQUINA (un trabajador de pelea, o un compañero) no se heredan:
-		# siguen en esa pelea, y recrearlos aqui con id nuevo los dejaria DUPLICADOS (uno suelto por el mapa y
-		# otro peleando). Lo que pase en esa pelea ya no vuelve al piso (su dueño se ha ido con los ids viejos).
-		if int(n.get("pelea_de")) != 0 and not Game._active_enemies.has(n):
-			continue
-		out.append({"ruta": n.data.resource_path, "pos": n.global_position,
-			"t": n.current_t, "zona": -1, "muerto": n.esta_muerto(),
-			"hp": n.hp_restante, "mut": bool(n.mutante), "mutid": String(n.mutacion), "carga": float(n.carga),
-			# Lo que le queda al cadaver, como lo veia yo (12/10, ver _mem_a_red).
-			"pudre_q": float(n.pudre_quedan()) if n.esta_muerto() else -1.0,
-			"pudre_reloj": Time.get_unix_time_from_system()})
-	if not out.is_empty():
-		print("[piso] heredo sin foto (se cayo el dueño): la rehago con %d espejos mios" % out.size())
-	return {"enemigos": out}
-
-
 func _mem_a_red(mem: Dictionary) -> Dictionary:
 	var out: Array = []
 	for d in (mem.get("enemigos", []) as Array):
@@ -1160,26 +947,6 @@ func _olvidar_mis_enemigos() -> void:
 	if not Net.extraccion._extrayendo.is_empty():
 		Net.extraccion._extrayendo.clear()
 		Net.extraccion._difundir_extrayendo()   # y nadie debe seguir viendo esos cuerpos como ocupados
-
-
-# El dueño de un piso ha cambiado: los que sigan ahi tiran sus cuerpos espejados, porque el dueño
-# nuevo va a recrear los bichos con ids nuevos (si no, se verian por duplicado).
-#
-# MENOS los que estoy PELEANDO: el combate guarda esos nodos (Game._active_enemies) y borrarlos deja
-# la pelea con referencias muertas -> la pantalla se queda colgada y el jugador NO PUEDE MOVERSE.
-# Se quedan hasta que termine la pelea; al acabar, su resultado se resuelve en local (ver
-# remote_enemy.morir), porque para entonces el dueño al que habria que avisar ya no esta.
-@rpc("any_peer", "call_remote", "reliable")
-func _limpiar_espejo() -> void:
-	for id in Net.enemigos._enem_nodos.keys():
-		var n = Net.enemigos._enem_nodos[id]
-		if not is_instance_valid(n):
-			Net.enemigos._enem_nodos.erase(id)
-			continue
-		if Game.combate_activo() and Game._active_enemies.has(n):
-			continue   # esta en mi pelea: no se toca
-		n.retirar()
-		Net.enemigos._enem_nodos.erase(id)
 
 
 func _mem_de_red(mem: Dictionary) -> Dictionary:

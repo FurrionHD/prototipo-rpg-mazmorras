@@ -130,7 +130,7 @@ const MAX_CONEXIONES := 32
 # 40 (15/10): el BAUL, la BOLSA, la CARBONERA y los CRISTALES viajan CONTADOS (plan de optimizacion, fase 1A): un
 #     dict por monton con su "n", no uno por unidad (_set_almacen, _mi_estado, la mudanza...). Un cliente de antes
 #     leeria cada monton como una sola pieza.
-const PROTOCOLO := 40
+const PROTOCOLO := 41
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -220,9 +220,6 @@ var _dueno_piso: Dictionary = {}   # piso:int -> peer_id que lo simula (SOLO hos
 # un piso lleva segundos y el lugar solo llega al acabar: sin esto, si otro bajaba en esa ventana el
 # host no veia al viajero en el piso y nombraba DOS dueños (cada uno con sus bichos, sin verse).
 var _viajando: Dictionary = {}
-# piso -> {heredero, foto}: la foto que le mande a quien hereda un piso, hasta que confirme (SOLO host).
-# Ver _soltar_piso y _piso_asumido.
-var _traspasos: Dictionary = {}
 var _soy_dueno := false            # ¿simulo YO el piso en el que estoy? (cada maquina)
 var _peleando := false             # ¿estoy en un combate ahora mismo? (se difunde: ver avisar_combate)
 
@@ -711,7 +708,6 @@ func desconectar() -> void:
 	_mis_modales = []
 	_modales_de.clear()
 	lan_abierta = false
-	_traspasos.clear()
 	Game.vistos_mundo.clear()   # lo descubierto por los demas era de la sesion, no mio
 	_soy_dueno = false
 	_peleando = false
@@ -1607,12 +1603,8 @@ func _on_peer_disconnected(id: int) -> void:
 		if not ident_ida.is_empty() and hogar._roster_ajeno.erase(ident_ida):
 			hogar.marcar_hogar_sucio()
 		hogar._fotos_mandadas.erase(id)   # si vuelve es otra conexion, sin fotos: se le mandan de nuevo
-		# Si simulaba un piso, lo suelta SIN foto (se fue de golpe, no dio tiempo a sacarla): quien
-		# se quede lo hereda vacio y las paredes lo van repoblando. Es el precio de un corte brusco.
-		pisos._soltar_piso(id, {})
-		# TRABAJADORES: si el que se va es uno, su piso ya lo ha heredado un humano justo arriba (con la
-		# foto de sus espejos) y solo queda reponer la reserva. Si es un humano, el piso en el que estaba
-		# puede haberse quedado vacio.
+		# TRABAJADORES: si el que se va es uno, se repone la reserva. Si es un humano, el piso en el que estaba
+		# puede haberse quedado vacio (la sala lo congelara).
 		_viajando.erase(id)
 		if trabajador:
 			_trab.al_irse(id)
