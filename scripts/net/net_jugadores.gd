@@ -565,8 +565,8 @@ func unirme_a_la_pelea_del_jugador(peer: int) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _dime_tu_pelea() -> void:
-	var anfitrion: int = Net._mi_id() if Net.peleas._pelea_id != 0 else Net.peleas._pelea_anfitrion
-	_esta_es_mi_pelea.rpc_id(multiplayer.get_remote_sender_id(), anfitrion)
+	# El ID de mi pelea (etapa 3): de el sale quien la ejecuta.
+	_esta_es_mi_pelea.rpc_id(multiplayer.get_remote_sender_id(), Net.peleas.mi_pelea())
 
 
 @rpc("any_peer", "call_remote", "reliable")

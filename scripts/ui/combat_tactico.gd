@@ -345,14 +345,14 @@ func _recoger_de_la_arena(delta: float) -> void:
 	if not arena.enemigo_entra.is_connected(_entra_por_el_borde):
 		arena.enemigo_entra.connect(_entra_por_el_borde)
 	var de_fuera: Array = []
-	for n in _pantalla.get_tree().get_nodes_in_group("enemy"):
+	for n in PisoVivo.nodos_de(_pantalla, &"enemy"):
 		if is_instance_valid(n) and n is Node2D and not Game.esta_en_combate(n) \
 				and not (n.has_method("esta_muerto") and n.esta_muerto()) \
 				and not arena.contiene((n as Node2D).global_position):
 			de_fuera.append(n)
 	arena.vigilar(de_fuera)
 	var ahora: int = Time.get_ticks_msec()
-	for n in _pantalla.get_tree().get_nodes_in_group("enemy"):
+	for n in PisoVivo.nodos_de(_pantalla, &"enemy"):
 		if not is_instance_valid(n) or not (n is Node2D) or not arena.contiene((n as Node2D).global_position):
 			continue
 		if Game.esta_en_combate(n) or (n.has_method("esta_muerto") and n.esta_muerto()):
@@ -1007,7 +1007,7 @@ func _linea_suelo(a: Combatant, b: Combatant) -> Array:
 func linea_de_tiro_libre(a: Combatant, b: Combatant) -> bool:
 	if cuerpo_de(a) == null or cuerpo_de(b) == null:
 		return true
-	var piso: Node = Game.get_tree().get_first_node_in_group("dungeon_floor")
+	var piso: Node = PisoVivo.primero_de(_pantalla, &"dungeon_floor")
 	if piso == null or not piso.has_method("_pisable_px"):
 		return true
 	var l: Array = _linea_suelo(a, b)
@@ -1046,7 +1046,7 @@ func _toca_suelo(desde: Vector2, dir: Vector2, largo: float, e: Combatant) -> bo
 
 # Cuanto se puede ir por el suelo desde 'desde' hacia 'dir' antes de dar con pared (hasta 'largo').
 func _largo_hasta_pared(desde: Vector2, dir: Vector2, largo: float) -> float:
-	var piso: Node = Game.get_tree().get_first_node_in_group("dungeon_floor")
+	var piso: Node = PisoVivo.primero_de(_pantalla, &"dungeon_floor")
 	if piso == null or not piso.has_method("_pisable_px"):
 		return largo
 	var s: float = PASO_LINEA
@@ -1243,7 +1243,7 @@ func tick(delta: float) -> bool:
 		Game.camara_tactica_sigue(_foco.global_position)
 	# LA OSCURIDAD SIGUE A LA PELEA aunque el arbol este en pausa (jugando solo): con la niebla congelada, la luz y lo
 	# que se ve se quedaban como al empezar, y el compañero que andaba en su turno se metia en lo negro.
-	var niebla: Node = Game.get_tree().get_first_node_in_group("niebla")
+	var niebla: Node = PisoVivo.primero_de(_pantalla, &"niebla")
 	if niebla != null and niebla.has_method("seguir_en_pausa"):
 		niebla.seguir_en_pausa(delta)
 	_sigilo_visible(false)
@@ -4580,7 +4580,7 @@ func _en_arena(p: Vector2) -> bool:
 
 # ¿Toda la huella de ESTE cuerpo en 'p' cae sobre suelo que se pisa?
 func _sobre_suelo(p: Vector2, cuerpo: Node2D) -> bool:
-	var piso: Node = Game.get_tree().get_first_node_in_group("dungeon_floor")
+	var piso: Node = PisoVivo.primero_de(_pantalla, &"dungeon_floor")
 	if piso != null and piso.has_method("_pisable_px"):
 		var h: Rect2 = _huella(cuerpo)
 		for esquina in [h.position, Vector2(h.end.x, h.position.y),
@@ -6613,7 +6613,7 @@ func cabe_cria(p: Vector2, data: EnemyData, holgura: float = 4.0) -> bool:
 		return false
 	var caja: Rect2 = data.cuerpo_en() if data != null and data.tiene_cuerpo() else Rect2(-12, -8, 24, 16)
 	caja.position += p
-	var piso: Node = Game.get_tree().get_first_node_in_group("dungeon_floor")
+	var piso: Node = PisoVivo.primero_de(_pantalla, &"dungeon_floor")
 	if piso != null and piso.has_method("_pisable_px"):
 		for esquina in [caja.position, Vector2(caja.end.x, caja.position.y), Vector2(caja.position.x, caja.end.y), caja.end]:
 			if not piso._pisable_px(esquina):

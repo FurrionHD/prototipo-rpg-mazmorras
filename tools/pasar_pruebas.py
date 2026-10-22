@@ -99,6 +99,7 @@ AYUDANTES = {
     "prueba_solo_por_sala_cliente",
     "prueba_sala_pisos_cliente",
     "prueba_town_dos_pisos_b",
+    "prueba_town_dos_peleas_b",
 }
 
 # Las de RED: lanzan procesos (sala, trabajadores, otro jugador) y usan puertos fijos -> de una en una.
@@ -130,6 +131,7 @@ COMO_SE_LANZA = {
     "prueba_town_zona_ajena": NUBE_LOCAL,
     "prueba_town_baul_red": NUBE_LOCAL,
     "prueba_town_dos_pisos": NUBE_LOCAL,
+    "prueba_town_dos_peleas": NUBE_LOCAL,
     "prueba_town_crias_red": NUBE_LOCAL,
     "prueba_menu_por_sala": [{"despues": ["nube_local", "sala_vacia=6"]}],
     "prueba_sala_steam": NUBE_LOCAL,

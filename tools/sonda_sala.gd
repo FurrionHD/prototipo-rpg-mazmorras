@@ -83,6 +83,14 @@ func _datos() -> Dictionary:
 		d["foto_pos_%d" % int(piso)] = ";".join(en_foto.map(func(e): return "%d:%d" % [
 			int((e.get("pos", Vector2.ZERO) as Vector2).x), int((e.get("pos", Vector2.ZERO) as Vector2).y)]))
 	d["fotos"] = Net.hogar._fotos.size()
+	# LAS PELEAS DE LA SALA (etapa 3): cuantas lleva, en que pisos, y cuantos enemigos tiene reservados.
+	d["peleas"] = Net.peleas._peleas.size()
+	var lugares: Array = []
+	for pe in Net.peleas._peleas.values():
+		if is_instance_valid(pe):
+			lugares.append(pe.piso.lugar if is_instance_valid(pe.piso) else "?")
+	d["peleas_lugares"] = _lista(lugares)
+	d["reservas"] = Net.peleas._enem_ocupados.size()
 	return d
 
 

@@ -2276,7 +2276,7 @@ func _recoger_flechas() -> void:
 		for d in c.municion_disparada:
 			var md: MunicionData = d["md"]
 			var en: Combatant = d.get("en")
-			var dur: float = en.dureza if en != null else MunicionData.dureza_suelo(Game.current_floor)
+			var dur: float = en.dureza if en != null else MunicionData.dureza_suelo(PisoVivo.numero_de(self))
 			var rompe: float = en.rompe_flechas if en != null else 0.0
 			if randf() < md.prob_romper(int(d["cal"]), dur, rompe):
 				rotas += 1

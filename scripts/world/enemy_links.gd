@@ -78,7 +78,7 @@ func _recalcular() -> void:
 	# tocar uno de esos sueltos abria OTRA pelea en vez de meterte en la de tu compañero.
 	var cerca: Array = []
 	var peleas: Dictionary = {}   # anfitrion -> [bichos]
-	var yo: int = Net.multiplayer.get_unique_id() if Net.activo else 0
+	var yo: int = Net.peleas.mi_pelea() if Net.activo else 0   # la MIA, por su id (etapa 3)
 	for n in get_tree().get_nodes_in_group("enemy"):
 		if not is_instance_valid(n):
 			continue

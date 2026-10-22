@@ -1453,7 +1453,8 @@ func impacto_ajeno(emisor: int, pos: Vector2) -> void:
 
 
 func zona_ajena(emisor: int, anfitrion: int, rect: Rect2i, mascara: PackedByteArray) -> void:
-	if anfitrion == Net._mi_id() or not rect.has_area():
+	# 'anfitrion' es el ID DE LA PELEA desde la etapa 3 (todas las de la sala las ejecuta el mismo peer).
+	if anfitrion == Net.peleas.mi_pelea() or not rect.has_area():
 		return
 	if _zona_ya_acabada(anfitrion, rect):
 		return
@@ -1708,6 +1709,8 @@ func _montar_arena_tactica(rect_celdas: Rect2i, mascara: PackedByteArray = Packe
 	if pe.arena_nodo != null:
 		# La arena tiene que seguir viva y pintando con el arbol en pausa, igual que la pantalla.
 		pe.arena_nodo.process_mode = Node.PROCESS_MODE_ALWAYS
+	if Net.soy_sala:
+		return   # en la sala no hay mesa que despejar, ni zonas ajenas, ni camara
 	_montar_zonas_ajenas()   # las de los demas se esconden mientras peleo
 
 	# Y SE DESPEJA LA MESA: mientras peleas en el mapa, lo unico que se mira es el tablero.
@@ -1861,6 +1864,9 @@ func _desmontar_arena_tactica(acabada: bool = false, pe: PeleaViva = null) -> vo
 	if is_instance_valid(pe.arena_nodo):
 		pe.arena_nodo.queue_free()
 	pe.arena_nodo = null
+	if Net.soy_sala:
+		pe.zona = {}
+		return
 	_olvidar_zona_de_mi_pelea(acabada)
 	pe.zona = {}
 	_montar_zonas_ajenas()   # y vuelven a verse (si me he ido de una que sigue, la veo desde fuera)
@@ -15508,9 +15514,10 @@ func dar_cuerpo_a_cria(slot: int, data: EnemyData, pos: Vector2, t: float, pe: P
 	if pe.enemigos[slot] != null:
 		matar_enemigo_de_combate(pe.enemigos[slot])   # el cadaver al que releva (como un refuerzo)
 	pe.enemigos[slot] = null
-	if not Net.activo or Net._soy_dueno:
+	if not Net.activo or Net._soy_dueno or Net.soy_sala:
 		var yo: int = multiplayer.get_unique_id() if Net.activo else 0
-		_poner_cuerpo_de_cria(slot, nacer_cria_aqui(data, pos, t, yo), pe)
+		var lugar_cria: String = pe.piso.lugar if Net.soy_sala and is_instance_valid(pe.piso) else ""
+		_poner_cuerpo_de_cria(slot, nacer_cria_aqui(data, pos, t, yo, lugar_cria), pe)
 	else:
 		Net.peleas.pedir_cria(slot, String(data.resource_path), pos, t)
 
@@ -15860,8 +15867,8 @@ func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array, pe: Pel
 	if es_tactico:
 		_montar_arena_tactica(rect_arena, combat.arena_mascara, pe)
 		# Y a los de mi piso: la ven desde fuera, y el que se quedo quieto al impacto entra si le pilla dentro.
-		if Net.activo and not Net.soy_trabajador:
-			anunciar_mi_zona(Net._mi_id(), pe)
+		if Net.activo and not Net.soy_trabajador and not Net.soy_sala:
+			anunciar_mi_zona(pe.id, pe)
 	pe.montaje_ms = 0   # ya hay pantalla: el destrabe puede volver a vigilar
 	# El hechizo con el que has ABIERTO la pelea desde el mapa (ver player._impacto_conjuro): se
 	# resuelve dentro, contra el bicho al que le diste, antes del primer turno.
@@ -15882,6 +15889,17 @@ func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array, pe: Pel
 func _montar_pantalla_combate(combat: Node, jefe: int = -1, pe: PeleaViva = null) -> void:
 	if pe == null:
 		pe = pelea
+	# EN LA SALA (etapa 3): la pelea va colgada de SU pelea (que cuelga del piso), sin dibujar y sin nada de pantalla:
+	# ni musica, ni modal (pausaria el arbol, con todos los pisos dentro), ni mundo escondido, ni avisos. Varias a la vez.
+	if Net.soy_sala:
+		var capa := CanvasLayer.new()
+		capa.layer = 100
+		capa.visible = false
+		capa.process_mode = Node.PROCESS_MODE_ALWAYS
+		pe.add_child(capa)
+		capa.add_child(combat)
+		pe.capa = capa
+		return
 	# LA MUSICA DE PELEA. Va AQUI y no en start_combat porque por aqui pasan TODAS las peleas: la
 	# tuya, la del espejo que se une a la de otro y la que te embiste. Enganchandola arriba, el que
 	# se une entraria a pelear con la musica de la mazmorra puesta.
@@ -16916,17 +16934,22 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 	# remate -- no has ganado, pero tampoco es para tocar la marcha funebre.
 	# Se pulso Continuar: se corta el remate y vuelve la musica de debajo POR DONDE IBA. El remate
 	# ya sono al aparecer el boton, no aqui (ver combat._end).
-	Musica.desapilar()
-	Ambiente.pausar(false)
-	var acabada: bool = _pelea_en_pantalla_acabada()   # antes de soltar la pantalla (ver _olvidar_zona_de_mi_pelea)
-	salir_modal(pe.capa)
-	esconder_mundo(false)
+	# EN LA SALA (etapa 3) no hay pantalla ni jugador: solo la arena y lo de cada uno (abajo).
+	var en_sala: bool = Net.soy_sala
+	var acabada: bool = true
+	if not en_sala:
+		Musica.desapilar()
+		Ambiente.pausar(false)
+		acabada = _pelea_en_pantalla_acabada()   # antes de soltar la pantalla (ver _olvidar_zona_de_mi_pelea)
+		salir_modal(pe.capa)
+		esconder_mundo(false)
 	# La arena se va y la camara vuelve a su sitio. VA EN LOS DOS CIERRES (este y el del espejo):
 	# si se quedara puesta, seguirias jugando la mazmorra desde lejos y con un rectangulo pintado.
 	_desmontar_arena_tactica(acabada, pe)
-	_aplicar_huida(acabada)
-	_bloquear_interaccion_jugador()  # que la tecla que cerro el combate no ataque otra vez al salir
-	Net.jugadores.avisar_combate(false)
+	if not en_sala:
+		_aplicar_huida(acabada)
+		_bloquear_interaccion_jugador()  # que la tecla que cerro el combate no ataque otra vez al salir
+		Net.jugadores.avisar_combate(false)
 	# OJO: Net.peleas.cerrar_pelea() NO va aqui. Es la que le devuelve a cada humano lo que vivio su
 	# doble, y lo lee de la ficha del doble... que todavia no se ha actualizado con el resultado
 	# (eso pasa unas lineas mas abajo, con hp_left/mp_left/energy_left). Llamandola aqui se les
@@ -17034,15 +17057,16 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 	pe.enemigos.clear()
 	_soltar_cola_combate(pe)
 	pe.traspasados = []   # la marca dura solo este cierre
+	var lugar_ruido: String = pe.piso.lugar if en_sala and is_instance_valid(pe.piso) else ""
 	pe.piso = null
 
 	# ALBOROTO: una pelea mete ruido, y mas cuanto mas grande. El fragor llama a la pared: pelear
 	# es la forma mas directa de provocar un brote (y de que se te acumule si encadenas combates).
 	# (En un trabajador de pelea el ruido es del humano que la abrio: el brote sale delante de el.)
-	var causante: int = Net.peleas.causante_alboroto()
+	var causante: int = Net.peleas.causante_alboroto(pe)
 	if causante != 0:
 		print("[alboroto] la pelea que ejecuto es de %d: su ruido va a su nombre" % causante)
-	sumar_alboroto(ALBOROTO_COMBATE + ALBOROTO_KILL * float(muertos.size()), causante)
+	sumar_alboroto(ALBOROTO_COMBATE + ALBOROTO_KILL * float(muertos.size()), causante, lugar_ruido)
 
 	# Quitamos la capa del combate (con la pantalla dentro).
 	if is_instance_valid(pe.capa):

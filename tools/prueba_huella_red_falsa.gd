@@ -55,22 +55,22 @@ func salir_del_espejo() -> void:
 
 # --- TURNOS: anfitrion -> el espejo de ese humano ---
 
-func pedir_accion(peer: int, idx: int, seq: int = 0, radio: float = 0.0, preps: Array = []) -> void:
+func pedir_accion(peer: int, idx: int, seq: int = 0, radio: float = 0.0, preps: Array = [], _pe: PeleaViva = null) -> void:
 	if is_instance_valid(espejos.get(peer)):
 		espejos[peer].turno_mio(idx, seq, radio, preps)
 
 
-func pedir_frase(peer: int, idx: int, opciones: Array, nombre: String, largo: int, seq: int = 0) -> void:
+func pedir_frase(peer: int, idx: int, opciones: Array, nombre: String, largo: int, seq: int = 0, _pe: PeleaViva = null) -> void:
 	if is_instance_valid(espejos.get(peer)):
 		espejos[peer].recitar_frase(idx, opciones, nombre, largo, seq)
 
 
-func pedir_disparo(peer: int, nombre: String, seq: int = 0) -> void:
+func pedir_disparo(peer: int, nombre: String, seq: int = 0, _pe: PeleaViva = null) -> void:
 	if is_instance_valid(espejos.get(peer)):
 		espejos[peer].lanzar_conjuro(nombre, seq)
 
 
-func pedir_soltar(peer: int, nombre: String, seq: int = 0) -> void:
+func pedir_soltar(peer: int, nombre: String, seq: int = 0, _pe: PeleaViva = null) -> void:
 	if is_instance_valid(espejos.get(peer)):
 		espejos[peer].soltar_carga(nombre, seq)
 

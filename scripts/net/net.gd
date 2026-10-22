@@ -133,7 +133,7 @@ const MAX_CONEXIONES := 32
 # 41 (21/10): fase 2, etapa 2: la sala lleva todos los pisos; fuera los trabajadores de piso, traspasos y herederos.
 # 42 (22/10): fuera los reenvios a un dueño de piso CLIENTE y sus relevos de vuelta (net_enemigos _rel_spawn/_rel_tick...,
 #     net_peleas _rel_resultado/_rel_cria..., net_extraccion, net_pesca _rel_charco/_charco_guardar...): cambian los RPC.
-const PROTOCOLO := 42
+const PROTOCOLO := 43
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -1625,14 +1625,17 @@ func _on_peer_disconnected(id: int) -> void:
 	# SE LE HA CAIDO LA CONEXION a alguien de MI pelea (fase 5 de la BD): sus personajes se quedan un
 	# rato y juegan solos (ver Net.peleas.marcar_caido). Solo si de verdad no se puede (no son suyos los
 	# dobles), salen como antes.
-	if peleas._pelea_id != 0 and peleas._pelea_participantes.has(id) and peleas.marcar_caido(id, ident_caido):
+	# (Etapa 3: en la sala, SU pelea de las que lleva.)
+	var pe_suya: PeleaViva = peleas._pe_de_peer(id)
+	var en_la_suya: bool = pe_suya != null and pe_suya.id != 0 and pe_suya.participantes.has(id)
+	if en_la_suya and peleas.marcar_caido(id, ident_caido):
 		pass
 	# Si se ha ido alguien que estaba en MI pelea, sus personajes salen de ella (y sus reservas ya
 	# las suelta el host mas arriba). Si no, la pelea esperaria un turno que no va a llegar nunca.
-	elif peleas._pelea_id != 0 and peleas._pelea_participantes.has(id):
-		peleas._pelea_participantes.erase(id)
-		peleas._dobles.erase(id)
-		var mia: Node = peleas._pantalla_combate()
+	elif en_la_suya:
+		pe_suya.participantes.erase(id)
+		pe_suya.dobles.erase(id)
+		var mia: Node = peleas._pantalla_combate(pe_suya)
 		if mia != null and mia.has_method("sacar_a"):
 			mia.sacar_a(id)
 	# Solo avisar de gente que llego a ENTRAR (registrada): un intento rechazado por codigo

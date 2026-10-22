@@ -622,7 +622,7 @@ func _aplicar_volatil(c: Combatant, v: Dictionary) -> void:
 # mios) y los enemigos marcados con "id_pelea", que su entrada en memoria_pisos lleva consigo: es lo que
 # los reconoce al reconstruir el piso.
 func estado_para_guardar() -> Dictionary:
-	for n in _pantalla.get_tree().get_nodes_in_group("enemy"):
+	for n in PisoVivo.nodos_de(_pantalla, &"enemy"):
 		if is_instance_valid(n) and n.has_meta("id_pelea"):
 			n.remove_meta("id_pelea")   # de una pelea anterior: no puede confundirse con los de esta
 	var als: Array = []
@@ -854,14 +854,14 @@ func _enviar_peticion() -> void:
 	match String(pet.get("tipo", "")):
 		"accion":
 			Net.peleas.pedir_accion(_pantalla._esperando_a, int(pet.get("idx", 0)), seq,
-				float(pet.get("radio", 0.0)), pet.get("preps", []) as Array)
+				float(pet.get("radio", 0.0)), pet.get("preps", []) as Array, _pantalla.pelea)
 		"frase":
 			Net.peleas.pedir_frase(_pantalla._esperando_a, int(pet.get("idx", 0)), pet.get("opciones", []),
-				String(pet.get("nombre", "")), int(pet.get("largo", 1)), seq)
+				String(pet.get("nombre", "")), int(pet.get("largo", 1)), seq, _pantalla.pelea)
 		"disparo":
-			Net.peleas.pedir_disparo(_pantalla._esperando_a, String(pet.get("nombre", "")), seq)
+			Net.peleas.pedir_disparo(_pantalla._esperando_a, String(pet.get("nombre", "")), seq, _pantalla.pelea)
 		"soltar":
-			Net.peleas.pedir_soltar(_pantalla._esperando_a, String(pet.get("nombre", "")), seq)
+			Net.peleas.pedir_soltar(_pantalla._esperando_a, String(pet.get("nombre", "")), seq, _pantalla.pelea)
 
 
 # Deja de esperar (llego su respuesta, o se fue).

@@ -221,7 +221,7 @@ func _difundir_posiciones_enemigos() -> void:
 		# El SEXTO, el contador de embestidas: con el suena la embestida en los PCs que solo la espejan.
 		# El SEPTIMO, si esta EMBISTIENDO ahora mismo: es lo que hace que el espejo enseñe el gesto de
 		# ataque ENTERO y no solo el parpadeo del aviso (ver enemy.estado_visual_red).
-		lote.append([id, (nd as Node2D).global_position, est[0], est[1], Net.peleas._anfitrion_de_enemigo(id, nd),
+		lote.append([id, (nd as Node2D).global_position, est[0], est[1], Net.peleas._pelea_del_enemigo(id, nd),
 			est[2] if est.size() >= 3 else 0, est[3] if est.size() >= 4 else false])
 	if not Net.es_host:
 		return
