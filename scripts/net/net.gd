@@ -133,7 +133,7 @@ const MAX_CONEXIONES := 32
 # 41 (21/10): fase 2, etapa 2: la sala lleva todos los pisos; fuera los trabajadores de piso, traspasos y herederos.
 # 42 (22/10): fuera los reenvios a un dueño de piso CLIENTE y sus relevos de vuelta (net_enemigos _rel_spawn/_rel_tick...,
 #     net_peleas _rel_resultado/_rel_cria..., net_extraccion, net_pesca _rel_charco/_charco_guardar...): cambian los RPC.
-const PROTOCOLO := 43
+const PROTOCOLO := 44
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -443,6 +443,7 @@ func _dueno_de(lugar: String) -> int:
 
 # Aviso corto en MI pantalla (el HUD es local: los avisos no se replican).
 func _toast(texto: String) -> void:
+	print("[toast] ", texto)   # tambien al registro: las pruebas miran que no salga un aviso que no toca
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud != null and hud.has_method("mostrar_toast"):
 		hud.mostrar_toast(texto)

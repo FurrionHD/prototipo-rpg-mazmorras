@@ -474,22 +474,21 @@ func atacado_por_jugador(golpe_dur: float = -1.0) -> bool:
 		return true
 	_pidiendo_pelea = true
 	Medidor.empezar("pelea", "golpe")   # cuanto tarda en abrirse (fase 0 del plan de optimizacion)
-	# EL ESPADAZO SE VE ENTERO, tambien contra un espejo. La pelea se pide cuando el golpe termina,
-	# no en el mismo fotograma de la pulsacion: es el mismo respiro que se da el bicho de verdad en
-	# enemy._iniciar_impacto (_impacto_t), y sin el la pantalla de combate se llevaba la escena a
-	# mitad de la animacion. Ver _tick_peticion.
+	# EL ESPADAZO SE VE ENTERO, tambien contra un espejo: la pantalla no se abre hasta que el golpe TOCA (es el mismo
+	# respiro que se da el bicho de verdad en enemy._iniciar_impacto). Ver _tick_peticion.
 	_peticion_t = golpe_dur if golpe_dur > 0.0 else 0.0
+	# PERO LA PELEA SE PIDE YA, AL PULSAR (etapa 3, paso 5): los viajes a la sala van mientras dura el espadazo. Con la
+	# respuesta van mis fichas y lo que le queda al golpe, y la sala la monta justo al tocar (Net.peleas.golpe_hasta).
+	# Antes se pedia al acabar el golpe: dos viajes de ida y vuelta DESPUES del toque, y el "ese enemigo ya esta
+	# peleando con otro" salia tarde, con el espadazo ya dado.
+	Net.peleas.golpe_hasta(_peticion_t)
+	_pedir_pelea_ya()
 	if _peticion_t <= 0.0:
 		_lanzar_peticion()
 	return true
 
 
-# Se acabo el espadazo: ahora si se le pide la pelea al dueño del piso.
-func _lanzar_peticion() -> void:
-	_peticion_t = -1.0
-	_pidiendo_pelea = false
-	if muerto or not has_meta("net_id"):
-		return
+func _pedir_pelea_ya() -> void:
 	# YA lo esta peleando alguien. Esto era un callejon sin salida: el bicho de verdad si tenia la via
 	# para ECHAR UNA MANO (enemy.gd) y el espejo se la habia quedado sin ella, asi que si el piso lo
 	# simulaba tu compañero no habia forma de entrar en su pelea pegandole a un bicho.
@@ -498,8 +497,18 @@ func _lanzar_peticion() -> void:
 		return
 	Medidor.marca("pelea", "pedida")
 	Game.marcar_entrando_en_pelea()   # le he pegado: quieto hasta que se abra (o me digan que no)
-	Game.avisar_impacto(global_position)   # y el compañero que este cerca, tambien (ver Game.impacto_ajeno)
 	Net.peleas.solicitar_pelea(get_meta("net_id"))
+
+
+# Se acabo el espadazo (la pelea ya esta pedida desde la pulsacion): el compañero que este cerca se queda quieto al
+# impacto (ver Game.impacto_ajeno) y se puede volver a pegar.
+func _lanzar_peticion() -> void:
+	_peticion_t = -1.0
+	_pidiendo_pelea = false
+	if muerto or not has_meta("net_id"):
+		return
+	if not Net.peleas.espejando():
+		Game.avisar_impacto(global_position)
 
 
 # Corre SIEMPRE, tambien antes del primer paquete de posicion (por eso esta arriba del todo de

@@ -30,8 +30,12 @@ func _ready() -> void:
 	if suya != null and jugador != null:
 		jugador.recolocar(suya.global_position + Vector2(-40, 0))
 		await _esperar(0.3)
-		suya.atacado_por_jugador(0.3)
+		var t0: int = Time.get_ticks_msec()
+		suya.atacado_por_jugador(0.6)
 		_ok(await _hasta(func(): return Game.hay_pelea_en_pantalla(), 15.0), "entro en la pelea de A")
+		var t: float = float(Time.get_ticks_msec() - t0) / 1000.0
+		# (La zona de A puede meterme antes si me pilla dentro: entonces no hay golpe que esperar.)
+		_ok(t <= 1.0, "RESERVAR AL PULSAR: entro como mucho al tocar mi golpe de 0,6 s (a los %.2f s)" % t)
 		print("[B] dato pelea_unida=%d" % Net.peleas._pelea_sigo)
 		_ok(await pelear_hasta_el_final(90.0), "ganamos la pelea")
 

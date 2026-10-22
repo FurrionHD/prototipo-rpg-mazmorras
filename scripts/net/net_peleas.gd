@@ -32,6 +32,11 @@ var _mis_en_pelea: Array = []      # los que ofreci al unirme, en orden de forma
 var _ultimas_fichas_union: Array = []
 var _saltos_union: int = 0
 var _ultima_pelea_union: int = 0   # a que pelea pedi entrar (su id)
+# CUANDO TOCA MI ESPADAZO (etapa 3, paso 5): la pelea se pide al pulsar y la sala espera a este momento para montarla
+# (ver golpe_hasta). msec del reloj del motor; en el pasado = no hay golpe en curso.
+var _golpe_hasta_ms: int = 0
+# Lo mas que la sala espera a un golpe (por si llega un numero raro).
+const ESPERA_GOLPE_MAX := 1.0
 const SALTOS_UNION_MAX := 5
 const ESPERA_REINTENTO_UNION := 0.6
 var _mis_huecos: Dictionary = {}   # hueco en la fila de aliados -> mi PersonajeData
@@ -75,6 +80,16 @@ const ESPERA_MONTANDO := 0.15
 @warning_ignore("integer_division")
 static func ejecutor_de(pelea: int) -> int:
 	return pelea / ID_POR_PEER if pelea > 0 else 0
+
+
+# Al pulsar el ataque (remote_enemy.atacado_por_jugador): el golpe toca dentro de 'dur' segundos.
+func golpe_hasta(dur: float) -> void:
+	_golpe_hasta_ms = Time.get_ticks_msec() + int(maxf(dur, 0.0) * 1000.0)
+
+
+# Lo que le queda a mi golpe, en segundos (0 = ya ha tocado, o no hay): viaja con las fichas.
+func _espera_golpe() -> float:
+	return clampf(float(_golpe_hasta_ms - Time.get_ticks_msec()) / 1000.0, 0.0, ESPERA_GOLPE_MAX)
 
 
 # La pelea en la que estoy (la que ejecuto o la que espejo); 0 = ninguna.
@@ -381,10 +396,14 @@ func _pelea_en_ejecutor(ids: Array, emboscada: bool, ejecutor: int) -> void:
 # esos bichos y se le abre el espejo. Si ya no se puede (entre medias ha empezado otra), se le devuelven
 # los bichos para que la monte el, como siempre: nunca queda peor que antes.
 @rpc("any_peer", "call_remote", "reliable")
-func _abre_mi_pelea(ids: Array, emboscada: bool, fichas: Array, vel: float = 1.0) -> void:
+func _abre_mi_pelea(ids: Array, emboscada: bool, fichas: Array, vel: float = 1.0, espera: float = 0.0) -> void:
 	Medidor.marca("pelea", "trabajador_abre")
 	var quien := multiplayer.get_remote_sender_id()
 	if Net.soy_sala:
+		# AL TOCAR SU GOLPE (etapa 3, paso 5): la pidio al pulsar; se monta cuando su espadazo llega, ni antes (su
+		# pantalla se abriria a mitad de la animacion) ni despues (es lo que se ahorra).
+		if espera > 0.0:
+			await get_tree().create_timer(minf(espera, ESPERA_GOLPE_MAX), true).timeout
 		_abre_en_la_sala(quien, ids, emboscada, fichas, vel)
 		return
 	_pelea_humano = quien
@@ -542,8 +561,11 @@ func _llega_pelea(ids: Array, emboscada: bool, anfitrion: int, ejecutor: int) ->
 		if anfitrion != 0:
 			solicitar_unirse(anfitrion)
 		else:
+			# NO HAY PELEA QUE DAR (etapa 3, paso 5): el golpe se queda en golpe, SIN aviso. La peticion sale al
+			# pulsar, asi que esto llega con el espadazo aun en el aire; antes salia "Ese enemigo ya esta peleando
+			# con otro" despues de pegar, que es justo lo que no se quiere.
+			print("[pelea] no hay pelea que dar con ese enemigo: el golpe se queda en golpe")
 			Game.soltar_entrando_en_pelea()
-			Net._toast("Ese enemigo ya está peleando con otro.")
 		return
 	# ESTOY ESPEJANDO una pelea: estos bichos me han alcanzado a MI, pero la pelea la ejecuta la sala y los
 	# combatientes son suyos. Se los paso para que los meta en ella. Asi un enemigo puede entrar por CUALQUIERA de
@@ -569,7 +591,7 @@ func _llega_pelea(ids: Array, emboscada: bool, anfitrion: int, ejecutor: int) ->
 		_fichas_mandadas_a = ejecutor
 		_fichas_ids = ids.duplicate()
 		_fichas_emboscada = emboscada
-		_abre_mi_pelea.rpc_id(ejecutor, ids, emboscada, _fichas_de_mi_grupo(), Game.velocidad_combate)
+		_abre_mi_pelea.rpc_id(ejecutor, ids, emboscada, _fichas_de_mi_grupo(), Game.velocidad_combate, _espera_golpe())
 		return
 	# NINGUNA PELEA EN EL PC DE UN JUGADOR (etapa 3, paso 4): todas las ejecuta la sala, y aqui solo hay espejos.
 	# Lo que llegue sin a quien mandarle las fichas vuelve al piso (y el conjuro que viajaba, a su nota).
@@ -1179,7 +1201,7 @@ func solicitar_unirse(pelea: int) -> void:
 	_ultimas_fichas_union = _fichas_de_mi_grupo()
 	_ultima_pelea_union = pelea
 	_saltos_union = 0
-	_pedir_unirme.rpc_id(a, _ultimas_fichas_union, pelea)
+	_pedir_unirme.rpc_id(a, _ultimas_fichas_union, pelea, _espera_golpe())
 
 
 # LAS FICHAS DE MI GRUPO para una pelea que se ejecuta en OTRA maquina (unirme a la de otro, o la que me
@@ -1220,9 +1242,12 @@ func _mi_formacion() -> Array:
 # Corre en EL ANFITRION: alguien quiere entrar en mi pelea, con la ficha de su personaje. En la sala, en la pelea
 # 'pelea' (su id: lleva varias).
 @rpc("any_peer", "call_remote", "reliable")
-func _pedir_unirme(fichas: Array, pelea: int = 0) -> void:
+func _pedir_unirme(fichas: Array, pelea: int = 0, espera: float = 0.0) -> void:
 	Medidor.marca("pelea_compa", "anfitrion_recibe_union")
 	var quien := multiplayer.get_remote_sender_id()
+	# Entra al tocar su golpe, como al abrir una (ver _abre_mi_pelea).
+	if espera > 0.0 and Net.soy_sala:
+		await get_tree().create_timer(minf(espera, ESPERA_GOLPE_MAX), true).timeout
 	var pe: PeleaViva = _peleas.get(pelea) if Net.soy_sala else Game.pelea
 	if pe == null:
 		print("[Net.unirse] DENIEGO a ", quien, ": la pelea ", pelea, " ya no esta")
@@ -1324,7 +1349,7 @@ func _union_redirigida(pelea: int) -> void:
 	if not _reintentar_union() or ejecutor_de(pelea) == 0:
 		return
 	_ultima_pelea_union = pelea
-	_pedir_unirme.rpc_id(ejecutor_de(pelea), _ultimas_fichas_union, pelea)
+	_pedir_unirme.rpc_id(ejecutor_de(pelea), _ultimas_fichas_union, pelea, _espera_golpe())
 
 
 # Corre en EL QUE SE UNE: la pelea aun se esta montando en la maquina de quien he pillado; se vuelve a pedir en un rato.
@@ -1336,7 +1361,7 @@ func _union_reintenta() -> void:
 	await get_tree().create_timer(ESPERA_REINTENTO_UNION).timeout
 	if Game.combate_activo() or espejando() or _ultimas_fichas_union.is_empty():
 		return
-	_pedir_unirme.rpc_id(a, _ultimas_fichas_union, _ultima_pelea_union)
+	_pedir_unirme.rpc_id(a, _ultimas_fichas_union, _ultima_pelea_union, _espera_golpe())
 
 
 func _reintentar_union() -> bool:

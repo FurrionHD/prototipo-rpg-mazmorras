@@ -3,7 +3,9 @@
 # en prueba_town_dos_peleas_b_guion.gd. Lo de la sala, en sus lineas "[S] dato".
 #   1) A y B en el piso 1, cada uno pelea con un enemigo distinto, a la vez: la sala lleva DOS peleas en el piso 1.
 #      Las dos acaban, la sala se queda sin peleas y sin reservas.
-#   2) B entra en la pelea de A pegandole a uno de sus enemigos: UNA pelea, el mismo id para los dos.
+#   2) B entra en la pelea de A pegandole a uno de sus enemigos: UNA pelea, el mismo id para los dos. RESERVAR AL PULSAR
+#      (paso 5): A abre la suya con un espadazo de 0,6 s y B entra con otro: a los dos se les abre la pantalla AL TOCAR
+#      el golpe (no antes, y casi nada despues: los viajes van durante el espadazo).
 #   3) B baja al 2. A mi me EMBISTE un enemigo sin que yo ataque (el empuje en la sala, que rebotaba) mientras B pelea
 #      en el 2: una pelea en cada piso.
 #   4) B se cae a mitad de su pelea: su pelea sigue sola (cortesia) mientras yo peleo la mia, y al final la sala se
@@ -60,13 +62,24 @@ func _a_la_vez(fase: int, lugares: String) -> void:
 	await _sala_limpia("las dos")
 
 
-# 2) B entra en mi pelea.
+# Le pego con un espadazo de 'golpe' segundos y mido cuanto tarda en abrirse mi pantalla.
+func _al_pulsar(presa: Node2D, golpe: float) -> float:
+	var jugador: Node2D = get_tree().get_first_node_in_group("player") as Node2D
+	jugador.recolocar(presa.global_position + Vector2(40, 0))
+	var t0: int = Time.get_ticks_msec()
+	presa.atacado_por_jugador(golpe)
+	await _hasta(func(): return Game.hay_pelea_en_pantalla(), 10.0)
+	return float(Time.get_ticks_msec() - t0) / 1000.0
+
+
+# 2) B entra en mi pelea. La mia la abro con un espadazo de 0,6 s: la pantalla, al tocar.
 func _b_se_une(fase: int) -> void:
 	var presa: Node2D = enemigo_libre()
 	_ok(presa != null, "hay un enemigo libre para mi (fase %d)" % fase)
 	if presa == null:
 		return
-	await pelear_con(presa)
+	var t: float = await _al_pulsar(presa, 0.6)
+	_ok(t >= 0.5 and t <= 1.0, "RESERVAR AL PULSAR: mi pantalla se abre al tocar el golpe de 0,6 s (a los %.2f s)" % t)
 	_en_espejo_de_la_sala("fase %d" % fase)
 	var mia: int = Net.peleas._pelea_sigo
 	escribir_fase(fase, [int(presa.get_meta("net_id"))])
