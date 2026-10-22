@@ -64,7 +64,7 @@ func _ready() -> void:
 	await pelear_con(enemigo_libre(Net.posicion_de_peer(peer_a)))
 	_ok(Net.peleas.espejando() and not Game.combate_activo(),
 		"mi pelea la ejecuta otro y yo la espejo (anfitrion=%d)" % Net.peleas._pelea_anfitrion)
-	print("[B] dato anfitrion_fase2=%d" % Net.peleas._pelea_anfitrion)
+	print("[B] dato anfitrion_fase2=%d" % Net.peleas._pelea_sigo)   # el ID de mi pelea (etapa 3)
 	_ok(await pelear_hasta_el_final(60.0), "mi pelea termina")
 	_ok(excelia_grupo() > excelia_antes, "me llega la excelia de mi pelea (%.2f -> %.2f)" % [excelia_antes, excelia_grupo()])
 	print("[B] dato fase2_fin")
@@ -74,8 +74,8 @@ func _ready() -> void:
 	var id_enemigo: int = int(fase[1]) if fase.size() > 1 else 0
 	var su_anfitrion: int = int(fase[2]) if fase.size() > 2 else 0
 	await pelear_con(enemigo_libre(Vector2.INF, id_enemigo))
-	_ok(Net.peleas.espejando() and Net.peleas._pelea_anfitrion == su_anfitrion,
-		"me uno a la pelea de A (anfitrion=%d, el suyo=%d)" % [Net.peleas._pelea_anfitrion, su_anfitrion])
+	_ok(Net.peleas.espejando() and Net.peleas._pelea_sigo == su_anfitrion,
+		"me uno a la pelea de A (pelea %d, la suya %d)" % [Net.peleas._pelea_sigo, su_anfitrion])
 	# EL REGISTRO ENTERO al unirme a mitad: la primera frase de la pelea (la de la iniciativa) se escribio
 	# antes de que yo llegara, asi que solo la tengo si el espejo ha pedido el registro por el hueco.
 	var reg: Array = []

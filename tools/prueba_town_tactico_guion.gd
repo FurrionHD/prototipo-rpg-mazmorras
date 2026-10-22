@@ -49,8 +49,8 @@ func _ready() -> void:
 		t += 0.25
 		p = pantalla()
 	_ok(p != null and bool(p.tactico), "la pelea se abre EN EL MAPA")
-	_ok(p != null and Net.peleas.espejando() and es_trabajador(Net.peleas._pelea_anfitrion),
-		"la pelea la ejecuta un TRABAJADOR (anfitrion=%d) y yo la veo en espejo" % Net.peleas._pelea_anfitrion)
+	_ok(p != null and Net.peleas.espejando() and Net.peleas.ejecutor_de(Net.peleas._pelea_sigo) == 1,
+		"la pelea la ejecuta la SALA (pelea %d) y yo la veo en espejo" % Net.peleas._pelea_sigo)
 	_ok(Game.pelea_tactica_en_curso(), "con su arena montada en mi mapa")
 	if p == null or not bool(p.tactico):
 		await _fin()

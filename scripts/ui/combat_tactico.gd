@@ -4484,7 +4484,7 @@ func _tick_alcances() -> void:
 
 
 func _arena() -> ArenaCombate:
-	var a = Game.get("_arena_nodo")
+	var a = _pantalla.pelea.arena_nodo   # la de SU pelea (etapa 3: en la sala hay varias)
 	return a as ArenaCombate if is_instance_valid(a) else null
 
 
@@ -6830,6 +6830,11 @@ var _cria_red: Dictionary = {}   # Combatant -> segundos esperando su vuelo
 
 func cria_por_llegar(c: Combatant) -> void:
 	_cria_red[c] = 0.0
+	# YA, no en el proximo _tick_cria_red (etapa 3): con la sala ejecutando, su cuerpo y este aviso llegan casi a la vez,
+	# y en ese fotograma la cria se veia formada antes de su vuelo (prueba_town_crias_red).
+	var cu: Node2D = cuerpo_de(c)
+	if cu != null:
+		cu.visible = false
 
 
 func _tick_cria_red(delta: float) -> void:

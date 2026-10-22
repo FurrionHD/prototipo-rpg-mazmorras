@@ -3,7 +3,7 @@
 # Comprueba lo que se ve desde A y lo que B apunta en su registro (lineas "[B] ...").
 #   0) las fotos de los personajes de casa y el equipo de B
 #   1) los dos bajan al piso 1
-#   2) DOS PELEAS A LA VEZ, cada una en un trabajador de pelea distinto
+#   2) DOS PELEAS A LA VEZ, las dos en la sala (etapa 3: cada una con su id)
 #   3) B se UNE a la pelea de A y HUYE: la pelea sigue para A
 #   4) la arena de pruebas, compartida
 extends "res://tools/prueba_town_sala_comun.gd"
@@ -65,22 +65,19 @@ func _ready() -> void:
 	var bo = yo.get("_barras_otros") if yo != null else null
 	await _esperar(0.5)
 	_ok(bo != null and bo.ancho() > 0.0, "y salen en mi barra de arriba, detras de las mias")
-	_ok(await hasta_sala("pelea_libre_1", func(v): return int(v) != 0, 40.0),
-		"hay un trabajador de pelea esperando en el piso 1 (%s)" % dato_sala("pelea_libre_1"))
 	await _esperar(3.0)
 
-	# 2) DOS PELEAS A LA VEZ. Abro la mia; en cuanto haya otro de pelea esperando (y haya cargado), B abre la suya.
+	# 2) DOS PELEAS A LA VEZ. Abro la mia y B abre la suya: las dos las lleva la sala (etapa 3), cada una con su id.
 	var excelia_antes := excelia_grupo()
 	await pelear_con(enemigo_libre(Net.posicion_de_peer(_b())))
-	var f_mia: int = Net.peleas._pelea_anfitrion
-	_ok(Net.peleas.espejando() and _de_pelea(f_mia), "mi pelea la ejecuta un trabajador de pelea (%d)" % f_mia)
-	await hasta_sala("pelea_libre_1", func(v): return int(v) != 0 and int(v) != f_mia, 30.0)
-	await _esperar(4.0)   # que cargue el piso y reciba los enemigos
+	var f_mia: int = Net.peleas._pelea_sigo
+	_ok(Net.peleas.espejando() and Net.peleas.ejecutor_de(f_mia) == 1, "mi pelea la ejecuta la sala (%d)" % f_mia)
 	escribir_fase(2)
-	_ok(await hasta_sala("peleando", func(v): return int(v) >= 2, 20.0),
-		"DOS peleas a la vez, en %s trabajadores de pelea" % dato_sala("peleando"))
+	_ok(await hasta_sala("peleas", func(v): return int(v) >= 2, 20.0),
+		"DOS peleas a la vez en la sala (%s)" % dato_sala("peleas"))
 	var f_b: int = await _dato_de_b("anfitrion_fase2", 20.0)
-	_ok(f_b != 0 and f_b != f_mia and _de_pelea(f_b), "la de B va en OTRO trabajador de pelea (%d, la mia %d)" % [f_b, f_mia])
+	_ok(f_b != 0 and f_b != f_mia and Net.peleas.ejecutor_de(f_b) == 1,
+		"la de B es OTRA pelea de la sala (%d, la mia %d)" % [f_b, f_mia])
 	_ok(await pelear_hasta_el_final(60.0), "mi pelea termina")
 	_ok(excelia_grupo() > excelia_antes, "me llega la excelia de mi pelea")
 	await _dato_de_b("fase2_fin", 60.0)
@@ -88,7 +85,7 @@ func _ready() -> void:
 
 	# 3) B se UNE a mi pelea y HUYE. Yo solo DEFIENDO (una rata muere de un golpe y la pelea se acabaria antes).
 	await pelear_con(enemigo_libre(Net.posicion_de_peer(_b())))
-	var f3: int = Net.peleas._pelea_anfitrion
+	var f3: int = Net.peleas._pelea_sigo   # el ID de mi pelea (etapa 3): es lo que lleva cada enemigo en pelea_de
 	_ok(Net.peleas.espejando(), "abro la pelea a la que se va a unir B")
 	var id_suyo := 0
 	t = 0.0
@@ -165,10 +162,6 @@ func _ready() -> void:
 
 
 # ¿Ese peer es un trabajador puesto en su piso para peleas? (lo dice la sala)
-func _de_pelea(peer: int) -> bool:
-	return peer != 0 and dato_sala("de_pelea").split(",").has(str(peer))
-
-
 # Veo la cara y la foto del personaje de casa 'uid' de otro, como las pinta Encargos.
 func _veo_foto_de(uid: String, plazo: float) -> bool:
 	var t := 0.0
