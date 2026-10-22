@@ -15472,6 +15472,7 @@ func unir_enemigo_al_combate(nodo: Node, hueco: int = -1, pe: PeleaViva = null) 
 		return true
 	if slot < pe.enemigos.size():
 		matar_enemigo_de_combate(pe.enemigos[slot])   # el cadaver al que releva
+		Net.peleas.soltar_reserva_del_cadaver(pe.enemigos[slot])
 		pe.enemigos[slot] = nodo
 	else:
 		pe.enemigos.append(nodo)
@@ -15503,6 +15504,7 @@ func dar_cuerpo_a_cria(slot: int, data: EnemyData, pos: Vector2, t: float, pe: P
 		pe.enemigos.append(null)
 	if pe.enemigos[slot] != null:
 		matar_enemigo_de_combate(pe.enemigos[slot])   # el cadaver al que releva (como un refuerzo)
+		Net.peleas.soltar_reserva_del_cadaver(pe.enemigos[slot])
 	pe.enemigos[slot] = null
 	if not Net.activo or Net._soy_dueno or Net.soy_sala:
 		var yo: int = multiplayer.get_unique_id() if Net.activo else 0

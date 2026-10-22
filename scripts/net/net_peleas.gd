@@ -125,6 +125,14 @@ func olvidar_pelea(pe: PeleaViva) -> void:
 	pe.id = 0
 
 
+# EL CADAVER QUE CEDE SU HUECO a un refuerzo o a una cria (Game.unir_enemigo_al_combate, dar_cuerpo_a_cria) sale de
+# pe.enemigos, y cerrar_pelea solo suelta las reservas de los que siguen en la lista: la suya se quedaba para siempre
+# (22/10, prueba_town_dos_peleas: "y no le quedan reservas (1)", solo cuando alguien entraba por la arena a mitad).
+func soltar_reserva_del_cadaver(n) -> void:
+	if Net.activo and _soy_servidor() and is_instance_valid(n) and n.has_meta("net_id"):
+		_enem_ocupados.erase(int(n.get_meta("net_id")))
+
+
 # La pelea de un humano EN LA SALA: la que le tiene dentro (participante, o con dobles suyos en cortesia). Fuera
 # de la sala, la de la maquina.
 func _pe_de_peer(peer: int) -> PeleaViva:
