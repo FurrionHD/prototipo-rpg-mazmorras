@@ -1049,11 +1049,20 @@ var _harvest_script: GDScript = preload("res://scripts/ui/harvest.gd")
 var _talado_script: GDScript = preload("res://scripts/ui/talado.gd")
 var _fishing_script: GDScript = preload("res://scripts/ui/fishing.gd")
 var _drop_pickup_script: GDScript = preload("res://scripts/items/drop_pickup.gd")
-var _active_enemies: Array[Node] = []   # enemigos del combate en curso (1..4, en orden de setup)
-var _active_layer: CanvasLayer = null  # capa donde vive la pantalla actual
+# LA PELEA QUE EJECUTA ESTA MAQUINA (etapa 3, 22/10): su estado vive en una PeleaViva. Los nombres de siempre
+# (_active_enemies, _active_layer, _cola_combate...) son propiedades que leen de ella: con una pelea, lo de antes.
+var pelea: PeleaViva = PeleaViva.new()
+var _active_enemies: Array[Node]:   # enemigos del combate en curso (1..4, en orden de setup)
+	get: return pelea.enemigos
+	set(v): pelea.enemigos = v
+var _active_layer: CanvasLayer:   # capa donde vive la pantalla actual
+	get: return pelea.capa
+	set(v): pelea.capa = v
 # Cuando empezo a montarse la pelea en curso (ms). Mientras dura, "hay enemigos apuntados pero no
 # hay pantalla" es normal y no hay que destrabar nada. Ver _destrabar_combate.
-var _montaje_ms: int = 0
+var _montaje_ms: int:
+	get: return pelea.montaje_ms
+	set(v): pelea.montaje_ms = v
 
 
 # ¿Hay una pantalla modal por encima del mapa (combate o extraccion)? Lo consulta el menu de
@@ -1358,10 +1367,14 @@ const ALIADOS_EN_ZONA := 320.0
 
 
 # Donde estan los que pelean en una pelea de FICHAS (trabajador): lo pone abrir_pelea_de_fichas mientras abre.
-var _puntos_arena_fichas: Array = []
+var _puntos_arena_fichas: Array:
+	get: return pelea.puntos_arena_fichas
+	set(v): pelea.puntos_arena_fichas = v
 
 # La arena viva de la pelea en curso, y lo que hay que devolver a su sitio al acabar.
-var _arena_nodo: Node = null
+var _arena_nodo: Node:
+	get: return pelea.arena_nodo
+	set(v): pelea.arena_nodo = v
 var _camara_guardada := {}
 
 
@@ -1393,7 +1406,9 @@ var _zonas_ajenas: Dictionary = {}
 # El jugador cuyo IMPACTO me ha dejado quieto (0 = ninguno): su zona dira si entro o me suelto.
 var _impacto_de: int = 0
 # MI zona, para volver a anunciarla al que llegue a mi piso con la pelea ya empezada.
-var _mi_zona: Dictionary = {}
+var _mi_zona: Dictionary:
+	get: return pelea.zona
+	set(v): pelea.zona = v
 var _pregunta_pelea: Node = null
 # LAS PELEAS EN LAS QUE YO ESTABA Y YA HAN ACABADO (12/10, playtest 11/10: "aun habiendo iniciado yo la pelea me sale
 # luego el ¿quieres entrar? al terminarla"). Mi compañero sigue anunciando esa zona hasta que pulsa Continuar, y aqui
@@ -2048,12 +2063,18 @@ var ability_cooldowns_persist: Dictionary = {}
 # Los Combatant del GRUPO en el combate en curso, y la ficha de cada uno, en el MISMO orden en que
 # se le pasaron a la pantalla de combate. Sirven para dos cosas: leer sus cooldowns al salir y
 # traducir Combatant -> PersonajeData mientras se pelea (excelia y desgaste de cada uno).
-var _active_player_cs: Array = []
-var _active_player_pjs: Array = []
+var _active_player_cs: Array:
+	get: return pelea.aliados_cs
+	set(v): pelea.aliados_cs = v
+var _active_player_pjs: Array:
+	get: return pelea.aliados_pjs
+	set(v): pelea.aliados_pjs = v
 
 # Indices de _active_enemies que se han ido en un TRASPASO de pelea (hito 5.4-C): siguen peleando
 # en la pantalla de otro, asi que al cerrar la mia NO se les reanuda (ver _on_combat_finished).
-var enemigos_traspasados: Array = []
+var enemigos_traspasados: Array:
+	get: return pelea.traspasados
+	set(v): pelea.traspasados = v
 
 
 # De quien es este combatiente. null si no es de los tuyos (un enemigo) o si el combate se abrio
@@ -6358,6 +6379,8 @@ func _ready() -> void:
 	# combate y la extraccion pausan el arbol, y ese tiempo SI cuenta. Sin esto, un autoload
 	# hereda "pausable" y se congelaria igual que el resto.
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	pelea.name = "Pelea"
+	add_child(pelea)
 	# Al cambiar de escena se sueltan las hojas que nadie lleva (ver _soltar_hojas_sin_usar). Diferido: que la escena
 	# nueva haya montado ya sus muñecos y se quede con las suyas.
 	get_tree().scene_changed.connect(func() -> void: call_deferred("_soltar_hojas_sin_usar"))
@@ -15365,7 +15388,9 @@ func _cds_de_meta(pj: PersonajeData) -> Dictionary:
 # quedaba en el MAPA reintentando con su IA a medias: embestia en bucle, sonaba su golpe sin parar y
 # podia arrastrar a otro jugador a una pelea aparte. Siendo parte de la pelea no hace nada de eso, y
 # las lineas rojas y el "atacarle te une" le salen solos (esta congelado y reservado a esta pelea).
-var _cola_combate: Array = []
+var _cola_combate: Array:
+	get: return pelea.cola
+	set(v): pelea.cola = v
 
 # Lo mas lejos de la zona (por fuera de su borde) desde donde un enemigo puede entrar en una pelea tactica ya empezada.
 const ENTRAR_DESDE_FUERA := 40.0

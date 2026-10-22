@@ -9,15 +9,22 @@ extends Node
 # Una pelea EXISTE en la red: tiene id y una maquina que la EJECUTA (la de quien la abrio, porque
 # es la que tiene la pantalla delante; el dueño del piso puede estar en su propia pelea o en
 # ninguna). Los demas participantes la ven en ESPEJO y le mandan sus acciones.
-var _pelea_id: int = 0             # la pelea que ejecuto YO (0 = ninguna)
-var _pelea_participantes: Array = []  # peers que estan dentro de MI pelea (yo no me cuento)
+# Lo de la pelea que EJECUTO vive en su PeleaViva (etapa 3, 22/10): estos nombres leen de la de la maquina.
+var _pelea_id: int:                # la pelea que ejecuto YO (0 = ninguna)
+	get: return Game.pelea.id
+	set(v): Game.pelea.id = v
+var _pelea_participantes: Array:   # peers que estan dentro de MI pelea (yo no me cuento)
+	get: return Game.pelea.participantes
+	set(v): Game.pelea.participantes = v
 var _pelea_sigo: int = 0           # la pelea que estoy ESPEJANDO (0 = ninguna)
 var _pelea_anfitrion: int = 0      # que peer ejecuta la pelea que espejo
 var _pelea_next: int = 1           # contador de ids de pelea (por maquina; el id lleva el peer)
 # Los DOBLES de los personajes de otros que pelean en MI pantalla: peer_id -> Array[PersonajeData],
 # en el orden en que ese jugador me los mando (su formacion). Al cerrar, a cada uno se le devuelve
 # lo que su doble vivio (vida, mana y excelia ganada).
-var _dobles: Dictionary = {}
+var _dobles: Dictionary:
+	get: return Game.pelea.dobles
+	set(v): Game.pelea.dobles = v
 # ESPEJO: los personajes MIOS que estan en la pelea que sigo.
 var _mis_en_pelea: Array = []      # los que ofreci al unirme, en orden de formacion
 # LA ULTIMA PETICION DE UNIRME, para reenviarla tal cual si me mandan a otro sitio (_union_redirigida) o me
@@ -288,7 +295,9 @@ func _pelea_resuelta(ids: Array, emboscada: bool = false, anfitrion: int = 0) ->
 # EL HUMANO QUE ABRIO LA PELEA QUE EJECUTO (solo en un trabajador de pelea): el ruido de la pelea es suyo
 # (causante_alboroto). 07/10, cabo suelto del 21/09: el trabajador no tiene cuerpo y el brote salia delante de
 # cualquiera.
-var _pelea_humano: int = 0
+var _pelea_humano: int:
+	get: return Game.pelea.humano
+	set(v): Game.pelea.humano = v
 
 func causante_alboroto() -> int:
 	return _pelea_humano if Net.activo and Net.soy_trabajador else 0
@@ -387,7 +396,9 @@ func _abre_mi_pelea(ids: Array, emboscada: bool, fichas: Array, vel: float = 1.0
 # trabajador no pulsa nada: la cierra cuando ya han salido todos los humanos de su espejo (cada uno se
 # lleva lo suyo al salir, ver sacar_de_la_pelea), o pasado CIERRE_MAX por si alguno no pulsa nunca.
 const CIERRE_MAX := 60.0
-var _t_cierre := 0.0
+var _t_cierre: float:
+	get: return Game.pelea.t_cierre
+	set(v): Game.pelea.t_cierre = v
 
 func _process(delta: float) -> void:
 	_vencer_cortesia()
