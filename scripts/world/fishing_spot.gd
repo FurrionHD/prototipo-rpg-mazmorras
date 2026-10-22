@@ -589,8 +589,6 @@ func _guardar_estado() -> void:
 		"aforo": _aforo, "t_aforo": _t_aforo,
 	}
 	(piso["charcos"] as Dictionary)[celda] = estado
-	# En multi el dueño suele ser un TRABAJADOR, cuyo Game no se guarda: a la sala (ver Net.pesca).
-	Net.pesca.charco_a_la_sala(_piso(), celda, estado)
 
 
 func _cargar_estado() -> void:

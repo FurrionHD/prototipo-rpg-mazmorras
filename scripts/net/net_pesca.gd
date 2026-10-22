@@ -37,41 +37,6 @@ func _charco_de(lugar: String) -> Node:
 	return c if c != null and is_instance_valid(c) else null
 
 
-# ============================================================
-#  EL ESTADO DE LOS CHARCOS VA A LA SALA (fase 4 de la BD). Lo escribe el dueño del piso (casi siempre
-#  un TRABAJADOR) en SU Game, y ese Game no se guarda nunca: el banco de peces se perdia. Ahora el dueño
-#  se lo manda a la sala, que lo apunta en su mazmorra_persistente (que si va al guardado del mundo), y
-#  la sala se lo da al que pasa a simular el piso.
-# ------------------------------------------------------------
-func charco_a_la_sala(piso: int, celda: Vector2i, estado: Dictionary) -> void:
-	if Net.activo and not Net.es_host:
-		_charco_guardar.rpc_id(1, piso, celda, estado)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _charco_guardar(piso: int, celda: Vector2i, estado: Dictionary) -> void:
-	if not Net.es_host or int(Net._dueno_piso.get(piso, 0)) != multiplayer.get_remote_sender_id():
-		return
-	var per: Dictionary = Game.persistente_piso(piso)
-	if not per.has("charcos"):
-		per["charcos"] = {}
-	(per["charcos"] as Dictionary)[celda] = estado
-
-
-# Solo host: al que va a simular `piso`, los charcos que la sala tiene guardados de ese piso.
-func mandar_charcos(peer: int, piso: int) -> void:
-	if not Net.es_host or peer == 1:
-		return
-	var ch = Game.persistente_piso(piso).get("charcos", {})
-	if ch is Dictionary and not (ch as Dictionary).is_empty():
-		_charcos_del_piso.rpc_id(peer, piso, ch)
-
-
-@rpc("authority", "call_remote", "reliable")
-func _charcos_del_piso(piso: int, charcos: Dictionary) -> void:
-	Game.persistente_piso(piso)["charcos"] = charcos.duplicate(true)
-
-
 func registrar_charco(nodo: Node) -> void:
 	var pv: PisoVivo = PisoVivo.de(nodo) if not PisoVivo.un_sitio() else null
 	if pv != null:
@@ -103,26 +68,12 @@ func difundir_charco(snap: Dictionary, charco: Node = null) -> void:
 		for peer_id in Net._peers:
 			if Net._peers[peer_id].get("lugar", "") == lugar:
 				_tick_charco.rpc_id(peer_id, snap)
-	else:
-		_rel_charco.rpc_id(1, lugar, snap)
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
 func _tick_charco(snap: Dictionary) -> void:
 	if _charco != null and is_instance_valid(_charco):
 		_charco.aplicar_red(snap)
-
-
-@rpc("any_peer", "call_remote", "unreliable_ordered")
-func _rel_charco(lugar: String, snap: Dictionary) -> void:
-	if not Net.es_host:
-		return
-	var de := multiplayer.get_remote_sender_id()
-	if PisoVivo.espejo_de(lugar):
-		_tick_charco(snap)
-	for peer_id in Net._peers:
-		if peer_id != de and Net._peers[peer_id].get("lugar", "") == lugar:
-			_tick_charco.rpc_id(peer_id, snap)
 
 
 # --- 2) EL CORCHO: de cada pescador al dueño ---
@@ -191,18 +142,6 @@ func avisar_mordida(a_quien: int, nonce: int) -> void:
 		return
 	if Net.es_host:
 		_pez_pica.rpc_id(a_quien, nonce)
-	else:
-		_rel_mordida.rpc_id(1, a_quien, nonce)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rel_mordida(a_quien: int, nonce: int) -> void:
-	if not Net.es_host:
-		return
-	if a_quien == 1:
-		_pez_pica(nonce)
-	else:
-		_pez_pica.rpc_id(a_quien, nonce)
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -232,20 +171,8 @@ func _fin_pesca(lugar: String, nonce: int, cobrado: bool) -> void:
 	_encaminar_fin_pesca(multiplayer.get_remote_sender_id(), lugar, nonce, cobrado)
 
 
-# SOLO host (o el propio host haciendose de pescador): el resultado va a quien simule ese piso.
+# SOLO host: el resultado lo aplica la sala, que simula ese piso.
 func _encaminar_fin_pesca(de: int, lugar: String, nonce: int, cobrado: bool) -> void:
-	if PisoVivo.dueno_de(lugar) and _charco_de(lugar) != null:
-		_charco_de(lugar).resolver_pez_remoto(de, nonce, cobrado)
-		return
-	if not Net.es_host:
-		return
-	var dueno: int = Net._dueno_de(lugar)
-	if dueno != 0 and dueno != de:
-		_fin_pesca_a.rpc_id(dueno, de, lugar, nonce, cobrado)
-
-
-@rpc("authority", "call_remote", "reliable")
-func _fin_pesca_a(de: int, lugar: String, nonce: int, cobrado: bool) -> void:
 	if PisoVivo.dueno_de(lugar) and _charco_de(lugar) != null:
 		_charco_de(lugar).resolver_pez_remoto(de, nonce, cobrado)
 

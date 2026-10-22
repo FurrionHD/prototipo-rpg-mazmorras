@@ -28,9 +28,7 @@ var _enem_acum: float = 0.0
 # puesta): le asigna id, lo apunta y lo difunde a los que esten en ese piso. En solitario, o si
 # solo espejo el piso, no hace NADA -> cero impacto en un jugador.
 #
-# RETRANSMISION: en la topologia estrella de Godot un cliente NO tiene socket con otro cliente, asi
-# que si el dueño es un cliente sus bichos van cliente -> HOST -> los demas. Si el dueño es el
-# host, difunde directo. (En LAN el salto extra son ~1-2 ms, nada al lado del tick de 20 Hz.)
+# El dueño es siempre la sala (etapa 2), que difunde directo a los de ese piso.
 func registrar_enemigo(nodo: Node2D, lugar: String) -> void:
 	if not Net.activo or nodo == null or not PisoVivo.dueno_del_nodo(nodo) or multiplayer.multiplayer_peer == null:
 		return
@@ -43,8 +41,6 @@ func registrar_enemigo(nodo: Node2D, lugar: String) -> void:
 	var d: Dictionary = _datos_enemigo(nodo)
 	if Net.es_host:
 		_spawn_enemigo.rpc(id, lugar, nodo.global_position, d)
-	else:
-		_rel_spawn.rpc_id(1, id, lugar, nodo.global_position, d)
 
 
 # TODO lo que el otro necesita para pintarlo Y para pelearlo/extraerlo: su aspecto (color y lado,
@@ -102,28 +98,9 @@ func baja_enemigo(nodo: Node) -> void:
 	var id: int = nodo.get_meta("net_id")
 	if not _enemigos.has(id):
 		return
-	var lugar: String = _enemigos[id]["lugar"]
 	_enemigos.erase(id)
 	if Net.es_host:
 		_despawn_enemigo.rpc(id)
-	else:
-		_rel_despawn.rpc_id(1, id, lugar)
-
-
-# --- RETRANSMISION (solo host): lo que le manda un dueño CLIENTE se reparte a los de ese piso ---
-# Al emisor no se le devuelve (ya tiene el bicho de verdad), y el propio host lo pinta si esta
-# en ese piso sin ser su dueño.
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rel_spawn(id: int, lugar: String, pos: Vector2, d: Dictionary) -> void:
-	if not Net.es_host:
-		return
-	var de := multiplayer.get_remote_sender_id()
-	if PisoVivo.espejo_de(lugar):
-		_spawn_enemigo(id, lugar, pos, d)
-	for pid in Net._peers:
-		if pid != de and Net._peers[pid].get("lugar", "") == lugar:
-			_spawn_enemigo.rpc_id(pid, id, lugar, pos, d)
 
 
 # Lo llama enemy.morir() en la maquina que SIMULA el piso: el bicho pasa a cadaver y hay que
@@ -140,14 +117,12 @@ func enemigo_muerto(nodo: Node) -> void:
 	var lugar: String = _enemigos[id]["lugar"]
 	if Net.es_host:
 		_marcar_cadaver.rpc(id, lugar)
-	else:
-		_rel_cadaver.rpc_id(1, id, lugar)
 
 
 # COMER CRISTALES (05/10): lo que hace el bicho al comer, para que los espejos lo vean igual. 'tipo' es
 # "come" (empieza a comer: el picoteo), "carga" (se lo trago: su carga nueva) o "muta" (muta en vivo; valor =
-# lo que dura la transformacion). Mismo camino que la muerte: el dueño difunde, o pasa por el host si es un
-# cliente. Sin esto el invitado veria a un bicho normal donde el anfitrion ya pelea un mutante.
+# lo que dura la transformacion). Mismo camino que la muerte: el dueño (la sala) difunde. Sin esto el invitado
+# veria a un bicho normal donde el anfitrion ya pelea un mutante.
 func aviso_comer(nodo: Node, tipo: String, valor: float, extra: String = "") -> void:
 	if not Net.activo or nodo == null or not PisoVivo.dueno_del_nodo(nodo) or multiplayer.multiplayer_peer == null:
 		return
@@ -159,8 +134,6 @@ func aviso_comer(nodo: Node, tipo: String, valor: float, extra: String = "") -> 
 	var lugar: String = _enemigos[id]["lugar"]
 	if Net.es_host:
 		_aviso_comer.rpc(id, lugar, tipo, valor, extra)
-	else:
-		_rel_aviso_comer.rpc_id(1, id, lugar, tipo, valor, extra)
 
 
 @rpc("authority", "call_remote", "reliable")
@@ -172,18 +145,6 @@ func _aviso_comer(id: int, lugar: String, tipo: String, valor: float, extra: Str
 		n.aviso_comer(tipo, valor, extra)
 
 
-@rpc("any_peer", "call_remote", "reliable")
-func _rel_aviso_comer(id: int, lugar: String, tipo: String, valor: float, extra: String = "") -> void:
-	if not Net.es_host:
-		return
-	var de := multiplayer.get_remote_sender_id()
-	if PisoVivo.espejo_de(lugar):
-		_aviso_comer(id, lugar, tipo, valor, extra)
-	for pid in Net._peers:
-		if pid != de and Net._peers[pid].get("lugar", "") == lugar:
-			_aviso_comer.rpc_id(pid, id, lugar, tipo, valor, extra)
-
-
 @rpc("authority", "call_remote", "reliable")
 func _marcar_cadaver(id: int, lugar: String) -> void:
 	if not PisoVivo.lleva(lugar):
@@ -191,65 +152,6 @@ func _marcar_cadaver(id: int, lugar: String) -> void:
 	var n = _enem_nodos.get(id)
 	if n != null and is_instance_valid(n) and n.has_method("marcar_cadaver"):
 		n.marcar_cadaver()
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rel_cadaver(id: int, lugar: String) -> void:
-	if not Net.es_host:
-		return
-	var de := multiplayer.get_remote_sender_id()
-	if PisoVivo.espejo_de(lugar):
-		_marcar_cadaver(id, lugar)
-	for pid in Net._peers:
-		if pid != de and Net._peers[pid].get("lugar", "") == lugar:
-			_marcar_cadaver.rpc_id(pid, id, lugar)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rel_despawn(id: int, lugar: String) -> void:
-	if not Net.es_host:
-		return
-	var de := multiplayer.get_remote_sender_id()
-	if PisoVivo.espejo_de(lugar):
-		_despawn_enemigo(id)
-	for pid in Net._peers:
-		if pid != de and Net._peers[pid].get("lugar", "") == lugar:
-			_despawn_enemigo.rpc_id(pid, id)
-
-
-@rpc("any_peer", "call_remote", "unreliable_ordered")
-func _rel_tick(lugar: String, lote: Array) -> void:
-	if not Net.es_host:
-		return
-	var de := multiplayer.get_remote_sender_id()
-	if PisoVivo.espejo_de(lugar):
-		_tick_enemigos(lote)
-	for pid in Net._peers:
-		if pid != de and Net._peers[pid].get("lugar", "") == lugar:
-			_tick_enemigos.rpc_id(pid, lote)
-
-
-# Le llega al dueño CLIENTE de un piso: alguien acaba de entrar ahi y necesita su lista de bichos.
-# La respuesta vuelve a pasar por el host, que la reenvia solo a ese peer.
-@rpc("any_peer", "call_remote", "reliable")
-func _pedir_roster(lugar: String, para: int) -> void:
-	if not PisoVivo.dueno_de(lugar):
-		return
-	for id in _enemigos:
-		var e: Dictionary = _enemigos[id]
-		if is_instance_valid(e["nodo"]) and String(e["lugar"]) == lugar:
-			_rel_spawn_a.rpc_id(1, para, id, lugar, (e["nodo"] as Node2D).global_position,
-				_datos_enemigo(e["nodo"]))
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rel_spawn_a(para: int, id: int, lugar: String, pos: Vector2, d: Dictionary) -> void:
-	if not Net.es_host:
-		return
-	if para == 1:
-		_spawn_enemigo(id, lugar, pos, d)
-	else:
-		_spawn_enemigo.rpc_id(para, id, lugar, pos, d)
 
 
 @rpc("authority", "call_remote", "reliable")
@@ -297,12 +199,9 @@ func _difundir_posiciones_enemigos() -> void:
 	for id in _enemigos.keys():
 		var nodo = _enemigos[id]["nodo"]
 		if not is_instance_valid(nodo):
-			var lug: String = _enemigos[id]["lugar"]
 			_enemigos.erase(id)
 			if Net.es_host:
 				_despawn_enemigo.rpc(id)
-			else:
-				_rel_despawn.rpc_id(1, id, lug)
 	if _enemigos.is_empty():
 		return
 	# Cada bicho manda [id, pos, angulo_de_mirada, avisando_el_golpe]. Los dos ultimos NO son
@@ -324,13 +223,12 @@ func _difundir_posiciones_enemigos() -> void:
 		# ataque ENTERO y no solo el parpadeo del aviso (ver enemy.estado_visual_red).
 		lote.append([id, (nd as Node2D).global_position, est[0], est[1], Net.peleas._anfitrion_de_enemigo(id, nd),
 			est[2] if est.size() >= 3 else 0, est[3] if est.size() >= 4 else false])
+	if not Net.es_host:
+		return
 	for lug in lotes:
-		if Net.es_host:
-			for peer_id in Net._peers:
-				if Net._peers[peer_id].get("lugar", "") == lug:
-					_tick_enemigos.rpc_id(peer_id, lotes[lug])
-		else:
-			_rel_tick.rpc_id(1, lug, lotes[lug])
+		for peer_id in Net._peers:
+			if Net._peers[peer_id].get("lugar", "") == lug:
+				_tick_enemigos.rpc_id(peer_id, lotes[lug])
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
@@ -360,9 +258,8 @@ func _tick_enemigos(lote: Array) -> void:
 			n.aplicar_embestida(int(par[5]))
 
 
-# Alguien que acaba de llegar a un piso pide sus enemigos (late-join / cambio de piso). Siempre se
-# le pregunta al HOST, que es quien sabe QUIEN simula ese piso: si es el, responde; si es un
-# cliente, le reenvia la peticion para que conteste el (via _pedir_roster).
+# Alguien que acaba de llegar a un piso pide sus enemigos (late-join / cambio de piso). Se le pregunta
+# a la sala, que lleva todos los pisos (etapa 2).
 @rpc("any_peer", "call_remote", "reliable")
 func _pedir_enemigos(lugar: String) -> void:
 	if not Net.es_host:
@@ -375,11 +272,6 @@ func _pedir_enemigos(lugar: String) -> void:
 			if is_instance_valid(e["nodo"]) and String(e["lugar"]) == lugar:
 				_spawn_enemigo.rpc_id(quien, id, lugar, (e["nodo"] as Node2D).global_position,
 					_datos_enemigo(e["nodo"]))
-		return
-	var piso: int = int(lugar.substr(5)) if lugar.begins_with("piso:") else -1
-	var dueno: int = Net._dueno_piso.get(piso, 0)
-	if dueno != 0 and dueno != quien:
-		_pedir_roster.rpc_id(dueno, lugar, quien)
 
 
 # El DUEÑO del piso difunde las posiciones de SUS enemigos a ~20 Hz. En solitario, o si solo espejo el

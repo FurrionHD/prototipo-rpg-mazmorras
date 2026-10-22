@@ -83,25 +83,12 @@ func _pedir_pelea(id: int, lugar: String) -> void:
 	_encaminar_pelea(id, lugar, multiplayer.get_remote_sender_id())
 
 
-# SOLO host: le pasa la peticion a quien simule ese piso (o la resuelve el mismo si es suyo).
+# SOLO host: la resuelve la sala, que lleva todos los pisos (etapa 2).
 func _encaminar_pelea(id: int, lugar: String, quien: int) -> void:
 	if PisoVivo.dueno_de(lugar):
 		_resolver_pelea(id, quien, lugar)
-		return
-	var dueno: int = Net._dueno_de(lugar)
-	if dueno != 0 and dueno != 1:
-		_pedir_pelea_dueno.rpc_id(dueno, id, lugar, quien)
 	else:
-		_responder_pelea(quien, [], false)   # nadie simula ese piso: no hay pelea que dar
-
-
-# Le llega al dueño CLIENTE del piso (reenviada por el host).
-@rpc("any_peer", "call_remote", "reliable")
-func _pedir_pelea_dueno(id: int, lugar: String, para: int) -> void:
-	Medidor.marca("pelea", "dueno_recibe")
-	if not PisoVivo.dueno_de(lugar):
-		return
-	_resolver_pelea(id, para, lugar)
+		_responder_pelea(quien, [], false)   # la sala no lleva ese piso: no hay pelea que dar
 
 
 # SOLO el dueño: arbitra. Reserva el bicho y sus vecinos y responde con sus ids (vacio = ocupado).
@@ -213,18 +200,11 @@ func empujar_pelea(nodo: Node, peer: int, emboscada: bool = true) -> bool:
 	return true
 
 
-# La respuesta vuelve al destinatario; si yo soy un dueño CLIENTE, pasa por el host.
-#
-# OJO: hay que comparar con MI id, no con 1. "quien == 1" significa "el peticionario es el host",
-# que solo soy YO si yo soy el host; en un dueño CLIENTE, tratarlo como propio se comia la
-# respuesta y el que ataco se quedaba sin pelea (sin error ninguno, que es lo traicionero).
-# Todo pasa por el HOST, tambien cuando el que pelea soy yo (un dueño CLIENTE con sus propios bichos): es
-# el unico que sabe si en ese piso espera un trabajador de pelea (ver _entregar_pelea).
+# La respuesta vuelve al destinatario. El dueño es siempre la sala (etapa 2), que es la que sabe si en ese
+# piso espera un trabajador de pelea (ver _entregar_pelea).
 func _responder_pelea(quien: int, ids: Array, emboscada: bool, anfitrion: int = 0) -> void:
 	if Net.es_host:
 		_entregar_pelea(quien, ids, emboscada, anfitrion)
-	else:
-		_rel_respuesta_pelea.rpc_id(1, quien, ids, emboscada, anfitrion)
 
 
 # EL DUEÑO HUMANO DE UN PISO tambien pelea fuera de su PC (se cayo su trabajador, o no lo habia): sus bichos
@@ -245,14 +225,6 @@ func pelea_fuera_de_mi_pc(nodo: Node, emboscada: bool) -> bool:
 		return false
 	_responder_pelea(yo, ids, emboscada)
 	return true
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rel_respuesta_pelea(para: int, ids: Array, emboscada: bool, anfitrion: int = 0) -> void:
-	if not Net.es_host:
-		return
-	Medidor.marca("pelea", "sala_respuesta")
-	_entregar_pelea(para, ids, emboscada, anfitrion)
 
 
 # SOLO host: la pelea ya reservada llega a su destinatario. Si en su piso espera un TRABAJADOR DE PELEA
@@ -671,17 +643,6 @@ func _pedir_reasignacion(ids: Array, lugar: String, para: int) -> void:
 func _encaminar_reasignacion(ids: Array, lugar: String, para: int) -> void:
 	if PisoVivo.dueno_de(lugar):
 		_aplicar_reasignacion(ids, para)
-		return
-	var dueno: int = Net._dueno_de(lugar)
-	if dueno != 0 and dueno != 1:
-		_rel_reasignacion.rpc_id(dueno, ids, lugar, para)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rel_reasignacion(ids: Array, lugar: String, para: int) -> void:
-	if not PisoVivo.dueno_de(lugar):
-		return
-	_aplicar_reasignacion(ids, para)
 
 
 func _aplicar_reasignacion(ids: Array, para: int) -> void:
@@ -712,17 +673,6 @@ func _pedir_resultado(id: int, ha_muerto: bool, hp: float, lugar: String) -> voi
 func _encaminar_resultado(id: int, ha_muerto: bool, hp: float, lugar: String) -> void:
 	if PisoVivo.dueno_de(lugar):
 		_aplicar_resultado(id, ha_muerto, hp)
-		return
-	var dueno: int = Net._dueno_de(lugar)
-	if dueno != 0 and dueno != 1:
-		_rel_resultado.rpc_id(dueno, id, ha_muerto, hp, lugar)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rel_resultado(id: int, ha_muerto: bool, hp: float, lugar: String) -> void:
-	if not PisoVivo.dueno_de(lugar):
-		return
-	_aplicar_resultado(id, ha_muerto, hp)
 
 
 # SOLO el dueño: lo que paso en la pelea de otro se aplica sobre el bicho DE VERDAD. morir() ya se
@@ -1865,17 +1815,6 @@ func _pedir_mover(lote: Array, lugar: String) -> void:
 func _encaminar_mover(lote: Array, lugar: String, desde: int) -> void:
 	if PisoVivo.dueno_de(lugar):
 		_aplicar_mover(lote, desde)
-		return
-	var dueno: int = Net._dueno_de(lugar)
-	if dueno != 0 and dueno != 1:
-		_rel_mover.rpc_id(dueno, lote, lugar, desde)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rel_mover(lote: Array, lugar: String, desde: int) -> void:
-	if not PisoVivo.dueno_de(lugar):
-		return
-	_aplicar_mover(lote, desde)
 
 
 # SOLO el dueño, y solo si se lo pide QUIEN LLEVA LA PELEA de ese bicho: nadie mas puede andar
@@ -1914,17 +1853,6 @@ func _pedir_cria(slot: int, ruta: String, pos: Vector2, t: float, lugar: String)
 func _encaminar_cria(slot: int, ruta: String, pos: Vector2, t: float, lugar: String, para: int) -> void:
 	if PisoVivo.dueno_de(lugar):
 		_nacer_cria_dueno(slot, ruta, pos, t, para, lugar)
-		return
-	var dueno: int = Net._dueno_de(lugar)
-	if dueno != 0 and dueno != 1:
-		_rel_cria.rpc_id(dueno, slot, ruta, pos, t, lugar, para)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rel_cria(slot: int, ruta: String, pos: Vector2, t: float, lugar: String, para: int) -> void:
-	if not PisoVivo.dueno_de(lugar):
-		return
-	_nacer_cria_dueno(slot, ruta, pos, t, para, lugar)
 
 
 func _nacer_cria_dueno(slot: int, ruta: String, pos: Vector2, t: float, para: int, lugar: String = "") -> void:
@@ -1933,18 +1861,6 @@ func _nacer_cria_dueno(slot: int, ruta: String, pos: Vector2, t: float, para: in
 	if n == null or not n.has_meta("net_id"):
 		return
 	var id: int = int(n.get_meta("net_id"))
-	if para == multiplayer.get_unique_id():
-		Game.cuerpo_de_cria_listo(slot, id)
-	elif Net.es_host:
-		_cria_lista.rpc_id(para, slot, id)
-	else:
-		_rel_cria_lista.rpc_id(1, para, slot, id)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rel_cria_lista(para: int, slot: int, id: int) -> void:
-	if not Net.es_host:
-		return
 	if para == multiplayer.get_unique_id():
 		Game.cuerpo_de_cria_listo(slot, id)
 	else:

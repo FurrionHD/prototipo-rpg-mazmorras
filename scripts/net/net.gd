@@ -130,7 +130,10 @@ const MAX_CONEXIONES := 32
 # 40 (15/10): el BAUL, la BOLSA, la CARBONERA y los CRISTALES viajan CONTADOS (plan de optimizacion, fase 1A): un
 #     dict por monton con su "n", no uno por unidad (_set_almacen, _mi_estado, la mudanza...). Un cliente de antes
 #     leeria cada monton como una sola pieza.
-const PROTOCOLO := 41
+# 41 (21/10): fase 2, etapa 2: la sala lleva todos los pisos; fuera los trabajadores de piso, traspasos y herederos.
+# 42 (22/10): fuera los reenvios a un dueño de piso CLIENTE y sus relevos de vuelta (net_enemigos _rel_spawn/_rel_tick...,
+#     net_peleas _rel_resultado/_rel_cria..., net_extraccion, net_pesca _rel_charco/_charco_guardar...): cambian los RPC.
+const PROTOCOLO := 42
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -881,20 +884,14 @@ func _reconstruir_vista() -> void:
 		_pedir_suelo.rpc_id(1, _mi_lugar)
 	# ENEMIGOS (hito 5.1/5.2): los cuerpos remotos murieron con la escena vieja. Si SIMULO este
 	# piso no hay nada que pedir (los mios son reales y el piso ya los crea al poblarse/restaurar);
-	# si solo lo espejo, pido la lista a quien lo simule. Al host no puede pedirsela a si mismo:
-	# mira quien es el dueño y se la pide directamente.
+	# si solo lo espejo, se la pido a la sala, que los lleva todos (etapa 2).
 	for id in enemigos._enem_nodos.keys():
 		var en = enemigos._enem_nodos[id]   # sin tipar: puede ser una instancia ya liberada (ver purga del tick)
 		if is_instance_valid(en):
 			en.retirar()
 	enemigos._enem_nodos.clear()
-	if not _soy_dueno and _mi_lugar.begins_with("piso:"):
-		if es_host:
-			var dueno: int = _dueno_piso.get(pisos.mi_piso(), 0)
-			if dueno != 0 and dueno != 1:
-				enemigos._pedir_roster.rpc_id(dueno, _mi_lugar, 1)
-		else:
-			enemigos._pedir_enemigos.rpc_id(1, _mi_lugar)
+	if not _soy_dueno and _mi_lugar.begins_with("piso:") and not es_host:
+		enemigos._pedir_enemigos.rpc_id(1, _mi_lugar)
 
 
 # Un cliente que acaba de viajar pide el suelo de su lugar nuevo.

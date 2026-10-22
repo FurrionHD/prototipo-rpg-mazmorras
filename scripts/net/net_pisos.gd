@@ -569,26 +569,13 @@ func _pedir_forzar_jefe(lugar: String) -> void:
 func _encaminar_forzar_jefe(lugar: String) -> void:
 	if PisoVivo.dueno_de(lugar):
 		print("[dev] traer al jefe: ", Game.dev_forzar_jefe(lugar))
-		return
-	var dueno: int = Net._dueno_de(lugar)
-	if dueno != 0 and dueno != Net._mi_id():
-		_forzar_jefe_dueno.rpc_id(dueno, lugar)
 	else:
 		print("[dev] traer al jefe: nadie lleva %s" % lugar)
 
 
-# Corre en el DUEÑO del piso: lo planta por el camino normal, igual que si hubiera pulsado el boton el.
-@rpc("any_peer", "call_remote", "reliable")
-func _forzar_jefe_dueno(lugar: String) -> void:
-	if not PisoVivo.dueno_de(lugar):
-		return
-	print("[dev] traer al jefe (me lo piden): ", Game.dev_forzar_jefe(lugar))
-
-
 # ============================================================
 #  EL SPAWNER DE LA ARENA, en compañia
-#  La arena la lleva un trabajador (o quien herede la sala), NUNCA quien pulsa: cada boton se encamina
-#  por el host al dueño, igual que "Traer al jefe". Un 'if not _soy_dueno: return' aqui seria un boton
+#  La arena la lleva la sala, NUNCA quien pulsa: cada boton se encamina al host, igual que "Traer al jefe". Un 'if not _soy_dueno: return' aqui seria un boton
 #  muerto en silencio (ver la memoria regla-del-dueno-servidor).
 # ============================================================
 func pedir_spawn_arena(ruta: String, pos: Vector2, muneco: Dictionary) -> void:
@@ -674,18 +661,8 @@ func _encaminar_arena(lugar: String, que: String, args: Array) -> void:
 		return
 	if PisoVivo.dueno_de(lugar):
 		_hacer_en_arena(lugar, que, args)
-		return
-	var dueno: int = Net._dueno_de(lugar)
-	if dueno != 0 and dueno != Net._mi_id():
-		_arena_dueno.rpc_id(dueno, lugar, que, args)
 	else:
 		print("[arena] nadie lleva la arena: se pierde '%s'" % que)
-
-
-# Corre en EL DUEÑO de la arena.
-@rpc("any_peer", "call_remote", "reliable")
-func _arena_dueno(lugar: String, que: String, args: Array) -> void:
-	_hacer_en_arena(lugar, que, args)
 
 
 func _hacer_en_arena(lugar: String, que: String, args: Array) -> void:
@@ -1029,16 +1006,7 @@ func _encaminar_alboroto(de: int, lugar: String, cuanto: float, causante: int = 
 	var dueno: int = Net._dueno_de(lugar)
 	if dueno == 0 or dueno == de:
 		return
-	var quien: int = causante if causante != 0 else de
-	if dueno == 1:
-		_alboroto_en_dueno(quien, lugar, cuanto)
-	else:
-		_alboroto_a.rpc_id(dueno, quien, lugar, cuanto)
-
-
-@rpc("authority", "call_remote", "reliable")
-func _alboroto_a(de: int, lugar: String, cuanto: float) -> void:
-	_alboroto_en_dueno(de, lugar, cuanto)
+	_alboroto_en_dueno(causante if causante != 0 else de, lugar, cuanto)
 
 
 func _alboroto_en_dueno(de: int, lugar: String, cuanto: float) -> void:

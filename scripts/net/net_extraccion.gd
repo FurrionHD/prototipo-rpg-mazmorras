@@ -61,18 +61,7 @@ func _encaminar_extraccion(id: int, lugar: String, quien: int) -> void:
 	if PisoVivo.dueno_de(lugar):
 		_resolver_extraccion(id, quien)
 		return
-	var dueno: int = Net._dueno_de(lugar)
-	if dueno != 0 and dueno != 1:
-		_pedir_extraccion_dueno.rpc_id(dueno, id, lugar, quien)
-	else:
-		_responder_extraccion(quien, id, false)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _pedir_extraccion_dueno(id: int, lugar: String, para: int) -> void:
-	if not PisoVivo.dueno_de(lugar):
-		return
-	_resolver_extraccion(id, para)
+	_responder_extraccion(quien, id, false)   # ese piso no lo lleva la sala: no hay cuerpo que dar
 
 
 # SOLO el dueño: concede el cuerpo al primero que lo pida. Idempotente: si el candado YA es de quien
@@ -90,20 +79,8 @@ func _resolver_extraccion(id: int, quien: int) -> void:
 func _responder_extraccion(quien: int, id: int, ok: bool) -> void:
 	if quien == multiplayer.get_unique_id():
 		_extraccion_concedida(id, ok)
-	elif Net.es_host:
+	else:
 		_extraccion_concedida.rpc_id(quien, id, ok)
-	else:
-		_rel_resp_extraccion.rpc_id(1, quien, id, ok)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rel_resp_extraccion(para: int, id: int, ok: bool) -> void:
-	if not Net.es_host:
-		return
-	if para == 1:
-		_extraccion_concedida(id, ok)
-	else:
-		_extraccion_concedida.rpc_id(para, id, ok)
 
 
 # Corre en QUIEN PIDIO extraer: si se la han dado, se abre el minijuego sobre SU cuerpo espejado.
@@ -149,17 +126,6 @@ func _pedir_consumir(id: int, lugar: String) -> void:
 func _encaminar_consumir(id: int, lugar: String) -> void:
 	if PisoVivo.dueno_de(lugar):
 		_consumir_cadaver(id)
-		return
-	var dueno: int = Net._dueno_de(lugar)
-	if dueno != 0 and dueno != 1:
-		_rel_consumir.rpc_id(dueno, id, lugar)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rel_consumir(id: int, lugar: String) -> void:
-	if not PisoVivo.dueno_de(lugar):
-		return
-	_consumir_cadaver(id)
 
 
 # Suelto el cuerpo SIN haberlo extraido (me han quitado la pantalla, el cuerpo se fue con el piso
@@ -186,17 +152,6 @@ func _pedir_soltar_cuerpo(id: int, lugar: String) -> void:
 func _encaminar_soltar_cuerpo(id: int, lugar: String) -> void:
 	if PisoVivo.dueno_de(lugar):
 		_liberar_cadaver(id)
-		return
-	var dueno: int = Net._dueno_de(lugar)
-	if dueno != 0 and dueno != 1:
-		_rel_soltar_cuerpo.rpc_id(dueno, id, lugar)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rel_soltar_cuerpo(id: int, lugar: String) -> void:
-	if not PisoVivo.dueno_de(lugar):
-		return
-	_liberar_cadaver(id)
 
 
 # SOLO el dueño: devuelve el candado de un cuerpo que sigue ahi, intacto y extraible.
@@ -207,8 +162,7 @@ func _liberar_cadaver(id: int) -> void:
 
 # --- Difusion de los cuerpos que se estan extrayendo -------------------------------------------
 #
-# La lleva el DUEÑO del piso y viaja por el HOST, porque en ENet los clientes no se hablan entre
-# ellos (mismo relevo que _rel_resp_extraccion).
+# La lleva el DUEÑO del piso, que con red es siempre la sala (etapa 2): la reparte a todos.
 
 func _apuntar_extrayendo(id: int, quien: int) -> void:
 	if int(_extrayendo.get(id, 0)) == quien:
@@ -229,16 +183,6 @@ func _difundir_extrayendo() -> void:
 		return
 	if Net.es_host:
 		_set_extrayendo.rpc(_extrayendo)
-	else:
-		_rel_extrayendo.rpc_id(1, _extrayendo)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _rel_extrayendo(d: Dictionary) -> void:
-	if not Net.es_host:
-		return
-	_extrayendo = d.duplicate()   # el host tambien lo necesita para su propia F
-	_set_extrayendo.rpc(d)
 
 
 @rpc("any_peer", "call_remote", "reliable")
