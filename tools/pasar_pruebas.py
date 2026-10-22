@@ -158,6 +158,7 @@ TOPES = {             # las que tardan mas de lo normal cuando van bien
     "prueba_cargar_todo": 180,
     "prueba_huella_combate": 180,
     "prueba_companeros_pueblo": 300,
+    "prueba_town_dos_peleas": 480,      # ~5 min: seis peleas en la sala, y la cortesia de 60 s de B al caerse
     "prueba_town_dos_jugadores": 360,   # ~3-4 min: dos jugadores, cuatro peleas y la arena   # ~105 s: recorre el pueblo andando y corriendo
 }
 

@@ -2410,37 +2410,12 @@ func _accion_huir() -> void:
 		if dueno != 0 and _huir_solo(dueno):
 			_state = State.ADVANCING
 			return
-		# Huyo YO, que soy quien EJECUTA la pelea: no se cierra para los demas, se TRASPASA al
-		# primero que quede dentro y sigue donde estaba.
-		if dueno == 0 and _traspasar():
-			return
 		_end(false, true)  # huida: no ganas, pero tampoco es derrota
 	else:
 		# Se nombra al mas rapido: es quien explica el numero que acabas de ver.
 		_set_log("%s intenta huir pero %s se lo impide. (%.0f%%)" % [
 			_player.nombre, perseguidor.nombre, chance * 100.0])
 		_state = State.ADVANCING
-
-
-# ME VOY YO, QUE LLEVO LA PELEA. En vez de cerrarla para todos, se la paso a otro que este dentro:
-# el se monta la pantalla de verdad y sigue desde donde estaba. Devuelve false si no hay a quien
-# pasarsela (entonces la pelea se cierra como siempre).
-func _traspasar() -> bool:
-	var nuevo: int = Net.peleas.heredero_de_pelea()
-	if nuevo == 0:
-		return false
-	# Los bichos VIVOS se van con la pelea: al cerrar la mia NO hay que reanudarlos (siguen
-	# peleando alli) ni devolverlos al mundo. Los muertos si, que sus cadaveres son de esta pelea.
-	var siguen: Array = []
-	for i in _enemies.size():
-		if _enemies[i].is_alive():
-			siguen.append(i)
-	if not Net.peleas.traspasar_pelea(espejo.estado_para_traspaso(nuevo)):
-		return false
-	pelea.traspasados = siguen
-	_set_log("Escapas y le dejas la pelea a tus compañeros. 🏃")
-	_end(false, true)
-	return true
 
 
 # SE VA UN JUGADOR (y con el TODOS sus personajes: hay una pantalla por maquina, el que huye huye

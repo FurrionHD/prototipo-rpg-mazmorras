@@ -20,7 +20,6 @@ var capa: CanvasLayer = null        # capa donde vive la pantalla de combate    
 var montaje_ms: int = 0             # cuando empezo a montarse (ms); 0 = no se esta montando  (Game._montaje_ms)
 var aliados_cs: Array = []          # Combatant del grupo, en el orden de la pantalla         (Game._active_player_cs)
 var aliados_pjs: Array = []         # la ficha de cada uno, mismo orden                       (Game._active_player_pjs)
-var traspasados: Array = []         # indices de enemigos que siguen en la pantalla de otro   (Game.enemigos_traspasados)
 var cola: Array = []                # enemigos esperando hueco en la pelea llena              (Game._cola_combate)
 var arena_nodo: Node = null         # la arena tactica viva                                   (Game._arena_nodo)
 var puntos_arena_fichas: Array = [] # donde estan los que pelean, mientras se abre una pelea de fichas (Game._puntos_arena_fichas)
@@ -45,6 +44,8 @@ func _enter_tree() -> void:
 
 func _exit_tree() -> void:
 	_vivas.erase(self)
+	if id != 0 and Net.soy_sala:
+		Net.peleas.olvidar_pelea(self)   # se va sin cerrarse (su piso desmontado): que no quede apuntada
 
 
 # ¿Hay una pelea en marcha en esta caja? (lo mismo que Game.combate_activo sin el destrabe)

@@ -806,7 +806,9 @@ func sala_reloj(delta: float) -> void:
 		# Si se ve a alguien dentro, la cuenta vuelve a empezar PERO NO SE BORRA: el que se acaba de ir sigue apuntado en
 		# el piso hasta que llega su aviso de lugar (va detras del de salir), y borrandola el piso se quedaba montado para
 		# siempre sin nadie (21/10, prueba_town_dos_pisos). Quien entra de verdad la borra en sala_montar.
-		if _alguien_en(int(piso), 0) != 0:
+		# Y CON UNA PELEA VIVA DENTRO TAMPOCO (etapa 3): la de un jugador que se ha caido sigue sola su cortesia, y la
+		# pelea cuelga del piso; congelandolo se la llevaba por delante sin cerrarla.
+		if _alguien_en(int(piso), 0) != 0 or Net.peleas.hay_pelea_en("piso:%d" % int(piso)):
 			_sala_congelar[piso] = SEG_VIVO_VACIO
 			continue
 		_sala_congelar[piso] = float(_sala_congelar[piso]) - delta

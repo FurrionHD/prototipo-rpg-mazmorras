@@ -2094,12 +2094,6 @@ var _active_player_pjs: Array:
 	get: return pelea.aliados_pjs
 	set(v): pelea.aliados_pjs = v
 
-# Indices de _active_enemies que se han ido en un TRASPASO de pelea (hito 5.4-C): siguen peleando
-# en la pantalla de otro, asi que al cerrar la mia NO se les reanuda (ver _on_combat_finished).
-var enemigos_traspasados: Array:
-	get: return pelea.traspasados
-	set(v): pelea.traspasados = v
-
 
 # De quien es este combatiente. null si no es de los tuyos (un enemigo) o si el combate se abrio
 # suelto para probar (F6), que no tiene fichas detras.
@@ -16006,7 +16000,7 @@ func retomar_combate(estado: Dictionary, pe: PeleaViva = null) -> bool:
 					combat.marcar_dueno(c, dp)
 		cs.append(c)
 	combat.retomar(estado, cs, filas_e)
-	Net.peleas.asumir_pelea(dobles_por_peer, combat)
+	Net.peleas.adoptar_pelea(dobles_por_peer, pe)
 	return true
 
 
@@ -17043,8 +17037,6 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 		# ...salvo los que se han ido con un TRASPASO: esos siguen peleando en la pantalla de otro.
 		# Reanudarlos aqui los devolveria al mundo en mitad de esa pelea, con dos maquinas mandando
 		# sobre el mismo bicho.
-		if pe.traspasados.has(i):
-			continue
 		var n = pe.enemigos[i]   # sin tipar: puede estar liberado
 		if not is_instance_valid(n) or not n.has_method("reanudar_tras_combate"):
 			continue
@@ -17056,7 +17048,6 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 		n.reanudar_tras_combate(hp, est)
 	pe.enemigos.clear()
 	_soltar_cola_combate(pe)
-	pe.traspasados = []   # la marca dura solo este cierre
 	var lugar_ruido: String = pe.piso.lugar if en_sala and is_instance_valid(pe.piso) else ""
 	pe.piso = null
 

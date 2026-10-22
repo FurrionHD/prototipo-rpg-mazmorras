@@ -6,7 +6,7 @@ extends "res://tools/unitarias/caso.gd"
 func _guardar() -> Dictionary:
 	var p: PeleaViva = Game.pelea
 	return {"enemigos": p.enemigos, "capa": p.capa, "montaje": p.montaje_ms, "cs": p.aliados_cs,
-		"pjs": p.aliados_pjs, "tras": p.traspasados, "cola": p.cola, "arena": p.arena_nodo,
+		"pjs": p.aliados_pjs, "cola": p.cola, "arena": p.arena_nodo,
 		"puntos": p.puntos_arena_fichas, "zona": p.zona, "id": p.id, "part": p.participantes,
 		"dobles": p.dobles, "humano": p.humano, "t": p.t_cierre}
 
@@ -18,7 +18,6 @@ func _devolver(d: Dictionary) -> void:
 	p.montaje_ms = d["montaje"]
 	p.aliados_cs = d["cs"]
 	p.aliados_pjs = d["pjs"]
-	p.traspasados = d["tras"]
 	p.cola = d["cola"]
 	p.arena_nodo = d["arena"]
 	p.puntos_arena_fichas = d["puntos"]
@@ -45,8 +44,6 @@ func test_game_lee_de_su_pelea() -> void:
 	igual(Game._cola_combate, [3], "lo que se pone en la caja se ve por el nombre viejo")
 	Game._montaje_ms = 77
 	igual(p.montaje_ms, 77, "_montaje_ms")
-	Game.enemigos_traspasados = [0]
-	igual(p.traspasados, [0], "enemigos_traspasados")
 	Game._mi_zona = {"anfitrion": 5}
 	igual(p.zona, {"anfitrion": 5}, "_mi_zona")
 	Game._active_enemies.erase(n)

@@ -2370,6 +2370,11 @@ func _start_combat(enemy_initiated: bool) -> void:
 		if not Net.peleas.empujar_pelea(self, _objetivo.get_meta("peer_id"), enemy_initiated):
 			_rebotar()   # no ha colado (ya lo pelea alguien, o el otro esta ocupado): no insistir
 		return
+	# EN LA SALA (etapa 3) toda pelea es de un jugador: lo de abajo es el camino sin red, con el grupo de esta maquina
+	# (la sala no tiene). Si lo alcanzado no es el cuerpo de nadie, no hay pelea.
+	if Net.soy_sala:
+		_rebotar()
+		return
 	# Ya hay una pelea en marcha: en vez de rebotar, ME UNO a ella (hito 5.4). Si no cabe (tope de
 	# MAX_COMBATIENTES), me quedo ESPERANDO PEGADO y lo reintento: en cuanto muera uno, entro en su
 	# hueco. Ojo: NUNCA congelar al grupo antes de saber si la pelea arranca de verdad; hacerlo era
@@ -2383,16 +2388,6 @@ func _start_combat(enemy_initiated: bool) -> void:
 			_esperando_hueco = true    # la pelea esta llena: espero al lado a que caiga alguien
 			velocity = Vector2.ZERO
 			_cancelar_aviso()
-		return
-	# Al que ESPEJA la pelea de otro no se le abre una pelea nueva (le robaria la pantalla y dejaria
-	# al anfitrion esperando su turno para siempre): me uno a LA SUYA, que es donde esta peleando.
-	if Net.peleas.espejando():
-		if Net.peleas.refuerzo_a_mi_pelea(self):
-			_combat_triggered = true
-		else:
-			_esperando_hueco = true    # no cabia: espero pegado como en cualquier pelea llena
-		velocity = Vector2.ZERO
-		_cancelar_aviso()
 		return
 	# EL JUGADOR ACABA DE SALIRSE de una pelea (Continuar en el espejo) y el anfitrion aun le debe lo
 	# que vivieron sus personajes. Abrir otra pelea ahora es perderlo: el lote que viene de camino
@@ -2416,10 +2411,6 @@ func _start_combat(enemy_initiated: bool) -> void:
 		_esperando_hueco = true
 		velocity = Vector2.ZERO
 		_cancelar_aviso()
-		return
-	# EN MULTI LA PELEA NO VA EN ESTE PC si en el piso espera un trabajador de pelea (Parte 3), aunque este PC
-	# sea el dueño humano del piso: asi todas las peleas van por el mismo sitio. La reserva ya congela al grupo.
-	if Net.peleas.pelea_fuera_de_mi_pc(self, enemy_initiated):
 		return
 	var grupo: Array = vecinos()
 	# Se congela al GRUPO ENTERO, no solo a mi: los vecinos entran a la pelea, asi que no pueden
