@@ -390,12 +390,15 @@ const VERSION_MUNDO := 1
 #   sesion_bosses      piso -> instante (reloj de pared) en que cayo su jefe (Net.jefes._bosses_sello)
 #   sesion_nonces      sitio (Vector3i) -> nonce con el que renacio cada veta (Net.recoleccion._nonces_sesion)
 #   posiciones         identidad -> {lugar, pos}: donde estaba cada jugador (cada pocos segundos)
+#   sesion_peleas      las PELEAS A MEDIAS de la sala (etapa 3, paso 7): [{lugar, base, estado}], ver
+#                      Net.peleas.peleas_para_guardar. Cada aliado del estado lleva su identidad y su ficha.
 @export var sesion_fotos_piso: Dictionary = {}
 @export var sesion_suelo: Dictionary = {}
 @export var sesion_suelo_id: int = 1
 @export var sesion_bosses: Dictionary = {}
 @export var sesion_nonces: Dictionary = {}
 @export var posiciones: Dictionary = {}
+@export var sesion_peleas: Array = []
 
 # --- LA PELEA A MEDIAS de una partida de un jugador (fase 6 de la BD) ---
 # Si se guarda (o se cierra el juego) en mitad de una pelea, su foto: lo de cada combatiente (vida, mana,

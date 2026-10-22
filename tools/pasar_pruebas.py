@@ -142,6 +142,7 @@ COMO_SE_LANZA = {
     "prueba_bd_altf4": [{"env": {"ALTF4_FASE": "1"}, "prepara": True}, {"env": {"ALTF4_FASE": "2"}}],
     "prueba_pelea_a_medias": [{"env": {"PELEA_FASE": "1"}, "prepara": True}, {"env": {"PELEA_FASE": "2"}}],
     "prueba_town_pelea_sala": NUBE_LOCAL,
+    "prueba_town_pelea_guardada": NUBE_LOCAL,
 }
 
 # LAS QUE VAN DE UNA EN UNA aunque no sean de red: tocan las mismas ranuras de guardado (user://, la ranura 97...) y

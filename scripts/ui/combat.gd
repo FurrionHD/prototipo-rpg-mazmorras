@@ -3336,8 +3336,8 @@ func marcar_dueno(c: Combatant, peer: int) -> void:
 func retomar(estado: Dictionary, cs: Array, filas_e: Array, texto := "Tomas el relevo de la pelea.") -> void:
 	espejo.retomar(estado, cs, filas_e, texto)
 
-func estado_para_guardar() -> Dictionary:
-	return espejo.estado_para_guardar()
+func estado_para_guardar(base: int = 0) -> Dictionary:
+	return espejo.estado_para_guardar(base)
 
 func roster_para_espejo() -> Dictionary:
 	return espejo.roster_para_espejo()

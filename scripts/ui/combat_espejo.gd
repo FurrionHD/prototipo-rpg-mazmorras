@@ -621,9 +621,12 @@ func _aplicar_volatil(c: Combatant, v: Dictionary) -> void:
 # la partida. Es la foto del traspaso (mismos campos, mismo retomar) pero con TODOS los aliados (son
 # mios) y los enemigos marcados con "id_pelea", que su entrada en memoria_pisos lleva consigo: es lo que
 # los reconoce al reconstruir el piso.
-func estado_para_guardar() -> Dictionary:
+# EN LA SALA (etapa 3, paso 7) hay varias peleas por piso y las guardadas esperan a su dueño: cada una marca a los suyos
+# a partir de su 'base' (la marca es base + hueco) y solo borra las de su tramo. Con base 0 (solo), todas.
+# Cada aliado lleva su "dueno" (el peer que lo maneja; 0 = de esta maquina).
+func estado_para_guardar(base: int = 0) -> Dictionary:
 	for n in PisoVivo.nodos_de(_pantalla, &"enemy"):
-		if is_instance_valid(n) and n.has_meta("id_pelea"):
+		if is_instance_valid(n) and n.has_meta("id_pelea") 				and (base == 0 or (int(n.get_meta("id_pelea")) >= base and int(n.get_meta("id_pelea")) < base + 10)):
 			n.remove_meta("id_pelea")   # de una pelea anterior: no puede confundirse con los de esta
 	var als: Array = []
 	for c in _pantalla._aliados:
@@ -632,7 +635,8 @@ func estado_para_guardar() -> Dictionary:
 		var pj: PersonajeData = Game.pj_de_combatant(c)
 		var fila: Dictionary = {"uid": String(pj.uid) if pj != null else "", "vol": _volatil(c),
 			"gauge": float(_pantalla._gauge.get(c, 0.0)), "lentas": int(_pantalla._lentas.get(c, 0)),
-			"defendiendo": bool(_pantalla._defendiendo.get(c, false)), "nombre": c.nombre}
+			"defendiendo": bool(_pantalla._defendiendo.get(c, false)), "nombre": c.nombre,
+			"dueno": int(_pantalla._dueno_aliado.get(c, 0))}
 		if _pantalla._casteos.has(c):
 			var dest = _pantalla._casteos[c].get("aliado")
 			fila["casteo"] = [String((_pantalla._casteos[c]["spell"] as SpellData).resource_path),
@@ -645,7 +649,7 @@ func estado_para_guardar() -> Dictionary:
 		var nodo = _pantalla.pelea.enemigos[i] if i < _pantalla.pelea.enemigos.size() else null
 		if not is_instance_valid(nodo):
 			continue
-		nodo.set_meta("id_pelea", i)
+		nodo.set_meta("id_pelea", base + i)
 		ens.append({"id": i, "vivo": e.is_alive(), "invocado": _pantalla._slots_invocados.has(i),
 			"vol": _volatil(e), "gauge": float(_pantalla._gauge.get(e, 0.0))})
 	return {"aliados": als, "enemigos": ens, "log": _pantalla._log_lines.duplicate()}

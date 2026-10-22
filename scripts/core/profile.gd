@@ -380,6 +380,13 @@ func convertir_a_mundo(slot: int) -> Dictionary:
 	datos.sesion_bosses.merge(Game.bosses_sello)   # los dos: piso -> instante (reloj de pared) en que cayo
 	if dentro:
 		datos.posiciones[Identidad.id] = {"lugar": "piso:%d" % datos.current_floor, "pos": datos.pos_jugador}
+		# Y SU PELEA A MEDIAS (fase 6 de la BD), al formato de la sala (etapa 3, paso 7): sus enemigos ya van marcados
+		# (base 0) en la foto del piso; cada aliado, con tu identidad y su ficha.
+		var pelea: Dictionary = Net.peleas.guardada_de_solo(datos.pelea_a_medias, Identidad.id)
+		if not pelea.is_empty():
+			pelea["lugar"] = "piso:%d" % datos.current_floor
+			datos.sesion_peleas = [pelea]
+		datos.pelea_a_medias = {}
 	elif datos.pos_jugador != Vector2.ZERO:
 		datos.posiciones[Identidad.id] = {"lugar": "pueblo", "pos": datos.pos_jugador}
 	var ok: bool = _bd.escribir(BDFilas.a_filas(datos, _ids)) >= 0 and _bd.meta_poner("formato", "mundo")

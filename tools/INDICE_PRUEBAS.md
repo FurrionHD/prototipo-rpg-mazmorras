@@ -3,7 +3,7 @@
 Generado por `python tools/indice_pruebas.py` (no editar a mano: se rehace). "Lo nombra" no es "lo cubre
 entero": sirve para ver los **huecos** y para saber qué pruebas pasar después de tocar un archivo.
 
-**224 de 366 scripts no tienen ninguna prueba que los nombre.**
+**223 de 366 scripts no tienen ninguna prueba que los nombre.**
 
 | Carpeta | Scripts | Sin prueba |
 |---|---|---|
@@ -12,7 +12,7 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 | `scripts/core` | 38 | 4 |
 | `scripts/fx` | 124 | 106 |
 | `scripts/items` | 19 | 5 |
-| `scripts/net` | 22 | 4 |
+| `scripts/net` | 22 | 3 |
 | `scripts/town` | 23 | 18 |
 | `scripts/ui` | 90 | 55 |
 | `scripts/ui/herreria` | 6 | 5 |
@@ -258,29 +258,29 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 - `scripts/actors/player/party_trail.gd`: `prueba_orden_pueblo.gd`
 - `scripts/actors/player/player.gd`: `prueba_iniciativa_red.gd`, `prueba_rueda_cristales.gd`
 - `scripts/actors/player/remote_player.gd`: `prueba_iniciativa_red.gd`
-- `scripts/core/abilities.gd`: `prueba_armadura_magica.gd`, `prueba_ataques_magicos.gd`, `prueba_dot_del_golpe.gd`, `prueba_escudo_agua.gd`, `prueba_magias_regla.gd`, `prueba_mut_fuego.gd` y 5 más
+- `scripts/core/abilities.gd`: `prueba_armadura_magica.gd`, `prueba_ataques_magicos.gd`, `prueba_dot_del_golpe.gd`, `prueba_escudo_agua.gd`, `prueba_magias_regla.gd`, `prueba_mut_fuego.gd` y 6 más
 - `scripts/core/ambiente.gd`: `prueba_huella_combate.gd`
 - `scripts/core/bd_filas.gd`: `prueba_bd_ida_vuelta.gd`, `prueba_bd_mazmorra_viva.gd`, `prueba_bd_partida.gd`, `prueba_bd_ranura.gd`, `prueba_lan_por_sala.gd`, `prueba_menu_por_sala.gd` y 4 más
 - `scripts/core/catalogo_equipo.gd`: `prueba_maestro_clic.gd`
 - `scripts/core/ciclo_dia.gd`: `prueba_antorchas_sonido.gd`, `prueba_town_dos_cliente_guion.gd`
-- `scripts/core/combatant.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_anim_por_red.gd`, `prueba_apartarse_fuera.gd`, `prueba_armadura_magica.gd`, `prueba_ataques_magicos.gd` y 41 más
+- `scripts/core/combatant.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_anim_por_red.gd`, `prueba_apartarse_fuera.gd`, `prueba_armadura_magica.gd`, `prueba_ataques_magicos.gd` y 42 más
 - `scripts/core/cuerpos.gd`: `prueba_iniciativa_red.gd`, `prueba_orden_dibujo.gd`, `prueba_pasivas_mut.gd`, `prueba_slimes_tactico.gd`, `prueba_tactico_turno.gd`
 - `scripts/core/elements.gd`: `prueba_bestias_tactico.gd`, `prueba_constructos_tactico.gd`, `prueba_mut_fuego.gd`, `prueba_mut_profundo.gd`
 - `scripts/core/encargos.gd`: `prueba_encargos_excelia.gd`, `prueba_town_dos_cliente_guion.gd`, `prueba_town_dos_jugadores_guion.gd`, `unitarias/test_estados_y_encargos.gd`
 - `scripts/core/forge.gd`: `prueba_armadura_magica.gd`
-- `scripts/core/game.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_andar_apuntando.gd`, `prueba_anim_por_red.gd`, `prueba_antorchas_sonido.gd`, `prueba_apartarse_fuera.gd` y 116 más
+- `scripts/core/game.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_andar_apuntando.gd`, `prueba_anim_por_red.gd`, `prueba_antorchas_sonido.gd`, `prueba_apartarse_fuera.gd` y 120 más
 - `scripts/core/huella_save.gd`: `prueba_bd_ida_vuelta.gd`, `prueba_bd_nube.gd`, `prueba_bd_partida.gd`, `prueba_bd_ranura.gd`, `prueba_huella_save.gd`
-- `scripts/core/identity.gd`: `prueba_bd_nube.gd`, `prueba_bd_un_jugador.gd`, `prueba_lan_por_sala.gd`, `prueba_menu_por_sala.gd`, `prueba_ranura_a_mundo.gd`, `prueba_roster_duplicados.gd` y 13 más
+- `scripts/core/identity.gd`: `prueba_bd_nube.gd`, `prueba_bd_un_jugador.gd`, `prueba_lan_por_sala.gd`, `prueba_menu_por_sala.gd`, `prueba_ranura_a_mundo.gd`, `prueba_roster_duplicados.gd` y 14 más
 - `scripts/core/informe.gd`: `unitarias/test_medidor.gd`
 - `scripts/core/jugador_data.gd`: `prueba_baul_sala.gd`, `prueba_caida_en_pelea.gd`, `prueba_foto_arena_invitado.gd`, `prueba_lan_por_sala.gd`, `prueba_menu_por_sala.gd`, `prueba_ranura_a_mundo.gd` y 8 más
 - `scripts/core/lampara.gd`: `unitarias/test_bolsa_juego.gd`
 - `scripts/core/libros.gd`: `prueba_maestro_clic.gd`
 - `scripts/core/medidor.gd`: `unitarias/test_medidor.gd`
 - `scripts/core/migracion_bd.gd`: `prueba_bd_nube.gd`, `prueba_bd_partida.gd`, `prueba_bd_ranura.gd`, `prueba_bd_un_jugador.gd`
-- `scripts/core/mundos.gd`: `prueba_bd_nube.gd`, `prueba_lan_por_sala.gd`, `prueba_menu_por_sala.gd`, `prueba_roster_duplicados.gd`, `prueba_sala.gd`, `prueba_sala_cliente_guion.gd` y 7 más
+- `scripts/core/mundos.gd`: `prueba_bd_nube.gd`, `prueba_lan_por_sala.gd`, `prueba_menu_por_sala.gd`, `prueba_roster_duplicados.gd`, `prueba_sala.gd`, `prueba_sala_cliente_guion.gd` y 8 más
 - `scripts/core/musica.gd`: `prueba_huella_combate.gd`
 - `scripts/core/partida_bd.gd`: `prueba_bd_mazmorra_viva.gd`, `prueba_bd_nube.gd`, `prueba_bd_partida.gd`, `prueba_bd_ranura.gd`, `prueba_bd_un_jugador.gd`, `prueba_lan_por_sala.gd` y 7 más
-- `scripts/core/personaje_data.gd`: `prueba_arena.gd`, `prueba_armadura_magica.gd`, `prueba_caida_en_pelea.gd`, `prueba_cargar_turno.gd`, `prueba_encargos_excelia.gd`, `prueba_ficha_fiel.gd` y 27 más
+- `scripts/core/personaje_data.gd`: `prueba_arena.gd`, `prueba_armadura_magica.gd`, `prueba_caida_en_pelea.gd`, `prueba_cargar_turno.gd`, `prueba_encargos_excelia.gd`, `prueba_ficha_fiel.gd` y 29 más
 - `scripts/core/profile.gd`: `prueba_bd_altf4.gd`, `prueba_bd_mazmorra_viva.gd`, `prueba_bd_ranura.gd`, `prueba_bd_un_jugador.gd`, `prueba_caida_en_pelea.gd`, `prueba_lan_por_sala.gd` y 8 más
 - `scripts/core/runas.gd`: `prueba_runas.gd`, `prueba_runas_en_menu.gd`, `prueba_taller_runas.gd`
 - `scripts/core/save_data.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_andar_apuntando.gd`, `prueba_anim_por_red.gd`, `prueba_antorchas_sonido.gd`, `prueba_apartarse_fuera.gd` y 86 más
@@ -326,19 +326,20 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 - `scripts/items/weapon_data.gd`: `prueba_cargar_turno.gd`, `prueba_tactico_turno.gd`, `prueba_taller_runas.gd`
 - `scripts/net/cloud.gd`: `prueba_bd_nube.gd`, `prueba_bd_un_jugador.gd`, `prueba_lan_por_sala.gd`, `prueba_menu_por_sala.gd`, `prueba_nube_sin_red.gd`, `prueba_sala.gd` y 9 más
 - `scripts/net/cloud_store_local.gd`: `prueba_identidad_y_cerrojo.gd`
-- `scripts/net/net.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_andar_apuntando.gd`, `prueba_anim_por_red.gd`, `prueba_apartarse_fuera.gd`, `prueba_arena.gd` y 71 más
+- `scripts/net/net.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_andar_apuntando.gd`, `prueba_anim_por_red.gd`, `prueba_apartarse_fuera.gd`, `prueba_arena.gd` y 75 más
 - `scripts/net/net_enemigos.gd`: `prueba_sala_pisos.gd`, `prueba_sala_pisos_guion.gd`, `prueba_solo_por_sala_guion.gd`, `prueba_tactico_turno.gd`, `prueba_town_dos_comun.gd`, `prueba_town_dos_jugadores_guion.gd` y 5 más
 - `scripts/net/net_formacion.gd`: `prueba_menus_perezosos.gd`, `prueba_sala_cliente_guion.gd`
 - `scripts/net/net_hogar.gd`: `prueba_repintado_red.gd`, `prueba_roster_duplicados.gd`, `prueba_sala_cliente_guion.gd`, `prueba_town_baul_cliente_guion.gd`, `prueba_town_baul_red_guion.gd`, `prueba_town_dos_cliente_guion.gd` y 2 más
 - `scripts/net/net_jefes.gd`: `prueba_bd_mazmorra_viva.gd`
 - `scripts/net/net_jugadores.gd`: `prueba_servidor_cuerpos.gd`, `prueba_town_dos_jugadores_guion.gd`
 - `scripts/net/net_mapa.gd`: `prueba_marcas_mapa.gd`
-- `scripts/net/net_partida.gd`: `prueba_baul_sala.gd`, `prueba_ficha_fiel.gd`, `prueba_huella_combate.gd`, `prueba_sala_cliente_guion.gd`, `prueba_sala_entrar.gd`, `prueba_sala_pisos_guion.gd` y 5 más
-- `scripts/net/net_peleas.gd`: `prueba_caida_en_pelea.gd`, `prueba_huella_combate.gd`, `prueba_huella_red_falsa.gd`, `prueba_solo_por_sala_guion.gd`, `prueba_town_dos_cliente_guion.gd`, `prueba_town_dos_comun.gd` y 6 más
+- `scripts/net/net_partida.gd`: `prueba_baul_sala.gd`, `prueba_ficha_fiel.gd`, `prueba_huella_combate.gd`, `prueba_sala_cliente_guion.gd`, `prueba_sala_entrar.gd`, `prueba_sala_pisos_guion.gd` y 6 más
+- `scripts/net/net_peleas.gd`: `prueba_caida_en_pelea.gd`, `prueba_huella_combate.gd`, `prueba_huella_red_falsa.gd`, `prueba_solo_por_sala_guion.gd`, `prueba_town_dos_cliente_guion.gd`, `prueba_town_dos_comun.gd` y 10 más
 - `scripts/net/net_pesca.gd`: `prueba_servidor_cuerpos.gd`
-- `scripts/net/net_pisos.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_andar_apuntando.gd`, `prueba_anim_por_red.gd`, `prueba_apartarse_fuera.gd`, `prueba_arena.gd` y 47 más
+- `scripts/net/net_pisos.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_andar_apuntando.gd`, `prueba_anim_por_red.gd`, `prueba_apartarse_fuera.gd`, `prueba_arena.gd` y 50 más
 - `scripts/net/net_recoleccion.gd`: `prueba_bd_mazmorra_viva.gd`
 - `scripts/net/net_suelo.gd`: `prueba_bd_mazmorra_viva.gd`, `unitarias/test_baul_red.gd`
+- `scripts/net/pelea_viva.gd`: `prueba_huella_red_falsa.gd`, `prueba_town_dos_peleas_guion.gd`, `unitarias/test_pelea_viva.gd`
 - `scripts/net/sala.gd`: `prueba_lan_por_sala.gd`, `prueba_sala.gd`, `prueba_sala_dos_jugadores.gd`, `prueba_sala_entrar.gd`, `prueba_sala_pisos.gd`, `prueba_sala_pisos_guion.gd` y 5 más
 - `scripts/net/servidor_pisos.gd`: `prueba_sala_pisos.gd`, `prueba_servidor_cuerpos.gd`, `prueba_servidor_dos_pisos.gd`
 - `scripts/net/tunel_steam.gd`: `prueba_tunel.gd`
@@ -383,7 +384,7 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 - `scripts/ui/tannery_menu.gd`: `prueba_menus_perezosos.gd`
 - `scripts/ui/tavern_menu.gd`: `prueba_menus_perezosos.gd`
 - `scripts/ui/tramo_escudo.gd`: `prueba_escudo_agua.gd`
-- `scripts/world/arena_calculo.gd`: `prueba_arena_forma.gd`, `prueba_arena_tactica.gd`, `prueba_entra_de_fuera.gd`, `prueba_tactico_mazmorra.gd`, `prueba_town_trabajadores_guion.gd`, `prueba_town_zona_ajena_b_guion.gd` y 3 más
+- `scripts/world/arena_calculo.gd`: `prueba_arena_forma.gd`, `prueba_arena_tactica.gd`, `prueba_entra_de_fuera.gd`, `prueba_tactico_mazmorra.gd`, `prueba_town_pelea_sala_guion.gd`, `prueba_town_zona_ajena_b_guion.gd` y 3 más
 - `scripts/world/arena_combate.gd`: `prueba_alcances.gd`, `prueba_arena_forma.gd`, `prueba_arena_recoge.gd`, `prueba_arena_tactica.gd`, `prueba_entra_de_fuera.gd`, `prueba_reparto_enemigos.gd` y 5 más
 - `scripts/world/dungeon_floor.gd`: `prueba_suelo_monton.gd`
 - `scripts/world/dungeon_generator.gd`: `prueba_arena_forma.gd`, `prueba_arena_tactica.gd`, `prueba_embestida_porrazo.gd`, `prueba_entra_de_fuera.gd`, `prueba_estados_hud_pelea.gd`, `prueba_iniciativa_red.gd` y 7 más

@@ -274,6 +274,8 @@ func _conceder_entrada(quien: int, piso: int = 1, volver := false) -> void:
 # ------------------------------------------------------------
 ## Lo que hay que guardar de la sesion.
 func sesion_para_guardar() -> Dictionary:
+	# LAS PELEAS A MEDIAS (etapa 3, paso 7), ANTES de las fotos: marcan a sus enemigos y la foto lo apunta.
+	var peleas: Array = Net.peleas.peleas_para_guardar()
 	if Net.soy_sala:
 		sala_fotos_vivas()   # los pisos montados, como estan AHORA (no los de hace hasta 30 s)
 	var fotos: Dictionary = Net._fotos_piso.duplicate(true)
@@ -288,7 +290,7 @@ func sesion_para_guardar() -> Dictionary:
 			suelo[id] = Net.suelo._suelo[id]
 	return {"fotos": fotos, "suelo": suelo.duplicate(true), "suelo_id": Net.suelo._next_id,
 		"bosses": Net.jefes._bosses_sello.duplicate(), "nonces": Net.recoleccion._nonces_sesion.duplicate(),
-		"posiciones": posiciones_al_dia().duplicate(true)}
+		"posiciones": posiciones_al_dia().duplicate(true), "peleas": peleas}
 
 
 ## DONDE ESTA CADA JUGADOR, al dia: los conectados con lo ultimo que han mandado; los que se fueron, con
@@ -321,8 +323,9 @@ func sembrar_sesion(s: Dictionary) -> void:
 	Net.jefes._bosses_sello = (s.get("bosses", {}) as Dictionary).duplicate()
 	Net.recoleccion._nonces_sesion = (s.get("nonces", {}) as Dictionary).duplicate()
 	Net._posiciones = (s.get("posiciones", {}) as Dictionary).duplicate(true)
-	print("[multi] mazmorra del mundo sembrada: %d pisos congelados, %d cosas en el suelo, %d jefes caidos" % [
-		Net._fotos_piso.size(), Net.suelo._suelo.size(), Net.jefes._bosses_sello.size()])
+	Net.peleas.sembrar_guardadas(s.get("peleas", []))
+	print("[multi] mazmorra del mundo sembrada: %d pisos congelados, %d cosas en el suelo, %d jefes caidos, %d peleas a medias" % [
+		Net._fotos_piso.size(), Net.suelo._suelo.size(), Net.jefes._bosses_sello.size(), (s.get("peleas", []) as Array).size()])
 
 
 # VOLVER A TU SITIO al entrar en el mundo: estabas en un piso de la mazmorra y esa mazmorra sigue (el piso
@@ -925,6 +928,8 @@ func _mem_a_red(mem: Dictionary) -> Dictionary:
 			# guardaba).
 			"mut": bool(d.get("mut", false)), "carga": float(d.get("carga", 0.0)),
 			"mutid": String(d.get("mutid", "")),
+			# Si esta en una PELEA GUARDADA (etapa 3, paso 7): su marca, para reconocerlo al rehacerla (Net.peleas).
+			"id_pelea": int(d.get("id_pelea", -1)),
 			# LO QUE LE QUEDA PARA PUDRIRSE, con la HORA DE VERDAD de la foto (12/10, playtest 11/10: "los cadaveres no
 			# se descomponen; sigue habiendo cadaveres de hace 2 dias"). El 'pudre' de la memoria va contra el reloj de
 			# expedicion de ESTA maquina, que en otra no significa nada; por eso no viajaba, y cada traspaso o
@@ -961,6 +966,7 @@ func _mem_de_red(mem: Dictionary) -> Dictionary:
 			"hp": d.get("hp", -1.0),
 			"mut": bool(d.get("mut", false)), "carga": float(d.get("carga", 0.0)),
 			"mutid": String(d.get("mutid", "")),
+			"id_pelea": int(d.get("id_pelea", -1)),
 			"pudre": _pudre_de_red(d),
 		})
 	return {"enemigos": out, "suelo": []}

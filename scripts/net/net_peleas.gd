@@ -254,6 +254,8 @@ func _reservar_grupo(nodo, id: int, quien: int) -> Array:
 		var nid: int = n.get_meta("net_id")
 		if _enem_ocupados.has(nid):
 			continue
+		if n.has_meta("id_pelea"):
+			_olvidar_guardada_de(n)   # era de una pelea guardada cuyo dueño no ha vuelto: le han pegado, se olvida
 		_enem_ocupados[nid] = quien
 		n._combat_triggered = true      # congelado: ya esta en una pelea (la de otro)
 		n.velocity = Vector2.ZERO
@@ -1540,7 +1542,7 @@ func esta_caido(peer: int) -> bool:
 
 
 ## Quien lleva la pelea: 'peer' se ha caido. true = se queda en cortesia; false = no tenia nada aqui.
-func marcar_caido(peer: int, ident: String = "") -> bool:
+func marcar_caido(peer: int, ident: String = "", motivo: String = "") -> bool:
 	var pe: PeleaViva = _pe_de_peer(peer)
 	if pe == null or pe.id == 0 or not pe.dobles.has(peer) or _caidos.has(peer):
 		return false
@@ -1557,7 +1559,7 @@ func marcar_caido(peer: int, ident: String = "") -> bool:
 			break
 	_caidos[peer] = {"ident": ident, "t": Time.get_ticks_msec(), "nombre": nombre, "pe": pe}
 	print("[pelea] %s (peer %d) se ha desconectado: sus personajes siguen %.0f s jugando solos" % [nombre, peer, CORTESIA])
-	p._set_log("%s se ha desconectado: sus personajes defienden solos un rato." % nombre)
+	p._set_log(motivo % nombre if motivo != "" else "%s se ha desconectado: sus personajes defienden solos un rato." % nombre)
 	p.caido_de_la_red(peer)
 	return true
 
@@ -1618,7 +1620,10 @@ func apuntar_caido(peer: int, ident: String, lugar: String) -> void:
 # respiro: su piso se esta construyendo y el espejo de la pelea se monta encima.
 func revisar_vuelta(peer: int, lugar: String) -> void:
 	var ident: String = Net._identidad_de_peer(peer)
-	if ident == "" or not _caidos_sala.has(ident):
+	if ident == "":
+		return
+	_rehacer_guardadas(peer, ident, lugar)   # una pelea guardada suya en ese piso: se rehace y queda en _caidos_sala
+	if not _caidos_sala.has(ident):
 		return
 	var c: Dictionary = _caidos_sala[ident]
 	if Time.get_ticks_msec() - int(c["t"]) > int((CORTESIA + 30.0) * 1000.0):
@@ -1694,6 +1699,229 @@ func _mio_de_la_plantilla(uid: String) -> PersonajeData:
 		if x != null and String((x as PersonajeData).uid) == uid:
 			return x
 	return null
+
+
+# ============================================================
+#  LAS PELEAS A MEDIAS EN EL GUARDADO DEL MUNDO (fase 2, etapa 3, paso 7, 22/10). Si la sala guarda (o se cierra) con
+#  peleas en marcha, van al guardado (SaveData.sesion_peleas) y vuelven al abrir el mundo. Se rehacen cuando vuelve a
+#  su piso uno de los suyos: la sala la monta con TODOS sus personajes en cortesia, como si se acabaran de caer, y al
+#  que vuelve le devuelve los suyos por el camino de las caidas (revisar_vuelta -> _vuelve -> _retoma_tu_pelea). El que
+#  no vuelva en CORTESIA sale con lo vivido apuntado en su ficha. Decidido (usuario, 22/10): mientras no vuelve nadie,
+#  sus enemigos andan libres, y si otro les pega la pelea guardada se olvida (sus dueños vuelven como si hubieran huido).
+#  Con red sustituye a la pelea a medias de solo (Game.pelea_para_guardar / retomar_pelea_guardada).
+#  Prueba: tools/prueba_town_pelea_guardada.gd
+# ------------------------------------------------------------
+# EN LA SALA: las que esperan a que vuelva alguno de los suyos: [{lugar, base, estado}].
+var _guardadas: Array = []
+# La marca de los enemigos de cada pelea en la foto de su piso es base + hueco, y cada pelea tiene la suya, de 10 en 10.
+# Arranca en la hora de abrir la sala por 100: asi no repite la de una pelea guardada en otra sesion. La 0 es la de solo.
+var _base_next: int = 0
+# Los PEERS DE MENTIRA de los personajes de una pelea rehecha mientras su dueño no ha vuelto (nunca son de nadie).
+const PEER_GUARDADA := 1 << 30
+var _peer_guardada_next: int = PEER_GUARDADA
+
+
+## EN LA SALA: las peleas que hay que guardar (las vivas sin acabar y las que siguen esperando). Marca a sus enemigos:
+## se llama ANTES de sacar las fotos de los pisos (Net.pisos.sesion_para_guardar).
+func peleas_para_guardar() -> Array:
+	var out: Array = []
+	if not Net.soy_sala:
+		return out
+	for pe in _peleas.values():
+		if not is_instance_valid(pe) or not is_instance_valid(pe.piso) or pe.piso.es_arena:
+			continue
+		var p: Node = _pantalla_combate(pe)
+		if p == null or not p.has_method("estado_para_guardar") or (p.has_method("acabada") and p.acabada()):
+			continue
+		if pe.marca == 0:
+			if _base_next == 0:
+				_base_next = int(Time.get_unix_time_from_system()) * 100
+			pe.marca = _base_next
+			_base_next += 10
+		var estado: Dictionary = p.estado_para_guardar(pe.marca)
+		var aliados: Array = []
+		for fila in estado.get("aliados", []):
+			var peer: int = int(fila.get("dueno", 0))
+			var ident: String = _ident_en_pelea(peer)
+			var doble: PersonajeData = null
+			for d in pe.dobles.get(peer, []):
+				if d != null and String((d as PersonajeData).uid) == String(fila.get("uid", "")):
+					doble = d
+			if ident == "" or doble == null:
+				continue   # de nadie que se sepa: no hay a quien devolverselo
+			fila.erase("dueno")
+			fila["ident"] = ident
+			fila["ficha"] = Net.partida.ficha_a_dict(doble)
+			# QUE CUERPO DE SU DUEÑO ES: ficha_a_dict lo mira en el grupo de esta maquina, y la sala no tiene grupo. Sin
+			# esto, en tactico el doble rehecho no encontraba su cuerpo en el mapa y no podia andar.
+			fila["ficha"]["cuerpo"] = int(doble.get_meta("cuerpo_red", -1))
+			aliados.append(fila)
+		if aliados.is_empty():
+			continue
+		estado["aliados"] = aliados
+		out.append({"lugar": pe.piso.lugar, "base": pe.marca, "estado": estado})
+	for g in _guardadas:
+		out.append((g as Dictionary).duplicate(true))
+	if not out.is_empty():
+		print("[pelea] al guardado: %d pelea(s) a medias" % out.size())
+	return out
+
+
+# Quien es el dueño de un personaje de la pelea: el conectado, el que se ha caido (y sigue en cortesia) o el que aun no
+# ha vuelto de una pelea rehecha.
+func _ident_en_pelea(peer: int) -> String:
+	var ident: String = Net._identidad_de_peer(peer)
+	if ident == "":
+		ident = String(_ident_de_ido.get(peer, ""))
+	if ident == "" and _caidos.has(peer):
+		ident = String(_caidos[peer].get("ident", ""))
+	return ident
+
+
+## EN LA SALA, al abrir el mundo (Net.pisos.sembrar_sesion): las peleas a medias que venian en el guardado.
+func sembrar_guardadas(lista: Array) -> void:
+	_guardadas = lista.duplicate(true)
+	for g in _guardadas:
+		_base_next = maxi(_base_next, int(g.get("base", 0)) + 10)
+		print("[pelea] pelea a medias en %s (%d aliados): se sigue cuando vuelva uno de los suyos" % [
+			String(g.get("lugar", "")), ((g.get("estado", {}) as Dictionary).get("aliados", []) as Array).size()])
+
+
+## La pelea a medias de una partida de solo (SaveData.pelea_a_medias) en el formato de la sala, al pasar la ranura a
+## formato de mundo (Perfil.convertir_a_mundo): sus enemigos ya van marcados con base 0. Vacio = no habia.
+func guardada_de_solo(estado: Dictionary, ident: String) -> Dictionary:
+	if estado.is_empty():
+		return {}
+	var e: Dictionary = estado.duplicate(true)
+	var aliados: Array = []
+	for fila in e.get("aliados", []):
+		var pj: PersonajeData = _mio_de_la_plantilla(String(fila.get("uid", "")))
+		if pj == null:
+			continue
+		fila["ident"] = ident
+		fila["ficha"] = Net.partida.ficha_a_dict(pj)
+		aliados.append(fila)
+	if aliados.is_empty():
+		return {}
+	e["aliados"] = aliados
+	return {"base": 0, "estado": e}
+
+
+# EN LA SALA: 'peer' (identidad 'ident') llega a 'lugar'. Si alli hay una pelea guardada con personajes suyos, se rehace.
+func _rehacer_guardadas(peer: int, ident: String, lugar: String) -> void:
+	if not Net.soy_sala or _guardadas.is_empty() or not lugar.begins_with("piso:"):
+		return
+	for g in _guardadas.duplicate():
+		if String(g.get("lugar", "")) != lugar:
+			continue
+		var suya := false
+		for fila in (g["estado"] as Dictionary).get("aliados", []):
+			suya = suya or String(fila.get("ident", "")) == ident
+		if not suya:
+			continue
+		var piso: PisoVivo = PisoVivo.del_lugar(lugar)
+		if piso == null:
+			print("[pelea] la pelea guardada en %s espera: el piso aun no esta montado" % lugar)
+			continue
+		_guardadas.erase(g)
+		_rehacer(g, piso, peer)
+
+
+func _rehacer(g: Dictionary, piso: PisoVivo, peer: int) -> void:
+	var estado: Dictionary = g["estado"]
+	var base: int = int(g.get("base", 0))
+	var por_marca: Dictionary = {}
+	for n in piso.nodos(&"enemy"):
+		if is_instance_valid(n) and n.has_meta("id_pelea"):
+			por_marca[int(n.get_meta("id_pelea"))] = n
+	_quitar_marcas(piso, base)
+	var nodos: Array = []
+	var filas_e: Array = []
+	for e in estado.get("enemigos", []):
+		var n = por_marca.get(base + int(e.get("id", -1)))
+		if not bool(e.get("vivo", true)) or n == null or not is_instance_valid(n) or n.esta_muerto() \
+				or not n.has_meta("net_id") or _enem_ocupados.has(int(n.get_meta("net_id"))) or PeleaViva.de_enemigo(n) != null:
+			continue
+		nodos.append(n)
+		filas_e.append(e)
+	if nodos.is_empty():
+		print("[pelea] la pelea guardada en %s ya no tiene enemigos: se olvida" % piso.lugar)
+		return
+	# Un grupo por jugador, en el orden de la pelea (asi los huecos salen como estaban), cada uno con su peer de mentira.
+	var grupos: Array = []
+	var por_ident: Dictionary = {}
+	for fila in estado.get("aliados", []):
+		var ident: String = String(fila.get("ident", ""))
+		if not por_ident.has(ident):
+			por_ident[ident] = {"peer": _peer_guardada_next, "fichas": [], "ident": ident}
+			_peer_guardada_next += 1
+			grupos.append(por_ident[ident])
+		(por_ident[ident]["fichas"] as Array).append(fila["ficha"])
+	var quien: int = int(grupos[0]["peer"])
+	var ids: Array = []
+	for i in nodos.size():
+		var n = nodos[i]
+		var nid: int = int(n.get_meta("net_id"))
+		_enem_ocupados[nid] = quien
+		ids.append(nid)
+		n.hp_restante = float((filas_e[i]["vol"] as Dictionary).get("hp", -1.0))
+		n._combat_triggered = true
+		n.velocity = Vector2.ZERO
+		n._cancelar_aviso()
+	var pe := PeleaViva.new()
+	pe.name = "Pelea"
+	pe.humano = peer
+	pe.marca = base
+	piso.add_child(pe, true)
+	var huecos: Dictionary = Game.abrir_pelea_de_fichas(nodos, false, grupos, pe)
+	var p: Node = _pantalla_combate(pe)
+	if huecos.is_empty() or p == null or pe.id == 0:
+		print("[pelea] la sala no ha podido rehacer la pelea guardada en %s" % piso.lugar)
+		pe.queue_free()
+		_soltar_reservados(ids, quien)
+		return
+	_peleas[pe.id] = pe
+	pe.participantes.clear()   # los peers de mentira no tienen pantalla: nada de instantaneas (marcar_caido, abajo)
+	# Lo vivido encima: cada personaje por su uid (las filas van en el orden de la pelea vieja).
+	var cs: Array = []
+	for fila in estado.get("aliados", []):
+		var c: Combatant = null
+		for i in pe.aliados_pjs.size():
+			if pe.aliados_pjs[i] != null and String((pe.aliados_pjs[i] as PersonajeData).uid) == String(fila.get("uid", "")):
+				c = pe.aliados_cs[i]
+				break
+		cs.append(c)
+	p.retomar(estado, cs, filas_e, "La pelea sigue donde la dejasteis.")
+	# TODOS EN CORTESIA: el que acaba de volver recupera a los suyos enseguida (revisar_vuelta, justo detras); los demas
+	# tienen el rato de siempre para volver.
+	var ahora: int = Time.get_ticks_msec()
+	for gr in grupos:
+		marcar_caido(int(gr["peer"]), String(gr["ident"]), "%s aún no ha vuelto: sus personajes defienden solos un rato.")
+		_caidos_sala[String(gr["ident"])] = {"peer": int(gr["peer"]), "lugar": piso.lugar, "t": ahora}
+	print("[pelea] la sala rehace la pelea guardada en %s (pelea %d): %d de %d enemigos, %d jugador(es)" % [
+		piso.lugar, pe.id, nodos.size(), (estado.get("enemigos", []) as Array).size(), grupos.size()])
+
+
+# A un enemigo de una pelea guardada le ha pegado otro (decidido, 22/10): la pelea se olvida.
+func _olvidar_guardada_de(n: Node) -> void:
+	var marca: int = int(n.get_meta("id_pelea"))
+	n.remove_meta("id_pelea")
+	var piso: PisoVivo = PisoVivo.de(n)
+	if piso == null:
+		return
+	for g in _guardadas.duplicate():
+		var base: int = int(g.get("base", 0))
+		if String(g.get("lugar", "")) == piso.lugar and marca >= base and marca < base + 10:
+			_guardadas.erase(g)
+			_quitar_marcas(piso, base)
+			print("[pelea] le pegan a un enemigo de la pelea guardada en %s: se olvida" % piso.lugar)
+
+
+func _quitar_marcas(piso: PisoVivo, base: int) -> void:
+	for n in piso.nodos(&"enemy"):
+		if is_instance_valid(n) and n.has_meta("id_pelea") and int(n.get_meta("id_pelea")) >= base \
+				and int(n.get_meta("id_pelea")) < base + 10:
+			n.remove_meta("id_pelea")
 
 
 # El anfitrion pide la accion al dueño de ese personaje. Mientras, su pantalla espera: el ATB no

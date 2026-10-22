@@ -70,6 +70,18 @@ func _correr() -> void:
 	# la rama de seguir dentro. La de salir al pueblo la cubre el mismo _ver de abajo cuando toca.
 	d.trazado = SaveData.TRAZADO_ACTUAL
 	d.pos_jugador = Vector2(321, 654)
+	# GUARDADA A MEDIA PELEA (etapa 3, paso 7): la pelea pasa al formato de la sala, y la marca de su enemigo viaja en la
+	# foto de su piso.
+	var uid_pelea: String = String((d.plantilla[0] as PersonajeData).uid)
+	d.pelea_a_medias = {"aliados": [{"uid": uid_pelea, "vol": {"hp": 12.0}}],
+		"enemigos": [{"id": 0, "vivo": true, "vol": {"hp": 5.0}}], "log": ["a medias"]}
+	var piso_marcado: int = -1
+	for piso in d.memoria_pisos:
+		var ens: Array = (d.memoria_pisos[piso] as Dictionary).get("enemigos", [])
+		if not ens.is_empty() and ens[0].get("data") != null:
+			ens[0]["id_pelea"] = 0
+			piso_marcado = int(piso)
+			break
 	_ver(Perfil._guardar_bd(SLOT, d), "se hace la ranura de prueba")
 	Perfil._cerrar_bd()
 
@@ -103,6 +115,16 @@ func _correr() -> void:
 	Game.importar_partida(datos)
 	_ver(Game.jugadores_mundo.has(Identidad.id), "y en el estan mis personajes, a mi nombre")
 	_ver(Game.plantilla.is_empty() and Game.party.is_empty(), "la sala no juega con ellos (grupo vacio)")
+	if dentro_antes:
+		var pg: Array = datos.sesion_peleas
+		var fila: Dictionary = (pg[0]["estado"]["aliados"][0] as Dictionary) if pg.size() == 1 else {}
+		_ver(pg.size() == 1 and String(pg[0].get("lugar", "")) == "piso:7" and int(pg[0].get("base", -1)) == 0
+			and String(fila.get("uid", "")) == uid_pelea and String(fila.get("ident", "")) == Identidad.id
+			and (fila.get("ficha", {}) as Dictionary).has("nombre") and datos.pelea_a_medias.is_empty(),
+			"la pelea a medias pasa a la sala, a mi nombre y con su ficha (%d)" % pg.size())
+	if piso_marcado >= 0:
+		var foto: Array = (datos.sesion_fotos_piso.get(piso_marcado, {}) as Dictionary).get("enemigos", [])
+		_ver(not foto.is_empty() and int(foto[0].get("id_pelea", -1)) == 0, "la marca de su enemigo viaja en la foto del piso %d" % piso_marcado)
 	var mundo_sala: Dictionary = _mundo()
 	_ver(mundo_sala == mundo_antes, "lo del mundo, igual: %s / antes %s" % [mundo_sala, mundo_antes])
 

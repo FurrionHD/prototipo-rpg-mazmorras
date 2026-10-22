@@ -4105,7 +4105,7 @@ func importar_partida(d: SaveData) -> void:
 	pos_cargada_pueblo = d.pos_jugador if not d.en_mazmorra and d.pos_jugador != Vector2.ZERO else Vector2.INF
 	sesion_guardada = {"fotos": d.sesion_fotos_piso.duplicate(true), "suelo": d.sesion_suelo.duplicate(true),
 		"suelo_id": d.sesion_suelo_id, "bosses": d.sesion_bosses.duplicate(), "nonces": d.sesion_nonces.duplicate(),
-		"posiciones": d.posiciones.duplicate(true)}
+		"posiciones": d.posiciones.duplicate(true), "peleas": d.sesion_peleas.duplicate(true)}
 	_rehacer_pisos_de_otro_trazado(d)
 	_olvidar_marcas_de_otra_colocacion(d)
 
@@ -4264,6 +4264,7 @@ func _exportar_sesion(d: SaveData) -> void:
 	d.sesion_bosses = (s.get("bosses", {}) as Dictionary).duplicate()
 	d.sesion_nonces = (s.get("nonces", {}) as Dictionary).duplicate()
 	d.posiciones = (s.get("posiciones", {}) as Dictionary).duplicate(true)
+	d.sesion_peleas = (s.get("peleas", []) as Array).duplicate(true)
 
 
 func _rehacer_pisos_de_otro_trazado(d: SaveData) -> void:
