@@ -642,7 +642,7 @@ func estado_para_guardar() -> Dictionary:
 	var ens: Array = []
 	for i in _pantalla._enemies.size():
 		var e: Combatant = _pantalla._enemies[i]
-		var nodo = Game._active_enemies[i] if i < Game._active_enemies.size() else null
+		var nodo = _pantalla.pelea.enemigos[i] if i < _pantalla.pelea.enemigos.size() else null
 		if not is_instance_valid(nodo):
 			continue
 		nodo.set_meta("id_pelea", i)
@@ -683,7 +683,7 @@ func estado_para_traspaso(nuevo: int) -> Dictionary:
 	var ens: Array = []
 	for i in _pantalla._enemies.size():
 		var e: Combatant = _pantalla._enemies[i]
-		var nodo = Game._active_enemies[i] if i < Game._active_enemies.size() else null
+		var nodo = _pantalla.pelea.enemigos[i] if i < _pantalla.pelea.enemigos.size() else null
 		if not is_instance_valid(nodo) or not nodo.has_meta("net_id"):
 			continue   # sin net_id no hay forma de que el otro sepa de que bicho hablo
 		ens.append({"net_id": int(nodo.get_meta("net_id")), "vivo": e.is_alive(),
@@ -890,7 +890,7 @@ func _heartbeat_remoto(delta: float) -> void:
 		return
 	# ¿Sigue en la pelea? Si se fue, sus personajes salen y la pelea continua (no se espera a un
 	# fantasma). Si sigue, se le repite lo que le pedi.
-	if not Net.peleas.esta_en_mi_pelea(_pantalla._esperando_a):
+	if not Net.peleas.esta_en_mi_pelea(_pantalla._esperando_a, _pantalla.pelea):
 		var quien: int = _pantalla._esperando_a
 		_fin_de_espera()
 		_pantalla.sacar_a(quien)
@@ -1133,7 +1133,7 @@ func cerrar_espejo() -> void:
 func _difundir() -> void:
 	if _pantalla._espejo or not Net.activo:
 		return
-	Net.peleas.difundir_instantanea(instantanea())
+	Net.peleas.difundir_instantanea(instantanea(), _pantalla.pelea)
 
 
 # LA BARRA DE ACCION en los espejos. El ATB corre SOLO aqui, asi que alli los marcadores se
@@ -1157,7 +1157,7 @@ func _difundir_atb(delta: float) -> void:
 	# turno_mapa.estado_red). Van SIEMPRE los ultimos: el espejo los lee contando desde el final.
 	if _pantalla.tactico:
 		r.append_array(_pantalla.turno_mapa.estado_red())
-	Net.peleas.difundir_atb(r)
+	Net.peleas.difundir_atb(r, _pantalla.pelea)
 
 
 # --- IMPACTOS PARA EL ESPEJO -----------------------------------------------------------------
@@ -1406,7 +1406,7 @@ func _soltar_impactos_red() -> void:
 	if _impactos_red.is_empty():
 		return
 	if not _pantalla._espejo and Net.activo:
-		Net.peleas.difundir_impactos(_impactos_red)
+		Net.peleas.difundir_impactos(_impactos_red, _pantalla.pelea)
 	_impactos_red = PackedInt32Array()
 	_ult_tanda_red = -1   # la accion se ha ido: la siguiente vuelve a empezar por su tanda 0
 	_ult_anim_red.clear()

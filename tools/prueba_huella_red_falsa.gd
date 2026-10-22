@@ -22,22 +22,22 @@ func _todos() -> Array:
 	return out
 
 
-func difundir_instantanea(snap: Dictionary) -> void:
+func difundir_instantanea(snap: Dictionary, _pe: PeleaViva = null) -> void:
 	for e in _todos():
 		e.aplicar_instantanea(snap)
 
 
-func difundir_atb(ratios: PackedFloat32Array) -> void:
+func difundir_atb(ratios: PackedFloat32Array, _pe: PeleaViva = null) -> void:
 	for e in _todos():
 		e.aplicar_atb(ratios)
 
 
-func difundir_impactos(datos: PackedInt32Array) -> void:
+func difundir_impactos(datos: PackedInt32Array, _pe: PeleaViva = null) -> void:
 	for e in _todos():
 		e.aplicar_impactos(datos)
 
 
-func difundir_roster(roster: Dictionary) -> void:
+func difundir_roster(roster: Dictionary, _pe: PeleaViva = null) -> void:
 	for e in _todos():
 		e.aplicar_roster(roster)
 
@@ -75,7 +75,7 @@ func pedir_soltar(peer: int, nombre: String, seq: int = 0) -> void:
 		espejos[peer].soltar_carga(nombre, seq)
 
 
-func esta_en_mi_pelea(peer: int) -> bool:
+func esta_en_mi_pelea(peer: int, _pe: PeleaViva = null) -> bool:
 	return espejos.has(peer) or _pelea_participantes.has(peer)
 
 

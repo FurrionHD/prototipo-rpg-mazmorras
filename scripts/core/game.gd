@@ -1236,9 +1236,17 @@ func combate_tactico(enemy_nodes: Array) -> bool:
 # ArenaCalculo.forma_de_arena; mascara vacia = el rectangulo entero). rect vacio = aqui no cabe.
 # Lo calcula SIEMPRE esta maquina y, en multi, viaja al espejo: que cada uno lo recalcule por su
 # cuenta es un desincronizado que solo se nota cuando alguien se atasca contra una pared invisible.
-func _forma_de_arena(enemy_nodes: Array, con_log: bool = false) -> Dictionary:
+func _forma_de_arena(enemy_nodes: Array, con_log: bool = false, pe: PeleaViva = null) -> Dictionary:
+	if pe == null:
+		pe = pelea
 	var nada: Dictionary = {"rect": Rect2i(), "mascara": PackedByteArray()}
-	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	# EL SUELO Y LOS ALIADOS SON LOS DEL PISO DE LA PELEA (etapa 3): en la sala hay varios. Con uno, los de siempre.
+	var ref: Node = null
+	for n in enemy_nodes:
+		if is_instance_valid(n):
+			ref = n
+			break
+	var piso: Node = PisoVivo.primero_de(ref, &"dungeon_floor") if ref != null 		else get_tree().get_first_node_in_group("dungeon_floor")
 	if piso == null or piso.get("gen") == null:
 		return nada
 	# LA SEMILLA: el centro de gravedad de los que empiezan la pelea, los suyos y los mios.
@@ -1253,13 +1261,13 @@ func _forma_de_arena(enemy_nodes: Array, con_log: bool = false) -> Dictionary:
 	# EL JUGADOR DEL TRABAJADOR NO CUENTA (08/10, log del playtest: casi todas las peleas del piso 6 salian con
 	# "TROZOS SEPARADOS"). El Godot de pelea tiene su nodo "player" de siempre, quieto donde nace el piso (la sala del
 	# baul y la vuelta al pueblo), y se le añadia esa sala entera a la zona. Alli los que pelean son las fichas.
-	var yo: Node = get_tree().get_first_node_in_group("player") if _puntos_arena_fichas.is_empty() else null
+	var yo: Node = get_tree().get_first_node_in_group("player") if pe.puntos_arena_fichas.is_empty() else null
 	if yo != null and yo is Node2D:
 		puntos.append((yo as Node2D).global_position)
 		quien.append("jugador")
 	# EL TRABAJADOR DE PELEA (27/09) no tiene jugador ni grupo: los que pelean son los cuerpos de red de los
 	# humanos que le mandan sus fichas (ver abrir_pelea_de_fichas), y cuentan como el grupo.
-	for q in _puntos_arena_fichas:
+	for q in pe.puntos_arena_fichas:
 		puntos.append(q)
 		quien.append("ficha")
 	if puntos.is_empty():
@@ -1276,8 +1284,8 @@ func _forma_de_arena(enemy_nodes: Array, con_log: bool = false) -> Dictionary:
 			semilla = ancla
 	# Y QUE QUEPAN TODOS LOS QUE EMPIEZAN (ver ArenaCalculo.forma_de_arena): los de la pelea y los tuyos de al lado.
 	var dentro: Array = puntos.duplicate()
-	for a in get_tree().get_nodes_in_group("aliado"):
-		if not _puntos_arena_fichas.is_empty() and is_instance_valid(a) and a.is_in_group("player"):
+	for a in (PisoVivo.nodos_de(ref, &"aliado") if ref != null else get_tree().get_nodes_in_group("aliado")):
+		if not pe.puntos_arena_fichas.is_empty() and is_instance_valid(a) and a.is_in_group("player"):
 			continue   # el fantasma del trabajador (ver arriba): tambien esta en "aliado"
 		if is_instance_valid(a) and a is Node2D and (a as Node2D).global_position.distance_to(semilla) <= ALIADOS_EN_ZONA:
 			# EL DE OTRO JUGADOR (su avatar o sus compañeros, con 'peer_id'), SOLO SI SE LE VE desde donde empieza
@@ -1381,8 +1389,10 @@ var _camara_guardada := {}
 # ¿Hay una pelea TACTICA en curso en esta maquina? Mientras la hay, los cuerpos de la pelea los mueve
 # el turno (combat_tactico) y nadie mas: en MULTI el arbol no se pausa, y sin preguntar esto el
 # rastro del grupo seguia arrastrando a los compañeros detras del lider cada vez que este andaba.
-func pelea_tactica_en_curso() -> bool:
-	return is_instance_valid(_arena_nodo)
+func pelea_tactica_en_curso(pe: PeleaViva = null) -> bool:
+	if pe == null:
+		pe = pelea
+	return is_instance_valid(pe.arena_nodo)
 
 
 # ============================================================
@@ -1613,20 +1623,24 @@ func entrar_en_pelea_ajena(anfitrion: int) -> void:
 
 # MI zona, a los de mi piso. 'anfitrion' = quien ejecuta mi pelea (yo, o el trabajador/compañero cuyo
 # espejo veo): es a quien le pediran entrar.
-func anunciar_mi_zona(anfitrion: int) -> void:
-	if not Net.activo or not pelea_tactica_en_curso() or _active_layer == null or _active_layer.get_child_count() == 0:
+func anunciar_mi_zona(anfitrion: int, pe: PeleaViva = null) -> void:
+	if pe == null:
+		pe = pelea
+	if not Net.activo or not pelea_tactica_en_curso(pe) or pe.capa == null or pe.capa.get_child_count() == 0:
 		return
-	var combat: Node = _active_layer.get_child(0)
+	var combat: Node = pe.capa.get_child(0)
 	var rect: Rect2i = combat.get("arena_celdas")
 	if not rect.has_area():
 		return
-	_mi_zona = {"anfitrion": anfitrion, "rect": rect, "mascara": combat.get("arena_mascara")}
-	Net.jugadores.anunciar_zona(anfitrion, rect, _mi_zona["mascara"])
+	pe.zona = {"anfitrion": anfitrion, "rect": rect, "mascara": combat.get("arena_mascara")}
+	Net.jugadores.anunciar_zona(anfitrion, rect, pe.zona["mascara"])
 
 
-func reanunciar_mi_zona() -> void:
-	if not _mi_zona.is_empty() and pelea_tactica_en_curso():
-		Net.jugadores.anunciar_zona(int(_mi_zona["anfitrion"]), _mi_zona["rect"], _mi_zona["mascara"])
+func reanunciar_mi_zona(pe: PeleaViva = null) -> void:
+	if pe == null:
+		pe = pelea
+	if not pe.zona.is_empty() and pelea_tactica_en_curso(pe):
+		Net.jugadores.anunciar_zona(int(pe.zona["anfitrion"]), pe.zona["rect"], pe.zona["mascara"])
 
 
 # QUE CUERPO DEL MAPA LLEVA A ESTE PERSONAJE MIO: 0 = el lider (el jugador), k = el compañero k-1 en
@@ -1684,14 +1698,16 @@ const ZOOM_ARENA_MAX := 3.0
 const CAMARA_FIJA_EN_PELEA := false
 
 # Cuelga la arena del piso y coloca la camara (ver CAMARA_FIJA_EN_PELEA).
-func _montar_arena_tactica(rect_celdas: Rect2i, mascara: PackedByteArray = PackedByteArray()) -> void:
-	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+func _montar_arena_tactica(rect_celdas: Rect2i, mascara: PackedByteArray = PackedByteArray(), pe: PeleaViva = null) -> void:
+	if pe == null:
+		pe = pelea
+	var piso: Node = pe.suelo()
 	if piso == null:
 		return
-	_arena_nodo = ArenaCombate.montar(piso, rect_celdas, mascara)
-	if _arena_nodo != null:
+	pe.arena_nodo = ArenaCombate.montar(piso, rect_celdas, mascara)
+	if pe.arena_nodo != null:
 		# La arena tiene que seguir viva y pintando con el arbol en pausa, igual que la pantalla.
-		_arena_nodo.process_mode = Node.PROCESS_MODE_ALWAYS
+		pe.arena_nodo.process_mode = Node.PROCESS_MODE_ALWAYS
 	_montar_zonas_ajenas()   # las de los demas se esconden mientras peleo
 
 	# Y SE DESPEJA LA MESA: mientras peleas en el mapa, lo unico que se mira es el tablero.
@@ -1839,12 +1855,14 @@ func _rect_util_tactico() -> Rect2:
 
 # Deshace lo anterior. Se llama SIEMPRE que se cierra una pelea, sea como sea que acabe: si la
 # camara se quedara con el encuadre de la arena, seguirias jugando la mazmorra desde lejos.
-func _desmontar_arena_tactica(acabada: bool = false) -> void:
-	if is_instance_valid(_arena_nodo):
-		_arena_nodo.queue_free()
-	_arena_nodo = null
+func _desmontar_arena_tactica(acabada: bool = false, pe: PeleaViva = null) -> void:
+	if pe == null:
+		pe = pelea
+	if is_instance_valid(pe.arena_nodo):
+		pe.arena_nodo.queue_free()
+	pe.arena_nodo = null
 	_olvidar_zona_de_mi_pelea(acabada)
-	_mi_zona = {}
+	pe.zona = {}
 	_montar_zonas_ajenas()   # y vuelven a verse (si me he ido de una que sigue, la veo desde fuera)
 	_despejar_para_tactico(false)
 	var cam: Camera2D = _camara_guardada.get("cam") as Camera2D
@@ -2087,9 +2105,10 @@ var enemigos_traspasados: Array:
 # la trae el roster y vale para pintar (aspecto + equipo); NO para nada de simulacion, que alli no
 # se tira ni un dado.
 func pj_de_combatant(c) -> PersonajeData:
-	var i: int = _active_player_cs.find(c)
-	if i >= 0 and i < _active_player_pjs.size():
-		return _active_player_pjs[i]
+	var pe: PeleaViva = PeleaViva.de_combatiente(c)   # su pelea, sea cual sea (etapa 3)
+	var i: int = pe.aliados_cs.find(c) if pe != null else -1
+	if i >= 0 and i < pe.aliados_pjs.size():
+		return pe.aliados_pjs[i]
 	if c != null and c is Combatant and c.pj_escaparate is PersonajeData:
 		return c.pj_escaparate
 	return null
@@ -2098,8 +2117,9 @@ func pj_de_combatant(c) -> PersonajeData:
 # El inverso: que combatiente de la pelea corresponde a esa ficha. Lo usa el multijugador para
 # saber cual de los que pelean es el personaje de otro humano (y pedirle a EL sus acciones).
 func combatant_de_pj(pj: PersonajeData) -> Combatant:
-	var i: int = _active_player_pjs.find(pj)
-	return _active_player_cs[i] if i >= 0 and i < _active_player_cs.size() else null
+	var pe: PeleaViva = PeleaViva.de_ficha(pj)
+	var i: int = pe.aliados_pjs.find(pj) if pe != null else -1
+	return pe.aliados_cs[i] if i >= 0 and i < pe.aliados_cs.size() else null
 
 
 # Vuelca en la FICHA lo que su combatiente lleva vivido: vida, maná y aguante. Durante la pelea eso
@@ -7485,14 +7505,16 @@ func apuntar_canto_a_medias(spell: SpellData, frase: int, pj: PersonajeData) -> 
 	_canto_a_medias = {"spell": spell, "frase": frase, "pj": pj}
 
 
-func _soltar_canto_a_medias(combat: Node, pj: PersonajeData) -> void:
+func _soltar_canto_a_medias(combat: Node, pj: PersonajeData, pe: PeleaViva = null) -> void:
+	if pe == null:
+		pe = pelea
 	if _canto_a_medias.is_empty() or combat == null:
 		return
 	if _canto_a_medias.get("pj") != pj:
 		return   # el canto era de otro: no es el que entra ahora
 	var nota := _canto_a_medias
 	_canto_a_medias = {}
-	var idx: int = _active_player_pjs.find(pj)
+	var idx: int = pe.aliados_pjs.find(pj)
 	if idx < 0 or not combat.has_method("retomar_canto"):
 		return
 	combat.retomar_canto(nota.get("spell"), int(nota.get("frase", 0)), idx)
@@ -7524,7 +7546,9 @@ func tick_hechizo_de_entrada(delta: float) -> void:
 
 # Se lo pasa a la pantalla de combate y lo borra. El bicho viaja como INDICE dentro de los enemigos
 # de la pelea: es lo único que significa lo mismo dentro de ella (el nodo del mapa no le sirve).
-func _soltar_hechizo_de_entrada(combat: Node, pj: PersonajeData) -> void:
+func _soltar_hechizo_de_entrada(combat: Node, pj: PersonajeData, pe: PeleaViva = null) -> void:
+	if pe == null:
+		pe = pelea
 	if _hechizo_entrada.is_empty() or combat == null:
 		return
 	var nota := _hechizo_entrada
@@ -7533,8 +7557,8 @@ func _soltar_hechizo_de_entrada(combat: Node, pj: PersonajeData) -> void:
 	# tuyo. (Hoy solo puede haber uno, pero esto lo deja atado si mañana hay más.)
 	if nota.get("pj") != pj:
 		return
-	var idx: int = _active_enemies.find(nota.get("enemigo"))
-	var idx_lanza: int = _active_player_pjs.find(pj)
+	var idx: int = pe.enemigos.find(nota.get("enemigo"))
+	var idx_lanza: int = pe.aliados_pjs.find(pj)
 	if idx < 0 or idx_lanza < 0 or not combat.has_method("hechizo_de_entrada"):
 		return
 	combat.hechizo_de_entrada(nota.get("spell"), idx, idx_lanza)
@@ -15100,9 +15124,11 @@ func entrando_en_pelea() -> bool:
 		return false
 	return true
 
-func combate_activo() -> bool:
-	_destrabar_combate()
-	return not _active_enemies.is_empty()
+func combate_activo(pe: PeleaViva = null) -> bool:
+	if pe == null:
+		pe = pelea
+	_destrabar_combate(pe)
+	return not pe.enemigos.is_empty()
 
 
 # EL COMBATE ENCASQUILLADO. Hay DOS formas de preguntar "¿hay pelea?" y se pueden separar:
@@ -15121,7 +15147,9 @@ func combate_activo() -> bool:
 # Aqui se cierra por los dos lados: fuera los nodos que ya no existen, y si queda gente apuntada
 # pero NO hay pantalla, es que la pelea nunca llego a montarse. Se avisa (esto no puede volver a
 # fallar mudo) y se limpia, que es lo unico que permite que la siguiente pelea arranque.
-func _destrabar_combate() -> void:
+func _destrabar_combate(pe: PeleaViva = null) -> void:
+	if pe == null:
+		pe = pelea
 	# MIENTRAS SE MONTA LA PELEA esto no puede opinar: entre que se apuntan los enemigos y se cuelga
 	# la pantalla hay medio start_combat de por medio, y ahi el estado "lista llena, capa nula" es
 	# NORMAL. Sin el pestillo, cualquier cosa que preguntara combate_activo() en ese hueco borraba
@@ -15132,24 +15160,24 @@ func _destrabar_combate() -> void:
 	# el montaje se quedo a medias -- y precisamente ese es el caso que hay que destrabar. Con un
 	# booleano, un error a mitad de start_combat dejaba el pestillo echado para siempre y esto no
 	# volvia a mirar nunca: el mismo cuelgue de antes, pero ahora tapado por la propia red.
-	if Time.get_ticks_msec() - _montaje_ms < 1000 or _active_enemies.is_empty():
+	if Time.get_ticks_msec() - pe.montaje_ms < 1000 or pe.enemigos.is_empty():
 		return
 	# CON PANTALLA NO SE TOCA: la lista va POR INDICE con combat._enemies, y quitarle un hueco vacio
 	# (la cria del Brote cuyo cuerpo aun viene por red, o un nodo liberado a media pelea) corria a todos
 	# los de detras un puesto -- cada tarjeta acababa con el cuerpo de otro (28/09).
-	if is_instance_valid(_active_layer):
+	if is_instance_valid(pe.capa):
 		return
-	var vivos: Array[Node] = []   # TIPADO: _active_enemies es Array[Node] y no traga un Array pelado
-	for n in _active_enemies:
+	var vivos: Array[Node] = []   # TIPADO: pe.enemigos es Array[Node] y no traga un Array pelado
+	for n in pe.enemigos:
 		if is_instance_valid(n):
 			vivos.append(n)
-	_active_enemies = vivos
-	if _active_enemies.is_empty():
+	pe.enemigos = vivos
+	if pe.enemigos.is_empty():
 		return
-	if not is_instance_valid(_active_layer):
-		push_warning("[combate] Habia %d enemigos apuntados sin pantalla de combate: pelea a medio montar. Se sueltan." % _active_enemies.size())
-		_active_enemies.clear()
-		_soltar_cola_combate()
+	if not is_instance_valid(pe.capa):
+		push_warning("[combate] Habia %d enemigos apuntados sin pantalla de combate: pelea a medio montar. Se sueltan." % pe.enemigos.size())
+		pe.enemigos.clear()
+		_soltar_cola_combate(pe)
 
 
 # ¿Tengo una pantalla de combate delante? Es distinto de combate_activo(): un ESPEJO (la pelea de
@@ -15192,14 +15220,16 @@ func volver_muneco(enemy_c: Combatant, player_c: Combatant, muneco: Dictionary =
 # combate: congela a todo el grupo ANTES de pedirlo, y start_combat puede quedarse con solo una
 # parte (descarta a los que no traigan EnemyData). Al que se quedo fuera hay que descongelarlo.
 func esta_en_combate(nodo: Node) -> bool:
-	return is_instance_valid(nodo) and _active_enemies.has(nodo)
+	return is_instance_valid(nodo) and PeleaViva.de_enemigo(nodo) != null
 
 
 # is_instance_valid y no '!= null': una capa LIBERADA pero sin nular cumple el != null y falla el
 # is_instance_valid que usa unir_enemigo_al_combate, y esa diferencia sola basta para trabar el
 # combate igual que arriba (uno cree que hay pantalla, el otro no la encuentra).
-func hay_pelea_en_pantalla() -> bool:
-	return is_instance_valid(_active_layer)
+func hay_pelea_en_pantalla(pe: PeleaViva = null) -> bool:
+	if pe == null:
+		pe = pelea
+	return is_instance_valid(pe.capa)
 
 
 # Mata a UN enemigo del combate: le apunta el credito de guardian (si lo era) y lo convierte en
@@ -15256,11 +15286,13 @@ func matar_enemigo_de_combate(n) -> void:
 # (fichas). pj_de_combatant cruza el uno con el otro, y de el cuelgan la excelia, la regeneracion y
 # el volcado de HP/MP al cerrar. Si se añade a uno y no al otro, ese personaje pelea pero no gana
 # nada y sale de la pelea sin guardar su vida.
-func unir_aliado_al_combate(pj: PersonajeData, overload: float = 1.0) -> bool:
-	if not combate_activo() or pj == null or _active_player_pjs.has(pj):
+func unir_aliado_al_combate(pj: PersonajeData, overload: float = 1.0, pe: PeleaViva = null) -> bool:
+	if pe == null:
+		pe = pelea
+	if not combate_activo(pe) or pj == null or pe.aliados_pjs.has(pj):
 		return false
-	var combat: Node = _active_layer.get_child(0) if is_instance_valid(_active_layer) \
-		and _active_layer.get_child_count() > 0 else null
+	var combat: Node = pe.capa.get_child(0) if is_instance_valid(pe.capa) \
+		and pe.capa.get_child_count() > 0 else null
 	if combat == null or not combat.has_method("anadir_aliado"):
 		return false
 	var c: Combatant = crear_player_combatant(pj)
@@ -15316,36 +15348,36 @@ func unir_aliado_al_combate(pj: PersonajeData, overload: float = 1.0) -> bool:
 	var hueco: int = -1
 	if combat.has_method("hueco_huido_de"):
 		hueco = int(combat.hueco_huido_de(pj.uid))
-	if hueco >= 0 and hueco < _active_player_cs.size() and hueco < _active_player_pjs.size():
-		var cs_viejo: Combatant = _active_player_cs[hueco]
-		var pj_viejo: PersonajeData = _active_player_pjs[hueco]
-		_active_player_cs[hueco] = c
-		_active_player_pjs[hueco] = pj
+	if hueco >= 0 and hueco < pe.aliados_cs.size() and hueco < pe.aliados_pjs.size():
+		var cs_viejo: Combatant = pe.aliados_cs[hueco]
+		var pj_viejo: PersonajeData = pe.aliados_pjs[hueco]
+		pe.aliados_cs[hueco] = c
+		pe.aliados_pjs[hueco] = pj
 		if combat.readmitir_aliado(hueco, c, bool(pj.get_meta("sin_fuelle", false))):
-			_soltar_hechizo_de_entrada(combat, pj)
-			_soltar_canto_a_medias(combat, pj)
+			_soltar_hechizo_de_entrada(combat, pj, pe)
+			_soltar_canto_a_medias(combat, pj, pe)
 			return true
 		# No ha colado: se deshace, que dejar la fila apuntando a un combatiente que la pantalla no
 		# conoce es peor que no dejarle volver.
-		_active_player_cs[hueco] = cs_viejo
-		_active_player_pjs[hueco] = pj_viejo
+		pe.aliados_cs[hueco] = cs_viejo
+		pe.aliados_pjs[hueco] = pj_viejo
 		return false
 	# A los DOS arrays y en el mismo orden ANTES de avisar al combate: anadir_aliado ya consulta
 	# pj_de_combatant para pintar su color en el marcador de turnos.
-	_active_player_cs.append(c)
-	_active_player_pjs.append(pj)
+	pe.aliados_cs.append(c)
+	pe.aliados_pjs.append(pj)
 	# El AGOTAMIENTO de correr por el mapa: quien llega sin fuelle pelea lento tambien si se une a
 	# mitad (start_combat ya lo pasaba por 'exhausted'; este camino se lo saltaba). La meta viaja en
 	# la ficha para los dobles de otros humanos, igual que el sobrepeso.
 	if combat.anadir_aliado(c, bool(pj.get_meta("sin_fuelle", false))):
 		# El OTRO camino de entrada: te unes a una pelea que ya estaba abierta lanzando tu conjuro
 		# desde el mapa. Lo que solo se escribe en start_combat no existe para el que se une.
-		_soltar_hechizo_de_entrada(combat, pj)
-		_soltar_canto_a_medias(combat, pj)
+		_soltar_hechizo_de_entrada(combat, pj, pe)
+		_soltar_canto_a_medias(combat, pj, pe)
 		return true
 	# No cabia: deshacer para no dejar los arrays desparejados.
-	_active_player_cs.pop_back()
-	_active_player_pjs.pop_back()
+	pe.aliados_cs.pop_back()
+	pe.aliados_pjs.pop_back()
 	return false
 
 
@@ -15400,17 +15432,19 @@ func _muerto(nodo: Node) -> bool:
 	return is_instance_valid(nodo) and nodo.has_method("esta_muerto") and bool(nodo.esta_muerto())
 
 
-func unir_enemigo_al_combate(nodo: Node, hueco: int = -1) -> bool:
-	if not combate_activo() or not is_instance_valid(nodo):
+func unir_enemigo_al_combate(nodo: Node, hueco: int = -1, pe: PeleaViva = null) -> bool:
+	if pe == null:
+		pe = pelea
+	if not combate_activo(pe) or not is_instance_valid(nodo):
 		return false
-	if not ("data" in nodo) or nodo.data == null or _active_enemies.has(nodo):
+	if not ("data" in nodo) or nodo.data == null or pe.enemigos.has(nodo):
 		return false
 	if _muerto(nodo):
 		return false   # (09/10) un cadaver no entra en ninguna pelea (rutas de red con el aviso de muerte en camino)
-	if _cola_combate.has(nodo):
+	if pe.cola.has(nodo):
 		return true   # ya esta dentro, esperando turno
-	var combat: Node = _active_layer.get_child(0) if is_instance_valid(_active_layer) \
-		and _active_layer.get_child_count() > 0 else null
+	var combat: Node = pe.capa.get_child(0) if is_instance_valid(pe.capa) \
+		and pe.capa.get_child_count() > 0 else null
 	if combat == null or not combat.has_method("anadir_enemigo"):
 		return false
 	if combat.has_method("acabada") and combat.acabada():
@@ -15419,8 +15453,8 @@ func unir_enemigo_al_combate(nodo: Node, hueco: int = -1) -> bool:
 	# lejos"). Ningun camino de entrada a mitad de pelea miraba donde estaba el que entraba: uno lejos, o al otro lado de
 	# una pared, quedaba metido en la pelea sin poder llegar a nadie. Dentro de la zona, o pegado a su borde (el que
 	# entra por el, ver ArenaCombate.punto_de_entrada). Si no, no entra y sigue esperando: si se acerca, entra.
-	if bool(combat.get("tactico")) and is_instance_valid(_arena_nodo) and nodo is Node2D:
-		var ar: ArenaCombate = _arena_nodo as ArenaCombate
+	if bool(combat.get("tactico")) and is_instance_valid(pe.arena_nodo) and nodo is Node2D:
+		var ar: ArenaCombate = pe.arena_nodo as ArenaCombate
 		if ar != null and ar.distancia_al_borde((nodo as Node2D).global_position) < -ENTRAR_DESDE_FUERA:
 			return false
 	var t: float = float(nodo.current_t) if "current_t" in nodo else 0.5
@@ -15432,19 +15466,19 @@ func unir_enemigo_al_combate(nodo: Node, hueco: int = -1) -> bool:
 		StringName(nodo.get("mutacion")) if nodo.get("mutacion") != null else &"")
 	if slot < 0:
 		# Pelea llena: A LA COLA, dentro de la pelea.
-		_cola_combate.append(nodo)
+		pe.cola.append(nodo)
 		if nodo.has_method("congelar_en_cola"):
 			nodo.congelar_en_cola()
 		elif nodo.has_method("entrar_en_pelea"):
 			nodo.entrar_en_pelea()   # un espejo: el de verdad ya lo congelo su dueño al reservarlo
-		_pintar_cola(combat)
-		print("[cola] %s espera hueco en la pelea (%d en cola)" % [String(nodo.data.resource_path).get_file(), _cola_combate.size()])
+		_pintar_cola(combat, pe)
+		print("[cola] %s espera hueco en la pelea (%d en cola)" % [String(nodo.data.resource_path).get_file(), pe.cola.size()])
 		return true
-	if slot < _active_enemies.size():
-		matar_enemigo_de_combate(_active_enemies[slot])   # el cadaver al que releva
-		_active_enemies[slot] = nodo
+	if slot < pe.enemigos.size():
+		matar_enemigo_de_combate(pe.enemigos[slot])   # el cadaver al que releva
+		pe.enemigos[slot] = nodo
 	else:
-		_active_enemies.append(nodo)
+		pe.enemigos.append(nodo)
 	# EN EL MAPA, el roster OTRA VEZ. La pantalla ya lo mando al darle de alta (_alta_de_combatiente),
 	# pero eso fue DENTRO de anadir_enemigo, antes de que el nodo estuviera aqui arriba: su direccion de
 	# red (el net_id con el que el espejo encuentra su cuerpo) salio a 0 y el compañero veia al refuerzo
@@ -15463,18 +15497,20 @@ func unir_enemigo_al_combate(nodo: Node, hueco: int = -1) -> bool:
 # Ahora nacen como enemigos DE VERDAD en el piso, en 'pos', y ocupan el hueco 'slot' del cruce por indice
 # con combat._enemies. Los crea quien simula el piso: si la pelea la lleva otro (un trabajador de pelea),
 # se le piden al dueño y el cuerpo se engancha cuando llega su espejo (cuerpo_de_cria_listo).
-func dar_cuerpo_a_cria(slot: int, data: EnemyData, pos: Vector2, t: float) -> void:
-	if not combate_activo() or data == null or slot < 0:
+func dar_cuerpo_a_cria(slot: int, data: EnemyData, pos: Vector2, t: float, pe: PeleaViva = null) -> void:
+	if pe == null:
+		pe = pelea
+	if not combate_activo(pe) or data == null or slot < 0:
 		return
 	# El hueco YA, aunque el cuerpo llegue luego por red: el cruce por indice no puede esperar.
-	while _active_enemies.size() <= slot:
-		_active_enemies.append(null)
-	if _active_enemies[slot] != null:
-		matar_enemigo_de_combate(_active_enemies[slot])   # el cadaver al que releva (como un refuerzo)
-	_active_enemies[slot] = null
+	while pe.enemigos.size() <= slot:
+		pe.enemigos.append(null)
+	if pe.enemigos[slot] != null:
+		matar_enemigo_de_combate(pe.enemigos[slot])   # el cadaver al que releva (como un refuerzo)
+	pe.enemigos[slot] = null
 	if not Net.activo or Net._soy_dueno:
 		var yo: int = multiplayer.get_unique_id() if Net.activo else 0
-		_poner_cuerpo_de_cria(slot, nacer_cria_aqui(data, pos, t, yo))
+		_poner_cuerpo_de_cria(slot, nacer_cria_aqui(data, pos, t, yo), pe)
 	else:
 		Net.peleas.pedir_cria(slot, String(data.resource_path), pos, t)
 
@@ -15508,14 +15544,16 @@ func cuerpo_de_cria_listo(slot: int, id: int) -> void:
 	print("[brote] la cria %d no llego a tiempo: se queda sin cuerpo" % id)
 
 
-func _poner_cuerpo_de_cria(slot: int, n) -> void:
-	if n == null or not is_instance_valid(n) or not combate_activo() or slot >= _active_enemies.size():
+func _poner_cuerpo_de_cria(slot: int, n, pe: PeleaViva = null) -> void:
+	if pe == null:
+		pe = pelea
+	if n == null or not is_instance_valid(n) or not combate_activo(pe) or slot >= pe.enemigos.size():
 		return
-	if _active_enemies[slot] != null:
+	if pe.enemigos[slot] != null:
 		return   # el hueco se lo ha quedado otro mientras llegaba (no deberia)
-	_active_enemies[slot] = n
-	var combat: Node = _active_layer.get_child(0) if is_instance_valid(_active_layer) \
-		and _active_layer.get_child_count() > 0 else null
+	pe.enemigos[slot] = n
+	var combat: Node = pe.capa.get_child(0) if is_instance_valid(pe.capa) \
+		and pe.capa.get_child_count() > 0 else null
 	if combat != null and bool(combat.get("tactico")):
 		combat.turno_mapa.cria_con_cuerpo(slot)
 		combat.altas._alta_de_combatiente()   # que los espejos le encuentren el cuerpo (su net_id)
@@ -15524,38 +15562,44 @@ func _poner_cuerpo_de_cria(slot: int, n) -> void:
 # Ha caido uno en la pelea: el primero de la cola entra en SU hueco. En ese hueco y no en "el primer
 # cadaver": con un golpe de area caen varios a la vez y el siguiente todavia no se ha procesado, asi
 # que meterlo encima de ese le quitaria la tarjeta a un muerto a medio rematar.
-func meter_de_la_cola(hueco: int) -> void:
-	while not _cola_combate.is_empty():
-		var n = _cola_combate.pop_front()   # sin tipar: puede estar liberado
+func meter_de_la_cola(hueco: int, pe: PeleaViva = null) -> void:
+	if pe == null:
+		pe = pelea
+	while not pe.cola.is_empty():
+		var n = pe.cola.pop_front()   # sin tipar: puede estar liberado
 		if not is_instance_valid(n) or (n.has_method("esta_muerto") and n.esta_muerto()):
 			continue
-		if not unir_enemigo_al_combate(n, hueco):
-			_cola_combate.push_front(n)   # la pelea se cierra: se queda para que la suelte el cierre
+		if not unir_enemigo_al_combate(n, hueco, pe):
+			pe.cola.push_front(n)   # la pelea se cierra: se queda para que la suelte el cierre
 			break
 		# Si ha vuelto a la cola es que no cabia (el hueco ya no estaba libre): se deja para el siguiente.
-		if _cola_combate.has(n):
-			_cola_combate.erase(n)
-			_cola_combate.push_front(n)
+		if pe.cola.has(n):
+			pe.cola.erase(n)
+			pe.cola.push_front(n)
 		break
-	var combat: Node = _active_layer.get_child(0) if is_instance_valid(_active_layer) \
-		and _active_layer.get_child_count() > 0 else null
-	_pintar_cola(combat)
+	var combat: Node = pe.capa.get_child(0) if is_instance_valid(pe.capa) \
+		and pe.capa.get_child_count() > 0 else null
+	_pintar_cola(combat, pe)
 
 
-func _pintar_cola(combat: Node) -> void:
+func _pintar_cola(combat: Node, pe: PeleaViva = null) -> void:
+	if pe == null:
+		pe = pelea
 	if combat != null and combat.has_method("fijar_cola"):
-		combat.fijar_cola(_cola_combate.size())
+		combat.fijar_cola(pe.cola.size())
 
 
 # Se cierra la pelea con gente en la cola: salen como los supervivientes (quietos un rato y con sus
 # heridas). En multi un espejo avisa a su dueño desde su propio reanudar_tras_combate.
-func _soltar_cola_combate() -> void:
-	for n in _cola_combate:
+func _soltar_cola_combate(pe: PeleaViva = null) -> void:
+	if pe == null:
+		pe = pelea
+	for n in pe.cola:
 		if is_instance_valid(n) and n.has_method("reanudar_tras_combate"):
 			var hp: float = float(n.hp_restante) if "hp_restante" in n else -1.0
 			var est: Array = n.estados_restantes if "estados_restantes" in n else []
 			n.reanudar_tras_combate(hp, est)
-	_cola_combate.clear()
+	pe.cola.clear()
 
 
 # Abre el combate contra un enemigo de la mazmorra.
@@ -15585,7 +15629,9 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> bool:
 #
 # 'grupos' = [{"peer": id, "fichas": [Net.partida.ficha_a_dict...]}], el primero el que la abre.
 # Devuelve {peer: [huecos en la fila de aliados]} de los que han entrado; {} si no se ha montado.
-func abrir_pelea_de_fichas(enemy_nodes: Array, enemy_initiated: bool, grupos: Array) -> Dictionary:
+func abrir_pelea_de_fichas(enemy_nodes: Array, enemy_initiated: bool, grupos: Array, pe: PeleaViva = null) -> Dictionary:
+	if pe == null:
+		pe = pelea
 	if grupos.is_empty():
 		return {}
 	var peer0: int = int((grupos[0] as Dictionary).get("peer", 0))
@@ -15595,21 +15641,21 @@ func abrir_pelea_de_fichas(enemy_nodes: Array, enemy_initiated: bool, grupos: Ar
 		dobles0.append(Net.partida.ficha_de_dict(f))
 	# LA ARENA (combate tactico, 27/09): se calcula con los cuerpos de los que pelean en ESTA maquina (su avatar
 	# y el de sus compañeros), que aqui no hay jugador.
-	_puntos_arena_fichas.clear()
+	pe.puntos_arena_fichas.clear()
 	for k in fichas0.size():
 		var cu: Node2D = cuerpo_de_red(peer0, int((fichas0[k] as Dictionary).get("cuerpo", k)))
 		if cu != null:
-			_puntos_arena_fichas.append(cu.global_position)
-	var abierta: bool = not dobles0.is_empty() and _abrir_pelea(enemy_nodes, enemy_initiated, dobles0)
-	_puntos_arena_fichas.clear()
+			pe.puntos_arena_fichas.append(cu.global_position)
+	var abierta: bool = not dobles0.is_empty() and _abrir_pelea(enemy_nodes, enemy_initiated, dobles0, pe)
+	pe.puntos_arena_fichas.clear()
 	if not abierta:
 		return {}
-	var combat: Node = _active_layer.get_child(0)
+	var combat: Node = pe.capa.get_child(0)
 	var huecos: Dictionary = {peer0: []}
 	var dobles_por_peer: Dictionary = {peer0: dobles0}
 	for i in dobles0.size():
 		var f: Dictionary = fichas0[i]
-		var c: Combatant = _active_player_cs[i]
+		var c: Combatant = pe.aliados_cs[i]
 		# setup le puso a todos el sobrepeso de ESTA maquina (que no tiene mochila): va el de su dueño.
 		c.overload_factor = float(f.get("overload", 1.0))
 		combat.marcar_dueno(c, peer0)
@@ -15620,25 +15666,25 @@ func abrir_pelea_de_fichas(enemy_nodes: Array, enemy_initiated: bool, grupos: Ar
 			combat.aplicar_casteo_entrante(idx, cast)
 	for g in grupos.slice(1):
 		var peer: int = int((g as Dictionary).get("peer", 0))
-		var r: Dictionary = Net.peleas.meter_dobles(combat, peer, (g as Dictionary).get("fichas", []))
+		var r: Dictionary = Net.peleas.meter_dobles(combat, peer, (g as Dictionary).get("fichas", []), pe)
 		if (r["dobles"] as Array).is_empty():
 			continue
 		dobles_por_peer[peer] = r["dobles"]
 		huecos[peer] = r["idxs"]
-	Net.peleas.adoptar_pelea(dobles_por_peer)
+	Net.peleas.adoptar_pelea(dobles_por_peer, pe)
 	# LOS NUMEROS CON LOS QUE PELEA CADA DOBLE, al registro de quien ejecuta la pelea. Es lo unico que dice, sin
 	# ventana, si un personaje entro con menos defensa de la que tiene en casa (ver prueba_town_trabajadores).
-	for i in _active_player_cs.size():
-		var cc: Combatant = _active_player_cs[i]
-		var pp: PersonajeData = _active_player_pjs[i] if i < _active_player_pjs.size() else null
+	for i in pe.aliados_cs.size():
+		var cc: Combatant = pe.aliados_cs[i]
+		var pp: PersonajeData = pe.aliados_pjs[i] if i < pe.aliados_pjs.size() else null
 		if cc != null and pp != null:
 			print("[pelea] doble %s def=%.3f red=%.4f spd=%.3f cast=%.3f amp=%.3f hpmax=%.2f" % [
 				String(pp.uid), cc.def_value(), cc.armor_reduction, cc.spd(), cc.cast_spd(), cc.magic_amp, cc.max_hp])
 	# Y los de cada ENEMIGO: se montan desde el nodo (espejo) con su tirada, mutacion y piso; si algo no viaja,
 	# aqui se ve que pega o aguanta distinto que en casa del jugador.
 	var pantalla_e: Array = combat.get("_enemies")
-	for i in mini(_active_enemies.size(), pantalla_e.size()):
-		var ne = _active_enemies[i]
+	for i in mini(pe.enemigos.size(), pantalla_e.size()):
+		var ne = pe.enemigos[i]
 		var ce: Combatant = pantalla_e[i]
 		if is_instance_valid(ne) and ne.has_meta("net_id") and ce != null:
 			print("[pelea] enemigo %d atk=%.3f def=%.3f spd=%.3f hpmax=%.2f piso=%d" % [
@@ -15672,8 +15718,10 @@ func precalentar_pelea() -> void:
 		_RETRATO_COMBATE.precalentar(pj, _TURN_TIMELINE.RADIO * 2.0)
 
 
-func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array) -> bool:
-	if not _active_enemies.is_empty() or enemy_nodes.is_empty():
+func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array, pe: PeleaViva = null) -> bool:
+	if pe == null:
+		pe = pelea
+	if not pe.enemigos.is_empty() or enemy_nodes.is_empty():
 		return false  # ya hay un combate o faltan datos
 	# UNA PANTALLA POR MAQUINA, sin excepciones. Sin esto, alguien que estuviera espejando la pelea
 	# de otro (donde _active_enemies esta vacio) podia recibir OTRA pelea encima: dos pantallas
@@ -15682,7 +15730,7 @@ func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array) -> bool
 	# ponen _active_layer) y te alcanza un bicho. En multi el mundo NO se pausa, asi que pasa a
 	# menudo. No se le abre la pelea encima del minijuego: se le devuelve un false y quien lo pidio
 	# lo suelta para que siga rondando y vuelva a intentarlo.
-	if _active_layer != null:
+	if pe.capa != null:
 		return false
 	# Y NUNCA se pelea con un menu tapando la pantalla: en multi el mundo no se para, asi que te
 	# pueden embestir mirando el inventario. Se cierra a la fuerza ANTES de montar nada.
@@ -15693,14 +15741,15 @@ func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array) -> bool
 	# PESTILLO: a partir de aqui y hasta que la pantalla esta colgada, la lista de enemigos esta
 	# llena pero la capa todavia no existe. Ese estado es normal AQUI y es justo el que
 	# _destrabar_combate considera una pelea rota, asi que se le pide que no mire.
-	_montaje_ms = Time.get_ticks_msec()
-	_active_enemies.clear()
+	pe.montaje_ms = Time.get_ticks_msec()
+	pe.enemigos.clear()
 	for n in enemy_nodes:
 		if is_instance_valid(n) and "data" in n and n.data != null and not _muerto(n):
-			_active_enemies.append(n)
-	if _active_enemies.is_empty():
-		_montaje_ms = 0
+			pe.enemigos.append(n)
+	if pe.enemigos.is_empty():
+		pe.montaje_ms = 0
 		return false
+	pe.piso = PisoVivo.de(pe.enemigos[0])   # el piso donde se pelea: su suelo, su arena (etapa 3)
 
 	# 'pjs' = quienes bajan a la pelea, el primero con la iniciativa (ver start_combat).
 	var player_cs: Array = []
@@ -15710,8 +15759,8 @@ func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array) -> bool
 	# y abrir_pelea_de_fichas se guarda ESA MISMA lista como "los dobles del primer humano": cada uno
 	# que se unia pasaba tambien por suyo, y al cerrar se le mandaba su desgaste al que abrio la pelea
 	# (el "desgaste sin dueño" del playtest del 15/09).
-	_active_player_pjs = pjs.duplicate()
-	_active_player_cs = player_cs
+	pe.aliados_pjs = pjs.duplicate()
+	pe.aliados_cs = player_cs
 	var player_c: Combatant = player_cs[0]   # el lider (el modo prueba de dev se calibra con el)
 
 	# CURA DE POCIÓN pendiente del MAPA: si alguien bebio una poción fuera de combate y aún le
@@ -15724,7 +15773,7 @@ func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array) -> bool
 
 	# Un Combatant por nodo, en el mismo orden.
 	var enemy_cs: Array[Combatant] = []
-	for n in _active_enemies:
+	for n in pe.enemigos:
 		var t: float = 0.5
 		if "current_t" in n:
 			t = n.current_t
@@ -15752,7 +15801,7 @@ func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array) -> bool
 	# medir DPS limpio basta con poner un solo bicho.
 	var algun_muneco := false
 	for i in enemy_cs.size():
-		var mun: Dictionary = muneco_de(_active_enemies[i])
+		var mun: Dictionary = muneco_de(pe.enemigos[i])
 		if int(mun.get("modo", debug_dummy_mode)) > 0:
 			volver_muneco(enemy_cs[i], player_c, mun)
 			algun_muneco = true
@@ -15788,37 +15837,38 @@ func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array) -> bool
 		player_cs[i].ability_cooldowns = cd_carry.duplicate()
 
 	var combat := _combat_scene.instantiate()
+	combat.pelea = pe   # la pantalla habla con SU pelea (etapa 3)
 	# PROCESS_MODE_ALWAYS = el combate sigue funcionando aunque el arbol este en pausa.
 	combat.process_mode = Node.PROCESS_MODE_ALWAYS
 	# ¿ESTA pelea se juega en el mapa? Se decide ANTES de setup: la pantalla monta una puesta en
 	# escena u otra segun esto, y a partir de _ready ya es tarde para cambiarlo. El rectangulo se
 	# calcula una sola vez y se guarda: preguntarlo dos veces podria dar dos arenas distintas si
 	# alguien se ha movido entre medias.
-	var forma: Dictionary = _forma_de_arena(_active_enemies, true)
+	var forma: Dictionary = _forma_de_arena(pe.enemigos, true, pe)
 	var rect_arena: Rect2i = forma["rect"]
 	var es_tactico: bool = _tactico_aqui() and rect_arena.has_area()
 	combat.tactico = es_tactico
 	combat.arena_celdas = rect_arena if es_tactico else Rect2i()   # viaja al espejo en el roster
 	combat.arena_mascara = forma["mascara"] if es_tactico else PackedByteArray()
 	combat.setup(player_cs, enemy_cs, enemy_initiated, exhausted, overload_speed_factor())
-	combat.combat_finished.connect(_on_combat_finished)
+	combat.combat_finished.connect(_on_combat_finished.bind(pe))
 	# MULTI: esta pelea pasa a EXISTIR en la red, para que un compañero pueda unirse a ella.
-	Net.peleas.registrar_pelea()
+	Net.peleas.registrar_pelea(pe)
 
-	_montar_pantalla_combate(combat)
+	_montar_pantalla_combate(combat, -1, pe)
 	# LA ARENA, despues de colgar la pantalla: se dibuja en el suelo del piso, no en la pantalla.
 	if es_tactico:
-		_montar_arena_tactica(rect_arena, combat.arena_mascara)
+		_montar_arena_tactica(rect_arena, combat.arena_mascara, pe)
 		# Y a los de mi piso: la ven desde fuera, y el que se quedo quieto al impacto entra si le pilla dentro.
 		if Net.activo and not Net.soy_trabajador:
-			anunciar_mi_zona(Net._mi_id())
-	_montaje_ms = 0   # ya hay pantalla: el destrabe puede volver a vigilar
+			anunciar_mi_zona(Net._mi_id(), pe)
+	pe.montaje_ms = 0   # ya hay pantalla: el destrabe puede volver a vigilar
 	# El hechizo con el que has ABIERTO la pelea desde el mapa (ver player._impacto_conjuro): se
 	# resuelve dentro, contra el bicho al que le diste, antes del primer turno.
-	var quien: PersonajeData = _active_player_pjs[0] if not _active_player_pjs.is_empty() else lider()
-	_soltar_hechizo_de_entrada(combat, quien)
+	var quien: PersonajeData = pe.aliados_pjs[0] if not pe.aliados_pjs.is_empty() else lider()
+	_soltar_hechizo_de_entrada(combat, quien, pe)
 	# Y el canto que te interrumpieron al abrirse esta misma pelea: se sigue por su frase.
-	_soltar_canto_a_medias(combat, quien)
+	_soltar_canto_a_medias(combat, quien, pe)
 	return true
 
 
@@ -15829,14 +15879,16 @@ func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array) -> bool
 # son los bichos que simula ESTA maquina, y el que se une a la pelea de otro no tiene ninguno, asi
 # que el espejo se comia siempre la pista de "combate" aunque enfrente hubiera un jefe. El espejo la
 # saca del roster, que ya trae la bandera (ver combat._fila_de_roster).
-func _montar_pantalla_combate(combat: Node, jefe: int = -1) -> void:
+func _montar_pantalla_combate(combat: Node, jefe: int = -1, pe: PeleaViva = null) -> void:
+	if pe == null:
+		pe = pelea
 	# LA MUSICA DE PELEA. Va AQUI y no en start_combat porque por aqui pasan TODAS las peleas: la
 	# tuya, la del espejo que se une a la de otro y la que te embiste. Enganchandola arriba, el que
 	# se une entraria a pelear con la musica de la mazmorra puesta.
 	#
 	# Se APILA en vez de ponerse: al acabar, la de mazmorra vuelve donde estaba en vez de empezar
 	# de cero cada vez que matas una rata.
-	var hay_jefe: bool = _hay_jefe_en_pelea() if jefe < 0 else jefe > 0
+	var hay_jefe: bool = _hay_jefe_en_pelea(pe) if jefe < 0 else jefe > 0
 	Musica.apilar("jefe" if hay_jefe else "combate")
 	# Y el ambiente de la mazmorra se calla mientras dure. Es POR MAQUINA: el compañero que se quede
 	# fuera lo sigue oyendo, que es lo correcto -- el sigue ahi.
@@ -15854,7 +15906,7 @@ func _montar_pantalla_combate(combat: Node, jefe: int = -1) -> void:
 	layer.process_mode = Node.PROCESS_MODE_ALWAYS
 	get_tree().root.add_child(layer)
 	layer.add_child(combat)
-	_active_layer = layer
+	pe.capa = layer
 
 	entrar_modal(Modal.COMBATE, layer)  # congela la mazmorra mientras luchas
 	# ...y deja de PINTARLA: la pantalla de combate la tapa entera.
@@ -15876,8 +15928,10 @@ func _montar_pantalla_combate(combat: Node, jefe: int = -1) -> void:
 # No hay codigo nuevo de combate: se reconstruye por el camino de SIEMPRE (start_combat con los
 # bichos + unir_aliado_al_combate con los de otros humanos) y encima se le vuelca lo VOLATIL, que
 # es lo unico que no se puede deducir de las fichas (ver combat.estado_para_traspaso).
-func retomar_combate(estado: Dictionary) -> bool:
-	if combate_activo() or _active_layer != null:
+func retomar_combate(estado: Dictionary, pe: PeleaViva = null) -> bool:
+	if pe == null:
+		pe = pelea
+	if combate_activo(pe) or pe.capa != null:
 		return false
 	# Los bichos: los MIOS (reales si simulo el piso, espejos si no) resueltos por su net_id. Los
 	# que murieron en la pelea vieja NO vuelven: sus cadaveres los deja el que se va.
@@ -15903,8 +15957,8 @@ func retomar_combate(estado: Dictionary) -> bool:
 	# Si el traspaso no cuaja, se devuelven al dueño antes de rendirse.
 	var combat: Node = null
 	if start_combat(nodos, false):
-		combat = _active_layer.get_child(0) if is_instance_valid(_active_layer) \
-			and _active_layer.get_child_count() > 0 else null
+		combat = pe.capa.get_child(0) if is_instance_valid(pe.capa) \
+			and pe.capa.get_child_count() > 0 else null
 	if combat == null:
 		var ids_vuelta: Array = []
 		for n in nodos:
@@ -15920,11 +15974,11 @@ func retomar_combate(estado: Dictionary) -> bool:
 	for fila in estado.get("aliados", []):
 		var c: Combatant = null
 		if bool(fila.get("mio", false)):
-			c = _active_player_cs[mios] if mios < _active_player_cs.size() else null
+			c = pe.aliados_cs[mios] if mios < pe.aliados_cs.size() else null
 			mios += 1
 		else:
 			var doble: PersonajeData = Net.partida.ficha_de_dict(fila.get("ficha", {}))
-			if unir_aliado_al_combate(doble, float((fila.get("ficha", {}) as Dictionary).get("overload", 1.0))):
+			if unir_aliado_al_combate(doble, float((fila.get("ficha", {}) as Dictionary).get("overload", 1.0)), pe):
 				c = combatant_de_pj(doble)
 				var dp: int = int(fila.get("dueno", 0))
 				if not dobles_por_peer.has(dp):
@@ -15945,6 +15999,7 @@ func abrir_combate_espejo(roster: Dictionary) -> Node:
 		return null   # ya estoy en otra pantalla (una por maquina)
 	cerrar_menus_abiertos()   # tampoco se espeja una pelea con un menu delante
 	var combat := _combat_scene.instantiate()
+	combat.pelea = pelea
 	combat.process_mode = Node.PROCESS_MODE_ALWAYS
 	# ¿LA PELEA ES EN EL MAPA? Lo dice quien la lleva: su roster trae la ARENA (el rectangulo, en
 	# celdas) si es tactica. No se recalcula aqui: con el trazado de esta maquina podria salir otra
@@ -16843,8 +16898,10 @@ func dev_curva_drops(pisos: Array = [1, 2, 3, 4, 6, 8, 10, 12]) -> void:
 
 # Los tres primeros arrays vienen POR ALIADO, en el orden en que se le pasaron a la pantalla
 # (el lider el primero): con quE vida, maná y energia sale cada uno.
-func _hay_jefe_en_pelea() -> bool:
-	for n in _active_enemies:
+func _hay_jefe_en_pelea(pe: PeleaViva = null) -> bool:
+	if pe == null:
+		pe = pelea
+	for n in pe.enemigos:
 		if is_instance_valid(n) and n.get("es_boss"):
 			return true
 	return false
@@ -16852,7 +16909,9 @@ func _hay_jefe_en_pelea() -> bool:
 
 func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array = [],
 		energy_left: Array = [], muertos: Array = [], enemy_hp_left: Array = [],
-		duenos: Array = [], enemy_estados_left: Array = []) -> void:
+		duenos: Array = [], enemy_estados_left: Array = [], pe: PeleaViva = null) -> void:
+	if pe == null:
+		pe = pelea
 	# Se acabo la pelea: vuelve la musica de debajo y suena el remate encima. La huida no lleva
 	# remate -- no has ganado, pero tampoco es para tocar la marcha funebre.
 	# Se pulso Continuar: se corta el remate y vuelve la musica de debajo POR DONDE IBA. El remate
@@ -16860,11 +16919,11 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 	Musica.desapilar()
 	Ambiente.pausar(false)
 	var acabada: bool = _pelea_en_pantalla_acabada()   # antes de soltar la pantalla (ver _olvidar_zona_de_mi_pelea)
-	salir_modal(_active_layer)
+	salir_modal(pe.capa)
 	esconder_mundo(false)
 	# La arena se va y la camara vuelve a su sitio. VA EN LOS DOS CIERRES (este y el del espejo):
 	# si se quedara puesta, seguirias jugando la mazmorra desde lejos y con un rectangulo pintado.
-	_desmontar_arena_tactica(acabada)
+	_desmontar_arena_tactica(acabada, pe)
 	_aplicar_huida(acabada)
 	_bloquear_interaccion_jugador()  # que la tecla que cerro el combate no ataque otra vez al salir
 	Net.jugadores.avisar_combate(false)
@@ -16891,8 +16950,8 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 	# levantarla a 1. En solitario todos son dueño 0, asi que equivale al viejo "cayo todo el grupo".
 	var vivo_por_dueno: Dictionary = {}   # dueno -> tiene al menos uno en pie
 	var existe_dueno: Dictionary = {}     # dueno -> participo en la pelea
-	for i in _active_player_pjs.size():
-		var pj: PersonajeData = _active_player_pjs[i]
+	for i in pe.aliados_pjs.size():
+		var pj: PersonajeData = pe.aliados_pjs[i]
 		var hp: float = float(hp_left[i]) if i < hp_left.size() else -1.0
 		var dn: int = int(duenos[i]) if i < duenos.size() else 0
 		existe_dueno[dn] = true
@@ -16908,9 +16967,9 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 		# Y la IMBUICION con las cargas que le queden: el manto sigue puesto al salir de la pelea.
 		# Los ESTADOS igual (el veneno no se cura al cerrar la pantalla), y con ellos las cargas de
 		# Foco arcano, que son munición y no caducan.
-		if i < _active_player_cs.size():
-			guardar_imbue_en_ficha(_active_player_cs[i], pj)
-			guardar_estados_en_ficha(_active_player_cs[i], pj)
+		if i < pe.aliados_cs.size():
+			guardar_imbue_en_ficha(pe.aliados_cs[i], pj)
+			guardar_estados_en_ficha(pe.aliados_cs[i], pj)
 	# ¿Cayo mi propio grupo (dueño 0)? Y ¿que PEERS cayeron enteros? (para mandarlos al pueblo).
 	var anfitrion_derrotado: bool = existe_dueno.has(0) and not vivo_por_dueno.has(0)
 	var peers_derrotados: Array = []
@@ -16924,25 +16983,25 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 		pnode.recargar_aguante_lider()
 
 	# Los COOLDOWNS que queden al terminar viajan al siguiente combate (ver start_combat).
-	for i in _active_player_pjs.size():
-		if i < _active_player_cs.size():
-			ability_cooldowns_persist[_active_player_pjs[i]] = \
-				(_active_player_cs[i].ability_cooldowns as Dictionary).duplicate()
+	for i in pe.aliados_pjs.size():
+		if i < pe.aliados_cs.size():
+			ability_cooldowns_persist[pe.aliados_pjs[i]] = \
+				(pe.aliados_cs[i].ability_cooldowns as Dictionary).duplicate()
 			# LA MUNICION CARGADA QUE NO SE DISPARO se QUEDA PUESTA para la siguiente (03/10, como una
 			# imbuicion): va a la ficha, tambien la del doble de otro humano (le vuelve con el desgaste,
 			# PersonajeData.municion_cargada esta en _VUELVE). A la bolsa solo vuelve lo que se QUITO cargando
 			# otra encima, y solo la de los MIOS: la del doble vuelve a SU bolsa (Net.partida.desgaste_a_dict).
-			_active_player_pjs[i].municion_cargada = _active_player_cs[i].municion_cargada_dict()
-			if party.has(_active_player_pjs[i]):
-				devolver_municion_a_bolsa(_active_player_cs[i].municion_devolver)
+			pe.aliados_pjs[i].municion_cargada = pe.aliados_cs[i].municion_cargada_dict()
+			if party.has(pe.aliados_pjs[i]):
+				devolver_municion_a_bolsa(pe.aliados_cs[i].municion_devolver)
 
 	# AHORA si: las fichas (incluidas las de los DOBLES de otros humanos) ya llevan el resultado,
 	# asi que se le puede devolver a cada uno lo suyo y cerrarles el espejo. A los peers DERROTADOS
 	# (todo su grupo cayo) se les manda al pueblo en vez de devolverles el desgaste (ver _moriste).
-	Net.peleas.cerrar_pelea(peers_derrotados)
+	Net.peleas.cerrar_pelea(peers_derrotados, pe)
 
-	_active_player_cs = []
-	_active_player_pjs = []
+	pe.aliados_cs = []
+	pe.aliados_pjs = []
 
 	# Los que CAYERON no desaparecen: quedan como cadaver para poder extraerles el cristal
 	# (minijuego, Fase 5). El criterio son los 'muertos' que manda el combate, NO player_won:
@@ -16950,20 +17009,20 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 	# cadaver te lo has ganado. Mirando player_won se perderian.
 	for i in muertos:
 		# Sin tipar: el nodo puede estar ya liberado (ver matar_enemigo_de_combate).
-		var n = _active_enemies[i] if i < _active_enemies.size() else null
+		var n = pe.enemigos[i] if i < pe.enemigos.size() else null
 		matar_enemigo_de_combate(n)
 
 	# Los SUPERVIVIENTES (huiste, o te mataron y aun no lo saben): se quedan quietos unos
 	# segundos para darte la ventana de escape, y CONSERVAN las heridas que les hiciste.
-	for i in _active_enemies.size():
+	for i in pe.enemigos.size():
 		if muertos.has(i):
 			continue
 		# ...salvo los que se han ido con un TRASPASO: esos siguen peleando en la pantalla de otro.
 		# Reanudarlos aqui los devolveria al mundo en mitad de esa pelea, con dos maquinas mandando
 		# sobre el mismo bicho.
-		if enemigos_traspasados.has(i):
+		if pe.traspasados.has(i):
 			continue
-		var n = _active_enemies[i]   # sin tipar: puede estar liberado
+		var n = pe.enemigos[i]   # sin tipar: puede estar liberado
 		if not is_instance_valid(n) or not n.has_method("reanudar_tras_combate"):
 			continue
 		var hp: float = float(enemy_hp_left[i]) if i < enemy_hp_left.size() else -1.0
@@ -16972,9 +17031,10 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 		# que manda sobre ese bicho es su dueño, y es el quien lo tiquea.
 		var est: Array = enemy_estados_left[i] if i < enemy_estados_left.size() else []
 		n.reanudar_tras_combate(hp, est)
-	_active_enemies.clear()
-	_soltar_cola_combate()
-	enemigos_traspasados = []   # la marca dura solo este cierre
+	pe.enemigos.clear()
+	_soltar_cola_combate(pe)
+	pe.traspasados = []   # la marca dura solo este cierre
+	pe.piso = null
 
 	# ALBOROTO: una pelea mete ruido, y mas cuanto mas grande. El fragor llama a la pared: pelear
 	# es la forma mas directa de provocar un brote (y de que se te acumule si encadenas combates).
@@ -16985,9 +17045,9 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 	sumar_alboroto(ALBOROTO_COMBATE + ALBOROTO_KILL * float(muertos.size()), causante)
 
 	# Quitamos la capa del combate (con la pantalla dentro).
-	if is_instance_valid(_active_layer):
-		_active_layer.queue_free()
-	_active_layer = null
+	if is_instance_valid(pe.capa):
+		pe.capa.queue_free()
+	pe.capa = null
 
 	# ¿DERROTA MIA? Se mira la VIDA, no player_won: al HUIR tambien llega player_won = false
 	# (combat._end(false, true)), y huir es una decision legitima que ya pagas perdiendo el

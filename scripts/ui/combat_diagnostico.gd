@@ -89,7 +89,7 @@ func _desatascar() -> void:
 
 	# --- Intento 1: soltar la espera de un turno remoto que no va a llegar.
 	if _pantalla._state == _pantalla.State.WAITING_PLAYER and _pantalla._esperando_a != 0:
-		if not Net.peleas.esta_en_mi_pelea(_pantalla._esperando_a):
+		if not Net.peleas.esta_en_mi_pelea(_pantalla._esperando_a, _pantalla.pelea):
 			var quien: int = _pantalla._esperando_a
 			_pantalla.espejo._fin_de_espera()
 			_pantalla.sacar_a(quien)
@@ -118,7 +118,7 @@ func _desatascar() -> void:
 			var dueno_p: int = int(_pantalla._dueno_aliado.get(_pantalla._player, 0))
 			if dueno_p != 0:
 				_pantalla._state = _pantalla.State.WAITING_PLAYER
-				if not Net.peleas.esta_en_mi_pelea(dueno_p):
+				if not Net.peleas.esta_en_mi_pelea(dueno_p, _pantalla.pelea):
 					_pantalla.sacar_a(dueno_p)
 					_pantalla._set_log("🔧 %s ya no está en la pelea: fuera. La pelea sigue." % dueno_p)
 					return
@@ -163,7 +163,7 @@ func _diagnostico() -> Array:
 	if _pantalla._esperando_a != 0:
 		out.append("esperando a peer %d (%s) desde %.1fs, ¿sigue?=%s" % [
 			_pantalla._esperando_a, String(_pantalla.espejo._peticion_pendiente.get("tipo", "?")), _pantalla.espejo._espera_acum,
-			"si" if Net.peleas.esta_en_mi_pelea(_pantalla._esperando_a) else "NO"])
+			"si" if Net.peleas.esta_en_mi_pelea(_pantalla._esperando_a, _pantalla.pelea) else "NO"])
 	else:
 		out.append("no espero a nadie")
 	out.append("turno de=%s" % (_pantalla._player.nombre if _pantalla._player != null else "nadie"))
@@ -230,7 +230,7 @@ func _volcado_p() -> void:
 	if _pantalla._esperando_a != 0:
 		L.append("  ESPERANDO al peer %d desde hace %.2fs" % [_pantalla._esperando_a, _pantalla.espejo._espera_acum])
 		L.append("    lo que le pedi: %s" % str(_pantalla.espejo._peticion_pendiente))
-		L.append("    ¿sigue en la pelea?: %s" % ("si" if Net.peleas.esta_en_mi_pelea(_pantalla._esperando_a) else "NO"))
+		L.append("    ¿sigue en la pelea?: %s" % ("si" if Net.peleas.esta_en_mi_pelea(_pantalla._esperando_a, _pantalla.pelea) else "NO"))
 		L.append("    proximo reenvio en: %.2fs" % maxf(0.0, _pantalla.espejo.REENVIO_TURNO - _pantalla.espejo._espera_acum))
 	else:
 		L.append("  no espero respuesta de nadie")

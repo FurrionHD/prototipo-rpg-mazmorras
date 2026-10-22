@@ -83,6 +83,14 @@ var ficha_objetivo = CombatFichaObjetivo.new(self)
 const CombatTactico = preload("res://scripts/ui/combat_tactico.gd")
 var turno_mapa = CombatTactico.new(self)
 
+# LA PELEA DE ESTA PANTALLA (etapa 3, 22/10): su estado (enemigos, aliados, cola, participantes...). La pone Game al
+# montarla; lo que la pantalla y sus piezas piden a Game y a Net.peleas va con ella. Sin poner (una pantalla montada
+# suelta, en las pruebas), la de la maquina.
+var _pelea: PeleaViva = null
+var pelea: PeleaViva:
+	get: return _pelea if _pelea != null else Game.pelea
+	set(v): _pelea = v
+
 # ¿Esta pelea se juega EN EL MAPA? Lo pone Game antes de setup(). Es lo unico que distingue los dos
 # combates, y solo puede mirarlo la GEOMETRIA y la PUESTA EN ESCENA: si acaba dentro de una funcion
 # que resuelve daño, la costura esta en el sitio equivocado.
@@ -1776,7 +1784,7 @@ func _pedir_accion_del_turno() -> void:
 	if dueno != 0 and Net.peleas.esta_caido(dueno):
 		turno_automatico()
 		return
-	if dueno != 0 and not Net.peleas.esta_en_mi_pelea(dueno):
+	if dueno != 0 and not Net.peleas.esta_en_mi_pelea(dueno, pelea):
 		# Ya no esta en la pelea (se fue, o su pantalla dejo de espejarme): pedirle la accion
 		# seria esperar para siempre. Sus personajes salen y la pelea sigue.
 		sacar_a(dueno)
@@ -2429,7 +2437,7 @@ func _traspasar() -> bool:
 			siguen.append(i)
 	if not Net.peleas.traspasar_pelea(espejo.estado_para_traspaso(nuevo)):
 		return false
-	Game.enemigos_traspasados = siguen
+	pelea.traspasados = siguen
 	_set_log("Escapas y le dejas la pelea a tus compañeros. 🏃")
 	_end(false, true)
 	return true
@@ -2454,7 +2462,7 @@ func _huir_solo(peer: int) -> bool:
 	# quedarian colgadas de alguien que ya no esta.
 	if _huidos.has(_player):
 		_player = _aliados_vivos()[0]
-	Net.peleas.sacar_de_la_pelea(peer)   # le devuelve lo suyo y le cierra el espejo (a el solo)
+	Net.peleas.sacar_de_la_pelea(peer, pelea)   # le devuelve lo suyo y le cierra el espejo (a el solo)
 	_update_hp()
 	return true
 
@@ -2655,7 +2663,7 @@ func _morir_enemigo(e: Combatant) -> void:
 	if not _espejo:
 		var hueco: int = _enemies.find(e)
 		_revienta(e)   # antes de la cola: su nube con su codigo y sus pies
-		Game.meter_de_la_cola(hueco)
+		Game.meter_de_la_cola(hueco, pelea)
 		# DIVIDIRSE (06/10): el que se divide suelta a los suyos al caer (despues de la cola: si entra uno, ocupa el hueco).
 		_dividirse(e)
 		_tributo(e)

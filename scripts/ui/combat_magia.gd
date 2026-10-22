@@ -181,7 +181,7 @@ func _mostrar_test(idx: int) -> void:
 		_pantalla._update_hp()
 		_pantalla.turno_automatico()
 		return
-	if dueno != 0 and not Net.peleas.esta_en_mi_pelea(dueno):
+	if dueno != 0 and not Net.peleas.esta_en_mi_pelea(dueno, _pantalla.pelea):
 		_pantalla.sacar_a(dueno)
 		return
 	if dueno != 0:
@@ -340,7 +340,7 @@ func _mostrar_disparo() -> void:
 	if dueno != 0 and Net.peleas.esta_caido(dueno):
 		_disparar_hechizo()
 		return
-	if dueno != 0 and not Net.peleas.esta_en_mi_pelea(dueno):
+	if dueno != 0 and not Net.peleas.esta_en_mi_pelea(dueno, _pantalla.pelea):
 		_pantalla.sacar_a(dueno)   # ver _mostrar_test: se fue con el conjuro ya recitado
 		return
 	if dueno != 0:

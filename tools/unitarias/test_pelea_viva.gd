@@ -70,3 +70,37 @@ func test_net_peleas_lee_de_la_misma() -> void:
 	Net.peleas._pelea_participantes.erase(7)
 	Net.peleas._dobles.erase(7)
 	_devolver(antes)
+
+
+func test_dos_peleas_cada_cosa_en_la_suya() -> void:
+	var a := PeleaViva.new()
+	var b := PeleaViva.new()
+	arbol.add_child(a)
+	arbol.add_child(b)
+	var ca := Combatant.new("x", 1, Abilities.new(), 10.0, 1.0, 1.0, 1.0)
+	var cb := Combatant.new("x", 1, Abilities.new(), 10.0, 1.0, 1.0, 1.0)
+	var pja := PersonajeData.new()
+	var pjb := PersonajeData.new()
+	var ea := Node.new()
+	var eb := Node.new()
+	a.aliados_cs = [ca]
+	a.aliados_pjs = [pja]
+	a.enemigos.append(ea)
+	b.aliados_cs = [cb]
+	b.aliados_pjs = [pjb]
+	b.enemigos.append(eb)
+	igual(PeleaViva.de_combatiente(ca), a, "el combatiente de A es de A")
+	igual(PeleaViva.de_combatiente(cb), b, "el de B es de B")
+	igual(PeleaViva.de_ficha(pjb), b, "la ficha de B es de B")
+	igual(PeleaViva.de_enemigo(ea), a, "el enemigo de A es de A")
+	igual(Game.pj_de_combatant(cb), pjb, "Game.pj_de_combatant encuentra la ficha en SU pelea")
+	igual(Game.combatant_de_pj(pja), ca, "Game.combatant_de_pj tambien")
+	cierto(Game.esta_en_combate(eb), "el enemigo de B esta en combate")
+	cierto(PeleaViva.de_combatiente(Combatant.new("x", 1, Abilities.new(), 10.0, 1.0, 1.0, 1.0)) == null, "uno suelto no es de ninguna")
+	arbol.remove_child(b)
+	cierto(PeleaViva.de_enemigo(eb) == null, "fuera del arbol, la pelea ya no cuenta")
+	b.free()
+	arbol.remove_child(a)
+	a.free()
+	ea.free()
+	eb.free()

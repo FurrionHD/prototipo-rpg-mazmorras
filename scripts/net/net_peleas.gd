@@ -727,19 +727,23 @@ func _soltar_reservas_de(quien: int) -> void:
 # resolucion pasan en UN solo sitio y no hay dos verdades.
 
 # La pantalla de combate que tengo delante (la mia o el espejo), o null.
-func _pantalla_combate() -> Node:
-	if not is_instance_valid(Game._active_layer) or Game._active_layer.get_child_count() == 0:
+func _pantalla_combate(pe: PeleaViva = null) -> Node:
+	if pe == null:
+		pe = Game.pelea
+	if not is_instance_valid(pe.capa) or pe.capa.get_child_count() == 0:
 		return null
-	return Game._active_layer.get_child(0)
+	return pe.capa.get_child(0)
 
 
 # Lo llama Game al abrir un combate en multi: esta pelea pasa a existir en la red.
-func registrar_pelea() -> void:
+func registrar_pelea(pe: PeleaViva = null) -> void:
+	if pe == null:
+		pe = Game.pelea
 	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
-	_pelea_id = multiplayer.get_unique_id() * 1000000 + _pelea_next
+	pe.id = multiplayer.get_unique_id() * 1000000 + _pelea_next
 	_pelea_next += 1
-	_pelea_participantes.clear()
+	pe.participantes.clear()
 
 
 # --- TRASPASO DE LA PELEA ---------------------------------------------------------------------
@@ -772,8 +776,10 @@ func nodo_de_id(id: int):
 
 # ¿A quien le puedo pasar la pelea? Al primero que este dentro (0 = a nadie).
 # ¿Ese peer sigue dentro de la pelea que ejecuto yo? Si no, no tiene sentido pedirle su turno.
-func esta_en_mi_pelea(peer: int) -> bool:
-	return _pelea_participantes.has(peer)
+func esta_en_mi_pelea(peer: int, pe: PeleaViva = null) -> bool:
+	if pe == null:
+		pe = Game.pelea
+	return pe.participantes.has(peer)
 
 
 func heredero_de_pelea() -> int:
@@ -883,7 +889,9 @@ func _cambio_de_anfitrion(id: int, roster: Dictionary) -> void:
 # SE VA UNO SOLO (huida individual): la pelea SIGUE para los demas. Se le devuelve lo que vivieron
 # sus dobles y se le cierra su espejo, y deja de recibir instantaneas. Es cerrar_pelea, pero para
 # un participante en vez de para todos.
-func sacar_de_la_pelea(peer: int) -> void:
+func sacar_de_la_pelea(peer: int, pe: PeleaViva = null) -> void:
+	if pe == null:
+		pe = Game.pelea
 	if not Net.activo or peer == 0:
 		return
 	# LA PELEA YA NO ESTA, pero hay que CONTESTAR IGUAL. Este era el bug de "no me entra en combate":
@@ -894,49 +902,51 @@ func sacar_de_la_pelea(peer: int) -> void:
 	# ocupado_en_pelea() daba true el resto de la sesion y enemy._start_combat se salia por su return
 	# seco en todos los contactos. Un _fin_espejo suelto (sin desgaste, que ya no hay dobles de donde
 	# sacarlo) es exactamente el "ya no viene nada mas" que estaba esperando.
-	if _pelea_id == 0:
+	if pe.id == 0:
 		_fin_espejo.rpc_id(peer)
-		_pelea_participantes.erase(peer)
+		pe.participantes.erase(peer)
 		return
 	# SUS PERSONAJES SALEN DE MI PANTALLA. Es la otra mitad de sacarle, y faltaba: cerrandole solo el
 	# espejo, sus combatientes se quedaban en la pelea con la barra corriendo y, al tocarles el turno,
 	# se le pedia la accion a un peer que ya no tiene pantalla -> la pelea se quedaba pidiendosela cada
 	# 4 s para siempre, y quien entrara despues se sentaba a esperar un turno que no iba a llegar.
 	# Retirar no toca vida ni mana, asi que el lote de desgaste de aqui abajo sigue saliendo bien.
-	_retirar_sus_combatientes(peer)
+	_retirar_sus_combatientes(peer, pe)
 	# SE VA DE UNA PELEA YA ACABADA CON TODO SU GRUPO CAIDO: eso es morir, no irse. Cerrando el espejo
 	# antes que quien la ejecuta, se le devolvia el desgaste (a 0 de vida) y se libraba del castigo; y
 	# en la pelea de un trabajador SIEMPRE se sale asi (el trabajador no pulsa Continuar).
-	var p: Node = _pantalla_combate()
-	if _dobles.has(peer) and p != null and p.has_method("acabada") and p.acabada():
+	var p: Node = _pantalla_combate(pe)
+	if pe.dobles.has(peer) and p != null and p.has_method("acabada") and p.acabada():
 		var caidos := true
-		for doble in _dobles[peer]:
+		for doble in pe.dobles[peer]:
 			var c: Combatant = Game.combatant_de_pj(doble)
 			if c != null and c.current_hp > 0.0:
 				caidos = false
 		if caidos:
-			_dobles.erase(peer)
+			pe.dobles.erase(peer)
 			_moriste.rpc_id(peer)
-			_pelea_participantes.erase(peer)
+			pe.participantes.erase(peer)
 			return
-	if _dobles.has(peer):
+	if pe.dobles.has(peer):
 		var lote: Array = []
-		for doble in _dobles[peer]:
+		for doble in pe.dobles[peer]:
 			# A mitad de pelea la vida y el mana viven en el COMBATIENTE: hay que bajarlos a la
 			# ficha antes de mandarlos, o se iria con los que entro.
 			Game.volcar_desgaste_en_ficha(doble)
 			lote.append(Net.partida.desgaste_a_dict(doble))
 		_devolver_desgaste.rpc_id(peer, lote)
-		_dobles.erase(peer)
+		pe.dobles.erase(peer)
 	_fin_espejo.rpc_id(peer)
-	_pelea_participantes.erase(peer)
+	pe.participantes.erase(peer)
 
 
 # Sus combatientes fuera de MI pantalla (los de un peer al que estoy sacando de la pelea). Va por el
 # mismo camino que usa la huida de un jugador, asi que la pelea se reordena igual: si el turno lo tenia
 # uno de los suyos pasa a otro, y si no queda nadie de pie la pelea se cierra.
-func _retirar_sus_combatientes(peer: int) -> void:
-	var p: Node = _pantalla_combate()
+func _retirar_sus_combatientes(peer: int, pe: PeleaViva = null) -> void:
+	if pe == null:
+		pe = Game.pelea
+	var p: Node = _pantalla_combate(pe)
 	if p == null or not p.has_method("sacar_a") or not p.has_method("tiene_en_pie_a"):
 		return
 	if not p.tiene_en_pie_a(peer):
@@ -985,14 +995,16 @@ func _salgo_de_la_pelea() -> void:
 
 # 'derrotados' = peers cuyo grupo ENTERO cayo: en vez de devolverles el desgaste y cerrarles el
 # espejo, se les manda al pueblo con la penalizacion (_moriste corre morir_jugador en SU maquina).
-func cerrar_pelea(derrotados: Array = []) -> void:
-	if _pelea_id != 0 and Net.soy_trabajador:
+func cerrar_pelea(derrotados: Array = [], pe: PeleaViva = null) -> void:
+	if pe == null:
+		pe = Game.pelea
+	if pe.id != 0 and Net.soy_trabajador:
 		Net._trab.avisar_pelea_acabada()   # el host decide si sigo esperando peleas en este piso
-	if _pelea_id != 0:
+	if pe.id != 0:
 		for caido in _caidos.keys():
-			_desgaste_a_la_sala(caido, String(_caidos[caido].get("ident", "")))
+			_desgaste_a_la_sala(caido, String(_caidos[caido].get("ident", "")), pe)
 		_caidos.clear()
-		for p in _pelea_participantes:
+		for p in pe.participantes:
 			if derrotados.has(p):
 				# Su grupo murio: al pueblo. morir_jugador ya le reinicia las fichas, asi que NO se
 				# le devuelve desgaste; _moriste tambien le cierra el espejo.
@@ -1000,15 +1012,15 @@ func cerrar_pelea(derrotados: Array = []) -> void:
 				continue
 			# A cada uno lo SUYO: lo que sus dobles han vivido en mi pantalla (vida, mana y la
 			# excelia ganada) vuelve a sus personajes de verdad. Va ANTES de cerrarle el espejo.
-			if _dobles.has(p):
+			if pe.dobles.has(p):
 				var lote: Array = []
-				for doble in _dobles[p]:
+				for doble in pe.dobles[p]:
 					lote.append(Net.partida.desgaste_a_dict(doble))
 				_devolver_desgaste.rpc_id(p, lote)
 			_fin_espejo.rpc_id(p)
-		_pelea_participantes.clear()
-		_dobles.clear()
-		_pelea_id = 0
+		pe.participantes.clear()
+		pe.dobles.clear()
+		pe.id = 0
 	_pelea_sigo = 0
 	_pelea_anfitrion = 0
 	_mis_en_pelea.clear()
@@ -1287,14 +1299,16 @@ func _pedir_unirme(fichas: Array) -> void:
 # conjuro que traigan sembrado. Devuelve {"dobles": [...], "idxs": [huecos en la fila de aliados]}.
 # Lo usan las dos formas de meter a otro humano: que se una a mi pelea (_pedir_unirme) y que la pelea
 # se monte entera con fichas en un trabajador (Game.abrir_pelea_de_fichas).
-func meter_dobles(p: Node, quien: int, fichas: Array) -> Dictionary:
+func meter_dobles(p: Node, quien: int, fichas: Array, pe: PeleaViva = null) -> Dictionary:
+	if pe == null:
+		pe = Game.pelea
 	# Un DOBLE por personaje suyo: pelean aqui con sus stats y su equipo. Se meten POR ORDEN DE
 	# FORMACION y entra lo que quepa (MAX_ALIADOS): su pos 1 seguro, la pos 2 si queda hueco.
 	var dobles: Array = []
 	var idxs: Array = []
 	for f in fichas:
 		var doble: PersonajeData = Net.partida.ficha_de_dict(f)
-		if not Game.unir_aliado_al_combate(doble, float(f.get("overload", 1.0))):
+		if not Game.unir_aliado_al_combate(doble, float(f.get("overload", 1.0)), pe):
 			break   # la pelea esta llena: los que falten se quedan fuera
 		dobles.append(doble)
 		# Y que la pelea sepa que ese personaje lo mueve EL, no yo: cuando le toque el turno se le
@@ -1314,11 +1328,13 @@ func meter_dobles(p: Node, quien: int, fichas: Array) -> Dictionary:
 
 # La pelea que acabo de montar con fichas (Game.abrir_pelea_de_fichas) es de ESTOS humanos: sus dobles
 # (para devolverles lo suyo al cerrar) y como participantes (reciben instantaneas y se les piden turnos).
-func adoptar_pelea(dobles_por_peer: Dictionary) -> void:
+func adoptar_pelea(dobles_por_peer: Dictionary, pe: PeleaViva = null) -> void:
+	if pe == null:
+		pe = Game.pelea
 	for peer in dobles_por_peer:
-		_dobles[peer] = dobles_por_peer[peer]
-		if not _pelea_participantes.has(peer):
-			_pelea_participantes.append(peer)
+		pe.dobles[peer] = dobles_por_peer[peer]
+		if not pe.participantes.has(peer):
+			pe.participantes.append(peer)
 
 
 # Corre en EL QUE SE UNE: el que he pillado solo espeja esa pelea; la ejecuta 'anfitrion'. Se le pide a el con las
@@ -1416,10 +1432,12 @@ func mi_pj_en_pelea(idx: int) -> PersonajeData:
 # (no por frame), asi que garantizar la entrega es barato y evita que se pierda un avance o el "fin".
 # Antes iba unreliable y una pelea larga la hacia pasar de la MTU -> se descartaba y el espejo se
 # congelaba (el log ya va recortado a la cola, ver combat.instantanea). La barra de ATB sigue aparte.
-func difundir_instantanea(snap: Dictionary) -> void:
-	if not Net.activo or _pelea_id == 0 or _pelea_participantes.is_empty():
+func difundir_instantanea(snap: Dictionary, pe: PeleaViva = null) -> void:
+	if pe == null:
+		pe = Game.pelea
+	if not Net.activo or pe.id == 0 or pe.participantes.is_empty():
 		return
-	for p in _pelea_participantes:
+	for p in pe.participantes:
 		_instantanea.rpc_id(p, snap)
 
 
@@ -1427,10 +1445,12 @@ func difundir_instantanea(snap: Dictionary) -> void:
 # forma CONTINUA: metida en la instantanea (que solo sale cuando cambia algo) la barra del espejo
 # iria a saltos, y mandada como fiable seria trafico tonto. Mismo trato que las posiciones de los
 # enemigos: unreliable_ordered y a correr.
-func difundir_atb(ratios: PackedFloat32Array) -> void:
-	if not Net.activo or _pelea_id == 0 or _pelea_participantes.is_empty():
+func difundir_atb(ratios: PackedFloat32Array, pe: PeleaViva = null) -> void:
+	if pe == null:
+		pe = Game.pelea
+	if not Net.activo or pe.id == 0 or pe.participantes.is_empty():
 		return
-	for p in _pelea_participantes:
+	for p in pe.participantes:
 		_atb.rpc_id(p, ratios)
 
 
@@ -1446,10 +1466,12 @@ func _atb(ratios: PackedFloat32Array) -> void:
 # LAS HUELLAS DEL MAPA (combate tactico): lo que alguien esta apuntando y lo que se esta cargando, para
 # que todos lo vean en el suelo. Cosmetico y continuo como el ATB: unreliable_ordered. Lo reparte
 # quien lleva la pelea, con TODAS las vivas en un paquete (ver turno_mapa.estado_huellas).
-func difundir_huellas(datos: PackedFloat32Array) -> void:
-	if not Net.activo or _pelea_id == 0 or _pelea_participantes.is_empty():
+func difundir_huellas(datos: PackedFloat32Array, pe: PeleaViva = null) -> void:
+	if pe == null:
+		pe = Game.pelea
+	if not Net.activo or pe.id == 0 or pe.participantes.is_empty():
 		return
-	for p in _pelea_participantes:
+	for p in pe.participantes:
 		_huellas.rpc_id(p, datos)
 
 
@@ -1486,10 +1508,12 @@ func _mi_huella(datos: PackedFloat32Array) -> void:
 # el mismo canal que el ATB y las huellas, que salen 20 veces por segundo: con 'ordered', un paquete de golpes que
 # llegaba detras de uno de ATB mas nuevo SE TIRABA entero, y se perdia el turno visto y oido. Es uno por accion y
 # pequeño (5 enteros por golpe, tope 40): garantizarlo cuesta poco.
-func difundir_impactos(datos: PackedInt32Array) -> void:
-	if not Net.activo or _pelea_id == 0 or _pelea_participantes.is_empty():
+func difundir_impactos(datos: PackedInt32Array, pe: PeleaViva = null) -> void:
+	if pe == null:
+		pe = Game.pelea
+	if not Net.activo or pe.id == 0 or pe.participantes.is_empty():
 		return
-	for p in _pelea_participantes:
+	for p in pe.participantes:
 		_impactos.rpc_id(p, datos)
 
 
@@ -1520,10 +1544,12 @@ func _instantanea(snap: Dictionary) -> void:
 # eventos raros (un refuerzo, una invocacion, un compañero que se une), asi que pagar el roster
 # completo -caras incluidas- sale mas barato que inventarse un formato de evento aparte.
 
-func difundir_roster(roster: Dictionary) -> void:
-	if not Net.activo or _pelea_id == 0 or _pelea_participantes.is_empty():
+func difundir_roster(roster: Dictionary, pe: PeleaViva = null) -> void:
+	if pe == null:
+		pe = Game.pelea
+	if not Net.activo or pe.id == 0 or pe.participantes.is_empty():
 		return
-	for p in _pelea_participantes:
+	for p in pe.participantes:
 		_roster_pelea.rpc_id(p, roster)
 
 
@@ -1665,14 +1691,16 @@ func _vencer_cortesia() -> void:
 
 # Lo que vivieron los dobles de un jugador que ya no esta conectado, a la sala (que lo apunta en su ficha
 # del mundo, o se lo manda si ya ha vuelto con otra conexion).
-func _desgaste_a_la_sala(peer: int, ident: String) -> void:
-	if not _dobles.has(peer):
+func _desgaste_a_la_sala(peer: int, ident: String, pe: PeleaViva = null) -> void:
+	if pe == null:
+		pe = Game.pelea
+	if not pe.dobles.has(peer):
 		return
 	var lote: Array = []
-	for doble in _dobles[peer]:
+	for doble in pe.dobles[peer]:
 		Game.volcar_desgaste_en_ficha(doble)
 		lote.append(Net.partida.desgaste_a_dict(doble))
-	_dobles.erase(peer)
+	pe.dobles.erase(peer)
 	if ident == "":
 		push_warning("[pelea] lo vivido por los personajes del peer %d se pierde: no se sabe de quien era" % peer)
 		return

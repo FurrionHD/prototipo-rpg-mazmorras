@@ -377,7 +377,7 @@ func _recoger_de_la_arena(delta: float) -> void:
 			n.call("_cancelar_aviso")
 		# (11/10) Los de un brote que caen dentro, pegados entre ellos: se separan un poco antes de entrar.
 		(n as Node2D).global_position = _sitio_sin_pisar(n, (n as Node2D).global_position)
-		if Game.unir_enemigo_al_combate(n):
+		if Game.unir_enemigo_al_combate(n, -1, _pantalla.pelea):
 			print("[arena] %s estaba dentro de la arena: entra a la pelea" % n.name)
 		else:
 			n.set("_combat_triggered", false)
@@ -402,7 +402,7 @@ func _entra_por_el_borde(cuerpo: Node2D, punto: Vector2) -> void:
 	cuerpo.set("velocity", Vector2.ZERO)
 	if cuerpo.has_method("_cancelar_aviso"):
 		cuerpo.call("_cancelar_aviso")
-	if Game.unir_enemigo_al_combate(cuerpo):
+	if Game.unir_enemigo_al_combate(cuerpo, -1, _pantalla.pelea):
 		print("[arena] %s llega al borde: entra a la pelea por %s" % [cuerpo.name, punto.round()])
 	else:
 		cuerpo.global_position = antes
@@ -641,7 +641,7 @@ func cuerpo_de(c: Combatant) -> Node2D:
 	if i >= 0:
 		# El orden es el mismo por construccion: Game._abrir_pelea crea un Combatant por nodo, en el
 		# orden de _active_enemies. Los invocados no tienen nodo y se quedan en null.
-		var nodos: Array = Game._active_enemies
+		var nodos: Array = _pantalla.pelea.enemigos
 		var n = nodos[i] if i < nodos.size() else null
 		return n as Node2D if n != null and is_instance_valid(n) else null
 	if not _pantalla._aliados.has(c):
@@ -2899,7 +2899,7 @@ func _tick_huellas(delta: float) -> void:
 	_t_huellas = 0.0
 	_t_repetir = 0.0
 	_huellas_cambiadas = false
-	Net.peleas.difundir_huellas(estado_huellas())
+	Net.peleas.difundir_huellas(estado_huellas(), _pantalla.pelea)
 
 
 func estado_huellas() -> PackedFloat32Array:
@@ -6603,7 +6603,7 @@ func lanzar_cria(cria: Combatant, data: EnemyData, origen: Vector2, hasta: Vecto
 	# En el espejo la cria salia formada y andando y "caia" turnos despues; la del Rey se quedaba esperando un
 	# escupitajo que ya habia pasado, escondida para siempre.
 	_pantalla.espejo._apuntar_desliz_red(cria, hasta, Desliz.CRIA, 1 if con_gota else 0, T_VUELO_CRIA, ALTO_VUELO_CRIA)
-	Game.dar_cuerpo_a_cria(slot, data, origen, 0.2)
+	Game.dar_cuerpo_a_cria(slot, data, origen, 0.2, _pantalla.pelea)
 
 
 # ¿Cabe una cria de 'data' con su nodo en 'p'? Su caja MARCADA (EnemyData.cuerpo) sobre suelo pisable, dentro de la

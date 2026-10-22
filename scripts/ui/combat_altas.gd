@@ -179,7 +179,7 @@ func _alta_de_combatiente() -> void:
 	_pantalla.espejo._rev += 1
 	if _pantalla._espejo or not Net.activo:
 		return
-	Net.peleas.difundir_roster(_pantalla.espejo.roster_para_espejo())
+	Net.peleas.difundir_roster(_pantalla.espejo.roster_para_espejo(), _pantalla.pelea)
 
 
 # Dos personajes con el mismo nombre eran indistinguibles en la pelea (el log decia "Dasui ataca" y

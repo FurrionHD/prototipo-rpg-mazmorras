@@ -29,7 +29,7 @@ func _pedir_soltar_carga(ab: AbilityData) -> void:
 	if dueno != 0 and Net.peleas.esta_caido(dueno):
 		_soltar_la_carga()
 		return
-	if dueno != 0 and not Net.peleas.esta_en_mi_pelea(dueno):
+	if dueno != 0 and not Net.peleas.esta_en_mi_pelea(dueno, _pantalla.pelea):
 		# Ya no esta en la pelea: pedirle la orden seria esperar para siempre (mismo criterio que
 		# _pedir_accion_del_turno).
 		_pantalla.sacar_a(dueno)

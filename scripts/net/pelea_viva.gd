@@ -25,6 +25,7 @@ var cola: Array = []                # enemigos esperando hueco en la pelea llena
 var arena_nodo: Node = null         # la arena tactica viva                                   (Game._arena_nodo)
 var puntos_arena_fichas: Array = [] # donde estan los que pelean, mientras se abre una pelea de fichas (Game._puntos_arena_fichas)
 var zona: Dictionary = {}           # la zona anunciada de esta pelea                         (Game._mi_zona)
+var piso: PisoVivo = null           # el piso donde se pelea (el de sus enemigos); null = el de la maquina
 
 # --- lo que era de Net.peleas ---
 var id: int = 0                     # id en la red (0 = ninguna)                              (_pelea_id)
@@ -34,6 +35,55 @@ var humano: int = 0                 # el humano que la abrio (el ruido es suyo) 
 var t_cierre: float = 0.0           # cuanto lleva acabada sin que nadie pulse Continuar      (_t_cierre)
 
 
+static var _vivas: Array[PeleaViva] = []
+
+
+func _enter_tree() -> void:
+	if not _vivas.has(self):
+		_vivas.append(self)
+
+
+func _exit_tree() -> void:
+	_vivas.erase(self)
+
+
 # ¿Hay una pelea en marcha en esta caja? (lo mismo que Game.combate_activo sin el destrabe)
 func en_marcha() -> bool:
 	return not enemigos.is_empty()
+
+
+# EL SUELO de la pelea (el nodo dungeon_floor de su piso): ahi se monta la arena tactica. Sin piso apuntado (el espejo
+# de un cliente), el de la maquina.
+func suelo() -> Node:
+	if is_instance_valid(piso):
+		return piso.primero(&"dungeon_floor")
+	return get_tree().get_first_node_in_group("dungeon_floor") if is_inside_tree() else null
+
+
+# LAS PREGUNTAS "¿DE QUIEN ES ESTO?" no necesitan saber la pelea: un combatiente, una ficha o un enemigo estan en
+# UNA sola. Se buscan en todas las vivas (en un cliente, la suya). null = en ninguna.
+static func de_combatiente(c) -> PeleaViva:
+	if c == null:
+		return null
+	for p in _vivas:
+		if p.aliados_cs.has(c):
+			return p
+	return null
+
+
+static func de_ficha(pj) -> PeleaViva:
+	if pj == null:
+		return null
+	for p in _vivas:
+		if p.aliados_pjs.has(pj):
+			return p
+	return null
+
+
+static func de_enemigo(nodo) -> PeleaViva:
+	if nodo == null:
+		return null
+	for p in _vivas:
+		if p.enemigos.has(nodo):
+			return p
+	return null
