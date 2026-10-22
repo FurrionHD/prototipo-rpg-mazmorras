@@ -252,10 +252,6 @@ func piso_de_b() -> int:
 	return int(v) if v != "" else -1
 
 
-func es_trabajador(peer: int) -> bool:
-	return peer != 0 and dato_sala("trabajadores").split(",").has(str(peer))
-
-
 func _fin() -> void:
 	escribir_fase(9)
 	await _esperar(6.0)   # que B apunte su resultado y se vaya
@@ -272,17 +268,13 @@ func _fin() -> void:
 	for linea in _texto(registro_sala).split("\n"):
 		if linea.contains("SCRIPT ERROR"):
 			print("[sala] ", linea)
-	var pids: Array = Array(dato_sala("pids_trab").split(",", false)).map(func(x): return int(x))
 	Net.desconectar()
 	var t := 0.0
 	while OS.is_process_running(_pid_sala) and t < 20.0:
 		await _esperar(0.5)
 		t += 0.5
 	_ok(not OS.is_process_running(_pid_sala), "la sala se cierra sola al irnos (%.1f s)" % t)
-	await _esperar(2.0)
-	var vivos := pids.filter(func(x): return proceso_vivo(x))
-	_ok(not pids.is_empty() and vivos.is_empty(), "los trabajadores (%d) se cierran con la sala (%d vivos)" % [pids.size(), vivos.size()])
-	for p in [_pid_b, _pid_sala] + pids:
+	for p in [_pid_b, _pid_sala]:
 		if proceso_vivo(p):
 			OS.kill(p)
 	if _nube_id != "":

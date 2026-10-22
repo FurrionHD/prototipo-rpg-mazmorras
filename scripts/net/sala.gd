@@ -182,9 +182,7 @@ func _process(delta: float) -> void:
 # Los HUMANOS conectados (los trabajadores no cuentan, y los que estan en la puerta si).
 func humanos() -> int:
 	var n := 0
-	for pid in multiplayer.get_peers():
-		if not Net.es_trabajador(pid):
-			n += 1
+	n = multiplayer.get_peers().size()
 	return n
 
 

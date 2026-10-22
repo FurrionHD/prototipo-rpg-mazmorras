@@ -2917,12 +2917,6 @@ func _process(delta: float) -> void:
 	if not (player is Node2D):
 		return
 	var pj: Vector2 = (player as Node2D).global_position
-	# UN TRABAJADOR DE PISO no tiene libreta ni cuerpo: su jugador esta apagado en la entrada. Sin esto
-	# marcaria la entrada como vista en el mapa de todos y mantendria despiertos a los bichos de alli.
-	if Net.soy_trabajador:
-		_congelar_lejanos(_posiciones_de_jugadores())
-		return
-
 	# NIEBLA del mapa: la zona que pisas queda vista para siempre. Va con MI posicion a proposito: el
 	# mapa es mi libreta, no la de mi compañero. En sesion se apunta en la libreta del mundo del HOST y
 	# NO en mi save (vistas_de_piso decide donde); antes se colaba en mazmorra_persistente incluso en
@@ -2945,7 +2939,7 @@ func _process(delta: float) -> void:
 func _posiciones_de_jugadores() -> Array[Vector2]:
 	var out: Array[Vector2] = []
 	var player := PisoVivo.primero_de(self, &"player")
-	if player is Node2D and not Net.soy_trabajador:
+	if player is Node2D:
 		out.append((player as Node2D).global_position)
 	for a in PisoVivo.nodos_de(self, "aliado"):
 		if is_instance_valid(a) and a is Node2D:
@@ -2982,10 +2976,7 @@ func _congelar_lejanos(referencias: Array[Vector2]) -> void:
 # reloj de expedicion es otro y se irian en momentos distintos—; se entera porque desvanecer() acaba
 # en queue_free() y el _exit_tree del bicho ya llama a Net.enemigos.baja_enemigo, que difunde el despawn.
 # EL TINTE RANCIO (12/10): en TODAS las maquinas que lo ven (tambien los espejos), segun lo que le queda a cada cuerpo.
-# Un trabajador no tiene pantalla: no pinta nada.
 func _tintar_cadaveres() -> void:
-	if Net.soy_trabajador:
-		return
 	for c in PisoVivo.nodos_de(self, "corpse"):
 		if is_instance_valid(c) and c.has_method("pintar_podrido"):
 			c.pintar_podrido()
@@ -3054,7 +3045,7 @@ func provocar_brote(centro: Vector2 = Vector2.INF) -> bool:
 	var pj: Vector2 = centro
 	if pj == Vector2.INF:
 		var player := PisoVivo.primero_de(self, &"player")
-		if not (player is Node2D) or Net.soy_trabajador:
+		if not (player is Node2D):
 			return false
 		pj = (player as Node2D).global_position
 

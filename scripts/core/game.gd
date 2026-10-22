@@ -1180,10 +1180,9 @@ func escribiendo() -> bool:
 # tiempo no se pare. Net llama a esto al abrir/cerrar sesion para aplicar el regimen que toque.
 func _refrescar_pausa() -> void:
 	# Y en multi, si la sala se ha quedado sin nube (Net.pausa_red): todos quietos hasta que vuelva.
-	# JUGANDO UNO SOLO POR LA SALA (Net.pausa_solo): como en solitario. Los trabajadores paran el mapa ya con la pelea;
-	# el juego del humano solo con un menu (con la pelea, sus enemigos del mapa se mueven por la red y tienen que verse).
-	var solo: bool = Net.pausa_solo >= (Net.PAUSA_SOLO_MAPA if Net.soy_trabajador else Net.PAUSA_SOLO_TODO) \
-		and not Net.soy_sala
+	# JUGANDO UNO SOLO POR LA SALA (Net.pausa_solo): como en solitario. El juego del humano se para solo con un menu (con
+	# la pelea, sus enemigos del mapa se mueven por la red y tienen que verse).
+	var solo: bool = Net.pausa_solo >= Net.PAUSA_SOLO_TODO and not Net.soy_sala
 	get_tree().paused = ((not Net.activo) and (not _modal_stack.is_empty())) or Net.pausa_red or solo
 	Net.avisar_modales()
 
@@ -3806,10 +3805,6 @@ func guardar_partida_invitado() -> bool:
 # ranura el baul, el mapa, los bosses y el PISO del mundo del HOST: justo lo que
 # exportar_partida_invitado existe para evitar.
 func guardar_mi_partida() -> bool:
-	# UN TRABAJADOR DE PISO no tiene partida: es un proceso sin ventana que simula un piso para la sala
-	# (ver trabajadores.gd). Le llegan las mismas ordenes de "guardad" que a todos, y no debe escribir nada.
-	if Net.soy_trabajador:
-		return true
 	# MUNDO COMPARTIDO: la partida no es de una ranura, es del mundo (user://mundos/<clave>.tres) y
 	# lleva dentro a todos los jugadores. Va primero porque en un mundo abierto Perfil.ranura_actual
 	# esta a 0 a proposito: cualquier camino que acabara en Perfil solo avisaria de que no hay ranura.
@@ -15689,7 +15684,7 @@ func abrir_pelea_de_fichas(enemy_nodes: Array, enemy_initiated: bool, grupos: Ar
 		var ce: Combatant = pantalla_e[i]
 		if is_instance_valid(ne) and ne.has_meta("net_id") and ce != null:
 			print("[pelea] enemigo %d atk=%.3f def=%.3f spd=%.3f hpmax=%.2f piso=%d" % [
-				int(ne.get_meta("net_id")), ce.atk(), ce.def_value(), ce.spd(), ce.max_hp, current_floor])
+				int(ne.get_meta("net_id")), ce.atk(), ce.def_value(), ce.spd(), ce.max_hp, PisoVivo.numero_de(ne)])
 	return huecos
 
 
@@ -15861,7 +15856,7 @@ func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array, pe: Pel
 	if es_tactico:
 		_montar_arena_tactica(rect_arena, combat.arena_mascara, pe)
 		# Y a los de mi piso: la ven desde fuera, y el que se quedo quieto al impacto entra si le pilla dentro.
-		if Net.activo and not Net.soy_trabajador and not Net.soy_sala:
+		if Net.activo and not Net.soy_sala:
 			anunciar_mi_zona(pe.id, pe)
 	pe.montaje_ms = 0   # ya hay pantalla: el destrabe puede volver a vigilar
 	# El hechizo con el que has ABIERTO la pelea desde el mapa (ver player._impacto_conjuro): se

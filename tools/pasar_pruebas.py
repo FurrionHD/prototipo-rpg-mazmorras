@@ -141,8 +141,7 @@ COMO_SE_LANZA = {
     # "prepara": esa pasada solo deja las cosas listas para la siguiente (p. ej. se mata a si misma): no cuenta.
     "prueba_bd_altf4": [{"env": {"ALTF4_FASE": "1"}, "prepara": True}, {"env": {"ALTF4_FASE": "2"}}],
     "prueba_pelea_a_medias": [{"env": {"PELEA_FASE": "1"}, "prepara": True}, {"env": {"PELEA_FASE": "2"}}],
-    # La larga y, aparte, los dos "cabos sueltos" (el trabajador de pelea se cae con tus fichas, etc.).
-    "prueba_town_trabajadores": [{"despues": ["nube_local"]}, {"despues": ["nube_local"], "env": {"PRUEBA_CABOS": "1"}}],
+    "prueba_town_pelea_sala": NUBE_LOCAL,
 }
 
 # LAS QUE VAN DE UNA EN UNA aunque no sean de red: tocan las mismas ranuras de guardado (user://, la ranura 97...) y

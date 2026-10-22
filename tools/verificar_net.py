@@ -24,7 +24,6 @@ temas = {}
 for nombre, clase in re.findall(r"^var (\w+): (\w+) = null", net_txt, re.M):
     if clase in clases:
         temas[nombre] = defs(os.path.join(NETDIR, clases[clase]))
-temas["_trab"] = defs(os.path.join(NETDIR, "trabajadores.gd"))
 
 fallos = 0
 archivos = glob.glob(os.path.join(RAIZ, "scripts", "**", "*.gd"), recursive=True) + glob.glob(os.path.join(RAIZ, "tools", "prueba_*.gd"))

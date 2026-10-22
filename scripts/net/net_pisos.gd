@@ -146,7 +146,7 @@ func _crear_cuerpo_companero(peer_id: int, idx: int):
 # (que es cuando _reconstruir_vista recrea el avatar con los datos nuevos de _peers).
 func anunciar_aspecto() -> void:
 	# Un trabajador de piso no es nadie: ni se mueve, ni pelea, ni tiene cara que anunciar.
-	if not Net.activo or Net.soy_trabajador or multiplayer.multiplayer_peer == null:
+	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
 	var c := Game.player_color
 	var m := Game.player_metalico
@@ -257,7 +257,6 @@ func _conceder_entrada(quien: int, piso: int = 1, volver := false) -> void:
 	Net._dentro[quien] = true
 	Net._muertos.erase(quien)   # el que vuelve a bajar ya no cuenta como caido (ver _registrar_muerte)
 	sala_montar(piso)   # la sala lo monta (si no lo estaba) y yo entro de espejo
-	Net._trab.asegurar_pelea(piso, true)   # y otro dentro esperando peleas, si queda en la reserva
 	# Va el diccionario ENTERO, no solo las claves: el valor es el momento en que se pico, y sin el
 	# quien entra no sabria cuanto le queda a cada sitio para revivir.
 	# Los jefes viajan como SEGUNDOS QUE FALTAN, no como el instante en que cayeron: el instante esta
@@ -297,7 +296,7 @@ func sesion_para_guardar() -> Dictionary:
 func posiciones_al_dia() -> Dictionary:
 	for peer in Net._identidades:
 		var pe: Dictionary = Net._peers.get(peer, {})
-		if pe.is_empty() or Net.es_trabajador(int(peer)):
+		if pe.is_empty():
 			continue
 		var lugar: String = String(pe.get("lugar", ""))
 		var donde = pe.get("pos", Vector2.INF)
@@ -373,8 +372,6 @@ func _restantes_boss() -> Dictionary:
 @rpc("any_peer", "call_remote", "reliable")
 func _entrar_ok(piso: int, agotados: Dictionary, sellos_boss: Dictionary = {}, epoca: int = 0,
 		nonces: Dictionary = {}) -> void:
-	if Net.soy_trabajador:
-		Net._trab.al_recibir_piso()
 	Net.recoleccion._agotados_sesion = agotados.duplicate()
 	# Que jefes de la sesion estan muertos ahora mismo. Sin esto, el que baja al piso 6 por el atajo
 	# plantaria un rey slime que para los demas sigue muerto (y solo el lo veria).
@@ -439,7 +436,7 @@ func _registrar_salida(quien: int) -> void:
 	Net._liberar_vetas_de(quien)
 	Net.pesca._liberar_pesca_de(quien)   # sus corchos y el pez que tuviera enganchado
 	Net._viajando.erase(quien)
-	Net._trab.revisar_vacio(viejo, quien)
+	revisar_vacio(viejo, quien)
 	Net._dentro.erase(quien)
 	if Net._dentro.is_empty() and Net.expedicion_abierta:
 		_cerrar_expedicion()
@@ -727,12 +724,12 @@ func personajes_en_mi_piso(lugar: String = "") -> int:
 		lugar = Net._mi_lugar
 	if not Net.activo:
 		return Game.party.size()
-	# El trabajador y la sala no traen grupo: su Game.party es un personaje inventado que nadie ve. Y mi grupo solo
-	# cuenta si ese piso es el mio.
-	var n: int = Game.party.size() if (not Net.soy_trabajador and not Net.soy_sala and lugar == Net._mi_lugar) else 0
+	# La sala no trae grupo: su Game.party es un personaje inventado que nadie ve. Y mi grupo solo cuenta si ese piso
+	# es el mio.
+	var n: int = Game.party.size() if (not Net.soy_sala and lugar == Net._mi_lugar) else 0
 	for pid in Net._peers:
 		var p: Dictionary = Net._peers[pid]
-		if p.get("lugar", "") == lugar and not bool(p.get("trabajador", false)):
+		if p.get("lugar", "") == lugar:
 			# El humano + su sequito ("comps" son sus acompañantes, los que ves andando con el).
 			n += 1 + (p.get("comps", []) as Array).size()
 	return n
@@ -760,10 +757,9 @@ func _conceder_piso(quien: int, nuevo: int, bajando: bool) -> void:
 		return
 	var viejo: int = _piso_de(quien)
 	sala_montar(nuevo)
-	Net._trab.asegurar_pelea(nuevo, true)
 	Net._viajando[quien] = nuevo   # hasta que llegue su _rel_lugar (ver _alguien_en)
 	if viejo != nuevo:
-		Net._trab.revisar_vacio(viejo, quien)
+		revisar_vacio(viejo, quien)
 	_viaje_ok.rpc_id(quien, nuevo, bajando)
 
 
@@ -794,6 +790,19 @@ func sala_montar(piso: int) -> void:
 
 
 # Un piso se ha quedado sin humanos: se apunta para congelarlo (si no vuelve nadie).
+# Se ha ido 'salvo' del piso (o va de camino a otro): si ya no queda nadie, la sala lo congelara a los 10 s. (Estaba
+# en trabajadores.gd hasta la etapa 3.)
+func revisar_vacio(piso: int, salvo: int = 0) -> void:
+	if not Net.es_host or piso < 1:
+		return
+	var queda: int = _alguien_en(piso, salvo)
+	if queda != 0:
+		if Net.soy_sala:
+			print("[sala] piso %d: se va %d pero queda %d" % [piso, salvo, queda])
+		return
+	sala_vaciado(piso)
+
+
 func sala_vaciado(piso: int) -> void:
 	if Net.servidor != null and Net.servidor.piso(piso) != null and not _sala_congelar.has(piso):
 		_sala_congelar[piso] = SEG_VIVO_VACIO
@@ -802,6 +811,7 @@ func sala_vaciado(piso: int) -> void:
 
 # El reloj de la sala (sala._process): congela los pisos vacios que ya han cumplido su rato.
 func sala_reloj(delta: float) -> void:
+	_fotos_periodicas(delta)
 	for piso in _sala_congelar.keys():
 		# Si se ve a alguien dentro, la cuenta vuelve a empezar PERO NO SE BORRA: el que se acaba de ir sigue apuntado en
 		# el piso hasta que llega su aviso de lugar (va detras del de salir), y borrandola el piso se quedaba montado para
@@ -838,6 +848,19 @@ func sala_congelar(piso: int) -> void:
 
 
 # Las fotos de los pisos montados, para el guardado del mundo (Net._fotos_vivas, como las de los trabajadores).
+# CADA SEG_FOTOS_VIVAS, la foto de cada piso montado: solo para el guardado del mundo (Net._fotos_vivas). Asi, si la
+# sala se cae, el mundo vuelve con esos pisos como estaban hace un momento. (Estaba en trabajadores.gd.)
+const SEG_FOTOS_VIVAS := 30.0
+var _t_fotos := 0.0
+
+func _fotos_periodicas(delta: float) -> void:
+	_t_fotos += delta
+	if _t_fotos < SEG_FOTOS_VIVAS:
+		return
+	_t_fotos = 0.0
+	sala_fotos_vivas()
+
+
 func sala_fotos_vivas() -> void:
 	if Net.servidor == null:
 		return
@@ -852,15 +875,13 @@ func _alguien_en(piso: int, salvo: int) -> int:
 	# El host tambien cuenta como candidato... salvo LA SALA: lleva el piso montado (etapa 2) pero no es nadie.
 	if salvo != 1 and not Net.soy_sala and PisoVivo.lleva(lugar):
 		return 1
-	# Los TRABAJADORES no cuentan: esto pregunta por humanos (quien hereda un piso, si se ha quedado vacio).
 	for id in Net._peers:
-		if id != salvo and Net._peers[id].get("lugar", "") == lugar and not Net._viajando.has(id) \
-				and not Net.es_trabajador(id):
+		if id != salvo and Net._peers[id].get("lugar", "") == lugar and not Net._viajando.has(id):
 			return id
 	# Uno que viene de camino tambien cuenta: si el dueño se va mientras el otro aun construye, el
 	# piso se le pasa a el en vez de congelarse con alguien dentro.
 	for id in Net._viajando:
-		if id != salvo and int(Net._viajando[id]) == piso and Net._peers.has(id) and not Net.es_trabajador(id):
+		if id != salvo and int(Net._viajando[id]) == piso and Net._peers.has(id):
 			return id
 	return 0
 

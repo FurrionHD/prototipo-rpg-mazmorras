@@ -60,10 +60,6 @@ func test_net_peleas_lee_de_la_misma() -> void:
 	cierto(p.participantes.has(7), "_pelea_participantes")
 	Net.peleas._dobles[7] = []
 	cierto(p.dobles.has(7), "_dobles")
-	p.humano = 9
-	igual(Net.peleas._pelea_humano, 9, "_pelea_humano")
-	Net.peleas._t_cierre = 1.5
-	igual(p.t_cierre, 1.5, "_t_cierre")
 	Net.peleas._pelea_participantes.erase(7)
 	Net.peleas._dobles.erase(7)
 	_devolver(antes)

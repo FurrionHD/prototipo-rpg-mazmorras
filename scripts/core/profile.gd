@@ -458,7 +458,7 @@ func _guardar_bd(slot: int, datos: SaveData) -> bool:
 func _process(delta: float) -> void:
 	if _bd == null or _bd_slot != ranura_actual or ranura_actual <= 0:
 		return
-	if Mundos.abierto != "" or Net.soy_trabajador or Net.soy_sala or (Net.activo and not Net.es_host):
+	if Mundos.abierto != "" or Net.soy_sala or (Net.activo and not Net.es_host):
 		_volcado = null
 		return
 	# Con una pelea en pantalla SI se guarda (fase 6 de la BD): su foto va en la partida y al cargar sigue.

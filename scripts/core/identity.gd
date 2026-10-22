@@ -77,10 +77,10 @@ func _ready() -> void:
 const REINTENTOS_LECTURA := 20
 const ESPERA_REINTENTO_MS := 25
 
-# ¿Soy un proceso sin persona delante (un trabajador de piso o la SALA)? Esos no escriben nunca.
+# ¿Soy un proceso sin persona delante (la SALA)? Esa no escribe nunca.
 static func _solo_leer() -> bool:
 	var args := OS.get_cmdline_user_args()
-	return args.has("trabajador") or args.has("sala")
+	return args.has("sala")
 
 
 # LA SALA no es nadie (ver scripts/net/sala.gd): su `id` es "sala:<mundo>", para que no se confunda

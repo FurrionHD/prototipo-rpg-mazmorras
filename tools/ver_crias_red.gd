@@ -1,6 +1,6 @@
 # HERRAMIENTA (CON VENTANA). Las CRIAS EN MULTIJUGADOR (13/10, C3 del playtest 11/10: el slime brotado y el Rey
-# Slime, sus crias en red salian mal "incluso siendo solo una persona"). Sala de verdad con trabajadores: la pelea
-# la ejecuta un trabajador de pelea y esta ventana es el ESPEJO, lo que ve el jugador. Desde el 21/10 (fase 2, etapa 2)
+# Slime, sus crias en red salian mal "incluso siendo solo una persona"). Sala de verdad: la pelea la ejecuta la
+# sala (etapa 3; antes un trabajador de pelea) y esta ventana es el ESPEJO, lo que ve el jugador. Desde el 21/10 (fase 2, etapa 2)
 # entra como en el juego: por la sala de una ranura de prueba (82), que lleva la arena; lo de dentro de la sala se lee de
 # sus lineas "[S] dato" (tools/sonda_sala.gd).
 #   1) Un slime brotado: le pegas hasta que cae y se divide, y luego solo PASAS turnos para que les toque a las crias.
@@ -137,13 +137,8 @@ func _correr() -> void:
 	Game.equipar_arma(load("res://resources/weapons/espada_larga.tres") as WeaponData)
 	Game.lider().equip_meta["main"] = {"tier": 3, "rareza": Upgrades.RAREZA_SLOTS.size() - 1,
 		"mejoras": {Upgrades.AGUDEZA: 15}, "durabilidad": 1.0, "banda": 0}
-	var t := 0.0
-	while dato_sala("trabajadores") == "" and t < 40.0:
-		await _esperar(0.5)
-		t += 0.5
-	print("[ver] trabajadores de la sala listos en %.1f s" % t)
 	Game.entrar_arena_de_pruebas()
-	t = 0.0
+	var t := 0.0
 	while (get_tree().get_first_node_in_group("dungeon_floor") == null or not Game.es_arena()) and t < 30.0:
 		await _esperar(0.5)
 		t += 0.5
@@ -164,35 +159,29 @@ func _correr() -> void:
 		await _acabar_sala()
 
 
-# Me voy, la sala se cierra sola (con sus trabajadores) y se borra la ranura de prueba.
+# Me voy, la sala se cierra sola y se borra la ranura de prueba.
 func _acabar_sala() -> void:
-	var pids: Array = Array(dato_sala("pids_trab").split(",", false)).map(func(x): return int(x))
 	Net.desconectar()
 	var t := 0.0
 	while OS.is_process_running(_pid_sala) and t < 20.0:
 		await _esperar(0.5)
 		t += 0.5
-	for pid in [_pid_sala] + pids:
-		if proceso_vivo(pid):
-			OS.kill(pid)
+	if proceso_vivo(_pid_sala):
+		OS.kill(_pid_sala)
 	if _nube_id != "":
 		await Nube.partida_borrar(_nube_id)
 	_borrar_ranura()
 	get_tree().quit(0 if _mal == 0 else 1)
 
 
-func _pelea_libre_arena() -> int:
-	return int(dato_sala("pelea_libre_%d" % Game.PISO_ARENA))
-
-
-# En la prueba la pelea TIENE que ir por el trabajador (lo que se mira es el espejo): si cae en mi PC, otra vez.
+# En la prueba la pelea TIENE que ir por la sala (lo que se mira es el espejo): si no, otra vez.
 func _escena(titulo: String, ruta: String, muneco: Dictionary, pegarle: bool) -> void:
 	for intento in 3:
 		if await _escena_una(titulo, ruta, muneco, pegarle) or not prueba:
 			return
-		print("[ver] la pelea no fue por el trabajador: otra vez")
+		print("[ver] la pelea no fue por la sala: otra vez")
 		await _vaciar_arena()
-	_ver(false, "%s: la pelea va por el trabajador" % titulo)
+	_ver(false, "%s: la pelea va por la sala" % titulo)
 
 
 # Devuelve false si la pelea se monto en mi PC (no hay espejo que mirar).
@@ -202,15 +191,7 @@ func _escena_una(titulo: String, ruta: String, muneco: Dictionary, pegarle: bool
 	while (Game.hay_pelea_en_pantalla() or Net.peleas._desgaste_pendiente) and tc < 10.0:
 		await _esperar(0.25)
 		tc += 0.25
-	# Como en el juego: la pelea la monta el trabajador DE PELEA que espera en el piso (si no lo hay aun, iria en mi PC).
-	var tw := 0.0
-	while _pelea_libre_arena() == 0 and tw < 30.0:
-		await _esperar(0.5)
-		tw += 0.5
-	print("[ver] trabajador de pelea esperando en la arena: %d (%.1f s)" % [_pelea_libre_arena(), tw])
-	# Recien llegado aun no conoce los enemigos del piso: rechazaria la pelea ("0 de 1 bichos") y la montaria yo.
-	if tw > 0.0:
-		await _esperar(3.0)
+	# (Hasta la etapa 3 aqui se esperaba a un trabajador de pelea en la arena: ahora la pelea la monta la sala.)
 	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
 	var antes: Array = Net.enemigos._enem_nodos.keys()
 	# Lejos de mi (que no me vea y me embista mientras el trabajador de pelea se entera de que existe).
@@ -236,8 +217,8 @@ func _escena_una(titulo: String, ruta: String, muneco: Dictionary, pegarle: bool
 		_mal += 1
 		return true
 	print("[ver] aparece %s (mutacion '%s')" % [presa.name, str(presa.get("mutacion"))])
-	# Que el trabajador de pelea ya lo tenga apuntado (recien nacido, con 1 s decia "0 de 1 bichos" y la montaba yo).
-	await _esperar(4.0)
+	# Que su espejo me haya llegado (recien nacido).
+	await _esperar(1.0)
 	# Le ataco YO nada mas llegar: si me embiste el primero, en esta rama la pelea se monta en mi PC (A1, arreglado en
 	# fix/peleas-red) y no se veria el espejo, que es lo que falla.
 	jug.recolocar(presa.global_position + Vector2(0, -110))

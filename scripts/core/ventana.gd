@@ -178,9 +178,6 @@ func _guardar_y_marcar(listo: Array) -> void:
 # ademas decide a que menu se vuelve): quien guarda depende de si juegas solo, de invitado, de host
 # o dentro de un mundo compartido.
 func guardar_al_cerrar() -> void:
-	# UN TRABAJADOR DE PISO no tiene partida (ver Game.guardar_mi_partida).
-	if Net.soy_trabajador:
-		return
 	if Net.activo and not Net.es_host:
 		# INVITADO: mi personaje vive en el save del anfitrion, asi que no hay nada que escribir
 		# aqui. Se le pide a el y se espera a que diga que lo ha escrito.

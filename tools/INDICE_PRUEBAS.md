@@ -144,7 +144,6 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 - `scripts/net/cloud_store_http.gd`
 - `scripts/net/invitaciones_steam.gd`
 - `scripts/net/net_extraccion.gd`
-- `scripts/net/trabajadores.gd`
 - `scripts/town/altar.gd`
 - `scripts/town/boticaria.gd`
 - `scripts/town/carpintero.gd`

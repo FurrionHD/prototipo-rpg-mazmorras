@@ -41,29 +41,12 @@ func _datos() -> Dictionary:
 	var d := {}
 	var humanos := 0
 	for peer in Net._peers:
-		if Net.es_trabajador(peer):
-			continue
 		humanos += 1
 		var ident: String = Net._identidad_de_peer(peer)
 		if ident != "":
 			d["peer_" + ident] = peer
 			d["piso_" + ident] = Net.pisos._piso_de(peer)
 	d["humanos"] = humanos
-	var trab = Net._trab
-	if trab != null:
-		d["trabajadores"] = _lista(trab._estado.keys())
-		d["de_pelea"] = _lista(trab._de_pelea.keys())
-		d["peleando"] = trab._peleando.size()
-		d["pids_trab"] = _lista(trab._pids)
-		d["pelea_libre_1"] = trab.pelea_libre_en(1)
-		for piso in Net._dueno_piso:
-			d["pelea_libre_%d" % int(piso)] = trab.pelea_libre_en(int(piso))
-		# El proceso de cada trabajador ("peer:pid,..."), para que una prueba pueda tirar a uno concreto.
-		var pares: Array = []
-		for w in trab._pid_de:
-			pares.append("%d:%d" % [int(w), int(trab._pid_de[w])])
-		pares.sort()
-		d["pid_de"] = ",".join(pares)
 	for piso in Net._dueno_piso:
 		d["dueno_piso_%d" % int(piso)] = int(Net._dueno_piso[piso])
 	# LOS PISOS DE LA SALA (etapa 2): cuales tiene montados, cuantos enemigos lleva cada uno y cuantos trae la foto de
@@ -138,7 +121,7 @@ func _mirar_vuelta_desde_foto() -> void:
 func _mirar_reenvio_de_fotos() -> void:
 	if _reenvio_mirado:
 		return
-	var humanos: Array = Net._peers.keys().filter(func(p): return not Net.es_trabajador(p))
+	var humanos: Array = Net._peers.keys()
 	if humanos.size() < 2:
 		return
 	for p in humanos:

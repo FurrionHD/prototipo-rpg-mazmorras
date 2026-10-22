@@ -217,16 +217,6 @@ const CAPA_ROCA := 1
 
 
 func _ready() -> void:
-	# UN TRABAJADOR DE PISO (Godot sin ventana que simula el piso para la sala, ver trabajadores.gd) no
-	# juega: el cuerpo se queda en la escena porque medio juego lo busca en el grupo "player" y lo
-	# comprueba contra null, pero apagado, invisible y FUERA de "aliado" (ningun bicho le persigue ni
-	# le choca). Sin HUD ni menus: nadie los ve y costarian memoria por cada piso.
-	if Net.soy_trabajador:
-		visible = false
-		collision_layer = 0
-		collision_mask = 0
-		process_mode = Node.PROCESS_MODE_DISABLED
-		return
 	# CHOCA CON LOS ENEMIGOS (08/10, playtest: "te metes dentro del Rey Slime"). Solo vigilaba la roca: el bicho se frenaba
 	# contra ti cuando andaba EL, pero tu le atravesabas, y con uno grande te metias medio cuerpo dentro. Ahora tambien la
 	# capa 2 (enemy.gd; en multi la caja del espejo, remote_enemy._montar_choque). Los cadaveres la sueltan al caer. Los

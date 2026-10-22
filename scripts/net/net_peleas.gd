@@ -302,17 +302,8 @@ func _responder_pelea(quien: int, ids: Array, emboscada: bool, anfitrion: int = 
 		_entregar_pelea(quien, ids, emboscada, anfitrion)
 
 
-# SOLO host: la pelea ya reservada llega a su destinatario. Si en su piso espera un TRABAJADOR DE PELEA
-# libre (Parte 3), la ejecutara el: se le dice al jugador a quien mandarle sus fichas.
-#
-# NINGUNA PELEA EN EL PC DE UN JUGADOR si la sala tiene trabajadores (12/10, playtest 11/10: "que no lleve mi PC
-# nada que lleven los trabajadores"). Antes, si en ese momento no habia uno libre (el de pelea acababa de coger
-# otra), la pelea se montaba en el PC del jugador: dos peleas en el mismo sitio, una en un trabajador y otra en
-# un PC, y los dos jugadores actuando a la vez. Ahora el trabajador se aparta en cuanto se le manda la pelea
-# (Net._trab.reservar_pelea) y, si no queda ninguno, se ESPERA a que entre otro (asegurar_pelea lo trae) hasta
-# ESPERA_EJECUTOR_MS. Solo si no llega (o la sala no tiene trabajadores) va al PC del jugador, y se dice.
-const ESPERA_EJECUTOR_MS := 6000
-const REINTENTO_EJECUTOR := 0.4
+# SOLO host: la pelea ya reservada llega a su destinatario. La ejecuta la sala (etapa 3): se le dice al jugador que le
+# mande sus fichas a ella.
 func _entregar_pelea(para: int, ids: Array, emboscada: bool, anfitrion: int, _desde_ms: int = -1) -> void:
 	# LA EJECUTA LA SALA (etapa 3, 22/10): el jugador le manda sus fichas a ella (_abre_mi_pelea) y la ve en espejo.
 	if not ids.is_empty() and anfitrion == 0 and Net.soy_sala and para != 1:
@@ -332,57 +323,17 @@ func _pelea_resuelta(ids: Array, emboscada: bool = false, anfitrion: int = 0) ->
 	_llega_pelea(ids, emboscada, anfitrion, 0)
 
 
-# --- LA PELEA LA EJECUTA UN TRABAJADOR (Parte 3) ----------------------------------------------
+# --- LA PELEA LA EJECUTA LA SALA (etapa 3) ---------------------------------------------------
 #
-# En el piso espera un TRABAJADOR DE PELEA (un Godot sin ventana dentro del piso como espejo, ver
-# trabajadores.gd): en vez de devolverme los bichos para que monte la pelea en MI PC, le mando mis fichas,
-# la monta EL (Game.abrir_pelea_de_fichas) contra sus espejos y yo la veo en espejo, igual que quien se une
-# a la pelea de otro. Es el mismo camino que un jugador peleando en un piso que simula otro. Asi la pelea
-# pasa en UN sitio que no es de ningun jugador y nadie ve una distinta. Si algo falla, camino de siempre.
+# El que ataca (o al que embisten) le manda sus fichas a la sala, que monta la pelea con los enemigos de verdad
+# (_abre_en_la_sala) y se la abre en espejo. Hasta la etapa 3 lo hacia un TRABAJADOR DE PELEA (un Godot sin ventana
+# por pelea, trabajadores.gd, ya borrado).
 
-# EL HUMANO QUE ABRIO LA PELEA QUE EJECUTO (solo en un trabajador de pelea): el ruido de la pelea es suyo
-# (causante_alboroto). 07/10, cabo suelto del 21/09: el trabajador no tiene cuerpo y el brote salia delante de
-# cualquiera.
-var _pelea_humano: int:
-	get: return Game.pelea.humano
-	set(v): Game.pelea.humano = v
-
+# EL HUMANO QUE ABRIO LA PELEA: el ruido de la pelea es suyo (el brote sale delante de el, no de cualquiera).
 func causante_alboroto(pe: PeleaViva = null) -> int:
 	if pe == null:
 		pe = Game.pelea
-	return pe.humano if Net.activo and (Net.soy_trabajador or Net.soy_sala) else 0
-
-
-# ¿Puedo ejecutar yo una pelea ahora? Solo un trabajador DE PELEA (dentro de un piso sin ser su dueño) y
-# sin otra pelea (una por maquina).
-func puedo_ejecutar_pelea() -> bool:
-	return Net.activo and Net.soy_trabajador and not Net._soy_dueno and Net.pisos.mi_piso() > 0 \
-		and _pelea_id == 0 and not Game.combate_activo() and Game._active_layer == null
-
-
-# Corre en EL HOST: un trabajador no ha podido con una pelea (le habia entrado otra, o no tiene aun los espejos de
-# esos bichos). Se busca otro; si se ha rechazado ya REINTENTOS_RECHAZO veces seguidas, va al PC del jugador como
-# antes (y se dice).
-const REINTENTOS_RECHAZO := 3
-var _rechazos: Dictionary = {}   # peer del jugador -> [cuantos, msec del ultimo]
-
-@rpc("any_peer", "call_remote", "reliable")
-func _pelea_rechazada(para: int, ids: Array, emboscada: bool) -> void:
-	if not Net.es_host:
-		return
-	var ahora: int = Time.get_ticks_msec()
-	var r: Array = _rechazos.get(para, [0, 0])
-	var n: int = (int(r[0]) if ahora - int(r[1]) < 20000 else 0) + 1
-	_rechazos[para] = [n, ahora]
-	if n > REINTENTOS_RECHAZO:
-		_rechazos.erase(para)
-		print("[autoridad] la pelea de %d va en SU PC: %d trabajadores seguidos no han podido" % [para, n - 1])
-		if para == 1:
-			_pelea_resuelta(ids, emboscada, 0)
-		else:
-			_pelea_resuelta.rpc_id(para, ids, emboscada, 0)
-		return
-	_entregar_pelea(para, ids, emboscada, 0)
+	return pe.humano if Net.activo and Net.soy_sala else 0
 
 
 # Corre en EL QUE ATACA (o al que embisten): el host le dice que su pelea la ejecuta 'ejecutor'.
@@ -392,61 +343,18 @@ func _pelea_en_ejecutor(ids: Array, emboscada: bool, ejecutor: int) -> void:
 	_llega_pelea(ids, emboscada, 0, ejecutor)
 
 
-# Corre en EL TRABAJADOR DE PELEA: llegan las fichas del que pelea. Se monta la pelea con mis espejos de
-# esos bichos y se le abre el espejo. Si ya no se puede (entre medias ha empezado otra), se le devuelven
-# los bichos para que la monte el, como siempre: nunca queda peor que antes.
+# Corre en LA SALA: llegan las fichas del que pelea (ver _abre_en_la_sala).
 @rpc("any_peer", "call_remote", "reliable")
 func _abre_mi_pelea(ids: Array, emboscada: bool, fichas: Array, vel: float = 1.0, espera: float = 0.0) -> void:
-	Medidor.marca("pelea", "trabajador_abre")
+	Medidor.marca("pelea", "sala_abre")
 	var quien := multiplayer.get_remote_sender_id()
-	if Net.soy_sala:
-		# AL TOCAR SU GOLPE (etapa 3, paso 5): la pidio al pulsar; se monta cuando su espadazo llega, ni antes (su
-		# pantalla se abriria a mitad de la animacion) ni despues (es lo que se ahorra).
-		if espera > 0.0:
-			await get_tree().create_timer(minf(espera, ESPERA_GOLPE_MAX), true).timeout
-		_abre_en_la_sala(quien, ids, emboscada, fichas, vel)
-		return
-	_pelea_humano = quien
-	var nodos: Array = []
-	for i in ids:
-		var n = Net.enemigos._enem_nodos.get(int(i))
-		if n != null and is_instance_valid(n) and not n.esta_muerto():
-			nodos.append(n)
-	var huecos: Dictionary = {}
-	if puedo_ejecutar_pelea() and not nodos.is_empty() and not fichas.is_empty():
-		for n in nodos:
-			n.entrar_en_pelea()
-		huecos = Game.abrir_pelea_de_fichas(nodos, emboscada, [{"peer": quien, "fichas": fichas}])
-		if huecos.is_empty():
-			for n in nodos:
-				n._combat_triggered = false
-	var p: Node = _pantalla_combate()
-	if huecos.is_empty() or p == null:
-		# NO SE LA DEVUELVO AL JUGADOR (12/10): eso la montaba en su PC. Se le pide al host que busque otro
-		# trabajador (o espere a uno, ver _entregar_pelea).
-		print("[pelea] no puedo ejecutar la pelea de %d (%d de %d bichos): que la lleve otro trabajador" % [quien, nodos.size(), ids.size()])
-		_pelea_rechazada.rpc_id(1, quien, ids, emboscada)
-		return
-	print("[pelea] ejecuto la pelea de %d: %d bichos, huecos %s" % [quien, nodos.size(), str(huecos[quien])])
-	# Los bichos los peleo YO: que el dueño apunte la reserva a mi nombre (a quien venga a ayudar lo manda
-	# aqui, y si el jugador se va no se los encuentra "libres").
-	var mis_ids: Array = []
-	for n in nodos:
-		mis_ids.append(int(n.get_meta("net_id")))
-	reasignar_reservas(mis_ids)
-	# LOS QUE NO TENGO (aun no me ha llegado su espejo): se quedaban reservados a nombre del jugador para siempre,
-	# quietos como estatuas y contestando "ya esta peleando con otro". Que el jugador los devuelva al piso.
-	var sobran: Array = []
-	for i in ids:
-		if not mis_ids.has(int(i)):
-			sobran.append(int(i))
-	if not sobran.is_empty():
-		print("[pelea] %d bichos de la pelea de %d no los tengo: se los devuelvo" % [sobran.size(), quien])
-		_devuelve_sobrantes.rpc_id(quien, sobran)
-	Net._trab.avisar_pelea_empezada()
-	# LA VELOCIDAD ES LA SUYA: yo no tengo preferencia (soy un Godot invisible) y arrancaba siempre a x1.
-	p._aplicar_velocidad(vel)
-	_union_ok.rpc_id(quien, _pelea_id, p.roster_para_espejo(), huecos[quien])
+	if not Net.soy_sala:
+		return   # solo la sala ejecuta peleas
+	# AL TOCAR SU GOLPE (etapa 3, paso 5): la pidio al pulsar; se monta cuando su espadazo llega, ni antes (su
+	# pantalla se abriria a mitad de la animacion) ni despues (es lo que se ahorra).
+	if espera > 0.0:
+		await get_tree().create_timer(minf(espera, ESPERA_GOLPE_MAX), true).timeout
+	_abre_en_la_sala(quien, ids, emboscada, fichas, vel)
 
 
 # EN LA SALA (etapa 3): llegan las fichas de quien pega (o de a quien embisten). Se monta una pelea NUEVA con los
@@ -517,13 +425,10 @@ func _soltar_reservados(ids: Array, quien: int) -> void:
 			n.reanudar_tras_combate(-1.0)
 
 
-# LA PELEA SIN NADIE DELANTE SE CIERRA SOLA. Quien ejecuta la pelea la cierra al pulsar Continuar, y un
-# trabajador no pulsa nada: la cierra cuando ya han salido todos los humanos de su espejo (cada uno se
-# lleva lo suyo al salir, ver sacar_de_la_pelea), o pasado CIERRE_MAX por si alguno no pulsa nunca.
+# LA PELEA SIN NADIE DELANTE SE CIERRA SOLA. La sala no pulsa Continuar: la cierra cuando ya han salido todos los
+# humanos de su espejo (cada uno se lleva lo suyo al salir, ver sacar_de_la_pelea), o pasado CIERRE_MAX por si alguno
+# no pulsa nunca.
 const CIERRE_MAX := 60.0
-var _t_cierre: float:
-	get: return Game.pelea.t_cierre
-	set(v): Game.pelea.t_cierre = v
 
 func _process(delta: float) -> void:
 	_vencer_cortesia()
@@ -532,8 +437,6 @@ func _process(delta: float) -> void:
 			if is_instance_valid(pe):
 				_cierre_de(pe, delta)
 		return
-	if Net.soy_trabajador and _pelea_id != 0:
-		_cierre_de(Game.pelea, delta)
 
 
 func _cierre_de(pe: PeleaViva, delta: float) -> void:
@@ -548,11 +451,9 @@ func _cierre_de(pe: PeleaViva, delta: float) -> void:
 		p._on_continue_pressed()
 
 
-# A que trabajador le he mandado mis fichas y todavia no me ha contestado (0 = a ninguno). Y la pelea que le
-# mande (sus bichos y si era emboscada), por si se va sin contestar (ver al_olvidar_peer).
+# A quien le he mandado mis fichas (la sala) y todavia no me ha contestado (0 = a nadie).
 var _fichas_mandadas_a: int = 0
-var _fichas_ids: Array = []
-var _fichas_emboscada: bool = false
+var _fichas_emboscada: bool = false   # si la ultima pelea que pedi fue una emboscada (la miran las pruebas)
 
 func _llega_pelea(ids: Array, emboscada: bool, anfitrion: int, ejecutor: int) -> void:
 	if ids.is_empty():
@@ -589,7 +490,6 @@ func _llega_pelea(ids: Array, emboscada: bool, anfitrion: int, ejecutor: int) ->
 		Game.marcar_entrando_en_pelea()
 		_avisar_impacto_de(ids)   # y el compañero que este cerca, tambien (ver Game.impacto_ajeno)
 		_fichas_mandadas_a = ejecutor
-		_fichas_ids = ids.duplicate()
 		_fichas_emboscada = emboscada
 		_abre_mi_pelea.rpc_id(ejecutor, ids, emboscada, _fichas_de_mi_grupo(), Game.velocidad_combate, _espera_golpe())
 		return
@@ -619,28 +519,6 @@ func _avisar_impacto_de(ids: Array) -> void:
 			return
 		pos = yo.global_position
 	Game.avisar_impacto(pos)
-
-
-# EL TRABAJADOR SE HA IDO CON MIS FICHAS EN LA MANO (07/10, cabo suelto del 21/09): le mande mis fichas y se ha
-# caido antes de contestar. Los bichos siguen reservados A MI NOMBRE en casa del dueño (al irse el se sueltan las
-# suyas, que no hay), asi que se quedaban congelados en el mapa hasta que yo saliera de la partida, y el conjuro que
-# traia se perdia. Se hace lo mismo que cuando el trabajador contesta "no puedo" (_abre_mi_pelea ->
-# _pelea_resuelta): la pelea me vuelve y la monto aqui, como siempre.
-func al_olvidar_peer(peer_id: int) -> void:
-	if _fichas_mandadas_a == 0 or peer_id != _fichas_mandadas_a:
-		return
-	# (12/10) Ya NO la monto yo: que la lleve otro trabajador (el host busca o espera a uno, ver _pelea_rechazada).
-	# Solo si el que se ha ido es el propio host no queda a quien pedirselo y va aqui, como antes.
-	if peer_id != 1 and multiplayer.multiplayer_peer != null:
-		push_warning("[pelea] el trabajador %d se ha ido sin abrirme la pelea: pido otro" % peer_id)
-		if Net.es_host:
-			_pelea_rechazada(multiplayer.get_unique_id(), _fichas_ids, _fichas_emboscada)
-		else:
-			_pelea_rechazada.rpc_id(1, multiplayer.get_unique_id(), _fichas_ids, _fichas_emboscada)
-		return
-	push_warning("[pelea] el trabajador %d se ha ido sin abrirme la pelea: la monto yo" % peer_id)
-	_llega_pelea(_fichas_ids, _fichas_emboscada, 0, 0)
-	_fichas_ids = []
 
 
 # --- REFUERZOS QUE ALCANZAN A UN ESPEJO (hito 5.4-C) -----------------------------------------
@@ -979,8 +857,6 @@ func _salgo_de_la_pelea(pelea: int = 0) -> void:
 func cerrar_pelea(derrotados: Array = [], pe: PeleaViva = null) -> void:
 	if pe == null:
 		pe = Game.pelea
-	if pe.id != 0 and Net.soy_trabajador:
-		Net._trab.avisar_pelea_acabada()   # el host decide si sigo esperando peleas en este piso
 	if pe.id != 0:
 		for caido in _caidos.keys():
 			if _caidos[caido].get("pe", pe) != pe:

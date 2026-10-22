@@ -12,7 +12,7 @@ dinámicas, así que una ruta vieja solo revienta al jugar por ahí. Por eso van
 G=".../Godot_v4.7-stable_win64_console.exe"
 python tools/verificar_net.py                                  # toda ref Net.x / Net.tema.x existe
 "$G" --headless --path . res://tools/prueba_cargar_todo.tscn   # compila los ~200 scripts
-"$G" --headless --path . res://tools/prueba_town_trabajadores.tscn   # host + trabajadores reales
+"$G" --headless --path . res://tools/prueba_town_pelea_sala.tscn -- nube_local   # una pelea en la sala, de principio a fin
 ```
 
 La de trabajadores lanza procesos de verdad (~95 s): sala, trabajador de reserva, piso 1 con dueño
@@ -42,8 +42,8 @@ uno, quien lleva cada piso, los trabajadores de pelea, las fotos) lo apunta la s
 (`logs/prueba_ranura_<n>_sala.log`) con lineas `[S] dato clave=valor` cuando cambia: la pone `tools/sonda_sala.gd` si
 la sala se lanza con la palabra `sonda`, y avisa tambien de sus tirones (`[S] tiron`). Los grupos se eligen por NOMBRE
 (el orden de la plantilla cambia segun como se cargue): A = Agirato + Catalardio, B = Dasui + Daniel; Dawnsin es
-enorme y acaba las peleas antes de que a los demas les llegue un turno. `town_trabajadores` sigue hosteando hasta la
-etapa 2.
+enorme y acaba las peleas antes de que a los demas les llegue un turno. Desde la etapa 3 no hay trabajadores: la sala
+ejecuta las peleas (`town_pelea_sala`, `town_dos_peleas`).
 
 ### La sala de los mundos compartidos (fase 3)
 

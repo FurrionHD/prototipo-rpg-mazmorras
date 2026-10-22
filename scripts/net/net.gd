@@ -133,7 +133,7 @@ const MAX_CONEXIONES := 32
 # 41 (21/10): fase 2, etapa 2: la sala lleva todos los pisos; fuera los trabajadores de piso, traspasos y herederos.
 # 42 (22/10): fuera los reenvios a un dueño de piso CLIENTE y sus relevos de vuelta (net_enemigos _rel_spawn/_rel_tick...,
 #     net_peleas _rel_resultado/_rel_cria..., net_extraccion, net_pesca _rel_charco/_charco_guardar...): cambian los RPC.
-const PROTOCOLO := 44
+const PROTOCOLO := 45
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -272,7 +272,7 @@ func _pausa_red(on: bool) -> void:
 		return
 	pausa_red = on
 	Game._refrescar_pausa()
-	if soy_sala or soy_trabajador:
+	if soy_sala:
 		return
 	if on:
 		Cargando.mostrar(TEXTO_PAUSA_RED)
@@ -300,7 +300,7 @@ var _modales_de: Dictionary = {}
 
 # EN EL CLIENTE: lo llama Game._refrescar_pausa cada vez que se abre o cierra algo. Solo habla si ha cambiado.
 func avisar_modales() -> void:
-	if not activo or es_host or soy_trabajador or multiplayer.multiplayer_peer == null:
+	if not activo or es_host or multiplayer.multiplayer_peer == null:
 		_mis_modales = []
 		return
 	if multiplayer.multiplayer_peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
@@ -329,8 +329,7 @@ func _revisar_pausa_solo() -> void:
 	var n := 0
 	var humanos: Array = []
 	for pid in _peers:   # los registrados: el que se esta yendo ya no esta
-		if not es_trabajador(pid):
-			humanos.append(pid)
+		humanos.append(pid)
 	if humanos.size() == 1:
 		var m: Array = _modales_de.get(humanos[0], [false, false])
 		if m[0]:
@@ -426,11 +425,6 @@ func posicion_de_peer(peer: int) -> Vector2:
 	var a = _avatares.get(peer) if peer != 0 else null   # sin tipar: puede estar liberado
 	if a != null and is_instance_valid(a):
 		return (a as Node2D).global_position
-	if soy_trabajador:
-		for id in _avatares:
-			var b = _avatares[id]
-			if is_instance_valid(b):
-				return (b as Node2D).global_position
 	return Vector2.INF
 
 
@@ -473,13 +467,8 @@ func _ready() -> void:
 	multiplayer.connected_to_server.connect(_on_connected_to_server)
 	multiplayer.connection_failed.connect(_on_connection_failed)
 	multiplayer.server_disconnected.connect(_on_server_disconnected)
-	# Los TRABAJADORES DE PISO viven en un hijo con nombre fijo: sus RPC necesitan la misma ruta
-	# (/root/Net/Trabajadores) en todas las maquinas.
-	_trab = preload("res://scripts/net/trabajadores.gd").new()
-	_trab.name = "Trabajadores"
-	add_child(_trab)
-	# LOS TEMAS DE LA RED, cada uno en su archivo (ver la cabecera de cada uno). Cuelgan con NOMBRE FIJO
-	# por lo mismo que los trabajadores: sus RPC viajan por la ruta del nodo.
+	# LOS TEMAS DE LA RED, cada uno en su archivo (ver la cabecera de cada uno). Cuelgan con NOMBRE FIJO: sus RPC
+	# viajan por la ruta del nodo, que tiene que ser la misma en todas las maquinas.
 	pesca = NetPesca.new()
 	pesca.name = "Pesca"
 	add_child(pesca)
@@ -525,9 +514,6 @@ func _ready() -> void:
 	invitaciones = Invitaciones.new()
 	invitaciones.name = "Invitaciones"
 	add_child(invitaciones)
-	var args: PackedStringArray = _trab.argumentos()
-	if not args.is_empty():
-		_trab.arrancar.call_deferred(args)
 	# LA SALA (fase 3): el nodo solo existe en ese proceso.
 	var args_sala: PackedStringArray = _SALA.argumentos()
 	if not args_sala.is_empty():
@@ -582,18 +568,6 @@ var tunel: Tunel = null
 const Invitaciones = preload("res://scripts/net/invitaciones_steam.gd")
 var invitaciones: Invitaciones = null
 
-# --- TRABAJADORES DE PISO (ver trabajadores.gd) ---
-var _trab: Node = null
-# ¿Soy YO un trabajador (un Godot sin ventana que simula un piso para la sala)? Lo miran el jugador
-# (que se apaga), el guardado (que no escribe) y los anuncios de aspecto/grupo (que no salen).
-var soy_trabajador := false
-
-
-# ¿Ese peer es un trabajador y no un humano? Solo lo sabe el host.
-func es_trabajador(peer_id: int) -> bool:
-	return _trab != null and _trab.es_trabajador(peer_id)
-
-
 # --- ARRANQUE (lo unico especifico de ENet) -------------------------------------------------
 
 # ¿Estoy en el pueblo? Las sesiones SOLO se abren/unen desde alli: montar una sesion con la
@@ -626,7 +600,6 @@ func hostear(codigo: String, puerto: int = PUERTO) -> int:
 	if mundo_compartido:
 		pisos.sembrar_sesion(Game.sesion_guardada)
 	Game._refrescar_pausa()   # regimen multi: los menus dejan de pausar el arbol
-	_trab.al_abrir_sala(puerto)   # el primer trabajador de reserva, arrancando ya
 	estado_cambiado.emit("Servidor abierto. Esperando a que se unan...")
 	return OK
 
@@ -657,7 +630,6 @@ func unirse(ip: String, codigo: String, puerto: int = PUERTO, compartido := fals
 func desconectar() -> void:
 	invitacion_saludo = ""
 	if es_host:
-		_trab.al_cerrar_sala()
 		_invitaciones.clear()
 	for id in _avatares.keys():
 		var a = _avatares[id]
@@ -929,9 +901,7 @@ func cupo_party() -> int:
 # cuenta a si misma (no es ningun humano) ni tiene equipo que ajustar.
 func _sync_humanos() -> void:
 	_num_humanos = 0 if soy_sala else 1
-	for pid in _peers:
-		if not es_trabajador(pid):
-			_num_humanos += 1
+	_num_humanos += _peers.size()
 	_set_num_humanos.rpc(_num_humanos)
 	_revisar_pausa_solo()   # con uno solo se juega como en solitario; con dos, ya no
 	if not soy_sala:
@@ -1023,9 +993,6 @@ func peer_de_identidad(identidad: String) -> int:
 
 # Cliente: nada mas conectar, se presenta al host (id 1) con el codigo, su aspecto y su lugar.
 func _on_connected_to_server() -> void:
-	if soy_trabajador:
-		_trab.saludar()   # sin partida, sin aspecto y sin codigo: con el token de su host
-		return
 	estado_cambiado.emit("Conectado. Validando codigo...")
 	if not mundo_compartido:
 		# LAN de siempre: tengo mi propia partida cargada y hay que protegerla del mundo del host.
@@ -1101,7 +1068,7 @@ func _saludar(codigo: String, protocolo: int, identidad: String, nombre_visible:
 	# la puerta creando personaje.
 	var humanos := (0 if soy_sala else 1) + _en_la_puerta.size()   # la sala no cuenta: no es nadie
 	for pid in _peers:
-		if not es_trabajador(pid) and not _en_la_puerta.has(pid):
+		if not _en_la_puerta.has(pid):
 			humanos += 1
 	if humanos >= MAX_JUGADORES:
 		estado_cambiado.emit("Rechazado: la sala ya tiene %d jugadores." % MAX_JUGADORES)
@@ -1231,7 +1198,7 @@ func registrar_invitacion(token: String, segundos: int) -> void:
 func _registrar_invitacion(token: String, segundos: int) -> void:
 	var quien := multiplayer.get_remote_sender_id()
 	# Solo invita quien esta DENTRO: ni un trabajador ni alguien que aun espera en la puerta.
-	if not _peers.has(quien) or es_trabajador(quien) or _en_la_puerta.has(quien):
+	if not _peers.has(quien) or _en_la_puerta.has(quien):
 		return
 	_apuntar_invitacion(token, segundos, String(_peers[quien].get("nombre", "?")))
 
@@ -1256,7 +1223,7 @@ func _invitacion_valida(token: String) -> bool:
 func humanos_dentro() -> Array:
 	var out: Array = []
 	for pid in _peers:
-		if not es_trabajador(pid) and not _en_la_puerta.has(pid) and pid != 1:
+		if not _en_la_puerta.has(pid) and pid != 1:
 			out.append(pid)
 	return out
 
@@ -1326,11 +1293,8 @@ func _admitir(quien: int, color: Color, metal: float, nombre: String, lugar: Str
 	# nuevo se le pasa la lista entera. Sin esto, dos clientes serian invisibles entre si.
 	for otro in _peers:
 		var p: Dictionary = _peers[otro]
-		# Al que ya estaba: aqui viene uno nuevo. Tambien a los TRABAJADORES: sus bichos tienen que verle.
+		# Al que ya estaba: aqui viene uno nuevo.
 		_presentar_ajeno.rpc_id(otro, quien, color, metal, nombre, lugar, imagen, alpha, [], piezas)
-		# Al nuevo NO se le presenta un trabajador: no es nadie a quien ver.
-		if es_trabajador(otro):
-			continue
 		# Al nuevo: este otro ya estaba (con SUS datos, sequito incluido).
 		_presentar_ajeno.rpc_id(quien, otro, p["color"], p["metal"], p["nombre"], p["lugar"],
 			p.get("imagen", PackedByteArray()), float(p.get("alpha", 1.0)), p.get("comps", []),
@@ -1415,17 +1379,12 @@ func _presentarse(color: Color, metal: float, nombre: String, lugar: String, sem
 	var quien := multiplayer.get_remote_sender_id()
 	_respondio = true
 	semilla_host = semilla
-	# UN TRABAJADOR no trae partida, y sin semilla Game.hay_partida() es falso: la mazmorra le echaria
-	# al menu principal. Su mundo ES el del host, asi que la suya es la del host.
-	if soy_trabajador:
-		Game.semilla_mundo = semilla
 	tienda_t2_host = t2
 	pisos_host = Array(atajos)
 	_registrar_peer(quien, color, metal, nombre, lugar, imagen, alpha, true, piezas)
 	# MI HOGAR AL ENTRAR (10/10, playtest 09/10: "los personajes de Arian no salen en el Hogar"). Solo se mandaba al
 	# CAMBIAR algo; con la sala de host, ninguno de los dos lo habia mandado y salian los de la foto guardada.
-	if not soy_trabajador:
-		hogar.marcar_hogar_sucio()
+	hogar.marcar_hogar_sucio()
 	estado_cambiado.emit("Conectado con %s." % nombre)
 
 
@@ -1522,8 +1481,6 @@ func _olvidar_peer(peer_id: int) -> void:
 	jugadores._quitar_companeros(peer_id)
 	_peers.erase(peer_id)
 	_viajando.erase(peer_id)
-	# Si era el trabajador al que le mande mis fichas, la pelea me vuelve (ver al_olvidar_peer).
-	peleas.al_olvidar_peer(peer_id)
 
 
 # LA SALA ACABA DE MONTAR UN PISO (etapa 2): los cuerpos de los que ya estan en ese lugar nacen en el. Sus
@@ -1538,8 +1495,6 @@ func montar_cuerpos_del_lugar(lugar: String) -> void:
 func _crear_avatar_nodo(peer_id: int) -> void:
 	if not _peers.has(peer_id):
 		return
-	if bool(_peers[peer_id].get("trabajador", false)):
-		return   # un trabajador de piso no tiene cuerpo
 	if _avatares.has(peer_id) and is_instance_valid(_avatares[peer_id]):
 		return
 	var p: Dictionary = _peers[peer_id]
@@ -1572,10 +1527,9 @@ func _crear_avatar_nodo(peer_id: int) -> void:
 
 func _on_peer_disconnected(id: int) -> void:
 	var conocido := _peers.has(id)
-	var trabajador := es_trabajador(id)
 	# Quien era y donde estaba, ANTES de olvidarle: para devolverle su pelea si vuelve (fase 5 de la BD).
 	var ident_caido: String = _identidad_de_peer(id) if es_host else String(peleas._ident_de_ido.get(id, ""))
-	if es_host and not trabajador and ident_caido != "":
+	if es_host and ident_caido != "":
 		peleas.apuntar_caido(id, ident_caido, String(_peers.get(id, {}).get("lugar", "")))
 	var piso_viejo: int = pisos._piso_de(id) if es_host else -1   # antes de olvidarle: lo lee de _peers
 	_olvidar_peer(id)   # avatar, sequito y registro (la parte visual, comun con _quitar_ajeno)
@@ -1601,13 +1555,9 @@ func _on_peer_disconnected(id: int) -> void:
 		if not ident_ida.is_empty() and hogar._roster_ajeno.erase(ident_ida):
 			hogar.marcar_hogar_sucio()
 		hogar._fotos_mandadas.erase(id)   # si vuelve es otra conexion, sin fotos: se le mandan de nuevo
-		# TRABAJADORES: si el que se va es uno, se repone la reserva. Si es un humano, el piso en el que estaba
-		# puede haberse quedado vacio (la sala lo congelara).
+		# El piso en el que estaba puede haberse quedado vacio (la sala lo congelara).
 		_viajando.erase(id)
-		if trabajador:
-			_trab.al_irse(id)
-		else:
-			_trab.revisar_vacio(piso_viejo, id)
+		pisos.revisar_vacio(piso_viejo, id)
 		# Y si se fue A MEDIA PELEA, los bichos que tenia reservados quedarian congelados para
 		# siempre. Que cada dueño suelte los suyos.
 		peleas._soltar_reservas_de.rpc(id)
@@ -1642,7 +1592,7 @@ func _on_peer_disconnected(id: int) -> void:
 	# Solo avisar de gente que llego a ENTRAR (registrada): un intento rechazado por codigo
 	# tambien dispara esta señal y no es "un jugador que se va".
 	_modales_de.erase(id)
-	if conocido and not trabajador:
+	if conocido:
 		estado_cambiado.emit("Un jugador se ha ido.")
 		# Somos uno menos: el host recuenta y difunde; los apartados por cupo van volviendo.
 		if es_host:
@@ -1674,9 +1624,6 @@ func _sacar_a_escena(ruta: String) -> void:
 
 
 func _on_connection_failed() -> void:
-	if soy_trabajador:
-		_trab.me_han_soltado("no he podido conectar con la sala")
-		return
 	if tunel.modo == "cliente":
 		estado_cambiado.emit("No se ha podido llegar por Steam a quien tiene el mundo abierto.")
 	else:
@@ -1686,9 +1633,6 @@ func _on_connection_failed() -> void:
 
 
 func _on_server_disconnected() -> void:
-	if soy_trabajador:
-		_trab.me_han_soltado("la sala se ha cerrado")
-		return
 	# Se guarda ANTES de limpiar el flag: mas abajo hay que volver a saber si esto fue un rechazo, y
 	# si se lee `_fui_rechazado` despues de ponerlo a false siempre parece que no lo fue -- y se le
 	# pisaba al jugador el motivo de verdad ("tu identidad ya esta dentro") con un "se cerro el mundo".

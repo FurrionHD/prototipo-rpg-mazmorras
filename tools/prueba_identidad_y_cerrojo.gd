@@ -37,9 +37,9 @@ func _prueba_identidad() -> void:
 		logs.append(log)
 		var args: PackedStringArray = ["--headless", "--path", ProjectSettings.globalize_path("res://"),
 			"--log-file", log, "--quit-after", "2"]
-		# La mitad como TRABAJADOR, que es quien de verdad arranca en racimo.
+		# La mitad como SALA (sin mas argumentos no arranca nada: solo marca la identidad como de solo lectura).
 		if i % 2 == 0:
-			args.append_array(["--", "trabajador"])   # sin ip/puerto: solo marca la identidad como de trabajador
+			args.append_array(["--", "sala"])
 		pids.append(OS.create_process(OS.get_executable_path(), args))
 	# Esperar a que acaben (con tope).
 	var t0: int = Time.get_ticks_msec()

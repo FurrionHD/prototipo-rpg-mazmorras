@@ -89,7 +89,7 @@ var forzar_sin_ventana: bool = false
 
 
 func _sin_pantalla() -> bool:
-	return not forzar_sin_ventana and (DisplayServer.get_name() == "headless" or Net.soy_trabajador)
+	return not forzar_sin_ventana and DisplayServer.get_name() == "headless"
 
 
 ## La pone y para el juego. En solitario conviene esperarla (await) ANTES del trabajo pesado, para que se llegue a ver.

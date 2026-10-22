@@ -597,8 +597,7 @@ func _difundir_hogar() -> void:
 		_set_encargos.rpc(Game.encargos)
 		_set_cofre.rpc(Game.cofre_equipo)
 		for peer in Net._peers:
-			if not Net.es_trabajador(peer):
-				_repartir_fotos(peer, roster)
+			_repartir_fotos(peer, roster)
 		_set_roster_hogar.rpc(roster)
 		_roster_mirror = roster
 		# LA FORMACION va con el roster del que sale (ver net_formacion.gd), y DESPUES de el.

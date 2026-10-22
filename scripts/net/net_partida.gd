@@ -605,7 +605,7 @@ var _estados_pedidos: Array = []   # peers a los que se les ha pedido y aun no h
 func recoger_estados(cerrando: bool = false) -> void:
 	if not Net.activo or not Net.es_host or not Net.mundo_compartido:
 		return
-	_estados_pedidos = Net._peers.keys().filter(func(pid): return not Net.es_trabajador(pid))
+	_estados_pedidos = Net._peers.keys()
 	if _estados_pedidos.is_empty():
 		return
 	_dame_tu_estado.rpc(cerrando)
@@ -622,7 +622,7 @@ func recoger_estados(cerrando: bool = false) -> void:
 # El host pide lo mio. Corre en el INVITADO.
 @rpc("any_peer", "call_remote", "reliable")
 func _dame_tu_estado(cerrando: bool) -> void:
-	if Net.es_host or Net.soy_trabajador:
+	if Net.es_host:
 		return
 	_mi_estado.rpc_id(1, jd_a_dict(Game.mi_jugador_data()))
 	if not cerrando:

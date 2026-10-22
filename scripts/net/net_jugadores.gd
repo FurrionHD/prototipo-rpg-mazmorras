@@ -70,7 +70,7 @@ static func tier_de_pose(pose: int) -> int:
 # La llama el Player LOCAL cada tick de fisica si Net.activo. Difunde su posicion a los de MI lugar.
 func enviar_estado(pos: Vector2, facing: Vector2, comps: Array = [], pose: int = 0) -> void:
 	# Un trabajador de piso no es nadie: ni se mueve, ni pelea, ni tiene cara que anunciar.
-	if not Net.activo or Net.soy_trabajador or multiplayer.multiplayer_peer == null:
+	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
 	var ahora := Time.get_ticks_msec()
 	if ahora - _pos_last_ms < _POS_TICK_MS:
@@ -103,7 +103,7 @@ func _rel_estado(pos: Vector2, facing: Vector2, comps: Array = [], pose: int = 0
 # narices mientras estas en una pelea (no puedes ni verlo venir): ver spawn_zone._dist_min_de.
 func avisar_combate(peleando: bool) -> void:
 	# Un trabajador de piso no es nadie: ni se mueve, ni pelea, ni tiene cara que anunciar.
-	if not Net.activo or Net.soy_trabajador or multiplayer.multiplayer_peer == null:
+	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
 	Net._peleando = peleando
 	if Net.es_host:
@@ -141,7 +141,7 @@ func _rel_peleando(peleando: bool) -> void:
 #   ZONA     la forma de la pelea, en celdas: se pinta en su suelo, le frena en la linea y, si estaba
 #            quieto por el impacto y le pilla dentro, entra solo (ver Game.zona_ajena).
 func avisar_impacto(pos: Vector2) -> void:
-	if not Net.activo or Net.soy_trabajador or multiplayer.multiplayer_peer == null:
+	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
 	if Net.es_host:
 		_repartir_impacto(Net._mi_id(), pos)
@@ -160,7 +160,7 @@ func _repartir_impacto(de: int, pos: Vector2) -> void:
 	if de != Net._mi_id() and PisoVivo.lleva(lugar):
 		Game.impacto_ajeno(de, pos)
 	for pid in Net._peers:
-		if pid != de and not Net.es_trabajador(pid) and Net._peers[pid].get("lugar", "") == lugar:
+		if pid != de and Net._peers[pid].get("lugar", "") == lugar:
 			_impacto.rpc_id(pid, de, pos)
 
 
@@ -172,7 +172,7 @@ func _impacto(de: int, pos: Vector2) -> void:
 # 'anfitrion' = quien EJECUTA la pelea (yo, o el trabajador/compañero cuyo espejo veo): es a quien se
 # le pide entrar. La forma va como el roster: [x, y, ancho, alto] en celdas y la mascara.
 func anunciar_zona(anfitrion: int, rect: Rect2i, mascara: PackedByteArray) -> void:
-	if not Net.activo or Net.soy_trabajador or multiplayer.multiplayer_peer == null:
+	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
 	var r: Array = [rect.position.x, rect.position.y, rect.size.x, rect.size.y]
 	if Net.es_host:
@@ -192,7 +192,7 @@ func _repartir_zona(de: int, anfitrion: int, r: Array, mascara: PackedByteArray)
 	if de != Net._mi_id() and PisoVivo.lleva(lugar):
 		_zona(de, anfitrion, r, mascara)
 	for pid in Net._peers:
-		if pid != de and not Net.es_trabajador(pid) and Net._peers[pid].get("lugar", "") == lugar:
+		if pid != de and Net._peers[pid].get("lugar", "") == lugar:
 			_zona.rpc_id(pid, de, anfitrion, r, mascara)
 
 
@@ -245,7 +245,7 @@ func _repartir_retorno(piso_max: int, quien: String, de: int) -> void:
 	if de != 1 and _alcanza_la_piedra(Net._mi_lugar, piso_max):
 		Game.recibir_oferta_retorno(quien, piso_max)
 	for pid in Net._peers:
-		if pid == de or Net.es_trabajador(pid):
+		if pid == de:
 			continue
 		if _alcanza_la_piedra(str(Net._peers[pid].get("lugar", "")), piso_max):
 			_ofrecer_retorno.rpc_id(pid, piso_max, quien)
@@ -285,7 +285,7 @@ func jugadores_remotos_aqui(lugar: String = "") -> Array:
 # segundo) porque solo cambia cuando cambia el equipo. Se difunde al conectar y al tocar el grupo.
 func anunciar_grupo() -> void:
 	# Un trabajador de piso no es nadie: ni se mueve, ni pelea, ni tiene cara que anunciar.
-	if not Net.activo or Net.soy_trabajador or multiplayer.multiplayer_peer == null:
+	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
 	var datos: Array = _datos_grupo()
 	if Net.es_host:
@@ -299,7 +299,7 @@ func anunciar_grupo() -> void:
 # humanos. Sin esto el trabajador no creaba nunca los cuerpos de los compañeros del host, y en la pelea tactica
 # que el ejecuta esos compañeros no tenian cuerpo (turno sin andar).
 func anunciar_grupo_a(pid: int) -> void:
-	if not Net.activo or Net.soy_trabajador or multiplayer.multiplayer_peer == null:
+	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
 	_set_grupo.rpc_id(pid, Net._mi_id(), _datos_grupo())
 
@@ -360,7 +360,7 @@ func _rel_grupo(datos: Array) -> void:
 # elemento: el color lo saca cada maquina de Elementos.COLOR y no puede desincronizarse.
 func anunciar_imbue() -> void:
 	# Un trabajador de piso no es nadie: ni se mueve, ni pelea, ni tiene cara que anunciar.
-	if not Net.activo or Net.soy_trabajador or multiplayer.multiplayer_peer == null:
+	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
 	var elems := _mis_imbues()
 	if Net.es_host:
@@ -600,7 +600,7 @@ var _barras_t: int = 0
 var _barras_firma: String = ""
 
 func mis_barras(filas: Array) -> void:
-	if not Net.activo or Net.soy_trabajador or Net.soy_sala or multiplayer.multiplayer_peer == null:
+	if not Net.activo or Net.soy_sala or multiplayer.multiplayer_peer == null:
 		return
 	var ahora: int = Time.get_ticks_msec()
 	var pasado: float = float(ahora - _barras_t) / 1000.0
@@ -613,8 +613,7 @@ func mis_barras(filas: Array) -> void:
 	_barras_firma = firma
 	if Net.es_host:
 		for pid in Net._peers:
-			if not Net.es_trabajador(pid):
-				_set_barras.rpc_id(pid, Net._mi_id(), filas)
+			_set_barras.rpc_id(pid, Net._mi_id(), filas)
 	else:
 		_rel_barras.rpc_id(1, filas)
 
@@ -626,7 +625,7 @@ func _rel_barras(filas: Array) -> void:
 	var de := multiplayer.get_remote_sender_id()
 	_set_barras(de, filas)
 	for pid in Net._peers:
-		if pid != de and not Net.es_trabajador(pid):
+		if pid != de:
 			_set_barras.rpc_id(pid, de, filas)
 
 
@@ -671,7 +670,7 @@ var _luz_anunciada: float = -1.0
 
 func anunciar_luz() -> void:
 	# Un trabajador de piso no es nadie: ni se mueve, ni pelea, ni tiene cara que anunciar.
-	if not Net.activo or Net.soy_trabajador or multiplayer.multiplayer_peer == null:
+	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
 	var r: float = Game.radio_lampara()
 	if is_equal_approx(r, _luz_anunciada):
