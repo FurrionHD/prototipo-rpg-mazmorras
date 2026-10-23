@@ -69,6 +69,7 @@ func _ready() -> void:
 
 	# 2) DOS PELEAS A LA VEZ. Abro la mia y B abre la suya: las dos las lleva la sala (etapa 3), cada una con su id.
 	var excelia_antes := excelia_grupo()
+	await acabar_pelea_suelta()
 	await pelear_con(enemigo_libre(Net.posicion_de_peer(_b())))
 	var f_mia: int = Net.peleas._pelea_sigo
 	_ok(Net.peleas.espejando() and Net.peleas.ejecutor_de(f_mia) == 1, "mi pelea la ejecuta la sala (%d)" % f_mia)
@@ -84,6 +85,7 @@ func _ready() -> void:
 	await _esperar(4.0)
 
 	# 3) B se UNE a mi pelea y HUYE. Yo solo DEFIENDO (una rata muere de un golpe y la pelea se acabaria antes).
+	await acabar_pelea_suelta()
 	await pelear_con(enemigo_libre(Net.posicion_de_peer(_b())))
 	var f3: int = Net.peleas._pelea_sigo   # el ID de mi pelea (etapa 3): es lo que lleva cada enemigo en pelea_de
 	_ok(Net.peleas.espejando(), "abro la pelea a la que se va a unir B")
@@ -117,15 +119,12 @@ func _ready() -> void:
 		t += 0.25
 	_ok(entro_b, "B aparece en mi pelea")
 	_ok(se_fue_b and Net.peleas.espejando(), "B huye y la pelea SIGUE para mi")
-	_ok(await pelear_hasta_el_final(60.0), "termino la pelea yo solo")
+	_ok(await pelear_hasta_el_final(120.0), "termino la pelea yo solo")   # 120: con refuerzos (brotes, slimes que llegan) dura mas
 
 	# 4) LA ARENA DE PRUEBAS, compartida: la lleva la sala y B (que no es el dueño) pone, pelea,
 	# limpia y sale sin llevarse nada. Yo entro para ver lo que coloca.
 	await _esperar(2.0)
-	# Si me ha pillado otra pelea (zona ajena: a B le alcanza un bicho mientras espera), la acabo antes: en pelea no
-	# se va a la arena (23/10).
-	if Game.hay_pelea_en_pantalla():
-		await pelear_hasta_el_final(60.0)
+	await acabar_pelea_suelta()
 	Game.entrar_arena_de_pruebas()
 	escribir_fase(4)
 	t = 0.0

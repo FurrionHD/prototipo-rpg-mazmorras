@@ -60,6 +60,7 @@ func _ready() -> void:
 
 	# FASE 2: DOS PELEAS A LA VEZ. A ya esta peleando; yo me voy a por otro enemigo lejos de el.
 	await esperar_fase(2, 90.0)
+	await acabar_pelea_suelta()
 	var excelia_antes := excelia_grupo()
 	await pelear_con(enemigo_libre(Net.posicion_de_peer(peer_a)))
 	_ok(Net.peleas.espejando() and not Game.combate_activo(),
@@ -78,6 +79,7 @@ func _ready() -> void:
 	var fase: Array = await esperar_fase(3, 120.0)
 	var id_enemigo: int = int(fase[1]) if fase.size() > 1 else 0
 	var su_anfitrion: int = int(fase[2]) if fase.size() > 2 else 0
+	await acabar_pelea_suelta()
 	await pelear_con(enemigo_libre(Vector2.INF, id_enemigo))
 	_ok(Net.peleas.espejando() and Net.peleas._pelea_sigo == su_anfitrion,
 		"me uno a la pelea de A (pelea %d, la suya %d)" % [Net.peleas._pelea_sigo, su_anfitrion])
@@ -116,9 +118,7 @@ func _ready() -> void:
 
 	# FASE 4: LA ARENA. No soy su dueño (la lleva la sala), y aun asi todo lo que pulso funciona.
 	await esperar_fase(4, 180.0)
-	# Si mientras esperaba me ha pillado un bicho, acabo esa pelea: en pelea no se va a la arena (23/10).
-	if Game.hay_pelea_en_pantalla():
-		await pelear_hasta_el_final(60.0)
+	await acabar_pelea_suelta()
 	var excelia_arena := excelia_grupo()
 	Game.entrar_arena_de_pruebas()
 	var ta := 0.0

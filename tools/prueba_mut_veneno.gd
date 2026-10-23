@@ -94,6 +94,8 @@ func _correr() -> void:
 	al.status_resist = 0.0
 	print("    (ya tirada en esta accion: %s)" % combat._pasiva_hecha.has(e))
 	combat._pasiva_hecha.clear()   # un golpe nuevo: la pelea sigue corriendo y pudo pegarle alguien antes
+	# DADO FIJO (23/10): ningun estado entra seguro (StatusEffects.PROB_TECHO, 95 %), y sin esto fallaba 1 de cada 20.
+	seed(4242)
 	combat._pasiva_al_golpearle(e, al)
 	_ver(al.has_status(StatusEffects.Id.DEBIL), "le deja Debil")
 

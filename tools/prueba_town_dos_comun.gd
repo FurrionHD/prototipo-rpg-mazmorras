@@ -89,20 +89,31 @@ func huir() -> bool:
 func pelear_hasta_el_final(plazo: float) -> bool:
 	var t := 0.0
 	var actue: int = 0
+	var ataques: int = 0
+	var traza: Array = []   # (23/10) que pulse en cada turno y a cuanto estaba cada enemigo: para saber de quien es un "SIN ACABAR"
 	var p: Node = pantalla()
 	while p != null and is_instance_valid(p) and not p.acabada() and t < plazo:
 		# (12/10) Si el enemigo esta lejos, Atacar esta apagado y el guion no sabe andar: se pasa el turno (Huir es
 		# "Pasar" lejos del borde) para que el bicho venga. Antes se quedaba esperando y la pelea no acababa nunca.
-		if pulsar(0) or pulsar(5):
+		var antes: String = _foto_turno(p)
+		if pulsar(0):
 			actue += 1
+			ataques += 1
+			traza.append("ATACA " + antes)
+		elif pulsar(5):
+			actue += 1
+			traza.append("PASA " + antes)
 		await _esperar(0.25)
 		t += 0.25
 		p = pantalla()
 	var acabo: bool = p != null and is_instance_valid(p) and p.acabada()
 	# PARA SABER SI UN FALLO ES LENTITUD O ATASCO: con el PC cargado (la bateria entera) una pelea puede no
 	# acabar en el plazo aunque avance. Muchas veces actuando = iba lenta; ninguna = la pelea estaba parada.
-	print("[dev] pelear_hasta_el_final: %s en %.1f s de %.0f; pude actuar %d veces" % [
-		"acabada" if acabo else "SIN ACABAR", t, plazo, actue])
+	print("[dev] pelear_hasta_el_final: %s en %.1f s de %.0f; pude actuar %d veces (%d atacando)" % [
+		"acabada" if acabo else "SIN ACABAR", t, plazo, actue, ataques])
+	if not acabo:
+		for linea in traza:
+			print("[dev]   " + linea)
 	if acabo:
 		p._on_continue_pressed()
 	t = 0.0
@@ -110,6 +121,34 @@ func pelear_hasta_el_final(plazo: float) -> bool:
 		await _esperar(0.25)
 		t += 0.25
 	return acabo
+
+
+# Si me ha pillado un bicho mientras esperaba (te ataca si te quedas quieto a su lado), acabo esa pelea antes de seguir
+# con el guion: si no, lo siguiente que mira la prueba cree que es la suya (23/10, con carga: B se unia "a la pelea de A"
+# estando en la de una rata que le habia saltado encima). En pelea tampoco se va a la arena.
+func acabar_pelea_suelta() -> void:
+	if Game.hay_pelea_en_pantalla() or Net.peleas.espejando():
+		print(prefijo + "[dev] me ha pillado una pelea suelta: la acabo antes de seguir")
+		await pelear_hasta_el_final(60.0)
+
+
+# Quien juega el turno, donde esta y a cuanto tiene a cada enemigo vivo (con su vida). Solo para la traza.
+func _foto_turno(p: Node) -> String:
+	if p == null or not is_instance_valid(p) or not p.tactico:
+		return ""
+	var tm = p.turno_mapa
+	var q = tm.get("_quien")
+	var cuerpo = tm.get("_cuerpo")
+	if q == null or not is_instance_valid(cuerpo):
+		return "(sin turno)"
+	var partes: Array = []
+	for e in p.get("_enemies"):
+		if e != null and e.current_hp > 0.0:
+			partes.append("%s %.0f hp a %.0f px" % [e.nombre, e.current_hp,
+				(tm.pos_de(e) as Vector2).distance_to(cuerpo.global_position)])
+	var b: BaseButton = (p.get("_action_buttons") as Dictionary).get(0)
+	return "%s en %s, atacar %s: %s" % [q.nombre, str(cuerpo.global_position.round()),
+		"apagado" if b == null or b.disabled else "encendido", ", ".join(partes)]
 
 
 # El enemigo vivo y suelto mas LEJOS de 'lejos_de' (o el que se pide por id), para no pisarle la pelea al otro.
