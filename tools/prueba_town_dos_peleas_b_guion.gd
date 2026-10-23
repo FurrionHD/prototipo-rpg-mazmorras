@@ -50,6 +50,7 @@ func _ready() -> void:
 
 	# FASE 6: empiezo otra y ME CAIGO a mitad (sin desconectar: se corta).
 	await esperar_fase(6, 180.0)
+	await acabar_pelea_suelta()
 	var presa: Node2D = enemigo_libre()
 	_ok(presa != null, "hay un enemigo libre para mi (fase 6)")
 	if presa != null:
@@ -62,6 +63,7 @@ func _ready() -> void:
 
 func _mi_pelea(fase: int) -> void:
 	var datos: Array = await esperar_fase(fase, 180.0)
+	await acabar_pelea_suelta()
 	var suya: Node2D = enemigo_libre(Vector2.INF, int(datos[1])) if datos.size() > 1 else null
 	var lejos: Vector2 = suya.global_position if suya != null else Vector2.INF
 	var presa: Node2D = enemigo_libre(lejos)

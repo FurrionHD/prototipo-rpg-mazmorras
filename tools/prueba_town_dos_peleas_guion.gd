@@ -36,7 +36,14 @@ func _hasta(cond: Callable, tope: float) -> bool:
 
 
 func _sala_limpia(que: String) -> void:
-	_ok(await hasta_sala("peleas", func(v): return v == "0", 120.0), "la sala cierra %s (%s)" % [que, dato_sala("peleas")])
+	# Mientras espero me puede saltar otro bicho del grupo, y esa pelea no se cierra si no la juego (23/10, bateria
+	# entera: la sala se quedaba con 2). La acabo y sigo esperando.
+	var t := 0.0
+	while dato_sala("peleas") != "0" and t < 120.0:
+		await acabar_pelea_suelta()
+		await _esperar(0.25)
+		t += 0.25
+	_ok(dato_sala("peleas") == "0", "la sala cierra %s (%s)" % [que, dato_sala("peleas")])
 	_ok(await hasta_sala("reservas", func(v): return v == "0", 10.0), "y no le quedan reservas (%s)" % dato_sala("reservas"))
 
 
@@ -48,6 +55,7 @@ func _en_espejo_de_la_sala(que: String) -> void:
 
 # 1) Elijo un enemigo, se lo digo a B (para que coja otro lejos de el), y peleamos a la vez.
 func _a_la_vez(fase: int, lugares: String) -> void:
+	await acabar_pelea_suelta()
 	var presa: Node2D = enemigo_libre()
 	_ok(presa != null, "hay un enemigo libre para mi (fase %d)" % fase)
 	if presa == null:
@@ -95,6 +103,7 @@ func _b_se_une(fase: int) -> void:
 # 3) Me pongo al lado de un enemigo y NO le ataco: me tiene que embestir el y abrirse la pelea.
 func _me_embisten(fase: int) -> void:
 	escribir_fase(fase)   # B pelea en el 2 a la vez
+	await acabar_pelea_suelta()
 	var presa: Node2D = enemigo_libre()
 	var jugador: Node2D = get_tree().get_first_node_in_group("player") as Node2D
 	_ok(presa != null and jugador != null, "hay un enemigo libre para mi (fase %d)" % fase)
