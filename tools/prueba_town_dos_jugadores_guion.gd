@@ -122,6 +122,10 @@ func _ready() -> void:
 	# 4) LA ARENA DE PRUEBAS, compartida: la lleva la sala y B (que no es el dueño) pone, pelea,
 	# limpia y sale sin llevarse nada. Yo entro para ver lo que coloca.
 	await _esperar(2.0)
+	# Si me ha pillado otra pelea (zona ajena: a B le alcanza un bicho mientras espera), la acabo antes: en pelea no
+	# se va a la arena (23/10).
+	if Game.hay_pelea_en_pantalla():
+		await pelear_hasta_el_final(60.0)
 	Game.entrar_arena_de_pruebas()
 	escribir_fase(4)
 	t = 0.0

@@ -65,6 +65,11 @@ func _ready() -> void:
 	_ok(Net.peleas.espejando() and not Game.combate_activo(),
 		"mi pelea la ejecuta otro y yo la espejo (anfitrion=%d)" % Net.peleas._pelea_anfitrion)
 	print("[B] dato anfitrion_fase2=%d" % Net.peleas._pelea_sigo)   # el ID de mi pelea (etapa 3)
+	# EN PELEA NO SE VIAJA (23/10): pido la escalera como si la hubiera pisado justo cuando me pillo la pelea. La
+	# sala no me la da: sigo en el piso 1 (antes viajaba y la pelea vieja se colaba en la siguiente).
+	Net.pisos.solicitar_piso(2, false)
+	await _esperar(2.0)
+	_ok(Net.pisos.mi_piso() == 1 and Game.current_floor == 1, "en mitad de mi pelea la sala no me deja bajar")
 	_ok(await pelear_hasta_el_final(60.0), "mi pelea termina")
 	_ok(excelia_grupo() > excelia_antes, "me llega la excelia de mi pelea (%.2f -> %.2f)" % [excelia_antes, excelia_grupo()])
 	print("[B] dato fase2_fin")
@@ -111,6 +116,9 @@ func _ready() -> void:
 
 	# FASE 4: LA ARENA. No soy su dueño (la lleva la sala), y aun asi todo lo que pulso funciona.
 	await esperar_fase(4, 180.0)
+	# Si mientras esperaba me ha pillado un bicho, acabo esa pelea: en pelea no se va a la arena (23/10).
+	if Game.hay_pelea_en_pantalla():
+		await pelear_hasta_el_final(60.0)
 	var excelia_arena := excelia_grupo()
 	Game.entrar_arena_de_pruebas()
 	var ta := 0.0

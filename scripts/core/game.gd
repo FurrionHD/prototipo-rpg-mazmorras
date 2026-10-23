@@ -14845,6 +14845,10 @@ func dev_respawn() -> void:
 func entrar_arena_de_pruebas() -> void:
 	if es_arena():
 		return
+	# En mitad de una pelea no (23/10): cerraba la pantalla y te sacaba del piso con la pelea viva.
+	if hay_pelea_en_pantalla() or (Net.activo and Net.peleas.espejando()):
+		print("[dev] Arena de pruebas: no en mitad de una pelea")
+		return
 	print("[dev] Arena de pruebas: una sala grande + spawner")
 	limpiar_modales()
 	entrar_en_arena()

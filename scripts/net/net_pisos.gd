@@ -754,9 +754,15 @@ func _pedir_viaje(nuevo: int, bajando: bool) -> void:
 
 
 # Solo host: arbitra el viaje de 'quien' al piso 'nuevo': la sala monta el nuevo (si no lo estaba) y el viejo puede
-# quedarse vacio (se congelara). Responde SIEMPRE, porque el viajero espera para reconstruir su piso.
+# quedarse vacio (se congelara). Al que esta en pelea no se le da el viaje.
 func _conceder_piso(quien: int, nuevo: int, bajando: bool) -> void:
 	if not Net.expedicion_abierta:
+		return
+	# EN PELEA NO SE VIAJA (23/10): si le pilla una pelea justo al pisar la escalera, se queda. Antes viajaba y seguia
+	# apuntado en la pelea del piso viejo, y _pe_de_peer le metia esos bichos en su siguiente pelea (town_dos_jugadores
+	# con carga: el slime del piso 1 aparecio en la pelea de la arena). No se le responde: no espera nada.
+	if Net.soy_sala and Net.peleas.peer_en_pelea(quien):
+		print("[pisos] %d pide ir al piso %d en mitad de una pelea: se queda" % [quien, nuevo])
 		return
 	var viejo: int = _piso_de(quien)
 	sala_montar(nuevo)

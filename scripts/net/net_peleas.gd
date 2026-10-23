@@ -144,6 +144,20 @@ func _pe_de_peer(peer: int) -> PeleaViva:
 	return null
 
 
+# EN LA SALA: ¿'peer' esta en una pelea, o tiene una montandose (bichos reservados a su nombre mientras termina el
+# golpe)? Lo mira el viaje de piso (Net.pisos._conceder_piso). Un CADAVER reservado no cuenta: es una extraccion.
+func peer_en_pelea(peer: int) -> bool:
+	if _pe_de_peer(peer) != null:
+		return true
+	for id in _enem_ocupados:
+		if int(_enem_ocupados[id]) != peer:
+			continue
+		var n = (Net.enemigos._enemigos.get(id, {}) as Dictionary).get("nodo")
+		if n != null and is_instance_valid(n) and not n.esta_muerto():
+			return true
+	return false
+
+
 # --- PELEAR CONTRA UN PISO QUE SIMULA OTRO (hito 5.3) -----------------------------------------
 #
 # El que NO simula el piso ve espejos. Al atacar uno, le PIDE la pelea a su dueño: el dueño reserva
