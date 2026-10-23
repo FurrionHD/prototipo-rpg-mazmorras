@@ -130,6 +130,10 @@ func _ready() -> void:
 	escribir_fase(4)
 	t = 0.0
 	while (Net._mi_lugar != "piso:%d" % Game.PISO_ARENA or piso_de_b() != Game.PISO_ARENA) and t < 30.0:
+		# Si un bicho me pilla justo al pedirla, la sala no me da el viaje (en pelea no se viaja): la acabo y la vuelvo a pedir.
+		if Game.hay_pelea_en_pantalla():
+			await pelear_hasta_el_final(60.0)
+			Game.entrar_arena_de_pruebas()
 		await _esperar(0.5)
 		t += 0.5
 	_ok(Net._mi_lugar == "piso:%d" % Game.PISO_ARENA and piso_de_b() == Game.PISO_ARENA,

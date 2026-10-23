@@ -1885,6 +1885,10 @@ func _desmontar_arena_tactica(acabada: bool = false, pe: PeleaViva = null) -> vo
 
 # El UNICO sitio que traduce "voy al piso N" a current_floor (y enciende o apaga la arena).
 func fijar_piso(p: int) -> void:
+	# LA FOTO DE LA ARENA se saca AL LLEGAR (23/10), no al pedirla: en multi la sala puede no dar el viaje (te pilla una
+	# pelea justo entonces) y la foto puesta te habria quitado al salir lo ganado en esa pelea.
+	if p == PISO_ARENA and not Net.soy_sala:
+		entrar_en_arena()
 	arena_activa = p == PISO_ARENA
 	current_floor = arena_piso_juego if arena_activa else maxi(1, p)
 
@@ -14851,7 +14855,6 @@ func entrar_arena_de_pruebas() -> void:
 		return
 	print("[dev] Arena de pruebas: una sala grande + spawner")
 	limpiar_modales()
-	entrar_en_arena()
 	if Net.activo:
 		if Net.pisos.mi_piso() > 0:
 			Net.pisos.solicitar_piso(PISO_ARENA, false)

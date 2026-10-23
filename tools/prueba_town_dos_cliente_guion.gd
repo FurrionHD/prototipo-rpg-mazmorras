@@ -123,6 +123,12 @@ func _ready() -> void:
 	Game.entrar_arena_de_pruebas()
 	var ta := 0.0
 	while Net._mi_lugar != "piso:%d" % Game.PISO_ARENA and ta < 20.0:
+		# Si un bicho me pilla justo al pedirla, la sala no me da el viaje (en pelea no se viaja): la acabo y la vuelvo a
+		# pedir. Lo ganado en esa pelea es de verdad (la foto de la arena se saca al llegar): se cuenta desde ahi.
+		if Game.hay_pelea_en_pantalla():
+			await pelear_hasta_el_final(60.0)
+			excelia_arena = excelia_grupo()
+			Game.entrar_arena_de_pruebas()
 		await _esperar(0.5)
 		ta += 0.5
 	_ok(Net._mi_lugar == "piso:%d" % Game.PISO_ARENA and not Net._soy_dueno,
