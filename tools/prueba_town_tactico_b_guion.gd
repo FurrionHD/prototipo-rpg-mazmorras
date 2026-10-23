@@ -66,6 +66,8 @@ func _ready() -> void:
 	var tm = p.turno_mapa
 	var sentido := ["move_right", "move_down", "move_left"]
 	var vuelta := 0
+	var apuntados: Dictionary = {}   # nombre -> [cuerpo, ultima posicion apuntada]
+	var t_apunte := 0.0
 	var t0: int = Time.get_ticks_msec()
 	while int(leer_fase()[0]) < 3 and (Time.get_ticks_msec() - t0) < 150000:
 		if is_instance_valid(host):
@@ -96,7 +98,22 @@ func _ready() -> void:
 			# ANTES de contestar: lo que sale con la accion es esta posicion.
 			print("[B] dato b_pos_x_%s=%d" % [tm._quien.nombre, int(round(ahora.x))])
 			print("[B] dato b_pos_y_%s=%d" % [tm._quien.nombre, int(round(ahora.y))])
+			apuntados[tm._quien.nombre] = [cuerpo, ahora]
 			pulsar(3)
+		# Y DESPUES DE SU TURNO, donde siga (23/10): un enemigo le puede mover (el que esquiva una embestida se aparta de un
+		# salto, combat_tactico.pedir_apartar). A comparaba con la posicion del final del turno y, con carga, miraba despues
+		# del placaje: "esta donde B dice (a 36 px)" con A pintandolo justo donde estaba de verdad.
+		t_apunte += 0.05
+		if t_apunte >= 0.5:
+			t_apunte = 0.0
+			for nombre in apuntados:
+				var cu = apuntados[nombre][0]
+				if is_instance_valid(cu) and (cu as Node2D).global_position.distance_to(apuntados[nombre][1]) > 1.0:
+					var ya: Vector2 = (cu as Node2D).global_position
+					apuntados[nombre][1] = ya
+					print("[B] [dev] %s se ha movido despues de su turno: ahora en %s" % [nombre, str(ya.round())])
+					print("[B] dato b_pos_x_%s=%d" % [nombre, int(round(ya.x))])
+					print("[B] dato b_pos_y_%s=%d" % [nombre, int(round(ya.y))])
 		await _esperar(0.05)
 	print("[B] [dev] el host se movio %.1f px y el bicho %.1f px en mi pantalla" % [host_max, bicho_max])
 	if is_instance_valid(p):

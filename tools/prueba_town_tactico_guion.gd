@@ -162,6 +162,11 @@ func _ready() -> void:
 				tr += 0.5
 			print("[dev] %s (de B, cuerpo %d): en mi pantalla es %s, en %s; B lo tiene en (%d, %d): a %.1f px" % [
 				c.nombre, k, que, str(cb.global_position.round()) if cb != null else "-", bx, by, lejos])
+			if lejos >= 5.0 and cb != null:
+				# (22/10, sale solo con carga) ¿llega bien lo de B y el cuerpo no lo sigue, o lo que llega ya es viejo?
+				print("[dev]   %s: objetivo del cuerpo %s, ultima posicion de B por la red %s, metas %s, pelea en el mapa: pos %s" % [
+					c.nombre, str(cb.get("_objetivo")), str(Net._peers.get(_b(), {}).get("pos", "-")),
+					str(cb.get_meta_list()), str(tm._pos.get(c, "-"))])
 			_ok(cb != null and (cb == lider_b) == (k == 0) and (k <= 0 or comps_b.find(cb) == k - 1),
 				"%s de B tiene SU cuerpo en mi pantalla (%s)" % [c.nombre, que])
 			# Y DONDE SE PINTAN SUS GOLPES (el numero y el efecto): el sitio que da su bloque tiene que ser SU cuerpo.
