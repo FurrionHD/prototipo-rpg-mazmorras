@@ -3,8 +3,10 @@
 # le pasaba su velocidad (~10.000 px/s) y lo estampaba contra la pared. Mira, en un piso de verdad y sin teclas:
 #   1) el jugador va FLOTANDO, como enemigos y compañeros;
 #   2) con un enemigo pegado justo debajo y luego mandado lejos, el jugador no se mueve.
-#   godot --headless --path . res://tools/prueba_jugador_no_monta.tscn
+#   godot --headless --path . res://tools/prueba_jugador_no_monta.tscn -- nube_local
 extends Node
+
+var j = null   # el jugador con su sala: tools/prueba_con_jugador.gd
 
 var _mal: int = 0
 
@@ -35,12 +37,15 @@ func _fisica(n: int) -> void:
 
 
 func _correr() -> void:
-	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
-	if ref is SaveData:
-		Game.importar_partida(ref)
-	Game.semilla_mundo = 424242
-	Game.current_floor = 1
-	get_tree().change_scene_to_file("res://scenes/levels/main.tscn")
+	# EL JUGADOR CON SU SALA (etapa 4, 26/10): como se mueve tu cuerpo es cosa de tu maquina, con los enemigos como te
+	# los manda la sala (tools/prueba_con_jugador.gd).
+	j = preload("res://tools/prueba_con_jugador.gd").new()
+	add_child(j)
+	if not await j.arrancar("prueba_jugador_no_monta", 75, 1):
+		print("MAL: no arranca la sala o no entro")
+		await j.cerrar()
+		get_tree().quit(1)
+		return
 	for _i in 30:
 		await get_tree().process_frame
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
@@ -82,4 +87,5 @@ func _correr() -> void:
 		_ver(peor < 4.0, "se va lejos y yo me quedo (lo peor: %.1f px)" % peor)
 
 	print("FIN: %s (%d MAL)" % ["TODO BIEN" if _mal == 0 else "HAY FALLOS", _mal])
+	await j.cerrar()
 	get_tree().quit(1 if _mal > 0 else 0)

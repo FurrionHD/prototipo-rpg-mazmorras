@@ -25,8 +25,9 @@ var _pid_nube: String = ""
 var _entrado := false
 
 
-# Prepara la ranura, lanza la sala, me conecto y entro en la arena. false si algo no llega.
-func arrancar(nombre: String, ranura: int) -> bool:
+# Prepara la ranura, lanza la sala, me conecto y bajo a 'destino' (la arena, o un piso por la puerta del pueblo). false si
+# algo no llega.
+func arrancar(nombre: String, ranura: int, destino: int = Game.PISO_ARENA) -> bool:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	slot = ranura
 	puerto = 24500 + ranura
@@ -85,14 +86,20 @@ func arrancar(nombre: String, ranura: int) -> bool:
 		push_error("[con jugador] no entro en el mundo")
 		return false
 	await _esperar(1.0)
-	# A la arena (la lleva la sala).
-	Game.entrar_arena_de_pruebas()
-	if not await _hasta(func(): return Net._mi_lugar == "piso:%d" % Game.PISO_ARENA \
+	# Abajo (la arena o el piso los lleva la sala). 'destino' 0 = me quedo en el pueblo (la prueba baja ella).
+	if destino <= 0:
+		print("[con jugador] %s: sala en el puerto %d, ranura %d, en el pueblo" % [nombre, puerto, slot])
+		return true
+	if destino == Game.PISO_ARENA:
+		Game.entrar_arena_de_pruebas()
+	else:
+		Net.pisos.solicitar_entrar(destino)
+	if not await _hasta(func(): return Net._mi_lugar == "piso:%d" % destino \
 			and get_tree().get_first_node_in_group("dungeon_floor") != null, 40.0):
-		push_error("[con jugador] no llego a la arena")
+		push_error("[con jugador] no llego al piso %d" % destino)
 		return false
 	await _esperar(1.0)
-	print("[con jugador] %s: sala en el puerto %d, ranura %d, en la arena" % [nombre, puerto, slot])
+	print("[con jugador] %s: sala en el puerto %d, ranura %d, en el piso %d" % [nombre, puerto, slot, destino])
 	return true
 
 

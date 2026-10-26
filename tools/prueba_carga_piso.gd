@@ -1,11 +1,15 @@
 # LA PANTALLA DE CARGA DEL PISO (08/10, playtest: "la primera vez que me metia en el piso 6 daba un lagazo; que haya una
 # pantalla de carga que cargue primero el piso entero y luego ya me deje moverme"). Sin ventana Cargando no hace nada,
-# asi que aqui se fuerza (forzar_sin_ventana). Entra al piso 6 como la puerta, y baja al 7 por la escalera: en los dos
-# la capa tiene que estar puesta con el juego PARADO mientras se monta, y quitarse sola soltando el juego. Y 3) la lista
-# del grupo que comparten los enemigos no trae a nadie ya liberado.
-#   godot --headless --path . res://tools/prueba_carga_piso.tscn
+# asi que aqui se fuerza (forzar_sin_ventana). Entra al piso 6 por la puerta, y baja al 7 por la escalera: en los dos
+# la capa tiene que estar puesta, y TU QUIETO (su modal), mientras se monta, y quitarse sola soltandote. Y las hojas de
+# los enemigos del piso no se sueltan al acabar de montarlo.
+# Desde la etapa 4 (26/10) es el JUGADOR con su sala (tools/prueba_con_jugador.gd), como se baja de verdad: la puerta y la
+# escalera piden el piso a la sala. En multi la pantalla no pausa el arbol (el mundo es de todos): te para su modal.
+# (Lo que era el 3, las listas que comparten los enemigos, es de la sala: tools/prueba_listas_enemigos.gd.)
+#   godot --headless --path . res://tools/prueba_carga_piso.tscn -- nube_local
 extends Node
 
+var j = null   # el jugador con su sala: tools/prueba_con_jugador.gd
 var _mal: int = 0
 
 
@@ -28,82 +32,55 @@ func _ver(ok: bool, que: String) -> void:
 		_mal += 1
 
 
-# Espera a que la capa se vaya, mirando que mientras esta el juego siga parado. Devuelve los fotogramas que estuvo.
+# Espera a que la capa se vaya, mirando que mientras esta sigas QUIETO (con su modal puesto). Devuelve los fotogramas.
 func _mientras_tapa(tope: int) -> int:
 	var n: int = 0
-	var siempre_parado: bool = true
+	var siempre_quieto: bool = true
 	while Cargando.visible_ahora() and n < tope:
-		if not get_tree().paused:
-			siempre_parado = false
+		if not Game.hay_modal():
+			siempre_quieto = false
 		await get_tree().process_frame
 		n += 1
-	_ver(siempre_parado, "mientras se ve la pantalla, el juego esta PARADO")
+	_ver(siempre_quieto, "mientras se ve la pantalla, estas QUIETO (su modal)")
 	return n
+
+
+# Espera a que se ponga la pantalla (la pide la respuesta de la sala, que tarda un viaje).
+func _hasta_que_tapa(tope: int) -> bool:
+	var n: int = 0
+	while not Cargando.visible_ahora() and n < tope:
+		await get_tree().process_frame
+		n += 1
+	return Cargando.visible_ahora()
 
 
 func _correr() -> void:
 	Cargando.forzar_sin_ventana = true
-	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
-	if ref is SaveData:
-		Game.importar_partida(ref)
-	Game.semilla_mundo = 4016831469
+	j = preload("res://tools/prueba_con_jugador.gd").new()
+	add_child(j)
+	if not await j.arrancar("prueba_carga_piso", 74, 0):
+		print("MAL: no arranca la sala o no entro")
+		await j.cerrar()
+		get_tree().quit(1)
+		return
 
-	print("1) entrar al piso 6")
-	Game.current_floor = 6
-	await Cargando.cubrir_piso("Piso 6")
-	_ver(Cargando.visible_ahora() and get_tree().paused, "antes de cargar ya esta puesta y el juego parado")
-	get_tree().change_scene_to_file("res://scenes/levels/main.tscn")
+	print("1) entrar al piso 6 (la puerta)")
+	Net.pisos.solicitar_entrar(6)
+	_ver(await _hasta_que_tapa(600), "se pone la pantalla")
+	_ver(Game.hay_modal(), "y te deja quieto")
 	var n: int = await _mientras_tapa(2000)
 	_ver(not Cargando.visible_ahora(), "se quita sola (%d fotogramas)" % n)
-	_ver(not get_tree().paused, "y suelta el juego")
-	_ver(get_tree().get_first_node_in_group("dungeon_floor") != null, "el piso esta montado")
+	_ver(not Game.hay_modal(), "y te suelta")
+	_ver(get_tree().get_first_node_in_group("dungeon_floor") != null and Net._mi_lugar == "piso:6", "el piso 6 esta montado")
 
 	print("2) bajar al piso 7 por la escalera")
-	Game.bajar_piso()
-	await get_tree().process_frame
-	_ver(Cargando.visible_ahora() and get_tree().paused, "al bajar se pone y para el juego")
+	Net.pisos.solicitar_piso(7, false)   # lo que pide la escalera (stairs.gd)
+	_ver(await _hasta_que_tapa(600), "al bajar se pone")
 	n = await _mientras_tapa(2000)
-	_ver(not Cargando.visible_ahora() and not get_tree().paused, "y se quita sola (%d fotogramas)" % n)
-	_ver(Game.current_floor == 7, "estamos en el piso 7")
+	_ver(not Cargando.visible_ahora() and not Game.hay_modal(), "y se quita sola (%d fotogramas)" % n)
+	_ver(Game.current_floor == 7 and Net._mi_lugar == "piso:7", "estamos en el piso 7")
 
-	print("3) la lista del grupo que comparten los enemigos, con alguien recien liberado")
-	# Los enemigos comparten la lista del grupo por fotograma de fisica. Al cambiar de escena con el juego andando, los
-	# del piso nuevo nacian en el MISMO fotograma y se encontraban el grupo del piso viejo ya liberado (SCRIPT ERROR en
-	# enemy._aliado_mas_cercano, visto 19/10 con tools/medir_tirones). Depende de cuantos fotogramas de fisica caen entre
-	# medias, asi que aqui se provoca a mano: uno del grupo entra en la lista y se libera en ese mismo fotograma.
-	# El lanzador da la prueba por MALA si sale un SCRIPT ERROR.
-	var bicho: Node = null
-	for e in get_tree().get_nodes_in_group("enemy"):
-		if is_instance_valid(e) and e.has_method("_aliados"):
-			bicho = e
-	_ver(bicho != null, "hay un enemigo")
-	if bicho != null:
-		var falso := Node2D.new()
-		falso.add_to_group("aliado")
-		get_tree().current_scene.add_child(falso)
-		await get_tree().physics_frame
-		_ver(bicho._aliados().has(falso), "el falso entra en la lista compartida")
-		falso.free()
-		var lista: Array = bicho._aliados()
-		_ver(lista.all(func(n): return is_instance_valid(n)), "en el mismo fotograma, la lista ya no lo trae")
-		bicho._aliado_mas_cercano()
-		bicho._excluir_del_rayo()
-		# Y LA DE LOS ENEMIGOS (optimizacion 1E, 19/10): uno pegado al bicho entra en la lista compartida, se libera en
-		# ese mismo fotograma y la separacion y la manada no petan (el lanzador da MAL con un SCRIPT ERROR).
-		var otro: Node2D = null
-		for e in get_tree().get_nodes_in_group("enemy"):
-			if e != bicho and is_instance_valid(e) and e.has_method("_aliados"):
-				otro = e
-		_ver(otro != null, "hay otro enemigo")
-		if otro != null:
-			await get_tree().physics_frame
-			otro.global_position = (bicho as Node2D).global_position + Vector2(4, 0)
-			_ver(bicho._enemigos().has(otro), "el otro enemigo esta en la lista compartida de enemigos")
-			otro.free()
-			bicho._separacion()
-			bicho._companeros_de_manada()
-
-	print("4) las hojas de los enemigos del piso no se sueltan al acabar de montarlo")
+	print("3) las hojas de los enemigos del piso no se sueltan al acabar de montarlo")
 	# precalentar las cargaba y Game._soltar_hojas_sin_usar (que corre DESPUES de montarse el piso) las soltaba en el acto
 	# porque aun no las llevaba ningun bicho: cada bajada las pagaba dos veces (19/10). SpritesEnemigo._del_piso las sujeta.
 	Game._soltar_hojas_sin_usar()
@@ -114,5 +91,6 @@ func _correr() -> void:
 			siguen += 1
 	_ver(sujetas.size() > 0 and siguen == sujetas.size(), "tras la limpieza siguen las %d hojas del piso (%d)" % [sujetas.size(), siguen])
 
+	await j.cerrar()
 	print("FIN: %s (%d MAL)" % ["TODO BIEN" if _mal == 0 else "HAY FALLOS", _mal])
 	get_tree().quit(0 if _mal == 0 else 1)

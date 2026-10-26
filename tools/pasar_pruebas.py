@@ -108,7 +108,8 @@ def es_de_red(nombre: str) -> bool:
             or nombre in {"prueba_tunel", "prueba_solo_por_sala", "prueba_menu_por_sala", "prueba_lan_por_sala", "prueba_baul_sala", "prueba_zona_otra_sala",
                           "prueba_vinculo_steam", "prueba_bd_nube",
                           # (etapa 4, 26/10) el JUGADOR con su sala: dos Godot cada una (tools/prueba_con_jugador.gd)
-                          "prueba_orden_dibujo", "prueba_barras_registro", "prueba_lista_enemigos", "prueba_huida_lider"})
+                          "prueba_orden_dibujo", "prueba_barras_registro", "prueba_lista_enemigos", "prueba_huida_lider", "prueba_carga_piso",
+                          "prueba_jugador_no_monta"})
 
 # Las que NO son una prueba sin ventana (necesitan pantalla de verdad): no se pasan.
 NO_SIN_VENTANA = {"prueba_rueda_cristales"}
@@ -148,6 +149,8 @@ COMO_SE_LANZA = {
     "prueba_barras_registro": NUBE_LOCAL,
     "prueba_lista_enemigos": NUBE_LOCAL,
     "prueba_huida_lider": NUBE_LOCAL,
+    "prueba_carga_piso": NUBE_LOCAL,
+    "prueba_jugador_no_monta": NUBE_LOCAL,
 }
 
 # LAS QUE VAN DE UNA EN UNA aunque no sean de red: tocan las mismas ranuras de guardado (user://, la ranura 97...) y
