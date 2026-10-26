@@ -1,6 +1,8 @@
 # PRUEBA (fase 2, 20/10, todo por la sala, paso 3): CON UN SOLO HUMANO SE JUEGA COMO EL SOLO DE SIEMPRE. Toda partida
 # va por la sala, tambien la de uno; y con uno solo los menus paran el mundo y la pelea, la pelea para el mapa y la
 # pelea deja ir a x2 (Net.pausa_solo). Lo que mira, en el guion del jugador (prueba_solo_por_sala_guion.gd).
+# Etapa 4 (23/10, solo tambien con servidor): ademas gana una pelea en el piso 1, se va, y lo ganado y el sitio estan EN LA
+# RANURA al cerrarse la sala; luego entra otra vez (sala nueva) y vuelve al piso 1 con lo ganado.
 # Usa la RANURA 94 (no existe en el juego) y tu identidad.
 # Se lanza con:  <godot> --headless --path . res://tools/prueba_solo_por_sala.tscn -- nube_local
 extends Node
@@ -36,6 +38,62 @@ func _borrar_ranura() -> void:
 	PartidaBD.borrar(Perfil.ruta_bd(SLOT))
 
 
+# Lanza la sala de la ranura y al jugador (con 'extra' detras de sus argumentos), espera a que acaben los dos y
+# devuelve el registro del jugador. 'n' numera los registros (1 = la primera entrada, 2 = la vuelta).
+func _sala_y_jugador(clave: String, extra: PackedStringArray, n: String) -> String:
+	DirAccess.make_dir_recursive_absolute(Sala.CARPETA)
+	var f := FileAccess.open(Sala.ruta_pedido(clave), FileAccess.WRITE)
+	f.store_string(CODIGO)
+	f.close()
+	var p_sala := _lanzar(["--", "sala", clave, str(PUERTO), Identidad.id, "nube_local", "sala_vacia=3",
+		"sala_espera=30"], "prueba_solo_por_sala_sala%s.log" % n)
+	var est: Dictionary = {}
+	for i in 400:
+		await get_tree().create_timer(0.1).timeout
+		est = Sala.leer_estado(clave)
+		if String(est.get("estado", "")) in ["lista", "error"]:
+			break
+	ok(String(est.get("estado", "")) == "lista", "[%s] la sala esta lista (%s)" % [n, str(est.get("mensaje", ""))])
+	var args := PackedStringArray(["res://tools/prueba_solo_por_sala_cliente.tscn", "--", "cliente_solo",
+		str(PUERTO), CODIGO, Identidad.id, "nube_local"])
+	args.append_array(extra)
+	var p_p := _lanzar(args, "prueba_solo_por_sala_P%s.log" % n)
+	var t := 0.0
+	while (OS.is_process_running(p_p) or OS.is_process_running(p_sala)) and t < 240.0:
+		await get_tree().create_timer(0.5).timeout
+		t += 0.5
+	ok(not OS.is_process_running(p_p), "[%s] el jugador ha terminado" % n)
+	ok(not OS.is_process_running(p_sala), "[%s] y la sala se ha cerrado sola al quedarse vacia" % n)
+	for p in [p_p, p_sala]:
+		if OS.is_process_running(p):
+			OS.kill(p)
+	var txt := _registro("prueba_solo_por_sala_P%s.log" % n)
+	for linea in txt.split("\n"):
+		if linea.begins_with("[P]"):
+			print("    " + linea)
+	return txt
+
+
+func _mi_jugador_en_la_ranura() -> JugadorData:
+	var d: SaveData = Perfil._inspeccionar_bd(SLOT, BDFilas.Ids.new()).get("datos")
+	var jd = d.jugadores.get(Identidad.id) if d != null else null
+	return jd if jd is JugadorData else null
+
+
+func _personaje(jd: JugadorData, uid: String):
+	for pj in jd.personajes:
+		if pj != null and pj.uid == uid:
+			return pj
+	return null
+
+
+func _excelia(pj) -> float:
+	var s := 0.0
+	for k in (pj.ability_internal as Dictionary):
+		s += float(pj.ability_internal[k])
+	return s
+
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	if Nube.es_remota():
@@ -65,42 +123,36 @@ func _ready() -> void:
 	var pid: String = Perfil._nube_id_de(bd)
 	bd.cerrar()
 
-	# --- Su sala ---
+	# --- Su sala, y entro yo, solo ---
 	var clave: String = Mundos.clave_de_ranura(SLOT)
-	DirAccess.make_dir_recursive_absolute(Sala.CARPETA)
-	var f := FileAccess.open(Sala.ruta_pedido(clave), FileAccess.WRITE)
-	f.store_string(CODIGO)
-	f.close()
-	var p_sala := _lanzar(["--", "sala", clave, str(PUERTO), Identidad.id, "nube_local", "sala_vacia=3",
-		"sala_espera=30"], "prueba_solo_por_sala_sala.log")
-	var est: Dictionary = {}
-	for i in 400:
-		await get_tree().create_timer(0.1).timeout
-		est = Sala.leer_estado(clave)
-		if String(est.get("estado", "")) in ["lista", "error"]:
-			break
-	ok(String(est.get("estado", "")) == "lista", "la sala esta lista (%s)" % str(est.get("mensaje", "")))
-
-	# --- Entro yo, solo ---
-	var p_p := _lanzar(PackedStringArray(["res://tools/prueba_solo_por_sala_cliente.tscn", "--", "cliente_solo",
-		str(PUERTO), CODIGO, Identidad.id, "nube_local"]), "prueba_solo_por_sala_P.log")
-	var t := 0.0
-	while (OS.is_process_running(p_p) or OS.is_process_running(p_sala)) and t < 220.0:
-		await get_tree().create_timer(0.5).timeout
-		t += 0.5
-	ok(not OS.is_process_running(p_p), "el jugador ha terminado")
-	ok(not OS.is_process_running(p_sala), "y la sala se ha cerrado sola al quedarse vacia")
-	for p in [p_p, p_sala]:
-		if OS.is_process_running(p):
-			OS.kill(p)
-	var txt := _registro("prueba_solo_por_sala_P.log")
-	for linea in txt.split("\n"):
-		if linea.begins_with("[P]"):
-			print("    " + linea)
+	var txt: String = await _sala_y_jugador(clave, PackedStringArray(), "1")
 	ok(txt.contains("[P] RESULTADO: TODO PASA"), "el jugador acaba bien")
-	var sala_txt := _registro("prueba_solo_por_sala_sala.log")
+	var sala_txt := _registro("prueba_solo_por_sala_sala1.log")
 	ok(sala_txt.contains("[sala] pausa de solo: 0 -> 2"), "la sala ha parado el mundo por un menu")
 	ok(sala_txt.contains("[sala] pausa de solo: 0 -> 1"), "y el mapa por una pelea")
+
+	# --- Lo ganado y el sitio, EN LA RANURA ---
+	var uid := ""
+	var excelia := -1.0
+	for linea in txt.split("\n"):
+		if linea.begins_with("[P] dato lider="):
+			var partes := linea.substr(15).split(" excelia=")
+			uid = partes[0]
+			excelia = float(partes[1])
+	ok(uid != "", "el jugador ha apuntado lo que gano")
+	var jd: JugadorData = _mi_jugador_en_la_ranura()
+	ok(jd != null, "estoy en la ranura")
+	if jd != null:
+		ok(jd.en_mazmorra and jd.current_floor == 1, "guardado DENTRO del piso 1 (%s, piso %d)" % [
+			str(jd.en_mazmorra), jd.current_floor])
+		var pj = _personaje(jd, uid)
+		ok(pj != null and absf(_excelia(pj) - excelia) < 0.01, "con la excelia ganada en la pelea (%.4f, esperaba %.4f)" % [
+			_excelia(pj) if pj != null else -1.0, excelia])
+
+	# --- Vuelvo a entrar: sala nueva, de vuelta al piso 1 ---
+	if uid != "":
+		var txt2: String = await _sala_y_jugador(clave, PackedStringArray(["vuelta", uid, "%.4f" % excelia]), "2")
+		ok(txt2.contains("[P] RESULTADO: TODO PASA"), "la vuelta acaba bien")
 	await Nube.partida_borrar(pid)   # de la nube LOCAL de pruebas: que no se quede ahi
 	_borrar_ranura()
 	print("TODO BIEN" if fallos == 0 else "%d FALLOS" % fallos)

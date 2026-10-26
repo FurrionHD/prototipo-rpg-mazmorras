@@ -4,6 +4,10 @@
 #   2) Peleo con uno: el mapa se para (el otro slime no se mueve); la pelea sigue.
 #   3) En la pelea abro un menu: la pelea espera (las barras no se mueven); lo cierro y sigue. Y va a x2.
 #   4) Acabo la pelea: todo en marcha otra vez.
+#   5) (etapa 4) Al pueblo y al piso 1 DE VERDAD (lo de la arena no se guarda): gano una pelea, que la monta la sala, y
+#      apunto lo ganado (la excelia de mi lider) para que la prueba lo busque en la ranura cuando la sala se cierre.
+# Con "vuelta <uid> <excelia>" detras de los argumentos es la SEGUNDA entrada: por el camino del menu
+# (Mundos.entrar_al_mundo) la sala me devuelve al piso 1, con mi lider como lo deje.
 # Lo que se mueve en el mapa se mira por lo que MANDA el trabajador (_objetivo del enemigo remoto), no por donde lo
 # pinto: con mi juego en pausa mis dibujos no se mueven aunque el trabajador si.
 extends "res://tools/prueba_town_dos_comun.gd"
@@ -22,7 +26,12 @@ func _ready() -> void:
 	var puerto := int(args[i + 1])
 	var codigo: String = args[i + 2]
 	Identidad.id = args[i + 3]
+	var v := args.find("vuelta")
 	Net.partida.entrada_lista.connect(func():
+		if v >= 0:
+			await Mundos.entrar_al_mundo()   # el del menu: al pueblo, y si estaba abajo, de vuelta a mi piso
+			_entrado = true
+			return
 		var arbol := get_tree()
 		arbol.change_scene_to_file("res://scenes/levels/town.tscn")
 		await arbol.process_frame
@@ -33,7 +42,13 @@ func _ready() -> void:
 	_ok(await _hasta(func(): return _entrado, 60.0), "entro con lo de mi ranura")
 	_ok(Net._num_humanos == 1, "estoy solo: somos %d" % Net._num_humanos)
 	await _esperar(1.0)
-	await _guion()
+	if v >= 0:
+		await _vuelta(args[v + 1], float(args[v + 2]))
+	else:
+		await _guion()
+	# SALGO COMO EL JUEGO (menu de pausa o la X de la ventana): le pido a la sala que guarde lo mio y espero a que lo diga.
+	# Con un desconectar() a pelo la sala solo tenia lo de su ultimo autoguardado (cada 60 s).
+	_ok(await Ventana.pedir_guardado_al_anfitrion(), "al salir, la sala guarda lo mio")
 	print("[P] RESULTADO: ", "TODO PASA" if fallos.is_empty() else "FALLAN %d" % fallos.size())
 	Net.desconectar()
 	await _esperar(1.0)
@@ -79,6 +94,13 @@ func _cuanto_se_mueven(seg: float, ids: Array = []) -> float:
 			if (ids.is_empty() or ids.has(nid)) and ahora.has(nid):
 				maximo = maxf(maximo, (ahora[nid] as Vector2).distance_to(antes[nid]))
 	return maximo
+
+
+func _excelia(pj) -> float:
+	var s := 0.0
+	for k in (pj.ability_internal as Dictionary):
+		s += float(pj.ability_internal[k])
+	return s
 
 
 func _suma_barras(p: Node) -> float:
@@ -174,3 +196,40 @@ func _guion() -> void:
 	_ok(await _hasta(func(): return not Game.hay_pelea_en_pantalla(), 10.0), "salgo de la pelea")
 	_ok(await _hasta(func(): return Net.pausa_solo == 0, 10.0), "y el mapa vuelve a ir (%d)" % Net.pausa_solo)
 
+	# --- 5) En la mazmorra de verdad: lo que gano peleando se queda en mi ranura ---
+	Net.pisos.viajar_al_pueblo()
+	_ok(await _hasta(func(): return Net._mi_lugar == "pueblo", 30.0), "salgo de la arena al pueblo")
+	await _esperar(2.0)
+	Net.pisos.solicitar_entrar(1)
+	_ok(await _hasta(func(): return Net._mi_lugar == "piso:1", 40.0), "bajo al piso 1")
+	_ok(await _hasta(func(): return enemigo_libre() != null, 20.0), "hay enemigos en el piso")
+	# La excelia la gana QUIEN ACTUA (26/10: a veces los golpes los da un compañero y el lider no gana nada): se mira el
+	# grupo entero, y para la ranura se apunta al que mas ha ganado.
+	var grupo: Array = [Game.lider()] + Game.companeros()
+	var antes: Dictionary = {}
+	for pj in grupo:
+		antes[pj.uid] = _excelia(pj)
+	var antes_grupo := excelia_grupo()
+	await pelear_con(enemigo_libre())
+	_ok(Game.hay_pelea_en_pantalla(), "peleo en el piso 1 (la pelea la monta la sala)")
+	_ok(await pelear_hasta_el_final(90.0), "y la gano")
+	_ok(excelia_grupo() > antes_grupo, "peleando gana excelia el grupo (%.4f -> %.4f)" % [antes_grupo, excelia_grupo()])
+	_ok(Net._mi_lugar == "piso:1", "y sigo en el piso 1 (%s)" % Net._mi_lugar)
+	var mejor = grupo[0]
+	for pj in grupo:
+		if _excelia(pj) - float(antes[pj.uid]) > _excelia(mejor) - float(antes[mejor.uid]):
+			mejor = pj
+	print("[P] dato lider=%s excelia=%.4f" % [mejor.uid, _excelia(mejor)])
+
+
+# LA VUELTA: entro otra vez (sala nueva, la de antes se cerro) y estoy donde lo deje, con lo ganado.
+func _vuelta(uid: String, excelia: float) -> void:
+	_ok(await _hasta(func(): return Net._mi_lugar == "piso:1", 60.0), "la sala me devuelve al piso 1 (%s)" % Net._mi_lugar)
+	var suyo = null   # el del grupo que mas gano en la pelea (ver el final de _guion)
+	for pj in [Game.lider()] + Game.companeros():
+		if pj != null and pj.uid == uid:
+			suyo = pj
+	_ok(suyo != null, "con el mismo grupo (esta %s)" % uid)
+	if suyo != null:
+		_ok(absf(_excelia(suyo) - excelia) < 0.01, "y con la excelia que gane (%.4f, esperaba %.4f)" % [
+			_excelia(suyo), excelia])
