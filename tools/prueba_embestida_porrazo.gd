@@ -5,6 +5,9 @@
 #   godot --headless --path . res://tools/prueba_embestida_porrazo.tscn
 extends Node
 
+var mi_sala = null   # su sala: tools/prueba_sala_propia.gd
+var _av: Node2D = null   # el cuerpo del humano al que embisten
+
 var _mal: int = 0
 
 
@@ -32,19 +35,25 @@ func _esperar(n: int) -> void:
 		await get_tree().process_frame
 
 
+# EN SU SALA (etapa 4, 26/10): el piso lo monta la sala una vez, y el que embiste es el CUERPO DE UN HUMANO (un avatar):
+# en la sala los enemigos no abren pelea contra el nodo 'player', se la empujan a su dueño.
 func _montar() -> Array:
-	get_tree().change_scene_to_file("res://scenes/levels/main.tscn")
-	await _esperar(30)
-	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	if mi_sala == null:
+		mi_sala = preload("res://tools/prueba_sala_propia.gd").new()
+		add_child(mi_sala)
+		if not await mi_sala.arrancar("prueba_embestida_porrazo", 1, 424242, false):
+			print("MAL: no arranca la sala")
+			get_tree().quit(1)
+			return []
+		await _esperar(30)
+	var piso: Node = mi_sala.piso.primero(&"dungeon_floor")
 	var gen: DungeonGenerator = piso.gen
 	for e in get_tree().get_nodes_in_group("enemy"):
 		e.global_position = Vector2(-5000, -5000)
 		e.set_physics_process(false)
-	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
 	for a in get_tree().get_nodes_in_group("aliado"):
-		if a != jug:
-			a.global_position = Vector2(-8000, -8000)
-			a.set_physics_process(false)
+		a.global_position = Vector2(-8000, -8000)
+		a.set_physics_process(false)
 	# Una celda de sala con sitio a la derecha.
 	var sitio := Vector2i(-1, -1)
 	for z in gen.zonas:
@@ -57,10 +66,11 @@ func _montar() -> Array:
 	var en = piso.crear_enemigo(data, pe, 30.0, 0.5, 0, false)
 	await _esperar(3)
 	en.global_position = pe
-	jug.set_physics_process(false)   # quieto: sin teclas en headless, y que no le empuje nada
-	jug.global_position = pe + Vector2(40, 0)
+	if _av == null:
+		_av = mi_sala.avatar(pe + Vector2(40, 0))
+	mi_sala.mover_avatar(_av, pe + Vector2(40, 0))
 	await get_tree().physics_frame
-	return [en, jug]
+	return [en, _av]
 
 
 func _correr() -> void:
@@ -68,7 +78,6 @@ func _correr() -> void:
 	if ref is SaveData:
 		Game.importar_partida(ref)
 	Game.semilla_mundo = 424242
-	Game.current_floor = 1
 
 	print("1) se aparta antes del porrazo: no entra")
 	var par: Array = await _montar()
@@ -77,7 +86,7 @@ func _correr() -> void:
 	en._lanzar_embestida(jug)
 	var dur: float = en._embiste_dur
 	await get_tree().physics_frame
-	jug.global_position += Vector2(400, 0)
+	mi_sala.mover_avatar(jug, jug.global_position + Vector2(400, 0))
 	var t: float = 0.0
 	while t < dur + 0.3 and not en._combat_triggered:
 		await get_tree().physics_frame

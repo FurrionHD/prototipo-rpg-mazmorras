@@ -4,6 +4,8 @@
 #   godot --headless --path . res://tools/prueba_zona_otra_sala.tscn
 extends Node
 
+var mi_sala = null   # su sala: tools/prueba_sala_propia.gd
+
 var _mal: int = 0
 
 
@@ -46,10 +48,18 @@ func _correr() -> void:
 	for semilla in [424242, 1234, 98765, 55555, 777]:
 		Game.semilla_mundo = semilla
 		for piso_n in [1, 2, 3, 4]:
-			Game.current_floor = piso_n
-			get_tree().change_scene_to_file("res://scenes/levels/main.tscn")
+			# EN SU SALA (etapa 4, 26/10): el piso lo monta la sala; para probar otro, se quita y se monta el siguiente.
+			if mi_sala == null:
+				mi_sala = preload("res://tools/prueba_sala_propia.gd").new()
+				add_child(mi_sala)
+				if not await mi_sala.arrancar("prueba_zona_otra_sala", piso_n, semilla, false):
+					print("MAL: no arranca la sala")
+					get_tree().quit(1)
+					return
+			elif not await mi_sala.remontar(piso_n, semilla):
+				continue
 			await _esperar(30)
-			var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+			var piso: Node = mi_sala.piso.primero(&"dungeon_floor")
 			if piso == null or piso.get("gen") == null:
 				continue
 			var gen: DungeonGenerator = piso.gen

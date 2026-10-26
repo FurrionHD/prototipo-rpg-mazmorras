@@ -4,6 +4,8 @@
 # BIEN/MAL por comprobacion.
 extends Node
 
+var sala = null   # su sala: tools/prueba_sala_propia.gd
+
 var _mal: int = 0
 
 
@@ -57,7 +59,7 @@ func _cristales_en_suelo() -> Array:
 
 func _slime(jug: Node2D, desp: Vector2) -> Node2D:
 	var antes: Array = get_tree().get_nodes_in_group("enemy").duplicate()
-	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/slime.tres", jug.global_position + desp, {})
+	sala.poner("res://scenes/actors/enemy/slime.tres", desp, {})
 	await _esperar(10)
 	for e in get_tree().get_nodes_in_group("enemy"):
 		if not antes.has(e):
@@ -67,14 +69,13 @@ func _slime(jug: Node2D, desp: Vector2) -> Node2D:
 
 
 func _correr() -> void:
-	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
-	if ref is SaveData:
-		Game.importar_partida(ref)
-	Game.semilla_mundo = 424242
-	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
-	await _esperar(5)
-	Game.entrar_arena_de_pruebas()
-	await _esperar(15)
+	# EN SU SALA (etapa 4, 26/10): la prueba es la sala y la pelea se abre por donde la abre ella.
+	sala = preload("res://tools/prueba_sala_propia.gd").new()
+	add_child(sala)
+	if not await sala.arrancar("prueba_comer_cristales", Game.PISO_ARENA):
+		print("MAL: no arranca la sala")
+		get_tree().quit(1)
+		return
 	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
 	if jug == null:
 		print("MAL: no hay jugador")
@@ -100,7 +101,7 @@ func _correr() -> void:
 		get_tree().quit(1)
 		return
 	e._facing = Vector2.RIGHT
-	Game.soltar_en_suelo(_cristal(1, Cristal.Calidad.NORMAL), e.global_position + Vector2(40, 0))  # dentro del olfato: lo nota mire donde mire
+	Game.soltar_en_suelo(_cristal(1, Cristal.Calidad.NORMAL), e.global_position + Vector2(40, 0), 1, sala.piso.lugar)  # dentro del olfato: lo nota mire donde mire
 	await _esperar(2)
 	_ver(_cristales_en_suelo().size() == 1, "el cristal esta en el suelo")
 	_ver(await _esperar_a(func() -> bool: return e._state == e.State.COMER, 2.0), "va a por el (estado COMER)")
@@ -117,7 +118,7 @@ func _correr() -> void:
 	e._state = e.State.CHASE
 	e._facing = Vector2.LEFT
 	await _esperar(3)
-	Game.soltar_en_suelo(_cristal(1, Cristal.Calidad.NORMAL), e.global_position + Vector2(-50, 0))
+	Game.soltar_en_suelo(_cristal(1, Cristal.Calidad.NORMAL), e.global_position + Vector2(-50, 0), 1, sala.piso.lugar)
 	_ver(await _esperar_a(func() -> bool: return e._state == e.State.COMER, 2.0), "deja de perseguir y va al cristal")
 	await _esperar_a(func() -> bool: return _cristales_en_suelo().is_empty(), 6.0)
 	jug.global_position = e.global_position + Vector2(-1500, -1500)
@@ -134,7 +135,7 @@ func _correr() -> void:
 		var tx: Texture2D = e._sprite.sprite_frames.get_frame_texture(e._sprite.animation, 0)
 		return e._sprite.scale.y * (tx.get_height() if tx != null else 1.0)
 	var esc0: float = alto_visto.call()
-	Game.soltar_en_suelo(_cristal(1, Cristal.Calidad.NORMAL), e.global_position + Vector2(40, 0))
+	Game.soltar_en_suelo(_cristal(1, Cristal.Calidad.NORMAL), e.global_position + Vector2(40, 0), 1, sala.piso.lugar)
 	_ver(await _esperar_a(func() -> bool: return e.mutante, 8.0), "muta")
 	await _esperar(2)
 	_ver(String(e._sprite.animation).begins_with("evolucion"), "con su animacion de transformacion (%s; es %s, visible %s, tiene evolucion_0: %s, meta gesto_comer %s)" % [

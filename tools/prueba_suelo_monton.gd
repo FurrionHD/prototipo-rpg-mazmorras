@@ -6,6 +6,8 @@
 #   godot --headless --path . res://tools/prueba_suelo_monton.tscn
 extends Node
 
+var mi_sala = null   # su sala: tools/prueba_sala_propia.gd
+
 var _mal: int = 0
 
 
@@ -32,9 +34,13 @@ func _correr() -> void:
 	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
 	if ref is SaveData:
 		Game.importar_partida(ref)
-	Game.semilla_mundo = 4016831469
-	Game.current_floor = 1
-	get_tree().change_scene_to_file("res://scenes/levels/main.tscn")
+	# EN SU SALA (etapa 4, 26/10): la prueba es la sala, con el piso montado como lo monta ella.
+	mi_sala = preload("res://tools/prueba_sala_propia.gd").new()
+	add_child(mi_sala)
+	if not await mi_sala.arrancar("prueba_suelo_monton", 1, 4016831469, false):
+		print("MAL: no arranca la sala")
+		get_tree().quit(1)
+		return
 	var piso: Node = null
 	for i in 600:
 		await get_tree().process_frame

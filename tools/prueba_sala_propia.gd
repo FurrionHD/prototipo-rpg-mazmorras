@@ -56,6 +56,26 @@ func arrancar(nombre: String, numero: int, semilla: int = 424242, cargar_ref: bo
 	if puerto < 0:
 		push_error("[sala propia] no se pudo abrir ningun puerto desde el %d" % puerto_de(nombre))
 		return false
+	if not await _montar_piso(numero):
+		return false
+	print("[sala propia] %s: sala en el puerto %d, piso %d montado, jugador en %s" % [nombre, puerto, numero,
+		str(jugador.global_position.round())])
+	return true
+
+
+# Otro piso (y otra semilla): se quita el que hay y se monta este, con el jugador dentro. Para las pruebas que buscan un
+# sitio raro probando pisos (zona_otra_sala).
+func remontar(numero: int, semilla: int = -1) -> bool:
+	if semilla >= 0:
+		Game.semilla_mundo = semilla
+	if piso != null and is_instance_valid(piso):
+		Net.servidor.desmontar(piso.piso_red)
+	piso = null
+	jugador = null
+	return await _montar_piso(numero)
+
+
+func _montar_piso(numero: int) -> bool:
 	var juega: int = Game.arena_piso_juego if numero == Game.PISO_ARENA else numero
 	Game.fijar_piso(numero)
 	piso = Net.servidor.montar(numero, juega)
@@ -78,8 +98,6 @@ func arrancar(nombre: String, numero: int, semilla: int = 424242, cargar_ref: bo
 		var sala: Rect2i = suelo.gen.salas[0]
 		var celda := Vector2i(sala.get_center().x, sala.end.y - 4) if numero == Game.PISO_ARENA else sala.get_center()
 		jugador.recolocar(suelo.gen.centro_px(celda))
-	print("[sala propia] %s: sala en el puerto %d, piso %d montado, jugador en %s" % [nombre, puerto, numero,
-		str(jugador.global_position.round())])
 	for i in 10:
 		await get_tree().physics_frame
 	return true
@@ -190,3 +208,22 @@ func pelear_con_vecinos(nodo, emboscada: bool = true) -> Node:
 	if not grupo.has(nodo):
 		grupo.push_front(nodo)
 	return await pelear(grupo, emboscada)
+
+
+# EL CUERPO DE UN HUMANO en el piso, como los ve la sala: un remote_player con su peer_id (el de mentira, PEER_PRUEBA) y
+# ese humano apuntado en ese piso (Net._peers). Es lo que embisten los enemigos en la sala: contra el nodo 'player' no
+# abren pelea (enemy._start_combat), se la EMPUJAN a su dueño (Net.peleas.empujar_pelea).
+func avatar(pos: Vector2) -> Node2D:
+	var av: Node2D = preload("res://scripts/actors/player/remote_player.gd").new()
+	piso.add_child(av)
+	av.set_meta("peer_id", PEER_PRUEBA)
+	Net._peers[PEER_PRUEBA] = {"lugar": piso.lugar, "nombre": "Prueba", "pos": pos}
+	av.global_position = pos
+	av.ir_a(pos)
+	return av
+
+
+# Lleva al avatar a 'pos' de golpe (el remote_player va siempre hacia su ultimo destino: se mueven los dos).
+func mover_avatar(av: Node2D, pos: Vector2) -> void:
+	av.global_position = pos
+	av.ir_a(pos)
