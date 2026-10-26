@@ -62,13 +62,23 @@ func _montar() -> Array:
 			break
 	var C: float = float(DungeonGenerator.CELDA)
 	var pe: Vector2 = (Vector2(sitio) + Vector2(0.5, 0.5)) * C
+	# EL CUERPO, ANTES QUE EL ENEMIGO. El piso duerme (sin fisica) a los enemigos lejos de todos los jugadores
+	# (dungeon_floor._congelar_lejanos, cada poco): creado con el cuerpo aun donde lo dejo el caso anterior (+400), si
+	# el barrido caia en medio el enemigo se quedaba dormido medio segundo y la embestida salia tarde. Pasaba a ratos,
+	# con el ordenador cargado (la bateria a 4 a la vez).
+	if _av == null:
+		_av = mi_sala.avatar(pe + Vector2(40, 0))
+	mi_sala.mover_avatar(_av, pe + Vector2(40, 0))
 	var data: EnemyData = load("res://scenes/actors/enemy/slime.tres")
 	var en = piso.crear_enemigo(data, pe, 30.0, 0.5, 0, false)
 	await _esperar(3)
 	en.global_position = pe
-	if _av == null:
-		_av = mi_sala.avatar(pe + Vector2(40, 0))
 	mi_sala.mover_avatar(_av, pe + Vector2(40, 0))
+	# Y despierto: si un barrido lo pillo antes de colocarlo, el siguiente (con el cuerpo ya al lado) lo enciende.
+	for _i in 120:
+		if en.is_physics_processing():
+			break
+		await get_tree().physics_frame
 	await get_tree().physics_frame
 	return [en, _av]
 
