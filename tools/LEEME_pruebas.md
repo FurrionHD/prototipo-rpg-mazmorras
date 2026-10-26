@@ -106,8 +106,12 @@ sala.poner("res://scenes/actors/enemy/rata.tres", Vector2(200, -40))   # respect
 var combat: Node = await sala.pelear()                                  # contra los enemigos del piso
 ```
 
-En la sala el árbol **no se pausa** con la pelea: el mapa sigue vivo y gasta tiradas del azar. Lo que la prueba mire,
-que lo mire en el momento en que pasa (quién era el más cercano al lanzar, no tres segundos después).
+Como la sala de verdad jugando uno solo, `pelear()` **para el mapa** mientras dura la pelea (`Net.pausa_solo`,
+`servidor_pisos.pausar`): sin eso el mapa gasta tiradas del azar y la prueba deja de salir siempre igual. Aun así, lo que
+la prueba mire, que lo mire en el momento en que pasa (quién era el más cercano al lanzar, no tres segundos después: la
+pelea sigue jugando turnos). Dos detalles de la sala: su pantalla de combate cuelga del `PeleaViva`, no de la raíz
+(búscala con `get_tree().root.get_children() + sala.capas()`), y va **oculta**, así que `is_visible_in_tree()` de su HUD
+es siempre falso (mira `visible` hasta la pantalla). La pelea no se cierra sola: ciérrala tú (Continuar).
 
 ## Cuando una prueba falla
 

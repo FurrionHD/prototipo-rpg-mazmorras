@@ -120,7 +120,17 @@ func pelear(contra: Array = [], emboscada: bool = false) -> Node:
 		pe.queue_free()
 		pe = null
 		return null
-	Net.peleas._peleas[pe.id] = pe
+	# NO va a Net.peleas._peleas: la sala cierra sola la pelea acabada sin humanos delante (_cierre_de), y esta no tiene
+	# ninguno; se cerraria antes de verse morir al ultimo. La cierran las pruebas (Continuar), como sin red.
+	# EL MAPA PARADO mientras dure, como hace la sala de verdad jugando uno solo (Net._revisar_pausa_solo: peleando, el MAPA
+	# quieto). Sin esto el mapa sigue vivo, gasta tiradas del azar y las pruebas dejan de salir siempre igual (26/10:
+	# bajos_tactico fallaba 1 de cada 6). Los de la pelea siguen: la pelea los pone en PROCESS_MODE_ALWAYS.
+	Net.pausa_solo = Net.PAUSA_SOLO_MAPA
+	Net.servidor.pausar(true)
+	pe.tree_exiting.connect(func():
+		Net.pausa_solo = 0
+		if Net.servidor != null:
+			Net.servidor.pausar(false))
 	# EL SEQUITO QUIETO mientras dure: sin red el arbol entero se pausaba con la pelea; en la sala no, y party_trail solo
 	# mira la pelea de la maquina (Game.pelea), no la del piso. Los compañeros volvian andando detras del lider y no se
 	# quedaban donde los pone la pelea. (En la sala de verdad el grupo son los avatares de la red, que no tienen sequito.)
@@ -133,3 +143,9 @@ func pelear(contra: Array = [], emboscada: bool = false) -> Node:
 	for i in 5:
 		await get_tree().process_frame
 	return p
+
+
+# Las capas donde buscar la pantalla de combate (las pruebas la buscan entre las CanvasLayer de la raiz): en la sala la
+# de la pelea cuelga de su PeleaViva, no de la raiz.
+func capas() -> Array:
+	return [pe.capa] if pe != null and is_instance_valid(pe) and is_instance_valid(pe.capa) else []

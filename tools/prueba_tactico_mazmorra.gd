@@ -5,6 +5,8 @@
 #   godot --headless --path . res://tools/prueba_tactico_mazmorra.tscn
 extends Node
 
+var sala = null   # su sala: tools/prueba_sala_propia.gd
+
 var _fallos: int = 0
 
 
@@ -32,14 +34,15 @@ func _esperar(n: int) -> void:
 
 
 func _correr() -> void:
-	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
-	if ref is SaveData:
-		Game.importar_partida(ref)
-	Game.semilla_mundo = 424242
-	Game.current_floor = 1
-	get_tree().change_scene_to_file("res://scenes/levels/main.tscn")
+	# EN SU SALA (etapa 4, 26/10): la prueba es la sala, con el piso 1 montado como lo monta ella.
+	sala = preload("res://tools/prueba_sala_propia.gd").new()
+	add_child(sala)
+	if not await sala.arrancar("prueba_tactico_mazmorra", 1):
+		print("MAL: no arranca la sala")
+		get_tree().quit(1)
+		return
 	await _esperar(30)
-	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	var piso: Node = sala.piso.primero(&"dungeon_floor")
 	if piso == null or piso.get("gen") == null:
 		print("MAL: no hay piso")
 		get_tree().quit(1)
@@ -99,10 +102,10 @@ func _pelea_en(gen: DungeonGenerator, px: Vector2, pasillo: bool, que: String) -
 			break
 	e.global_position = sitio
 	await _esperar(3)
-	e._start_combat(true)
+	await sala.pelear([e], true)   # le embiste el: emboscada, como e._start_combat(true)
 	await _esperar(10)
 	var combat: Node = null
-	for n in get_tree().root.get_children():
+	for n in get_tree().root.get_children() + sala.capas():
 		if n is CanvasLayer:
 			for h in n.get_children():
 				if h.get("tactico") != null:
@@ -136,7 +139,8 @@ func _pelea_en(gen: DungeonGenerator, px: Vector2, pasillo: bool, que: String) -
 	combat._state = combat.State.FINISHED
 	combat._on_continue_pressed()
 	await _esperar(20)
-	_afirmar(not is_instance_valid(Game.get("_arena_nodo")), "%s: al acabar la arena se quita" % que)
+	# La de ESA pelea (en la sala Game._arena_nodo es la de la maquina, que no es ninguna).
+	_afirmar(not is_instance_valid(arena), "%s: al acabar la arena se quita" % que)
 
 
 func _pelea_jugada(gen: DungeonGenerator, px: Vector2) -> void:
@@ -163,10 +167,10 @@ func _pelea_jugada(gen: DungeonGenerator, px: Vector2) -> void:
 	var grupo_antes: Dictionary = {}
 	for pj in Game.companeros():
 		grupo_antes[pj] = (pj.ability_internal as Dictionary).duplicate()
-	e._start_combat(true)
+	await sala.pelear([e], true)   # le embiste el: emboscada, como e._start_combat(true)
 	await _esperar(10)
 	var combat: Node = null
-	for n in get_tree().root.get_children():
+	for n in get_tree().root.get_children() + sala.capas():
 		if n is CanvasLayer:
 			for h in n.get_children():
 				if h.get("tactico") != null:
@@ -249,7 +253,9 @@ func _pelea_jugada(gen: DungeonGenerator, px: Vector2) -> void:
 		_afirmar(bool(combat._player_won), "JUGADA: la ganamos")
 		combat._on_continue_pressed()
 	await _esperar(30)
-	_afirmar(not is_instance_valid(Game.get("_arena_nodo")), "JUGADA: se cierra y vuelvo al mapa")
+	# Mira SU pelea (en la sala Game._arena_nodo es la de la maquina, que no es ninguna).
+	_afirmar(not (is_instance_valid(sala.pe) and (Game.hay_pelea_en_pantalla(sala.pe) or is_instance_valid(sala.pe.arena_nodo))),
+		"JUGADA: se cierra y vuelvo al mapa")
 	# EL CADAVER: durante la pelea se desvanece y al acabar vuelve a verse para recogerlo.
 	_afirmar(visto_desvanecido, "JUGADA: el enemigo muerto se marca para desvanecerse durante la pelea")
 	_afirmar(is_instance_valid(e) and e.esta_muerto() and e.modulate.a > 0.99 and not e.has_meta("muerto_en_pelea"),

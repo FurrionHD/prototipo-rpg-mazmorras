@@ -5,6 +5,8 @@
 #   godot --headless --path . res://tools/prueba_mut_profundo.tscn
 extends Node
 
+var sala = null   # su sala: tools/prueba_sala_propia.gd
+
 var _mal: int = 0
 
 
@@ -67,14 +69,13 @@ func _empuja(tm, c: Combatant) -> bool:
 # (07/10) EL DADO FIJO: ningun estado entra seguro (StatusEffects.PROB_TECHO = 95 %), asi que se fija la semilla
 # antes de cada habilidad que se mira: misma tirada en cada pasada, la prueba no depende de la suerte.
 func _correr() -> void:
-	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
-	if ref is SaveData:
-		Game.importar_partida(ref)
-	Game.semilla_mundo = 424242
-	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
-	await _esperar(5)
-	Game.entrar_arena_de_pruebas()
-	await _esperar(15)
+	# EN SU SALA (etapa 4, 26/10): la prueba es la sala y la pelea se abre por donde la abre ella.
+	sala = preload("res://tools/prueba_sala_propia.gd").new()
+	add_child(sala)
+	if not await sala.arrancar("prueba_mut_profundo", Game.PISO_ARENA):
+		print("MAL: no arranca la sala")
+		get_tree().quit(1)
+		return
 	var ed: EnemyData = load("res://scenes/actors/enemy/slime_profundo.tres")
 
 	print("1) EL ARBOL")
@@ -126,21 +127,21 @@ func _correr() -> void:
 
 	print("4) LA PELEA")
 	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
-	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/slime_profundo.tres", jug.global_position + Vector2(70, 0), {})
-	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/slime_profundo.tres", jug.global_position + Vector2(90, 40), {})
+	sala.poner("res://scenes/actors/enemy/slime_profundo.tres", Vector2(70, 0), {})
+	sala.poner("res://scenes/actors/enemy/slime_profundo.tres", Vector2(90, 40), {})
 	await _esperar(25)
 	var nodos: Array = get_tree().get_nodes_in_group("enemy")
 	nodos[0].mutar(0.0)
 	nodos[1].mutar(0.0)
 	nodos[1].mutar(0.0)
 	await _esperar(5)
-	if not Game.start_combat(nodos, false):
+	if not (await sala.pelear(nodos, false) != null):
 		print("FIN: HAY FALLOS (no arranca la pelea)")
 		get_tree().quit(1)
 		return
 	await _esperar(8)
 	var combat: Node = null
-	for n in get_tree().root.get_children():
+	for n in get_tree().root.get_children() + sala.capas():
 		if n is CanvasLayer:
 			for h in n.get_children():
 				if h.get("tactico") != null:

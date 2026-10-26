@@ -4,6 +4,8 @@
 #   godot --headless --path . res://tools/prueba_mut_veneno.tscn
 extends Node
 
+var sala = null   # su sala: tools/prueba_sala_propia.gd
+
 var _mal: int = 0
 
 
@@ -40,16 +42,15 @@ func _burbujas(tm) -> Array:
 
 
 func _correr() -> void:
-	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
-	if ref is SaveData:
-		Game.importar_partida(ref)
-	Game.semilla_mundo = 424242
-	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
-	await _esperar(5)
-	Game.entrar_arena_de_pruebas()
-	await _esperar(15)
+	# EN SU SALA (etapa 4, 26/10): la prueba es la sala y la pelea se abre por donde la abre ella.
+	sala = preload("res://tools/prueba_sala_propia.gd").new()
+	add_child(sala)
+	if not await sala.arrancar("prueba_mut_veneno", Game.PISO_ARENA):
+		print("MAL: no arranca la sala")
+		get_tree().quit(1)
+		return
 	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
-	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/slime_veneno.tres", jug.global_position + Vector2(70, 0), {})
+	sala.poner("res://scenes/actors/enemy/slime_veneno.tres", Vector2(70, 0), {})
 	await _esperar(25)
 	var nodo = get_tree().get_nodes_in_group("enemy")[0]
 	# Muta de verdad, paso a paso: venenoso -> miasma -> pestilente (el sprite y el humo se cambian solos).
@@ -58,13 +59,13 @@ func _correr() -> void:
 	nodo.mutar(0.0)
 	_ver(nodo.mutacion == &"pestilente", "y el miasma en slime pestilente")
 	await _esperar(5)
-	if not Game.start_combat([nodo], false):
+	if not (await sala.pelear([nodo], false) != null):
 		print("MAL: no se abre la pelea")
 		get_tree().quit(1)
 		return
 	await _esperar(8)
 	var combat: Node = null
-	for n in get_tree().root.get_children():
+	for n in get_tree().root.get_children() + sala.capas():
 		if n is CanvasLayer:
 			for h in n.get_children():
 				if h.get("tactico") != null:
