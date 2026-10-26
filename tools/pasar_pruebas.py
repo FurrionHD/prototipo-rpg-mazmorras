@@ -106,7 +106,9 @@ AYUDANTES = {
 def es_de_red(nombre: str) -> bool:
     return (nombre.startswith("prueba_town_") or nombre.startswith("prueba_sala")
             or nombre in {"prueba_tunel", "prueba_solo_por_sala", "prueba_menu_por_sala", "prueba_lan_por_sala", "prueba_baul_sala", "prueba_zona_otra_sala",
-                          "prueba_vinculo_steam", "prueba_bd_nube"})
+                          "prueba_vinculo_steam", "prueba_bd_nube",
+                          # (etapa 4, 26/10) el JUGADOR con su sala: dos Godot cada una (tools/prueba_con_jugador.gd)
+                          "prueba_orden_dibujo", "prueba_barras_registro", "prueba_lista_enemigos", "prueba_huida_lider"})
 
 # Las que NO son una prueba sin ventana (necesitan pantalla de verdad): no se pasan.
 NO_SIN_VENTANA = {"prueba_rueda_cristales"}
@@ -142,6 +144,10 @@ COMO_SE_LANZA = {
     "prueba_bd_altf4": [{"env": {"ALTF4_FASE": "1"}, "prepara": True}, {"env": {"ALTF4_FASE": "2"}}],
     "prueba_town_pelea_sala": NUBE_LOCAL,
     "prueba_town_pelea_guardada": NUBE_LOCAL,
+    "prueba_orden_dibujo": NUBE_LOCAL,
+    "prueba_barras_registro": NUBE_LOCAL,
+    "prueba_lista_enemigos": NUBE_LOCAL,
+    "prueba_huida_lider": NUBE_LOCAL,
 }
 
 # LAS QUE VAN DE UNA EN UNA aunque no sean de red: tocan las mismas ranuras de guardado (user://, la ranura 97...) y
@@ -157,7 +163,8 @@ TOPES = {             # las que tardan mas de lo normal cuando van bien
     "prueba_cargar_todo": 180,
     "prueba_huella_combate": 180,
     "prueba_companeros_pueblo": 300,
-    "prueba_solo_por_sala": 420,     # dos entradas por su sala (etapa 4): la de siempre y la vuelta
+    "prueba_solo_por_sala": 420,
+    "prueba_huida_lider": 360,       # ~2,5 min: dos huidas con el dado de la sala (a veces hacen falta varios intentos)     # dos entradas por su sala (etapa 4): la de siempre y la vuelta
     "prueba_town_dos_peleas": 480,      # ~5 min: seis peleas en la sala, y la cortesia de 60 s de B al caerse
     "prueba_town_dos_jugadores": 360,   # ~3-4 min: dos jugadores, cuatro peleas y la arena   # ~105 s: recorre el pueblo andando y corriendo
 }

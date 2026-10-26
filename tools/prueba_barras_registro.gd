@@ -2,8 +2,11 @@
 # jugador de fuera (o los de BARRAS_JUGADORES=A,B) con cuatro personajes cada uno (como si llegaran por red) y se mira que su borde derecho, en
 # pantalla, quede a la izquierda de la columna del registro y los botones; al acabar la pelea vuelve a su escala.
 # Con ventana y BARRAS_SALIDA=/ruta/base saca una captura.
-#   godot --headless --path . res://tools/prueba_barras_registro.tscn
+#   godot --headless --path . res://tools/prueba_barras_registro.tscn -- nube_local
+# El HUD lo pone la maquina del JUGADOR: desde la etapa 4 (26/10) la prueba es el jugador, con su sala, en espejo.
 extends Node
+
+var j = null   # el jugador con su sala: tools/prueba_con_jugador.gd
 
 var _mal: int = 0
 
@@ -42,35 +45,25 @@ func _ver(ok: bool, que: String) -> void:
 
 
 func _correr() -> void:
-	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
-	if ref is SaveData:
-		Game.importar_partida(ref)
-	Game.semilla_mundo = 424242
-	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
-	await _esperar(5)
-	Game.entrar_arena_de_pruebas()
-	await _esperar(15)
-	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
-	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/guardian_rango.tres", jug.global_position + Vector2(-220, 70), {})
-	await _esperar(25)
-	if not Game.start_combat(get_tree().get_nodes_in_group("enemy"), false):
-		print("MAL: no se abre la pelea")
+	# EL JUGADOR CON SU SALA (etapa 4, 26/10): esto lo hace la maquina que pinta, la del jugador (tools/prueba_con_jugador.gd).
+	j = preload("res://tools/prueba_con_jugador.gd").new()
+	add_child(j)
+	if not await j.arrancar("prueba_barras_registro", 71):
+		print("MAL: no arranca la sala o no entro")
+		await j.cerrar()
 		get_tree().quit(1)
 		return
-	var combat: Node = null
-	await _esperar(5)
-	for n in get_tree().root.get_children():
-		if n is CanvasLayer:
-			for h in n.get_children():
-				if h.get("tactico") != null:
-					combat = h
+	var nodo: Node2D = await j.poner("res://scenes/actors/enemy/guardian_rango.tres", Vector2(-220, 70), {"modo": 1, "hp": 5.0})
+	var combat: Node = await j.pelear(nodo) if nodo != null else null
 	if combat == null or not combat.tactico:
-		print("MAL: la pelea no es tactica")
+		print("MAL: la pelea no se abre o no es tactica")
+		await j.cerrar()
 		get_tree().quit(1)
 		return
 	var t = combat.turno_mapa
 	if not await _esperar_a(func() -> bool: return t._fase == t.Fase.MOVIENDO, 20.0):
 		print("MAL: no llego un turno de los tuyos")
+		await j.cerrar()
 		get_tree().quit(1)
 		return
 	await _esperar(3)
@@ -117,4 +110,5 @@ func _correr() -> void:
 	print("     fuera de la pelea: escala %.2f" % f_fuera)
 	_ver(f_fuera >= f, "fuera de la pelea no se encoge mas que dentro")
 	print("FIN: TODO BIEN" if _mal == 0 else "FIN: %d MAL" % _mal)
+	await j.cerrar()
 	get_tree().quit(0 if _mal == 0 else 1)

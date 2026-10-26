@@ -1,8 +1,10 @@
 # LA LISTA DE ENEMIGOS DEL PANEL DERECHO (B6, playtest 11/10). Pelea en la arena contra el minotauro, una rata y un
 # slime: debajo de la ficha del apuntado sale una fila por cada uno de los demas vivos, con su vida; pulsar una fila
 # le apunta; y la lista no se mete debajo de la barra de acciones. Con ventana y LISTA_SALIDA=/ruta/base, captura.
-#   godot --headless --path . res://tools/prueba_lista_enemigos.tscn
+#   godot --headless --path . res://tools/prueba_lista_enemigos.tscn -- nube_local
 extends Node
+
+var j = null   # el jugador con su sala: tools/prueba_con_jugador.gd
 
 var _mal: int = 0
 
@@ -41,37 +43,29 @@ func _ver(ok: bool, que: String) -> void:
 
 
 func _correr() -> void:
-	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
-	if ref is SaveData:
-		Game.importar_partida(ref)
-	Game.semilla_mundo = 424242
-	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
-	await _esperar(5)
-	Game.entrar_arena_de_pruebas()
-	await _esperar(15)
-	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
-	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/guardian_rango.tres", jug.global_position + Vector2(-220, 70), {})
-	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/rata.tres", jug.global_position + Vector2(200, -40), {})
-	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/slime.tres", jug.global_position + Vector2(180, 90), {})
-	await _esperar(25)
-	if not Game.start_combat(get_tree().get_nodes_in_group("enemy"), false):
-		print("MAL: no se abre la pelea")
+	# EL JUGADOR CON SU SALA (etapa 4, 26/10): el panel lo pinta la maquina del jugador (tools/prueba_con_jugador.gd). Los
+	# tres JUNTOS delante de el: como jugador entran en la pelea los que caen en su zona.
+	j = preload("res://tools/prueba_con_jugador.gd").new()
+	add_child(j)
+	if not await j.arrancar("prueba_lista_enemigos", 72):
+		print("MAL: no arranca la sala o no entro")
+		await j.cerrar()
 		get_tree().quit(1)
 		return
-	var combat: Node = null
-	await _esperar(5)
-	for n in get_tree().root.get_children():
-		if n is CanvasLayer:
-			for h in n.get_children():
-				if h.get("tactico") != null:
-					combat = h
+	var nodo: Node2D = await j.poner("res://scenes/actors/enemy/guardian_rango.tres", Vector2(0, 130), {})
+	await j.poner("res://scenes/actors/enemy/rata.tres", Vector2(70, 170), {})
+	await j.poner("res://scenes/actors/enemy/slime.tres", Vector2(-70, 170), {})
+	var combat: Node = await j.pelear(nodo) if nodo != null else null
 	if combat == null or not combat.tactico:
-		print("MAL: la pelea no es tactica")
+		print("MAL: la pelea no se abre o no es tactica")
+		await j.cerrar()
 		get_tree().quit(1)
 		return
+	await _esperar_a(func() -> bool: return combat._enemies.size() >= 3, 10.0)
 	var t = combat.turno_mapa
 	if not await _esperar_a(func() -> bool: return t._fase == t.Fase.MOVIENDO, 20.0):
 		print("MAL: no llego un turno de los tuyos")
+		await j.cerrar()
 		get_tree().quit(1)
 		return
 	await _esperar(3)
@@ -107,4 +101,5 @@ func _correr() -> void:
 		_ver(not ficha._filas.any(func(f): return f["c"] == otro) and ficha._filas.any(func(f): return f["c"] == apuntado),
 			"y la lista pasa a tener al de antes en su lugar")
 	print("FIN: TODO BIEN" if _mal == 0 else "FIN: %d MAL" % _mal)
+	await j.cerrar()
 	get_tree().quit(0 if _mal == 0 else 1)

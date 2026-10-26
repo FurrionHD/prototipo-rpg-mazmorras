@@ -4,8 +4,10 @@
 #   1) va en cabeza el que huyo;
 #   2) el cuerpo que mueves esta donde estaba el (no donde estaba el lider de antes);
 #   3) si huye el lider, sigue siendo el lider.
-#   godot --headless --path . res://tools/prueba_huida_lider.tscn
+#   godot --headless --path . res://tools/prueba_huida_lider.tscn -- nube_local
 extends Node
+
+var j = null   # el jugador con su sala: tools/prueba_con_jugador.gd
 
 var _mal: int = 0
 
@@ -45,44 +47,47 @@ func _pantalla() -> Node:
 
 # Abre una pelea contra un slime y hace huir a 'quien' (indice en Game.party). Devuelve donde estaba su cuerpo.
 func _huir_con(quien: int) -> Vector2:
-	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
-	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/slime.tres", jug.global_position + Vector2(90, 0), {})
-	await _esperar(25)
-	var bichos: Array = get_tree().get_nodes_in_group("enemy")
-	if bichos.is_empty() or not Game.start_combat([bichos[0]], false):
+	# Como un jugador (etapa 4, 26/10): la pelea la lleva la sala y el dado lo tira ella. En el turno del que tiene que huir
+	# se le pone en el borde y se pulsa Huir (el sexto boton, que lejos del borde es Pasar); en los de los demas, Defender.
+	var nodo: Node2D = await j.poner("res://scenes/actors/enemy/slime.tres", Vector2(90, 0), {})
+	var combat: Node = await j.pelear(nodo) if nodo != null else null
+	if combat == null:
 		print("MAL: no se abre la pelea")
 		return Vector2.INF
-	await _esperar(10)
-	var combat: Node = _pantalla()
-	combat.set_process(false)
 	var pj: PersonajeData = Game.party[quien]
-	var c: Combatant = Game.combatant_de_pj(pj)
-	var cuerpo: Node2D = combat.turno_mapa.cuerpo_de(c) if combat.turno_mapa.has_method("cuerpo_de") else null
-	var donde: Vector2 = cuerpo.global_position if cuerpo != null else Vector2.INF
-	for e in combat._enemies:
-		e.abilities.agilidad = 1   # que nadie le pille: aqui se mira lo de despues, no el dado
-	combat._player = c
-	var intentos := 0
-	while combat._state != combat.State.FINISHED and intentos < 20:
-		combat._state = combat.State.WAITING_PLAYER
-		combat._accion_huir()
-		intentos += 1
-	combat._on_continue_pressed()
+	var t = combat.turno_mapa
+	var donde: Vector2 = Vector2.INF
+	var t0: int = Time.get_ticks_msec()
+	while Net.peleas.espejando() and Time.get_ticks_msec() - t0 < 60000:
+		var p: Node = j.pantalla()
+		if p != null and is_instance_valid(p) and int(p.get("_state")) == 1 and t._fase == t.Fase.MOVIENDO \
+				and t._quien != null and is_instance_valid(t._cuerpo):
+			if Game.pj_mio_de(t._quien) == pj:
+				if j.huir():
+					donde = t._cuerpo.global_position   # desde donde huye: el borde
+					print("  [dev] turno de %s: pulso Huir desde %s" % [t._quien.nombre, str(donde.round())])
+			elif j.pulsar(3) or j.pulsar(0):
+				print("  [dev] turno de %s: defiende o ataca" % t._quien.nombre)
+		elif p != null and is_instance_valid(p) and int(p.get("_state")) == 1:
+			print("  [dev] me toca (estado 1) pero fase %s, quien %s" % [t._fase, t._quien.nombre if t._quien != null else "-"])
+		await _esperar(5)
+	await j._hasta(func(): return not Game.hay_pelea_en_pantalla() and not Net.peleas.espejando(), 10.0)
 	await _esperar(10)
 	return donde
 
 
 func _correr() -> void:
-	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
-	if ref is SaveData:
-		Game.importar_partida(ref)
-	Game.semilla_mundo = 424242
-	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
-	await _esperar(5)
-	Game.entrar_arena_de_pruebas()
-	await _esperar(15)
+	# EL JUGADOR CON SU SALA (etapa 4, 26/10): la huida la aplica el jugador al cerrar su espejo (tools/prueba_con_jugador.gd).
+	j = preload("res://tools/prueba_con_jugador.gd").new()
+	add_child(j)
+	if not await j.arrancar("prueba_huida_lider", 73):
+		print("MAL: no arranca la sala o no entro")
+		await j.cerrar()
+		get_tree().quit(1)
+		return
 	if Game.party.size() < 2:
 		print("MAL: hace falta un grupo de dos o mas")
+		await j.cerrar()
 		get_tree().quit(1)
 		return
 	Game.cambiar_lider(0)
@@ -106,4 +111,5 @@ func _correr() -> void:
 	_ver(Game.lider_idx == 1, "sigue en cabeza el mismo")
 
 	print("FIN: %s (%d MAL)" % ["TODO BIEN" if _mal == 0 else "HAY FALLOS", _mal])
+	await j.cerrar()
 	get_tree().quit(1 if _mal > 0 else 0)

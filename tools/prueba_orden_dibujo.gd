@@ -2,7 +2,9 @@
 # todos los personajes segun el aliado mas cercano de cada maquina. Ahora va en las bandas por altura de
 # Game._ordenar_munecos, con los muñecos: el de detras (mas arriba) por debajo del enemigo, el de delante por encima. Con
 # el Minotauro y el Rey Slime, uno de los tuyos detras y otro delante de cada uno. Sin ventana:
-#   godot --headless --path . res://tools/prueba_orden_dibujo.tscn
+#   godot --headless --path . res://tools/prueba_orden_dibujo.tscn -- nube_local
+# El orden lo pone la maquina que PINTA, la del jugador: desde la etapa 4 (26/10) la prueba es el jugador, con su sala
+# (tools/prueba_con_jugador.gd), y pelea en espejo contra cada uno por turno.
 extends Node
 
 const ENEMIGOS := ["guardian_rango", "rey_slime"]
@@ -43,44 +45,36 @@ func _ver(ok: bool, que: String) -> void:
 
 
 func _correr() -> void:
-	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
-	if ref is SaveData:
-		Game.importar_partida(ref)
-	Game.semilla_mundo = 424242
-	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
-	await _esperar(5)
-	Game.entrar_arena_de_pruebas()
-	await _esperar(15)
-	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
-	for i in ENEMIGOS.size():
-		Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/%s.tres" % ENEMIGOS[i],
-			jug.global_position + Vector2(-260 + 520 * i, 90), {})
-	await _esperar(25)
-	if not Game.start_combat(get_tree().get_nodes_in_group("enemy"), false):
-		print("MAL: no se abre la pelea")
+	var j = preload("res://tools/prueba_con_jugador.gd").new()
+	add_child(j)
+	if not await j.arrancar("prueba_orden_dibujo", 70):
+		print("MAL: no arranca la sala o no entro")
+		await j.cerrar()
 		get_tree().quit(1)
 		return
-	var combat: Node = null
-	await _esperar(5)
-	for n in get_tree().root.get_children():
-		if n is CanvasLayer:
-			for h in n.get_children():
-				if h.get("tactico") != null:
-					combat = h
-	if combat == null or not combat.tactico:
-		print("MAL: la pelea no es tactica")
-		get_tree().quit(1)
-		return
+	for nom in ENEMIGOS:
+		var nodo: Node2D = await j.poner("res://scenes/actors/enemy/%s.tres" % nom, Vector2(0, 110), {"modo": 1, "hp": 5.0})
+		var combat: Node = await j.pelear(nodo) if nodo != null else null
+		if combat == null or not combat.tactico:
+			_ver(false, "la pelea contra %s se abre en tactico" % nom)
+			continue
+		await _mirar(combat)
+		combat.set_process(true)
+		await j.pelear_hasta_el_final(60.0)
+	await j.cerrar()
+	print("=== FIN (%s) ===" % ("TODO BIEN" if _mal == 0 else "%d MAL" % _mal))
+	get_tree().quit(0 if _mal == 0 else 1)
+
+
+func _mirar(combat: Node) -> void:
 	var t = combat.turno_mapa
 	if not await _esperar_a(func() -> bool: return t._fase == t.Fase.MOVIENDO, 20.0):
-		print("MAL: no llego un turno de los tuyos")
-		get_tree().quit(1)
+		_ver(false, "llega un turno de los tuyos")
 		return
 	combat.set_process(false)
 	var al: Array = combat._aliados
 	if al.size() < 2:
-		print("MAL: hacen falta dos de los tuyos y hay %d" % al.size())
-		get_tree().quit(1)
+		_ver(false, "hacen falta dos de los tuyos y hay %d" % al.size())
 		return
 	for e in combat._enemies:
 		var cu_e: Node2D = t.cuerpo_de(e)
@@ -109,5 +103,3 @@ func _correr() -> void:
 		z_a = (t.cuerpo_de(al[0]).get("_muneco") as Node2D).z_index
 		z_b = (t.cuerpo_de(al[1]).get("_muneco") as Node2D).z_index
 		_ver(z_b < z_e and z_e < z_a, "cambiados de sitio, cambia el orden (%d < %d < %d)" % [z_b, z_e, z_a])
-	print("=== FIN (%s) ===" % ("TODO BIEN" if _mal == 0 else "%d MAL" % _mal))
-	get_tree().quit(0 if _mal == 0 else 1)
