@@ -46,35 +46,18 @@ func _ver(ok: bool, que: String) -> void:
 
 
 func _correr() -> void:
-	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
-	if ref is SaveData:
-		Game.importar_partida(ref)
-	Game.semilla_mundo = 424242
-	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
-	await _esperar(5)
-	Game.entrar_arena_de_pruebas()
-	await _esperar(15)
-	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
-	if jug == null:
-		print("MAL: no hay jugador")
+	# EN SU SALA (etapa 4, 26/10): la prueba es la sala y la pelea se abre por donde la abre ella.
+	var sala = preload("res://tools/prueba_sala_propia.gd").new()
+	add_child(sala)
+	if not await sala.arrancar("prueba_slimes_tactico", Game.PISO_ARENA):
+		print("MAL: no arranca la sala")
 		get_tree().quit(1)
 		return
-	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/slime.tres", jug.global_position + Vector2(70, 0), {})
+	sala.poner("res://scenes/actors/enemy/slime.tres", Vector2(70, 0))
 	await _esperar(25)
-	var enemigos: Array = get_tree().get_nodes_in_group("enemy")
-	if not Game.start_combat(enemigos, false):
-		print("MAL: no se abre la pelea")
-		get_tree().quit(1)
-		return
-	var combat: Node = null
-	await _esperar(5)
-	for n in get_tree().root.get_children():
-		if n is CanvasLayer:
-			for h in n.get_children():
-				if h.get("tactico") != null:
-					combat = h
+	var combat: Node = await sala.pelear()
 	if combat == null or not combat.tactico:
-		print("MAL: la pelea no es tactica")
+		print("MAL: la pelea no se abre o no es tactica")
 		get_tree().quit(1)
 		return
 	var t = combat.turno_mapa
@@ -271,6 +254,14 @@ func _correr() -> void:
 	t._colocar(al[1], t.cuerpo_de(al[1]), t.pies_de(e) + lado_r * (borde_r + 40) + de_lado * 70 - Vector2(0.0, PoseJugador.PIES_BAJO_NODO))
 	await _esperar(2)
 	var antes: Array = combat._enemies.duplicate()
+	# EL MAS CERCANO AL REY se mira AL LANZAR (26/10): es el que usa el juego (sitio_cria_acorrala). Mirado tras los 3 s de
+	# abajo, con la pelea en marcha, podia ser otro (en la sala, otra tirada: Catalardio se movio y fallaba "detras").
+	var cerca: Combatant = null
+	for a in al:
+		if a.is_alive() and (cerca == null or t.pies_de(a).distance_to(t.pies_de(e)) < t.pies_de(cerca).distance_to(t.pies_de(e))):
+			cerca = a
+	var pies_rey: Vector2 = t.pies_de(e)
+	var pies_cerca: Vector2 = t.pies_de(cerca)
 	combat.enemigos._enemy_use_ability(e, inv)
 	combat._fx.arrancar_cola()
 	var crias: Array = []
@@ -287,11 +278,7 @@ func _correr() -> void:
 				anims_cria[String((cc.get("_sprite") as AnimatedSprite2D).animation).get_slice("_", 0)] = true
 	_ver(crias.size() == 2, "el Brote mete 2 crias (hay %d)" % crias.size())
 	# (09/10, el 16 del playtest 08/10) DETRAS del tuyo mas cercano al Rey, para acorralaros, y NUNCA dentro del Rey.
-	var cerca: Combatant = null
-	for a in al:
-		if a.is_alive() and (cerca == null or t.pies_de(a).distance_to(t.pies_de(e)) < t.pies_de(cerca).distance_to(t.pies_de(e))):
-			cerca = a
-	var hacia: Vector2 = (t.pies_de(cerca) - t.pies_de(e)).normalized()
+	var hacia: Vector2 = (pies_cerca - pies_rey).normalized()
 	var caja_rey: Rect2 = t.bulto_de(e)
 	for c in crias:
 		var cc: Node2D = t.cuerpo_de(c)
@@ -303,7 +290,7 @@ func _correr() -> void:
 			str(cc.global_position.round()), str(t.pos_de(e).round()), cerca.nombre, str(t.pos_de(cerca).round()),
 			Cuerpos.hueco_entre(caja_c, caja_rey)])
 		_ver(Cuerpos.hueco_entre(caja_c, caja_rey) > 0.0, "y no esta DENTRO del Rey")
-		_ver((t.pies_de(c) - t.pies_de(cerca)).dot(hacia) > 0.0, "y cae DETRAS del tuyo mas cercano")
+		_ver((t.pies_de(c) - pies_cerca).dot(hacia) > 0.0, "y cae DETRAS del tuyo mas cercano")
 		_ver(not cc.has_meta("gesto_pelea"), "y ya ha acabado de nacer")
 	if crias.size() == 2 and t.cuerpo_de(crias[0]) != null and t.cuerpo_de(crias[1]) != null:
 		_ver(t.pos_de(crias[0]).distance_to(t.pos_de(crias[1])) >= t.SEPARA_CRIA - 0.5, "las dos no se pisan")

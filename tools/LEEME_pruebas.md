@@ -89,6 +89,26 @@ godot --headless --path . res://tools/prueba_mut_profundo.tscn
 El 07/10/2026 fallaban 7 pruebas y **ninguna era un fallo del juego**: o se habían quedado viejas tras un cambio,
 o no tenían en cuenta una mecánica. Estas son las trampas que salieron, para no volver a caer.
 
+## Pelear en una prueba: con SU SALA (26/10/2026)
+
+Jugar solo va siempre por la sala, y el camino sin red (`Game.start_combat` en un proceso sin sesión) se borra en la
+etapa 4. Una prueba que pelea **es la sala**: `tools/prueba_sala_propia.gd` arranca el proceso como ella (su puerto,
+sacado del nombre de la prueba), monta el piso o la arena como los monta ella, mete dentro al jugador con su grupo y
+abre la pelea donde la abre ella (un `PeleaViva` del piso). El grupo no tiene dueño, así que sus turnos se juegan desde
+la propia prueba y se puede seguir tocando la pelea por dentro (`combat.*`, `turno_mapa.*`). Un solo Godot por prueba:
+siguen yendo en paralelo.
+
+```gdscript
+var sala = preload("res://tools/prueba_sala_propia.gd").new()
+add_child(sala)
+if not await sala.arrancar("prueba_alcances", Game.PISO_ARENA): ...
+sala.poner("res://scenes/actors/enemy/rata.tres", Vector2(200, -40))   # respecto al jugador
+var combat: Node = await sala.pelear()                                  # contra los enemigos del piso
+```
+
+En la sala el árbol **no se pausa** con la pelea: el mapa sigue vivo y gasta tiradas del azar. Lo que la prueba mire,
+que lo mire en el momento en que pasa (quién era el más cercano al lanzar, no tres segundos después).
+
 ## Cuando una prueba falla
 
 1. Pásala con el código de antes (`git stash`, probar, `git stash pop`): ¿fallaba ya?

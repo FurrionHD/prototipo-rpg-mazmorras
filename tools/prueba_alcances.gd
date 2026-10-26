@@ -42,36 +42,25 @@ func _ver(ok: bool, que: String) -> void:
 
 
 func _correr() -> void:
-	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
-	if ref is SaveData:
-		Game.importar_partida(ref)
-	Game.semilla_mundo = 424242
-	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
-	await _esperar(5)
-	Game.entrar_arena_de_pruebas()
-	await _esperar(15)
-	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
-	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/guardian_rango.tres", jug.global_position + Vector2(-220, 70), {})
-	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/rata.tres", jug.global_position + Vector2(200, -40), {})
-	await _esperar(25)
-	if not Game.start_combat(get_tree().get_nodes_in_group("enemy"), false):
-		print("MAL: no se abre la pelea")
+	# EN SU SALA (etapa 4, 26/10): la prueba es la sala y la pelea se abre por donde la abre ella.
+	var sala = preload("res://tools/prueba_sala_propia.gd").new()
+	add_child(sala)
+	if not await sala.arrancar("prueba_alcances", Game.PISO_ARENA):
+		print("MAL: no arranca la sala")
 		get_tree().quit(1)
 		return
-	var combat: Node = null
-	await _esperar(5)
-	for n in get_tree().root.get_children():
-		if n is CanvasLayer:
-			for h in n.get_children():
-				if h.get("tactico") != null:
-					combat = h
+	sala.poner("res://scenes/actors/enemy/guardian_rango.tres", Vector2(-220, 70))
+	sala.poner("res://scenes/actors/enemy/rata.tres", Vector2(200, -40))
+	await _esperar(25)
+	var combat: Node = await sala.pelear()
 	if combat == null or not combat.tactico:
-		print("MAL: la pelea no es tactica")
+		print("MAL: la pelea no se abre o no es tactica")
 		get_tree().quit(1)
 		return
 	var t = combat.turno_mapa
 	if not await _esperar_a(func() -> bool: return t._fase == t.Fase.MOVIENDO, 20.0):
-		print("MAL: no llego un turno de los tuyos")
+		print("MAL: no llego un turno de los tuyos (estado %s, fase %s, turno de %s, pausa_solo %d)" % [combat.get("_state"),
+			t._fase, t._quien.nombre if t._quien != null else "-", Net.pausa_solo])
 		get_tree().quit(1)
 		return
 	await _esperar(3)
