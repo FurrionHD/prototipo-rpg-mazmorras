@@ -86,7 +86,7 @@ func _correr() -> void:
 				if a is Node2D:
 					(a as Node2D).global_position = junto + Vector2(40 + 16 * k, 0)
 					k += 1
-			Game.start_combat([presa], false),
+			preload("res://tools/pelea_local.gd").abrir([presa]),
 			func(): return Game.hay_pelea_en_pantalla())
 		var pantalla: Node = Game._active_layer.get_child(0) if Game._active_layer != null else null
 		if pantalla == null or not pantalla.has_method("_end"):

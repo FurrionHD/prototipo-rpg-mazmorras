@@ -340,7 +340,7 @@ func _entregar_pelea(para: int, ids: Array, emboscada: bool, anfitrion: int, _de
 
 
 # Corre en EL QUE PELEA: monta el combate contra sus propios espejos, o los METE en la pelea que ya
-# tenga abierta (hito 5.4). Se les puede pasar tal cual a Game.start_combat porque exponen
+# tenga abierta (hito 5.4). Se les puede pasar tal cual a Game._abrir_pelea porque exponen
 # data/current_t/hp_restante y saben morir().
 @rpc("any_peer", "call_remote", "reliable")
 func _pelea_resuelta(ids: Array, emboscada: bool = false, anfitrion: int = 0) -> void:
@@ -581,14 +581,6 @@ func _nodo_de_id(id: int):
 		var e: Dictionary = Net.enemigos._enemigos.get(id, {})
 		return e.get("nodo") if not e.is_empty() else null
 	return Net.enemigos._enem_nodos.get(id)
-
-
-# Puerta publica: la usa Game.retomar_combate, que tambien puede quedarse con bichos congelados si
-# el traspaso no cuaja. Aguanta que no haya sesion (en solitario no hay nada que devolver).
-func devolver_bichos(ids: Array) -> void:
-	if not Net.activo or ids.is_empty():
-		return
-	_devolver_bichos(ids)
 
 
 # Devolver bichos reservados que al final no entran en ninguna pelea (si no, se quedan congelados
@@ -949,7 +941,7 @@ func _moriste(pelea: int = 0) -> void:
 #
 # SE CRUZA POR UID, NO POR POSICION. Antes iba por indice contra _mis_en_pelea dando por hecho que
 # el lote volvia en el mismo orden en que mande las fichas, y esa premisa se rompe por dos sitios:
-#   - el TRASPASO de pelea (Game.retomar_combate) añade los dobles con un `if` sin `break`, asi que
+#   - el TRASPASO de pelea (el de antes de la sala) añadia los dobles con un `if` sin `break`, asi que
 #     si uno no cabe la lista del anfitrion queda CORRIDA respecto a mi formacion;
 #   - _mis_en_pelea puede haber cambiado de orden (cambiar de lider, recolocar el equipo) o ser de
 #     una union anterior, y aqui no se validaba ninguna id de pelea.
@@ -1730,7 +1722,6 @@ func _mio_de_la_plantilla(uid: String) -> PersonajeData:
 #  que vuelve le devuelve los suyos por el camino de las caidas (revisar_vuelta -> _vuelve -> _retoma_tu_pelea). El que
 #  no vuelva en CORTESIA sale con lo vivido apuntado en su ficha. Decidido (usuario, 22/10): mientras no vuelve nadie,
 #  sus enemigos andan libres, y si otro les pega la pelea guardada se olvida (sus dueños vuelven como si hubieran huido).
-#  Con red sustituye a la pelea a medias de solo (Game.pelea_para_guardar / retomar_pelea_guardada).
 #  Prueba: tools/prueba_town_pelea_guardada.gd
 # ------------------------------------------------------------
 # EN LA SALA: las que esperan a que vuelva alguno de los suyos: [{lugar, base, estado}].

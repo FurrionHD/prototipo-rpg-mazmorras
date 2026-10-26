@@ -33,11 +33,11 @@ var data: EnemyData = null
 var current_t: float = 0.5
 var extracted: bool = false    # lo mira player._mas_cercano_en_grupo para no ofrecerlo dos veces
 var radio_extra: float = 0.0   # los elites son mas gordos: se descuenta al medir la distancia
-# Vida arrastrada y bandera de jefe: Game.start_combat las lee con "in", asi que un espejo con
-# estos campos se puede pasar TAL CUAL a start_combat como si fuera un enemigo real.
+# Vida arrastrada y bandera de jefe: Game._abrir_pelea las lee con "in", asi que un espejo con
+# estos campos se puede pasar TAL CUAL a _abrir_pelea como si fuera un enemigo real.
 var hp_restante: float = -1.0
 var es_boss: bool = false
-# MUTANTE (mini-jefe). Parte del contrato del grupo "enemy" igual que es_boss: Game.start_combat lo
+# MUTANTE (mini-jefe). Parte del contrato del grupo "enemy" igual que es_boss: Game._abrir_pelea lo
 # lee con get() para montarle sus multiplicadores, asi que sin esto el invitado pelearia una rata
 # normal donde el anfitrion tiene un mutante con el triple de vida. Llega en el alta (Net.enemigos._datos_enemigo).
 var mutante: bool = false

@@ -169,7 +169,6 @@ const CONTACTO := 2.0
 # mazmorra de porrazos mientras el dueño estaba metido en su pantalla de combate.
 const REBOTE_ESPERA := 3.0
 
-signal combat_started(enemy_data: EnemyData, enemy_initiated: bool)
 
 # COMER (05/10): va a por un cristal del suelo, se lo come y a lo mejor muta (ver ComerCristales).
 enum State { WANDER, CHASE, RETURN, EMBESTIDA, COMER }
@@ -2372,76 +2371,9 @@ func _start_combat(enemy_initiated: bool) -> void:
 		if not Net.peleas.empujar_pelea(self, _objetivo.get_meta("peer_id"), enemy_initiated):
 			_rebotar()   # no ha colado (ya lo pelea alguien, o el otro esta ocupado): no insistir
 		return
-	# EN LA SALA (etapa 3) toda pelea es de un jugador: lo de abajo es el camino sin red, con el grupo de esta maquina
-	# (la sala no tiene). Si lo alcanzado no es el cuerpo de nadie, no hay pelea.
-	if Net.soy_sala:
-		_rebotar()
-		return
-	# Ya hay una pelea en marcha: en vez de rebotar, ME UNO a ella (hito 5.4). Si no cabe (tope de
-	# MAX_COMBATIENTES), me quedo ESPERANDO PEGADO y lo reintento: en cuanto muera uno, entro en su
-	# hueco. Ojo: NUNCA congelar al grupo antes de saber si la pelea arranca de verdad; hacerlo era
-	# lo que dejaba bichos de ESTATUA para siempre (sin IA, ocupando aforo y sin dar loot).
-	if Game.combate_activo():
-		if Game.unir_enemigo_al_combate(self):
-			_combat_triggered = true   # ya estoy dentro; el fin del combate me libera
-			velocity = Vector2.ZERO
-			_cancelar_aviso()
-		else:
-			_esperando_hueco = true    # la pelea esta llena: espero al lado a que caiga alguien
-			velocity = Vector2.ZERO
-			_cancelar_aviso()
-		return
-	# EL JUGADOR ACABA DE SALIRSE de una pelea (Continuar en el espejo) y el anfitrion aun le debe lo
-	# que vivieron sus personajes. Abrir otra pelea ahora es perderlo: el lote que viene de camino
-	# ASIGNA sobre la ficha y le pisaria lo que hiciera en esta.
-	#
-	# Quieto y sin marcar nada: esto son milisegundos (el lote sale en cuanto el anfitrion recibe el
-	# aviso, ver Net.peleas.salir_del_espejo) y el contacto vuelve a llamar aqui al frame siguiente. NO se
-	# usa _esperando_hueco, que es para una pelea LLENA y ademas se suelta solo en cuanto no hay
-	# pantalla delante -y aqui justo acaba de cerrarse-, asi que solo haria que parpadeara.
-	if Net.peleas.ocupado_en_pelea():
-		velocity = Vector2.ZERO
-		return
-	# Hay una PANTALLA delante que NO es una pelea: un minijuego de recoleccion (extraer un cristal,
-	# picar, recolectar, talar). Game.start_combat la rechaza en seco (`if _active_layer != null:
-	# return`), asi que seguir adelante congelaba al grupo entero SIN abrir pelea: se quedaban de
-	# estatua para siempre, sin IA, sin loot y ocupando aforo. Se espera pegado, igual que en una
-	# pelea llena: al cerrarse el minijuego se suelta _esperando_hueco y, como seguimos en contacto,
-	# _aliado_en_contacto vuelve a llamar aqui y la pelea se abre de verdad. En solitario no se veia
-	# porque el arbol esta en pausa con el minijuego delante y esto no llega a correr.
-	if Game.hay_pelea_en_pantalla():
-		_esperando_hueco = true
-		velocity = Vector2.ZERO
-		_cancelar_aviso()
-		return
-	var grupo: Array = vecinos()
-	# Se congela al GRUPO ENTERO, no solo a mi: los vecinos entran a la pelea, asi que no pueden
-	# seguir merodeando (ni disparar su propio combate) por el mapa mientras tanto.
-	for n in grupo:
-		n._combat_triggered = true
-		n.velocity = Vector2.ZERO
-		n._cancelar_aviso()
-	combat_started.emit(data, enemy_initiated)
-	# El compañero que este cerca se queda quieto en este mismo momento (ver Game.impacto_ajeno).
-	Game.avisar_impacto(global_position)
-	# RED DE SEGURIDAD: el grupo ya esta congelado, asi que si start_combat rechaza (aforo, nodos
-	# sin data, una carrera con otra pelea que se abrio en el mismo frame) hay que DESCONGELARLO.
-	# La guarda de hay_pelea_en_pantalla de arriba tapa el caso conocido, pero no los demas, y sin
-	# esto cualquier rechazo deja al grupo de estatua para siempre. Se les deja en _esperando_hueco,
-	# que se auto-recupera y reintenta la pelea sola en cuanto se despeje la pantalla.
-	if not Game.start_combat(grupo, enemy_initiated):
-		for n in grupo:
-			if is_instance_valid(n):
-				n._combat_triggered = false
-				n._esperando_hueco = true
-		return
-	# LA PELEA ARRANCO, pero puede no haberse llevado a TODO el grupo: start_combat descarta a los
-	# que no traigan EnemyData. A ese lo hemos congelado nosotros ahi arriba y ya no lo va a
-	# descongelar nadie -- no esta en la pelea, asi que su final no le llega. Estatua muda para
-	# siempre: sin IA, sin loot y ocupando aforo. Se le suelta aqui.
-	for n in grupo:
-		if is_instance_valid(n) and not Game.esta_en_combate(n):
-			n._combat_triggered = false
+	# Toda pelea es de un jugador (etapa 4: ya no hay camino sin red con el grupo de esta maquina). Si lo alcanzado no
+	# es el cuerpo de nadie, no hay pelea.
+	_rebotar()
 
 
 # Vuelve a la vida normal tras un combate del que NO moriste (huiste, o te mato otro).

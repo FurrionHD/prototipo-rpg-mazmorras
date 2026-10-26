@@ -403,7 +403,8 @@ const VERSION_MUNDO := 1
 # --- LA PELEA A MEDIAS de una partida de un jugador (fase 6 de la BD) ---
 # Si se guarda (o se cierra el juego) en mitad de una pelea, su foto: lo de cada combatiente (vida, mana,
 # energia, estados, barra, defensa, conjuros a medias), los enemigos por su "id_pelea" (lo lleva su
-# entrada en memoria_pisos) y el registro. Al cargar se rehace la pelea (Game.retomar_pelea_guardada).
+# entrada en memoria_pisos) y el registro. Ya no se escribe: solo la traen las
+# ranuras viejas de solo, y al pasarlas a mundo se convierte en la pelea guardada de la sala (Net.peleas.guardada_de_solo).
 # Vacia = no habia pelea. Ver combat_espejo.estado_para_guardar.
 @export var pelea_a_medias: Dictionary = {}
 # La LIBRETA PERMANENTE del mapa (piso -> snapshot congelado). Solo se comete al volver a casa vivo.

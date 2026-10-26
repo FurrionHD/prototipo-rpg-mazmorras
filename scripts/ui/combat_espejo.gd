@@ -488,7 +488,7 @@ func aplicar_instantanea(snap: Dictionary) -> void:
 #
 # La clave para que esto no sea un monstruo: casi todo el Combatant es DERIVADO (sale de la ficha
 # y del equipo, o del EnemyData), asi que el que la recoge lo RECONSTRUYE con el camino de siempre
-# —start_combat + unir_aliado_al_combate— y aqui solo viaja lo VOLATIL, lo que no se puede deducir:
+# —_abrir_pelea + unir_aliado_al_combate— y aqui solo viaja lo VOLATIL, lo que no se puede deducir:
 # vida, mana, aguante, estados, cargas, cooldowns, imbuicion, barras de ATB y conjuros a medias.
 
 # Lo que lleva un combatiente encima y no se puede reconstruir de su ficha.
@@ -701,7 +701,7 @@ func estado_para_traspaso(nuevo: int) -> Dictionary:
 # Corre en EL QUE RECOGE la pelea, con la pantalla ya montada por el camino de siempre: le vuelca
 # encima lo volatil de la pelea vieja. 'cs' son los combatientes de esta pantalla en el MISMO orden
 # que estado.aliados; 'filas_e' las filas de los enemigos que SI han venido (los vivos), en el
-# orden en que se le pasaron a start_combat, o sea el de _enemies.
+# orden en que se le pasaron a _abrir_pelea, o sea el de _enemies.
 func retomar(estado: Dictionary, cs: Array, filas_e: Array, texto := "Tomas el relevo de la pelea.") -> void:
 	var als: Array = estado.get("aliados", [])
 	for i in mini(cs.size(), als.size()):
@@ -823,7 +823,7 @@ func _vestir_maniqui(m: Combatant, real: Combatant) -> void:
 	# LAS CARGAS DE FOCO Y LOS COOLDOWNS NO SE COPIAN DE AQUI, y es a proposito.
 	#
 	# 'real' es un Combatant recien creado con la ficha, o sea que su foco vale 0 y su tabla de
-	# cooldowns esta VACIA (crear_player_combatant no los siembra: los pone start_combat /
+	# cooldowns esta VACIA (crear_player_combatant no los siembra: los pone _abrir_pelea /
 	# unir_aliado_al_combate despues). Copiarlos de aqui no era medio arreglo, era pintar ceros:
 	# el espejo enseñaba TODAS las habilidades listas, pulsabas una que en el anfitrion estaba en
 	# cooldown, y alli se rechazaba y salia un BASICO. El mismo agujero que el dual y que el foco,

@@ -672,7 +672,7 @@ func _pagina_atributos(c: Combatant) -> void:
 
 
 # LA ENERGIA MAXIMA no sale del Combatant: crear_player_combatant la deja a CERO y se la inyecta
-# start_combat leyendo el aguante del mapa (ver game.gd, donde se hace lo mismo para quien se une a
+# _abrir_pelea leyendo el aguante del mapa (ver game.gd, donde se hace lo mismo para quien se une a
 # mitad de pelea). Por eso la lupa ponia siempre "0". Aqui se pide por la misma via.
 func _energia_max(pj: PersonajeData) -> float:
 	var pl: Node = get_tree().get_first_node_in_group("player")
@@ -871,7 +871,7 @@ func _abrir_modal_atributos() -> void:
 	if c.max_mp > 0.0:
 		MenuScaffold.fila(vb, "  Maná máximo", "%.0f" % c.max_mp, 200)
 	# Por _energia_max y NO por c.max_energy: el combatiente recien creado la trae a cero (se la
-	# inyecta start_combat), asi que esta fila ponia "0" siempre.
+	# inyecta _abrir_pelea), asi que esta fila ponia "0" siempre.
 	MenuScaffold.fila(vb, "  Energía máxima", "%.0f" % _energia_max(pj), 200)
 
 	vb.add_child(HSeparator.new())

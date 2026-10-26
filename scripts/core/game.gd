@@ -1176,18 +1176,17 @@ func escribiendo() -> bool:
 
 
 # El UNICO sitio que escribe get_tree().paused: asi la pila y el booleano nunca se descuadran.
-# EN SOLITARIO: cualquier modal = arbol pausado (como siempre, las pociones no tiquean en el
-# menu, etc.). EN MULTI (Net.activo): NADA pausa el arbol — tu menu es asunto TUYO y el mundo
+# Un modal NO pausa el arbol (etapa 4: ya no hay juego sin red) — tu menu es asunto TUYO y el mundo
 # compartido sigue vivo (ves a tu companero moverse mientras compras). Lo que no debes hacer tu
 # mientras tanto (moverte, atacar) lo corta el Player consultando hay_modal(), no la pausa.
-# Nota asumida: en multi las pociones/colas SI tiquean con el menu abierto — inherente a que el
-# tiempo no se pare. Net llama a esto al abrir/cerrar sesion para aplicar el regimen que toque.
+# Nota asumida: las pociones/colas SI tiquean con el menu abierto — inherente a que el tiempo no se
+# pare. Net llama a esto al abrir/cerrar sesion para aplicar el regimen que toque.
 func _refrescar_pausa() -> void:
 	# Y en multi, si la sala se ha quedado sin nube (Net.pausa_red): todos quietos hasta que vuelva.
 	# JUGANDO UNO SOLO POR LA SALA (Net.pausa_solo): como en solitario. El juego del humano se para solo con un menu (con
 	# la pelea, sus enemigos del mapa se mueven por la red y tienen que verse).
 	var solo: bool = Net.pausa_solo >= Net.PAUSA_SOLO_TODO and not Net.soy_sala
-	get_tree().paused = ((not Net.activo) and (not _modal_stack.is_empty())) or Net.pausa_red or solo
+	get_tree().paused = Net.pausa_red or solo
 	Net.avisar_modales()
 
 # Profundidad actual de la mazmorra (para escalar dificultad). Aun sin pisos: 1.
@@ -2294,7 +2293,7 @@ func guardar_imbue_en_ficha(c: Combatant, pj: PersonajeData) -> void:
 # y se consume el pendiente. Simetrico a arrastrar_regen, que la lleva de vuelta al mapa.
 # CADA UNO arrastra la suya: la poción se la bebio una persona, no el grupo.
 #
-# Vive aparte y NO dentro de start_combat porque hay DOS caminos de entrada a una pelea, y tenerlo
+# Vive aparte y NO dentro de _abrir_pelea porque hay DOS caminos de entrada a una pelea, y tenerlo
 # escrito solo en uno es lo que hacia que al que se UNE a mitad se le malgastara la poción: entraba
 # sin la Regeneración, y su cola seguia goteando al vacio en su propia maquina.
 func cola_pocion_a_estado(pj: PersonajeData, c: Combatant) -> void:
@@ -2359,7 +2358,7 @@ func restaurar_estados_de_ficha(c: Combatant, pj: PersonajeData) -> void:
 
 
 # Le devuelve a un combatiente ENEMIGO los estados que su nodo se llevo de la pelea anterior. Existe
-# aparte (y no dentro de start_combat) por lo mismo que restaurar_estados_de_ficha: hay DOS caminos
+# aparte (y no dentro de _abrir_pelea) por lo mismo que restaurar_estados_de_ficha: hay DOS caminos
 # por los que un bicho entra a una pelea -- el arranque y unir_enemigo_al_combate --, y escribirlo
 # solo en uno se lo perderia para el que llega a mitad.
 func aplicar_estados_a_enemigo(c: Combatant, nodo) -> void:
@@ -2740,10 +2739,6 @@ var pos_cargada_pueblo: Vector2 = Vector2.INF
 # antes de tiempo. Ver exportar_partida.
 var sesion_guardada: Dictionary = {}
 
-# LA PELEA A MEDIAS que venia en la partida cargada (SaveData.pelea_a_medias): se rehace en cuanto el piso
-# esta montado (retomar_pelea_guardada, lo llama el DungeonFloor). De un solo uso.
-var pelea_guardada: Dictionary = {}
-
 # Habias guardado DENTRO de un piso cuyo trazado ha cambiado con este build (ver el sello de
 # SaveData.trazado): ese piso ya no es el que dejaste, asi que se sale al pueblo en vez de
 # aparecer en mitad de un mapa nuevo. Lo pone cargar_datos y lo lee el menu principal al elegir
@@ -3075,7 +3070,6 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -
 	pos_cargada = Vector2.INF
 	pos_cargada_pueblo = Vector2.INF
 	sesion_guardada = {}
-	pelea_guardada = {}
 	olvidar_mazmorra()
 	# Partida nueva SI reinicia lo persistente y el reloj (olvidar_mazmorra no los toca porque
 	# tienen que durar entre expediciones; una partida nueva es otra cosa).
@@ -3107,8 +3101,6 @@ func exportar_partida(para_volcado: bool = false) -> SaveData:
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	# En la arena se guarda como si estuvieras en el pueblo (ver _sin_arena).
 	var en_mazmorra: bool = piso != null and not _muriendo and not _sin_arena_en_curso
-	# LA PELEA A MEDIAS, ANTES del volcado del piso: marca a sus enemigos (id_pelea) y el volcado lo apunta.
-	var pelea: Dictionary = pelea_para_guardar() if en_mazmorra else {}
 	if en_mazmorra and piso.has_method("volcar_a_memoria"):
 		piso.volcar_a_memoria()
 
@@ -3308,7 +3300,6 @@ func exportar_partida(para_volcado: bool = false) -> SaveData:
 	# sesion: si no se guardaran, cerrar el juego levantaria a todos los jefes al instante.
 	d.bosses_sello = bosses_sello.duplicate()
 	_exportar_sesion(d)
-	d.pelea_a_medias = pelea
 
 	# Cabecera (lo que se ve en la lista de ranuras).
 	d.fecha = Time.get_datetime_string_from_system(false, true)
@@ -4123,7 +4114,6 @@ func importar_partida(d: SaveData) -> void:
 	tiempo_mazmorra = d.tiempo_mazmorra
 	bosses_sello = d.bosses_sello.duplicate()
 	pos_cargada = d.pos_jugador if d.en_mazmorra else Vector2.INF
-	pelea_guardada = d.pelea_a_medias.duplicate(true) if d.en_mazmorra else {}
 	# En el pueblo tambien (las partidas de antes de esto traen 0,0: esas a la plaza).
 	pos_cargada_pueblo = d.pos_jugador if not d.en_mazmorra and d.pos_jugador != Vector2.ZERO else Vector2.INF
 	sesion_guardada = {"fotos": d.sesion_fotos_piso.duplicate(true), "suelo": d.sesion_suelo.duplicate(true),
@@ -4211,70 +4201,6 @@ func importar_partida(d: SaveData) -> void:
 #
 # Y si habias guardado DENTRO de uno de esos pisos, sales al PUEBLO: aparecer en mitad de un mapa
 # que ya no es el que dejaste (dentro de un muro, en el peor caso) es peor que el viaje de vuelta.
-# ============================================================
-#  LA PELEA A MEDIAS (fase 6 de la BD, 07/10/2026): en una partida de un jugador, guardar (o cerrar el
-#  juego) en mitad de una pelea ya no la pierde. Se guarda su foto (combat_espejo.estado_para_guardar, la
-#  misma del traspaso de multi) y al cargar se rehace con los mismos enemigos, por el camino de siempre
-#  (start_combat) y con lo volatil encima (combat.retomar). En multi no: alli la pelea es de la sesion.
-# ------------------------------------------------------------
-func pelea_para_guardar() -> Dictionary:
-	if Net.activo or es_arena() or _sin_arena_en_curso or _muriendo or not hay_pelea_en_pantalla():
-		return {}
-	var combat: Node = _active_layer.get_child(0) if _active_layer.get_child_count() > 0 else null
-	if combat == null or bool(combat.get("_espejo")) or not combat.has_method("estado_para_guardar"):
-		return {}
-	if combat.has_method("acabada") and combat.acabada():
-		return {}   # ya acabada: lo que queda es cerrarla, no seguirla
-	return combat.estado_para_guardar()
-
-
-## La llama el DungeonFloor al montarse: si la partida traia una pelea a medias, se rehace.
-func retomar_pelea_guardada() -> void:
-	var estado: Dictionary = pelea_guardada
-	pelea_guardada = {}
-	if estado.is_empty() or Net.activo or combate_activo():
-		return
-	# Unos fotogramas: el piso acaba de restaurar a sus enemigos y de colocar al jugador.
-	for _i in 4:
-		await get_tree().process_frame
-	var por_id: Dictionary = {}
-	for n in get_tree().get_nodes_in_group("enemy"):
-		if is_instance_valid(n) and n.has_meta("id_pelea"):
-			por_id[int(n.get_meta("id_pelea"))] = n
-	var nodos: Array = []
-	var filas_e: Array = []
-	for e in estado.get("enemigos", []):
-		if not bool(e.get("vivo", true)):
-			continue
-		var n = por_id.get(int(e.get("id", -1)))
-		if not is_instance_valid(n):
-			continue
-		n.hp_restante = float(e["vol"].get("hp", -1.0))
-		if n.has_method("entrar_en_pelea"):
-			n.entrar_en_pelea()
-		nodos.append(n)
-		filas_e.append(e)
-	print("[pelea] la partida se guardo a media pelea: la sigo con %d de %d enemigos" % [
-		nodos.size(), (estado.get("enemigos", []) as Array).size()])
-	if nodos.is_empty() or not start_combat(nodos, false):
-		return
-	var combat: Node = _active_layer.get_child(0) if is_instance_valid(_active_layer) \
-		and _active_layer.get_child_count() > 0 else null
-	if combat == null:
-		return
-	# Mis personajes, por uid (el orden del equipo puede no ser el de la pelea).
-	var cs: Array = []
-	for fila in estado.get("aliados", []):
-		var c: Combatant = null
-		for x in _active_player_cs:
-			var pj: PersonajeData = pj_de_combatant(x)
-			if pj != null and String(pj.uid) == String(fila.get("uid", "")):
-				c = x
-				break
-		cs.append(c)
-	combat.retomar(estado, cs, filas_e, "La pelea sigue donde la dejaste.")
-
-
 # LA MAZMORRA VIVA DEL MUNDO al guardado: con sesion abierta (la sala, o el host de un mundo) sale de
 # Net, que es donde vive; sin sesion se vuelve a escribir la que vino al cargar (sesion_guardada).
 func _exportar_sesion(d: SaveData) -> void:
@@ -4412,8 +4338,7 @@ func morir_jugador() -> void:
 	# La mazmorra COMPARTIDA no se olvida por que caiga uno: eso pasa cuando habeis caido TODOS (ver
 	# Net.pisos._registrar_muerte). Va ANTES de olvidar_mazmorra, que es quien vacia la memoria local de la
 	# que sale la foto que se le pasa al que sigue dentro.
-	if Net.activo:
-		Net.pisos.morir_en_la_mazmorra()
+	Net.pisos.morir_en_la_mazmorra()
 
 	# Tu expedicion se acaba: vuelves al piso 1 y la mazmorra se olvida de lo que dejaste. En sesion
 	# esto solo tira TU cache local (la mazmorra de verdad la lleva el host).
@@ -7983,23 +7908,14 @@ func volver_al_pueblo_con_objeto(c: ConsumableData) -> bool:
 	# siendo el dueño de tu piso (nadie mas lo simulaba), no entregabas su foto de bichos, no se
 	# liberaban tus vetas, tu lugar seguia siendo "piso:N" y los demas veian tu avatar ahi abajo
 	# mientras tu estabas en el pueblo. Y la expedicion no se cerraba jamas por esta via.
-	if Net.activo:
-		# El VIAJE COMPARTIDO: los que estan dentro y a los que la piedra alcanza reciben la oferta
-		# de subirse. Va ANTES de viajar, que despues ya estamos en otra escena.
-		Net.jugadores.anunciar_retorno(c.piso_max_vuelta, player_nombre)
-		capturar_mapa()
-		comprometer_mapa()
-		Net.pisos.viajar_al_pueblo()   # se lleva la foto, suelta el piso, avisa al host y anuncia el lugar
-		return true
-	# Misma secuencia que la puerta del piso del boss (dungeon_exit.interact_with_player): vuelves
-	# VIVO, asi que lo cartografiado esta bajada SE COMETE al mapa permanente. Y como en todas las
-	# vueltas con vida, la mazmorra NO se olvida: la piedra es un atajo a casa, no un reinicio (si
-	# olvidara, usarla te borraria lo que has dejado tirado en los pisos).
-	capturar_mapa()          # antes de tocar current_floor: captura el piso que abandonas
+	# El VIAJE COMPARTIDO: los que estan dentro y a los que la piedra alcanza reciben la oferta
+	# de subirse. Va ANTES de viajar, que despues ya estamos en otra escena.
+	Net.jugadores.anunciar_retorno(c.piso_max_vuelta, player_nombre)
+	# Vuelves VIVO, asi que lo cartografiado esta bajada SE COMETE al mapa permanente (como por la puerta del piso
+	# del boss), y la mazmorra NO se olvida: la piedra es un atajo a casa, no un reinicio.
+	capturar_mapa()
 	comprometer_mapa()
-	cerrar_bajada()          # el piso del que te teletransportas queda como lo dejas
-	current_floor = 1
-	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
+	Net.pisos.viajar_al_pueblo()   # se lleva la foto, suelta el piso, avisa al host y anuncia el lugar
 	return true
 
 
@@ -9281,7 +9197,7 @@ func crear_player_combatant(pj: PersonajeData = null) -> Combatant:
 	c.runa_escudo_max = c.runa_escudo_agua
 	_aplicar_pasivas_slayer(c, p)   # multiplicadores de daño por familia (pasivas RNG)
 	# La IMBUICION que traia puesta del combate anterior. Va aqui, en la fabrica del combatiente, y
-	# no en start_combat, porque asi la recuperan TAMBIEN los que se unen a mitad de pelea
+	# no en _abrir_pelea, porque asi la recuperan TAMBIEN los que se unen a mitad de pelea
 	# (unir_aliado_al_combate pasa por esta misma funcion).
 	restaurar_imbue_de_ficha(c, p)
 	# La MUNICION que quedo cargada en la anterior (como la imbuicion), si es de esta arma.
@@ -9289,7 +9205,7 @@ func crear_player_combatant(pj: PersonajeData = null) -> Combatant:
 		c.poner_municion_de_ficha(p.municion_cargada, int((p.equipped_main as WeaponData).tipo))
 	# Y los ESTADOS con los que salio de la anterior: el veneno sigue corriendo, el buff sigue
 	# puesto. Aqui por lo mismo que la imbuicion: es la fabrica por la que pasan los dos caminos de
-	# entrada a una pelea (start_combat y unir_aliado_al_combate).
+	# entrada a una pelea (_abrir_pelea y unir_aliado_al_combate).
 	restaurar_estados_de_ficha(c, p)
 	return c
 
@@ -14864,8 +14780,7 @@ func dev_respawn() -> void:
 	_dev_cambiar_escena("")
 
 # LA ARENA DE PRUEBAS, por su porton del pueblo (scripts/town/porton_arena.gd). Es el piso PISO_ARENA:
-# en multi se entra como a cualquier piso (la lleva un trabajador y es COMPARTIDA) y en solitario se
-# construye igual, en main.tscn.
+# se entra como a cualquier piso (la lleva la sala y es COMPARTIDA).
 func entrar_arena_de_pruebas() -> void:
 	if es_arena():
 		return
@@ -14875,21 +14790,10 @@ func entrar_arena_de_pruebas() -> void:
 		return
 	print("[dev] Arena de pruebas: una sala grande + spawner")
 	limpiar_modales()
-	if Net.activo:
-		if Net.pisos.mi_piso() > 0:
-			Net.pisos.solicitar_piso(PISO_ARENA, false)
-		else:
-			Net.pisos.solicitar_entrar(PISO_ARENA)
-		return
-	# Solitario. Si vienes de un piso, sales de el como por la puerta (el mapa se queda y el piso se
-	# congela tal cual) y la mazmorra no se cierra.
-	if get_tree().get_first_node_in_group("dungeon_floor") != null:
-		capturar_mapa()
-		comprometer_mapa()
-		cerrar_bajada()
-	fijar_piso(PISO_ARENA)
-	await Cargando.cubrir_piso("Arena de pruebas")
-	get_tree().change_scene_to_file("res://scenes/levels/main.tscn")
+	if Net.pisos.mi_piso() > 0:
+		Net.pisos.solicitar_piso(PISO_ARENA, false)
+	else:
+		Net.pisos.solicitar_entrar(PISO_ARENA)
 
 
 # ============================================================
@@ -14946,11 +14850,7 @@ func _sin_arena(f: Callable):
 func _caer_en_arena() -> void:
 	salir_de_arena()
 	mensaje_muerte = "Has caído en la arena de pruebas. Aquí no se pierde nada."
-	if Net.activo:
-		Net.pisos.viajar_al_pueblo()
-		return
-	current_floor = 1
-	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
+	Net.pisos.viajar_al_pueblo()
 
 # N: salta el reloj 10 min de juego, para probar el respawn de recursos sin esperar.
 func dev_saltar_reloj() -> void:
@@ -15156,7 +15056,7 @@ func combate_activo(pe: PeleaViva = null) -> bool:
 
 # EL COMBATE ENCASQUILLADO. Hay DOS formas de preguntar "¿hay pelea?" y se pueden separar:
 # combate_activo() mira _active_enemies y hay_pelea_en_pantalla() mira _active_layer. El array se
-# llena AL PRINCIPIO de start_combat y solo se vacia AL CERRAR la pelea, asi que cualquier cosa que
+# llena AL PRINCIPIO de _abrir_pelea y solo se vacia AL CERRAR la pelea, asi que cualquier cosa que
 # se lleve los nodos o la pantalla por en medio lo deja lleno de basura para siempre:
 #   * el boton Limpiar del spawner liberaba bichos que estaban en la lista,
 #   * un cambio de escena,
@@ -15174,14 +15074,14 @@ func _destrabar_combate(pe: PeleaViva = null) -> void:
 	if pe == null:
 		pe = pelea
 	# MIENTRAS SE MONTA LA PELEA esto no puede opinar: entre que se apuntan los enemigos y se cuelga
-	# la pantalla hay medio start_combat de por medio, y ahi el estado "lista llena, capa nula" es
+	# la pantalla hay medio _abrir_pelea de por medio, y ahi el estado "lista llena, capa nula" es
 	# NORMAL. Sin el pestillo, cualquier cosa que preguntara combate_activo() en ese hueco borraba
 	# la pelea que se estaba montando.
 	#
 	# El pestillo es una MARCA DE TIEMPO y no un booleano a proposito: montar la pelea es sincrono
 	# (pasa entero en un frame), asi que si al llegar aqui la marca tiene mas de un segundo es que
 	# el montaje se quedo a medias -- y precisamente ese es el caso que hay que destrabar. Con un
-	# booleano, un error a mitad de start_combat dejaba el pestillo echado para siempre y esto no
+	# booleano, un error a mitad de _abrir_pelea dejaba el pestillo echado para siempre y esto no
 	# volvia a mirar nunca: el mismo cuelgue de antes, pero ahora tapado por la propia red.
 	if Time.get_ticks_msec() - pe.montaje_ms < 1000 or pe.enemigos.is_empty():
 		return
@@ -15216,7 +15116,7 @@ func muneco_de(nodo) -> Dictionary:
 
 
 # Convierte UN combatiente en muñeco de pruebas. Sacado a funcion porque hay DOS caminos de
-# entrada al combate y el segundo se olvida siempre: el del setup (start_combat) y el del refuerzo
+# entrada al combate y el segundo se olvida siempre: el del setup (_abrir_pelea) y el del refuerzo
 # que se une a mitad (unir_enemigo_al_combate). Sin esto, un bicho que llegaba tarde entraba con
 # sus stats de verdad y ensuciaba la medida sin que nada lo dijera.
 #   modo 1 (Saco):    DPS limpio -- ni defensa, ni esquiva, y no pega.
@@ -15240,7 +15140,7 @@ func volver_muneco(enemy_c: Combatant, player_c: Combatant, muneco: Dictionary =
 
 
 # ¿Este nodo concreto esta metido en la pelea en curso? Lo pregunta enemy.gd tras arrancar un
-# combate: congela a todo el grupo ANTES de pedirlo, y start_combat puede quedarse con solo una
+# combate: congela a todo el grupo ANTES de pedirlo, y _abrir_pelea puede quedarse con solo una
 # parte (descarta a los que no traigan EnemyData). Al que se quedo fuera hay que descongelarlo.
 func esta_en_combate(nodo: Node) -> bool:
 	return is_instance_valid(nodo) and PeleaViva.de_enemigo(nodo) != null
@@ -15339,7 +15239,7 @@ func unir_aliado_al_combate(pj: PersonajeData, overload: float = 1.0, pe: PeleaV
 	if pj.equipped_off is WeaponData and c.hands.size() < 2:
 		push_warning("[multi] %s entra a UNA mano y su ficha lleva de secundaria '%s' (ruta_base='%s')" % [
 			pj.nombre, str(pj.equipped_off.get("nombre")), ruta_base_de(pj.equipped_off)])
-	# ENERGIA DE COMBATE. No la calcula crear_player_combatant: se la inyecta start_combat leyendo
+	# ENERGIA DE COMBATE. No la calcula crear_player_combatant: se la inyecta _abrir_pelea leyendo
 	# el aguante del mapa. Un aliado que se une A MITAD no pasa por ahi, asi que entraba con la
 	# barra a CERO y sin poder usar habilidades ni Defender. aguante_de_grupo tira de la ficha para
 	# quien no es el lider, asi que sirve igual para el personaje de otro humano (su stamina viaja
@@ -15349,10 +15249,10 @@ func unir_aliado_al_combate(pj: PersonajeData, overload: float = 1.0, pe: PeleaV
 		c.max_energy = maxf(1.0, ag.y)
 		c.current_energy = clampf(ag.x if ag.x >= 0.0 else ag.y, 0.0, c.max_energy)
 	# Y su POCION a medias, por el mismo motivo que la energia: quien se une a mitad no pasa por
-	# start_combat, asi que entraba sin la Regeneracion y la cura se le quedaba goteando fuera de la
+	# _abrir_pelea, asi que entraba sin la Regeneracion y la cura se le quedaba goteando fuera de la
 	# pelea, al vacio. Es EL MISMO olvido que ya tenia la energia, dos lineas mas arriba.
 	cola_pocion_a_estado(pj, c)
-	# COOLDOWNS que viajan entre combates, con el mismo -1 por ENTRAR que hace start_combat. Sin
+	# COOLDOWNS que viajan entre combates, con el mismo -1 por ENTRAR que hace _abrir_pelea. Sin
 	# esto, unirse a mitad de pelea te los reseteaba: soltabas el nuke, salias, te unias a la pelea
 	# del compañero y lo volvias a tener listo. Para el doble de otro humano no valia mirar
 	# ability_cooldowns_persist (es un PersonajeData recien creado, no ha estado nunca ahi): sus CD
@@ -15394,11 +15294,11 @@ func unir_aliado_al_combate(pj: PersonajeData, overload: float = 1.0, pe: PeleaV
 	pe.aliados_cs.append(c)
 	pe.aliados_pjs.append(pj)
 	# El AGOTAMIENTO de correr por el mapa: quien llega sin fuelle pelea lento tambien si se une a
-	# mitad (start_combat ya lo pasaba por 'exhausted'; este camino se lo saltaba). La meta viaja en
+	# mitad (_abrir_pelea ya lo pasaba por 'exhausted'; este camino se lo saltaba). La meta viaja en
 	# la ficha para los dobles de otros humanos, igual que el sobrepeso.
 	if combat.anadir_aliado(c, bool(pj.get_meta("sin_fuelle", false))):
 		# El OTRO camino de entrada: te unes a una pelea que ya estaba abierta lanzando tu conjuro
-		# desde el mapa. Lo que solo se escribe en start_combat no existe para el que se une.
+		# desde el mapa. Lo que solo se escribe en _abrir_pelea no existe para el que se une.
 		_soltar_hechizo_de_entrada(combat, pj, pe)
 		_soltar_canto_a_medias(combat, pj, pe)
 		return true
@@ -15632,25 +15532,6 @@ func _soltar_cola_combate(pe: PeleaViva = null) -> void:
 	pe.cola.clear()
 
 
-# Abre el combate contra un enemigo de la mazmorra.
-# 'enemy_nodes' viene ORDENADO por enemy.gd: el [0] es el bicho que disparo el combate y detras
-# sus vecinos, de mas cerca a mas lejos. Ese orden manda: es la numeracion que vera el jugador y
-# el indice con el que vuelven los muertos en combat_finished.
-# No se pasa un EnemyData suelto: con varios bichos no hay "el" EnemyData, y cada nodo ya lleva
-# el suyo (.data) y su tirada (.current_t).
-# DEVUELVE si la pelea se ha montado. Antes era void y rechazaba EN SILENCIO, y quien la pedia ya
-# habia congelado a los bichos (_combat_triggered) sin manera de enterarse de que no habia pelea:
-# se quedaban de estatua para siempre, "peleando" con nadie. Ahora el que llama tiene que mirar el
-# resultado y devolverlos si sale false. Ver enemy._start_combat y Net.peleas._pelea_resuelta.
-func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> bool:
-	# EL GRUPO ENTERO baja a la pelea: un Combatant por miembro del equipo, con el LIDER el primero
-	# (es el que ha dado el espadazo, y el que se lleva la iniciativa si atacaste tu).
-	var pjs: Array = [lider()]
-	for comp in companeros():
-		pjs.append(comp)
-	return _abrir_pelea(enemy_nodes, enemy_initiated, pjs)
-
-
 # LA PELEA SIN GRUPO PROPIO (Parte 3: el combate lo ejecuta un trabajador sin ventana). Aqui no hay
 # jugador ni equipo: TODOS los aliados son DOBLES montados con las fichas que mandan los humanos, y
 # cada uno queda marcado con su dueño, asi que sus turnos se les piden a ellos y al cerrar a cada uno
@@ -15781,7 +15662,7 @@ func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array, pe: Pel
 		return false
 	pe.piso = PisoVivo.de(pe.enemigos[0])   # el piso donde se pelea: su suelo, su arena (etapa 3)
 
-	# 'pjs' = quienes bajan a la pelea, el primero con la iniciativa (ver start_combat).
+	# 'pjs' = quienes bajan a la pelea, el primero con la iniciativa.
 	var player_cs: Array = []
 	for pj in pjs:
 		player_cs.append(crear_player_combatant(pj))
@@ -15902,7 +15783,7 @@ func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array, pe: Pel
 	return true
 
 
-# Cuelga la pantalla de combate y deja el mundo en modo "estoy peleando". Se saco de start_combat
+# Cuelga la pantalla de combate y deja el mundo en modo "estoy peleando". Se saco de _abrir_pelea
 # porque el ESPEJO (hito 5.4-C) monta exactamente lo mismo: misma capa, mismo modal, mismo aviso.
 #
 # 'jefe' se pasa desde fuera (−1 = deducelo tu). No se puede deducir SIEMPRE aqui: _active_enemies
@@ -15923,7 +15804,7 @@ func _montar_pantalla_combate(combat: Node, jefe: int = -1, pe: PeleaViva = null
 		capa.add_child(combat)
 		pe.capa = capa
 		return
-	# LA MUSICA DE PELEA. Va AQUI y no en start_combat porque por aqui pasan TODAS las peleas: la
+	# LA MUSICA DE PELEA. Va AQUI y no en _abrir_pelea porque por aqui pasan TODAS las peleas: la
 	# tuya, la del espejo que se une a la de otro y la que te embiste. Enganchandola arriba, el que
 	# se une entraria a pelear con la musica de la mazmorra puesta.
 	#
@@ -15936,7 +15817,7 @@ func _montar_pantalla_combate(combat: Node, jefe: int = -1, pe: PeleaViva = null
 	Ambiente.pausar(true)
 	# Si estabas recitando en el mapa, el canto se lo lleva la pelea por delante: el conjuro se
 	# pierde y NO se cobra (ver casteo_mapa.interrumpir). Va aqui, en el sitio por el que pasan
-	# TODAS las peleas —la tuya, la del espejo, la que te embiste—, y no en start_combat.
+	# TODAS las peleas —la tuya, la del espejo, la que te embiste—, y no en _abrir_pelea.
 	var pnode: Node = get_tree().get_first_node_in_group("player")
 	if pnode != null and pnode.has_method("interrumpir_casteo"):
 		pnode.interrumpir_casteo()
@@ -15961,76 +15842,6 @@ func _montar_pantalla_combate(combat: Node, jefe: int = -1, pe: PeleaViva = null
 	# paredes seguirian pariendo: saberlo les sirve para no plantarme un bicho en las narices
 	# mientras estoy en una pantalla donde no puedo ni verlo (ver spawn_zone).
 	Net.jugadores.avisar_combate(true)
-
-
-# RECOJO UNA PELEA QUE ME TRASPASAN (hito 5.4-C): el que la ejecutaba se ha ido (huyo o se le
-# corto) y la pelea NO se cierra, sigue aqui. Devuelve true si se ha podido montar.
-#
-# No hay codigo nuevo de combate: se reconstruye por el camino de SIEMPRE (start_combat con los
-# bichos + unir_aliado_al_combate con los de otros humanos) y encima se le vuelca lo VOLATIL, que
-# es lo unico que no se puede deducir de las fichas (ver combat.estado_para_traspaso).
-func retomar_combate(estado: Dictionary, pe: PeleaViva = null) -> bool:
-	if pe == null:
-		pe = pelea
-	if combate_activo(pe) or pe.capa != null:
-		return false
-	# Los bichos: los MIOS (reales si simulo el piso, espejos si no) resueltos por su net_id. Los
-	# que murieron en la pelea vieja NO vuelven: sus cadaveres los deja el que se va.
-	var nodos: Array = []
-	var filas_e: Array = []
-	for e in estado.get("enemigos", []):
-		if not bool(e.get("vivo", true)):
-			continue
-		var n = Net.peleas.nodo_de_id(int(e.get("net_id", 0)))
-		if not is_instance_valid(n):
-			continue
-		n.hp_restante = float(e["vol"].get("hp", -1.0))   # start_combat lo lee de aqui
-		if n.has_method("entrar_en_pelea"):
-			n.entrar_en_pelea()
-		nodos.append(n)
-		filas_e.append(e)
-	print("[traspaso] recojo la pelea con %d de %d bichos" % [
-		nodos.size(), estado.get("enemigos", []).size()])
-	if nodos.is_empty():
-		return false
-	# Igual que en los otros dos llamantes: los nodos ya vienen congelados por entrar_en_pelea, asi
-	# que un rechazo de start_combat (o una pantalla que no llega a montarse) los dejaria de estatua.
-	# Si el traspaso no cuaja, se devuelven al dueño antes de rendirse.
-	var combat: Node = null
-	if start_combat(nodos, false):
-		combat = pe.capa.get_child(0) if is_instance_valid(pe.capa) \
-			and pe.capa.get_child_count() > 0 else null
-	if combat == null:
-		var ids_vuelta: Array = []
-		for n in nodos:
-			if is_instance_valid(n) and n.has_meta("net_id"):
-				ids_vuelta.append(n.get_meta("net_id"))
-		Net.peleas.devolver_bichos(ids_vuelta)
-		return false
-	# Los aliados: los MIOS ya los ha puesto start_combat con mi equipo (y en el mismo orden en que
-	# los ofreci al unirme); a los de otros humanos se les monta un doble, igual que al unirse.
-	var mios: int = 0
-	var cs: Array = []
-	var dobles_por_peer: Dictionary = {}
-	for fila in estado.get("aliados", []):
-		var c: Combatant = null
-		if bool(fila.get("mio", false)):
-			c = pe.aliados_cs[mios] if mios < pe.aliados_cs.size() else null
-			mios += 1
-		else:
-			var doble: PersonajeData = Net.partida.ficha_de_dict(fila.get("ficha", {}))
-			if unir_aliado_al_combate(doble, float((fila.get("ficha", {}) as Dictionary).get("overload", 1.0)), pe):
-				c = combatant_de_pj(doble)
-				var dp: int = int(fila.get("dueno", 0))
-				if not dobles_por_peer.has(dp):
-					dobles_por_peer[dp] = []
-				dobles_por_peer[dp].append(doble)
-				if c != null:
-					combat.marcar_dueno(c, dp)
-		cs.append(c)
-	combat.retomar(estado, cs, filas_e)
-	Net.peleas.adoptar_pelea(dobles_por_peer, pe)
-	return true
 
 
 # ABRE LA PANTALLA EN MODO ESPEJO (hito 5.4-C): me he unido a la pelea de otro. Aqui no se simula
@@ -17029,7 +16840,7 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 	if pnode != null and pnode.has_method("recargar_aguante_lider"):
 		pnode.recargar_aguante_lider()
 
-	# Los COOLDOWNS que queden al terminar viajan al siguiente combate (ver start_combat).
+	# Los COOLDOWNS que queden al terminar viajan al siguiente combate (ver _abrir_pelea).
 	for i in pe.aliados_pjs.size():
 		if i < pe.aliados_cs.size():
 			ability_cooldowns_persist[pe.aliados_pjs[i]] = \

@@ -70,7 +70,7 @@ func _correr() -> void:
 				presa = e
 	_inventario("piso8")
 	if presa != null:
-		Game.start_combat([presa], false)
+		preload("res://tools/pelea_local.gd").abrir([presa])
 		await _frames(90)
 		_inventario("pelea")
 		await _captura("pelea")

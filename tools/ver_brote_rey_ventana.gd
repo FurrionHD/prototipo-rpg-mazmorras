@@ -57,7 +57,7 @@ func _correr() -> void:
 	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/rey_slime.tres", jug.global_position + Vector2(150, 0), {})
 	await _esperar(25)
 	var nodo = get_tree().get_nodes_in_group("enemy")[0]
-	Game.start_combat([nodo], false)
+	preload("res://tools/pelea_local.gd").abrir([nodo])
 	await _esperar(20)
 	for n in get_tree().root.get_children():
 		if n is CanvasLayer:

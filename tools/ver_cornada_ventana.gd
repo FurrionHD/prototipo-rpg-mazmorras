@@ -63,7 +63,7 @@ func _correr() -> void:
 	# En sitio abierto, a la vista de los tuyos (a -220,70 salia metido en la pared de la arena y no llegaba a nadie).
 	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/guardian_rango.tres", jug.global_position + Vector2(40, 150), {})
 	await _esperar(25)
-	Game.start_combat(get_tree().get_nodes_in_group("enemy"), false)
+	preload("res://tools/pelea_local.gd").abrir(get_tree().get_nodes_in_group("enemy"))
 	await _esperar(20)
 	for n in get_tree().root.get_children():
 		if n is CanvasLayer:

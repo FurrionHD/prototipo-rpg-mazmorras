@@ -87,7 +87,7 @@ func _correr() -> void:
 	for e in enemigos:
 		print("   ", e.name, "  data=", _nombre_de(e))
 
-	if not Game.start_combat(enemigos, false):
+	if not preload("res://tools/pelea_local.gd").abrir(enemigos):
 		print("MAL: no se abre la pelea")
 		get_tree().quit(1)
 		return

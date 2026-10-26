@@ -347,7 +347,7 @@ func _physics_process(delta: float) -> void:
 		_golpe_pendiente = false
 		_golpe_diferido = false
 		# EN COMBATE NO se regenera aguante. La energia con la que entras a la pelea es la stamina
-		# de exploracion ("correr antes de pelear se paga", ver Game.start_combat): en un jugador
+		# de exploracion ("correr antes de pelear se paga", ver Game._abrir_pelea): en un jugador
 		# esto se congelaba con el arbol, pero en multi el arbol sigue vivo y quedarse en una pelea
 		# larga te curaria el aguante gratis, incluido salir de _exhausted. Con un menu abierto si
 		# regenera, como siempre.
@@ -1922,7 +1922,7 @@ func _apoyo_a_los_mios(spell: SpellData, quienes: Array) -> void:
 
 # El conjuro ha llegado: se abre la pelea a mi nombre (con la iniciativa de siempre) y el hechizo
 # queda APUNTADO para que el combate lo resuelva en cuanto se monte, como si lo hubiera lanzado
-# dentro. Lo recoge Game.start_combat / unir_aliado_al_combate: los DOS caminos de entrada.
+# dentro. Lo recoge Game._abrir_pelea / unir_aliado_al_combate: los DOS caminos de entrada.
 func _impacto_conjuro(objetivo: Node, spell: SpellData) -> void:
 	if not is_instance_valid(objetivo) or not objetivo.has_method("atacado_por_jugador"):
 		return

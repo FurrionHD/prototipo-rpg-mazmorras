@@ -7,7 +7,7 @@
 #  RITMO: espera un tiempo ALEATORIO dentro de una franja y lo vuelve a tirar tras cada
 #  parto -no es un metronomo- y la franja es LENTA a proposito: entre pelear, extraer el
 #  cristal y moverte pasa mucho tiempo real, y una sala escupiendo bichos cada 10 s te
-#  ahoga. Ademas, mientras peleas el arbol esta en pausa (Game.start_combat), asi que
+#  ahoga. Ademas, mientras peleas el arbol esta en pausa (Game._abrir_pelea), asi que
 #  estos relojes se congelan solos: al salir de un combate no te encuentras la sala
 #  repoblada de golpe.
 #
