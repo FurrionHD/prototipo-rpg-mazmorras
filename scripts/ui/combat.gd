@@ -2296,7 +2296,9 @@ func _recoger_flechas() -> void:
 		c.municion_disparada.clear()
 	for k in montones:
 		var m: Dictionary = montones[k]
-		Game.soltar_en_suelo(MaterialItem.crear(m["md"], int(m["cal"])), m["pos"], int(m["n"]))
+		# En el piso de ESTA pelea (en la sala, el de sus enemigos: su lugar no es ningun piso).
+		Game.soltar_en_suelo(MaterialItem.crear(m["md"], int(m["cal"])), m["pos"], int(m["n"]),
+			pelea.piso.lugar if pelea != null and is_instance_valid(pelea.piso) else "")
 	if rotas + quedan > 0:
 		print("[municion] al acabar: %d rotas, %d quedan en el suelo para recoger" % [rotas, quedan])
 

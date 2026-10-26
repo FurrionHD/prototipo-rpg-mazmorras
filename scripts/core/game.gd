@@ -13656,11 +13656,12 @@ func soltar_item(modelo: Resource, cantidad: int, delante: bool = false) -> int:
 
 # Planta en el SUELO 'item' (n unidades iguales en un solo monton) en 'pos'. Sin sacarlo de ninguna bolsa: lo
 # usa lo que sale de una pelea (las flechas que se recuperan). En multi lo reparte Net, como todo el suelo.
-func soltar_en_suelo(item: Resource, pos: Vector2, n: int = 1) -> void:
+# 'lugar': el sitio donde cae, si no es el de esta maquina (en la sala: el piso de quien lo suelta, ver Net.suelo).
+func soltar_en_suelo(item: Resource, pos: Vector2, n: int = 1, lugar: String = "") -> void:
 	if item == null or n <= 0:
 		return
 	if Net.activo:
-		Net.suelo.solicitar_soltar(item, pos, n)
+		Net.suelo.solicitar_soltar(item, pos, n, lugar)
 		return
 	var pnode := get_tree().get_first_node_in_group("player")
 	var parent: Node = pnode.get_parent() if pnode != null else get_tree().current_scene

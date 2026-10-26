@@ -68,16 +68,21 @@ func _item_de_dict(d: Dictionary) -> Resource:
 # La llama Game.soltar_item cuando hay sesion: en vez de plantar el pickup en local, se pide
 # al host (que asigna id y lo difunde a TODOS, tu incluido). El offset aleatorio ya viene
 # calculado en pos por quien suelta: asi ambas maquinas ven el drop en el MISMO sitio.
-func solicitar_soltar(item: Resource, pos: Vector2, n: int = 1) -> void:
+# 'lugar' vacio = donde estoy. LA SALA tiene que decirlo (26/10): su lugar es "sala", no un piso, y lo que suelta ella
+# (el cristal de un cadaver que se pudre, las flechas que se recuperan al acabar una pelea) se apuntaba alli y no lo veia
+# nadie.
+func solicitar_soltar(item: Resource, pos: Vector2, n: int = 1, lugar: String = "") -> void:
+	if lugar == "":
+		lugar = Net._mi_lugar
 	var d := _item_a_dict(item)
 	if d.is_empty():
 		return
 	if n > 1:
 		d["n"] = n   # un MONTON de iguales en un solo drop (las flechas que se recuperan)
 	if Net.es_host:
-		_registrar_y_difundir(d, pos, Net._mi_lugar)
+		_registrar_y_difundir(d, pos, lugar)
 	else:
-		_pedir_soltar.rpc_id(1, d, pos, Net._mi_lugar)
+		_pedir_soltar.rpc_id(1, d, pos, lugar)
 
 
 @rpc("any_peer", "call_remote", "reliable")

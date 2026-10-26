@@ -119,8 +119,25 @@ func _correr() -> void:
 	# AL ACABAR la pelea lo cargado y sin disparar se QUEDA PUESTO (03/10): en la ficha, no en la bolsa.
 	var pj: PersonajeData = Game.pj_de_combatant(quien)
 	var en_bolsa: int = Game.municion_en_bolsa(WeaponData.Tipo.ARCO).reduce(func(a, f): return a + int(f["n"]), 0)
+	# LAS FLECHAS QUE SE RECUPERAN caen en el piso de ESTA pelea (26/10): la pelea la lleva la sala, cuyo lugar es "sala",
+	# y se apuntaban alli, donde no las veia nadie. Doce clavadas en el suelo, con el dado fijo (alguna se rompe).
+	var donde_flechas: Vector2 = t.pies_de(quien) + Vector2(30, 0)
+	for _i in 12:
+		quien.municion_disparada.append({"md": md, "cal": int(MaterialItem.Calidad.NORMAL), "en": null, "pos": donde_flechas})
+	var suelo_antes: Array = Net.suelo._suelo.keys()
+	seed(4242)
 	combat._end(false, true)
 	await _esperar(2)
+	var en_su_piso: int = 0
+	var en_otro: int = 0
+	for id in Net.suelo._suelo:
+		if not suelo_antes.has(id):
+			if String(Net.suelo._suelo[id]["lugar"]) == "piso:%d" % Game.PISO_ARENA:
+				en_su_piso += 1
+			else:
+				en_otro += 1
+	_afirmar(en_su_piso >= 1 and en_otro == 0, "las flechas que aguantan caen en el piso de la pelea (%d alli, %d en otro sitio)" % [
+		en_su_piso, en_otro])
 	combat._on_continue_pressed()
 	await _esperar(10)
 	var en_bolsa_fin: int = Game.municion_en_bolsa(WeaponData.Tipo.ARCO).reduce(func(a, f): return a + int(f["n"]), 0)

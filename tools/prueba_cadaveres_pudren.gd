@@ -10,6 +10,8 @@
 #   godot --headless --path . res://tools/prueba_cadaveres_pudren.tscn
 extends Node
 
+var mi_sala = null   # su sala: tools/prueba_sala_propia.gd
+
 var _mal: int = 0
 const _TINTE = preload("res://scripts/fx/tinte_podrido.gd")
 
@@ -76,9 +78,13 @@ func _correr() -> void:
 	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
 	if ref is SaveData:
 		Game.importar_partida(ref)
-	Game.semilla_mundo = 424242
-	Game.current_floor = 1
-	get_tree().change_scene_to_file("res://scenes/levels/main.tscn")
+	# EN SU SALA (etapa 4, 26/10): la prueba es la sala, con el piso montado como lo monta ella.
+	mi_sala = preload("res://tools/prueba_sala_propia.gd").new()
+	add_child(mi_sala)
+	if not await mi_sala.arrancar("prueba_cadaveres_pudren", 1, 424242, false):
+		print("MAL: no arranca la sala")
+		get_tree().quit(1)
+		return
 	await _esperar(30)
 	var bichos: Array = get_tree().get_nodes_in_group("enemy")
 	if bichos.size() < 2:

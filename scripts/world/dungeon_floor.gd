@@ -3001,7 +3001,8 @@ func _pudrir_cadaveres() -> void:
 		# plantado a mano: asi entra en la memoria del piso y en multi lo reparte el host como todo el suelo.
 		var cri: Cristal = c.cristal_podrido()
 		if cri != null:
-			Game.soltar_en_suelo(cri, c.global_position)
+			var pv: PisoVivo = PisoVivo.de(self)
+			Game.soltar_en_suelo(cri, c.global_position, 1, pv.lugar if pv != null else "")
 		c.desvanecer()
 
 
