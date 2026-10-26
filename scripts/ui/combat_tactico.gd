@@ -6930,6 +6930,8 @@ func morir_en_mapa(c: Combatant) -> void:
 	t.tween_interval(maxf(natural, 0.0) + 0.3)
 	t.tween_property(cuerpo, "modulate:a", 0.0, T_DESVANECE_MUERTO)
 	cuerpo.set_meta("muerto_en_pelea", t)
+	# EN QUE PELEA ha caido (26/10): en la sala hay varias, y Game.quitar_muerto_o_aplazar tiene que mirar ESTA.
+	cuerpo.set_meta("muerto_en_pelea_pe", _pantalla.pelea)
 
 
 # LA POSE DE CARGA (Reventon hinchado, Presion encogida, Combustion al rojo). Se mira 'charging' cada

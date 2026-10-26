@@ -15249,25 +15249,29 @@ func hay_pelea_en_pantalla(pe: PeleaViva = null) -> bool:
 # en las demas maquinas, cuando llega su aviso de muerte por red. Ahora, si hay pelea, se apunta y se enseña al acabar.
 var _cadaveres_ocultos: Array = []
 
+#
+# LA PELEA EN LA QUE CAYO, no la de esta maquina (26/10): en la sala cada pelea va colgada de su piso (Game.pelea no es
+# ninguna de ellas) y el muerto se volvia a ver en mitad de la pelea. La apunta combat_tactico.morir_en_mapa.
 func quitar_muerto_o_aplazar(n) -> void:
 	if not is_instance_valid(n):
 		return
-	if n.has_meta("muerto_en_pelea") and (combate_activo() or hay_pelea_en_pantalla()):
+	var pe = n.get_meta("muerto_en_pelea_pe", null)   # SIN tipar: puede estar liberada
+	if not (pe is PeleaViva and is_instance_valid(pe)):
+		pe = pelea
+	if n.has_meta("muerto_en_pelea") and (combate_activo(pe) or hay_pelea_en_pantalla(pe)):
 		if not _cadaveres_ocultos.has(n):
 			_cadaveres_ocultos.append(n)
-			if _cadaveres_ocultos.size() == 1:
-				_soltar_cadaveres_al_acabar()
+			_soltar_cadaver_al_acabar(n, pe)
 		return
 	n.quitar_muerto_en_pelea()
 
 
-func _soltar_cadaveres_al_acabar() -> void:
-	while combate_activo() or hay_pelea_en_pantalla():
+func _soltar_cadaver_al_acabar(n, pe: PeleaViva) -> void:
+	while is_instance_valid(pe) and (combate_activo(pe) or hay_pelea_en_pantalla(pe)):
 		await get_tree().process_frame   # la señal del arbol salta cada fotograma, tambien en pausa
-	for n in _cadaveres_ocultos:
-		if is_instance_valid(n) and n.has_method("quitar_muerto_en_pelea"):
-			n.quitar_muerto_en_pelea()
-	_cadaveres_ocultos.clear()
+	_cadaveres_ocultos.erase(n)
+	if is_instance_valid(n) and n.has_method("quitar_muerto_en_pelea"):
+		n.quitar_muerto_en_pelea()
 
 
 func matar_enemigo_de_combate(n) -> void:

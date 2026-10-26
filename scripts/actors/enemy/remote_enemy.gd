@@ -569,6 +569,8 @@ func quitar_muerto_en_pelea() -> void:
 	if t is Tween and (t as Tween).is_valid():
 		(t as Tween).kill()
 	remove_meta("muerto_en_pelea")
+	if has_meta("muerto_en_pelea_pe"):
+		remove_meta("muerto_en_pelea_pe")
 	if has_meta("gesto_pelea"):
 		remove_meta("gesto_pelea")
 	modulate.a = 1.0
