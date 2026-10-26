@@ -1,11 +1,15 @@
-# PRUEBA (sin ventana, en solitario): LA ARENA DE PRUEBAS.
+# PRUEBA (sin ventana): LA ARENA DE PRUEBAS, COMO JUGADOR con su sala (etapa 4, 26/10: el spawner es de la sala y la
+# foto de la arena, lo que se devuelve al salir, del jugador).
 #   - se entra y se construye como una sala grande con su porton y la puerta de vuelta;
 #   - el spawner coloca (con el muñeco puesto EN el enemigo) y limpia;
 #   - NADA sale de ella: el plato que te comes, la excelia, el dinero y lo que recojas vuelven a como
 #     estaban al entrar, y guardar dentro guarda lo de ANTES y en el pueblo;
 #   - al salir por la puerta apareces junto al porton del pueblo.
 # Tarda unos segundos. Tope razonable: 60 s.
+#   godot --headless --path . res://tools/prueba_arena.tscn -- nube_local
 extends Node
+
+var j = null   # el jugador con su sala: tools/prueba_con_jugador.gd
 
 const PLATO := "res://resources/consumables/plato_caldo_puerro.tres"
 var _malos: int = 0
@@ -40,6 +44,7 @@ func _ready() -> void:
 # y deja en su sitio una escena vacia, para que el primer cambio no se la lleve por delante.
 func _empezar() -> void:
 	reparent(get_tree().root)
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	var hueco := Node.new()
 	get_tree().root.add_child(hueco)
 	get_tree().current_scene = hueco
@@ -48,10 +53,12 @@ func _empezar() -> void:
 
 func _correr() -> void:
 	print("=== LA ARENA DE PRUEBAS ===")
-	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
-	if ref is SaveData:
-		Game.importar_partida(ref)
-	Game.semilla_mundo = 424242
+	j = preload("res://tools/prueba_con_jugador.gd").new()
+	add_child(j)
+	if not await j.arrancar("prueba_arena", 78, 0):
+		_ok("arranca la sala y entro al pueblo", false)
+		await _fin()
+		return
 	var plato: ConsumableData = load(PLATO) as ConsumableData
 	Game.consumables[plato] = 3
 	var lider: PersonajeData = Game.lider()
@@ -61,9 +68,8 @@ func _correr() -> void:
 	var bolsa_antes: int = Game.bolsa.total()
 
 	# 1) ENTRAR (lo que hace el porton del pueblo).
-	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
-	await _esperar(5)
 	Game.entrar_arena_de_pruebas()
+	await j._hasta(func(): return Net._mi_lugar == "piso:%d" % Game.PISO_ARENA 		and get_tree().get_first_node_in_group("dungeon_floor") != null, 40.0)
 	await _esperar(10)
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	_ok("estoy en la arena (arena_activa y piso de juego %d)" % Game.current_floor,
@@ -91,13 +97,14 @@ func _correr() -> void:
 	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
 	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/slime.tres", jug.global_position + Vector2(0, 120),
 		{"modo": 1, "hp": 777.0})
+	await j._hasta(func(): return not get_tree().get_nodes_in_group("enemy").is_empty(), 10.0)
 	await _esperar(3)
 	var enem: Array = get_tree().get_nodes_in_group("enemy")
 	_ok("el spawner pone un enemigo", enem.size() == 1)
 	_ok("con el muñeco EN el enemigo (Saco, 777 de vida)", enem.size() == 1
 		and int(Game.muneco_de(enem[0]).get("modo", 0)) == 1 and float(Game.muneco_de(enem[0]).get("hp", 0)) == 777.0)
 	Net.pisos.pedir_limpiar_arena()
-	await _esperar(3)
+	await j._hasta(func(): return get_tree().get_nodes_in_group("enemy").is_empty(), 10.0)
 	_ok("Limpiar la deja vacia", get_tree().get_nodes_in_group("enemy").is_empty())
 
 	# 3) HACER COSAS DENTRO: comer, ganar excelia, dinero y un material.
@@ -126,6 +133,7 @@ func _correr() -> void:
 		puerta = n
 	_ok("la puerta dice 'Volver al pueblo'", puerta != null and puerta.texto_interaccion() == "Volver al pueblo")
 	puerta.interact_with_player()
+	await j._hasta(func(): return not Game.es_arena() and get_tree().get_first_node_in_group("dungeon_floor") == null 		and get_tree().get_first_node_in_group("player") != null, 40.0)
 	await _esperar(10)
 	_ok("fuera de la arena", not Game.es_arena() and not Game.en_foto_de_arena())
 	_ok("el plato vuelve a estar en la bolsa (3)", int(Game.consumables.get(plato, 0)) == 3)
@@ -140,5 +148,10 @@ func _correr() -> void:
 		get_tree().current_scene.find_children("*", "Node2D", true, false).any(
 			func(n): return n.get_script() != null and String(n.get_script().resource_path).ends_with("porton_arena.gd")))
 
+	await _fin()
+
+
+func _fin() -> void:
 	print("RESULTADO: ", "TODO PASA" if _malos == 0 else "FALLAN %d" % _malos)
-	get_tree().quit()
+	await j.cerrar()
+	get_tree().quit(1 if _malos > 0 else 0)
