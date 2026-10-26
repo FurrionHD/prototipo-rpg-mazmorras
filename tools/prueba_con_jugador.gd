@@ -120,6 +120,15 @@ func poner(ruta: String, desde: Vector2, muneco: Dictionary = {}) -> Node2D:
 	return nuevo
 
 
+# Los espejos de enemigos, lejos y quietos: se sacan de la lista de la red para que lo que manda la sala (ir_a) no los
+# devuelva a su sitio. Para las pruebas que no quieren enemigos en medio.
+func apartar_enemigos() -> void:
+	for n in get_tree().get_nodes_in_group("enemy"):
+		(n as Node2D).global_position = Vector2(-9999, -9999)
+		(n as Node).set_physics_process(false)
+	Net.enemigos._enem_nodos.clear()
+
+
 # Le pego y espero a mi pantalla (el espejo de la pelea que monta la sala). null si no se abre.
 func pelear(nodo: Node2D) -> Node:
 	await pelear_con(nodo)

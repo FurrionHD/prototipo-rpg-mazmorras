@@ -5,8 +5,11 @@
 #   3) la zona se pinta (ajena) y la LINEA me frena; al tocarla sale la pregunta; con No sigo frenado y no se
 #      repite mientras sigo pegado; al despegarme y volver a chocar, se repite;
 #   4) cuando su pelea acaba, la zona desaparece.
-#   godot --headless --path . res://tools/prueba_zona_ajena.tscn
+# (Etapa 4, 26/10) COMO JUGADOR con su sala: lo que se mira es lo que hace la maquina del jugador.
+#   godot --headless --path . res://tools/prueba_zona_ajena.tscn -- nube_local
 extends Node
+
+var j = null   # el jugador con su sala: tools/prueba_con_jugador.gd
 
 var _mal: int = 0
 const EMISOR := 7
@@ -52,12 +55,13 @@ func _pregunta_abierta() -> bool:
 
 
 func _correr() -> void:
-	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
-	if ref is SaveData:
-		Game.importar_partida(ref)
-	Game.semilla_mundo = 424242
-	Game.current_floor = 1
-	get_tree().change_scene_to_file("res://scenes/levels/main.tscn")
+	j = preload("res://tools/prueba_con_jugador.gd").new()
+	add_child(j)
+	if not await j.arrancar("prueba_zona_ajena", 77, 1):
+		print("MAL: no arranca la sala o no entro")
+		await j.cerrar()
+		get_tree().quit(1)
+		return
 	await _esperar(30)
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	var gen: DungeonGenerator = piso.gen
@@ -67,8 +71,7 @@ func _correr() -> void:
 			sala = z["rect"]
 	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
 	# Los enemigos fuera de la sala, que no se metan en medio.
-	for e in get_tree().get_nodes_in_group("enemy"):
-		(e as Node2D).global_position = Vector2(-9999, -9999)
+	j.apartar_enemigos()
 	var centro: Vector2 = gen.centro_px(sala.position + sala.size / 2)
 	jug.global_position = centro
 	_vigia_jug = jug
@@ -210,4 +213,5 @@ func _correr() -> void:
 	if _mal > 0:
 		print("    vigia: ", _vigia_log.slice(0, 20))
 	print("FIN: %s (%d MAL)" % ["TODO BIEN" if _mal == 0 else "HAY FALLOS", _mal])
+	await j.cerrar()
 	get_tree().quit(1 if _mal > 0 else 0)
