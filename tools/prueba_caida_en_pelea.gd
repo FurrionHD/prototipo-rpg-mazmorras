@@ -7,6 +7,8 @@
 #   godot --headless --path . res://tools/prueba_caida_en_pelea.tscn
 extends Node
 
+var sala = null   # su sala: tools/prueba_sala_propia.gd
+
 const PEER := 777
 const NUEVO := 778
 const IDENT := "dddddddddddddddddddddddd"
@@ -54,24 +56,23 @@ func _jugar_hasta(combat: Node, cond: Callable, tope_s: float) -> bool:
 
 
 func _correr() -> void:
-	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
-	if ref is SaveData:
-		Game.importar_partida(ref)
-	Game.semilla_mundo = 424242
-	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
-	await _esperar(5)
-	Game.entrar_arena_de_pruebas()
-	await _esperar(15)
+	# EN SU SALA (etapa 4, 26/10): la prueba es la sala y la pelea se abre por donde la abre ella.
+	sala = preload("res://tools/prueba_sala_propia.gd").new()
+	add_child(sala)
+	if not await sala.arrancar("prueba_caida_en_pelea", Game.PISO_ARENA):
+		print("MAL: no arranca la sala")
+		get_tree().quit(1)
+		return
 	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
-	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/slime.tres", jug.global_position + Vector2(160, 0), {})
+	sala.poner("res://scenes/actors/enemy/slime.tres", Vector2(160, 0), {})
 	await _esperar(20)
-	if not Game.start_combat(get_tree().get_nodes_in_group("enemy"), false):
+	if not (await sala.pelear(get_tree().get_nodes_in_group("enemy"), false) != null):
 		print("MAL: no se abre la pelea")
 		get_tree().quit(1)
 		return
 	await _esperar(5)
 	var combat: Node = null
-	for n in get_tree().root.get_children():
+	for n in get_tree().root.get_children() + sala.capas():
 		if n is CanvasLayer:
 			for h in n.get_children():
 				if h.get("tactico") != null:
@@ -87,9 +88,11 @@ func _correr() -> void:
 		if Game.combatant_de_pj(pj) == c2:
 			pj2 = pj
 	combat.marcar_dueno(c2, PEER)
-	Net.peleas._pelea_id = 99
-	Net.peleas._dobles[PEER] = [pj2]
-	Net.peleas._pelea_participantes = [PEER]
+	# En SU pelea de la sala (no en la de la maquina), y apuntada donde la sala busca la pelea de cada humano
+	# (Net.peleas._pe_de_peer). Con un humano dentro ya no la cierra sola al acabar.
+	sala.pe.dobles[PEER] = [pj2]
+	sala.pe.participantes = [PEER]
+	Net.peleas._peleas[sala.pe.id] = sala.pe
 	var jd := JugadorData.new()
 	jd.id = IDENT
 	var copia: PersonajeData = pj2.duplicate(true)
@@ -122,9 +125,9 @@ func _correr() -> void:
 
 	print("--- vuelve")
 	Net.peleas._vuelve(PEER, NUEVO)
-	_afirmar(not Net.peleas.esta_caido(PEER) and Net.peleas._dobles.has(NUEVO), "sus personajes vuelven a ser suyos")
+	_afirmar(not Net.peleas.esta_caido(PEER) and sala.pe.dobles.has(NUEVO), "sus personajes vuelven a ser suyos")
 	_afirmar(int(combat._dueno_aliado.get(c2, 0)) == NUEVO, "y se le pediran a su conexion nueva")
-	_afirmar(Net.peleas.esta_en_mi_pelea(NUEVO), "vuelve a estar en la pelea")
+	_afirmar(Net.peleas.esta_en_mi_pelea(NUEVO, sala.pe), "vuelve a estar en la pelea")
 
 	print("--- se vuelve a caer y no vuelve")
 	_afirmar(Net.peleas.marcar_caido(NUEVO, IDENT), "cortesia otra vez")
@@ -132,14 +135,13 @@ func _correr() -> void:
 	c2.current_hp = maxf(1.0, c2.current_hp * 0.5)
 	Net.peleas._caidos[NUEVO]["t"] = Time.get_ticks_msec() - int((Net.peleas.CORTESIA + 1.0) * 1000.0)
 	await _esperar(3)
-	_afirmar(not Net.peleas.esta_caido(NUEVO) and not Net.peleas._dobles.has(NUEVO), "pasado el rato, fuera de la cortesia")
+	_afirmar(not Net.peleas.esta_caido(NUEVO) and not sala.pe.dobles.has(NUEVO), "pasado el rato, fuera de la cortesia")
 	_afirmar(combat._huidos.has(c2) or not combat._aliados.has(c2), "sus personajes dejan la pelea")
 	print("  vida en su ficha del mundo: %.1f -> %.1f" % [hp_antes, copia.current_hp if "current_hp" in copia else -1.0])
 	_afirmar("current_hp" in copia and absf(copia.current_hp - c2.current_hp) < 0.01, "lo vivido se apunta en su ficha del mundo")
 
-	Net.peleas._pelea_id = 0
-	Net.peleas._dobles.clear()
-	Net.peleas._pelea_participantes.clear()
+	if is_instance_valid(sala.pe):
+		Net.peleas._peleas.erase(sala.pe.id)
 	Game.jugadores_mundo.erase(IDENT)
 	print("FIN: TODO BIEN" if _fallos == 0 else "FIN: %d MAL" % _fallos)
 	get_tree().quit(0 if _fallos == 0 else 1)

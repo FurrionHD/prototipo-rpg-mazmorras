@@ -4,6 +4,8 @@
 #   godot --headless --path . res://tools/prueba_arena_recoge.tscn
 extends Node
 
+var sala = null   # su sala: tools/prueba_sala_propia.gd
+
 var _fallos: int = 0
 
 
@@ -31,18 +33,17 @@ func _esperar(n: int) -> void:
 
 
 func _correr() -> void:
-	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
-	if ref is SaveData:
-		Game.importar_partida(ref)
-	Game.semilla_mundo = 424242
-	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
-	await _esperar(5)
-	Game.entrar_arena_de_pruebas()
-	await _esperar(15)
+	# EN SU SALA (etapa 4, 26/10): la prueba es la sala y la pelea se abre por donde la abre ella.
+	sala = preload("res://tools/prueba_sala_propia.gd").new()
+	add_child(sala)
+	if not await sala.arrancar("prueba_arena_recoge", Game.PISO_ARENA):
+		print("MAL: no arranca la sala")
+		get_tree().quit(1)
+		return
 	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
-	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/slime.tres", jug.global_position + Vector2(60, 0), {})
+	sala.poner("res://scenes/actors/enemy/slime.tres", Vector2(60, 0), {})
 	await _esperar(3)
-	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/rata.tres", jug.global_position + Vector2(-150, 40), {})
+	sala.poner("res://scenes/actors/enemy/rata.tres", Vector2(-150, 40), {})
 	await _esperar(20)
 	var todos: Array = get_tree().get_nodes_in_group("enemy")
 	var cerca: Node2D = null
@@ -68,10 +69,10 @@ func _correr() -> void:
 	# La pelea la abre el de cerca, como si le hubiera alcanzado: el y SUS vecinos.
 	cerca.set_physics_process(true)
 	lejos.set_physics_process(true)
-	cerca._start_combat(true)
+	await sala.pelear_con_vecinos(cerca, true)   # como cerca._start_combat(true), por donde lo hace la sala
 	await _esperar(10)
 	var combat: Node = null
-	for n in get_tree().root.get_children():
+	for n in get_tree().root.get_children() + sala.capas():
 		if n is CanvasLayer:
 			for h in n.get_children():
 				if h.get("tactico") != null:
@@ -101,7 +102,7 @@ func _correr() -> void:
 		var p: Vector2 = c0 + Vector2(-70 + 28 * i, 50 if i % 2 == 0 else -50)
 		if arena.contiene(p):
 			dentro.append(p)
-			Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/slime.tres", p, {})
+			sala.poner_en("res://scenes/actors/enemy/slime.tres", p, {})
 	var t1: int = Time.get_ticks_msec()
 	while Time.get_ticks_msec() - t1 < 4000:
 		await get_tree().process_frame

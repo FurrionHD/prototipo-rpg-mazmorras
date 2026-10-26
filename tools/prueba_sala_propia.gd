@@ -35,10 +35,12 @@ static func puerto_de(nombre: String) -> int:
 
 
 # Este proceso pasa a ser la sala, con el piso 'numero' montado (Game.PISO_ARENA = la arena) y el jugador dentro.
-func arrancar(nombre: String, numero: int, semilla: int = 424242) -> bool:
-	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
-	if ref is SaveData:
-		Game.importar_partida(ref)
+# 'cargar_ref' = false: la prueba ya ha cargado mundo_ref y le ha puesto lo suyo (equipo, bolsa...).
+func arrancar(nombre: String, numero: int, semilla: int = 424242, cargar_ref: bool = true) -> bool:
+	if cargar_ref:
+		var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
+		if ref is SaveData:
+			Game.importar_partida(ref)
 	Game.semilla_mundo = semilla
 	Net.soy_sala = true
 	Net._mi_lugar = _SALA.ARG
@@ -85,10 +87,15 @@ func arrancar(nombre: String, numero: int, semilla: int = 424242) -> bool:
 
 # Un enemigo en la arena, a 'desde' del jugador ('muneco' como el panel de la arena: modo, hp...).
 func poner(ruta: String, desde: Vector2, muneco: Dictionary = {}) -> void:
+	poner_en(ruta, jugador.global_position + desde, muneco)
+
+
+# Lo mismo, en 'pos' del mundo.
+func poner_en(ruta: String, pos: Vector2, muneco: Dictionary = {}) -> void:
 	var suelo: Node = piso.primero(&"dungeon_floor")
 	var data: EnemyData = load(ruta) as EnemyData
 	if suelo != null and suelo.has_method("colocar_en_arena") and data != null:
-		suelo.colocar_en_arena(data, jugador.global_position + desde, muneco)
+		suelo.colocar_en_arena(data, pos, muneco)
 
 
 func enemigos() -> Array:
@@ -101,14 +108,8 @@ func enemigos() -> Array:
 # pasa en la pelea les pasa a ellos, como miran las pruebas. Devuelve la pantalla de combate (o null).
 func pelear(contra: Array = [], emboscada: bool = false) -> Node:
 	var nodos: Array = contra if not contra.is_empty() else enemigos()
-	# LA RESERVA, como Net.peleas._reservar_grupo: suyos y CONGELADOS (sin esto siguen andando por el mapa en mitad de
-	# la pelea, y sus anillos y huecos no estan donde miran las pruebas).
 	for n in nodos:
-		if is_instance_valid(n) and n.has_meta("net_id"):
-			Net.peleas._enem_ocupados[int(n.get_meta("net_id"))] = PEER_PRUEBA
-			n._combat_triggered = true
-			n.velocity = Vector2.ZERO
-			n._cancelar_aviso()
+		_reservar(n)
 	pe = PeleaViva.new()
 	pe.name = "Pelea"
 	pe.humano = 0
@@ -149,3 +150,43 @@ func pelear(contra: Array = [], emboscada: bool = false) -> Node:
 # de la pelea cuelga de su PeleaViva, no de la raiz.
 func capas() -> Array:
 	return [pe.capa] if pe != null and is_instance_valid(pe) and is_instance_valid(pe.capa) else []
+
+
+# LA RESERVA, como Net.peleas._reservar_grupo: suyo y CONGELADO (sin esto sigue andando por el mapa en mitad de la pelea,
+# y su anillo y su hueco no estan donde miran las pruebas).
+func _reservar(n) -> void:
+	if is_instance_valid(n) and n.has_meta("net_id"):
+		Net.peleas._enem_ocupados[int(n.get_meta("net_id"))] = PEER_PRUEBA
+		n._combat_triggered = true
+		n.velocity = Vector2.ZERO
+		n._cancelar_aviso()
+
+
+# Un refuerzo que entra en la pelea en marcha, como en la sala (Net.peleas._meter_reservados): reservado y a SU pelea
+# (Game.unir_enemigo_al_combate sin pelea es la de la maquina, que en la sala no es ninguna). 'hueco' -1 = el que toque.
+func unir(nodo, hueco: int = -1) -> bool:
+	_reservar(nodo)
+	if Game.unir_enemigo_al_combate(nodo, hueco, pe):
+		return true
+	# No entra: se le suelta y sigue con lo suyo, como hace la sala (Net.peleas._soltar_reservados).
+	if is_instance_valid(nodo) and nodo.has_meta("net_id"):
+		Net.peleas._enem_ocupados.erase(int(nodo.get_meta("net_id")))
+		if not nodo.esta_muerto() and PeleaViva.de_enemigo(nodo) == null:
+			nodo.reanudar_tras_combate(-1.0)
+	return false
+
+
+# ¿Sigue la pelea? (al cerrarse, su PeleaViva se libera: no se le puede preguntar a Game por ella sin mirar esto)
+func peleando() -> bool:
+	return pe != null and is_instance_valid(pe) and (Game.combate_activo(pe) or Game.hay_pelea_en_pantalla(pe))
+
+
+# La pelea que abre un enemigo al alcanzarte: EL Y SUS VECINOS, como la sala (Net.peleas._reservar_grupo con nodo.vecinos()).
+func pelear_con_vecinos(nodo, emboscada: bool = true) -> Node:
+	var grupo: Array = []
+	for n in nodo.vecinos():
+		if is_instance_valid(n) and not n.esta_muerto():
+			grupo.append(n)
+	if not grupo.has(nodo):
+		grupo.push_front(nodo)
+	return await pelear(grupo, emboscada)

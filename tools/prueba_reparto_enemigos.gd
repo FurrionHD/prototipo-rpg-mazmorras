@@ -8,6 +8,8 @@
 #   godot --headless --path . res://tools/prueba_reparto_enemigos.tscn
 extends Node
 
+var mi_sala = null   # su sala: tools/prueba_sala_propia.gd
+
 const SEPARADOS := 30.0
 const AREA := 60.0
 const MAX_EN_AREA := 3
@@ -49,8 +51,13 @@ func _correr() -> void:
 	Game.party.append(lider)
 	Game.lider_idx = 0
 	Game.semilla_mundo = 424242
-	Game.current_floor = 1
-	get_tree().change_scene_to_file("res://scenes/levels/main.tscn")
+	# EN SU SALA (etapa 4, 26/10): la prueba es la sala, con el piso 1 montado como lo monta ella (mundo_ref ya cargado).
+	mi_sala = preload("res://tools/prueba_sala_propia.gd").new()
+	add_child(mi_sala)
+	if not await mi_sala.arrancar("prueba_reparto_enemigos", 1, 424242, false):
+		print("MAL: no arranca la sala")
+		get_tree().quit(1)
+		return
 	await _esperar(30)
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	var gen: DungeonGenerator = piso.gen
@@ -74,10 +81,10 @@ func _correr() -> void:
 	for i in 5:
 		(enemigos[i] as Node2D).global_position = centro + Vector2(110, sep * (float(i) - 2.0))
 	await _esperar(3)
-	enemigos[2]._start_combat(true)   # el del medio: los cinco le quedan a mano (Enemy.vecinos)
+	await mi_sala.pelear_con_vecinos(enemigos[2], true)   # el del medio: los cinco le quedan a mano (Enemy.vecinos)
 	await _esperar(15)
 	var combat: Node = null
-	for n in get_tree().root.get_children():
+	for n in get_tree().root.get_children() + mi_sala.capas():
 		if n is CanvasLayer:
 			for h in n.get_children():
 				if h.get("tactico") != null:

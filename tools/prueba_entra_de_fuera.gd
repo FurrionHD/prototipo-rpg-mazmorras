@@ -4,6 +4,8 @@
 #   godot --headless --path . res://tools/prueba_entra_de_fuera.tscn
 extends Node
 
+var mi_sala = null   # su sala: tools/prueba_sala_propia.gd
+
 var _mal: int = 0
 
 
@@ -54,8 +56,13 @@ func _correr() -> void:
 	if ref is SaveData:
 		Game.importar_partida(ref)
 	Game.semilla_mundo = 424242
-	Game.current_floor = 1
-	get_tree().change_scene_to_file("res://scenes/levels/main.tscn")
+	# EN SU SALA (etapa 4, 26/10): la prueba es la sala, con el piso 1 montado como lo monta ella (mundo_ref ya cargado).
+	mi_sala = preload("res://tools/prueba_sala_propia.gd").new()
+	add_child(mi_sala)
+	if not await mi_sala.arrancar("prueba_entra_de_fuera", 1, 424242, false):
+		print("MAL: no arranca la sala")
+		get_tree().quit(1)
+		return
 	await _esperar(30)
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	var gen: DungeonGenerator = piso.gen
@@ -70,10 +77,10 @@ func _correr() -> void:
 	jug.global_position = centro
 	e.global_position = centro + Vector2(40, 0)
 	await _esperar(3)
-	e._start_combat(true)
+	await mi_sala.pelear_con_vecinos(e, true)
 	await _esperar(15)
 	var combat: Node = null
-	for n in get_tree().root.get_children():
+	for n in get_tree().root.get_children() + mi_sala.capas():
 		if n is CanvasLayer:
 			for h in n.get_children():
 				if h.get("tactico") != null:
@@ -107,10 +114,10 @@ func _correr() -> void:
 			break
 	_ver(lejos != null, "hay un enemigo lejos de la zona")
 	if lejos != null:
-		_ver(not Game.unir_enemigo_al_combate(lejos), "el de lejos NO entra (%.0f px fuera)" % -arena.distancia_al_borde(lejos.global_position))
+		_ver(not mi_sala.unir(lejos), "el de lejos NO entra (%.0f px fuera)" % -arena.distancia_al_borde(lejos.global_position))
 		var borde: Vector2 = ArenaCalculo.centro_px(arena.rect_celdas)
 		lejos.global_position = borde
-		_ver(Game.unir_enemigo_al_combate(lejos), "el mismo, ya dentro de la zona, SI entra")
+		_ver(mi_sala.unir(lejos), "el mismo, ya dentro de la zona, SI entra")
 	print("4) uno que llega AL BORDE desde fuera entra solo, colocado dentro")
 	var otro: Node2D = null
 	for n in get_tree().get_nodes_in_group("enemy"):

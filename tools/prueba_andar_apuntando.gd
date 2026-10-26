@@ -6,6 +6,8 @@
 #   godot --headless --path . res://tools/prueba_andar_apuntando.tscn
 extends Node
 
+var sala = null   # su sala: tools/prueba_sala_propia.gd
+
 var _fallos: int = 0
 
 
@@ -45,25 +47,24 @@ func _esperar_a(cond: Callable, tope_s: float) -> bool:
 
 
 func _correr() -> void:
-	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
-	if ref is SaveData:
-		Game.importar_partida(ref)
-	Game.semilla_mundo = 424242
-	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
-	await _esperar(5)
-	Game.entrar_arena_de_pruebas()
-	await _esperar(15)
+	# EN SU SALA (etapa 4, 26/10): la prueba es la sala y la pelea se abre por donde la abre ella.
+	sala = preload("res://tools/prueba_sala_propia.gd").new()
+	add_child(sala)
+	if not await sala.arrancar("prueba_andar_apuntando", Game.PISO_ARENA):
+		print("MAL: no arranca la sala")
+		get_tree().quit(1)
+		return
 	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
-	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/slime.tres", jug.global_position + Vector2(120, 0), {})
+	sala.poner("res://scenes/actors/enemy/slime.tres", Vector2(120, 0), {})
 	await _esperar(20)
 	var enemigos: Array = get_tree().get_nodes_in_group("enemy")
-	if not Game.start_combat(enemigos, false):
+	if not (await sala.pelear(enemigos, false) != null):
 		print("MAL: no se abre la pelea")
 		get_tree().quit(1)
 		return
 	await _esperar(5)
 	var combat: Node = null
-	for n in get_tree().root.get_children():
+	for n in get_tree().root.get_children() + sala.capas():
 		if n is CanvasLayer:
 			for h in n.get_children():
 				if h.get("tactico") != null:

@@ -5,6 +5,8 @@
 #   godot --headless --path . res://tools/prueba_cadaveres_pelea.tscn
 extends Node
 
+var sala = null   # su sala: tools/prueba_sala_propia.gd
+
 var _mal: int = 0
 
 
@@ -40,30 +42,29 @@ func _alfa_tras(n: Node2D, ms: int) -> float:
 
 
 func _correr() -> void:
-	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
-	if ref is SaveData:
-		Game.importar_partida(ref)
-	Game.semilla_mundo = 424242
-	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
-	await _esperar(5)
-	Game.entrar_arena_de_pruebas()
-	await _esperar(15)
+	# EN SU SALA (etapa 4, 26/10): la prueba es la sala y la pelea se abre por donde la abre ella.
+	sala = preload("res://tools/prueba_sala_propia.gd").new()
+	add_child(sala)
+	if not await sala.arrancar("prueba_cadaveres_pelea", Game.PISO_ARENA):
+		print("MAL: no arranca la sala")
+		get_tree().quit(1)
+		return
 	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
-	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/slime.tres", jug.global_position + Vector2(90, 0), {})
-	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/slime.tres", jug.global_position + Vector2(90, 40), {})
+	sala.poner("res://scenes/actors/enemy/slime.tres", Vector2(90, 0), {})
+	sala.poner("res://scenes/actors/enemy/slime.tres", Vector2(90, 40), {})
 	# El refuerzo nace LEJOS (12/10): sin tope en el mapa, uno que nace dentro de la zona entra solo en la pelea nada mas
 	# empezar (combat_tactico._recoger_de_la_arena) y ya no quedaria para meterlo a mano en el hueco del que cae.
-	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/slime.tres", jug.global_position + Vector2(700, 20), {})
+	sala.poner("res://scenes/actors/enemy/slime.tres", Vector2(700, 20), {})
 	await _esperar(25)
 	var nodos: Array = get_tree().get_nodes_in_group("enemy")
 	_ver(nodos.size() >= 3, "tres slimes (%d)" % nodos.size())
 	var a: Node2D = nodos[0]
 	var otro: Node2D = nodos[1]
 	var refuerzo: Node2D = nodos[2]
-	_ver(Game.start_combat([a, otro], false), "se abre la pelea contra dos")
+	_ver((await sala.pelear([a, otro], false) != null), "se abre la pelea contra dos")
 	await _esperar(8)
 	var combat: Node = null
-	for n in get_tree().root.get_children():
+	for n in get_tree().root.get_children() + sala.capas():
 		if n is CanvasLayer:
 			for h in n.get_children():
 				if h.get("tactico") != null:
@@ -74,7 +75,7 @@ func _correr() -> void:
 	print("1) cae el primero y un refuerzo estrena su hueco en el acto")
 	ea.current_hp = 0.0
 	combat._morir_enemigo(ea)
-	_ver(Game.unir_enemigo_al_combate(refuerzo, 0), "el refuerzo entra en su hueco")
+	_ver(sala.unir(refuerzo, 0), "el refuerzo entra en su hueco")
 	_ver(combat._enemies[0] != ea and combat._enemies[0].is_alive(), "el hueco 0 es ya del refuerzo")
 	_ver(a.has_meta("muerto_en_pelea"), "el cuerpo viejo empieza a morirse en el mapa")
 	var al1: float = await _alfa_tras(a, 2500)
@@ -92,10 +93,10 @@ func _correr() -> void:
 	if is_instance_valid(combat):
 		combat._on_continue_pressed()
 	var t0: int = Time.get_ticks_msec()
-	while Time.get_ticks_msec() - t0 < 3000 and (Game.combate_activo() or Game.hay_pelea_en_pantalla()):
+	while Time.get_ticks_msec() - t0 < 3000 and sala.peleando():
 		await get_tree().process_frame
 	await _esperar(5)
-	_ver(not Game.combate_activo(), "la pelea se cierra")
+	_ver(not sala.peleando(), "la pelea se cierra")
 	_ver(is_instance_valid(a) and a.esta_muerto() and a.modulate.a > 0.99 and not a.has_meta("muerto_en_pelea"),
 		"el cadaver relevado vuelve a verse (alfa %.2f)" % (a.modulate.a if is_instance_valid(a) else -1.0))
 	print("FIN: %s (%d MAL)" % ["TODO BIEN" if _mal == 0 else "HAY FALLOS", _mal])

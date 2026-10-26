@@ -140,7 +140,6 @@ COMO_SE_LANZA = {
     "prueba_huella_combate": [{"antes": ["--fixed-fps", "60"], "despues": ["comparar"]}],
     # "prepara": esa pasada solo deja las cosas listas para la siguiente (p. ej. se mata a si misma): no cuenta.
     "prueba_bd_altf4": [{"env": {"ALTF4_FASE": "1"}, "prepara": True}, {"env": {"ALTF4_FASE": "2"}}],
-    "prueba_pelea_a_medias": [{"env": {"PELEA_FASE": "1"}, "prepara": True}, {"env": {"PELEA_FASE": "2"}}],
     "prueba_town_pelea_sala": NUBE_LOCAL,
     "prueba_town_pelea_guardada": NUBE_LOCAL,
 }
@@ -149,7 +148,7 @@ COMO_SE_LANZA = {
 # a la vez se pisan (12/10: con 6 a la vez fallaron bd_altf4 y bd_ranura, y solas pasan).
 def va_sola(nombre: str) -> bool:
     return es_de_red(nombre) or nombre.startswith("prueba_bd_") or nombre in {
-        "prueba_pelea_a_medias", "prueba_huella_save", "prueba_nube_sin_red", "prueba_ranura_a_mundo"}
+        "prueba_huella_save", "prueba_nube_sin_red", "prueba_ranura_a_mundo"}
 
 
 TOPE_NORMAL = 120     # s. Regla del jefe: topes de 3-5 veces lo que tarda, nada de 500 s.

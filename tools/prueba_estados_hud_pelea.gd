@@ -4,6 +4,8 @@
 #   godot --headless --path . res://tools/prueba_estados_hud_pelea.tscn
 extends Node
 
+var mi_sala = null   # su sala: tools/prueba_sala_propia.gd
+
 var _mal: int = 0
 
 
@@ -43,8 +45,13 @@ func _correr() -> void:
 	if ref is SaveData:
 		Game.importar_partida(ref)
 	Game.semilla_mundo = 424242
-	Game.current_floor = 1
-	get_tree().change_scene_to_file("res://scenes/levels/main.tscn")
+	# EN SU SALA (etapa 4, 26/10): la prueba es la sala, con el piso 1 montado como lo monta ella (mundo_ref ya cargado).
+	mi_sala = preload("res://tools/prueba_sala_propia.gd").new()
+	add_child(mi_sala)
+	if not await mi_sala.arrancar("prueba_estados_hud_pelea", 1, 424242, false):
+		print("MAL: no arranca la sala")
+		get_tree().quit(1)
+		return
 	await _esperar(30)
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	var gen: DungeonGenerator = piso.gen
@@ -62,10 +69,10 @@ func _correr() -> void:
 	jug.global_position = px
 	e.global_position = px + Vector2(40, 0)
 	await _esperar(3)
-	e._start_combat(true)
+	await mi_sala.pelear_con_vecinos(e, true)
 	await _esperar(10)
 	var combat: Node = null
-	for n in get_tree().root.get_children():
+	for n in get_tree().root.get_children() + mi_sala.capas():
 		if n is CanvasLayer:
 			for h in n.get_children():
 				if h.get("tactico") != null:

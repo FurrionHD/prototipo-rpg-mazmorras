@@ -4,6 +4,8 @@
 #   godot --headless --path . res://tools/prueba_pelea_con_muertos.tscn
 extends Node
 
+var sala = null   # su sala: tools/prueba_sala_propia.gd
+
 var _mal: int = 0
 
 
@@ -32,17 +34,16 @@ func _ver(ok: bool, que: String) -> void:
 
 
 func _correr() -> void:
-	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
-	if ref is SaveData:
-		Game.importar_partida(ref)
-	Game.semilla_mundo = 424242
-	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
-	await _esperar(5)
-	Game.entrar_arena_de_pruebas()
-	await _esperar(15)
+	# EN SU SALA (etapa 4, 26/10): la prueba es la sala y la pelea se abre por donde la abre ella.
+	sala = preload("res://tools/prueba_sala_propia.gd").new()
+	add_child(sala)
+	if not await sala.arrancar("prueba_pelea_con_muertos", Game.PISO_ARENA):
+		print("MAL: no arranca la sala")
+		get_tree().quit(1)
+		return
 	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
 	for k in 3:
-		Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/slime_veneno.tres", jug.global_position + Vector2(70, -40 + 40 * k), {})
+		sala.poner("res://scenes/actors/enemy/slime_veneno.tres", Vector2(70, -40 + 40 * k), {})
 	await _esperar(25)
 	var bichos: Array = get_tree().get_nodes_in_group("enemy")
 	_ver(bichos.size() >= 3, "hay tres venenosos (%d)" % bichos.size())
@@ -52,14 +53,14 @@ func _correr() -> void:
 	muerto.morir()
 	otro_muerto.morir()
 	print("1) una pelea solo contra un cadaver no se abre")
-	_ver(not Game.start_combat([muerto], false), "start_combat([muerto]) = no")
+	_ver(not (await sala.pelear([muerto], false) != null), "start_combat([muerto]) = no")
 	await _esperar(5)
 	_ver(not Game.combate_activo(), "no hay pelea")
 	print("2) con un vivo y un cadaver: solo entra el vivo")
-	_ver(Game.start_combat([muerto, vivo], false), "se abre contra el vivo")
+	_ver((await sala.pelear([muerto, vivo], false) != null), "se abre contra el vivo")
 	await _esperar(8)
 	var combat: Node = null
-	for n in get_tree().root.get_children():
+	for n in get_tree().root.get_children() + sala.capas():
 		if n is CanvasLayer:
 			for h in n.get_children():
 				if h.get("tactico") != null:
