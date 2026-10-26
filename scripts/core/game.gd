@@ -200,11 +200,15 @@ func apuntar_huida(pj: PersonajeData, espejo: bool) -> void:
 	_huida_espejo = espejo
 
 
-func _aplicar_huida(acabada: bool) -> void:
+#
+# EN EL ESPEJO cuenta si de verdad se ha ido: 'huyo' = el personaje salio huyendo (la pantalla lo tiene entre los huidos).
+# Antes era "si la pantalla se cierra sin que la pelea haya acabado", y jugando solo por la sala (26/10) huir os saca a
+# todos y la pelea acaba con vuestra huida: el que huia no pasaba nunca a ir en cabeza.
+func _aplicar_huida(acabada: bool, huyo: bool = false) -> void:
 	var pj: PersonajeData = _huida_pj
 	var de_espejo: bool = _huida_espejo
 	_huida_pj = null
-	if pj == null or (de_espejo and acabada) or not party.has(pj):
+	if pj == null or (de_espejo and acabada and not huyo) or not party.has(pj):
 		return
 	if cambiar_lider(party.find(pj)):
 		var yo: Node = get_tree().get_first_node_in_group("player")
@@ -1516,6 +1520,21 @@ func _olvidar_zona_de_mi_pelea(acabada: bool) -> void:
 
 
 # ¿La pelea que tengo en pantalla ha acabado? (false si no hay, o si sigue: me estoy yendo huyendo)
+# ¿Ese personaje mio ha salido huyendo de la pelea en pantalla? (el espejo lo sabe por las instantaneas de la sala)
+func _huyo_en_pantalla(pj: PersonajeData) -> bool:
+	if pj == null or _active_layer == null or _active_layer.get_child_count() == 0:
+		return false
+	if bool(_active_layer.get_child(0).get("_acabo_huyendo")):
+		return true   # la pelea acabo porque os fuisteis: el ultimo en irse erais vosotros
+	var huidos = _active_layer.get_child(0).get("_huidos")
+	if not huidos is Dictionary:
+		return false
+	for c in huidos:
+		if pj_mio_de(c) == pj:
+			return true
+	return false
+
+
 func _pelea_en_pantalla_acabada() -> bool:
 	if _active_layer == null or _active_layer.get_child_count() == 0:
 		return false
@@ -16066,10 +16085,11 @@ func _hay_jefe_en_roster(roster: Dictionary) -> bool:
 func _on_combate_espejo_cerrado(_won: bool = false, _hp := [], _mp := [], _en := [],
 		_muertos := [], _ehp := [], _duenos := [], _eest := []) -> void:
 	var acabada: bool = _pelea_en_pantalla_acabada()   # antes de soltar la pantalla (ver _olvidar_zona_de_mi_pelea)
+	var huyo: bool = _huyo_en_pantalla(_huida_pj)      # (tambien antes: lo mira en la pantalla)
 	salir_modal(_active_layer)
 	esconder_mundo(false)
 	_desmontar_arena_tactica(acabada)   # la arena y el encuadre de la camara, a su sitio
-	_aplicar_huida(acabada)
+	_aplicar_huida(acabada, huyo)
 	# ⚠️ LO QUE APILO _montar_pantalla_combate HAY QUE DESAPILARLO AQUI TAMBIEN. El espejo monta la
 	# pantalla por el mismo sitio que una pelea de verdad, pero se cierra por OTRA funcion: como esto
 	# faltaba, al pulsar Continuar en el espejo la musica de combate (o la de jefe) se quedaba en lo

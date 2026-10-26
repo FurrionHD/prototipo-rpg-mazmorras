@@ -345,6 +345,8 @@ var _pause_left: float = 0.0
 var _injected: bool = false       # true si Game nos paso los combatientes
 var _enemy_initiated: bool = false
 var _player_won: bool = false
+# Si acabo HUYENDO (26/10): viaja al espejo en la instantanea final, que el jugador aplica su huida al cerrarlo (Game).
+var _acabo_huyendo: bool = false
 
 # --- MODO PRUEBA / medicion de DPS (dev) ---
 var _dps_on: bool = false             # el enemigo es un muñeco de pruebas
@@ -2884,6 +2886,7 @@ func _end(player_won: bool, fled: bool = false) -> void:
 	espejo._soltar_impactos_red()
 	_dps_resumen()
 	_player_won = player_won
+	_acabo_huyendo = fled
 	# PASIVA RNG SLAYER: cada bicho ABATIDO de verdad tira por su slayer de familia (ultra-raro), a nombre
 	# de quien le dio el ultimo golpe. Va AL ACABAR y no al pulsar Continuar: en multi, quien sale de su
 	# espejo antes se lleva su lote en ese momento (y en la pelea de un trabajador, que no pulsa nada, se

@@ -355,6 +355,7 @@ func instantanea() -> Dictionary:
 	return {"a": _valores(_pantalla._aliados, true), "e": _valores(_pantalla._enemies),
 		"turno": _pantalla._aliados.find(_pantalla._player), "log": _trozo_log(),
 		"logn": _pantalla._log_lines.size(), "fin": _pantalla._state == _pantalla.State.FINISHED,
+		"huida": _pantalla._acabo_huyendo,   # (26/10) acabo porque huisteis: lo mira Game._aplicar_huida
 		"rev": _rev, "vel": _pantalla._vel_pelea,
 		# Los CIRCULOS MAGICOS (26/09): quien recita, que magia y cuantas frases, y como acabaron los ultimos.
 		"circ": _pantalla.turno_mapa.circulos_para_red() if _pantalla.tactico else {}}
@@ -470,6 +471,7 @@ func aplicar_instantanea(snap: Dictionary) -> void:
 		_aplicar_trozo_log(snap["log"], int(snap.get("logn", 0)))
 	if bool(snap.get("fin", false)):
 		_pantalla._state = _pantalla.State.FINISHED
+		_pantalla._acabo_huyendo = bool(snap.get("huida", false))
 		# Igual que en _end(): visible Y habilitado Y con su texto. Solo poner 'visible' no bastaba
 		# si el boton venia deshabilitado de antes: se veia el "Continuar" pero no se podia pulsar.
 		_pantalla._continue_button.visible = true
