@@ -66,8 +66,7 @@ func pintar() -> void:
 	var ret: Button = MenuScaffold.pastilla(acc, "Sacar de la hucha", _retirar, false)
 	ret.custom_minimum_size = Vector2(210, MenuScaffold.ALTO_BOTON)
 
-	MenuScaffold.nota(col, "En compañía la hucha es de todos: lo que guardes lo puede sacar tu compañero."
-		if Net.activo else "Se guarda con tu partida.")
+	MenuScaffold.nota(col, "En compañía la hucha es de todos: lo que guardes lo puede sacar tu compañero.")
 
 
 func _saldo(padre: Control, que: String, cuanto: int, color: Color) -> void:

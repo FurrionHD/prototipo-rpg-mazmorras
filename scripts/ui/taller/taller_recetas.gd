@@ -94,7 +94,7 @@ func build() -> void:
 			"tooltip": "%s  ·  %s%s" % [rec.nombre(),
 				"puedes hacer %d" % salen if salen > 0 else "te falta material",
 				"  ·  llevas %d" % llevas if llevas > 0 else ""]})
-	if Net.activo and lista.is_empty():
+	if lista.is_empty():
 		Net.hogar.reservar({})   # sin receta no reservo nada
 	t.grid_detail(piezas, _ficha, "No hay recetas aquí todavía.")
 
@@ -458,14 +458,13 @@ func _on_fabricar() -> void:
 		return
 	var receta: RecipeData = t.stacks[t.sel]
 	var nombre: String = receta.nombre()
-	if Net.activo and not await Net.hogar.abrir_taller():
+	if not await Net.hogar.abrir_taller():
 		t.ocupado()
 		t.rebuild()
 		return
 	var total: int = Game.craftear_con(receta, _seleccion)
-	if Net.activo:
-		Net.hogar.cerrar_taller()
-		Net.hogar.liberar_mis_reservas()   # consumido: suelto la reserva
+	Net.hogar.cerrar_taller()
+	Net.hogar.liberar_mis_reservas()   # consumido: suelto la reserva
 	if total > 0:
 		t.decir("%s %d × %s. Está en tu bolsa." % ["Cocinas" if t.es_cocina() else "Fabricas", total, nombre])
 		_seleccion = []   # los materiales cambiaron: empezar limpio
@@ -496,5 +495,4 @@ func _capar_y_publicar(r: RecipeData) -> void:
 				sel[cal] = n
 				var clave: String = "%s|%d" % [ing.material.id, int(cal)]
 				claim[clave] = int(claim.get(clave, 0)) + n
-	if Net.activo:
-		Net.hogar.reservar(claim)
+	Net.hogar.reservar(claim)

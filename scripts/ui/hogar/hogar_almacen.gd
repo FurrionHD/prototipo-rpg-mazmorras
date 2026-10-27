@@ -128,7 +128,7 @@ func _on_sub(i: int) -> void:
 
 # La llaman el armazon al cerrar el hogar o cambiar de seccion, y _on_cat al salir de Materiales.
 func al_cerrar() -> void:
-	if _taller == 1 and Net.activo:
+	if _taller == 1:
 		Net.hogar.cerrar_taller()
 	_taller = 0
 
@@ -687,12 +687,11 @@ func _mover(s: Dictionary, cuantos: int) -> void:
 	match _cat:
 		CAT_MATERIALES:
 			var movidos: int = 0
-			if Net.activo and not await Net.hogar.abrir_taller():
+			if not await Net.hogar.abrir_taller():
 				_decir("Tu compañero está usando el baúl justo ahora: prueba otra vez.", false)
 				return
 			movidos = Game.mover_monton_material(m, a_casa, cuantos)
-			if Net.activo:
-				Net.hogar.cerrar_taller()
+			Net.hogar.cerrar_taller()
 			if movidos <= 0:
 				_decir("No se ha podido mover.", false)
 				return
@@ -720,12 +719,11 @@ func _mover(s: Dictionary, cuantos: int) -> void:
 
 # Una accion sobre el baul de materiales con el PERMISO del host alrededor (en multi; en solitario, a secas).
 func _con_permiso(accion: Callable) -> void:
-	if Net.activo and not await Net.hogar.abrir_taller():
+	if not await Net.hogar.abrir_taller():
 		_decir("Tu compañero está usando el baúl justo ahora: prueba otra vez.", false)
 		return
 	accion.call()
-	if Net.activo:
-		Net.hogar.cerrar_taller()
+	Net.hogar.cerrar_taller()
 
 
 func _decir(txt: String, ok: bool) -> void:

@@ -162,5 +162,4 @@ func _pintar() -> void:
 		"reparar": reparar.build()
 	# Y AQUI, una sola vez, ya con la pestaña pintada. Va al final a proposito: que una pantalla se corte
 	# antes de tiempo no puede dejarme material apartado a espaldas del compañero.
-	if Net.activo:
-		Net.hogar.reservar(_claim_reserva)
+	Net.hogar.reservar(_claim_reserva)

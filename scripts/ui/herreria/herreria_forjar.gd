@@ -335,15 +335,14 @@ func _on_auto(base: Resource, metal: MaterialData, mejor_primero: bool) -> void:
 
 
 func _forjar(base: Resource, metal: MaterialData) -> void:
-	if Net.activo and not await Net.hogar.abrir_taller():
+	if not await Net.hogar.abrir_taller():
 		t.ocupado()
 		t.rebuild()
 		return
 	# TANDA: cada pieza con su lote de material y su tirada (ver Game.forjar_tanda).
 	var items: Array = Game.forjar_tanda(base, metal, _sel, Game.piezas_de_seleccion_forja(base, metal, _sel))
-	if Net.activo:
-		Net.hogar.cerrar_taller()
-		Net.hogar.liberar_mis_reservas()
+	Net.hogar.cerrar_taller()
+	Net.hogar.liberar_mis_reservas()
 	var verbo: String = "Coses" if catalogo == Catalogo.CUERO else "Forjas"
 	if items.size() == 1:
 		t.decir("%s %s. Está en tu baúl: equípalo en el menú de personaje [C]." % [verbo, Game.item_display_name(items[0])])

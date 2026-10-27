@@ -717,7 +717,7 @@ func _tarjeta_persona(ficha: Dictionary) -> void:
 	cab.add_child(nombre)
 	var sub := Label.new()
 	var de_quien: String = ""
-	if Net.activo and String(ficha.get("dueno", "")) != Identidad.id:
+	if String(ficha.get("dueno", "")) != Identidad.id:
 		de_quien = "  ·  de %s" % String(ficha.get("dueno_nombre", "tu compañero"))
 	sub.text = "Nv. %d  ·  Poder %d%s" % [int(ficha.get("level", 1)), int(ficha.get("poder", 0)), de_quien]
 	sub.add_theme_font_size_override("font_size", 13)

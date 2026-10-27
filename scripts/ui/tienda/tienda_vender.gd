@@ -90,7 +90,7 @@ func build() -> void:
 	MenuScaffold.subpestanas(t.barra_sub, SUBS, SUBS_ICONOS, _sub, _on_sub)
 	t.titulo_seccion(SUBS[_sub])
 	_pintar_filtros()
-	if _pide_taller() and Net.activo:
+	if _pide_taller():
 		_taller_listo()
 	var todos: Array = _recoger()
 	t.orden.podar(clave(), grupos())
@@ -292,7 +292,7 @@ func _recoger() -> Array:
 		SUB_HOGAR:
 			match _sub2_de(SUB_HOGAR):
 				HOGAR_MATERIALES:
-					if not Net.activo or _taller == 1:
+					if _taller == 1:
 						for g in _agrupar(Game.baul.montones()):
 							out.append(_monton(g["modelo"], int(g["cantidad"]), "hogar", "h|" + _clave_item(g["modelo"])))
 				HOGAR_EQUIPO:
@@ -555,7 +555,7 @@ func _vender(s: Dictionary, n: int) -> int:
 			return Game.vender_item(m, n)
 		"hogar":
 			# El baul es COMPARTIDO en multi: sin candado, Game.vender_item no hace nada.
-			if Net.activo and not Net.hogar.tengo_taller():
+			if not Net.hogar.tengo_taller():
 				if not await Net.hogar.abrir_taller():
 					t.decir("El hogar está ocupado: tu compañero está en el taller.", false)
 					return 0
@@ -614,7 +614,7 @@ func _cobrar_cesta() -> void:
 	for e in cesta.entradas:
 		if String(e["stack"]["origen"]) == "hogar":
 			hay_hogar = true
-	if hay_hogar and Net.activo and not Net.hogar.tengo_taller():
+	if hay_hogar and not Net.hogar.tengo_taller():
 		hogar_ok = await Net.hogar.abrir_taller()
 		candado_mio = hogar_ok
 	for e in cesta.entradas.duplicate():

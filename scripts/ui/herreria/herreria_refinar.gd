@@ -331,7 +331,7 @@ static func _verbo(que: int) -> String:
 
 func refinar(que: int, s: Dictionary) -> void:
 	var veces: int = clampi(_cant, 1, maxi(1, int(s["tengo"]) / maxi(1, int(s["por_uno"]))))
-	if Net.activo and not await Net.hogar.abrir_taller():
+	if not await Net.hogar.abrir_taller():
 		t.ocupado()
 		t.rebuild()
 		return
@@ -345,8 +345,7 @@ func refinar(que: int, s: Dictionary) -> void:
 		Que.CARBON: n = Game.carbonizar(origen, cal, veces)
 		Que.FLECHAS, Que.VIROTES: n = Game.fabricar_municion(origen, cal, veces, _arma_de(que)) * _sale_por_tanda(que)
 		_: n = Game.fundir(origen, cal, veces)
-	if Net.activo:
-		Net.hogar.cerrar_taller()
+	Net.hogar.cerrar_taller()
 	if n > 0:
 		t.decir("Sacas %d × %s de calidad %s." % [n, (s["destino"] as MaterialData).nombre.to_lower(),
 			t.cal_txt(cal).to_lower()])

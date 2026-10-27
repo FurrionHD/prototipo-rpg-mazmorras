@@ -305,7 +305,7 @@ func _pie(modo: int, s: Dictionary, salen: int) -> void:
 
 func _refinar(modo: int, s: Dictionary) -> void:
 	var veces: int = clampi(_cant, 1, maxi(1, int(s["tengo"]) / maxi(1, int(s["por_uno"]))))
-	if Net.activo and not await Net.hogar.abrir_taller():
+	if not await Net.hogar.abrir_taller():
 		t.ocupado()
 		t.rebuild()
 		return
@@ -315,8 +315,7 @@ func _refinar(modo: int, s: Dictionary) -> void:
 		Modo.CUERDAS: n = Game.hacer_cuerda(s["mat"] as MaterialData, int(s["cal"]), veces)
 		Modo.HILAR: n = Game.hilar(int(s["cal"]), veces, s["mat"] as MaterialData)
 		_: n = Game.curtir(int(s["cal"]), veces, s["mat"] as MaterialData)
-	if Net.activo:
-		Net.hogar.cerrar_taller()
+	Net.hogar.cerrar_taller()
 	if n > 0:
 		t.decir("Sacas %d %s de calidad %s." % [n,
 			["cuero(s)", "correa(s)", "cuerda(s)", "tela(s)"][modo], t.cal_txt(int(s["cal"])).to_lower()])

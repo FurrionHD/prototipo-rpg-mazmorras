@@ -322,13 +322,12 @@ func _mejorar(item: Resource, cat: String) -> void:
 	if nucleo == null:
 		t.decir("No se pudo mejorar.", false)
 		return
-	if Net.activo and not await Net.hogar.abrir_taller():
+	if not await Net.hogar.abrir_taller():
 		t.ocupado()
 		t.rebuild()
 		return
 	var ok: bool = Game.mejorar_item(item, cat, nucleo)
-	if Net.activo:
-		Net.hogar.cerrar_taller()
+	Net.hogar.cerrar_taller()
 	if ok:
 		if cat == Upgrades.LUMINOSIDAD:
 			t.decir("El %s alumbra más: %.1f casillas." % [str(item.get("nombre")).to_lower(), Game.radio_lampara()])

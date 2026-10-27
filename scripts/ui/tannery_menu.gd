@@ -103,7 +103,7 @@ func _pintar() -> void:
 	else:
 		anchos(ANCHO_REJILLA_MIN, ANCHO_FICHA)
 	# Solo MOCHILAS y ARMADURAS reservan (seleccion persistente); curtir y correas son instantaneas.
-	if Net.activo and _tab in [TAB_CURTIR, TAB_CORREAS, TAB_CUERDAS, TAB_HILAR]:
+	if _tab in [TAB_CURTIR, TAB_CORREAS, TAB_CUERDAS, TAB_HILAR]:
 		Net.hogar.reservar({})
 
 	# QUIEN TIENE EL OFICIO se marca EN SU RETRATO, con el pellejo en la esquina. Estaba escrito en la

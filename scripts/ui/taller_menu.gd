@@ -244,8 +244,7 @@ func _cerrar() -> void:
 	_root.visible = false
 	_al_cerrar()
 	Game.cerrar_menu(self)
-	if Net.activo:
-		Net.hogar.liberar_mis_reservas()
+	Net.hogar.liberar_mis_reservas()
 
 
 func _al_cerrar() -> void:
@@ -567,8 +566,7 @@ func note(vb: VBoxContainer, txt: String) -> void:
 # MULTI: lo que MI seleccion tiene apartado, {"mat_id|calidad": uds}. Por defecto se publica en el acto;
 # la herreria lo junta y lo publica UNA vez al final del repintado (ver forge_menu).
 func reservar(claim: Dictionary) -> void:
-	if Net.activo:
-		Net.hogar.reservar(claim)
+	Net.hogar.reservar(claim)
 
 
 # Filtros en DOS FILAS con una sola seleccion: los 'corte' primeros van en la de arriba y el resto en la

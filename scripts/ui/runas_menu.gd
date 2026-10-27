@@ -100,8 +100,7 @@ func _pintar() -> void:
 	# Aqui no trabaja nadie con oficio: fuera la fila de retratos de los otros talleres (salia vacia).
 	_fila_artesano_rotulo.visible = false
 	(_fila_artesano.get_parent().get_parent() as Control).visible = false
-	if Net.activo:
-		Net.hogar.reservar({})   # todo es instantaneo: no se aparta nada mientras miras
+	Net.hogar.reservar({})   # todo es instantaneo: no se aparta nada mientras miras
 	# La fila de tipos.
 	var subs: Array = SUBS_ARMADURAS if _tab == TAB_ARMADURAS else SUBS_ARMAS
 	var nombres: Array = []
@@ -444,13 +443,12 @@ func _on_sub(i: int) -> void:
 
 # Una accion del taller, con el candado del hogar en multi (como la herreria: se gasta del baul compartido).
 func _hacer(accion: Callable, ok_txt: String) -> void:
-	if Net.activo and not await Net.hogar.abrir_taller():
+	if not await Net.hogar.abrir_taller():
 		ocupado()
 		rebuild()
 		return
 	var err: String = accion.call()
-	if Net.activo:
-		Net.hogar.cerrar_taller()
+	Net.hogar.cerrar_taller()
 	decir(ok_txt if err == "" else err, err == "")
 	rebuild()
 

@@ -260,15 +260,14 @@ func _on_auto(tipo: int, lingote: MaterialData, mejor_primero: bool) -> void:
 
 
 func _forjar(tipo: int, lingote: MaterialData) -> void:
-	if Net.activo and not await Net.hogar.abrir_taller():
+	if not await Net.hogar.abrir_taller():
 		t.ocupado()
 		t.rebuild()
 		return
 	var items: Array = Game.fabricar_herramienta_tanda(tipo, lingote, _sel_met, _sel_tab,
 		Game.piezas_de_seleccion_herramienta(tipo, lingote, _sel_met, _sel_tab))
-	if Net.activo:
-		Net.hogar.cerrar_taller()
-		Net.hogar.liberar_mis_reservas()
+	Net.hogar.cerrar_taller()
+	Net.hogar.liberar_mis_reservas()
 	if items.size() == 1:
 		t.decir("Forjas %s. Equípala en el inventario [I], pestaña Equipo." % Game.item_display_name(items[0]))
 	elif items.size() > 1:

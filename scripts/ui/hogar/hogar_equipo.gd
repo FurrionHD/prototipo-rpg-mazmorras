@@ -70,8 +70,7 @@ func _puestos() -> Array:
 		var uid: String = String(u)
 		var mio: PersonajeData = Game.pj_por_uid(uid) if not uid.is_empty() else null
 		if mio != null:
-			out.append({"uid": uid, "pj": mio, "mio": true, "jugador": 1 if not Net.activo
-				else Net.formacion.num_jugador(Identidad.id), "nombre": mio.nombre, "level": mio.level})
+			out.append({"uid": uid, "pj": mio, "mio": true, "jugador": Net.formacion.num_jugador(Identidad.id), "nombre": mio.nombre, "level": mio.level})
 			continue
 		var f: Dictionary = filas.get(uid, {})
 		if f.is_empty():
@@ -265,8 +264,7 @@ func _guardar_materiales() -> void:
 		hogar._rebuild()
 		return
 	var n: int = Game.guardar_materiales_en_hogar()
-	if Net.activo:
-		Net.hogar.cerrar_taller()
+	Net.hogar.cerrar_taller()
 	hogar._aviso = "Guardas %d material%s en casa." % [n, "" if n == 1 else "es"] if n > 0 \
 		else "No llevas materiales."
 	hogar._aviso_ok = n > 0
@@ -333,10 +331,9 @@ func _editar_aspecto(pj: PersonajeData) -> void:
 			if jugador != null and jugador.has_method("refrescar_grupo"):
 				jugador.refrescar_grupo()
 			# MULTI: y re-difundirlo, o el compañero no lo veria hasta cambiar de escena.
-			if Net.activo:
-				Net.pisos.anunciar_aspecto()
-				Net.jugadores.anunciar_grupo()
-				Net.hogar.marcar_hogar_sucio()
+			Net.pisos.anunciar_aspecto()
+			Net.jugadores.anunciar_grupo()
+			Net.hogar.marcar_hogar_sucio()
 			hogar._aviso = "%s cambia de aspecto." % pj.nombre
 			hogar._aviso_ok = true
 			hogar._rebuild())

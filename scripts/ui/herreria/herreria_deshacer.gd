@@ -83,13 +83,12 @@ func _ficha(vb: VBoxContainer) -> void:
 
 func _deshacer(item: Resource) -> void:
 	var nombre: String = Game.item_display_name(item)
-	if Net.activo and not await Net.hogar.abrir_taller():
+	if not await Net.hogar.abrir_taller():
 		t.ocupado()
 		t.rebuild()
 		return
 	var ok: bool = Game.fundir_item(item)
-	if Net.activo:
-		Net.hogar.cerrar_taller()
+	Net.hogar.cerrar_taller()
 	if ok:
 		t.sel = 0   # la pieza ya no existe
 		t.decir("Deshaces %s. El material está en tu baúl." % nombre)

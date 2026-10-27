@@ -88,8 +88,7 @@ func cancelar() -> void:
 # ============================================================
 
 func pintar() -> void:
-	if Net.activo:
-		_refrescar_ajenos()
+	_refrescar_ajenos()
 	hogar._lista_scroll.visible = true
 	hogar._lista_scroll.custom_minimum_size = Vector2(RETRATOS_POR_FILA * (MenuScaffold.LADO_RETRATO + 10.0) + 20.0, 0)
 	hogar._titulo_seccion.text = "Editar equipo"
@@ -181,7 +180,7 @@ func _marca_retrato(b: Button, pos: int) -> void:
 func _pintar_formacion() -> void:
 	MenuScaffold.titulo(hogar._content, "Formación", 15)
 	MenuScaffold.nota(hogar._content, "De izquierda a derecha es como os colocáis en el combate. "
-		+ "Arrastra a los tuyos para cambiar el orden." + ("  Si mueves a los de otro jugador, se le pedirá." if Net.activo else ""))
+		+ "Arrastra a los tuyos para cambiar el orden.  Si mueves a los de otro jugador, se le pedirá.")
 	var fila := HBoxContainer.new()
 	fila.alignment = BoxContainer.ALIGNMENT_CENTER
 	fila.add_theme_constant_override("separation", 16)
@@ -365,12 +364,9 @@ func confirmar() -> void:
 		return
 	abierto = false
 	vista._avisar_cambio_lider()
-	if not Net.activo:
-		Net.formacion.fijar_solo(_borrador)
-	if Net.activo:
-		# El ORDEN entre jugadores lo decide el host: se le pide cuando la formacion ya incluya a los
-		# que acabas de añadir (llega por red, ver hogar_equipo._orden_pendiente).
-		vista.pedir_orden_cuando_llegue(_borrador.duplicate())
+	# El ORDEN entre jugadores lo decide el host: se le pide cuando la formacion ya incluya a los
+	# que acabas de añadir (llega por red, ver hogar_equipo._orden_pendiente).
+	vista.pedir_orden_cuando_llegue(_borrador.duplicate())
 	hogar._aviso = "Equipo actualizado."
 	hogar._aviso_ok = true
 	hogar._rebuild()

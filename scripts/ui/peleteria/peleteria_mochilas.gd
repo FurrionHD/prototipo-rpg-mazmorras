@@ -107,12 +107,11 @@ func _ficha(vb: VBoxContainer) -> void:
 	_capar(cor, _sel_cor)
 	_capar(cue, _sel_cue)
 	# ... y publicar las tres como MI reserva, para que el otro las vea apartadas en vivo.
-	if Net.activo:
-		var claim: Dictionary = {}
-		_sumar_claim(claim, heb, _sel_heb)
-		_sumar_claim(claim, cor, _sel_cor)
-		_sumar_claim(claim, cue, _sel_cue)
-		Net.hogar.reservar(claim)
+	var claim: Dictionary = {}
+	_sumar_claim(claim, heb, _sel_heb)
+	_sumar_claim(claim, cor, _sel_cor)
+	_sumar_claim(claim, cue, _sel_cue)
+	Net.hogar.reservar(claim)
 
 	# CUANTAS mochilas salen con lo elegido: los contadores cuentan la TANDA entera, no una pieza.
 	var coste: Dictionary = Game.MOCHILA_COSTE
@@ -385,7 +384,7 @@ func _auto_sel(mat: MaterialData, necesita: int, mejor_primero: bool) -> Diction
 
 
 func _coser(heb: MaterialData) -> void:
-	if Net.activo and not await Net.hogar.abrir_taller():
+	if not await Net.hogar.abrir_taller():
 		t.ocupado()
 		t.rebuild()
 		return
@@ -396,9 +395,8 @@ func _coser(heb: MaterialData) -> void:
 		[_sel_heb, _sel_cor, _sel_cue],
 		[int(coste["hebillas"]), int(coste["correa"]), int(coste["cuero"])])
 	var hechas: Array = Game.fabricar_mochila_tanda(heb, _sel_heb, _sel_cor, _sel_cue, piezas)
-	if Net.activo:
-		Net.hogar.cerrar_taller()
-		Net.hogar.liberar_mis_reservas()   # consumido: suelto la reserva
+	Net.hogar.cerrar_taller()
+	Net.hogar.liberar_mis_reservas()   # consumido: suelto la reserva
 	if hechas.size() == 1:
 		t.decir("Coses %s: +%.0f de carga. Equípala en el menú de personaje [C]." % [
 			Game.item_display_name(hechas[0]), Game.capacidad_mochila(hechas[0] as BackpackData)])
