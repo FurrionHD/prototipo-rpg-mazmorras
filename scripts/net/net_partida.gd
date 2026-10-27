@@ -444,7 +444,7 @@ const _DICTS_HABILIDAD := ["ability_internal", "ability_consolidado", "ability_b
 # LO VIVIDO EN UNA PELEA POR UN JUGADOR QUE SE CAYO (fase 5 de la BD): se apunta en su ficha del mundo, en
 # la sala. Si ya ha vuelto con otra conexion, su partida viva es la suya: se le manda a el.
 func desgaste_de_ausente(ident: String, lote: Array) -> void:
-	if Net.es_host or not Net.activo:
+	if Net.es_host:
 		_desgaste_de_ausente(ident, lote)
 	else:
 		_desgaste_de_ausente.rpc_id(1, ident, lote)
@@ -452,9 +452,9 @@ func desgaste_de_ausente(ident: String, lote: Array) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _desgaste_de_ausente(ident: String, lote: Array) -> void:
-	if Net.activo and not Net.es_host:
+	if not Net.es_host:
 		return
-	var vivo: int = Net.peer_de_identidad(ident) if Net.activo else 0
+	var vivo: int = Net.peer_de_identidad(ident)
 	if vivo != 0:
 		_desgaste_suelto.rpc_id(vivo, lote)
 		return

@@ -35,9 +35,6 @@ var _llegada: Array = []       # identidades, por orden de llegada (la del host 
 var _peticiones: Dictionary = {}   # id -> {nueva, pide, pide_peer, faltan, t}
 var _siguiente_id: int = 1
 
-# --- SOLITARIO: los puestos (con huecos) de tu equipo ---
-var _formacion_solo: Array = []
-
 # --- CLIENTE: lo que difundio el host ---
 var _formacion_mirror: Array = []
 var _llegada_mirror: Array = []
@@ -50,12 +47,6 @@ var _llegada_mirror: Array = []
 # La formacion vigente (uids).
 # PUESTOS: un uid por puesto, "" = vacio.
 func formacion() -> Array:
-	if not Net.activo:
-		var van: Array = []
-		for pj in Game.party:
-			van.append(String(pj.uid))
-		_formacion_solo = encajar(_formacion_solo, van)
-		return _formacion_solo
 	return _formacion_mirror if Net._soy_cliente() else _formacion
 
 
@@ -81,11 +72,6 @@ static func encajar(puestos: Array, van: Array) -> Array:
 	return out
 
 
-# SOLITARIO: los puestos que se confirmaron en el editor del hogar.
-func fijar_solo(puestos: Array) -> void:
-	_formacion_solo = puestos.duplicate()
-
-
 func pos_de(uid: String) -> int:
 	if uid.is_empty():
 		return -1
@@ -94,8 +80,6 @@ func pos_de(uid: String) -> int:
 
 # El numero de jugador de una identidad (1 = el host), o 0 si no esta en la sesion.
 func num_jugador(identidad: String) -> int:
-	if not Net.activo:
-		return 1
 	var lista: Array = _llegada_mirror if Net._soy_cliente() else _llegada
 	return lista.find(identidad) + 1
 
@@ -157,11 +141,8 @@ func _set_formacion(lista: Array, llegada: Array) -> void:
 #  PEDIR UN ORDEN NUEVO
 # ============================================================
 
-# 'nueva' = los MISMOS uids que la formacion actual, en otro orden. En solitario se aplica al momento.
+# 'nueva' = los MISMOS uids que la formacion actual, en otro orden.
 func pedir_orden(nueva: Array) -> void:
-	if not Net.activo:
-		fijar_solo(nueva)
-		return
 	if Net._soy_cliente():
 		_pedir_orden.rpc_id(1, nueva)
 	else:

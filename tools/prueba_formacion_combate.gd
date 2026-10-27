@@ -32,11 +32,13 @@ func _ready() -> void:
 		get_tree().quit()
 		return
 
-	# LA FORMACION AL REVES: en solitario es el orden de Game.party.
+	# LA FORMACION AL REVES, en la lista de la sala (Net.formacion._formacion): la pelea la ejecuta ella y lee
+	# esa. (Hasta la etapa 4 se ponia en Game.party, que era la formacion sin red.)
 	var al_reves: Array[PersonajeData] = []
 	for i in range(pjs.size() - 1, -1, -1):
 		al_reves.append(pjs[i])
 	Game.party.assign(al_reves)
+	Net.formacion._formacion = al_reves.map(func(pj): return String(pj.uid))
 
 	# Entran todos MENOS el primero de la formacion, que entrara el ultimo (caso 4).
 	var tardio: PersonajeData = al_reves[0]
