@@ -107,7 +107,7 @@ func interactuar() -> void:
 	# abre el minijuego (abrir_minijuego via Net); si no, te llega el toast "esta ocupado".
 	# En la ARENA no: lo que planta el spawner de materiales es de quien lo planta, y su celda (0,0) y
 	# su piso (el de juego) chocarian con las vetas de verdad del piso 1 en el candado del host.
-	if Net.activo and not Game.es_arena():
+	if not Game.es_arena():
 		Net.recoleccion.solicitar_veta(celda, Game.current_floor)
 		return
 	abrir_minijuego()

@@ -5242,21 +5242,6 @@ func pisos_desbloqueados() -> Array:
 	return out
 
 
-func bajar_piso() -> void:
-	# Bajas: apareces en la ENTRADA del piso nuevo (su boca) y te toca cruzarlo entero.
-	_cambiar_piso(current_floor + 1, false)
-
-
-# Subir (escalera de la sala de entrada, solo del piso 2 en adelante). En el piso 1 no hay
-# escalera de subir: ahi esta la PUERTA al pueblo.
-func subir_piso() -> void:
-	if current_floor <= 1:
-		return
-	# Subes: apareces JUNTO A LA ESCALERA POR LA QUE BAJASTE, en el fondo del piso de
-	# arriba, no en su entrada. Si no, subir un piso seria un atajo gratis a la salida.
-	_cambiar_piso(current_floor - 1, true)
-
-
 # Ignora la tecla de actuar (ESPACIO/F) hasta que el jugador la suelte. Se llama al VOLVER
 # al mapa desde una pantalla que se cierra con esa misma tecla (combate, extraccion).
 func _bloquear_interaccion_jugador() -> void:
@@ -5270,12 +5255,9 @@ func _cambiar_piso(nuevo: int, por_la_bajada: bool) -> void:
 	if piso == null or not piso.has_method("regenerar"):
 		push_warning("[mazmorra] no hay piso que regenerar (¿escalera fuera de la mazmorra?)")
 		return
-	# LA PANTALLA DE CARGA (08/10). En solitario se espera a que se vea antes del trabajo pesado; en multi se pone sin
-	# esperar: _viaje_ok anuncia el piso nuevo justo despues de llamarme y no se le cambia el orden.
-	if Net.activo:
-		Cargando.cubrir_piso("Piso %d" % nuevo)
-	else:
-		await Cargando.cubrir_piso("Piso %d" % nuevo)
+	# LA PANTALLA DE CARGA (08/10), sin esperar a que se vea: Net.pisos._viaje_ok anuncia el piso nuevo justo despues
+	# de llamarme y no se le cambia el orden.
+	Cargando.cubrir_piso("Piso %d" % nuevo)
 	# Cartografia el piso que ABANDONAS antes de cambiar de piso: current_floor y el gen vivo aun
 	# son los viejos aqui. Sin esto, la libreta solo se actualizaba al volver al pueblo (piso 1) y
 	# el mapa salia "sin cartografiar" del piso 2 en adelante.

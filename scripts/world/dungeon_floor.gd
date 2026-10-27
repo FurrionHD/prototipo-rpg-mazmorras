@@ -89,7 +89,6 @@ class_name DungeonFloor
 # Cada cuanto se mira si a algun nodo picado le toca ya reaparecer. No hace falta afinar mas:
 # el respawn son minutos, y barrer el diccionario de agotados cada frame seria tirar CPU.
 const RESPAWN_CHECK_CADA := 2.0
-var _t_respawn: float = RESPAWN_CHECK_CADA
 var _t_boss: float = RESPAWN_CHECK_CADA   # el mismo latido, para el respawn del jefe
 # EL JEFE ESTA NACIENDO: su aviso tiembla en el suelo y todavia no hay bicho. Hace falta porque
 # _repoblar_boss late cada 2 s y el aviso dura 2.6: sin esto arrancaria un segundo temblor -y un
@@ -360,18 +359,11 @@ var _geo: Node2D = null      # toda la geometria del piso (se tira entera al reg
 var _zonas: Node2D = null    # todas las SpawnZone
 var _t_barrido: float = 0.0  # acumulador del barrido de congelado
 
-# CELDAS ya recolectadas de este piso (celda -> true). Lo unico que hace falta recordar de
-# la recoleccion: DONDE estaba cada veta y de que era ya lo decide la semilla, asi que basta
-# con saber cuales YA NO estan. Se vuelca a Game.memoria_pisos y vuelve de ahi.
+# CELDAS ya recolectadas de este piso VIVO (celda -> sello de tiempo). Lo unico que hace falta recordar
+# de la recoleccion: DONDE estaba cada veta y de que era ya lo decide la semilla, asi que basta con
+# saber cuales YA NO estan. Lo agotado del mundo lo lleva Net.recoleccion (celda_agotada_sesion); esto
+# es la copia de este piso, la que lee la libreta del mapa (agotados_vivos).
 var _agotados: Dictionary = {}
-
-# NONCE del brote VIVO de cada sitio (celda -> int). 0 (o ausente) = lo que puso la epoca al
-# construir el piso; cualquier otro = lo que salio en su ultimo respawn.
-#
-# Hermano de _agotados y con sus mismas reglas de escritura: copia local + mazmorra_persistente en
-# solitario, y en multi NO se toca mi save (el mundo es del host, sus nonces viven en Net).
-# Es lo que hace que el sub-tier con el que rebrota una veta SOBREVIVA a reconstruir el piso.
-var _nonces: Dictionary = {}
 
 # QUE profundidad esta construida ahora mismo. NO se puede usar Game.current_floor para
 # guardar el estado al salir: cuando el piso se regenera, current_floor YA vale el piso
@@ -383,7 +375,7 @@ const BARRIDO_CADA := 0.5
 
 
 func _ready() -> void:
-	add_to_group("dungeon_floor")  # asi Game.bajar_piso nos encuentra
+	add_to_group("dungeon_floor")  # asi Game._cambiar_piso nos encuentra
 	z_index = -1                   # el piso se dibuja por detras del jugador y de los bichos
 
 	# SIN PARTIDA no hay mazmorra que construir. Pasa al ejecutar ESTA escena a pelo desde el
@@ -404,7 +396,7 @@ func _al_menu_principal() -> void:
 	get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
 
 
-# Vuelve a trazar el piso ENTERO (lo llama Game.bajar_piso). Sin recargar la escena: el
+# Vuelve a trazar el piso ENTERO (lo llama Game._cambiar_piso). Sin recargar la escena: el
 # jugador, su HUD y sus menus siguen vivos. Lo del piso viejo (bichos, cadaveres y lo que
 # hubiera por el suelo) se queda atras: bajas con lo que llevas encima.
 func regenerar(por_la_bajada: bool = false) -> void:
@@ -491,19 +483,9 @@ func _construir(por_la_bajada: bool = false) -> void:
 	# enterarse por su cuenta.
 	_sembrar_formaciones()
 
-	# Lo que ya picaste en este piso, con el SELLO de tiempo de cuando lo picaste (para el
-	# respawn). Vive en mazmorra_persistente, que sobrevive a volver al pueblo: por eso picar un
-	# nodo y salir/entrar ya no lo resetea. { celda: reloj de pared en que se pico }.
-	_agotados = (Game.persistente_piso(_piso_construido)["agotados"] as Dictionary).duplicate()
-	# Y con que nonce nacio lo que hay en cada sitio, que va en el mismo sitio y por lo mismo: sin
-	# esto, la veta que rebroto de estaño profundo volvia a ser cobre en cuanto rehacias la escena.
-	_nonces = (Game.persistente_piso(_piso_construido)["nonces"] as Dictionary).duplicate()
-	# MULTIJUGADOR: los sellos de MI save no pintan nada en el mundo del host. Se arranca en
-	# limpio; lo agotado en ESTA expedicion lo trae Net (celda_agotada_sesion) al construir, y los
+	# Se arranca en limpio: lo agotado del mundo lo trae Net al construir (celda_agotada_sesion), y los
 	# nonces igual (nonce_celda_sesion).
-	if Net.activo:
-		_agotados = {}
-		_nonces = {}
+	_agotados = {}
 
 	_construir_geometria()
 	_colocar_actores(por_la_bajada)
@@ -543,7 +525,6 @@ func _construir_arena() -> void:
 	gen = DungeonGenerator.new()
 	gen.generar_arena(ARENA_SALA)
 	_agotados = {}
-	_nonces = {}
 	_celdas_formacion.clear()   # las del piso de antes no son de aqui
 	_es_formacion.clear()
 	_celdas_flor.clear()
@@ -1880,12 +1861,12 @@ func _colocar_en_salas(rng: RandomNumberGenerator, tabla: MaterialTable, tipo: i
 # para esta profundidad.
 func _crear_recolectable(tipo: int, celda: Vector2i) -> bool:
 	# El SITIO queda apuntado nazca o no el nodo: es lo que permite que una celda picada vuelva a
-	# brotar EN VIVO mas tarde (_repoblar_agotados). Se guarda la TABLA, no el material ya elegido,
+	# brotar EN VIVO mas tarde (revivir_celda). Se guarda la TABLA, no el material ya elegido,
 	# porque el material se vuelve a tirar en cada respawn (ver _material_del_sitio).
 	_sitios[celda] = {"tipo": tipo}
 	# MULTIJUGADOR: lo agotado en ESTA expedicion no vuelve a nacer al reconstruir el piso
 	# (p. ej. al bajar y volver a subir): el sello de sesion vive en Net, no en mi save.
-	if Net.activo and Net.recoleccion.celda_agotada_sesion(celda, _piso_construido):
+	if Net.recoleccion.celda_agotada_sesion(celda, _piso_construido):
 		return false
 	# ¿Agotada? Reaparece cuando han pasado RESPAWN_SEGUNDOS de RELOJ DE PARED desde que la picaste.
 	# le toca, se limpia el sello y nace como nueva; si no, no nace todavia.
@@ -1900,21 +1881,10 @@ func _crear_recolectable(tipo: int, celda: Vector2i) -> bool:
 	return true
 
 
-# El nonce del brote VIVO de este sitio. En multi manda el de la sesion (el mundo es del host); en
-# solitario, el de mi save. 0 = nunca ha rebrotado, sale lo que puso la epoca.
+# El nonce del brote VIVO de este sitio: el de la sesion (el mundo es de la sala). 0 = nunca ha rebrotado,
+# sale lo que puso la epoca.
 func _nonce_del_sitio(celda: Vector2i) -> int:
-	if Net.activo:
-		return Net.recoleccion.nonce_celda_sesion(celda, _piso_construido)
-	return int(_nonces.get(celda, 0))
-
-
-# Apunta con que nonce acaba de brotar este sitio, en la copia local Y en la persistente. Gemela de
-# marcar_agotado, y con su misma regla de red: en sesion mi save no se toca.
-func _apuntar_nonce(celda: Vector2i, nonce: int) -> void:
-	_nonces[celda] = nonce
-	if Net.activo:
-		return   # en multi lo lleva Net.recoleccion._nonces_sesion, que es del mundo del host
-	(Game.persistente_piso(_piso_construido)["nonces"] as Dictionary)[celda] = nonce
+	return Net.recoleccion.nonce_celda_sesion(celda, _piso_construido)
 
 
 # QUE material sale en esta celda, AHORA. No se guarda: se deriva.
@@ -1941,7 +1911,7 @@ func _apuntar_nonce(celda: Vector2i, nonce: int) -> void:
 # bajadas, asi que una celda daba el mismo material y el mismo sub-tier durante toda la partida —
 # la "tirada de verdad" solo pasaba en los respawns en caliente. Se arregla por los dos lados:
 #   - la EPOCA (Game.epoca_actual) entra en la semilla: cada expedicion nueva rebaraja el piso entero;
-#   - el nonce del ultimo brote se GUARDA (ver _nonces), asi que dentro de una expedicion bajar y
+#   - el nonce del ultimo brote se GUARDA (Net.recoleccion, nonce_celda_sesion), asi que dentro de una expedicion bajar y
 #     volver a subir encuentra lo mismo, pero lo que rebrote puede traer otro sub-tier.
 func _material_del_sitio(celda: Vector2i, nonce: int = 0) -> MaterialData:
 	var tabla: MaterialTable = _tabla_de_tipo(int((_sitios.get(celda, {}) as Dictionary).get("tipo", -1)))
@@ -1981,49 +1951,17 @@ func _instanciar_nodo(tipo: int, celda: Vector2i, m: MaterialData, brotando: boo
 	nodo.global_position = gen.centro_px(celda)
 
 
-# Borra el sello de una celda agotada, en la copia local Y en la persistente (que sobrevive a
-# volver al pueblo). Siempre van juntas: separarlas es como se dejan sellos huerfanos.
+# Borra el sello de una celda agotada.
 func _olvidar_agotado(celda: Vector2i) -> void:
 	_agotados.erase(celda)
-	# MULTIJUGADOR: como en marcar_agotado, la persistente de MI save no se toca en sesion.
-	if Net.activo:
-		return
-	(Game.persistente_piso(_piso_construido)["agotados"] as Dictionary).erase(celda)
 
 
-# RESPAWN EN VIVO. Antes un nodo picado solo volvia al RECONSTRUIR el piso (cambiar de piso o
-# salir al pueblo): plantado en el mismo sitio podias esperar media hora y no brotaba nada. Ahora
-# se repasan los sellos cada RESPAWN_CHECK_CADA segundos y el que ha cumplido su tiempo brota
-# donde estaba, con el material RE-TIRADO (ver _material_del_sitio): la veta que picaste no tiene
-# por que volver siendo lo mismo.
-func _repoblar_agotados(delta: float) -> void:
-	# MULTIJUGADOR: el barrido NO se hace aqui, porque el sello es LOCAL y diverge
-	# entre maquinas (la veta reviviria en una y en la otra no). Lo lleva el HOST contra el reloj de
-	# la expedicion y lo anuncia por red: Net.recoleccion._barrer_respawns -> Net.recoleccion._revivir_celda -> revivir_celda.
-	if Net.activo:
-		return
-	_t_respawn -= delta
-	if _t_respawn > 0.0:
-		return
-	_t_respawn = RESPAWN_CHECK_CADA
-	if _agotados.is_empty() or gen == null:
-		return
-	# Sobre una copia de las claves: _olvidar_agotado toca el diccionario que estamos recorriendo.
-	for celda in _agotados.keys():
-		if Game.reloj_mundo() - float(_agotados[celda]) < Game.RESPAWN_SEGUNDOS:
-			continue
-		# Nonce al azar: en solitario no hay nadie con quien cuadrar, y lo que se quiere es que la
-		# veta que vuelve pueda traer otro sub-tier.
-		revivir_celda(celda, randi())
-
-
-# RESPAWN DEL JEFE, EN CALIENTE. Hermano de _repoblar_agotados y por el mismo motivo: el jefe ya no
+# RESPAWN DEL JEFE, EN CALIENTE. Por el mismo motivo que el de las vetas (Net.recoleccion._barrer_respawns): el jefe ya no
 # vuelve porque la mazmorra se olvide al pasar por el pueblo (ya no se olvida), vuelve por reloj (ver
 # Game.BOSS_RESPAWN), y hay que poder verlo volver estando plantado en su sala.
 #
 # Quien decide si "toca" es Game.boss_disponible, que en sesion pregunta al host: aqui solo se planta.
-# Se aprovecha el mismo cronometro que el respawn de vetas (_t_respawn no, que ese ya lo consume la
-# otra: este lleva el suyo) y se comprueba lo minimo, que esto corre en cada frame.
+# Lleva su propio latido (_t_boss) y se comprueba lo minimo, que esto corre en cada frame.
 func _repoblar_boss(delta: float) -> void:
 	if _boss_pos == Vector2.INF or _boss_naciendo:
 		# Ya viene de camino: el cartel sobra (y dejarlo puesto lo congelaria en "vuelve en 0:00"
@@ -2216,8 +2154,7 @@ func _anunciar_boss(data: EnemyData) -> void:
 
 
 # Hace BROTAR otra vez la celda: levanta el sello y planta el nodo con el material RE-TIRADO.
-# Sale de _repoblar_agotados porque lo llaman DOS sitios: el barrido local (solitario) y, en
-# multijugador, Net.recoleccion._revivir_celda cuando el host decide que a ese sitio le toca volver.
+# La llama Net.recoleccion._revivir_celda cuando el host decide que a ese sitio le toca volver.
 #
 # 'nonce' identifica ESTE nacimiento y es lo que hace que la tirada del material sea la misma en
 # todas las maquinas: en solitario lo pone quien llama (un numero al azar, para que revivir vuelva a
@@ -2236,7 +2173,6 @@ func revivir_celda(celda: Vector2i, nonce: int = 0) -> void:
 		return   # la tabla no tiene nada para esta profundidad: la celda se queda vacia
 	# Se APUNTA el nonce con el que ha brotado: asi este sub-tier es el que se vera tambien cuando el
 	# piso se reconstruya, en vez de volver al que puso la epoca al principio.
-	_apuntar_nonce(celda, nonce)
 	_instanciar_nodo(int(sitio["tipo"]), celda, m, true)
 
 
@@ -2300,11 +2236,6 @@ func material_de_sitio(celda: Vector2i) -> MaterialData:
 func marcar_agotado(celda: Vector2i, retraso: float = 0.0) -> void:
 	var sello: float = Game.reloj_mundo() + retraso
 	_agotados[celda] = sello
-	# MULTIJUGADOR: NO se escribe en mazmorra_persistente (que va al SAVE). Estas jugando en el
-	# mundo del HOST: agotar una veta aqui no debe dejar sellos en el mundo PROPIO de tu save.
-	if Net.activo:
-		return
-	(Game.persistente_piso(_piso_construido)["agotados"] as Dictionary)[celda] = sello
 
 
 # Los nodos AGOTADOS de este piso VIVO (celda -> sello de tiempo). La libreta del mapa los lee de
@@ -2898,7 +2829,6 @@ func crear_enemigo(data: EnemyData, pos: Vector2, radio: float, t: float = -1.0,
 func _process(delta: float) -> void:
 	# El reloj de expedicion (Game.tiempo_mazmorra) lo lleva Game._process: tiene que contar
 	# tambien el tiempo de combate, y este _process se congela con el arbol.
-	_repoblar_agotados(delta)
 	_repoblar_boss(delta)
 
 	_t_barrido -= delta

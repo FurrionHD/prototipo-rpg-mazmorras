@@ -12,7 +12,6 @@
 
 extends CanvasLayer
 
-const DUNGEON := "res://scenes/levels/main.tscn"
 
 var _root: Control = null
 var _content: VBoxContainer = null
@@ -103,19 +102,5 @@ func _bajar(piso: int) -> void:
 	# MULTIJUGADOR: mismo destino, pero el viaje lo concede el host (reparte quien simula el piso y
 	# devuelve su foto si estaba congelado). Todo lo de abajo lo hace _entrar_ok en su sitio:
 	# current_floor, entrada_por_atajo, olvidar_mazmorra y el cambio de escena.
-	if Net.activo:
-		Game.cerrar_menu(self)
-		Net.pisos.solicitar_entrar(maxi(1, piso))
-		return
-	# Igual que entrar por la boca (door.gd). Lo unico distinto es por que piso empiezas: la mazmorra
-	# NO se olvida (los pisos siguen como los dejaste; ver el comentario de door.gd).
-	Game.current_floor = maxi(1, piso)
-	# Al piso 1 se entra por la BOCA (ahi esta la puerta al pueblo). A un piso de boss se entra por
-	# SU salida al pueblo, que esta en el fondo: apareces junto a ella y a la bajada.
-	Game.entrada_por_atajo = Game.current_floor > 1
-	# Baseline del mapa: lo que cartografies esta expedicion se pierde si mueres.
-	Game.iniciar_expedicion_mapa()
 	Game.cerrar_menu(self)
-	print("[mazmorra] Entras directamente al piso %d." % Game.current_floor)
-	await Cargando.cubrir_piso("Piso %d" % Game.current_floor)
-	get_tree().change_scene_to_file(DUNGEON)
+	Net.pisos.solicitar_entrar(maxi(1, piso))

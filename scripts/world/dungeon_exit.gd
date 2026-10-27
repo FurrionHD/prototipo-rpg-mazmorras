@@ -13,7 +13,6 @@
 
 extends Node2D
 
-const TOWN := "res://scenes/levels/town.tscn"
 
 
 func _ready() -> void:
@@ -38,15 +37,8 @@ func interact_with_player() -> void:
 	# MULTIJUGADOR: salir YO no termina la expedicion si queda gente dentro; se avisa al host
 	# y el decide (el ultimo en salir la cierra). El viaje lo hace Net. Se comete el mapa seas o no
 	# host: comprometer_mapa ya distingue por dentro y en sesion no escribe en tu save (ver door.gd).
-	if Net.activo:
-		Game.comprometer_mapa()
-		Net.pisos.viajar_al_pueblo()
-		return
 	Game.comprometer_mapa()
-	Game.cerrar_bajada()   # el piso del jefe queda como lo dejas, y el alboroto se apaga (ver Game)
-	Game.current_floor = 1
-	print("[salida] Vuelves al pueblo desde el piso del boss.")
-	get_tree().change_scene_to_file(TOWN)
+	Net.pisos.viajar_al_pueblo()
 
 
 # La F desde cualquier lado de la caracol (ver player._mas_cercano_en_grupo), como la de la plaza.

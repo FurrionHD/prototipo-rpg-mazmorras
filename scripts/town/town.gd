@@ -129,14 +129,6 @@ func _crear_guardias() -> void:
 		add_child(GuardiaPueblo.crear(i))
 
 
-# En solitario, irse del pueblo (bajar a la mazmorra) estrena semilla: al volver, las cañas estan en
-# otro sitio. En sesion no se toca: la renueva el host para todos (ver Game.semilla_pueblo).
-func _exit_tree() -> void:
-	super()
-	if not Net.activo:
-		Game.semilla_pueblo = randi() | 1
-
-
 # ------------------------------------------------------------
 #  LAS CAÑAS DE PESCAR del muelle: tres al azar, las mismas para todos (ver PuebloPlano.canas).
 #  Decorado puro: ni chocan ni se tocan. Se rehacen si llega otra semilla estando en el pueblo.

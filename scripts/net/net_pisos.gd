@@ -579,9 +579,7 @@ func _encaminar_forzar_jefe(lugar: String) -> void:
 #  muerto en silencio (ver la memoria regla-del-dueno-servidor).
 # ============================================================
 func pedir_spawn_arena(ruta: String, pos: Vector2, muneco: Dictionary) -> void:
-	if not Net.activo:
-		_spawn_arena_aqui(ruta, pos, muneco)
-	elif Net.es_host:
+	if Net.es_host:
 		_encaminar_arena(Net._mi_lugar, "spawn", [ruta, pos, muneco])
 	else:
 		_pedir_arena.rpc_id(1, Net._mi_lugar, "spawn", [ruta, pos, muneco])
@@ -590,9 +588,7 @@ func pedir_spawn_arena(ruta: String, pos: Vector2, muneco: Dictionary) -> void:
 # EL PISO QUE SIMULA LA ARENA (09/10, boton Aplicar del panel de materiales): a TODOS los de la arena, tambien al
 # trabajador que la lleva (los enemigos que salgan nacen con las stats de ese piso). Pasa por el host, que lo reparte.
 func pedir_piso_arena(piso: int) -> void:
-	if not Net.activo:
-		_piso_arena_aqui(piso)
-	elif Net.es_host:
+	if Net.es_host:
 		_difundir_piso_arena(Net._mi_lugar, piso)
 	else:
 		_pedir_piso_arena.rpc_id(1, Net._mi_lugar, piso)
@@ -642,9 +638,7 @@ func _piso_arena_aqui(piso: int, lugar: String = "") -> void:
 
 
 func pedir_limpiar_arena() -> void:
-	if not Net.activo:
-		_limpiar_arena_aqui()
-	elif Net.es_host:
+	if Net.es_host:
 		_encaminar_arena(Net._mi_lugar, "limpiar", [])
 	else:
 		_pedir_arena.rpc_id(1, Net._mi_lugar, "limpiar", [])
@@ -725,8 +719,6 @@ func simulo_el_piso_de(n: Node) -> bool:
 func personajes_en_mi_piso(lugar: String = "") -> int:
 	if lugar == "":
 		lugar = Net._mi_lugar
-	if not Net.activo:
-		return Game.party.size()
 	# La sala no trae grupo: su Game.party es un personaje inventado que nadie ve. Y mi grupo solo cuenta si ese piso
 	# es el mio.
 	var n: int = Game.party.size() if (not Net.soy_sala and lugar == Net._mi_lugar) else 0
