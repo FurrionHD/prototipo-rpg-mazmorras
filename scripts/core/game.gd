@@ -1997,7 +1997,7 @@ const RESPAWN_RETRASO_DESPENSA := RESPAWN_LENTO_SEGUNDOS - RESPAWN_SEGUNDOS
 #  Es estado de EXPEDICION: no va al save, se reinicia al morir o volver al pueblo. Los numeros son
 #  de PLAYTEST -> Excel. Solo corre en la mazmorra (en el pueblo no hay paredes que paran).
 # ============================================================
-var alboroto: float = 0.0
+# El medidor lo lleva la SALA, uno por piso (PisoVivo.alboroto): ver _sumar_alboroto_piso.
 const ALBOROTO_MAX := 150.0         # subido de 100: cuesta mas cebar un brote (correr ~25 s, no ~17)
 const ALBOROTO_CORRER := 6.0        # por segundo corriendo
 const ALBOROTO_SIGILO := -3.0       # por segundo en sigilo o parado (baja)
@@ -2007,13 +2007,6 @@ const ALBOROTO_KILL := 5.0          # por cada bicho abatido
 const ALBOROTO_RECOLECTAR := 12.0   # picar / talar / recolectar (al cerrar el minijuego)
 # Tras un brote, el medidor no puede volver a dispararse en este tiempo (evita encadenarlos).
 const ALBOROTO_ENFRIAMIENTO := 120.0   # subido de 60: el doble de respiro entre brotes
-# HASTA CUANDO dura el respiro, en segundos del reloj del motor (0 = no hay). Antes era una cuenta
-# atras que solo bajaba en tick_alboroto, o sea mientras se movia el jugador de ESTA maquina: en un
-# trabajador de piso (que no tiene jugador) no bajaba nunca y tras el primer brote no salia otro.
-var _alboroto_enfriando: float = 0.0
-# QUIEN hizo el ultimo ruido que subio el medidor (peer; 0 = yo). El brote revienta la pared a la
-# vista de ESE jugador: el que simula el piso puede ser un trabajador sin cuerpo, o estar en otra sala.
-var _alboroto_causante: int = 0
 
 
 # El movimiento del jugador llama a esto cada frame con su modo (0 sigilo, 1 andar, 2 correr).
@@ -2042,18 +2035,9 @@ func sumar_alboroto(cuanto: float, causante: int = 0, lugar: String = "") -> voi
 		return
 	if en_pueblo():
 		return
-	# MULTIJUGADOR: el alboroto es del PISO y lo lleva quien lo SIMULA (es el unico que puede engendrar
-	# bichos por la pared: ver dungeon_floor.hay_sitio). Si lo simula otro, mi ruido SE LE MANDA: antes
-	# se tiraba, y con los trabajadores de piso -donde todos los humanos son espejos- el medidor no
-	# habria subido nunca y no saldria un solo brote.
-	if not Net.pisos.simulo_mi_piso():
-		Net.pisos.aportar_alboroto(cuanto, causante)
-		return
-	alboroto = clampf(alboroto + cuanto, 0.0, ALBOROTO_MAX)
-	if cuanto > 0.0:
-		_alboroto_causante = causante
-	if alboroto >= ALBOROTO_MAX and _segundos_motor() >= _alboroto_enfriando:
-		_disparar_brote_por_alboroto()
+	# El alboroto es del PISO y lo lleva quien lo SIMULA, la sala (es la unica que puede engendrar bichos por la
+	# pared: ver dungeon_floor.hay_sitio): mi ruido SE LE MANDA.
+	Net.pisos.aportar_alboroto(cuanto, causante)
 
 
 # Lo mismo, con el medidor de UN piso de la sala. El brote revienta la pared de ESE piso a la vista de quien hizo el
@@ -2082,20 +2066,6 @@ func _sumar_alboroto_piso(pv: PisoVivo, cuanto: float, causante: int) -> void:
 
 func _segundos_motor() -> float:
 	return float(Time.get_ticks_msec()) / 1000.0
-
-
-func _disparar_brote_por_alboroto() -> void:
-	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
-	if piso == null or not piso.has_method("provocar_brote"):
-		return
-	# Solo se gasta el medidor si el brote SALE (puede fallar si no tienes una pared a la vista):
-	# asi el escandalo no se desperdicia en mitad de una sala abierta, salta en cuanto te arrimes.
-	# A la vista de quien hizo el ruido. Si fui yo (o ya no esta), el piso usa mi jugador, como siempre;
-	# y un trabajador, que no tiene jugador, busca al humano mas cercano a la pared.
-	if piso.provocar_brote(Net.posicion_de_peer(_alboroto_causante)):
-		alboroto = 0.0
-		_alboroto_enfriando = _segundos_motor() + ALBOROTO_ENFRIAMIENTO
-		print("[alboroto] ¡el jaleo ha llamado a algo! Brote disparado.")
 
 
 # COOLDOWNS de habilidades que VIAJAN entre combates (KAN-57 rebalance): un nuke usado en una
@@ -2400,10 +2370,6 @@ func olvidar_mazmorra() -> void:
 	# Los sellos de los jefes son de la expedicion, como la memoria: cerrada la mazmorra, el jefe
 	# vuelve a estar de pie sin esperar su reloj (ver BOSS_RESPAWN).
 	bosses_sello.clear()
-	# El alboroto es de esta expedicion: al morir (o salir por la puerta del jefe) se reinicia, no
-	# arrastras el jaleo de la bajada anterior a la siguiente.
-	alboroto = 0.0
-	_alboroto_enfriando = 0.0
 	# EPOCA NUEVA: la mazmorra vuelve a nacer, asi que se rebaraja QUE hay en ella (tiers de los
 	# materiales, especies del charco). Las UBICACIONES no se mueven: eso lo decide la semilla, que
 	# no se toca. Ver epoca_mazmorra.
@@ -2423,28 +2389,6 @@ func olvidar_mazmorra() -> void:
 	# charcos se quedan: eso no lo rebaraja la epoca.
 	_borrar_marcas_de_nodos(mapa_snapshot)
 	_borrar_marcas_de_nodos(mapa_trabajo)
-
-
-# CIERRA LA BAJADA (no la mazmorra). Lo llaman las tres vueltas al pueblo CON VIDA: la puerta, la
-# salida del jefe y la piedra de retorno. Hace las dos cosas que son de ESTE viaje y no del mundo:
-#
-#  1. CONGELA el piso en el que estas: vuelca sus bichos, sus cadaveres y lo que haya por su suelo a
-#     memoria_pisos, para que al volver a bajar este igual. Hace falta porque el volcado normal cuelga
-#     de CAMBIAR DE PISO (DungeonFloor._limpiar): el piso que abandonas por la escalera se guarda
-#     solo, pero el que estas pisando al salir por la puerta no se guardaba nunca. Con la mazmorra
-#     persistente ese es el caso mas comun (bajas al 4, tiras cosas y te vuelves andando: el 4 quedaba
-#     guardado y el 1, por el que sales, nacia repoblado).
-#     En sesion esto no se hace: el piso lo lleva la sala, que es quien saca su foto (Net.pisos.sala_congelar).
-#  2. Apaga el ALBOROTO. El jaleo es de la bajada, no del piso: si se quedara puesto, volver a entrar
-#     te reventaria una pared en la cara por el escandalo que armaste hace media hora.
-func cerrar_bajada() -> void:
-	alboroto = 0.0
-	_alboroto_enfriando = 0.0
-	if Net.activo:
-		return
-	var f: Node = get_tree().get_first_node_in_group("dungeon_floor")
-	if f != null and f.has_method("volcar_a_memoria"):
-		f.volcar_a_memoria()
 
 
 # La NIEBLA de un piso (zona_idx -> true): las zonas que ya has pisado. Es lo que escribe el piso
@@ -14880,15 +14824,9 @@ func dev_test_spawns() -> void:
 # B: fuerza un BROTE en la zona donde estas (el sistema esta apagado en juego; esto es
 # para poder verlo). Sale por la pared mas cercana que no tengas encima.
 func dev_brote() -> void:
-	# Solo quien SIMULA el piso puede parir bichos. Pulsada desde un espejo, el aviso de pared se
-	# pintaba en todas las pantallas y luego no nacia nada (el gate esta en dungeon_floor.hay_sitio):
-	# un brote fantasma que hacia perder el tiempo buscando el bug donde no estaba.
-	if not Net.pisos.simulo_mi_piso():
-		print("[dev] este piso lo simula el otro: que pulse B quien lo lleve")
-		return
-	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
-	if piso != null and piso.has_method("dev_brote_cercano"):
-		piso.dev_brote_cercano()
+	# Solo quien SIMULA el piso puede parir bichos, y el piso lo lleva la sala (etapa 4): desde aqui no nace nada.
+	# PENDIENTE: pedirselo a la sala, como el jefe (Net.pisos.pedir_forzar_jefe).
+	print("[dev] el piso lo lleva la sala: el brote a mano aun no se le puede pedir")
 
 
 # DEV: el jefe de este piso, YA. Sin esto, reprobar una pelea de jefe costaba diez minutos de reloj
@@ -14914,17 +14852,9 @@ func dev_forzar_jefe(lugar: String = "") -> String:
 	# EL PISO LO LLEVA OTRO (un trabajador, o el compañero): el jefe tiene que salir en SU maquina, que
 	# es la que simula los bichos. Se le pide por la red y ya (playtest del 20/09/2026: con el trabajador
 	# llevando el piso, el boton decia que no y no habia forma de traerlo).
-	if not Net.pisos.simulo_mi_piso():
-		Net.pisos.pedir_forzar_jefe()
-		print("[dev] jefe del piso %d pedido a quien lleva el piso" % current_floor)
-		return ""
-	bosses_sello.erase(current_floor)
-	var motivo: String = piso.dev_forzar_jefe()
-	if motivo.is_empty():
-		print("[dev] jefe del piso %d plantado a mano" % current_floor)
-	else:
-		print("[dev] no se planta el jefe: %s" % motivo)
-	return motivo
+	Net.pisos.pedir_forzar_jefe()
+	print("[dev] jefe del piso %d pedido a quien lleva el piso" % current_floor)
+	return ""
 
 
 # --- PRUEBAS: ciclar el loadout con el teclado ---
@@ -15419,7 +15349,7 @@ func dar_cuerpo_a_cria(slot: int, data: EnemyData, pos: Vector2, t: float, pe: P
 		matar_enemigo_de_combate(pe.enemigos[slot])   # el cadaver al que releva (como un refuerzo)
 		Net.peleas.soltar_reserva_del_cadaver(pe.enemigos[slot])
 	pe.enemigos[slot] = null
-	if not Net.activo or Net._soy_dueno or Net.soy_sala:
+	if not Net.activo or Net.soy_sala:
 		var yo: int = multiplayer.get_unique_id() if Net.activo else 0
 		var lugar_cria: String = pe.piso.lugar if Net.soy_sala and is_instance_valid(pe.piso) else ""
 		_poner_cuerpo_de_cria(slot, nacer_cria_aqui(data, pos, t, yo, lugar_cria), pe)

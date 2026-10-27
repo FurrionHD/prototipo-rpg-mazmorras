@@ -64,7 +64,7 @@ func _ready() -> void:
 	Net.pisos.solicitar_entrar(1)
 	_ok(await _hasta(func(): return Net._mi_lugar == "piso:1" and _espejos_vivos() > 0, 40.0), "bajo al piso 1 y veo sus enemigos (%d)" % _espejos_vivos())
 	_ok(dato_sala("dueno_piso_1") == "1", "el piso 1 lo lleva la sala")
-	_ok(not Net._soy_dueno, "entro de espejo")
+	_ok(not PisoVivo.dueno_de(Net._mi_lugar), "entro de espejo")
 
 	# 3) EL ALBOROTO: soy espejo, asi que mi ruido le llega a la sala y revienta una pared delante de mi.
 	var brotes_antes := _lineas_sala("en piso:1! Brote disparado")
@@ -74,7 +74,6 @@ func _ready() -> void:
 		await _esperar(0.5)
 		t += 0.5
 	_ok(_lineas_sala("en piso:1! Brote disparado") > brotes_antes, "mi ruido de espejo llega a la sala y revienta una pared (%.1f s)" % t)
-	_ok(Game.alboroto == 0.0, "el espejo no acumula alboroto propio (%.0f)" % Game.alboroto)
 
 	# 4) LA PELEA LA EJECUTA LA SALA y yo la veo en ESPEJO.
 	await _esperar(3.0)

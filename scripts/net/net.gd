@@ -223,7 +223,6 @@ var _dueno_piso: Dictionary = {}   # piso:int -> peer_id que lo simula (SOLO hos
 # un piso lleva segundos y el lugar solo llega al acabar: sin esto, si otro bajaba en esa ventana el
 # host no veia al viajero en el piso y nombraba DOS dueños (cada uno con sus bichos, sin verse).
 var _viajando: Dictionary = {}
-var _soy_dueno := false            # ¿simulo YO el piso en el que estoy? (cada maquina)
 var _peleando := false             # ¿estoy en un combate ahora mismo? (se difunde: ver avisar_combate)
 
 # FOTO de los pisos sin nadie dentro: el piso se congela tal cual (bichos y cadaveres) y se
@@ -685,7 +684,6 @@ func desconectar() -> void:
 	_modales_de.clear()
 	lan_abierta = false
 	Game.vistos_mundo.clear()   # lo descubierto por los demas era de la sesion, no mio
-	_soy_dueno = false
 	_peleando = false
 	peleas._pelea_id = 0
 	peleas._pelea_participantes.clear()
@@ -863,7 +861,7 @@ func _reconstruir_vista() -> void:
 		if is_instance_valid(en):
 			en.retirar()
 	enemigos._enem_nodos.clear()
-	if not _soy_dueno and _mi_lugar.begins_with("piso:") and not es_host:
+	if _mi_lugar.begins_with("piso:") and not es_host:
 		enemigos._pedir_enemigos.rpc_id(1, _mi_lugar)
 
 

@@ -33,16 +33,16 @@ var numero: int:
 	get:
 		return numero_fijo if numero_fijo >= 0 else Game.current_floor
 
-# EL LUGAR PARA LA RED ("pueblo", "piso:N") y SI SOY SU DUEÑO (quien simula sus enemigos). En un cliente son los de la
-# maquina (Net._mi_lugar, Net._soy_dueno): un sitio y un dueño por proceso. El servidor los fija en cada piso.
+# EL LUGAR PARA LA RED ("pueblo", "piso:N") y SI SOY SU DUEÑO (quien simula sus enemigos). En un cliente el lugar es el
+# de la maquina (Net._mi_lugar) y nunca es dueño; la sala los fija en cada piso.
 var lugar_fijo: String = ""
 var lugar: String:
 	get:
 		return lugar_fijo if lugar_fijo != "" else Net._mi_lugar
-var dueno_fijo: int = -1   # -1 = el de la maquina; 0 = no; 1 = si
+var dueno_fijo: int = -1   # 1 = si (la sala); otro = no
 var soy_dueno: bool:
 	get:
-		return Net._soy_dueno if dueno_fijo < 0 else dueno_fijo == 1
+		return dueno_fijo == 1
 
 # EL NUMERO PARA LA RED (el de su lugar: 1000 en la arena, Game.PISO_ARENA) y si es la arena. Sin lugar fijado, los de la
 # maquina (Game.piso_de_red, Game.es_arena), como siempre. En la arena 'numero' es el piso de juego que imita.
@@ -138,7 +138,7 @@ static func raiz_de(n: Node) -> Node:
 # ------------------------------------------------------------
 #  POR LUGAR: lo que llega por red dice A QUE SITIO va ("piso:N")
 # ------------------------------------------------------------
-# Con UN piso vivo (o ninguno) es EXACTAMENTE lo de antes: Net._mi_lugar == lugar, Net._soy_dueno y current_scene,
+# Con UN piso vivo (o ninguno) es un jugador: Net._mi_lugar == lugar, nunca dueño (etapa 4) y current_scene,
 # tambien en mitad de un cambio de escena (el lugar cambia antes de que exista la escena nueva y eso no se toca aqui).
 # Con varios, el piso que lleva ese lugar.
 static func del_lugar(l: String) -> PisoVivo:
@@ -157,34 +157,34 @@ static func lleva(l: String) -> bool:
 	return del_lugar(l) != null
 
 
-# ¿Llevo ese lugar Y soy su dueño? (antes: Net._mi_lugar == lugar and Net._soy_dueno)
+# ¿Llevo ese lugar Y soy su dueño? Solo la sala (con un solo sitio soy un jugador: nunca).
 static func dueno_de(l: String) -> bool:
 	if un_sitio():
-		return Net._mi_lugar == l and Net._soy_dueno
+		return false
 	var p: PisoVivo = del_lugar(l)
 	return p != null and p.soy_dueno
 
 
-# ¿Llevo ese lugar SIN ser su dueño (lo espejo)? (antes: Net._mi_lugar == lugar and not Net._soy_dueno)
+# ¿Llevo ese lugar SIN ser su dueño (lo espejo)? Con un solo sitio, el que pisa el jugador.
 static func espejo_de(l: String) -> bool:
 	if un_sitio():
-		return Net._mi_lugar == l and not Net._soy_dueno
+		return Net._mi_lugar == l
 	var p: PisoVivo = del_lugar(l)
 	return p != null and not p.soy_dueno
 
 
-# ¿Soy dueño del piso de este nodo? (antes: Net._soy_dueno a secas, mirando un bicho o un drop concreto)
+# ¿Soy dueño del piso de este nodo (un bicho, un drop)? Con un solo sitio, nunca.
 static func dueno_del_nodo(n: Node) -> bool:
 	if un_sitio():
-		return Net._soy_dueno
+		return false
 	var p: PisoVivo = de(n)
 	return p != null and p.soy_dueno
 
 
-# ¿Soy dueño de ALGUN piso? (antes: Net._soy_dueno en lo que corre una vez por proceso, como difundir posiciones)
+# ¿Soy dueño de ALGUN piso (lo que corre una vez por proceso, como difundir posiciones)? Con un solo sitio, nunca.
 static func dueno_de_alguno() -> bool:
 	if un_sitio():
-		return Net._soy_dueno
+		return false
 	for p in _vivos:
 		if p.soy_dueno:
 			return true

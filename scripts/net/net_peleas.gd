@@ -97,11 +97,11 @@ func mi_pelea() -> int:
 	return _pelea_id if _pelea_id != 0 else _pelea_sigo
 
 
-# ¿Llevo yo los enemigos de verdad? Con red es la sala (la unica que hostea desde la etapa 2-bis); sin red,
-# Net._soy_dueno (hasta la etapa 4). Antes se miraba solo Net._soy_dueno, que en la sala es siempre false: el
-# enemigo que alcanzaba a un jugador rebotaba en vez de abrir la pelea, y las reservas no se soltaban al irse nadie.
+# ¿Llevo yo los enemigos de verdad? Es la sala (la unica que hostea desde la etapa 2-bis). Antes se miraba si la
+# maquina era dueña de su piso, que en la sala es siempre false: el enemigo que alcanzaba a un jugador rebotaba en
+# vez de abrir la pelea, y las reservas no se soltaban al irse nadie.
 func _soy_servidor() -> bool:
-	return Net.es_host or Net._soy_dueno
+	return Net.es_host
 
 
 # ¿La sala lleva alguna pelea en ese lugar? (un piso con pelea no se congela, ver Net.pisos.sala_reloj)
@@ -172,7 +172,7 @@ func peer_en_pelea(peer: int) -> bool:
 # Mandarse a si mismo un rpc_id(1, ...) revienta con "RPC on yourself is not allowed". Si soy el
 # host, el enrutado me lo hago en local pasandome como peticionario (yo soy el peer 1).
 func solicitar_pelea(id: int) -> void:
-	if not Net.activo or Net._soy_dueno or multiplayer.multiplayer_peer == null:
+	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
 	if Net.es_host:
 		_encaminar_pelea(id, Net._mi_lugar, 1)

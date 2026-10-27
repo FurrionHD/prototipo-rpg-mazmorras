@@ -2,7 +2,7 @@
 #  net_pisos.gd  (hijo de Net: /root/Net/Pisos)
 #  LA MAZMORRA COMPARTIDA: entrar y salir (la expedicion), morir, las escaleras de cada uno, el DUEÑO
 #  de cada piso (quien lo simula, relevos y fotos) y el aviso de pared de los brotes. El estado de los
-#  dueños (_dueno_piso, _soy_dueno, _fotos_piso...) sigue en Net: lo leen casi todos los temas.
+#  dueños (_dueno_piso, _fotos_piso...) sigue en Net: lo leen casi todos los temas.
 #  Se llama como Net.pisos.<funcion>.
 # ============================================================
 extends Node
@@ -400,7 +400,6 @@ func _entrar_ok(piso: int, agotados: Dictionary, sellos_boss: Dictionary = {}, e
 		Net.epoca_sesion = epoca
 	_olvidar_mis_enemigos()
 	# El piso lo lleva LA SALA (etapa 2): yo solo lo espejo, sus enemigos me llegan por red.
-	Net._soy_dueno = false
 	# Por un ATAJO se aparece en la salida al pueblo de ESE piso (en el fondo), no en su boca:
 	# mismo recado que pone floor_select_menu en solitario (lo consume DungeonFloor al construirse).
 	Game.entrada_por_atajo = piso > 1 and piso != Game.PISO_ARENA
@@ -412,9 +411,6 @@ func _entrar_ok(piso: int, agotados: Dictionary, sellos_boss: Dictionary = {}, e
 
 # La llama la puerta de vuelta / la salida del boss (rama multi), DESPUES de consolidar el mapa.
 func viajar_al_pueblo() -> void:
-	# El jaleo es de la bajada y se queda aqui (en sesion el piso y su foto los lleva la sala, asi que de
-	# cerrar_bajada solo hace falta esa mitad; ver Game).
-	Game.cerrar_bajada()
 	_olvidar_mis_enemigos()
 	_pedir_salir.rpc_id(1)
 	# EN EL PUEBLO ESTAS EN EL PISO 1, como en solitario (door.gd / dungeon_exit.gd lo ponen en su rama de
@@ -575,7 +571,7 @@ func _encaminar_forzar_jefe(lugar: String) -> void:
 
 # ============================================================
 #  EL SPAWNER DE LA ARENA, en compañia
-#  La arena la lleva la sala, NUNCA quien pulsa: cada boton se encamina al host, igual que "Traer al jefe". Un 'if not _soy_dueno: return' aqui seria un boton
+#  La arena la lleva la sala, NUNCA quien pulsa: cada boton se encamina al host, igual que "Traer al jefe". Un 'if not dueño: return' aqui seria un boton
 #  muerto en silencio (ver la memoria regla-del-dueno-servidor).
 # ============================================================
 func pedir_spawn_arena(ruta: String, pos: Vector2, muneco: Dictionary) -> void:
@@ -697,18 +693,10 @@ func mi_piso() -> int:
 	return int(Net._mi_lugar.substr(5))
 
 
-# ¿Simulo yo los bichos del piso donde estoy? En solitario SIEMPRE (no hay red que repartir).
-# Lo consultan los gates de dungeon_floor (hay_sitio, boss, poblacion).
-func simulo_mi_piso() -> bool:
-	# La arena de pruebas ya NO es una sala local aparte ("sandbox"): es el piso Game.PISO_ARENA y tiene
-	# dueño como cualquier otro (un trabajador, en compañia).
-	return (not Net.activo) or Net._soy_dueno
-
-
-# Lo mismo, preguntado DESDE algo del piso (el suelo, un bicho, el estanque): ¿simulo yo el piso de este nodo? Con un
-# solo piso vivo es simulo_mi_piso(); en el servidor (fase 2) cada piso tiene su dueño.
+# ¿Simulo yo el piso de este nodo (el suelo, un bicho, el estanque)? Solo en la sala, que lleva todos los pisos y
+# es el dueño de cada uno (etapa 4: un jugador ya no simula nunca, ni sin red).
 func simulo_el_piso_de(n: Node) -> bool:
-	return (not Net.activo) or PisoVivo.dueno_del_nodo(n)
+	return PisoVivo.dueno_del_nodo(n)
 
 
 # CUANTOS personajes hay en un piso (por defecto, MI piso), contando los grupos de los otros humanos que esten alli.
@@ -899,7 +887,6 @@ func _piso_de(quien: int) -> int:
 @rpc("any_peer", "call_remote", "reliable")
 func _viaje_ok(nuevo: int, bajando: bool) -> void:
 	_olvidar_mis_enemigos()   # los del piso que dejo mueren con su escena
-	Net._soy_dueno = false
 	# Sin memoria local de ese piso: no resucita bichos mios rancios, los veo por red.
 	Game.memoria_pisos.erase(nuevo)
 	Game._cambiar_piso(nuevo, bajando)
@@ -943,7 +930,7 @@ func _mem_a_red(mem: Dictionary) -> Dictionary:
 # Dejo de simular el piso donde estaba: sus bichos mueren con la escena, asi que su registro se va
 # con ellos. Si no, las entradas rancias se quedan pegadas (y el dia que vuelva a ser dueño de algo
 # las difundiria). Se llama SIEMPRE antes de reconstruir/abandonar un piso, y despues de sacar la
-# foto: baja_enemigo no sirve aqui porque se cae por el guard de _soy_dueno.
+# foto: baja_enemigo no sirve aqui porque se cae por el guard del dueño.
 func _olvidar_mis_enemigos() -> void:
 	Net.enemigos._enemigos.clear()
 	Net.peleas._enem_ocupados.clear()   # las reservas eran de esos bichos: se van con ellos

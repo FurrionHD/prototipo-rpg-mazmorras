@@ -59,7 +59,7 @@ func olvidar_charco(nodo: Node) -> void:
 func difundir_charco(snap: Dictionary, charco: Node = null) -> void:
 	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
-	if not (PisoVivo.dueno_del_nodo(charco) if charco != null else Net._soy_dueno):
+	if charco == null or not PisoVivo.dueno_del_nodo(charco):
 		return
 	# El lugar del CHARCO: en la sala (etapa 2) el de su piso, no el de la maquina ("sala").
 	var pv: PisoVivo = PisoVivo.de(charco) if charco != null and not PisoVivo.un_sitio() else null
@@ -156,8 +156,6 @@ func _pez_pica(nonce: int) -> void:
 func resolver_pesca(nonce: int, cobrado: bool) -> void:
 	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
-	if Net._soy_dueno:
-		return   # el dueño lo resuelve en local, no se manda una carta a si mismo
 	# Mismo caso que en publicar_corcho: el host que solo espeja el piso no puede mandarse el
 	# resultado a si mismo. Sin esto, el pez que pescaba el host no salia nunca del banco del dueño.
 	if Net.es_host:

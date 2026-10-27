@@ -550,7 +550,7 @@ func morir() -> void:
 	marcar_cadaver()
 	# Si HEREDE el piso a media pelea, ya no hay dueño a quien contarselo: yo soy la autoridad
 	# ahora, asi que se queda como cadaver aqui y punto (sin esto se mandaria un resultado a nadie).
-	if has_meta("net_id") and not Net._soy_dueno:
+	if has_meta("net_id"):
 		Net.peleas.resultado_bicho(get_meta("net_id"), true, 0.0)
 
 
@@ -579,7 +579,7 @@ func quitar_muerto_en_pelea() -> void:
 func reanudar_tras_combate(hp: float = -1.0, _estados: Array = []) -> void:
 	_combat_triggered = false
 	hp_restante = hp
-	if has_meta("net_id") and not Net._soy_dueno:
+	if has_meta("net_id"):
 		Net.peleas.resultado_bicho(get_meta("net_id"), false, hp)
 
 

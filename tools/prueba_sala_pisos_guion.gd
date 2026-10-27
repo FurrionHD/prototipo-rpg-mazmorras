@@ -77,14 +77,15 @@ func _bajar() -> bool:
 
 func _subir() -> void:
 	Net.pisos.viajar_al_pueblo()
-	await _hasta(func(): return Net._mi_lugar == "pueblo", 20.0)
+	_ok(await _hasta(func(): return Net._mi_lugar == "pueblo", 20.0), "subo al pueblo (lugar %s, pelea en pantalla %s, espejando %s)" % [
+		Net._mi_lugar, Game.hay_pelea_en_pantalla(), Net.peleas.espejando()])
 	await _esperar(0.5)
 
 
 func _guion() -> void:
 	# --- 1) Bajo: la sala monta el piso y es su dueña ---
 	_ok(await _bajar(), "bajo al piso 1")
-	_ok(not Net._soy_dueno, "entro de ESPEJO: el piso no es mio")
+	_ok(not PisoVivo.dueno_de(Net._mi_lugar), "entro de ESPEJO: el piso no es mio")
 	_ok(await _hasta(func(): return _sala("dueno_piso_1") == "1", 10.0), "el dueño del piso 1 es la sala (%s)" % _sala("dueno_piso_1"))
 	_ok(_sala("montados") == "1", "la sala tiene montado el piso 1 (%s)" % _sala("montados"))
 	var vistos: Dictionary = _espejos()

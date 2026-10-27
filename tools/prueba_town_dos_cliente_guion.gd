@@ -131,7 +131,7 @@ func _ready() -> void:
 			Game.entrar_arena_de_pruebas()
 		await _esperar(0.5)
 		ta += 0.5
-	_ok(Net._mi_lugar == "piso:%d" % Game.PISO_ARENA and not Net._soy_dueno,
+	_ok(Net._mi_lugar == "piso:%d" % Game.PISO_ARENA and not PisoVivo.dueno_de(Net._mi_lugar),
 		"entro en la arena y NO soy su dueño")
 	await _esperar(3.0)
 	var yo: Node2D = get_tree().get_first_node_in_group("player") as Node2D

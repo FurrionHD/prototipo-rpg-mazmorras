@@ -21,21 +21,10 @@ var _extraccion_pidiendo: bool = false
 # --- EXTRAER UN CADAVER (hito 5.3) ------------------------------------------------------------
 #
 # Mismo candado que las vetas, pero por CUERPO: dos no pueden sacarle el cristal al mismo cadaver.
-# Lo arbitra el dueño del piso, que es quien tiene el cuerpo de verdad. Devuelve true si puedo
-# empezar YA (soy el dueño y esta libre); si no, la respuesta llega por _extraccion_concedida.
+# Lo arbitra el dueño del piso (la sala), que es quien tiene el cuerpo de verdad. Devuelve true si puedo
+# empezar YA (sin red); si no, la respuesta llega por _extraccion_concedida.
 func solicitar_extraccion(id: int) -> bool:
 	if not Net.activo or multiplayer.multiplayer_peer == null:
-		return true
-	var yo: int = multiplayer.get_unique_id()
-	if Net._soy_dueno:
-		# Idempotente: si el candado ya es MIO, se me vuelve a conceder. Antes cualquier re-peticion
-		# propia (una segunda F antes de que abriera la pantalla) se contestaba "lo trabaja tu
-		# compañero" siendo yo mismo.
-		if Net.peleas._enem_ocupados.has(id) and int(Net.peleas._enem_ocupados[id]) != yo:
-			Net._toast("Ese cuerpo lo está trabajando tu compañero.")
-			return false
-		Net.peleas._enem_ocupados[id] = yo
-		_apuntar_extrayendo(id, yo)
 		return true
 	# Una peticion a la vez: la respuesta tarda un viaje de ida y vuelta y en ese hueco una segunda F
 	# (o un paso que cambia cual es el cuerpo mas cercano) mandaba otra peticion y dejaba el candado
@@ -108,9 +97,7 @@ func _extraccion_concedida(id: int, ok: bool) -> void:
 func notificar_extraido(id: int) -> void:
 	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
-	if Net._soy_dueno:
-		_consumir_cadaver(id)
-	elif Net.es_host:
+	if Net.es_host:
 		_encaminar_consumir(id, Net._mi_lugar)   # host no-dueño: sin RPC a mi mismo
 	else:
 		_pedir_consumir.rpc_id(1, id, Net._mi_lugar)
@@ -134,9 +121,7 @@ func _encaminar_consumir(id: int, lugar: String) -> void:
 func soltar_extraccion(id: int) -> void:
 	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
-	if Net._soy_dueno:
-		_liberar_cadaver(id)
-	elif Net.es_host:
+	if Net.es_host:
 		_encaminar_soltar_cuerpo(id, Net._mi_lugar)   # host no-dueño: sin RPC a mi mismo
 	else:
 		_pedir_soltar_cuerpo.rpc_id(1, id, Net._mi_lugar)
@@ -187,8 +172,6 @@ func _difundir_extrayendo() -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _set_extrayendo(d: Dictionary) -> void:
-	if Net._soy_dueno:
-		return   # el mio es el autoritativo: no me lo pisa el eco del host
 	_extrayendo = d.duplicate()
 
 

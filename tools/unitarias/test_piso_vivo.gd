@@ -100,7 +100,7 @@ func test_por_lugar_con_un_piso_es_net() -> void:
 	var antes: String = Net._mi_lugar
 	Net._mi_lugar = "piso:4"
 	cierto(PisoVivo.lleva("piso:4") and not PisoVivo.lleva("piso:2"), "con un piso, lleva = Net._mi_lugar")
-	igual(PisoVivo.dueno_de("piso:4"), Net._soy_dueno, "y dueno_de = Net._soy_dueno")
+	cierto(not PisoVivo.dueno_de("piso:4"), "y un jugador no es dueño de nada")
 	igual(PisoVivo.raiz_del_lugar("piso:4", arbol.get_tree()), arbol.get_tree().current_scene, "y la raiz, current_scene")
 	Net._mi_lugar = antes
 	_soltar([p])

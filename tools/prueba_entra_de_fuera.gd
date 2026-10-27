@@ -93,12 +93,16 @@ func _correr() -> void:
 	print("pelea en la sala %s, arena %s; arbol en pausa: %s" % [sala, arena.rect_celdas, get_tree().paused])
 	_revisar(arena, "al empezar")
 	print("1) brotes de pared en plena pelea")
+	# EL BROTE, A MANO a la vista de mi jugador. Antes se llenaba Game.alboroto, que en la sala no hacia nada (el
+	# medidor es de cada piso, y el brote del alboroto sale a la vista del jugador CONECTADO que hizo el ruido: aqui
+	# no hay ninguno, el que pelea es el jugador de la propia sala). Asi esta parte no miraba nada.
+	var brotes: int = 0
 	for i in 4:
-		Game._alboroto_enfriando = 0.0
-		Game.alboroto = Game.ALBOROTO_MAX
-		Game.sumar_alboroto(1.0)
+		if piso.provocar_brote(jug.global_position):
+			brotes += 1
 		await _segundos(2.5)
 		_revisar(arena, "brote %d" % (i + 1))
+	_ver(brotes > 0, "salen brotes en plena pelea (%d de 4)" % brotes)
 	print("2) los que quedan por el piso, persiguiendote desde lejos")
 	for n in get_tree().get_nodes_in_group("enemy"):
 		if is_instance_valid(n) and not Game.esta_en_combate(n) and not n.esta_muerto():
