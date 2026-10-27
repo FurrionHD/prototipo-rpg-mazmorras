@@ -198,8 +198,29 @@ func _jugador_falso() -> Node2D:
 
 
 # Sin los que ya se han recogido: recoger() hace queue_free y siguen en el grupo hasta el fotograma siguiente.
+# EL SUELO ES DE LA SALA (etapa 4): soltar se le PIDE (Net.suelo.solicitar_soltar) y ella planta el monton en todos los
+# mundos. Aqui un suelo falso apunta lo que se le pide: un monton por peticion, con su cantidad.
+class SueloFalso extends "res://scripts/net/net_suelo.gd":
+	var pedidos: Array = []   # [[item, n]]
+	func solicitar_soltar(item: Resource, _pos: Vector2, n: int = 1, _lugar: String = "") -> void:
+		pedidos.append([item, n])
+
+
+var _suelo_falso: SueloFalso = null
+var _suelo_de_verdad = null
+
+func _con_suelo_falso() -> void:
+	_suelo_de_verdad = Net.suelo
+	_suelo_falso = SueloFalso.new()
+	Net.suelo = _suelo_falso
+
+func _sin_suelo_falso() -> void:
+	Net.suelo = _suelo_de_verdad
+	_suelo_falso.free()
+
+
 func _pickups() -> Array:
-	return Game.get_tree().get_nodes_in_group("pickup").filter(func(k): return not k.is_queued_for_deletion())
+	return _suelo_falso.pedidos
 
 
 func test_soltar_varias_deja_un_monton() -> void:
@@ -207,15 +228,16 @@ func test_soltar_varias_deja_un_monton() -> void:
 	for i in 6:
 		Game.embolsar(_mat(ACERO, N))
 	var p := _jugador_falso()
+	_con_suelo_falso()
 	igual(Game.soltar_item(_mat(ACERO, N), 5), 5, "suelta 5")
 	var suelo: Array = _pickups()
 	igual(suelo.size(), 1, "UN monton en el suelo")
 	if suelo.size() == 1:
-		igual(int(suelo[0].cantidad), 5, "con sus 5")
+		igual(int(suelo[0][1]), 5, "con sus 5")
 		igual(Game.en_bolsa(load(ACERO), N), 1, "te queda 1")
-		var cuantos: int = int(suelo[0].cantidad)
-		Game.embolsar(suelo[0].recoger(), cuantos)
+		Game.embolsar(suelo[0][0], int(suelo[0][1]))
 		igual(Game.en_bolsa(load(ACERO), N), 6, "recogerlo devuelve las 5")
+	_sin_suelo_falso()
 	p.free()
 
 
@@ -224,10 +246,10 @@ func test_soltar_mas_de_las_que_hay() -> void:
 	for i in 2:
 		Game.embolsar(_mat(ACERO, N))
 	var p := _jugador_falso()
+	_con_suelo_falso()
 	igual(Game.soltar_item(_mat(ACERO, N), 9), 2, "solo hay 2")
 	igual(_pickups().size(), 1, "un monton")
-	for k in _pickups():
-		k.free()
+	_sin_suelo_falso()
 	p.free()
 
 
@@ -236,10 +258,10 @@ func test_los_cristales_caen_de_uno_en_uno() -> void:
 	for i in 3:
 		Game.embolsar(_cri(1, Cristal.Calidad.NORMAL))
 	var p := _jugador_falso()
+	_con_suelo_falso()
 	igual(Game.soltar_item(_cri(1, Cristal.Calidad.NORMAL), 3), 3, "suelta 3")
 	igual(_pickups().size(), 3, "tres cristales sueltos: son cebo y el slime se come uno")
-	for k in _pickups():
-		k.free()
+	_sin_suelo_falso()
 	p.free()
 
 

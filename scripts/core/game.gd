@@ -2398,14 +2398,12 @@ func olvidar_mazmorra() -> void:
 # apuntarla en tu save le metia niebla de un mundo ajeno (y el mapa del invitado dibujaba su propia
 # mazmorra, que es otra semilla). Mismo criterio que marcar_agotado, que ya tenia su guardia de red.
 func vistas_de_piso(piso: int) -> Dictionary:
-	if Net.activo:
-		return Net.mapa.vistas_sesion(piso)
-	return persistente_piso(piso)["zonas_vistas"]
+	return Net.mapa.vistas_sesion(piso)
 
 
 # Lo que DIBUJA el mapa (tecla M): en sesion, la libreta del mundo del host; en solitario, la tuya.
 func mapa_visible() -> Dictionary:
-	return Net.mapa.mapa_sesion() if Net.activo else mapa_snapshot
+	return Net.mapa.mapa_sesion()
 
 
 # El estado persistente del piso (agotados + zonas_vistas), creandolo vacio si no existe.
@@ -2569,12 +2567,8 @@ func iniciar_expedicion_mapa() -> void:
 	# MULTIJUGADOR: la niebla es de la SESION, no de mi save. Morir revierte MI copia de la libreta de
 	# sesion a como estaba al bajar (lo que ya estuviera comprometido en el host no se pierde: alli
 	# sigue, y me llega entero la proxima vez que suba al pueblo con vida).
-	if Net.activo:
-		for p in Net.mapa.vistas_sesion_todas():
-			_vistas_baseline[p] = (Net.mapa.vistas_sesion(int(p))).duplicate()
-		return
-	for p in mazmorra_persistente:
-		_vistas_baseline[p] = (mazmorra_persistente[p]["zonas_vistas"] as Dictionary).duplicate()
+	for p in Net.mapa.vistas_sesion_todas():
+		_vistas_baseline[p] = (Net.mapa.vistas_sesion(int(p))).duplicate()
 
 
 # COMETE el snapshot de trabajo al permanente (al volver al pueblo CON VIDA). Cada piso tocado esta
@@ -2585,12 +2579,7 @@ func comprometer_mapa() -> void:
 	# otra semilla): se le manda al host, que la fusiona y me devuelve la libreta entera de la sesion.
 	# Este es el UNICO momento en que mi copia se refresca -- y por eso lo que descubra mi compañero no
 	# me aparece cuando sube EL, sino cuando subo YO (decision del usuario).
-	if Net.activo:
-		Net.mapa.comprometer_mapa_sesion(mapa_trabajo)
-		mapa_trabajo.clear()
-		return
-	for p in mapa_trabajo:
-		mapa_snapshot[p] = mapa_trabajo[p]
+	Net.mapa.comprometer_mapa_sesion(mapa_trabajo)
 	mapa_trabajo.clear()
 
 
@@ -2599,12 +2588,7 @@ func comprometer_mapa() -> void:
 # NO toca 'agotados' (el anti-farmeo de nodos dura mas que la expedicion).
 func revertir_mapa_expedicion() -> void:
 	mapa_trabajo.clear()
-	if Net.activo:
-		Net.mapa.revertir_vistas_sesion(_vistas_baseline)
-		return
-	for p in mazmorra_persistente:
-		var vb: Dictionary = _vistas_baseline.get(p, {})
-		mazmorra_persistente[p]["zonas_vistas"] = (vb as Dictionary).duplicate()
+	Net.mapa.revertir_vistas_sesion(_vistas_baseline)
 
 
 # ============================================================
@@ -5105,18 +5089,7 @@ func boss_disponible(piso: int) -> bool:
 		return false
 	# EN SESION decide el host: si cada maquina llevara su propia cuenta, el dueño del piso plantaria
 	# el jefe cuando le tocara A EL y los demas verian aparecer uno que para ellos seguia muerto.
-	if Net.activo:
-		return Net.jefes.boss_disponible(piso)
-	if not bosses_sello.has(piso):
-		return true
-	# El reloj puede haber ido HACIA ATRAS (el jugador cambia la hora del sistema, o un cambio de
-	# huso): la resta saldria negativa y el jefe no volveria nunca. Mismo criterio que
-	# repasar_encargos: atrasar el reloj reinicia la cuenta, nunca la acelera.
-	var pasado: float = float(Encargos.ahora()) - float(bosses_sello[piso])
-	if pasado < 0.0:
-		bosses_sello[piso] = Encargos.ahora()
-		return false
-	return pasado >= float(BOSS_RESPAWN.get(piso, 0.0))
+	return Net.jefes.boss_disponible(piso)
 
 # SEGUNDOS que le faltan al jefe de ese piso para volver a estar de pie. 0 = ya toca (o nunca ha
 # caido). -1 = ese piso no tiene jefe.
@@ -5128,12 +5101,7 @@ func boss_restante(piso: int) -> float:
 		return -1.0
 	if boss_disponible(piso):
 		return 0.0
-	if Net.activo:
-		return Net.jefes.boss_restante(piso)
-	if not bosses_sello.has(piso):
-		return 0.0
-	var pasado: float = float(Encargos.ahora()) - float(bosses_sello[piso])
-	return maxf(0.0, float(BOSS_RESPAWN.get(piso, 0.0)) - pasado)
+	return Net.jefes.boss_restante(piso)
 
 
 func boss_del_piso(piso: int) -> EnemyData:
@@ -13481,15 +13449,9 @@ func soltar_item(modelo: Resource, cantidad: int, delante: bool = false) -> int:
 			var mira: Vector2 = pnode.get("_facing") if pnode.get("_facing") is Vector2 else Vector2.DOWN
 			pos = pnode.global_position + mira.normalized() * SOLTAR_DELANTE + Vector2(
 				randf_range(-6.0, 6.0), randf_range(-6.0, 6.0))
-		if Net.activo:
-			# MULTIJUGADOR: el suelo es del host. El drop lo planta Net en TODOS los mundos
-			# (el mio incluido) con su id de red; aqui solo se saca de la bolsa.
-			Net.suelo.solicitar_soltar(item, pos, n)
-		else:
-			var pickup: Node2D = _drop_pickup_script.new()
-			pickup.setup(item, n)
-			parent.add_child(pickup)
-			pickup.global_position = pos
+		# El suelo es de la sala. El drop lo planta Net en TODOS los mundos (el mio incluido) con su id de
+		# red; aqui solo se saca de la bolsa.
+		Net.suelo.solicitar_soltar(item, pos, n)
 		soltados += n
 	if soltados > 0:
 		print("[bolsa] Sueltas %d x %s al suelo" % [soltados, _nombre_item(modelo)])
@@ -13502,17 +13464,7 @@ func soltar_item(modelo: Resource, cantidad: int, delante: bool = false) -> int:
 func soltar_en_suelo(item: Resource, pos: Vector2, n: int = 1, lugar: String = "") -> void:
 	if item == null or n <= 0:
 		return
-	if Net.activo:
-		Net.suelo.solicitar_soltar(item, pos, n, lugar)
-		return
-	var pnode := get_tree().get_first_node_in_group("player")
-	var parent: Node = pnode.get_parent() if pnode != null else get_tree().current_scene
-	if parent == null:
-		return
-	var pickup: Node2D = _drop_pickup_script.new()
-	pickup.setup(item, n)
-	parent.add_child(pickup)
-	pickup.global_position = pos
+	Net.suelo.solicitar_soltar(item, pos, n, lugar)
 
 
 # Mete un item recogido del suelo en la bolsa, con su descubrimiento, su log y su aviso del
@@ -15349,8 +15301,8 @@ func dar_cuerpo_a_cria(slot: int, data: EnemyData, pos: Vector2, t: float, pe: P
 		matar_enemigo_de_combate(pe.enemigos[slot])   # el cadaver al que releva (como un refuerzo)
 		Net.peleas.soltar_reserva_del_cadaver(pe.enemigos[slot])
 	pe.enemigos[slot] = null
-	if not Net.activo or Net.soy_sala:
-		var yo: int = multiplayer.get_unique_id() if Net.activo else 0
+	if Net.soy_sala:
+		var yo: int = multiplayer.get_unique_id()
 		var lugar_cria: String = pe.piso.lugar if Net.soy_sala and is_instance_valid(pe.piso) else ""
 		_poner_cuerpo_de_cria(slot, nacer_cria_aqui(data, pos, t, yo, lugar_cria), pe)
 	else:
@@ -16111,13 +16063,7 @@ func _tirar_drop(corpse: Node, calidad: MaterialItem.Calidad) -> void:
 		# MULTIJUGADOR: por la red, para que el suelo sea el MISMO para todos y lo arbitre el host
 		# (quien llega primero se lo lleva). Era el unico drop del juego que se plantaba en local
 		# saltandose Net: el compañero no llegaba a ver el botin siquiera. Misma via que soltar_item.
-		if Net.activo:
-			Net.suelo.solicitar_soltar(item, donde)
-		else:
-			var pickup: Node2D = _drop_pickup_script.new()
-			pickup.setup(item)
-			parent.add_child(pickup)
-			pickup.global_position = donde
+		Net.suelo.solicitar_soltar(item, donde)
 		print("El monstruo deja en el suelo: ", item.nombre(), " (", item.calidad_texto(), ")")
 
 
@@ -16574,14 +16520,8 @@ func _cerrar_recoleccion(nodo) -> void:
 			# La arena no recuerda nada: el nodo se gasta y ya (ver resource_node.interactuar).
 			if nodo.has_method("agotar"):
 				nodo.agotar()
-		elif Net.activo:
-			Net.recoleccion.notificar_agotado(nodo.celda, current_floor, retraso)
 		else:
-			var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
-			if piso != null and piso.has_method("marcar_agotado"):
-				piso.marcar_agotado(nodo.celda, retraso)
-			if nodo.has_method("agotar"):
-				nodo.agotar()
+			Net.recoleccion.notificar_agotado(nodo.celda, current_floor, retraso)
 		# ALBOROTO: picar y talar suenan. Menos que pelear, pero un rato dando golpes a una veta
 		# tambien te delata y ayuda a cebar un brote. CON FAENA se suma POR GOLPE (ver
 		# faena.REACCION), que es lo que deja contarlo tambien a la maquina que simula el piso cuando
