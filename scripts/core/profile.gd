@@ -25,14 +25,11 @@ const CARPETA := "user://saves"
 # En que ranura se esta jugando ahora (1..RANURAS). 0 = ninguna (estamos en el menu).
 var ranura_actual: int = 0
 
-# --- El guardado continuo (solo ranuras con BD) ---
-const SEG_GUARDADO := 2.0        # cada cuanto se empieza un guardado nuevo (contado desde el anterior)
-const PRESUPUESTO_US := 2500     # cuanto puede gastar el guardado por fotograma
+# --- La BD de la ranura (su guardado continuo era del jugador sin sala: fuera en la etapa 4) ---
+const PRESUPUESTO_US := 2500     # cuanto puede gastar por fotograma un volcado a trozos (BDFilas.Volcado)
 var _bd: PartidaBD = null        # la BD de la ranura que se esta jugando
 var _bd_slot: int = 0
 var _ids := BDFilas.Ids.new()    # los objetos de la partida en juego <-> sus filas
-var _volcado: BDFilas.Volcado = null
-var _t: float = 0.0
 var _no_migradas: Dictionary = {}   # slot -> motivo: no se reintenta en cada repintado del menu
 
 
@@ -431,13 +428,11 @@ func _abrir_bd(slot: int) -> bool:
 		return false
 	_bd.rastrear = true   # lo que cambia queda apuntado para subirlo a la nube
 	_bd_slot = slot
-	_t_nube = 0.0
 	_ids = BDFilas.Ids.new()
 	return true
 
 
 func _cerrar_bd() -> void:
-	_volcado = null
 	if _bd != null:
 		_bd.cerrar()
 	_bd = null
@@ -450,49 +445,10 @@ func _guardar_bd(slot: int, datos: SaveData) -> bool:
 	if not _abrir_bd(slot):
 		push_warning("[perfil] no se pudo abrir la base de datos de la ranura %d" % slot)
 		return false
-	_volcado = null   # el que iba a medias ya es viejo
-	_t = 0.0
 	if _bd.escribir(BDFilas.a_filas(datos, _ids)) < 0:
 		push_warning("[perfil] no se pudo guardar la ranura %d en su base de datos" % slot)
 		return false
 	return true
-
-
-# Cada SEG_GUARDADO, la partida en juego se guarda a trocitos (PRESUPUESTO_US por fotograma). Mismas
-# condiciones que el autoguardado de los mundos: nunca con una pelea en pantalla (el combate no vive
-# en el save) ni fuera del juego (exportar_partida lee el arbol vivo). En una sesion de otro (invitado)
-# tampoco: ahi lo suyo se guarda en los momentos de siempre, con exportar_partida_invitado.
-func _process(delta: float) -> void:
-	if _bd == null or _bd_slot != ranura_actual or ranura_actual <= 0:
-		return
-	if Mundos.abierto != "" or Net.soy_sala or (Net.activo and not Net.es_host):
-		_volcado = null
-		return
-	# Con una pelea en pantalla no: la pelea es de la sala, que la guarda con su sesion (Net.peleas).
-	if Game.hay_pelea_en_pantalla() or not Mundos.en_partida():
-		_volcado = null   # lo que llevaba a medias se tira: el siguiente empieza de cero
-		return
-	if _volcado == null:
-		_t += delta
-		if _t < SEG_GUARDADO:
-			return
-		_t = 0.0
-		var t_exp: int = Time.get_ticks_usec()
-		_volcado = BDFilas.Volcado.new(Game.exportar_partida(true), _ids)
-		Medidor.medida("guardado_exportar", (Time.get_ticks_usec() - t_exp) / 1000.0)   # va en UN fotograma
-	if _volcado.paso(PRESUPUESTO_US):
-		var filas: Dictionary = _volcado.out
-		_volcado = null
-		var t_esc: int = Time.get_ticks_usec()
-		var escrito: int = _bd.escribir(filas)
-		Medidor.medida("guardado_escribir", (Time.get_ticks_usec() - t_esc) / 1000.0)   # tambien en UN fotograma
-		if escrito < 0:
-			push_warning("[perfil] el guardado continuo de la ranura %d ha fallado" % _bd_slot)
-		# Y a la nube, cada SEG_NUBE (solo lo cambiado; sin red, queda apuntado).
-		_t_nube += SEG_GUARDADO
-		if _t_nube >= SEG_NUBE and nube_activa and not _subiendo:
-			_t_nube = 0.0
-			subir_nube(_bd_slot)
 
 
 # ============================================================
@@ -513,7 +469,6 @@ const RESPALDOS_CONFLICTO := "user://respaldos/conflictos"
 var nube_activa: bool = not OS.get_cmdline_user_args().has("sin_nube")
 var sin_conexion := false
 signal conexion_cambiada(sin_red: bool)
-var _t_nube := 0.0
 var _subiendo := false
 # Lo ultimo que dijo la nube de tus partidas: {nube_id: {meta, rev, fecha}}. Lo pide el menu al pintarse.
 var en_nube: Dictionary = {}

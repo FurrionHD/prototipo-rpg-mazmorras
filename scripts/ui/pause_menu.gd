@@ -100,7 +100,7 @@ func _construir() -> void:
 	# del mundo abierto en mi disco". El INVITADO no lo tiene (lo tiene el anfitrion), asi que para el
 	# vale "" aunque este dentro del mundo de otro. La bandera que sirve en los dos lados es
 	# Net.mundo_compartido, la misma que usa _guardar_y_salir.
-	var en_mundo_compartido: bool = Mundos.abierto != "" or (Net.activo and Net.mundo_compartido)
+	var en_mundo_compartido: bool = Net.activo and Net.mundo_compartido
 
 	_boton(vb, "Reanudar", _cerrar)
 	# AJUSTES va aqui arriba, lejos de los de guardar: entre "Guardar" y "Guardar y salir" era un
@@ -386,77 +386,29 @@ func _abrir_multi() -> void:
 	panel.abrir()
 
 
-# MULTIJUGADOR (hito 6 preventivo): guarda el HOST, y guarda POR LOS DOS. El invitado esta jugando en
-# el mundo del host, asi que su partida no se puede volcar tal cual: Game.exportar_partida_invitado le
-# devuelve lo del mundo (baul, mapa, bosses) a como estaba al entrar y le deja en SU pueblo. Solo lo
-# dispara el host: dos saves autoritativos a la vez es justo el lio que el hito 6 viene a resolver.
+# GUARDAR: el mundo es de la sala (etapa 4: el jugador nunca es el anfitrion), asi que no se guarda por su cuenta: se
+# lo PIDE, y la sala guarda el mundo y, con el, a todos los que estan en el.
 func _guardar() -> void:
-	# EL INVITADO TAMBIEN PUEDE. No guarda por su cuenta -- el mundo donde estais jugando es el del
-	# host y hay que volcarlo tambien -- asi que se lo PIDE, y el host hace lo mismo que si hubiera
-	# pulsado el boton el: se guarda, y de ahi salen los guardados de TODOS los invitados.
-	if Net.activo and not Net.es_host:
-		Net.partida.pedir_guardar_todos()
-		_aviso.text = "Guardando: se lo pides al anfitrión y quedáis todos a salvo."
-		return
-	# MUNDO COMPARTIDO: se guarda en el mundo, no en una ranura, y ademas se SUBE (sin soltar el
-	# cerrojo) para que un cuelgue no se lleve la sesion.
-	if Mundos.abierto != "":
-		var subido: bool = await Mundos.autoguardar()
-		_aviso.text = "Mundo guardado y al día." if subido \
-			else "Guardado en tu disco, pero sin subir todavía."
-		return
-	var ok: bool = Perfil.guardar_actual()
-	if ok and Net.activo:
-		Net.partida.guardar_todos()
-		_aviso.text = "Partida guardada (y tus compañeros, a salvo en su pueblo)."
-		return
-	_aviso.text = "Partida guardada." if ok else "No se pudo guardar."
+	Net.partida.pedir_guardar_todos()
+	_aviso.text = "Guardando: se lo pides al anfitrión y quedáis todos a salvo."
 
 
 func _guardar_y_salir() -> void:
-	# El invitado lo pide igual, pero con cerrando=true: el host guarda, cierra, y a cada invitado se
-	# le devuelve a su mundo con lo recien guardado (el camino de _guardar_ahora ya estaba escrito).
-	if Net.activo and not Net.es_host:
-		# INVITADO EN UN MUNDO COMPARTIDO: mi personaje vive en ese mundo, asi que "salir" es dejarlo
-		# guardado y volver al menu de multijugador -- no tengo pueblo propio al que ir. Se le pide al
-		# anfitrion que guarde y se le da un respiro para que mi estado llegue antes de cortar.
-		if Net.mundo_compartido:
-			_aviso.text = "Guardando tu personaje en el mundo..."
-			# Se ESPERA a que el host diga que ha escrito, con un tope. Antes era un segundo a ciegas, y
-			# el host puede tardar hasta _PLAZO_ESTADOS en recoger: con un poco de lag se cortaba antes
-			# de que llegase lo ultimo que habias hecho. La espera vive en Ventana porque la necesitan
-			# los DOS caminos de salir: este boton y la ✕ de la ventana.
-			await Ventana.pedir_guardado_al_anfitrion()
-			await get_tree().create_timer(0.2).timeout   # respiro antes de cortar (ver desconectar)
-			Game.limpiar_modales()
-			var menu: String = Mundos.menu_al_salir()
-			Net.desconectar()
-			get_tree().change_scene_to_file(menu)
-			return
-		Net.partida.pedir_guardar_todos(true)
-		_aviso.text = "Guardando y cerrando: se lo pides al anfitrión."
+	# EN UN MUNDO COMPARTIDO: mi personaje vive en ese mundo, asi que "salir" es dejarlo guardado y volver al menu de
+	# multijugador -- no tengo pueblo propio al que ir. Se le pide a la sala que guarde y se ESPERA a que diga que ha
+	# escrito, con un tope (antes era un segundo a ciegas y con un poco de lag se cortaba antes de que llegase lo ultimo
+	# que habias hecho). La espera vive en Ventana porque la necesitan los DOS caminos de salir: este boton y la ✕.
+	if Net.mundo_compartido:
+		_aviso.text = "Guardando tu personaje en el mundo..."
+		await Ventana.pedir_guardado_al_anfitrion()
+		await get_tree().create_timer(0.2).timeout   # respiro antes de cortar (ver desconectar)
+		Game.limpiar_modales()
+		var menu: String = Mundos.menu_al_salir()
+		Net.desconectar()
+		get_tree().change_scene_to_file(menu)
 		return
-	# MUNDO COMPARTIDO: guardar, subir y SOLTAR EL CERROJO, en ese orden. Si la subida falla el mundo
-	# sigue reservado a mi nombre y queda marcado como pendiente: no se sale como si nada.
-	# (cerrar_y_subir recoge antes el estado de los invitados y les avisa de que se cierra.)
-	if Mundos.abierto != "":
-		var r: Dictionary = await Mundos.cerrar_y_subir()
-		if not r.get("ok", false):
-			_aviso.text = "%s\nSe sale, pero el mundo queda pendiente de subir." % String(r.get("mensaje", ""))
-			await get_tree().create_timer(1.5).timeout
-		_salir()
-		return
-	if not Perfil.guardar_actual():
-		_aviso.text = "No se pudo guardar (no se sale)."
-		return
-	_aviso.text = "Guardando en la nube…"
-	await Perfil.subir_al_salir()   # sin red no espera de mas: sube la proxima vez
-	# Cerrando la sesion: al invitado se le pide que guarde Y que se vuelva a su mundo con lo guardado
-	# (si no, se comeria un "el host ha cerrado" a secas). Se ESPERA a que el aviso salga de verdad:
-	# _salir() desconecta, y cortar en el mismo frame tiraria el paquete sin enviarlo.
-	if Net.activo:
-		await Net.partida.guardar_todos(true)
-	_salir()
+	Net.partida.pedir_guardar_todos(true)
+	_aviso.text = "Guardando y cerrando: se lo pides al anfitrión."
 
 
 func _salir() -> void:

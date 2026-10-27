@@ -110,7 +110,7 @@ def es_de_red(nombre: str) -> bool:
                           # (etapa 4, 26/10) el JUGADOR con su sala: dos Godot cada una (tools/prueba_con_jugador.gd)
                           "prueba_orden_dibujo", "prueba_barras_registro", "prueba_lista_enemigos", "prueba_huida_lider", "prueba_carga_piso",
                           "prueba_jugador_no_monta", "prueba_niebla_quieto", "prueba_zona_ajena",
-                          "prueba_arena"})
+                          "prueba_arena", "prueba_bd_altf4"})
 
 # Las que NO son una prueba sin ventana (necesitan pantalla de verdad): no se pasan.
 NO_SIN_VENTANA = {"prueba_rueda_cristales"}
@@ -143,7 +143,7 @@ COMO_SE_LANZA = {
     "prueba_sala_entrar": [{"despues": ["nube_local", "sala_vacia=4"]}],
     "prueba_huella_combate": [{"antes": ["--fixed-fps", "60"], "despues": ["comparar"]}],
     # "prepara": esa pasada solo deja las cosas listas para la siguiente (p. ej. se mata a si misma): no cuenta.
-    "prueba_bd_altf4": [{"env": {"ALTF4_FASE": "1"}, "prepara": True}, {"env": {"ALTF4_FASE": "2"}}],
+    "prueba_bd_altf4": NUBE_LOCAL,
     "prueba_town_pelea_sala": NUBE_LOCAL,
     "prueba_town_pelea_guardada": NUBE_LOCAL,
     "prueba_orden_dibujo": NUBE_LOCAL,

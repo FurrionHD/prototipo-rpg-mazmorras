@@ -174,28 +174,11 @@ func _guardar_y_marcar(listo: Array) -> void:
 	listo[0] = true
 
 
-# EL GUARDADO DE CERRAR. Es el reparto de siempre (ver pause_menu._guardar_y_salir, el hermano que
-# ademas decide a que menu se vuelve): quien guarda depende de si juegas solo, de invitado, de host
-# o dentro de un mundo compartido.
+# EL GUARDADO DE CERRAR (ver pause_menu._guardar_y_salir, el hermano que ademas decide a que menu se vuelve). Mi
+# personaje vive en el mundo de la sala (etapa 4: el jugador nunca es el anfitrion), asi que no hay nada que escribir
+# aqui: se le pide a ella y se espera a que diga que lo ha escrito.
 func guardar_al_cerrar() -> void:
-	if Net.activo and not Net.es_host:
-		# INVITADO: mi personaje vive en el save del anfitrion, asi que no hay nada que escribir
-		# aqui. Se le pide a el y se espera a que diga que lo ha escrito.
-		await pedir_guardado_al_anfitrion()
-		return
-	# MUNDO COMPARTIDO: guardar, subir y soltar el cerrojo. Si la subida falla el mundo queda
-	# pendiente, que es mejor que soltarlo a medias.
-	if Mundos.abierto != "":
-		var r: Dictionary = await Mundos.cerrar_y_subir()
-		if not bool(r.get("ok", false)):
-			push_warning("[ventana] al cerrar: %s" % String(r.get("mensaje", "")))
-		return
-	Perfil.guardar_actual()
-	await Perfil.subir_al_salir()   # y a la nube lo que falte (sin red, sube la proxima vez)
-	# HOST de una sala normal: guarda tambien por sus invitados, y se ESPERA a que el aviso salga
-	# de verdad (desconectar en el mismo frame tiraria el paquete sin enviarlo).
-	if Net.activo:
-		await Net.partida.guardar_todos(true)
+	await pedir_guardado_al_anfitrion()
 
 
 # EL INVITADO LE PIDE AL ANFITRION QUE GUARDE, y espera a que conteste (con tope). Vive aqui y no en
