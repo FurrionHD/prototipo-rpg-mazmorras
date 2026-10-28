@@ -38,6 +38,9 @@ const CADA := 1.0 / 15.0
 # van pegados a ti y llevan tu farolillo encima.
 const GRUPOS_A_APAGAR := ["enemy", "corpse", "pickup", "recolectable", "escalera",
 	"salida_pueblo", "aliado"]
+# Lo que tiene esta marca lo esconde la PELEA (una cria antes de su vuelo, ver combat_tactico._esconder_cria): la niebla
+# no le toca la visibilidad mientras la lleve.
+const OCULTA_PELEA := &"oculta_pelea"
 
 var vision := Vision.new()
 
@@ -332,7 +335,7 @@ func _apagar_lo_que_no_se_ve(vista: Rect2 = Rect2()) -> void:
 	for grupo in GRUPOS_A_APAGAR:
 		for n in get_tree().get_nodes_in_group(grupo):
 			var nodo := n as Node2D
-			if nodo == null or not is_instance_valid(nodo):
+			if nodo == null or not is_instance_valid(nodo) or nodo.has_meta(OCULTA_PELEA):
 				continue
 			if recorta and not vista.has_point(nodo.global_position):
 				# Ojo con los GRANDES: el charco mide cinco celdas y su centro puede caer fuera de la

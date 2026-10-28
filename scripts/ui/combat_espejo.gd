@@ -185,7 +185,11 @@ func _cria_sin_formar(c: Combatant) -> bool:
 	if not _pantalla.tactico or i < 0 or not _pantalla._slots_invocados.has(i):
 		return false
 	var cu: Node2D = _pantalla.turno_mapa.cuerpo_de(c)
-	return cu == null or _pantalla.turno_mapa.cria_sin_formar(cu)
+	# UN CUERPO QUE AUN NO ES EL SUYO tambien cuenta como sin formar (27/10): la primera cria del brotado estrena el hueco
+	# del propio brotado, y al darla de alta ese hueco aun apunta a su cuerpo (sin la marca de cria). Asi la marca salia
+	# false, el espejo no la escondia y se veia formada antes de su vuelo (prueba_town_crias_red, a ratos). Todas las
+	# invocaciones son crias (altas._invocar_slime) y su cuerpo lleva 'cria_brote' (Game.nacer_cria_aqui).
+	return cu == null or not cu.has_meta("cria_brote") or _pantalla.turno_mapa.cria_sin_formar(cu)
 
 
 func _fila_de_roster(lista: Array) -> Array:

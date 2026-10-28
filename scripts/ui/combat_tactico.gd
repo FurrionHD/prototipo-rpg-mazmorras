@@ -442,6 +442,11 @@ func desmontar() -> void:
 	for cu in _gestos_mapa.keys():   # un gesto a medias no puede dejar la marca puesta: no se volveria a animar
 		_quitar_gesto(cu)
 	_levantar_caidos()
+	# Una cria escondida cuando se cierra la pelea vuelve a la niebla (si no, se quedaria oculta para siempre).
+	for cu in _crias_ocultas.keys():
+		if is_instance_valid(cu):
+			(cu as Node2D).remove_meta(OCULTA_PELEA)
+	_crias_ocultas.clear()
 	var pl: Node = _jugador_local()
 	if pl != null:
 		pl.usar_barras_de_pelea(Callable())
@@ -6258,7 +6263,7 @@ func _tick_deslices(delta: float) -> void:
 			continue
 		# LA CRIA NO SE VE hasta caer: lo que vuela es su bola de baba (aqui y en el espejo, aunque su cuerpo llegue tarde).
 		if cria and cuerpo.visible:
-			cuerpo.visible = false
+			_esconder_cria(cuerpo, true)
 		if float(d["t"]) < 0.0:
 			d["espera"] = float(d["espera"]) + delta
 			# EN EL ESPEJO la del Rey espera a su escupitajo; si ese ya paso (o no llega), sale igual (13/10, C3: se
@@ -6722,7 +6727,7 @@ func cria_con_cuerpo(slot: int) -> void:
 		# volando lo que tarda ese efecto en caer. Lo que vuela es una BOLA DE BABA (SlimeAire.Modo.CRIA), no ella. El
 		# desliz CRIA viaja al espejo, que hace lo mismo (anotar_desliz, _tick_deslices).
 		pedir_desliz(c, hasta, Desliz.CRIA, 1 if con_gota else 0, T_VUELO_CRIA, ALTO_VUELO_CRIA, false)
-		cuerpo.visible = false
+		_esconder_cria(cuerpo, true)
 		# La del brotado, de su color (aqui: el espejo no lo sabe y la pinta del de la cria, que es casi el mismo).
 		if not con_gota and col_bola.a > 0.0:
 			for d in _deslices:
@@ -6753,7 +6758,7 @@ func _nacer_cria(c: Combatant) -> void:
 		for d in _deslices:
 			volando = volando or (d["c"] == c and bool(d.get("cria", false)) and float(d["t"]) >= 0.0)
 		if not volando:
-			cu.visible = true
+			_esconder_cria(cu, false)
 	gesto_bicho_en_mapa(c, &"nacer", -1.0)
 
 
@@ -6816,7 +6821,7 @@ func _cria_cae(c: Combatant) -> void:
 	if cuerpo == null:
 		return
 	if not cuerpo.visible:
-		cuerpo.visible = true
+		_esconder_cria(cuerpo, false)
 		cuerpo.modulate.a = 0.0
 		_aparece_cria[cuerpo] = 0.0
 
@@ -6834,7 +6839,7 @@ func cria_por_llegar(c: Combatant) -> void:
 	# y en ese fotograma la cria se veia formada antes de su vuelo (prueba_town_crias_red).
 	var cu: Node2D = cuerpo_de(c)
 	if cu != null:
-		cu.visible = false
+		_esconder_cria(cu, true)
 
 
 func _tick_cria_red(delta: float) -> void:
@@ -6847,10 +6852,27 @@ func _tick_cria_red(delta: float) -> void:
 		if tiene or not c.is_alive() or float(_cria_red[c]) >= T_CRIA_RED:
 			_cria_red.erase(c)
 			if not tiene and cu != null:
-				cu.visible = true
+				_esconder_cria(cu, false)
 			continue
 		if cu != null:
-			cu.visible = false
+			_esconder_cria(cu, true)
+
+
+# ESCONDER UNA CRIA es cosa de la pelea, y la NIEBLA no la toca mientras tanto (niebla.gd, OCULTA_PELEA). La niebla pone
+# 'visible' a todos los enemigos segun les llega la luz, 15 veces por segundo: sin la marca, la cria escondida asomaba
+# un fotograma de cada pocos antes de su vuelo (prueba_town_crias_red, a ratos desde la etapa 3) y, si le pillaba justo
+# antes de caer, se saltaba el fundido de aparecer (_cria_cae lo decide por 'visible').
+const OCULTA_PELEA := &"oculta_pelea"   # = la de niebla.gd
+var _crias_ocultas: Dictionary = {}   # cuerpo -> true
+
+func _esconder_cria(cuerpo: Node2D, si: bool) -> void:
+	cuerpo.visible = not si
+	if si:
+		cuerpo.set_meta(OCULTA_PELEA, true)
+		_crias_ocultas[cuerpo] = true
+	else:
+		cuerpo.remove_meta(OCULTA_PELEA)
+		_crias_ocultas.erase(cuerpo)
 
 
 func _tick_crias(delta: float) -> void:

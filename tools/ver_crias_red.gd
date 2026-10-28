@@ -73,8 +73,12 @@ func _vigilar(p: Node) -> void:
 			r["nacida"] = ahora - float(r["t0"])
 			r["donde"] = cu.global_position
 		elif cu.visible and cu.modulate.a > 0.01 and e.is_alive() and String(r["vista_antes"]) == "":
-			r["vista_antes"] = "a los %.2f s, %s en %s, a=%.2f" % [ahora - float(r["t0"]),
-				String(sp.animation) if sp is AnimatedSprite2D else "-", str(cu.global_position.round()), cu.modulate.a]
+			var con_vuelo: bool = false
+			for d in tm._deslices:
+				con_vuelo = con_vuelo or (d["c"] == e and bool(d.get("cria", false)))
+			r["vista_antes"] = "a los %.2f s, %s en %s, a=%.2f; por llegar %s, con vuelo %s, oculta %s" % [ahora - float(r["t0"]),
+				String(sp.animation) if sp is AnimatedSprite2D else "-", str(cu.global_position.round()), cu.modulate.a,
+				tm._cria_red.has(e), con_vuelo, tm._crias_ocultas.has(cu)]
 
 
 func _comprobar_crias(titulo: String) -> void:
