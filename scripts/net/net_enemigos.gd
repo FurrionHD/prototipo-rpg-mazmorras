@@ -99,6 +99,7 @@ func baja_enemigo(nodo: Node) -> void:
 	if not _enemigos.has(id):
 		return
 	_enemigos.erase(id)
+	_ultimo_tick.erase(id)
 	if Net.es_host:
 		_despawn_enemigo.rpc(id)
 
@@ -189,9 +190,9 @@ func _despawn_enemigo(id: int) -> void:
 	_enem_nodos.erase(id)
 
 
-# Difusion de POSICIONES: la hace el DUEÑO del piso, a ~20 Hz desde _physics_process. Un lote
-# [[id, pos], ...] no fiable y ordenado, como la posicion del jugador (perder un paquete no
-# importa, el siguiente corrige). Todos mis bichos son de MI piso, asi que el lote es uno solo.
+# Difusion de POSICIONES: la hace el DUEÑO del piso, a ~20 Hz desde _physics_process. Un lote empaquetado
+# (empaquetar_tick) no fiable y ordenado, como la posicion del jugador (perder un paquete no importa: el siguiente
+# corrige, y cada bicho sale entero al menos una vez por segundo). Uno por lugar.
 func _difundir_posiciones_enemigos() -> void:
 	# Purga de nodos muertos (reciclados sin pasar por baja, por si acaso). SIN tipar la variable:
 	# asignar una instancia YA LIBERADA a un `var: Node` lanza error en Godot 4; hay que leerla
@@ -200,6 +201,7 @@ func _difundir_posiciones_enemigos() -> void:
 		var nodo = _enemigos[id]["nodo"]
 		if not is_instance_valid(nodo):
 			_enemigos.erase(id)
+			_ultimo_tick.erase(id)
 			if Net.es_host:
 				_despawn_enemigo.rpc(id)
 	if _enemigos.is_empty():
@@ -210,9 +212,9 @@ func _difundir_posiciones_enemigos() -> void:
 	# UN LOTE POR LUGAR (fase 2, 19/10): en un cliente todos son de su piso (un lote, lo de siempre); en el servidor
 	# cada piso manda los suyos a los que estan en el.
 	var lotes: Dictionary = {}
+	var ahora: int = Time.get_ticks_msec()
 	for id in _enemigos:
 		var nd = _enemigos[id]["nodo"]
-		var lote: Array = lotes.get_or_add(String(_enemigos[id]["lugar"]), [])
 		var est: Array = nd.estado_visual_red() if nd.has_method("estado_visual_red") else [0.0, false, 0]
 		# El QUINTO, de quien es la pelea en la que esta metido (0 = suelto). Va en el tick y no en un
 		# aviso suelto a proposito: una pelea se abre y se cierra por media docena de caminos (reservar,
@@ -221,14 +223,79 @@ func _difundir_posiciones_enemigos() -> void:
 		# El SEXTO, el contador de embestidas: con el suena la embestida en los PCs que solo la espejan.
 		# El SEPTIMO, si esta EMBISTIENDO ahora mismo: es lo que hace que el espejo enseñe el gesto de
 		# ataque ENTERO y no solo el parpadeo del aviso (ver enemy.estado_visual_red).
-		lote.append([id, (nd as Node2D).global_position, est[0], est[1], Net.peleas._pelea_del_enemigo(id, nd),
-			est[2] if est.size() >= 3 else 0, est[3] if est.size() >= 4 else false])
+		var fila: Array = [id, (nd as Node2D).global_position, float(est[0]), bool(est[1]),
+			Net.peleas._pelea_del_enemigo(id, nd), int(est[2]) if est.size() >= 3 else 0,
+			bool(est[3]) if est.size() >= 4 else false]
+		# SOLO LO QUE CAMBIA (fase 3, 28/10): el tick era lo que mas pesaba de toda la red (~30 %), y la mayoria de
+		# filas eran bichos quietos y cadaveres repetidos 20 veces por segundo. Va el que se ha movido o ha cambiado
+		# algo; y cada bicho, como poco, una vez cada TICK_ENTERO_MS aunque no cambie: el canal no es fiable, y si
+		# se pierde su ultimo paso, eso lo corrige (el estado que se repite sigue sin poder desincronizarse, ahora
+		# con un segundo de plazo en vez de una vigesima).
+		var antes: Array = _ultimo_tick.get(id, [])
+		if not antes.is_empty() and ahora - int(antes[0]) < TICK_ENTERO_MS and fila_igual(antes[1], fila):
+			continue
+		_ultimo_tick[id] = [ahora, fila]
+		(lotes.get_or_add(String(_enemigos[id]["lugar"]), []) as Array).append(fila)
 	if not Net.es_host:
 		return
 	for lug in lotes:
+		var paquete: Array = empaquetar_tick(lotes[lug])
 		for peer_id in Net._peers:
 			if Net._peers[peer_id].get("lugar", "") == lug:
-				_tick_enemigos.rpc_id(peer_id, lotes[lug])
+				_tick_enemigos.rpc_id(peer_id, paquete)
+
+
+# Lo ultimo que se mando de cada bicho: id -> [msec, fila]. Solo en quien difunde.
+var _ultimo_tick: Dictionary = {}
+const TICK_ENTERO_MS := 1000
+const TICK_MOVIDO_PX := 0.5     # menos que esto no se ve: medio pixel
+const TICK_GIRO := 0.02         # radianes (~1 grado)
+
+
+static func fila_igual(a: Array, b: Array) -> bool:
+	if (a[1] as Vector2).distance_to(b[1]) >= TICK_MOVIDO_PX:
+		return false
+	if absf(angle_difference(float(a[2]), float(b[2]))) >= TICK_GIRO:
+		return false
+	return a[3] == b[3] and a[4] == b[4] and a[5] == b[5] and a[6] == b[6]
+
+
+# EL PAQUETE (fase 3): una fila por bicho era un Array de siete con sus cabeceras de tipo (~100 B por bicho). Ahora:
+#   [ids (PackedInt32), x/y/mirada seguidos (PackedFloat32), avisos (PackedByte: bit 0 avisando el golpe, bit 1
+#    embistiendo), pelea de cada uno (PackedInt32: las ejecuta todas la sala, peer 1, asi que su id es
+#    ID_POR_PEER + n y cabe de sobra), contador de embestidas (PackedInt32)]
+# 'filas' = [[id, pos, mirada, avisando, pelea, embestidas, embistiendo], ...]; filas_de_tick lo deshace igual.
+static func empaquetar_tick(filas: Array) -> Array:
+	var ids := PackedInt32Array()
+	var xya := PackedFloat32Array()
+	var marcas := PackedByteArray()
+	var peleas := PackedInt32Array()
+	var embs := PackedInt32Array()
+	for f in filas:
+		ids.append(int(f[0]))
+		xya.append((f[1] as Vector2).x)
+		xya.append((f[1] as Vector2).y)
+		xya.append(float(f[2]))
+		marcas.append((1 if bool(f[3]) else 0) | (2 if bool(f[6]) else 0))
+		peleas.append(int(f[4]))
+		embs.append(int(f[5]))
+	return [ids, xya, marcas, peleas, embs]
+
+
+static func filas_de_tick(lote: Array) -> Array:
+	if lote.size() < 5:
+		return []
+	var ids: PackedInt32Array = lote[0]
+	var xya: PackedFloat32Array = lote[1]
+	var marcas: PackedByteArray = lote[2]
+	var peleas: PackedInt32Array = lote[3]
+	var embs: PackedInt32Array = lote[4]
+	var n: int = mini(mini(ids.size(), xya.size() / 3), mini(marcas.size(), mini(peleas.size(), embs.size())))
+	var filas: Array = []
+	for i in n:
+		filas.append([ids[i], Vector2(xya[i * 3], xya[i * 3 + 1]), xya[i * 3 + 2], (marcas[i] & 1) != 0,
+			peleas[i], embs[i], (marcas[i] & 2) != 0])
+	return filas
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
@@ -239,7 +306,7 @@ func _tick_enemigos(lote: Array) -> void:
 	# andaba (y antes de avisar al dueño, volvia a su sitio de antes de la pelea). Solo me quedo con
 	# de quien es la pelea.
 	var mios_tactico: bool = Game.pelea_tactica_en_curso()
-	for par in lote:
+	for par in filas_de_tick(lote):
 		var n = _enem_nodos.get(par[0])
 		if n == null or not is_instance_valid(n):
 			continue

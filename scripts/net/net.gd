@@ -134,7 +134,8 @@ const MAX_CONEXIONES := 32
 # 46 (28/10): fase 2, etapa 5: fuera los RPC de unirse a una pelea que llevaba un trabajador (_union_redirigida,
 #     _union_reintenta) y _devuelve_sobrantes.
 # 47 (28/10): fase 3: la foto del charco va empaquetada (un Array con Packed*Array) en vez de un dict con una lista por pez.
-const PROTOCOLO := 47
+# 48 (28/10): fase 3: _tick_enemigos va empaquetado (Packed*Array) y solo con los que cambian (todos, 1 vez por segundo).
+const PROTOCOLO := 48
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
