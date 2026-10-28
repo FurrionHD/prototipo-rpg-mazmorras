@@ -608,7 +608,9 @@ func recoger_estados(cerrando: bool = false) -> void:
 	_estados_pedidos = Net._peers.keys()
 	if _estados_pedidos.is_empty():
 		return
-	_dame_tu_estado.rpc(cerrando)
+	# A cada uno, diciendole si ya tengo una base suya con la que juntar solo lo que cambie (ver _mi_estado).
+	for pid in _estados_pedidos:
+		_dame_tu_estado.rpc_id(pid, cerrando, _base_estado.has(String(Net._identidades.get(pid, ""))))
 	var esperado := 0.0
 	while not _estados_pedidos.is_empty() and esperado < _PLAZO_ESTADOS:
 		await get_tree().create_timer(0.1).timeout
@@ -621,10 +623,17 @@ func recoger_estados(cerrando: bool = false) -> void:
 
 # El host pide lo mio. Corre en el INVITADO.
 @rpc("any_peer", "call_remote", "reliable")
-func _dame_tu_estado(cerrando: bool) -> void:
+func _dame_tu_estado(cerrando: bool, hay_base: bool = false) -> void:
 	if Net.es_host:
 		return
-	_mi_estado.rpc_id(1, jd_a_dict(Game.mi_jugador_data()))
+	# SOLO LO QUE HA CAMBIADO (fase 3, 28/10): eran ~83 KB en cada guardado (el baul entero, cada minuto), y
+	# casi nada cambia de uno a otro. Sin base en la sala (sala nueva, o es la primera vez), entero.
+	var d: Dictionary = jd_a_dict(Game.mi_jugador_data())
+	if not hay_base:
+		_hash_enviado.clear()
+	var r: Array = solo_lo_cambiado(d, _hash_enviado)
+	_hash_enviado = r[1]
+	_mi_estado.rpc_id(1, r[0] if hay_base else d)
 	if not cerrando:
 		Net._aviso_esquina("Partida guardada")
 		return
@@ -654,6 +663,15 @@ func _mi_estado(d: Dictionary) -> void:
 	var identidad := String(Net._identidades.get(quien, ""))
 	if identidad == "":
 		return
+	if bool(d.get(_PARCIAL, false)):
+		if not _base_estado.has(identidad):
+			# No deberia pasar (solo se manda en parte si le dije que tenia base): me quedo con lo ultimo y la
+			# siguiente vez se lo pido entero.
+			push_warning("[multi] estado en parte sin base de %s: se ignora" % identidad)
+			_estados_pedidos.erase(quien)
+			return
+		d = juntar_estado(_base_estado[identidad], d)
+	_base_estado[identidad] = d
 	var jd: JugadorData = jd_de_dict(d, false)
 	jd.id = identidad          # manda MI registro de quien es, no lo que diga el paquete
 	# El estado ANTERIOR se tira: que se lleve consigo la meta de su equipo. Sin esto la fuga seguia
@@ -664,6 +682,39 @@ func _mi_estado(d: Dictionary) -> void:
 	Game.jugadores_mundo[identidad] = jd
 	_estados_pedidos.erase(quien)
 	print("[multi] estado recibido de ", jd.nombre_visible, ": ", jd.resumen())
+
+
+# EL ESTADO EN PARTES (fase 3). En el invitado, el hash de cada seccion de lo ultimo que mande; en la sala, el ultimo
+# estado ENTERO de cada identidad, con el que se juntan las partes. Las secciones son las claves de jd_a_dict.
+const _PARCIAL := "_parcial"
+const _CLAVES := "_claves"
+var _hash_enviado: Dictionary = {}   # (invitado) clave -> hash de lo que se mando
+var _base_estado: Dictionary = {}    # (sala) identidad -> el ultimo estado entero
+
+
+# Lo que hay que mandar de 'd' sabiendo los hashes de lo que ya se mando: [envio, hashes nuevos]. El envio lleva las
+# secciones que han cambiado y la lista de todas (para que la sala quite las que ya no esten).
+static func solo_lo_cambiado(d: Dictionary, enviado: Dictionary) -> Array:
+	var envio: Dictionary = {_PARCIAL: true, _CLAVES: PackedStringArray(d.keys())}
+	var hashes: Dictionary = {}
+	for k in d:
+		var h: int = hash(d[k])
+		hashes[k] = h
+		if not enviado.has(k) or int(enviado[k]) != h:
+			envio[k] = d[k]
+	return [envio, hashes]
+
+
+# La sala: el estado entero que resulta de poner 'parte' sobre 'base'.
+static func juntar_estado(base: Dictionary, parte: Dictionary) -> Dictionary:
+	var claves: PackedStringArray = parte.get(_CLAVES, PackedStringArray(base.keys()))
+	var out: Dictionary = {}
+	for k in claves:
+		if parte.has(k):
+			out[k] = parte[k]
+		elif base.has(k):
+			out[k] = base[k]
+	return out
 
 
 # La meta del equipo de un JugadorData que se va a TIRAR. Esas piezas las fabrico la sincronizacion

@@ -135,7 +135,8 @@ const MAX_CONEXIONES := 32
 #     _union_reintenta) y _devuelve_sobrantes.
 # 47 (28/10): fase 3: la foto del charco va empaquetada (un Array con Packed*Array) en vez de un dict con una lista por pez.
 # 48 (28/10): fase 3: _tick_enemigos va empaquetado (Packed*Array) y solo con los que cambian (todos, 1 vez por segundo).
-const PROTOCOLO := 48
+# 49 (28/10): fase 3: _dame_tu_estado dice si la sala tiene base, y _mi_estado puede venir EN PARTES (solo lo cambiado).
+const PROTOCOLO := 49
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
