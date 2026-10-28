@@ -429,7 +429,7 @@ func _recibir_del_cofre(d: Dictionary, vender: bool) -> void:
 
 func _difundir_cofre() -> void:
 	if Net.activo and _cambio("cofre", Game.cofre_equipo):
-		_set_cofre.rpc(Game.cofre_equipo)
+		_set_cofre.rpc(Net.zip(Game.cofre_equipo))
 
 
 # LO QUE YA SE DIFUNDIO NO SE REPITE (fase 3, 28/10): el hogar se difundia entero (roster ~18 KB, cofre ~12 KB) en cada
@@ -447,7 +447,8 @@ func _cambio(que: String, valor) -> bool:
 
 
 @rpc("authority", "call_remote", "reliable")
-func _set_cofre(lista: Array) -> void:
+func _set_cofre(z: Array) -> void:
+	var lista: Array = Net.unzip_array(z)
 	_cofre_mirror = lista   # cliente: reflejo del cofre del host
 	Net.hogar_cambiado.emit()
 
@@ -610,11 +611,11 @@ func _difundir_hogar() -> void:
 		if _cambio("encargos", Game.encargos):
 			_set_encargos.rpc(Game.encargos)
 		if _cambio("cofre", Game.cofre_equipo):
-			_set_cofre.rpc(Game.cofre_equipo)
+			_set_cofre.rpc(Net.zip(Game.cofre_equipo))
 		if _cambio("roster", roster):
 			for peer in Net._peers:
 				_repartir_fotos(peer, roster)
-			_set_roster_hogar.rpc(roster)
+			_set_roster_hogar.rpc(Net.zip(roster))
 		_roster_mirror = roster
 		# LA FORMACION va con el roster del que sale (ver net_formacion.gd), y DESPUES de el.
 		Net.formacion.reconciliar()
@@ -635,7 +636,8 @@ func _set_encargos(lista: Array) -> void:
 
 
 @rpc("authority", "call_remote", "reliable")
-func _set_roster_hogar(lista: Array) -> void:
+func _set_roster_hogar(z: Array) -> void:
+	var lista: Array = Net.unzip_array(z)
 	_roster_mirror = lista
 	Net.hogar_cambiado.emit()
 
@@ -1265,7 +1267,7 @@ func _delta_al_host(quitar: Array, poner: Array) -> void:
 			_aplicar_delta.rpc_id(p, quitar, poner)
 	if faltan > 0:
 		push_warning("[hogar] %d unidades que gasto %d ya no estaban: le corrijo el baul" % [faltan, quien])
-		_set_almacen.rpc_id(quien, _almacen_dicts())
+		_set_almacen.rpc_id(quien, Net.zip(_almacen_dicts()))
 	Net.hogar_cambiado.emit()
 
 
@@ -1285,7 +1287,8 @@ func tengo_taller() -> bool:
 
 
 @rpc("authority", "call_remote", "reliable")
-func _set_almacen(bag: Array) -> void:
+func _set_almacen(z: Array) -> void:
+	var bag: Array = Net.unzip_array(z)
 	# No piso mi baul si soy YO quien tiene el taller prestado (estoy crafteando con el).
 	if _taller_dueno == multiplayer.get_unique_id():
 		return

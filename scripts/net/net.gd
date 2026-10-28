@@ -137,7 +137,9 @@ const MAX_CONEXIONES := 32
 # 48 (28/10): fase 3: _tick_enemigos va empaquetado (Packed*Array) y solo con los que cambian (todos, 1 vez por segundo).
 # 49 (28/10): fase 3: _dame_tu_estado dice si la sala tiene base, y _mi_estado puede venir EN PARTES (solo lo cambiado).
 # 50 (28/10): fase 3: el "suelo" del mapa viaja como mapa de bits ("suelo_bits", ver net_mapa.mapa_a_red).
-const PROTOCOLO := 50
+# 51 (28/10): fase 3: los mensajes gordos van comprimidos (Net.zip: almacen, jugador, roster y cofre del hogar, estado,
+#     alta, fichas, union y roster de pelea).
+const PROTOCOLO := 51
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -416,6 +418,34 @@ signal venta_cofre(texto: String)
 
 # ¿Soy un CLIENTE en sesion? (uso el almacen del host via mirror). El host y el modo un jugador
 # usan Game.* directo.
+# LOS MENSAJES GORDOS, COMPRIMIDOS (fase 3, 28/10). El almacen (~112 KB), el jugador al entrar (~85 KB), el roster del
+# hogar, el cofre, las fichas y el roster de una pelea (10-20 KB) son diccionarios con las mismas claves repetidas
+# cientos de veces: con ZSTD se quedan en una fraccion. Solo esos: los ticks pequeños no ganan nada. Va como
+# [tamaño, bytes]; al deshacerlo hay TOPE de tamaño, que un paquete raro no haga reservar memoria sin fin.
+const ZIP_TOPE := 16 * 1024 * 1024
+
+static func zip(v) -> Array:
+	var b: PackedByteArray = var_to_bytes(v)
+	return [b.size(), b.compress(FileAccess.COMPRESSION_ZSTD)]
+
+
+static func unzip(z: Array):
+	if z.size() != 2 or not (z[1] is PackedByteArray) or int(z[0]) <= 0 or int(z[0]) > ZIP_TOPE:
+		return null
+	var b: PackedByteArray = (z[1] as PackedByteArray).decompress(int(z[0]), FileAccess.COMPRESSION_ZSTD)
+	return bytes_to_var(b) if b.size() == int(z[0]) else null
+
+
+static func unzip_dict(z: Array) -> Dictionary:
+	var v = unzip(z)
+	return v if v is Dictionary else {}
+
+
+static func unzip_array(z: Array) -> Array:
+	var v = unzip(z)
+	return v if v is Array else []
+
+
 func _soy_cliente() -> bool:
 	return activo and not es_host
 
@@ -1102,7 +1132,7 @@ func _saludar(codigo: String, protocolo: int, identidad: String, nombre_visible:
 			estado_cambiado.emit("%s vuelve al mundo." % nombre_visible)
 			# Con DONDE ESTABAS (fase 4 de la BD): sin el, el que volvia al mundo aparecia siempre en la plaza, aunque se
 			# hubiera ido desde un piso (solo se lo decia a los que entraban por primera vez).
-			partida._tu_jugador.rpc_id(quien, partida.jd_a_dict(jd as JugadorData), Game.semilla_mundo,
+			partida._tu_jugador.rpc_id(quien, zip(partida.jd_a_dict(jd as JugadorData)), Game.semilla_mundo,
 				partida._donde_estaba(quien))
 		else:
 			# ALGUIEN NUEVO: tener el codigo y la contraseña no basta, alguien de dentro le tiene que
@@ -1317,16 +1347,16 @@ func _admitir(quien: int, color: Color, metal: float, nombre: String, lugar: Str
 		if suelo._suelo[id]["lugar"] == lugar:
 			suelo._spawn_drop.rpc_id(quien, id, suelo._suelo[id]["d"], suelo._suelo[id]["pos"], lugar)
 	# Estado compartido del hogar (el del HOST): baul de materiales, bote y cofre.
-	hogar._set_almacen.rpc_id(quien, hogar._almacen_dicts())
+	hogar._set_almacen.rpc_id(quien, zip(hogar._almacen_dicts()))
 	hogar._set_bote.rpc_id(quien, Game.bote_dinero)
-	hogar._set_cofre.rpc_id(quien, Game.cofre_equipo)
+	hogar._set_cofre.rpc_id(quien, zip(Game.cofre_equipo))
 	hogar._set_cofre_consumibles.rpc_id(quien, Game.cofre_consumibles)
 	# Los encargos en marcha y quien hay en el hogar de todos: sin esto entraria viendo el hogar
 	# vacio y solo se le poblaria al primer cambio.
 	hogar._set_encargos.rpc_id(quien, Game.encargos)
 	var roster_ya: Array = hogar._construir_roster()
 	hogar._repartir_fotos(quien, roster_ya)
-	hogar._set_roster_hogar.rpc_id(quien, roster_ya)
+	hogar._set_roster_hogar.rpc_id(quien, zip(roster_ya))
 	# Y la LIBRETA del mundo (mapa + niebla): al entrar en mi mundo recoge lo que yo tenga descubierto.
 	mapa._set_mapa_sesion.rpc_id(quien, mapa.mapa_a_red(mapa._mapa_sesion), mapa._vistas_sesion)
 	# LA BIBLIOTECA DEL MUNDO. Mientras jugais juntos es COMUN: lo que lea uno cuenta para todos, que

@@ -362,7 +362,8 @@ func _pelea_en_ejecutor(ids: Array, emboscada: bool, ejecutor: int) -> void:
 
 # Corre en LA SALA: llegan las fichas del que pelea (ver _abre_en_la_sala).
 @rpc("any_peer", "call_remote", "reliable")
-func _abre_mi_pelea(ids: Array, emboscada: bool, fichas: Array, vel: float = 1.0, espera: float = 0.0) -> void:
+func _abre_mi_pelea(ids: Array, emboscada: bool, z: Array, vel: float = 1.0, espera: float = 0.0) -> void:
+	var fichas: Array = Net.unzip_array(z)
 	Medidor.marca("pelea", "sala_abre")
 	var quien := multiplayer.get_remote_sender_id()
 	if not Net.soy_sala:
@@ -417,7 +418,7 @@ func _abre_en_la_sala(quien: int, ids: Array, emboscada: bool, fichas: Array, ve
 	print("[pelea] la sala abre la pelea %d de %d en %s: %d bichos, huecos %s (%d peleas)" % [
 		pe.id, quien, piso.lugar, nodos.size(), str(huecos[quien]), _peleas.size()])
 	p._aplicar_velocidad(vel)
-	_union_ok.rpc_id(quien, pe.id, p.roster_para_espejo(), huecos[quien])
+	_union_ok.rpc_id(quien, pe.id, Net.zip(p.roster_para_espejo()), huecos[quien])
 
 
 # Bichos ya reservados que entran en una pelea de la sala en marcha. El que no entre (se cierra) se suelta.
@@ -508,7 +509,7 @@ func _llega_pelea(ids: Array, emboscada: bool, anfitrion: int, ejecutor: int) ->
 		_avisar_impacto_de(ids)   # y el compañero que este cerca, tambien (ver Game.impacto_ajeno)
 		_fichas_mandadas_a = ejecutor
 		_fichas_emboscada = emboscada
-		_abre_mi_pelea.rpc_id(ejecutor, ids, emboscada, _fichas_de_mi_grupo(), Game.velocidad_combate, _espera_golpe())
+		_abre_mi_pelea.rpc_id(ejecutor, ids, emboscada, Net.zip(_fichas_de_mi_grupo()), Game.velocidad_combate, _espera_golpe())
 		return
 	# NINGUNA PELEA EN EL PC DE UN JUGADOR (etapa 3, paso 4): todas las ejecuta la sala, y aqui solo hay espejos.
 	# Lo que llegue sin a quien mandarle las fichas vuelve al piso (y el conjuro que viajaba, a su nota).
@@ -1077,7 +1078,7 @@ func solicitar_unirse(pelea: int) -> void:
 	if _fichas_mandadas_a != 0 and _fichas_mandadas_a == a:
 		return
 	Game.marcar_entrando_en_pelea()   # quieto mientras me contestan (ver _llega_pelea)
-	_pedir_unirme.rpc_id(a, _fichas_de_mi_grupo(), pelea, _espera_golpe())
+	_pedir_unirme.rpc_id(a, Net.zip(_fichas_de_mi_grupo()), pelea, _espera_golpe())
 
 
 # LAS FICHAS DE MI GRUPO para una pelea que ejecuta la sala (la mia, o unirme a la de otro). Apunta a quien mando (_mis_en_pelea) y se lleva el conjuro que traiga cada uno.
@@ -1117,7 +1118,8 @@ func _mi_formacion() -> Array:
 # Corre en EL ANFITRION: alguien quiere entrar en mi pelea, con la ficha de su personaje. En la sala, en la pelea
 # 'pelea' (su id: lleva varias).
 @rpc("any_peer", "call_remote", "reliable")
-func _pedir_unirme(fichas: Array, pelea: int = 0, espera: float = 0.0) -> void:
+func _pedir_unirme(z: Array, pelea: int = 0, espera: float = 0.0) -> void:
+	var fichas: Array = Net.unzip_array(z)
 	Medidor.marca("pelea_compa", "anfitrion_recibe_union")
 	var quien := multiplayer.get_remote_sender_id()
 	# Entra al tocar su golpe, como al abrir una (ver _abre_mi_pelea).
@@ -1160,7 +1162,7 @@ func _pedir_unirme(fichas: Array, pelea: int = 0, espera: float = 0.0) -> void:
 		pe.participantes.append(quien)
 	# Los INDICES le dicen cual de sus personajes es cada aliado de la pantalla: es lo unico que
 	# significa lo mismo en las dos maquinas (y lo que necesita para saber a quien mover).
-	_union_ok.rpc_id(quien, pe.id, p.roster_para_espejo(), idxs)
+	_union_ok.rpc_id(quien, pe.id, Net.zip(p.roster_para_espejo()), idxs)
 
 
 # Mete en la pelea de la pantalla 'p' un DOBLE por cada ficha de 'quien', marcados como suyos y con el
@@ -1225,7 +1227,8 @@ func _union_denegada(motivo: String = "Esa pelea ya no está disponible.") -> vo
 # 'idxs' son los huecos de la fila de aliados que han tocado a MIS personajes, en el mismo orden en
 # que mande las fichas. Con ellos se sabe a quien muevo yo cuando el anfitrion pide una accion.
 @rpc("any_peer", "call_remote", "reliable")
-func _union_ok(id: int, roster: Dictionary, idxs: Array) -> void:
+func _union_ok(id: int, z: Array, idxs: Array) -> void:
+	var roster: Dictionary = Net.unzip_dict(z)
 	Medidor.marca("pelea", "union_ok")
 	_fichas_mandadas_a = 0
 	# NO PUEDO ABRIR EL ESPEJO (me ha caido otra pelea encima mientras llegaba este). Mis personajes YA
@@ -1388,11 +1391,12 @@ func difundir_roster(roster: Dictionary, pe: PeleaViva = null) -> void:
 	if not Net.activo or pe.id == 0 or pe.participantes.is_empty():
 		return
 	for p in pe.participantes:
-		_roster_pelea.rpc_id(p, roster, pe.id)
+		_roster_pelea.rpc_id(p, Net.zip(roster), pe.id)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _roster_pelea(roster: Dictionary, pelea: int = 0) -> void:
+func _roster_pelea(z: Array, pelea: int = 0) -> void:
+	var roster: Dictionary = Net.unzip_dict(z)
 	if _pelea_sigo == 0 or not _de_mi_anfitrion(pelea):
 		return
 	var p: Node = _pantalla_combate()
@@ -1442,7 +1446,7 @@ func _pedir_roster_pelea() -> void:
 		return
 	var p: Node = _pantalla_combate(pe)
 	if p != null and p.has_method("roster_para_espejo"):
-		_roster_pelea.rpc_id(quien, p.roster_para_espejo(), pe.id)
+		_roster_pelea.rpc_id(quien, Net.zip(p.roster_para_espejo()), pe.id)
 
 
 # --- VELOCIDAD x1 / x2 (espejo -> anfitrion) --------------------------------------------------

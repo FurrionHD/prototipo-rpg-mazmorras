@@ -633,7 +633,7 @@ func _dame_tu_estado(cerrando: bool, hay_base: bool = false) -> void:
 		_hash_enviado.clear()
 	var r: Array = solo_lo_cambiado(d, _hash_enviado)
 	_hash_enviado = r[1]
-	_mi_estado.rpc_id(1, r[0] if hay_base else d)
+	_mi_estado.rpc_id(1, Net.zip(r[0] if hay_base else d))
 	if not cerrando:
 		Net._aviso_esquina("Partida guardada")
 		return
@@ -656,7 +656,8 @@ func _dame_tu_estado(cerrando: bool, hay_base: bool = false) -> void:
 # ACTUALIZACION, no un alta. Es el mismo fallo que el "bug de las 6 hachas" de ficha_de_dict, que se
 # arreglo para el camino del combate y quedo vivo en este.
 @rpc("any_peer", "call_remote", "reliable")
-func _mi_estado(d: Dictionary) -> void:
+func _mi_estado(z: Array) -> void:
+	var d: Dictionary = Net.unzip_dict(z)
 	if not Net.es_host or not Net.mundo_compartido:
 		return
 	var quien := multiplayer.get_remote_sender_id()
@@ -866,7 +867,7 @@ signal entrada_lista
 func mandar_alta_personaje(pj: PersonajeData) -> void:
 	if not Net.activo or Net.es_host:
 		return
-	_alta_personaje.rpc_id(1, pj_a_dict(pj))
+	_alta_personaje.rpc_id(1, Net.zip(pj_a_dict(pj)))
 
 
 # MUDANZA: en vez de un personaje recien creado, se manda uno TRAIDO de una partida de un jugador,
@@ -887,7 +888,8 @@ func _crea_tu_personaje(nombre_mundo: String) -> void:
 # El invitado manda el personaje recien creado. Corre EN EL HOST: es el que lo guarda en el mundo,
 # porque el mundo es suyo mientras tenga el cerrojo.
 @rpc("any_peer", "call_remote", "reliable")
-func _alta_personaje(d: Dictionary) -> void:
+func _alta_personaje(z: Array) -> void:
+	var d: Dictionary = Net.unzip_dict(z)
 	if not Net.es_host or not Net.mundo_compartido:
 		return
 	var quien := multiplayer.get_remote_sender_id()
@@ -913,7 +915,7 @@ func _alta_personaje(d: Dictionary) -> void:
 	Game.jugadores_mundo[identidad] = jd
 	print("[multi] alta de ", pj.nombre, " (", jd.nombre_visible, ") en el mundo")
 	# Se le devuelve YA empaquetado: asi los dos lados parten de lo mismo y no hay dos verdades.
-	_tu_jugador.rpc_id(quien, jd_a_dict(jd), Game.semilla_mundo, _donde_estaba(quien))
+	_tu_jugador.rpc_id(quien, Net.zip(jd_a_dict(jd)), Game.semilla_mundo, _donde_estaba(quien))
 
 
 # MUDANZA: el invitado trae un jugador ENTERO de una de sus partidas (personajes + bolsa + oficios).
@@ -935,7 +937,7 @@ func _alta_jugador(d: Dictionary) -> void:
 	# mundo, y con el todo lo que hubiera hecho dentro).
 	if Game.jugadores_mundo.get(identidad) is JugadorData:
 		print("[multi] %s ya tiene personaje en este mundo: no se importa nada" % identidad)
-		_tu_jugador.rpc_id(quien, jd_a_dict(Game.jugadores_mundo[identidad]), Game.semilla_mundo,
+		_tu_jugador.rpc_id(quien, Net.zip(jd_a_dict(Game.jugadores_mundo[identidad])), Game.semilla_mundo,
 			_donde_estaba(quien))
 		return
 
@@ -962,7 +964,7 @@ func _alta_jugador(d: Dictionary) -> void:
 	Game.jugadores_mundo[identidad] = jd
 	print("[multi] MUDANZA: entra %s con %d personajes y %d materiales" % [
 		jd.resumen(), jd.personajes.size(), jd.materiales.size()])
-	_tu_jugador.rpc_id(quien, jd_a_dict(jd), Game.semilla_mundo, _donde_estaba(quien))
+	_tu_jugador.rpc_id(quien, Net.zip(jd_a_dict(jd)), Game.semilla_mundo, _donde_estaba(quien))
 
 
 # Donde estaba este jugador cuando se guardo el mundo ({lugar, pos}, o vacio): se le devuelve alli al
@@ -977,7 +979,8 @@ var donde_volver: Dictionary = {}
 
 # El host le da al invitado SU jugador de este mundo. Corre en el CLIENTE.
 @rpc("any_peer", "call_remote", "reliable")
-func _tu_jugador(d: Dictionary, semilla: int, donde: Dictionary = {}) -> void:
+func _tu_jugador(z: Array, semilla: int, donde: Dictionary = {}) -> void:
+	var d: Dictionary = Net.unzip_dict(z)
 	donde_volver = donde
 	Net._respondio = true
 	# LO PRIMERO, antes de reconstruir nada: fuera lo que quede de mi partida anterior. Game es un
