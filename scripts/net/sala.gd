@@ -4,7 +4,7 @@
 #  sesion y no es ningun jugador: el que abre el mundo entra como un cliente mas, igual que su hermano,
 #  y la sala sigue viva mientras quede alguien dentro aunque quien la lanzo cierre su juego.
 #
-#  Como se lanza (lo hace el menu de multijugador, igual que Net lanza a los trabajadores):
+#  Como se lanza (lo hace el menu de multijugador):
 #     <juego> --headless -- sala <clave_mundo> <puerto> <identidad_de_quien_la_lanza>
 #  La CONTRASEÑA no va en la linea de ordenes (la veria cualquiera que listara los procesos): se deja en
 #  user://salas/<clave>.pedido y la sala la lee y lo borra nada mas arrancar.
@@ -19,7 +19,7 @@
 #  nube solo deja abrir el mundo a sus miembros.
 #
 #  SE CIERRA SOLA: sin humanos durante SEG_VACIA (o si nadie llega a entrar en SEG_ESPERA), guarda, sube,
-#  suelta el cerrojo, cierra a sus trabajadores y termina.
+#  suelta el cerrojo y termina.
 # ============================================================
 extends Node
 
@@ -179,14 +179,14 @@ func _process(delta: float) -> void:
 		cerrar()
 
 
-# Los HUMANOS conectados (los trabajadores no cuentan, y los que estan en la puerta si).
+# Los HUMANOS conectados (los que estan en la puerta si cuentan).
 func humanos() -> int:
 	var n := 0
 	n = multiplayer.get_peers().size()
 	return n
 
 
-# Guardar, subir, soltar el cerrojo, cerrar a los trabajadores y terminar.
+# Guardar, subir, soltar el cerrojo y terminar.
 func cerrar() -> void:
 	if _cerrando:
 		return

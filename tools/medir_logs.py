@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-medir_logs.py -- junta las marcas [medir] de varios logs (sala, trabajadores, jugadores) en UNA linea de tiempo.
+medir_logs.py -- junta las marcas [medir] de varios logs (sala, jugadores) en UNA linea de tiempo.
 
   python tools/medir_logs.py                       # los logs de %APPDATA%/DungeonOratoria/logs
   python tools/medir_logs.py a.log b.log           # esos logs
@@ -10,7 +10,7 @@ medir_logs.py -- junta las marcas [medir] de varios logs (sala, trabajadores, ju
 
 Las marcas las escribe scripts/core/medidor.gd:  [medir] <tramo> <paso> t=<ms del sistema> +<ms desde empezar>
 En el MISMO PC el reloj es el mismo para todos los procesos, asi que la columna t se puede ordenar entre logs
-y sale cuanto tarda cada salto (sala -> trabajador -> cliente). Entre dos PCs, solo valen las restas +ms.
+y sale cuanto tarda cada salto (sala -> cliente). Entre dos PCs, solo valen las restas +ms.
 """
 import argparse
 import os

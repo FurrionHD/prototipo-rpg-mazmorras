@@ -146,7 +146,7 @@ func _ready() -> void:
 	_ok(mio != null and int(Game.muneco_de(mio).get("modo", 0)) == 1,
 		"pongo un enemigo con el spawner sin ser el dueño, y me llega con su muñeco")
 	await pelear_con(mio)
-	# QUIEN EJECUTA la pelea de la arena: un trabajador de pelea, y yo la veo en espejo (desde el 27/09
+	# QUIEN EJECUTA la pelea de la arena: la sala, y yo la veo en espejo (desde el 27/09
 	# tambien con el combate tactico: el espejo se pinta en el mapa).
 	_ok(Net.peleas.espejando(),
 		"la pelea de la arena la ejecuta otro (anfitrion=%d)" % Net.peleas._pelea_anfitrion)

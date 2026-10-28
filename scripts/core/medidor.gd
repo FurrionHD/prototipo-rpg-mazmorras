@@ -2,7 +2,7 @@
 #  MEDIDOR: marcas de tiempo para saber DONDE se va el tiempo (plan de optimizacion, fase 0)
 # ============================================================
 # Una marca es una linea en el log:  [medir] <tramo> <paso> t=<ms del reloj del sistema> +<ms desde el inicio del tramo>
-# Con el reloj del SISTEMA (no los ms desde que arranco el proceso) las marcas de la sala, los trabajadores y el
+# Con el reloj del SISTEMA (no los ms desde que arranco el proceso) las marcas de la sala y del
 # cliente se pueden poner en una sola linea de tiempo cuando estan en el mismo PC. Entre dos PCs solo valen las
 # restas DENTRO de un mismo proceso (la columna +ms), que es lo que mide lo que el jugador nota.
 #

@@ -221,7 +221,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 # Pide un enemigo en la posicion del raton (en coordenadas de MUNDO, teniendo en cuenta la camara del
-# jugador). Lo crea QUIEN LLEVA LA ARENA (en compañia un trabajador, via el host), no esta maquina.
+# jugador). Lo crea QUIEN LLEVA LA ARENA (la sala), no esta maquina.
 # El modo de muñeco va EN EL ENEMIGO, siempre (tambien "Off"), para que cambiar el modo despues no
 # convierta en muñecos a los que ya estaban puestos.
 func _colocar_en_raton() -> void:

@@ -1,5 +1,5 @@
 # QUIEN EMPIEZA LA PELEA EN MULTI (12/10, playtest 11/10: "considera que es el enemigo el que me entra en combate en
-# vez de yo, que he sido el primero en hacer el golpe"). En multi el piso lo simula un trabajador, que no tiene
+# vez de yo, que he sido el primero en hacer el golpe"). En multi el piso lo simula la sala, que no tiene
 # jugador local: los jugadores son remote_player. El bicho que alcanza a uno de ellos le EMPUJA la pelea, y hasta
 # ahora siempre con emboscada (iniciativa del enemigo), aunque ese jugador ya le estuviera soltando el espadazo.
 # Sin red: un remote_player de verdad delante de un enemigo de verdad, y se mira lo que contesta el enemigo:

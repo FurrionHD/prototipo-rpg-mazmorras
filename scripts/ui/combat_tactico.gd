@@ -4687,8 +4687,8 @@ func _cabe_apartado(c: Combatant, desplaza: Vector2) -> bool:
 	return true
 
 
-# EL PERSONAJE DE OTRO HUMANO no se puede arrastrar desde aqui: su cuerpo lo mueve SU maquina (y con un
-# trabajador de pelea, TODOS son de otro). Asi que el sitio donde acaba se decide YA, con la pared que lo
+# EL PERSONAJE DE OTRO HUMANO no se puede arrastrar desde aqui: su cuerpo lo mueve SU maquina (y en la
+# sala, TODOS son de otro). Asi que el sitio donde acaba se decide YA, con la pared que lo
 # para, y viaja como un desliz EMPUJON, que su maquina hace al encajar el golpe; aqui se apunta en _pos.
 # Antes se movia solo la copia de esta maquina: en las pantallas de los jugadores no se movia nadie, y la
 # pelea contaba con un sitio donde el personaje no estaba.

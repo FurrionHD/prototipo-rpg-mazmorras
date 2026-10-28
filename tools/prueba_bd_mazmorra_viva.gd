@@ -3,7 +3,7 @@
 # Sin red ni ficheros de verdad (la BD va a user://prueba_mazmorra_viva.sqlite y se borra). Mira:
 #   1. UN JUGADOR: guardas en el pueblo con dos pisos recordados -> al cargar vuelven LOS DOS (antes solo
 #      el que pisabas) y vuelves a tu calle del pueblo;
-#   2. MUNDO: lo que la sala llevaba en memoria (pisos congelados, el piso que simula un trabajador, lo
+#   2. MUNDO: lo que la sala llevaba en memoria (pisos congelados, el piso que esta vivo en ella, lo
 #      tirado, jefes, vetas, donde estaba cada jugador) va al guardado, pasa por la BD y se siembra igual;
 #   3. sin sesion (antes de abrir la sala), guardar vuelve a escribir lo que vino: no se pierde;
 #   4. las posiciones sueltas (cada 5 s) escriben solo sus filas, y el guardado entero despues no las reescribe.
@@ -59,7 +59,7 @@ func _correr() -> void:
 	Net.mundo_compartido = true
 	Net._fotos_piso = {4: {"enemigos": [{"pos": Vector2(5, 6), "hp": 12.5}]}}
 	Net._fotos_vivas = {5: {"enemigos": [{"pos": Vector2(7, 8)}]}, 6: {"enemigos": []}}
-	Net._dueno_piso = {5: 99}   # el 5 lo simula un trabajador; el 6 ya no tiene dueño: su foto viva no vale
+	Net._dueno_piso = {5: 99}   # el 5 esta vivo; el 6 ya no tiene dueño: su foto viva no vale
 	Net.suelo._suelo = {7: {"d": {"t": "mat", "ruta": "res://x.tres", "calidad": 1, "cm": 0.0}, "pos": Vector2(1, 1), "lugar": "piso:4"},
 		8: {"d": {"t": "cri", "categoria": 2, "calidad": 0}, "pos": Vector2(2, 2), "lugar": "pueblo"}}
 	Net.suelo._next_id = 9
@@ -71,7 +71,7 @@ func _correr() -> void:
 	d = Game.exportar_partida()
 	var n_fotos: int = d.sesion_fotos_piso.size()
 	ok(d.sesion_fotos_piso.has(4) and d.sesion_fotos_piso.has(5) and not d.sesion_fotos_piso.has(6),
-		"pisos congelados y el vivo del trabajador (no el que ya no tiene dueño): %s" % str(d.sesion_fotos_piso.keys()))
+		"pisos congelados y el vivo (no el que ya no tiene dueño): %s" % str(d.sesion_fotos_piso.keys()))
 	ok(d.posiciones.size() == 3, "las posiciones de los tres (dos conectados, uno que se fue): %d" % d.posiciones.size())
 	v = _por_la_bd(d)
 	# "Cerrar la sala" y abrir otra.

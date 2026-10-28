@@ -355,7 +355,7 @@ static func _empaquetar(celdas: Array[Vector2i]) -> Dictionary:
 
 # ¿La celda 'c' es arena? Con la mascara vacia, todo el rectangulo lo es.
 # ¿Se va de 'a' a 'b' en linea recta pisando solo suelo? Por CELDAS y no con un rayo de fisica: lo usa
-# tambien el trabajador de pelea, que no tiene jugador. Es la pared entre dos salas lo que corta (11/10:
+# tambien la sala, que no tiene jugador. Es la pared entre dos salas lo que corta (11/10:
 # el compañero de la sala de al lado ni se queda quieto ni estira la zona hasta el, ver Game).
 static func linea_por_suelo(gen: DungeonGenerator, a: Vector2, b: Vector2) -> bool:
 	var pasos: int = maxi(1, ceili(a.distance_to(b) / 8.0))

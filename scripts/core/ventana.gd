@@ -50,7 +50,7 @@ var _cartel: CanvasLayer = null
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	# SIN VENTANA (los trabajadores de piso, la sala) no hay pantalla que ajustar, y aplicar() ESCRIBE
+	# SIN VENTANA (la sala, las pruebas) no hay pantalla que ajustar, y aplicar() ESCRIBE
 	# ajustes.cfg: con varios de estos arrancando a la vez que el juego, se pisaban el fichero.
 	if DisplayServer.get_name() == "headless":
 		return

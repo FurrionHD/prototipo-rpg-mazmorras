@@ -144,10 +144,10 @@ func _jugar(escenario: String) -> PackedStringArray:
 
 
 # ------------------------------------------------------------
-#  LA PELEA DEL TRABAJADOR: montada SOLO CON FICHAS (Game.abrir_pelea_de_fichas), sin grupo propio.
+#  LA PELEA DE LA SALA: montada SOLO CON FICHAS (Game.abrir_pelea_de_fichas), sin grupo propio.
 #  El grupo de la partida de referencia se reparte entre DOS humanos falsos; cada uno tiene su pantalla
 #  espejo, y el piloto pulsa en la del humano al que el anfitrion le ha pedido el turno. La huella es
-#  la pantalla del anfitrion (la del trabajador) y lo que pulsa cada humano.
+#  la pantalla del anfitrion (la de la sala) y lo que pulsa cada humano.
 # ------------------------------------------------------------
 const PEERS_FALSOS := [998, 999]
 

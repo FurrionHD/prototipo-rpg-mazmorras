@@ -1,10 +1,10 @@
 # PRUEBA DEL COMBATE EN EL MAPA CON DOS JUGADORES, guion de A. El caso de su playtest del 23/09:
-# la arena la lleva un TRABAJADOR (los bichos no son ni del host ni de B), la pelea la EJECUTA un trabajador
-# de pelea (27/09) y los dos la vemos en espejo; B se une a ella.
+# la arena la lleva la SALA (los bichos no son de A ni de B), la pelea la EJECUTA ella y los dos la vemos en
+# espejo; B se une a ella.
 #   1) los dos entran en la arena; pongo dos bichos
 #   2) abro la pelea: tiene que ser EN EL MAPA; B se une y la ve EN EL MAPA tambien (espejo tactico)
 #   3) turnos: en el mio ando y B ve moverse a mi personaje; en el de un bicho, el bicho anda y B lo ve
-#      moverse (su dueño es el trabajador: se le ha contado); en el de B, B anda en SU maquina y a mi
+#      moverse (su dueña es la sala: se le ha contado); en el de B, B anda en SU maquina y a mi
 #      me llega su posicion sellada con su accion
 # POR LA SALA (fase 2, paso 6): A y B entran como clientes en la sala de la RANURA 87 (ver prueba_town_sala_comun.gd).
 extends "res://tools/prueba_town_sala_comun.gd"
@@ -40,7 +40,7 @@ func _ready() -> void:
 		await _esperar(0.25)
 		t += 0.25
 
-	# 2) LA PELEA, en el mapa. Desde el 27/09 la EJECUTA UN TRABAJADOR DE PELEA y yo la veo en espejo, como B.
+	# 2) LA PELEA, en el mapa. La EJECUTA LA SALA y yo la veo en espejo, como B.
 	await pelear_con(enemigo_libre())
 	var p: Node = pantalla()
 	t = 0.0
@@ -104,7 +104,7 @@ func _ready() -> void:
 		t += 0.25
 	_ok(p._enemies.size() > enemigos_antes, "un enemigo que aparece DENTRO de la arena entra a la pelea (%.1f s)" % t)
 
-	# 3) LOS TURNOS: ando en los mios, y miro moverse a B y a los bichos (los mueve el trabajador).
+	# 3) LOS TURNOS: ando en los mios, y miro moverse a B y a los bichos (los mueve la sala).
 	var cuerpo_b: Node2D = Game.cuerpo_de_red(_b(), 0)
 	var b_desde: Vector2 = cuerpo_b.global_position if cuerpo_b != null else Vector2.ZERO
 	var b_max := 0.0
@@ -126,7 +126,7 @@ func _ready() -> void:
 		await turno_mio.call()
 		await _esperar(0.1)
 	_ok(float(st["yo"]) > 10.0, "en mi turno ando (%.1f px)" % float(st["yo"]))
-	_ok(bicho_max > 5.0, "veo andar a los bichos que mueve el trabajador (%.1f px)" % bicho_max)
+	_ok(bicho_max > 5.0, "veo andar a los bichos que mueve la sala (%.1f px)" % bicho_max)
 	_ok(b_max > 10.0, "veo andar a B (%.1f px)" % b_max)
 
 	# 3b) (10/10, el playtest del 09/10: "se llevaba el golpe Daniel y salia en o cerca de Agirato") CADA PERSONAJE DE B
@@ -186,7 +186,7 @@ func _ready() -> void:
 
 	escribir_fase(3)
 	_ok(await _dato_de_b("host_se_movio", 20.0) > 10, "B ve moverse a mi personaje")
-	_ok(await _dato_de_b("bicho_se_movio", 5.0) > 5, "B ve moverse al bicho (lo mueve el trabajador)")
+	_ok(await _dato_de_b("bicho_se_movio", 5.0) > 5, "B ve moverse al bicho (lo mueve la sala)")
 	_ok(await _dato_de_b("b_radio", 5.0) > 0, "a B le llega el radio de su turno")
 	await _fin()
 

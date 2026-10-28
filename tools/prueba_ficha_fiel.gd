@@ -1,4 +1,4 @@
-# PRUEBA: el DOBLE que monta un trabajador de pelea tiene que pelear IGUAL que el personaje en su PC.
+# PRUEBA: el DOBLE que monta la sala tiene que pelear IGUAL que el personaje en su PC.
 # Para cada personaje de la partida de referencia se crea su combatiente como en solitario y otro a partir de
 # la ficha que viaja por la red (Net.partida.ficha_a_dict -> ficha_de_dict), y se comparan los numeros que
 # usa la pelea. Sin red ni procesos: tarda segundos.

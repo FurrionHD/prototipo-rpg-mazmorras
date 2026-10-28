@@ -1148,7 +1148,7 @@ func hay_modal() -> bool:
 
 # ¿Tiene el jugador un MENU delante (inventario, personaje, pausa, ayuda...)? Es lo que, jugando uno solo por la sala,
 # para el mundo entero (Net.pausa_solo). No cuentan la pelea (para solo el mapa) ni la pantalla de carga de un piso:
-# mientras viajas, el trabajador del piso nuevo tiene que poder montarlo.
+# mientras viajas, la sala tiene que poder montar el piso nuevo.
 func menu_de_jugador_abierto() -> bool:
 	for m in _modal_stack:
 		if m["tipo"] == Modal.COMBATE or m["tipo"] == Modal.EXTRACCION or m["tipo"] == Modal.RECOLECCION:
@@ -1192,16 +1192,15 @@ func _refrescar_pausa() -> void:
 # Profundidad actual de la mazmorra (para escalar dificultad). Aun sin pisos: 1.
 var current_floor: int = 1
 
-# LA ARENA DE PRUEBAS es, PARA LA RED, un piso mas con este numero ("piso:1000"): asi en multi la lleva
-# un trabajador como cualquier piso (dueño, enemigos por la red, peleas en trabajador de pelea) sin un
-# camino aparte. PARA EL JUEGO es el piso ARENA_PISO_JUEGO: current_floor lo leen 140 sitios (fuerza de
+# LA ARENA DE PRUEBAS es, PARA LA RED, un piso mas con este numero ("piso:1000"): asi la lleva la sala
+# como cualquier piso (dueña, enemigos por la red, peleas en la sala) sin un camino aparte. PARA EL JUEGO es el piso ARENA_PISO_JUEGO: current_floor lo leen 140 sitios (fuerza de
 # los enemigos, botin, luz...) y con 1000 los enemigos saldrian con 1,10^999 de vida. Se construye como
 # una sola sala grande (DungeonGenerator.generar_arena) y nada de lo tuyo sobrevive a salir de ella
 # (ver entrar_en_arena / salir_de_arena).
 const PISO_ARENA := 1000
 const ARENA_PISO_JUEGO := 1
 # EL PISO QUE SIMULA LA ARENA AHORA (el del boton Aplicar del panel, Net.pisos.pedir_piso_arena). Se guarda aunque no
-# estes dentro: al volver a entrar (o un trabajador nuevo que la lleve) sigue siendo ese, no el 1 (playtest 09/10: el
+# estes dentro: al volver a entrar (o al volver a montarla la sala) sigue siendo ese, no el 1 (playtest 09/10: el
 # Minotauro del piso 12 volvio con stats del piso 1 al salir y entrar uno de los dos).
 var arena_piso_juego: int = ARENA_PISO_JUEGO
 var arena_activa := false
@@ -1260,14 +1259,14 @@ func _forma_de_arena(enemy_nodes: Array, con_log: bool = false, pe: PeleaViva = 
 			puntos.append((n as Node2D).global_position)
 			quien.append("enemigo %s" % n.name)
 			enemigos += 1
-	# EL JUGADOR DEL TRABAJADOR NO CUENTA (08/10, log del playtest: casi todas las peleas del piso 6 salian con
-	# "TROZOS SEPARADOS"). El Godot de pelea tiene su nodo "player" de siempre, quieto donde nace el piso (la sala del
+	# EL "JUGADOR" DE QUIEN EJECUTA UNA PELEA DE FICHAS NO CUENTA (08/10, log del playtest: casi todas las peleas del
+	# piso 6 salian con "TROZOS SEPARADOS"). El Godot de pelea (entonces un trabajador) tenia su nodo "player", quieto donde nace el piso (la sala del
 	# baul y la vuelta al pueblo), y se le añadia esa sala entera a la zona. Alli los que pelean son las fichas.
 	var yo: Node = get_tree().get_first_node_in_group("player") if pe.puntos_arena_fichas.is_empty() else null
 	if yo != null and yo is Node2D:
 		puntos.append((yo as Node2D).global_position)
 		quien.append("jugador")
-	# EL TRABAJADOR DE PELEA (27/09) no tiene jugador ni grupo: los que pelean son los cuerpos de red de los
+	# LA SALA no tiene jugador ni grupo: los que pelean son los cuerpos de red de los
 	# humanos que le mandan sus fichas (ver abrir_pelea_de_fichas), y cuentan como el grupo.
 	for q in pe.puntos_arena_fichas:
 		puntos.append(q)
@@ -1288,7 +1287,7 @@ func _forma_de_arena(enemy_nodes: Array, con_log: bool = false, pe: PeleaViva = 
 	var dentro: Array = puntos.duplicate()
 	for a in (PisoVivo.nodos_de(ref, &"aliado") if ref != null else get_tree().get_nodes_in_group("aliado")):
 		if not pe.puntos_arena_fichas.is_empty() and is_instance_valid(a) and a.is_in_group("player"):
-			continue   # el fantasma del trabajador (ver arriba): tambien esta en "aliado"
+			continue   # el "jugador" de quien ejecuta (ver arriba): tambien esta en "aliado"
 		if is_instance_valid(a) and a is Node2D and (a as Node2D).global_position.distance_to(semilla) <= ALIADOS_EN_ZONA:
 			# EL DE OTRO JUGADOR (su avatar o sus compañeros, con 'peer_id'), SOLO SI SE LE VE desde donde empieza
 			# la pelea (11/10): ahora estar dentro de la zona le mete en la pelea, y el de la sala de al lado,
@@ -1341,9 +1340,9 @@ func _log_forma_arena(gen: DungeonGenerator, forma: Dictionary, dentro: Array, q
 		print("[zona] ", fila)
 
 
-# LA MISMA FOTO EN EL LADO DEL JUGADOR (07/10): en multi la zona la calcula el Godot de pelea del piso (su log es el
-# trabajador_N.log) con las posiciones que EL tiene de cada uno. Aqui se escribe la zona que llega y donde estan de
-# verdad, en ESTA maquina, el jugador y los enemigos de alrededor: si no casa con el dibujo del trabajador, la zona se
+# LA MISMA FOTO EN EL LADO DEL JUGADOR (07/10): la zona la calcula la sala (su log es el
+# sala_*.log) con las posiciones que ELLA tiene de cada uno. Aqui se escribe la zona que llega y donde estan de
+# verdad, en ESTA maquina, el jugador y los enemigos de alrededor: si no casa con el dibujo de la sala, la zona se
 # calculo con posiciones viejas.
 func _log_zona_recibida(rect: Rect2i, mascara: PackedByteArray) -> void:
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
@@ -1376,7 +1375,7 @@ func _log_zona_recibida(rect: Rect2i, mascara: PackedByteArray) -> void:
 const ALIADOS_EN_ZONA := 320.0
 
 
-# Donde estan los que pelean en una pelea de FICHAS (trabajador): lo pone abrir_pelea_de_fichas mientras abre.
+# Donde estan los que pelean en una pelea de FICHAS (la sala): lo pone abrir_pelea_de_fichas mientras abre.
 var _puntos_arena_fichas: Array:
 	get: return pelea.puntos_arena_fichas
 	set(v): pelea.puntos_arena_fichas = v
@@ -1639,7 +1638,7 @@ func entrar_en_pelea_ajena(anfitrion: int) -> void:
 	Net.peleas.solicitar_unirse(anfitrion)
 
 
-# MI zona, a los de mi piso. 'anfitrion' = quien ejecuta mi pelea (yo, o el trabajador/compañero cuyo
+# MI zona, a los de mi piso. 'anfitrion' = quien ejecuta mi pelea (la sala, cuyo
 # espejo veo): es a quien le pediran entrar.
 func anunciar_mi_zona(anfitrion: int, pe: PeleaViva = null) -> void:
 	if pe == null:
@@ -2137,7 +2136,7 @@ func volcar_desgaste_en_ficha(pj: PersonajeData) -> void:
 	guardar_imbue_en_ficha(c, pj)
 	guardar_estados_en_ficha(c, pj)
 	# Y la POCION que le quedara goteando, igual que al pulsar Continuar (combat._on_continue_pressed). Quien
-	# sale por aqui (huye, o cierra su espejo antes que quien ejecuta la pelea -en la de un trabajador,
+	# sale por aqui (huye, o cierra su espejo antes que quien ejecuta la pelea -en la de la sala,
 	# siempre-) no pasa por aquel, y la cura a medias se perdia. Los estados de curacion no se guardan
 	# arriba (StatusEffects.estados_que_salen), asi que no cuenta dos veces.
 	if c.is_alive():
@@ -14808,9 +14807,9 @@ func dev_forzar_jefe(lugar: String = "") -> String:
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	if piso == null or not piso.has_method("dev_forzar_jefe"):
 		return "no estás en la mazmorra"
-	# EL PISO LO LLEVA OTRO (un trabajador, o el compañero): el jefe tiene que salir en SU maquina, que
-	# es la que simula los bichos. Se le pide por la red y ya (playtest del 20/09/2026: con el trabajador
-	# llevando el piso, el boton decia que no y no habia forma de traerlo).
+	# EL PISO LO LLEVA LA SALA: el jefe tiene que salir alli, que es donde se simulan los bichos. Se le
+	# pide por la red y ya (playtest del 20/09/2026: con el piso en otra maquina, el boton decia que no y no
+	# habia forma de traerlo).
 	Net.pisos.pedir_forzar_jefe()
 	print("[dev] jefe del piso %d pedido a quien lleva el piso" % current_floor)
 	return ""
@@ -14993,7 +14992,7 @@ func muneco_de(nodo) -> Dictionary:
 #   modo 1 (Saco):    DPS limpio -- ni defensa, ni esquiva, y no pega.
 #   modo 2 (Pegador): conserva sus stats y te pega, para medir la mitigacion de tu armadura.
 #   'muneco' = el modo que lleva el ENEMIGO ({modo, hp}, lo pone el spawner de la arena y viaja con su
-#   alta, asi que vale en el trabajador de pelea). Vacio = el modo global de esta maquina, como antes.
+#   alta, asi que vale en la sala). Vacio = el modo global de esta maquina, como antes.
 func volver_muneco(enemy_c: Combatant, player_c: Combatant, muneco: Dictionary = {}) -> void:
 	var modo: int = int(muneco.get("modo", debug_dummy_mode))
 	var hp: float = float(muneco.get("hp", debug_dummy_hp))
@@ -15226,7 +15225,7 @@ var _cola_combate: Array:
 # Lo mas lejos de la zona (por fuera de su borde) desde donde un enemigo puede entrar en una pelea tactica ya empezada.
 const ENTRAR_DESDE_FUERA := 40.0
 
-# ¿Es ya un cadaver? (el bicho de esta maquina o su espejo de red; las fichas de un trabajador no tienen el metodo)
+# ¿Es ya un cadaver? (el bicho de esta maquina o su espejo de red; las fichas de la sala no tienen el metodo)
 func _muerto(nodo: Node) -> bool:
 	return is_instance_valid(nodo) and nodo.has_method("esta_muerto") and bool(nodo.esta_muerto())
 
@@ -15295,7 +15294,7 @@ func unir_enemigo_al_combate(nodo: Node, hueco: int = -1, pe: PeleaViva = null) 
 # LAS CRIAS DEL BROTE CON CUERPO (28/09). Antes el Rey metia slimes en la pelea SIN nodo en el mapa: no se
 # les veia, no andaban y no dejaban cadaver (y si reestrenaban el hueco de un muerto, heredaban SU cuerpo).
 # Ahora nacen como enemigos DE VERDAD en el piso, en 'pos', y ocupan el hueco 'slot' del cruce por indice
-# con combat._enemies. Los crea quien simula el piso: si la pelea la lleva otro (un trabajador de pelea),
+# con combat._enemies. Los crea quien simula el piso: si la pelea la lleva otro proceso,
 # se le piden al dueño y el cuerpo se engancha cuando llega su espejo (cuerpo_de_cria_listo).
 func dar_cuerpo_a_cria(slot: int, data: EnemyData, pos: Vector2, t: float, pe: PeleaViva = null) -> void:
 	if pe == null:
@@ -15404,7 +15403,7 @@ func _soltar_cola_combate(pe: PeleaViva = null) -> void:
 	pe.cola.clear()
 
 
-# LA PELEA SIN GRUPO PROPIO (Parte 3: el combate lo ejecuta un trabajador sin ventana). Aqui no hay
+# LA PELEA SIN GRUPO PROPIO (el combate lo ejecuta la sala, sin ventana). Aqui no hay
 # jugador ni equipo: TODOS los aliados son DOBLES montados con las fichas que mandan los humanos, y
 # cada uno queda marcado con su dueño, asi que sus turnos se les piden a ellos y al cerrar a cada uno
 # le vuelve lo suyo (Net.peleas.cerrar_pelea). No es un combate nuevo: el primer grupo entra por el
@@ -15456,7 +15455,7 @@ func abrir_pelea_de_fichas(enemy_nodes: Array, enemy_initiated: bool, grupos: Ar
 		huecos[peer] = r["idxs"]
 	Net.peleas.adoptar_pelea(dobles_por_peer, pe)
 	# LOS NUMEROS CON LOS QUE PELEA CADA DOBLE, al registro de quien ejecuta la pelea. Es lo unico que dice, sin
-	# ventana, si un personaje entro con menos defensa de la que tiene en casa (ver prueba_town_trabajadores).
+	# ventana, si un personaje entro con menos defensa de la que tiene en casa (lo miran las pruebas de la sala).
 	for i in pe.aliados_cs.size():
 		var cc: Combatant = pe.aliados_cs[i]
 		var pp: PersonajeData = pe.aliados_pjs[i] if i < pe.aliados_pjs.size() else null
@@ -16754,7 +16753,7 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 
 	# ALBOROTO: una pelea mete ruido, y mas cuanto mas grande. El fragor llama a la pared: pelear
 	# es la forma mas directa de provocar un brote (y de que se te acumule si encadenas combates).
-	# (En un trabajador de pelea el ruido es del humano que la abrio: el brote sale delante de el.)
+	# (En la sala el ruido es del humano que la abrio: el brote sale delante de el.)
 	var causante: int = Net.peleas.causante_alboroto(pe)
 	if causante != 0:
 		print("[alboroto] la pelea que ejecuto es de %d: su ruido va a su nombre" % causante)

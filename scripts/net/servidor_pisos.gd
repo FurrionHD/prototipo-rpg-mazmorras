@@ -2,7 +2,7 @@
 #  servidor_pisos.gd  --  LOS PISOS DEL SERVIDOR (fase 2 del plan de optimizacion, etapa 2)
 # ============================================================
 # El servidor (la sala) lleva TODOS los pisos con gente, a la vez y en el mismo programa, como un cooperativo de verdad
-# (Valheim, Terraria): hasta ahora cada piso era un Godot aparte (un trabajador), que es diseño de MMO y solo traia
+# (Valheim, Terraria): hasta la fase 2 cada piso era un Godot aparte (un trabajador), que es diseño de MMO y solo traia
 # saltos de red, memoria y fallos con carga.
 #
 # Cada piso va en su SubViewport con SU PROPIO MUNDO de fisica (un World2D suyo): los choques y los rayos de un piso no

@@ -151,7 +151,7 @@ func _ready() -> void:
 		t += 0.25
 	_ok(visto, "veo el enemigo que ha puesto B, con su muñeco")
 	# Mientras B pelea, YO TAMBIEN JUEGO MIS TURNOS (12/10): entro por el mismo sitio que el, y a veces es mi cuerpo
-	# el que toca su slime primero. La pelea es entonces mia, B se une, y si yo no pulso nada el trabajador se
+	# el que toca su slime primero. La pelea es entonces mia, B se une, y si yo no pulso nada la sala se
 	# queda esperandome y la de B no acaba nunca.
 	t = 0.0
 	while not _hay_linea_b("arena_fin") and t < 120.0:
@@ -168,7 +168,6 @@ func _ready() -> void:
 	await _fin()
 
 
-# ¿Ese peer es un trabajador puesto en su piso para peleas? (lo dice la sala)
 # Veo la cara y la foto del personaje de casa 'uid' de otro, como las pinta Encargos.
 func _veo_foto_de(uid: String, plazo: float) -> bool:
 	var t := 0.0

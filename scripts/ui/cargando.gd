@@ -75,7 +75,7 @@ func cambiar_escena(arbol: SceneTree, ruta: String, texto: String = "Cargando...
 #  cubrir_piso() la pone y PARA el juego (pila de modales de Game, como un menu: nadie te pega mientras carga) en
 #  cuanto se sabe que se va a un piso; piso_montado() la llama el piso al acabar de construirse y la quita cuando los
 #  fotogramas van fluidos (FOTOGRAMAS_FLUIDOS seguidos por debajo de FOTOGRAMA_FLUIDO), con un TOPE por si nunca.
-#  Sin ventana (pruebas, trabajadores de pelea) no hace nada: alli no hay nadie a quien taparle nada y las pruebas
+#  Sin ventana (pruebas, la sala) no hace nada: alli no hay nadie a quien taparle nada y las pruebas
 #  cuentan fotogramas desde que nace el piso.
 # ============================================================
 const _TOKEN_PISO := "cargando_piso"

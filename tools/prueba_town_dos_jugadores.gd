@@ -1,4 +1,4 @@
-# PRUEBA DE DOS JUGADORES con trabajadores de pelea (ver tools/LEEME_red.md): este proceso es el jugador A. Lanza la
+# PRUEBA DE DOS JUGADORES por la sala (ver tools/LEEME_red.md): este proceso es el jugador A. Lanza la
 # sala de una ranura de prueba, entra en ella y lanza al jugador B (tools/prueba_town_dos_cliente.tscn) como otro
 # Godot sin ventana, que entra por la misma sala. El guion cuelga de root: entrar al pueblo libera la escena.
 #   godot --headless --path . res://tools/prueba_town_dos_jugadores.tscn -- nube_local

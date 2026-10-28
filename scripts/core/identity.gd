@@ -68,7 +68,7 @@ func _ready() -> void:
 #  eras otra persona, y tus personajes se quedaban aparcados como "de otro jugador".
 #
 #  Las tres vallas, y hacen falta las tres:
-#   1. Un TRABAJADOR no escribe nunca: no es nadie, solo simula pisos.
+#   1. La SALA no escribe nunca: no es nadie, solo lleva el mundo (antes, lo mismo cada trabajador).
 #   2. Solo se escribe si algo ha cambiado (el arranque normal ya no toca el fichero), y se escribe a
 #      un TEMPORAL que luego se renombra: nadie puede leer medio fichero.
 #   3. Si leerlo falla, se REINTENTA un rato antes de rendirse, y un fichero ilegible NO se pisa: se
@@ -134,7 +134,7 @@ func _cargar() -> void:
 		cambiado = true
 	if cambiado and not solo_leer:
 		_guardar()
-	# (10/10) LA VERSION, lo primero de cada log (el juego, la sala y cada trabajador): para mirar que todos son el mismo
+	# (10/10) LA VERSION, lo primero de cada log (el juego y la sala): para mirar que todos son el mismo
 	# build antes de leer nada (ver la memoria logs-multi-mirar-la-version).
 	print("[version] %s" % ProjectSettings.get_setting("application/config/version", "?"))
 	print("[identidad] ", nombre, " (", id, ")", "  [NUEVA]" if recien_creada else "",
@@ -168,7 +168,7 @@ func _guardar() -> void:
 
 # Cambiarte el nombre visible. Devuelve el nombre que ha quedado (vacio no se acepta).
 # La clave secreta de MI id (se crea la primera vez que hace falta). Vacia en un proceso que no escribe
-# (sala, trabajador) y que no la tenga: esos no suben partidas de un jugador.
+# (la sala) y que no la tenga: esos no suben partidas de un jugador.
 func clave() -> String:
 	var c: String = String(claves.get(id, ""))
 	if c == "" and not _solo_leer():

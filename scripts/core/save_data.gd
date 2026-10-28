@@ -384,8 +384,8 @@ const VERSION_MUNDO := 1
 # --- LA MAZMORRA VIVA DE UN MUNDO COMPARTIDO (fase 4 de la BD, 07/10/2026) ---
 # Lo que la SALA llevaba solo en memoria y moria con ella (ver Net, net_pisos): ahora va al guardado
 # del mundo y se siembra al volver a abrirlo. Solo lo escribe la sala (o un host de mundo).
-#   sesion_fotos_piso  piso -> foto de Net._fotos_piso (los pisos congelados) y de los que estaba
-#                      simulando un trabajador al guardar (su foto periodica)
+#   sesion_fotos_piso  piso -> foto de Net._fotos_piso (los pisos congelados) y de los que estaban
+#                      vivos en la sala al guardar (su foto periodica)
 #   sesion_suelo       id -> drop de Net.suelo._suelo ({d, pos, lugar}); y el siguiente id
 #   sesion_bosses      piso -> instante (reloj de pared) en que cayo su jefe (Net.jefes._bosses_sello)
 #   sesion_nonces      sitio (Vector3i) -> nonce con el que renacio cada veta (Net.recoleccion._nonces_sesion)

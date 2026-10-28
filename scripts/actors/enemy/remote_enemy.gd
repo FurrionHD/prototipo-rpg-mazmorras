@@ -660,7 +660,7 @@ func _redimensionar(lado: float) -> void:
 
 
 # PUESTO POR LA PELEA (13/10, C3 del playtest 11/10): la cria lanzada se planta donde cae su bola en cuanto empieza a
-# volar. Su posicion por red da tres saltos (trabajador de pelea -> host -> dueño del piso -> aqui) y la del Rey llegaba
+# volar. Su posicion por red daba tres saltos (trabajador de pelea -> host -> dueño del piso -> aqui) y la del Rey llegaba
 # DESPUES de que cayera: se levantaba dentro del Rey y luego salia arrastrada hasta su sitio. Mientras no llegue un
 # paquete que la confirme (o pase FIJADA_MS), los paquetes viejos no la mueven.
 const FIJADA_MS := 3000

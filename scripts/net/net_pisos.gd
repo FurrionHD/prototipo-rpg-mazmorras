@@ -145,7 +145,6 @@ func _crear_cuerpo_companero(peer_id: int, idx: int):
 # cambias en el hogar hay que re-difundirlo o el compañero no lo ve hasta que cambies de escena
 # (que es cuando _reconstruir_vista recrea el avatar con los datos nuevos de _peers).
 func anunciar_aspecto() -> void:
-	# Un trabajador de piso no es nadie: ni se mueve, ni pelea, ni tiene cara que anunciar.
 	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
 	var c := Game.player_color
@@ -279,7 +278,7 @@ func sesion_para_guardar() -> Dictionary:
 	if Net.soy_sala:
 		sala_fotos_vivas()   # los pisos montados, como estan AHORA (no los de hace hasta 30 s)
 	var fotos: Dictionary = Net._fotos_piso.duplicate(true)
-	# Los pisos que estan vivos ahora en un trabajador, con su ultima foto periodica.
+	# Los pisos que estan vivos ahora en la sala, con su ultima foto periodica.
 	for p in Net._fotos_vivas:
 		if Net._dueno_piso.has(p) and not fotos.has(p):
 			fotos[p] = (Net._fotos_vivas[p] as Dictionary).duplicate(true)
@@ -545,8 +544,7 @@ func _cerrar_expedicion() -> void:
 # o solo lo espejas. Se resuelve ANTES de reconstruir el piso, que es lo que necesita saberlo.
 
 # TRAER AL JEFE (boton de debug) cuando el piso lo simula OTRO. El jefe tiene que salir en la maquina
-# que lleva los bichos, asi que la peticion va al host y el host se la pasa al dueño del piso (un
-# trabajador, casi siempre). Mismo camino que la extraccion (net_extraccion._encaminar_extraccion).
+# que lleva los bichos, asi que la peticion va a la sala, que es la dueña del piso. Mismo camino que la extraccion (net_extraccion._encaminar_extraccion).
 func pedir_forzar_jefe() -> void:
 	if not Net.activo:
 		return
@@ -581,8 +579,8 @@ func pedir_spawn_arena(ruta: String, pos: Vector2, muneco: Dictionary) -> void:
 		_pedir_arena.rpc_id(1, Net._mi_lugar, "spawn", [ruta, pos, muneco])
 
 
-# EL PISO QUE SIMULA LA ARENA (09/10, boton Aplicar del panel de materiales): a TODOS los de la arena, tambien al
-# trabajador que la lleva (los enemigos que salgan nacen con las stats de ese piso). Pasa por el host, que lo reparte.
+# EL PISO QUE SIMULA LA ARENA (09/10, boton Aplicar del panel de materiales): a TODOS los de la arena, tambien a
+# la sala, que la lleva (los enemigos que salgan nacen con las stats de ese piso). Pasa por el host, que lo reparte.
 func pedir_piso_arena(piso: int) -> void:
 	if Net.es_host:
 		_difundir_piso_arena(Net._mi_lugar, piso)
@@ -611,7 +609,7 @@ func _piso_arena(lugar: String, piso: int) -> void:
 		_piso_arena_aqui(piso, lugar)
 
 
-# El HOST se lo cuenta al que llega despues (un trabajador nuevo, el que entra a la sala): sin esto arrancaba en el 1.
+# El HOST se lo cuenta al que llega despues (el que entra a la sala): sin esto arrancaba en el 1.
 func contar_piso_arena(pid: int) -> void:
 	if Net.es_host and Game.arena_piso_juego != Game.ARENA_PISO_JUEGO:
 		_piso_arena.rpc_id(pid, "piso:%d" % Game.PISO_ARENA, Game.arena_piso_juego)
@@ -756,7 +754,7 @@ func _conceder_piso(quien: int, nuevo: int, bajando: bool) -> void:
 #  LA SALA, DUEÑA DE LOS PISOS (fase 2, etapa 2)
 #  Cada piso con gente va montado en la sala (Net.servidor, cada uno en su mundo) y ella simula sus enemigos: los
 #  humanos son todos espejos. Al vaciarse se deja VIVO SEG_VIVO_VACIO (decidido el 21/10: subir y bajar la escalera
-#  no lo rehace) y luego se congela en su foto, como hacia el trabajador.
+#  no lo rehace) y luego se congela en su foto.
 # ------------------------------------------------------------
 const SEG_VIVO_VACIO := 10.0
 # piso -> segundos que le quedan antes de congelarse (solo los vacios).
@@ -779,8 +777,7 @@ func sala_montar(piso: int) -> void:
 
 
 # Un piso se ha quedado sin humanos: se apunta para congelarlo (si no vuelve nadie).
-# Se ha ido 'salvo' del piso (o va de camino a otro): si ya no queda nadie, la sala lo congelara a los 10 s. (Estaba
-# en trabajadores.gd hasta la etapa 3.)
+# Se ha ido 'salvo' del piso (o va de camino a otro): si ya no queda nadie, la sala lo congelara a los 10 s.
 func revisar_vacio(piso: int, salvo: int = 0) -> void:
 	if not Net.es_host or piso < 1:
 		return
@@ -836,9 +833,8 @@ func sala_congelar(piso: int) -> void:
 	print("[sala] piso %d congelado (%d enemigos)" % [piso, (foto.get("enemigos", []) as Array).size()])
 
 
-# Las fotos de los pisos montados, para el guardado del mundo (Net._fotos_vivas, como las de los trabajadores).
 # CADA SEG_FOTOS_VIVAS, la foto de cada piso montado: solo para el guardado del mundo (Net._fotos_vivas). Asi, si la
-# sala se cae, el mundo vuelve con esos pisos como estaban hace un momento. (Estaba en trabajadores.gd.)
+# sala se cae, el mundo vuelve con esos pisos como estaban hace un momento.
 const SEG_FOTOS_VIVAS := 30.0
 var _t_fotos := 0.0
 
@@ -975,8 +971,8 @@ static func _pudre_de_red(d: Dictionary) -> float:
 # ruido de los demas (correr, pelear, picar, cantar) se le MANDA: se acumula aqui y sale cada
 # ALBOROTO_ENVIO_CADA segundos, porque correr suma un poco en CADA frame y un mensaje por frame seria
 # tirar la red. Va por el host (estrella) con quien lo hizo, para que el brote salga delante de el.
-# 'causante' (07/10): de quien es el ruido si no es de quien lo manda. Un trabajador de pelea no tiene cuerpo:
-# el ruido de su pelea es del humano que la abrio (Net.peleas.causante_alboroto). Se acumula aparte por causante.
+# 'causante' (07/10): de quien es el ruido si no es de quien lo manda. La sala no tiene cuerpo:
+# el ruido de una pelea es del humano que la abrio (Net.peleas.causante_alboroto). Se acumula aparte por causante.
 const ALBOROTO_ENVIO_CADA := 0.5
 var _alboroto_pendiente: Dictionary = {}   # causante (0 = yo) -> ruido sin mandar
 var _t_alboroto: float = 0.0
@@ -1026,5 +1022,4 @@ func _encaminar_alboroto(de: int, lugar: String, cuanto: float, causante: int = 
 func _alboroto_en_dueno(de: int, lugar: String, cuanto: float) -> void:
 	if not PisoVivo.dueno_de(lugar):
 		return
-	# (si el ruido es MIO -el dueño humano peleando en un trabajador-, el brote sale delante de mi jugador)
 	Game.sumar_alboroto(cuanto, 0 if de == multiplayer.get_unique_id() else de, lugar)

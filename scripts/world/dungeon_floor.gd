@@ -557,7 +557,7 @@ func _construir_arena() -> void:
 	if puerta is Node2D:
 		(puerta as Node2D).visible = true
 		(puerta as Node2D).global_position = puerta_pos
-	# Relevo en multi (el trabajador se cayo y lo hereda quien este dentro): vuelven los mismos enemigos.
+	# El piso ya estaba en memoria (vuelve a montarse): vuelven los mismos enemigos.
 	if Game.memoria_pisos.has(_piso_construido) and Net.pisos.simulo_el_piso_de(self):
 		call_deferred("_restaurar_estado")
 	print("[mazmorra] ARENA de pruebas: sala %dx%d celdas (piso de juego %d)" % [
@@ -569,8 +569,8 @@ func _piso_estilo() -> int:
 	return _numero() if _es_arena() else _piso_construido
 
 
-# El spawner de la arena coloca aqui. Lo llama quien lleva la sala (en multi, el trabajador dueño, al
-# que se lo encamina el host: ver Net.pisos.pedir_spawn_arena). 'muneco' = {modo, hp} o {} si va normal.
+# El spawner de la arena coloca aqui. Lo llama quien lleva la arena (la sala, a la que
+# se lo encamina Net.pisos.pedir_spawn_arena). 'muneco' = {modo, hp} o {} si va normal.
 func colocar_en_arena(data: EnemyData, pos: Vector2, muneco: Dictionary = {}):
 	if not _es_arena() or data == null:
 		return null
@@ -2725,8 +2725,8 @@ func aforo_de_zona(idx: int) -> int:
 # llevan tu loot dentro y morir() ya los saca del grupo "enemy", asi que ni aparecen por aqui.
 #
 # LEJOS DE TODOS, no solo de mi jugador: el piso lo simulo para todos los que estan en el, asi que
-# medir solo desde mi cuerpo podia borrarle al compañero el bicho que tenia delante. Y un trabajador de
-# piso ni siquiera tiene cuerpo (el suyo esta apagado en la entrada).
+# medir solo desde mi cuerpo podia borrarle al compañero el bicho que tenia delante. Y la sala ni
+# siquiera tiene jugador.
 func _reciclar_lejano(forzar: bool = false) -> bool:
 	var refs: Array[Vector2] = _posiciones_de_jugadores()
 	if refs.is_empty():
@@ -2789,7 +2789,7 @@ func crear_enemigo(data: EnemyData, pos: Vector2, radio: float, t: float = -1.0,
 	var e = _enemy_scene.instantiate()
 	e.data = data
 	# MUÑECO DE PRUEBAS (solo la arena): el modo va EN EL ENEMIGO y viaja con su alta, asi vale tambien
-	# en el trabajador de pelea que ejecute la pelea (ver Game.volver_muneco).
+	# en la sala, que es la que ejecuta la pelea (ver Game.volver_muneco).
 	if not muneco.is_empty():
 		e.set_meta("muneco", muneco)
 	e.wander_radius = radio
@@ -2859,7 +2859,7 @@ func _process(delta: float) -> void:
 	_congelar_lejanos(_posiciones_de_jugadores())
 
 
-# Donde estan TODOS los que me importan en este piso: mi jugador (salvo en un trabajador, que no tiene)
+# Donde estan TODOS los que me importan en este piso: mi jugador (salvo en la sala, que no tiene)
 # y todo el grupo "aliado" (companeros y jugadores remotos). Es la vara de medir del congelado y del
 # reciclado.
 func _posiciones_de_jugadores() -> Array[Vector2]:
@@ -2965,7 +2965,7 @@ const BROTE_VISTA_MAX := 460.0
 # revienta siempre suelta el grupo entero, no un bicho triste.
 #
 # 'centro' = a la vista de QUIEN (lo pasa el alboroto: el jugador que hizo el ruido). Sin el, mi jugador;
-# y en un trabajador de piso no hay jugador que valga (su cuerpo esta apagado en la entrada).
+# y en la sala no hay jugador que valga.
 func provocar_brote(centro: Vector2 = Vector2.INF) -> bool:
 	if _zonas == null:
 		return false

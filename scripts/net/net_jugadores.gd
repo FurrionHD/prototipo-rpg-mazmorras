@@ -69,7 +69,6 @@ static func tier_de_pose(pose: int) -> int:
 
 # La llama el Player LOCAL cada tick de fisica si Net.activo. Difunde su posicion a los de MI lugar.
 func enviar_estado(pos: Vector2, facing: Vector2, comps: Array = [], pose: int = 0) -> void:
-	# Un trabajador de piso no es nadie: ni se mueve, ni pelea, ni tiene cara que anunciar.
 	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
 	var ahora := Time.get_ticks_msec()
@@ -102,7 +101,6 @@ func _rel_estado(pos: Vector2, facing: Vector2, comps: Array = [], pose: int = 0
 # Lo difunde Game al abrir/cerrar un combate. Sirve para que las paredes NO te paran bichos en las
 # narices mientras estas en una pelea (no puedes ni verlo venir): ver spawn_zone._dist_min_de.
 func avisar_combate(peleando: bool) -> void:
-	# Un trabajador de piso no es nadie: ni se mueve, ni pelea, ni tiene cara que anunciar.
 	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
 	Net._peleando = peleando
@@ -135,7 +133,7 @@ func _rel_peleando(peleando: bool) -> void:
 
 # --- LA PELEA DE UN COMPAÑERO, VISTA DESDE FUERA (11/10, lo pidio el usuario) ------------------
 # Dos avisos, con el mismo molde que avisar_combate (el cliente pasa por el host y el host reparte a
-# los de SU MISMO LUGAR; a los trabajadores no, que no tienen jugador):
+# los de SU MISMO LUGAR):
 #   IMPACTO  me acaban de pegar (o he pegado): el que este cerca se queda QUIETO en ese momento, a la
 #            espera de saber si la zona le pilla dentro (ver Game.impacto_ajeno).
 #   ZONA     la forma de la pelea, en celdas: se pinta en su suelo, le frena en la linea y, si estaba
@@ -169,7 +167,7 @@ func _impacto(de: int, pos: Vector2) -> void:
 	Game.impacto_ajeno(de, pos)
 
 
-# 'anfitrion' = quien EJECUTA la pelea (yo, o el trabajador/compañero cuyo espejo veo): es a quien se
+# 'anfitrion' = quien EJECUTA la pelea (la sala, cuyo espejo veo): es a quien se
 # le pide entrar. La forma va como el roster: [x, y, ancho, alto] en celdas y la mascara.
 func anunciar_zona(anfitrion: int, rect: Rect2i, mascara: PackedByteArray) -> void:
 	if not Net.activo or multiplayer.multiplayer_peer == null:
@@ -284,7 +282,6 @@ func jugadores_remotos_aqui(lugar: String = "") -> Array:
 # El color/brillo/nombre de MIS acompañantes. Va aparte de la posicion (que viaja 60 veces por
 # segundo) porque solo cambia cuando cambia el equipo. Se difunde al conectar y al tocar el grupo.
 func anunciar_grupo() -> void:
-	# Un trabajador de piso no es nadie: ni se mueve, ni pelea, ni tiene cara que anunciar.
 	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
 	var datos: Array = _datos_grupo()
@@ -293,15 +290,6 @@ func anunciar_grupo() -> void:
 			_set_grupo.rpc_id(pid, Net._mi_id(), datos)
 	else:
 		_rel_grupo.rpc_id(1, datos)
-
-
-# SOLO a uno (27/09): el host se lo manda a un TRABAJADOR recien llegado, que no pasa por el saludo de los
-# humanos. Sin esto el trabajador no creaba nunca los cuerpos de los compañeros del host, y en la pelea tactica
-# que el ejecuta esos compañeros no tenian cuerpo (turno sin andar).
-func anunciar_grupo_a(pid: int) -> void:
-	if not Net.activo or multiplayer.multiplayer_peer == null:
-		return
-	_set_grupo.rpc_id(pid, Net._mi_id(), _datos_grupo())
 
 
 func _datos_grupo() -> Array:
@@ -359,7 +347,6 @@ func _rel_grupo(datos: Array) -> void:
 # anunciar_grupo, asi que el indice i+1 de aqui es el companero i de alli. Solo viaja el ID del
 # elemento: el color lo saca cada maquina de Elementos.COLOR y no puede desincronizarse.
 func anunciar_imbue() -> void:
-	# Un trabajador de piso no es nadie: ni se mueve, ni pelea, ni tiene cara que anunciar.
 	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
 	var elems := _mis_imbues()
@@ -669,7 +656,6 @@ func barras_de_otros() -> Array:
 var _luz_anunciada: float = -1.0
 
 func anunciar_luz() -> void:
-	# Un trabajador de piso no es nadie: ni se mueve, ni pelea, ni tiene cara que anunciar.
 	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
 	var r: float = Game.radio_lampara()

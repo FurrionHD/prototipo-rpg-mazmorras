@@ -1,6 +1,6 @@
 # SONDA DE LA SALA, SOLO PARA PRUEBAS (fase 2, 20/10, todo por la sala, paso 6). Las pruebas town_* ya no son el
 # anfitrion: entran como un cliente mas. Lo que antes miraban dentro del anfitrion (en que piso esta cada uno, quien
-# lleva cada piso, los trabajadores de pelea, las fotos...) lo apunta la sala en su registro con lineas
+# lleva cada piso, las peleas, las fotos...) lo apunta la sala en su registro con lineas
 #   [S] dato <clave>=<valor>
 # cada vez que cambia, y la prueba las lee de alli. La pone sala.gd si se lanza con la palabra "sonda".
 extends Node

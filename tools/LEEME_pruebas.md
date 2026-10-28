@@ -38,7 +38,7 @@ salida de cada una en `tools/resultados_pruebas/<nombre>.log` y dice BIEN / MAL 
 - **Toda prueba nueva termina diciendo `FIN: TODO BIEN`** (o líneas `MAL: ...`) y sale con `quit(0)` / `quit(1)`.
   Sin marca sale como "SIN MARCA" y cuenta como no hecha.
 - Si una prueba se lanza con algo especial (`-- nube_local`, dos fases con una variable de entorno, `--fixed-fps`),
-  se apunta en `COMO_SE_LANZA` dentro de `pasar_pruebas.py`. Las que lanzan procesos (sala, trabajadores, otro
+  se apunta en `COMO_SE_LANZA` dentro de `pasar_pruebas.py`. Las que lanzan procesos (sala, otro
   jugador) van en `es_de_red`: se pasan de una en una.
 - La **huella del combate** (`prueba_huella_combate`) compara con `tools/huellas/*.txt`. Si se cambia el combate a
   propósito, se vuelve a grabar (`-- grabar`) en el mismo commit; se regrabó el 12/10 (llevaba sin tocarse desde el
@@ -67,7 +67,9 @@ salida de cada una en `tools/resultados_pruebas/<nombre>.log` y dice BIEN / MAL 
     registro se perdio (pasar la prueba suelta lo pisa): SI VUELVE, COPIAR tools/resultados_pruebas/prueba_retraso_barra.log
     ANTES de repetirla. Sin mirar aun si es del juego.
   - `prueba_town_trabajadores` (22/10: YA NO EXISTE, rehecha como `prueba_town_pelea_sala` al quitar los trabajadores en la
-    etapa 3; lo de abajo es historia): SIN REVISAR a proposito (los trabajadores se van a rehacer enteros en la fase 2). 20/10:
+    etapa 3; lo de abajo es historia). 28/10, etapa 5: lo que miraba de "la pelea sigue si se cae alguien" lo cubren ya
+    `town_dos_peleas` (fase 4: B se cae a mitad y su pelea sigue en cortesia) y `caida_en_pelea` (cortesia, vuelta y
+    vencida); "se cae quien la ejecuta" ya no existe: la ejecuta la sala, y si cae ella cae todo. SIN REVISAR a proposito (los trabajadores se van a rehacer enteros en la fase 2). 20/10:
     con carga ha salido tambien "los dobles pelean con mis mismos numeros" (def 1217.95 vs 1219.78); sola 2/2.
     20-21/10 (paso 7): fallo 4 veces seguidas "tengo el proceso del dueño y 0 enemigo(s) en la pelea" (la marca de
     pelea viaja en el tick no fiable del dueño y la prueba la miraba al abrir la pantalla: ahora la espera hasta 3 s y

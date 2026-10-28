@@ -198,7 +198,7 @@ func _escena_una(titulo: String, ruta: String, muneco: Dictionary, pegarle: bool
 	# (Hasta la etapa 3 aqui se esperaba a un trabajador de pelea en la arena: ahora la pelea la monta la sala.)
 	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
 	var antes: Array = Net.enemigos._enem_nodos.keys()
-	# Lejos de mi (que no me vea y me embista mientras el trabajador de pelea se entera de que existe).
+	# Lejos de mi (que no me vea y me embista mientras la sala se entera de que existe).
 	var sala_px: Vector2 = jug.global_position + Vector2(0, 160)
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	if piso != null:
@@ -236,7 +236,7 @@ func _escena_una(titulo: String, ruta: String, muneco: Dictionary, pegarle: bool
 		print("[ver] MAL: no se abre la pelea")
 		_mal += 1
 		return true
-	print("[ver] pelea abierta (la ejecuta el trabajador %d; aqui, espejo: %s)" % [Net.peleas._pelea_anfitrion,
+	print("[ver] pelea abierta (la ejecuta %d; aqui, espejo: %s)" % [Net.peleas._pelea_anfitrion,
 		str(Net.peleas.espejando())])
 	await _esperar(1.0)
 	Cargando.ocultar()
@@ -341,7 +341,7 @@ func _traza(p: Node, t: float) -> void:
 			print("[traza] %.2f %d %s: %s" % [t, i, e.nombre, linea])
 
 
-# La pantalla de la pelea de AHORA (la del espejo se rehace al llegar la pelea del trabajador).
+# La pantalla de la pelea de AHORA (la del espejo se rehace al llegar la pelea de la sala).
 func _pantalla(p: Node) -> Node:
 	var q: Node = Net.peleas._pantalla_combate()
 	return q if q != null else p

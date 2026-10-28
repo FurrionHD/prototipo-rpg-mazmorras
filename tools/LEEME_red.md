@@ -15,30 +15,24 @@ python tools/verificar_net.py                                  # toda ref Net.x 
 "$G" --headless --path . res://tools/prueba_town_pelea_sala.tscn -- nube_local   # una pelea en la sala, de principio a fin
 ```
 
-La de trabajadores lanza procesos de verdad (~95 s): sala, trabajador de reserva, piso 1 con dueño
-trabajador, espejos, foto al subir, vuelta con los mismos enemigos, trabajador DE PELEA esperando en el
-piso, pelea ejecutada por el y jugada desde el espejo (se cierra sola y vuelve la excelia), otro que entra
-a esperar la siguiente, caida en plena pelea (se deshace) y cierre de procesos. Los registros de los trabajadores: `AppData/Roaming/DungeonOratoria/logs/`.
+La de la pelea en la sala lanza procesos de verdad: la sala lleva el piso y la pelea, y el jugador la juega desde
+el espejo. Los registros: `AppData/Roaming/DungeonOratoria/logs/`.
 Que el enemigo "me vea y embista solo" es aleatorio (cono + ruido): se apunta, no se exige.
-Con `PRUEBA_CABOS=1` (~1 min) hace solo el arranque y los dos cabos sueltos del 07/10: el ruido de la pelea de un
-trabajador va a nombre del humano que la abrio, y si el trabajador de pelea se cae con tus fichas en la mano la
-pelea te vuelve a tu PC. No espera a que acabe ninguna pelea: en las pruebas el grupo solo sabe ir recto y se
-atasca en fila, asi que el "termina en 150 s" de la larga puede fallar sin que el juego este mal.
-Si una pasada se corta a medias, quedan Godots vivos con el puerto 24599: cerrarlos antes de relanzar.
+Si una pasada se corta a medias, quedan Godots vivos con el puerto de su ranura: cerrarlos antes de relanzar.
 
 ```sh
-"$G" --headless --path . res://tools/prueba_town_dos_jugadores.tscn -- nube_local   # A + sala + B + trabajadores (~2 min)
+"$G" --headless --path . res://tools/prueba_town_dos_jugadores.tscn -- nube_local   # A + sala + B (~2 min)
 ```
 
 La de DOS JUGADORES lanza ademas al jugador B como otro proceso (`prueba_town_dos_cliente.tscn`): dos peleas
-a la vez en dos trabajadores de pelea, B se une a la pelea de A y huye (la pelea sigue para A).
+a la vez en la sala, B se une a la pelea de A y huye (la pelea sigue para A).
 Se coordinan por un fichero de fase (`user://logs/prueba_dos_fase.txt`) y B apunta lo suyo en
 `logs/prueba_jugador_b.log`, que A lee.
 
 **POR LA SALA (20/10, fase 2 paso 6):** `town_dos_jugadores`, `town_tactico`, `town_zona_ajena` y `town_baul_red` ya
 no hostean: hacen una ranura temporal de `mundo_ref` (ranuras 86-89) con A y B dentro, lanzan su sala y entran los dos
 como clientes (`prueba_town_sala_comun.gd`). Van con `-- nube_local`. Lo de dentro de la sala (en que piso esta cada
-uno, quien lleva cada piso, los trabajadores de pelea, las fotos) lo apunta la sala en su registro
+uno, quien lleva cada piso, las peleas, las fotos) lo apunta la sala en su registro
 (`logs/prueba_ranura_<n>_sala.log`) con lineas `[S] dato clave=valor` cuando cambia: la pone `tools/sonda_sala.gd` si
 la sala se lanza con la palabra `sonda`, y avisa tambien de sus tirones (`[S] tiron`). Los grupos se eligen por NOMBRE
 (el orden de la plantilla cambia segun como se cargue): A = Agirato + Catalardio, B = Dasui + Daniel; Dawnsin es

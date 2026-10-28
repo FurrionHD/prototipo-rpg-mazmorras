@@ -2393,7 +2393,7 @@ func _accion_huir() -> void:
 	# para CADA UNO (al mas flojo el mismo bicho le exige mas).
 	#
 	# Lo cobra el GRUPO DE QUIEN HUYE. Si es de otro humano, a sus DOBLES (nunca a mi party ni a mi lider):
-	# su ficha le vuelve en el lote. Antes solo pagaba a los mios, y en la pelea de un trabajador -donde
+	# su ficha le vuelve en el lote. Antes solo pagaba a los mios, y en la pelea de la sala -donde
 	# todos son de otros- nadie ganaba nada por huir.
 	if dueno != 0:
 		for c in _aliados:
@@ -2891,7 +2891,7 @@ func _end(player_won: bool, fled: bool = false) -> void:
 	_acabo_huyendo = fled
 	# PASIVA RNG SLAYER: cada bicho ABATIDO de verdad tira por su slayer de familia (ultra-raro), a nombre
 	# de quien le dio el ultimo golpe. Va AL ACABAR y no al pulsar Continuar: en multi, quien sale de su
-	# espejo antes se lleva su lote en ese momento (y en la pelea de un trabajador, que no pulsa nada, se
+	# espejo antes se lleva su lote en ese momento (y en la pelea de la sala, que no pulsa nada, se
 	# van todos antes), asi que tirada despues se quedaba en la copia de su personaje.
 	if not _espejo and _state != State.FINISHED:
 		for e in _enemies:

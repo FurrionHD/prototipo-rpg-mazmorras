@@ -97,7 +97,7 @@ func _guion() -> void:
 		if int(nid) / 1000000 == multiplayer.get_unique_id():
 			ids_propios += 1
 	_ok(ids_propios == 0, "ninguno lo he creado yo (ids de la sala)")
-	# Se mueven: los lleva la sala (no hay trabajador ni dueño humano).
+	# Se mueven: los lleva la sala (no hay dueño humano).
 	var antes := _espejos()
 	await _esperar(4.0)
 	var movido := 0.0

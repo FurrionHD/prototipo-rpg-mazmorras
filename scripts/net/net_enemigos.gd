@@ -75,7 +75,7 @@ func _datos_enemigo(nodo: Node) -> Dictionary:
 	# bicho mutante corriente (ver EnemyData.mult_mutante), asi que sin esto el espejo lo pintaria
 	# con la escala equivocada.
 	d["boss"] = bool(nodo.get("es_boss"))
-	# El MUÑECO de la arena: la pelea la ejecuta un trabajador de pelea, que solo tiene el ESPEJO de
+	# El MUÑECO de la arena: la pelea la ejecuta la sala, y quien la tenga en espejo solo tiene el ESPEJO de
 	# este bicho, asi que el modo tiene que venir con el (ver Game.muneco_de).
 	if nodo.has_meta("muneco"):
 		d["muneco"] = nodo.get_meta("muneco")

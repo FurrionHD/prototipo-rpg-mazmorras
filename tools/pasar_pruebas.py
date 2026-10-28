@@ -102,7 +102,7 @@ AYUDANTES = {
     "prueba_town_dos_peleas_b",
 }
 
-# Las de RED: lanzan procesos (sala, trabajadores, otro jugador) y usan puertos fijos -> de una en una.
+# Las de RED: lanzan procesos (sala, otro jugador) y usan puertos fijos -> de una en una.
 def es_de_red(nombre: str) -> bool:
     return (nombre.startswith("prueba_town_") or nombre.startswith("prueba_sala")
             or nombre in {"prueba_tunel", "prueba_solo_por_sala", "prueba_menu_por_sala", "prueba_lan_por_sala", "prueba_baul_sala", "prueba_zona_otra_sala",

@@ -43,7 +43,7 @@ signal sin_overlay(connect: String)
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS   # las invitaciones llegan tambien con un menu pausando
-	# La SALA y los TRABAJADORES no son jugadores: la sala usa SteamServer y los trabajadores nada. Y en
+	# La SALA no es un jugador: usa SteamServer. Y en
 	# headless (pruebas) tampoco: las que quieren Steam lo arrancan ellas.
 	if DisplayServer.get_name() == "headless" or not Net._SALA.argumentos().is_empty():
 		return

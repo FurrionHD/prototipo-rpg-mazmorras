@@ -298,8 +298,8 @@ func ficha_a_dict(pj: PersonajeData) -> Dictionary:
 	# el otro vive en Game.ability_cooldowns_persist). Los CD viajan por RUTA, ver Game.cds_a_rutas.
 	d["sin_fuelle"] = bool(pj.get_meta("sin_fuelle", false))
 	d["cds"] = Game.cds_a_rutas(Game.ability_cooldowns_persist.get(pj, {}))
-	# Y SU AGUANTE [actual, maximo], medido AQUI, que es donde esta su cuerpo. La pelea que ejecuta un
-	# trabajador no tiene jugador en el mapa del que leerlo; y aun con jugador, el del LIDER vive en
+	# Y SU AGUANTE [actual, maximo], medido AQUI, que es donde esta su cuerpo. La pelea que ejecuta la
+	# sala no tiene jugador en el mapa del que leerlo; y aun con jugador, el del LIDER vive en
 	# variables del cuerpo (current_stamina), no en la ficha, asi que el doble entraba con el rancio.
 	var pnode: Node = get_tree().get_first_node_in_group("player")
 	if pnode != null and pnode.has_method("aguante_de_grupo"):
@@ -409,7 +409,7 @@ func desgaste_a_dict(pj: PersonajeData) -> Dictionary:
 		else Game.ability_cooldowns_persist.get(pj, {}))
 	# LA DURABILIDAD de lo que lleva puesto, por ranura. La pelea desgasta el arma y la armadura DEL
 	# DOBLE (su equip_meta), que es una copia: sin esto el equipo de quien peleaba en otra maquina no se
-	# gastaba nunca. Con la pelea en un trabajador eso seria el de TODOS.
+	# gastaba nunca. Con la pelea en la sala eso seria el de TODOS.
 	var dur: Dictionary = {}
 	for slot in pj.equip_meta:
 		var m = pj.equip_meta[slot]

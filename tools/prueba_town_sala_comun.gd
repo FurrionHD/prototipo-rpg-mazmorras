@@ -29,7 +29,7 @@ var _nube_id := ""
 var _entrado := false
 
 
-# ¿SIGUE VIVO ESE PROCESO? Para los que NO ha lanzado este programa (los trabajadores los lanza la sala):
+# ¿SIGUE VIVO ESE PROCESO? Para los que NO ha lanzado este programa (como la sala, si la lanzo otro):
 # OS.is_process_running solo sabe de los suyos y de los demas dice siempre que no (21/10: "los trabajadores se cierran con
 # la sala" salia bien aunque quedaran vivos, y matarlos con esa guarda no mataba a nadie). Se le pregunta a Windows.
 func proceso_vivo(pid: int) -> bool:

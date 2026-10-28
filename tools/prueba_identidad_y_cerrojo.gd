@@ -25,7 +25,7 @@ func _ok(cond: bool, que: String) -> void:
 		_fallos += 1
 
 
-# Ocho juegos arrancando A LA VEZ, como los trabajadores de pelea al abrir un mundo.
+# Ocho juegos arrancando A LA VEZ, como los trabajadores de pelea al abrir un mundo (hasta la fase 2).
 func _prueba_identidad() -> void:
 	print("[identidad]")
 	var ruta: String = ProjectSettings.globalize_path("user://identidad.cfg")
@@ -58,7 +58,7 @@ func _prueba_identidad() -> void:
 		var txt: String = FileAccess.get_file_as_string(log)
 		for linea in txt.split("\n"):
 			if linea.begins_with("[identidad]"):
-				# Solo el id: los trabajadores añaden "[solo lectura]" detras y eso no es otra identidad.
+				# Solo el id: los procesos sin persona (la sala) añaden "[solo lectura]" detras y eso no es otra identidad.
 				ids[linea.get_slice("(", 1).get_slice(")", 0)] = linea.contains("NUEVA")
 		DirAccess.remove_absolute(log)
 	_ok(ids.size() == 1, "todas las copias leen la MISMA identidad (%s)" % ", ".join(ids.keys()))

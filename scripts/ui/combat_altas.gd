@@ -349,7 +349,7 @@ func _ordenar_fila_aliados() -> void:
 
 # Los aliados ordenados por su puesto de la formacion (Game.pos_formacion) y, a igualdad o sin puesto,
 # por orden de entrada. Sale de los DATOS y no de las columnas, asi que da lo mismo en todas las
-# maquinas, tambien en un trabajador de pelea sin pantalla. 'sin_huidos' = quita a los que se fueron.
+# maquinas, tambien en la sala, sin pantalla. 'sin_huidos' = quita a los que se fueron.
 func _orden_formacion(sin_huidos: bool) -> Array[Combatant]:
 	var pares: Array = []
 	for i in _pantalla._aliados.size():

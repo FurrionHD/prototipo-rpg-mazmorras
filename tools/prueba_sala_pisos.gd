@@ -107,7 +107,6 @@ func _ready() -> void:
 	ok(sala_txt.contains("[servidor] monto el piso 1"), "la sala ha montado el piso 1")
 	ok(sala_txt.contains("[sala] piso 1 congelado"), "y lo ha congelado al quedarse vacio")
 	ok(sala_txt.contains("[servidor] monto el piso 1 (juega como el 1) desde su foto"), "y lo ha vuelto a montar desde su foto")
-	ok(not sala_txt.contains("[trabajadores] el piso 1 lo simula"), "ningun trabajador ha llevado el piso")
 	ok(not sala_txt.contains("SCRIPT ERROR"), "sin errores de script en la sala")
 	await Nube.partida_borrar(pid)
 	_borrar_ranura()

@@ -8,8 +8,8 @@
 #      apunto lo ganado (la excelia de mi lider) para que la prueba lo busque en la ranura cuando la sala se cierre.
 # Con "vuelta <uid> <excelia>" detras de los argumentos es la SEGUNDA entrada: por el camino del menu
 # (Mundos.entrar_al_mundo) la sala me devuelve al piso 1, con mi lider como lo deje.
-# Lo que se mueve en el mapa se mira por lo que MANDA el trabajador (_objetivo del enemigo remoto), no por donde lo
-# pinto: con mi juego en pausa mis dibujos no se mueven aunque el trabajador si.
+# Lo que se mueve en el mapa se mira por lo que MANDA la sala (_objetivo del enemigo remoto), no por donde lo
+# pinto: con mi juego en pausa mis dibujos no se mueven aunque la sala si.
 extends "res://tools/prueba_town_dos_comun.gd"
 
 const TOKEN_MENU := "prueba_menu"
@@ -71,7 +71,7 @@ func _cerrar_menu() -> void:
 	Game.salir_modal(TOKEN_MENU)
 
 
-# Donde dice el trabajador que esta cada enemigo vivo (id -> Vector2).
+# Donde dice la sala que esta cada enemigo vivo (id -> Vector2).
 func _objetivos() -> Dictionary:
 	var out := {}
 	for nid in Net.enemigos._enem_nodos:
@@ -179,7 +179,7 @@ func _guion() -> void:
 	_ok(await _hasta(func(): return absf(_suma_barras(p) - b1) > 0.01 or int(p._state) != turno0 or pulsar(3), 10.0),
 		"y la pelea sigue")
 
-	# x2: lo pide el espejo, lo aplica el trabajador y vuelve en la instantanea.
+	# x2: lo pide el espejo, lo aplica la sala y vuelve en la instantanea.
 	Net.peleas.pedir_velocidad(2.0)
 	_ok(await _hasta(func(): return is_instance_valid(p) and float(p._vel_pelea) >= 1.5, 10.0), "la pelea va a x2")
 

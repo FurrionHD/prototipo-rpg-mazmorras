@@ -103,7 +103,7 @@ func _ready() -> void:
 	_piso_spin.value = maxi(1, Game.current_floor)
 	prow.add_child(_piso_spin)
 	# APLICAR (09/10, lo pidio el jefe): confirma lo tecleado, sale del modo escribir y lo manda por red a todos los de
-	# la arena (y al trabajador que la lleva: los enemigos que salgan nacen con las stats de ese piso). Cambiar el
+	# la arena (y a la sala, que la lleva: los enemigos que salgan nacen con las stats de ese piso). Cambiar el
 	# numero solo no aplica nada: con la red de por medio, que cada uno fuera en un piso distinto era peor.
 	var aplicar := Button.new()
 	aplicar.text = "Aplicar"

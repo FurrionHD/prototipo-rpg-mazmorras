@@ -1548,7 +1548,7 @@ func _golpe_alcanza() -> bool:
 
 
 # EL GESTO SE CIERRA, haya dado o no, y se cierra ANTES de intentar la pelea. _start_combat tiene media docena de
-# salidas que no abren nada (la pelea esta llena, el piso es de otro, hay un minijuego delante, el trabajador la ejecuta
+# salidas que no abren nada (la pelea esta llena, el piso es de otro, hay un minijuego delante, la ejecuta la sala
 # fuera): si el bicho se quedara en EMBESTIDA, el frame siguiente volveria a mirar y estaria reintentando la pelea 60
 # veces por segundo. Las salidas que SI tienen que insistir ya se encargan solas (_esperando_hueco se atrapa arriba del
 # _physics_process, y _rebotar pone su propio descanso, mas largo). Si falló, se queda en CHASE con su descanso.
@@ -2303,7 +2303,7 @@ func reanudar_tras_combate(hp: float = -1.0, estados: Array = []) -> void:
 		return
 	# UNA CRIA DEL BROTE que sobrevive (huisteis): sin el Rey peleando no pinta nada, se DESHACE en baba y
 	# se va, sin cadaver (decision del usuario, 28/09). Pasa aqui porque es el embudo de todas las salidas:
-	# el cierre local, el resultado que manda un trabajador de pelea y las reservas que se sueltan.
+	# el cierre de la pelea, el resultado que llega por la red y las reservas que se sueltan.
 	if has_meta("cria_brote"):
 		_deshacer_cria()
 		return

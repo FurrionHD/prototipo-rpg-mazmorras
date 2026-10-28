@@ -18,7 +18,6 @@
 #    hogar       net_hogar.gd        bote, cofres, baul, reservas, encargos y roster del hogar
 #    mapa        net_mapa.gd         la libreta del mundo (mapa y niebla)
 #    partida     net_partida.gd      personajes por red, guardado y entrar a un mundo compartido
-#    _trab       trabajadores.gd     los Godot sin ventana que simulan los pisos
 #
 #  TRAMPA DE GDSCRIPT (costo 471 errores en una prueba headless): los diccionarios de NODOS
 #  (_avatares, _drops, _enem_nodos) guardan referencias que pueden quedar LIBERADAS al cambiar de
@@ -36,10 +35,9 @@ extends Node
 
 const PUERTO := 24567
 const MAX_JUGADORES := 4
-# CONEXIONES, que no es lo mismo que jugadores: los TRABAJADORES (uno por piso ocupado, mas los que
-# esperan peleas) tambien son clientes ENet. Mientras create_server recibia MAX_JUGADORES, dos humanos
-# con un piso y dos de pelea llenaban la sala y todo trabajador nuevo se quedaba en la puerta (playtest
-# del 15/09: del 4 al 35 "no he podido conectar"). El tope de humanos lo pone ahora _saludar.
+# CONEXIONES, que no es lo mismo que jugadores: ENet deja entrar de sobra (los que esperan en la puerta, los
+# que se reconectan antes de que se note su caida) y el tope de humanos lo pone _saludar. Venia de cuando los
+# trabajadores (Godot sin ventana por piso y por pelea, hasta la fase 2) tambien eran clientes ENet.
 const MAX_CONEXIONES := 32
 
 # VERSION DEL PROTOCOLO. Sube cuando cambia lo que viaja en el saludo (o lo que significa).
@@ -133,7 +131,9 @@ const MAX_CONEXIONES := 32
 # 41 (21/10): fase 2, etapa 2: la sala lleva todos los pisos; fuera los trabajadores de piso, traspasos y herederos.
 # 42 (22/10): fuera los reenvios a un dueño de piso CLIENTE y sus relevos de vuelta (net_enemigos _rel_spawn/_rel_tick...,
 #     net_peleas _rel_resultado/_rel_cria..., net_extraccion, net_pesca _rel_charco/_charco_guardar...): cambian los RPC.
-const PROTOCOLO := 45
+# 46 (28/10): fase 2, etapa 5: fuera los RPC de unirse a una pelea que llevaba un trabajador (_union_redirigida,
+#     _union_reintenta) y _devuelve_sobrantes.
+const PROTOCOLO := 46
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -229,8 +229,8 @@ var _peleando := false             # ¿estoy en un combate ahora mismo? (se difu
 # restaura al volver, como en solitario. Vive en la SESION (host), no en el save de nadie: asi las
 # dos maquinas no divergen y el save del cliente sigue sin tocarse.
 var _fotos_piso: Dictionary = {}   # piso:int -> {"enemigos": [...]} (SOLO host)
-# Y la de los pisos que AHORA simula un trabajador, pedida cada poco (Trabajadores, SEG_FOTOS_VIVAS): no
-# se usa para jugar (el piso esta vivo en su trabajador), solo para GUARDARLA. Si la sala se cierra de
+# Y la de los pisos que AHORA estan vivos en la sala, sacada cada poco (net_pisos, SEG_FOTOS_VIVAS): no
+# se usa para jugar (el piso sigue vivo), solo para GUARDARLA. Si la sala se cierra de
 # golpe, el mundo vuelve con esos pisos como estaban hace unos segundos (fase 4 de la BD).
 var _fotos_vivas: Dictionary = {}  # piso:int -> foto (SOLO host)
 # Donde estaba cada jugador del mundo al guardarse (identidad -> {lugar, pos}): para devolverle a su
@@ -283,7 +283,7 @@ func _pausa_red(on: bool) -> void:
 # uno). En solitario un menu congelaba el arbol entero, y una pelea congelaba el mapa (no nacia ni se movia nadie
 # mientras peleabas). Por la sala eso pasa en otros procesos, asi que lo decide ella y lo reparte:
 #   0 = nada parado;
-#   1 = el MAPA quieto (el unico humano esta peleando): los trabajadores paran su arbol; la pelea, que va en
+#   1 = el MAPA quieto (el unico humano esta peleando): la sala para sus pisos; la pelea, que va en
 #       PROCESS_MODE_ALWAYS, sigue;
 #   2 = TODO quieto (el unico humano tiene un menu abierto): ademas la pelea para su barra (combat._process) y el
 #       juego del humano se pausa como en solitario.
@@ -340,7 +340,7 @@ func _revisar_pausa_solo() -> void:
 	print("[sala] pausa de solo: %d -> %d" % [pausa_solo, n])
 	pausa_solo = n
 	_pausa_solo.rpc(n)
-	# Los pisos los lleva la sala (etapa 2): se paran aqui mismo, como antes paraba su programa el trabajador.
+	# Los pisos los lleva la sala (etapa 2): se paran aqui mismo.
 	if servidor != null:
 		servidor.pausar(n != 0)
 
@@ -417,8 +417,7 @@ func _soy_cliente() -> bool:
 
 
 # DONDE ESTA ahora el cuerpo de ese peer en MI escena, o Vector2.INF si no lo tengo. Con 0 ("yo")
-# devuelve INF y quien pregunte usa mi jugador; salvo en un TRABAJADOR, que no tiene jugador: ahi vale
-# el primer humano que tenga a la vista. Lo usa el brote del alboroto para reventar la pared delante de
+# devuelve INF y quien pregunte usa mi jugador. Lo usa el brote del alboroto para reventar la pared delante de
 # quien ha hecho el ruido.
 func posicion_de_peer(peer: int) -> Vector2:
 	var a = _avatares.get(peer) if peer != 0 else null   # sin tipar: puede estar liberado
@@ -577,7 +576,7 @@ func _en_el_pueblo() -> bool:
 
 
 # ABRIR LA SESION. Solo la abre LA SALA, desde su escena vacia (etapa 2-bis, paso 7; desde el 21/10 sin excepciones: las
-# pruebas que hosteaban en su proceso, town_trabajadores y crias_red, van ya por la sala): el juego del humano nunca hace
+# pruebas que hosteaban en su proceso van ya por la sala): el juego del humano nunca hace
 # de anfitrion, entra en su sala como un jugador mas.
 func hostear(codigo: String, puerto: int = PUERTO) -> int:
 	if not soy_sala:
@@ -1062,7 +1061,7 @@ func _saludar(codigo: String, protocolo: int, identidad: String, nombre_visible:
 		await _echar(quien, "No coincide la versión del juego: tenéis que tener el mismo build.")
 		return
 	# EL TOPE DE HUMANOS. Antes lo ponia ENet de rebote (create_server con MAX_JUGADORES); ahora ENet
-	# deja sitio a los trabajadores y la cuenta se hace aqui: yo, los que ya estan y los que estan en
+	# deja sitio de sobra (ver MAX_CONEXIONES) y la cuenta se hace aqui: yo, los que ya estan y los que estan en
 	# la puerta creando personaje.
 	var humanos := (0 if soy_sala else 1) + _en_la_puerta.size()   # la sala no cuenta: no es nadie
 	for pid in _peers:
@@ -1195,7 +1194,7 @@ func registrar_invitacion(token: String, segundos: int) -> void:
 @rpc("any_peer", "call_remote", "reliable")
 func _registrar_invitacion(token: String, segundos: int) -> void:
 	var quien := multiplayer.get_remote_sender_id()
-	# Solo invita quien esta DENTRO: ni un trabajador ni alguien que aun espera en la puerta.
+	# Solo invita quien esta DENTRO: no alguien que aun espera en la puerta.
 	if not _peers.has(quien) or _en_la_puerta.has(quien):
 		return
 	_apuntar_invitacion(token, segundos, String(_peers[quien].get("nombre", "?")))
@@ -1217,7 +1216,7 @@ func _invitacion_valida(token: String) -> bool:
 		and int(_invitaciones[token]) >= int(Time.get_unix_time_from_system())
 
 
-# Los HUMANOS que estan dentro de verdad (admitidos: ni trabajadores ni los que esperan en la puerta).
+# Los HUMANOS que estan dentro de verdad (admitidos: ni la sala ni los que esperan en la puerta).
 func humanos_dentro() -> Array:
 	var out: Array = []
 	for pid in _peers:
