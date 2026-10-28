@@ -66,6 +66,9 @@ salida de cada una en `tools/resultados_pruebas/<nombre>.log` y dice BIEN / MAL 
     los dos MAL del paso 8 a la vez (se aparta dentro de tu area / se mueve sin sitio). Sola 3/3 y 4 a la vez 0/24. El
     registro se perdio (pasar la prueba suelta lo pisa): SI VUELVE, COPIAR tools/resultados_pruebas/prueba_retraso_barra.log
     ANTES de repetirla. Sin mirar aun si es del juego.
+  - `prueba_town_dos_jugadores` (CERRADA 28/10, etapa 5): la duda de la fase 1 ("termino la pelea yo solo" una vez con
+    carga) era si el fallo era del juego. Con todo por la sala, 10 vueltas con carga el 28/10: su unico fallo fue del
+    GUION (pasar_turno en el borde), arreglado en 8fa645af. No hay fallo del juego que perseguir.
   - `prueba_town_trabajadores` (22/10: YA NO EXISTE, rehecha como `prueba_town_pelea_sala` al quitar los trabajadores en la
     etapa 3; lo de abajo es historia). 28/10, etapa 5: lo que miraba de "la pelea sigue si se cae alguien" lo cubren ya
     `town_dos_peleas` (fase 4: B se cae a mitad y su pelea sigue en cortesia) y `caida_en_pelea` (cortesia, vuelta y

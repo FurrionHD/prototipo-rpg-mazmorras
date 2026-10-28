@@ -1349,6 +1349,10 @@ func _log_zona_recibida(rect: Rect2i, mascara: PackedByteArray) -> void:
 	var piezas: Array = ArenaCalculo.trozos(rect, mascara)
 	print("[zona] ---- zona RECIBIDA en el piso %d: rect %s, %d celdas, %d trozo(s)%s" % [current_floor, rect,
 			ArenaCalculo.celdas_de(rect, mascara), piezas.size(), "  <<< TROZOS SEPARADOS" if piezas.size() > 1 else ""])
+	# EL DETALLE SOLO EN EL CASO MALO (etapa 5, 28/10), como en _log_forma_arena: escribirlo en cada pelea eran 6-8 ms
+	# de los ~35 que cuesta abrir el espejo, y lo que se buscaba son los trozos separados.
+	if piezas.size() <= 1:
+		return
 	for k in piezas.size():
 		print("[zona] trozo %d: %d celdas en %s" % [k, int(piezas[k]["celdas"]), piezas[k]["rect"]])
 	var marcas: Dictionary = {}
