@@ -27,6 +27,18 @@ func _ready() -> void:
 		await _fin()
 		return
 
+	# LA LIBRETA DEL MAPA (fase 3, 28/10): viaja con el suelo en bits y aqui tiene que llegar deshecho en celdas, como lo
+	# lee el mapa (tecla M). mundo_ref tiene pisos explorados.
+	var libreta: Dictionary = Net.mapa.mapa_sesion()
+	var celdas := 0
+	var en_bits := 0
+	for p in libreta:
+		var snap: Dictionary = libreta[p]
+		celdas += (snap.get("suelo", []) as Array).size()
+		en_bits += 1 if snap.has("suelo_bits") else 0
+	_ok(libreta.size() > 0 and celdas > 0 and en_bits == 0,
+		"me llega la libreta del mapa con su suelo en celdas (%d pisos, %d celdas)" % [libreta.size(), celdas])
+
 	# 0) LAS FOTOS DEL ROSTER. Los dos subimos la de nuestro personaje de casa a la sala, y cada uno ve la del otro.
 	_ok(await hasta_sala("fotos", func(v): return int(v) >= 2, 20.0), "la sala tiene las fotos de los dos (%s)" % dato_sala("fotos"))
 	_ok(await _veo_foto_de(String(uid_casa["b"]), 20.0), "veo la cara Y la foto del personaje de casa de B")

@@ -136,7 +136,8 @@ const MAX_CONEXIONES := 32
 # 47 (28/10): fase 3: la foto del charco va empaquetada (un Array con Packed*Array) en vez de un dict con una lista por pez.
 # 48 (28/10): fase 3: _tick_enemigos va empaquetado (Packed*Array) y solo con los que cambian (todos, 1 vez por segundo).
 # 49 (28/10): fase 3: _dame_tu_estado dice si la sala tiene base, y _mi_estado puede venir EN PARTES (solo lo cambiado).
-const PROTOCOLO := 49
+# 50 (28/10): fase 3: el "suelo" del mapa viaja como mapa de bits ("suelo_bits", ver net_mapa.mapa_a_red).
+const PROTOCOLO := 50
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -1326,7 +1327,7 @@ func _admitir(quien: int, color: Color, metal: float, nombre: String, lugar: Str
 	hogar._repartir_fotos(quien, roster_ya)
 	hogar._set_roster_hogar.rpc_id(quien, roster_ya)
 	# Y la LIBRETA del mundo (mapa + niebla): al entrar en mi mundo recoge lo que yo tenga descubierto.
-	mapa._set_mapa_sesion.rpc_id(quien, mapa._mapa_sesion, mapa._vistas_sesion)
+	mapa._set_mapa_sesion.rpc_id(quien, mapa.mapa_a_red(mapa._mapa_sesion), mapa._vistas_sesion)
 	# LA BIBLIOTECA DEL MUNDO. Mientras jugais juntos es COMUN: lo que lea uno cuenta para todos, que
 	# es lo que se espera de una estanteria compartida -- si tu hermano ya se ha leido el del kebab,
 	# el texto esta desbloqueado y no tiene sentido que a ti te lo vuelva a dar el gacha.

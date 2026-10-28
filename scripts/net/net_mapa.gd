@@ -68,7 +68,7 @@ func comprometer_mapa_sesion(trabajo: Dictionary) -> void:
 	if Net.es_host:
 		_fusionar_mapa(trabajo, _vistas_sesion)
 		return
-	_pedir_fusion_mapa.rpc_id(1, trabajo, _vistas_sesion)
+	_pedir_fusion_mapa.rpc_id(1, mapa_a_red(trabajo), _vistas_sesion)
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -76,9 +76,70 @@ func _pedir_fusion_mapa(trabajo: Dictionary, vistas: Dictionary) -> void:
 	if not Net.es_host:
 		return
 	var quien := multiplayer.get_remote_sender_id()
-	_fusionar_mapa(trabajo, vistas)
+	_fusionar_mapa(mapa_de_red(trabajo), vistas)
 	# Solo A EL: los demas siguen con su copia vieja hasta que suban ellos.
-	_set_mapa_sesion.rpc_id(quien, _mapa_sesion, _vistas_sesion)
+	_set_mapa_sesion.rpc_id(quien, mapa_a_red(_mapa_sesion), _vistas_sesion)
+
+
+# EL MAPA POR LA RED (fase 3, 28/10): el "suelo" de cada piso es la lista de celdas descubiertas (Vector2i, ~12 B cada
+# una, miles por piso) y era casi todo lo que pesaba la libreta: 273 KB al entrar con la partida grande. Por la red va
+# como un mapa de bits del piso (ancho x alto, un bit por celda) en "suelo_bits", y al llegar se deshace en la lista
+# de siempre. Solo ese campo: los demas viajan tal cual (ver _fundir_snap, campo a campo). El orden de las celdas no
+# importa: el mapa las pinta como conjunto y _unir_celdas quita las repetidas.
+static func mapa_a_red(mapa: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for p in mapa:
+		var snap = mapa[p]
+		out[p] = snap_a_red(snap) if snap is Dictionary else snap
+	return out
+
+
+static func mapa_de_red(mapa: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for p in mapa:
+		var snap = mapa[p]
+		out[p] = snap_de_red(snap) if snap is Dictionary else snap
+	return out
+
+
+static func snap_a_red(snap: Dictionary) -> Dictionary:
+	var ancho: int = int(snap.get("ancho", 0))
+	var alto: int = int(snap.get("alto", 0))
+	var suelo = snap.get("suelo", null)
+	if ancho <= 0 or alto <= 0 or not (suelo is Array):
+		return snap
+	var bits := PackedByteArray()
+	bits.resize((ancho * alto + 7) / 8)
+	for c in (suelo as Array):
+		var v: Vector2i = Vector2i(c)
+		if v.x < 0 or v.y < 0 or v.x >= ancho or v.y >= alto:
+			return snap   # una celda fuera del piso: va como siempre, que no se pierda
+		var i: int = v.y * ancho + v.x
+		bits[i >> 3] |= 1 << (i & 7)
+	var out: Dictionary = snap.duplicate()
+	out.erase("suelo")
+	out["suelo_bits"] = bits
+	return out
+
+
+static func snap_de_red(snap: Dictionary) -> Dictionary:
+	if not snap.has("suelo_bits"):
+		return snap
+	var ancho: int = int(snap.get("ancho", 0))
+	var bits: PackedByteArray = snap["suelo_bits"]
+	var suelo: Array = []
+	for b in bits.size():
+		var byte: int = bits[b]
+		if byte == 0:
+			continue
+		for k in 8:
+			if byte & (1 << k):
+				var i: int = b * 8 + k
+				suelo.append(Vector2i(i % ancho, i / ancho))
+	var out: Dictionary = snap.duplicate()
+	out.erase("suelo_bits")
+	out["suelo"] = suelo
+	return out
 
 
 # Solo host: mete en la libreta de la sesion lo que trae uno que acaba de subir al pueblo.
@@ -168,5 +229,5 @@ func _sello_de(e) -> float:
 
 @rpc("authority", "call_remote", "reliable")
 func _set_mapa_sesion(mapa: Dictionary, vistas: Dictionary) -> void:
-	_mapa_sesion = mapa.duplicate(true)
+	_mapa_sesion = mapa_de_red(mapa.duplicate(true))
 	_vistas_sesion = vistas.duplicate(true)
