@@ -669,6 +669,7 @@ func desconectar() -> void:
 	hogar._roster_ajeno.clear()
 	hogar._hogar_sucio = false
 	hogar._olvidar_fotos()
+	hogar._hash_difundido.clear()   # lo que se difundio en esta sesion (ver net_hogar._cambio)
 	epoca_sesion = 0
 	semilla_pueblo = 0
 	CicloDia.desfase = 0.0      # sin sesion, la hora vuelve a ser la de este PC

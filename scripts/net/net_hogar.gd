@@ -428,8 +428,21 @@ func _recibir_del_cofre(d: Dictionary, vender: bool) -> void:
 
 
 func _difundir_cofre() -> void:
-	if Net.activo:
+	if Net.activo and _cambio("cofre", Game.cofre_equipo):
 		_set_cofre.rpc(Game.cofre_equipo)
+
+
+# LO QUE YA SE DIFUNDIO NO SE REPITE (fase 3, 28/10): el hogar se difundia entero (roster ~18 KB, cofre ~12 KB) en cada
+# repaso de encargos, aunque no hubiera cambiado nada. Quien entra despues lo recibe entero al entrar (Net, al
+# admitirle), asi que nadie se queda sin su copia. 'que' -> hash de lo ultimo difundido.
+var _hash_difundido: Dictionary = {}
+
+func _cambio(que: String, valor) -> bool:
+	var h: int = hash(valor)
+	if _hash_difundido.has(que) and int(_hash_difundido[que]) == h:
+		return false
+	_hash_difundido[que] = h
+	return true
 	Net.hogar_cambiado.emit()
 
 
@@ -594,11 +607,14 @@ func _pedir_repaso_encargos() -> void:
 func _difundir_hogar() -> void:
 	if Net.activo and Net.es_host:
 		var roster: Array = _construir_roster()
-		_set_encargos.rpc(Game.encargos)
-		_set_cofre.rpc(Game.cofre_equipo)
-		for peer in Net._peers:
-			_repartir_fotos(peer, roster)
-		_set_roster_hogar.rpc(roster)
+		if _cambio("encargos", Game.encargos):
+			_set_encargos.rpc(Game.encargos)
+		if _cambio("cofre", Game.cofre_equipo):
+			_set_cofre.rpc(Game.cofre_equipo)
+		if _cambio("roster", roster):
+			for peer in Net._peers:
+				_repartir_fotos(peer, roster)
+			_set_roster_hogar.rpc(roster)
 		_roster_mirror = roster
 		# LA FORMACION va con el roster del que sale (ver net_formacion.gd), y DESPUES de el.
 		Net.formacion.reconciliar()
