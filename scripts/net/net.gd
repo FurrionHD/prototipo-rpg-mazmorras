@@ -139,7 +139,8 @@ const MAX_CONEXIONES := 32
 # 50 (28/10): fase 3: el "suelo" del mapa viaja como mapa de bits ("suelo_bits", ver net_mapa.mapa_a_red).
 # 51 (28/10): fase 3: los mensajes gordos van comprimidos (Net.zip: almacen, jugador, roster y cofre del hogar, estado,
 #     alta, fichas, union y roster de pelea).
-const PROTOCOLO := 51
+# 52 (28/10): fase 3: en la instantanea, las filas sin cambios van como null (Net.peleas.solo_filas_nuevas).
+const PROTOCOLO := 52
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

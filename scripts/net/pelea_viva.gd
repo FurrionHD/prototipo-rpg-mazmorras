@@ -33,6 +33,7 @@ var dobles: Dictionary = {}         # peer -> Array[PersonajeData] de sus person
 var humano: int = 0                 # el humano que la abrio (el ruido es suyo)               (_pelea_humano)
 var t_cierre: float = 0.0           # cuanto lleva acabada sin que nadie pulse Continuar      (_t_cierre)
 var marca: int = 0                  # base de la marca de sus enemigos en el guardado (0 = aun no se ha guardado)
+var filas_enviadas: Dictionary = {} # peer -> lo ultimo de la instantanea que le llego (ver Net.peleas.difundir_instantanea)
 
 
 static var _vivas: Array[PeleaViva] = []

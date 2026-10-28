@@ -1584,6 +1584,8 @@ func _interpolar_atb_espejo(delta: float) -> void:
 
 func _volcar(lista: Array, valores: Array) -> void:
 	for i in mini(lista.size(), valores.size()):
+		if valores[i] == null:
+			continue   # sin cambios desde la anterior (ver Net.peleas.solo_filas_nuevas): se queda como esta
 		var v: Array = valores[i]
 		lista[i].current_hp = float(v[0])
 		lista[i].current_mp = float(v[1])

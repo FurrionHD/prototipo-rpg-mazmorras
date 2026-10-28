@@ -418,6 +418,7 @@ func _abre_en_la_sala(quien: int, ids: Array, emboscada: bool, fichas: Array, ve
 	print("[pelea] la sala abre la pelea %d de %d en %s: %d bichos, huecos %s (%d peleas)" % [
 		pe.id, quien, piso.lugar, nodos.size(), str(huecos[quien]), _peleas.size()])
 	p._aplicar_velocidad(vel)
+	olvidar_filas(pe, quien)
 	_union_ok.rpc_id(quien, pe.id, Net.zip(p.roster_para_espejo()), huecos[quien])
 
 
@@ -1162,6 +1163,7 @@ func _pedir_unirme(z: Array, pelea: int = 0, espera: float = 0.0) -> void:
 		pe.participantes.append(quien)
 	# Los INDICES le dicen cual de sus personajes es cada aliado de la pantalla: es lo unico que
 	# significa lo mismo en las dos maquinas (y lo que necesita para saber a quien mover).
+	olvidar_filas(pe, quien)
 	_union_ok.rpc_id(quien, pe.id, Net.zip(p.roster_para_espejo()), idxs)
 
 
@@ -1278,7 +1280,41 @@ func difundir_instantanea(snap: Dictionary, pe: PeleaViva = null) -> void:
 	if not Net.activo or pe.id == 0 or pe.participantes.is_empty():
 		return
 	for p in pe.participantes:
-		_instantanea.rpc_id(p, snap, pe.id)
+		_instantanea.rpc_id(p, solo_filas_nuevas(snap, pe.filas_enviadas, p), pe.id)
+
+
+# LAS FILAS QUE NO HAN CAMBIADO NO VIAJAN (fase 3, 28/10): la instantanea era lo segundo que mas pesaba (~1,6 KB en cada
+# cambio que se ve), y casi todo eran filas de combatientes iguales a las de la anterior (sus estados con su texto y
+# su tooltip, los numeros de la ficha de cada aliado). Una fila igual a la ultima que le llego a ESE peer va como
+# null, y el espejo se queda con la que tenia (la instantanea es fiable: la anterior le llego). Va entera si cambia
+# la revision o el numero de filas, y para quien no tiene base: el que acaba de recibir el roster (al unirse o al
+# pedirlo) la pierde, ver olvidar_filas. 'enviadas' = peer -> {"rev", "a", "e"}, y se actualiza aqui.
+static func solo_filas_nuevas(snap: Dictionary, enviadas: Dictionary, peer: int) -> Dictionary:
+	var antes: Dictionary = enviadas.get(peer, {})
+	var a: Array = snap.get("a", [])
+	var e: Array = snap.get("e", [])
+	enviadas[peer] = {"rev": snap.get("rev", 0), "a": a, "e": e}
+	var mismas_filas: bool = not antes.is_empty() and antes["rev"] == snap.get("rev", 0) \
+		and (antes["a"] as Array).size() == a.size() and (antes["e"] as Array).size() == e.size()
+	if not mismas_filas:
+		return snap
+	var out: Dictionary = snap.duplicate()
+	out["a"] = _filas_cambiadas(antes["a"], a)
+	out["e"] = _filas_cambiadas(antes["e"], e)
+	return out
+
+
+static func _filas_cambiadas(antes: Array, ahora: Array) -> Array:
+	var out: Array = []
+	for i in ahora.size():
+		out.append(null if antes[i] == ahora[i] else ahora[i])
+	return out
+
+
+# Quien recibe el roster entero (al unirse, o porque lo pidio) monta su pantalla de cero: su siguiente instantanea, entera.
+static func olvidar_filas(pe: PeleaViva, peer: int) -> void:
+	if pe != null:
+		pe.filas_enviadas.erase(peer)
 
 
 # LA BARRA DE ACCION. Va aparte de la instantanea y a ~20 Hz porque es lo unico que se mueve de
@@ -1391,6 +1427,7 @@ func difundir_roster(roster: Dictionary, pe: PeleaViva = null) -> void:
 	if not Net.activo or pe.id == 0 or pe.participantes.is_empty():
 		return
 	for p in pe.participantes:
+		olvidar_filas(pe, p)
 		_roster_pelea.rpc_id(p, Net.zip(roster), pe.id)
 
 
@@ -1446,6 +1483,7 @@ func _pedir_roster_pelea() -> void:
 		return
 	var p: Node = _pantalla_combate(pe)
 	if p != null and p.has_method("roster_para_espejo"):
+		olvidar_filas(pe, quien)
 		_roster_pelea.rpc_id(quien, Net.zip(p.roster_para_espejo()), pe.id)
 
 
