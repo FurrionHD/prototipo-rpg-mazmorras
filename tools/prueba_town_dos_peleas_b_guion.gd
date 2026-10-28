@@ -12,7 +12,7 @@ func _ready() -> void:
 		return
 
 	# FASE 1: bajo al 1.
-	await esperar_fase(1, 120.0)
+	await esperar_fase_peleando(1, 120.0)
 	Net.pisos.solicitar_entrar(1)
 	_ok(await _hasta(func(): return Net._mi_lugar == "piso:1" and get_tree().get_first_node_in_group("dungeon_floor") != null, 40.0),
 		"bajo al piso 1")
@@ -20,7 +20,7 @@ func _ready() -> void:
 	await _mi_pelea(2)
 
 	# FASE 3: entro en la pelea de A pegandole a su enemigo.
-	var d: Array = await esperar_fase(3, 180.0)
+	var d: Array = await esperar_fase_peleando(3, 180.0)
 	while d.size() < 2 and int(d[0]) == 3:
 		await _esperar(0.25)
 		d = leer_fase()
@@ -40,7 +40,7 @@ func _ready() -> void:
 		_ok(await pelear_hasta_el_final(90.0), "ganamos la pelea")
 
 	# FASE 4: bajo al 2.
-	await esperar_fase(4, 180.0)
+	await esperar_fase_peleando(4, 180.0)
 	Net.pisos.solicitar_piso(2, true)
 	_ok(await _hasta(func(): return Net._mi_lugar == "piso:2" and get_tree().get_first_node_in_group("dungeon_floor") != null, 40.0),
 		"bajo al piso 2")
@@ -49,7 +49,7 @@ func _ready() -> void:
 	await _mi_pelea(5)
 
 	# FASE 6: empiezo otra y ME CAIGO a mitad (sin desconectar: se corta).
-	await esperar_fase(6, 180.0)
+	await esperar_fase_peleando(6, 180.0)
 	await acabar_pelea_suelta()
 	var presa: Node2D = enemigo_libre()
 	_ok(presa != null, "hay un enemigo libre para mi (fase 6)")
@@ -62,7 +62,7 @@ func _ready() -> void:
 
 
 func _mi_pelea(fase: int) -> void:
-	var datos: Array = await esperar_fase(fase, 180.0)
+	var datos: Array = await esperar_fase_peleando(fase, 180.0)
 	await acabar_pelea_suelta()
 	var suya: Node2D = enemigo_libre(Vector2.INF, int(datos[1])) if datos.size() > 1 else null
 	var lejos: Vector2 = suya.global_position if suya != null else Vector2.INF

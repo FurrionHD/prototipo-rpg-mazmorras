@@ -79,7 +79,7 @@ func _ready() -> void:
 	var f_b: int = await _dato_de_b("anfitrion_fase2", 20.0)
 	_ok(f_b != 0 and f_b != f_mia and Net.peleas.ejecutor_de(f_b) == 1,
 		"la de B es OTRA pelea de la sala (%d, la mia %d)" % [f_b, f_mia])
-	_ok(await pelear_hasta_el_final(60.0), "mi pelea termina")
+	_ok(await pelear_hasta_el_final(120.0), "mi pelea termina")   # (28/10) 60 no daba con un slime brotado y carga
 	_ok(excelia_grupo() > excelia_antes, "me llega la excelia de mi pelea")
 	await _dato_de_b("fase2_fin", 60.0)
 	await _esperar(4.0)
@@ -113,7 +113,7 @@ func _ready() -> void:
 		# no hago nada la pelea se para en mi turno y a B no le llega nunca el suyo). Y si la rata esta lejos, Atacar
 		# tambien esta apagado: Pasar (el sexto boton lejos del muro), o la pelea se queda esperandome (A8, 12/10).
 		if entro_b and not pulsar(3) and not pulsar(0):
-			pulsar(5)
+			pasar_turno()
 		se_fue_b = _hay_linea_b("fase3_fin")
 		await _esperar(0.25)
 		t += 0.25
@@ -160,7 +160,7 @@ func _ready() -> void:
 			if pa.acabada():
 				pa._on_continue_pressed()
 			elif not pulsar(0):
-				pulsar(5)
+				pasar_turno()
 		await _esperar(0.25)
 		t += 0.25
 	_ok(await _dato_de_b("arena_fin", 1.0) == 1, "B termina la arena")

@@ -113,6 +113,11 @@ func _me_embisten(fase: int) -> void:
 	_ok(await _hasta(func(): return Game.hay_pelea_en_pantalla(), 20.0),
 		"un enemigo me embiste y se abre la pelea SIN que yo ataque")
 	if not Game.hay_pelea_en_pantalla():
+		# (28/10) Paso 1 vez de 10 con carga y no se sabe si es el juego: quien era y donde.
+		print("[dev] NO ME EMBISTE: %s (net_id %s) en %s, yo en %s (a %.0f px), pelea_de %s" % [
+			presa.get("nombre") if presa.get("nombre") != null else presa.name, str(presa.get_meta("net_id", -1)),
+			str(presa.global_position.round()), str(jugador.global_position.round()),
+			presa.global_position.distance_to(jugador.global_position), str(presa.get("pelea_de"))])
 		await pelear_con(presa)   # para seguir con lo demas
 	else:
 		_ok(Net.peleas._fichas_emboscada, "como emboscada")

@@ -71,7 +71,7 @@ func _ready() -> void:
 	Net.pisos.solicitar_piso(2, false)
 	await _esperar(2.0)
 	_ok(Net.pisos.mi_piso() == 1 and Game.current_floor == 1, "en mitad de mi pelea la sala no me deja bajar")
-	_ok(await pelear_hasta_el_final(60.0), "mi pelea termina")
+	_ok(await pelear_hasta_el_final(120.0), "mi pelea termina")   # (28/10) 60 no daba con un slime brotado y carga
 	_ok(excelia_grupo() > excelia_antes, "me llega la excelia de mi pelea (%.2f -> %.2f)" % [excelia_antes, excelia_grupo()])
 	print("[B] dato fase2_fin")
 

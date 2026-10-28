@@ -1790,10 +1790,17 @@ func _montar_arena_tactica(rect_celdas: Rect2i, mascara: PackedByteArray = Packe
 # viaje de uno a otro al cambiar de turno.
 # ¿La camara ya enseña 'p' (casi en el centro del hueco libre)? La pelea espera a que llegue antes de un golpe (ver
 # CombatTactico._tras_camara). Sin camara o con la camara fija, si.
+# LA CAMARA GUARDADA, o null si ya no existe (28/10): 'as Camera2D' sobre una camara liberada (cambio de escena a mitad
+# de pelea) no da null, lanza "Trying to cast a freed object" en cada fotograma (camara_tactica_sigue va en el tick).
+func _cam_guardada() -> Camera2D:
+	var cam = _camara_guardada.get("cam")
+	return cam as Camera2D if is_instance_valid(cam) else null
+
+
 func camara_tactica_cerca(p: Vector2, umbral: float = 40.0) -> bool:
 	if CAMARA_FIJA_EN_PELEA:
 		return true
-	var cam: Camera2D = _camara_guardada.get("cam") as Camera2D
+	var cam: Camera2D = _cam_guardada()
 	if not is_instance_valid(cam) or not cam.top_level:
 		return true
 	return cam.get_screen_center_position().distance_to(p + cam.offset) <= umbral
@@ -1802,7 +1809,7 @@ func camara_tactica_cerca(p: Vector2, umbral: float = 40.0) -> bool:
 func camara_tactica_sigue(p: Vector2) -> void:
 	if CAMARA_FIJA_EN_PELEA:
 		return
-	var cam: Camera2D = _camara_guardada.get("cam") as Camera2D
+	var cam: Camera2D = _cam_guardada()
 	if is_instance_valid(cam) and cam.top_level:
 		cam.global_position = p
 
@@ -1888,7 +1895,7 @@ func _desmontar_arena_tactica(acabada: bool = false, pe: PeleaViva = null) -> vo
 	pe.zona = {}
 	_montar_zonas_ajenas()   # y vuelven a verse (si me he ido de una que sigue, la veo desde fuera)
 	_despejar_para_tactico(false)
-	var cam: Camera2D = _camara_guardada.get("cam") as Camera2D
+	var cam: Camera2D = _cam_guardada()
 	if is_instance_valid(cam):
 		# Primero vuelve a colgar del jugador, y DESPUES se le devuelve su sitio: la posicion guardada
 		# es relativa a el, y con top_level puesto se leeria como coordenada de mundo.
@@ -15039,7 +15046,8 @@ var _cadaveres_ocultos: Array = []
 func quitar_muerto_o_aplazar(n) -> void:
 	if not is_instance_valid(n):
 		return
-	var pe = n.get_meta("muerto_en_pelea_pe", null)   # SIN tipar: puede estar liberada
+	# SIN tipar: puede estar liberada. Y con has_meta: get_meta(x, null) se queja si no esta (null = sin defecto, 28/10).
+	var pe = n.get_meta("muerto_en_pelea_pe") if n.has_meta("muerto_en_pelea_pe") else null
 	if not (pe is PeleaViva and is_instance_valid(pe)):
 		pe = pelea
 	if n.has_meta("muerto_en_pelea") and (combate_activo(pe) or hay_pelea_en_pantalla(pe)):

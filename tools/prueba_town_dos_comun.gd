@@ -85,6 +85,27 @@ func huir() -> bool:
 	return pulsar(5)
 
 
+# GASTAR EL TURNO SIN HUIR (28/10): el sexto boton es "Pasar" lejos del muro de la zona y "Huir" pegado a el
+# (combat._huir_es_pasar). El guion lo pulsaba a ciegas y, con su cuerpo en el borde, el grupo huia y la pelea se
+# cerraba con los enemigos vivos (vueltas con carga: town_dos_peleas 3 veces, town_dos_jugadores 1). En el borde, Defender.
+func pasar_turno() -> bool:
+	var p: Node = pantalla()
+	if p == null or not p._huir_es_pasar():
+		return pulsar(3)
+	return pulsar(5)
+
+
+# Como esperar_fase, pero acabando las peleas que me salten mientras espero: si no, la sala no la cierra nunca (el
+# turno es mio) y el otro proceso se queda esperando a que la sala se vacie (28/10, town_dos_peleas con carga).
+func esperar_fase_peleando(n: int, plazo: float) -> Array:
+	var t := 0.0
+	while int(leer_fase()[0]) < n and t < plazo:
+		await acabar_pelea_suelta()
+		await _esperar(0.25)
+		t += 0.25
+	return leer_fase()
+
+
 # Pulsa Atacar en mis turnos hasta que la pelea acabe; luego Continuar. Devuelve si acabo en plazo.
 func pelear_hasta_el_final(plazo: float) -> bool:
 	var t := 0.0
@@ -100,7 +121,7 @@ func pelear_hasta_el_final(plazo: float) -> bool:
 			actue += 1
 			ataques += 1
 			traza.append("ATACA " + antes)
-		elif pulsar(5):
+		elif pasar_turno():
 			actue += 1
 			traza.append("PASA " + antes)
 		await _esperar(0.25)
