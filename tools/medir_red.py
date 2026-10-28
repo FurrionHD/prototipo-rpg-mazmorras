@@ -70,7 +70,16 @@ static func _red_volcar() -> void:
 '''
 
 
+def _scripts_limpios() -> bool:
+    r = subprocess.run(["git", "status", "--porcelain", "--", "scripts"], cwd=str(RAIZ), capture_output=True, text=True)
+    return r.returncode == 0 and r.stdout.strip() == ""
+
+
 def poner() -> int:
+    # 'quitar' deja scripts/ como en git: con cambios sin commit se los llevaria por delante.
+    if not _scripts_limpios():
+        print("scripts/ tiene cambios sin commit: haz commit antes de medir (quitar los borraria)")
+        return 1
     n = 0
     for p in sorted((RAIZ / "scripts").rglob("*.gd")):
         s = p.read_text(encoding="utf-8")
