@@ -1961,23 +1961,71 @@ func soltar_todo_de(peer: int) -> void:
 #   pos   -> donde nada (lo unico que cambia en cada foto).
 #   ang   -> hacia donde mira, para que el rectangulo no vaya de lado.
 #   de    -> quien lo tiene enganchado, 0 = libre. Es lo que el espejo pinta distinto.
-func estado_red() -> Dictionary:
+func estado_red() -> Array:
 	var lista: Array = []
 	for p in _peces:
 		lista.append([int(p.get("nonce", 0)), p["pos"], (p["vel"] as Vector2).angle(),
 			int(p.get("de", 0))])
-	return {"peces": lista, "stock": _stock, "aforo": _aforo}
+	return empaquetar_peces(lista, _stock, _aforo)
+
+
+# EMPAQUETADA (fase 3, 28/10): ~344 B por foto con un diccionario y una lista por pez, y es lo que mas viajaba despues
+# de los enemigos (10 fotos por segundo). Ahora un Array de cinco:
+#   [stock, aforo, nonces (PackedInt32), x/y/angulo de cada pez seguidos (PackedFloat32), enganchados (PackedInt32:
+#    nonce y peer de cada uno, casi siempre vacio)]
+# 'filas' = [[nonce, pos, ang, de], ...]; peces_de_red lo deshace en esa misma forma.
+static func empaquetar_peces(filas: Array, stock: int = 0, aforo: int = 0) -> Array:
+	var n := PackedInt32Array()
+	var xya := PackedFloat32Array()
+	var de := PackedInt32Array()
+	for f in filas:
+		n.append(int(f[0]))
+		xya.append((f[1] as Vector2).x)
+		xya.append((f[1] as Vector2).y)
+		xya.append(float(f[2]))
+		if int(f[3]) != 0:
+			de.append(int(f[0]))
+			de.append(int(f[3]))
+	return [stock, aforo, n, xya, de]
+
+
+static func peces_de_red(snap: Array) -> Array:
+	if snap.size() < 5:
+		return []
+	var n: PackedInt32Array = snap[2]
+	var xya: PackedFloat32Array = snap[3]
+	var de: PackedInt32Array = snap[4]
+	var enganchados: Dictionary = {}
+	for k in range(0, de.size() - 1, 2):
+		enganchados[de[k]] = de[k + 1]
+	var filas: Array = []
+	for i in mini(n.size(), xya.size() / 3):
+		filas.append([n[i], Vector2(xya[i * 3], xya[i * 3 + 1]), xya[i * 3 + 2], int(enganchados.get(n[i], 0))])
+	return filas
+
+
+# Hasta donde se manda la foto (fase 3): mas alla nadie ve los peces. La pantalla a zoom 1 son 1280x720 (media
+# diagonal ~735 px); con margen, y medido desde el charco mas lo que mide su agua.
+const RED_VISTA := 1000.0
+
+func lo_ve_desde(pos: Vector2) -> bool:
+	return se_ve_desde(pos, global_position, tam_px())
+
+
+# Sin saber donde esta (Vector2.INF) se le manda: mejor una foto de mas que un charco sin peces.
+static func se_ve_desde(pos: Vector2, centro: Vector2, tam: Vector2) -> bool:
+	return pos == Vector2.INF or pos.distance_to(centro) <= RED_VISTA + tam.length()
 
 
 # ESPEJO: llega la foto. Se reconcilia POR NONCE y no por indice: si se pierde un paquete y el banco
 # ha cambiado, por indice cada pez heredaria los datos del que ocupaba su sitio (una anguila pasaria
 # a ser un gobio sin avisar). Con el nonce, cada uno sigue siendo quien es.
-func aplicar_red(snap: Dictionary) -> void:
-	if _soy_dueno():
+func aplicar_red(snap: Array) -> void:
+	if _soy_dueno() or snap.size() < 5:
 		return   # el dueño no se aplica su propia foto
-	_stock = int(snap.get("stock", _stock))
-	_aforo = int(snap.get("aforo", _aforo))
-	var filas: Array = snap.get("peces", [])
+	_stock = int(snap[0])
+	_aforo = int(snap[1])
+	var filas: Array = peces_de_red(snap)
 
 	var mios: Dictionary = {}
 	for p in _peces:

@@ -56,7 +56,7 @@ func olvidar_charco(nodo: Node) -> void:
 # --- 1) EL BANCO: del dueño a los demas ---
 # Lo llama fishing_spot._process en el dueño, ya con su propio ritmo (no hace falta acumulador
 # aqui: el charco sabe mejor que Net cada cuanto merece la pena mandar su foto).
-func difundir_charco(snap: Dictionary, charco: Node = null) -> void:
+func difundir_charco(snap: Array, charco: Node = null) -> void:
 	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
 	if charco == null or not PisoVivo.dueno_del_nodo(charco):
@@ -66,12 +66,14 @@ func difundir_charco(snap: Dictionary, charco: Node = null) -> void:
 	var lugar: String = pv.lugar if pv != null else Net._mi_lugar
 	if Net.es_host:
 		for peer_id in Net._peers:
-			if Net._peers[peer_id].get("lugar", "") == lugar:
+			# Y SOLO A QUIEN LO VE (fase 3, 28/10): el charco del pueblo se mandaba a todo el pueblo 10 veces por segundo
+			# aunque nadie estuviera cerca del agua. Al acercarse, la siguiente foto llega en una decima.
+			if Net._peers[peer_id].get("lugar", "") == lugar and charco.lo_ve_desde(Net.posicion_de_peer(peer_id)):
 				_tick_charco.rpc_id(peer_id, snap)
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
-func _tick_charco(snap: Dictionary) -> void:
+func _tick_charco(snap: Array) -> void:
 	if _charco != null and is_instance_valid(_charco):
 		_charco.aplicar_red(snap)
 

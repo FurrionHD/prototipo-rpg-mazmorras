@@ -133,7 +133,8 @@ const MAX_CONEXIONES := 32
 #     net_peleas _rel_resultado/_rel_cria..., net_extraccion, net_pesca _rel_charco/_charco_guardar...): cambian los RPC.
 # 46 (28/10): fase 2, etapa 5: fuera los RPC de unirse a una pelea que llevaba un trabajador (_union_redirigida,
 #     _union_reintenta) y _devuelve_sobrantes.
-const PROTOCOLO := 46
+# 47 (28/10): fase 3: la foto del charco va empaquetada (un Array con Packed*Array) en vez de un dict con una lista por pez.
+const PROTOCOLO := 47
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
