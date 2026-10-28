@@ -83,10 +83,15 @@ func _golpe(combat, a: Combatant, v: Combatant, evadido: bool) -> Array:
 	return nuevos.map(func(d): return _info(d))
 
 
+# EL TOPE DE ARRIBA (28/10): el numero no nace mas arriba de SUBIDA_NUMERO + 8 (CombatFX._soltar_numero_de: que no se
+# salga de la pantalla al subir). Si la figura queda tan arriba que su bloque acaba por encima de esa linea, el numero
+# sale sujeto en ella, y eso tambien es "encima". Fallaba 1 de cada 5 cuando el enemigo quedaba en lo alto de la arena.
+const TOPE_NUMERO := CombatFX.SUBIDA_NUMERO + 8.0 + 12.0
+
 func _encima_de(combat, c: Combatant, n: Dictionary) -> bool:
 	var r: Rect2 = combat._fx._rect_mapa(combat._bloque_de(c))
 	return r.has_area() and absf(float(n["centro"].x) - r.get_center().x) < 60.0 \
-		and float(n["centro"].y) < r.end.y + 10.0 and float(n["centro"].y) > r.position.y - 90.0
+		and float(n["centro"].y) < maxf(r.end.y + 10.0, TOPE_NUMERO) and float(n["centro"].y) > r.position.y - 90.0
 
 
 func _correr() -> void:
@@ -123,7 +128,8 @@ func _correr() -> void:
 	var n2: Array = await _golpe(combat, al, e, true)
 	_ver(n2.size() == 1 and n2[0]["texto"] == "FALLO", "sale FALLO (%s)" % str(n2.map(func(x): return x["texto"])))
 	if n2.size() == 1:
-		_ver(_encima_de(combat, e, n2[0]), "encima del enemigo (%s)" % n2[0]["centro"])
+		_ver(_encima_de(combat, e, n2[0]), "encima del enemigo (%s; su bloque %s)" % [n2[0]["centro"],
+			combat._fx._rect_mapa(combat._bloque_de(e))])
 
 	print("3) un golpe que entra")
 	var n3: Array = await _golpe(combat, e, al, false)
