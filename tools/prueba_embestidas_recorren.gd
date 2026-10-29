@@ -2,7 +2,9 @@
 # tiempo a ver la animacion", "se desplazara de todas formas aunque no haya nadie dentro"). Con la Cornada del Minotauro:
 #   1) sin nadie en la linea: se mueve igual, hasta el final de su raya, y tarda lo que dice SueloRoto.V_EMBESTIDA;
 #   2) con dos en la linea: les pega a los DOS, a cada uno cuando su frente le pasa, los aparta a un lado y acaba al final;
-#   3) la de UN objetivo (la Yugular del rey rata) se para en el primero.
+#   3) la de UN objetivo (la Yugular del rey rata) se para en el primero;
+#   4) las que no pillan a nadie se ven igual: el Reventon salta y cae en su sitio, la Llamarada y las raices del Trent
+#      lanzan su efecto por el suelo.
 #   godot --headless --path . res://tools/prueba_embestidas_recorren.tscn
 extends Node
 
@@ -169,6 +171,39 @@ func _correr() -> void:
 	print("     se para en %s (el primero en %s)" % [pies_hasta, t.pies_de(al[0])])
 	_ver(pies_hasta.distance_to(t.pies_de(al[0])) < t.pies_de(al[1]).distance_to(pies_hasta), "se queda delante del primero")
 	t._deslices.clear()
+
+	# 4) LAS QUE NO PILLAN A NADIE TAMBIEN SE VEN (29/10, el jefe: "reventon aunque falle debe saltar igual y llegar a su
+	#    sitio", "llamarada o las raices del trent deben salir visualmente aunque no le den a nadie"): con los tuyos lejos,
+	#    cada una lanza su efecto por el suelo, y el Reventon ademas salta (un desliz por el aire) y cae en otro sitio.
+	print("4) las que no pillan a nadie tambien se ven")
+	await _esperar_a(func() -> bool: return t._deslices.is_empty(), 6.0)
+	for nombre in ["slime_reventon", "slime_llamarada", "trent_raices_atenazantes"]:
+		var hab: AbilityData = load("res://resources/abilities/%s.tres" % nombre)
+		pe = t.pies_de(e)
+		# Los tuyos, al otro lado de la arena: ni el salto ni el cono ni las raices les llegan.
+		var lejos := Vector2.LEFT if t._en_arena(t.pos_de(e) + Vector2(-260, 0)) else Vector2.RIGHT
+		var sitios: Array = []
+		for i in al.size():
+			sitios.append(pe + lejos * (280 + 30 * (i % 2)) + Vector2(0, -60 + 40 * i))
+		_colocar(t, al, sitios)
+		await _esperar(3)
+		var hp_antes: Array = al.map(func(a): return a.current_hp)
+		var suelos: Array = []
+		var oye := func(tipo: int, _espera: float): suelos.append(tipo)
+		combat._fx.suelo_lanzado.connect(oye)
+		var n_d: int = t._deslices.size()
+		e.ability_cooldowns.erase(hab)
+		combat.enemigos._enemy_use_ability(e, hab, al[0])
+		var d: Dictionary = t._deslices.back() if t._deslices.size() > n_d else {}
+		await _esperar_a(func() -> bool: return suelos.has(hab.suelo_roto), 4.0)
+		await get_tree().create_timer(1.2).timeout
+		combat._fx.suelo_lanzado.disconnect(oye)
+		_ver(al.all(func(a): return a.current_hp >= float(hp_antes[al.find(a)]) - 0.001), "%s: no le da a nadie" % hab.nombre)
+		_ver(suelos.has(hab.suelo_roto), "%s: su efecto sale por el suelo igual (%s)" % [hab.nombre, str(suelos)])
+		if hab.salta:
+			_ver(not d.is_empty() and float(d.get("arco", 0.0)) > 0.0, "%s: salta (por el aire)" % hab.nombre)
+			_ver(t.pies_de(e).distance_to(pe) > 8.0, "%s: y cae en otro sitio (%.0f px)" % [hab.nombre, t.pies_de(e).distance_to(pe)])
+		await _esperar_a(func() -> bool: return t._deslices.is_empty(), 6.0)
 
 	print("=== FIN (%s) ===" % ("TODO BIEN" if _mal == 0 else "%d MAL" % _mal))
 	get_tree().quit(0 if _mal == 0 else 1)

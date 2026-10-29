@@ -2033,7 +2033,18 @@ func mejor_apunte(e: Combatant, ab: AbilityData, preferido: Combatant = null) ->
 				puntos.append(((puntos[i] as Vector2) + (puntos[j] as Vector2)) * 0.5)
 		if vivos.size() > 2:
 			puntos.append(suma / float(vivos.size()))
-	var mejor: Dictionary = {"punto": pies + Vector2.RIGHT, "n": 0, "valor": 0.0}
+	# SIN NADIE A TIRO, hacia quien iba a por el (o el mas cercano de los tuyos), lo mas lejos que llegue: la forma se
+	# recorta a su alcance. Antes era un pixel a la derecha de sus pies y el Reventon que no pillaba a nadie botaba en el
+	# sitio (29/10, el jefe: "debe saltar igual y llegar a su sitio").
+	var hacia: Vector2 = pies + Vector2.RIGHT
+	if preferido != null and preferido.is_alive() and cuerpo_de(preferido) != null:
+		hacia = bulto_de(preferido).get_center()
+	elif not puntos.is_empty():
+		hacia = puntos[0]
+		for i in vivos.size():
+			if (puntos[i] as Vector2).distance_squared_to(pies) < hacia.distance_squared_to(pies):
+				hacia = puntos[i]
+	var mejor: Dictionary = {"punto": hacia, "n": 0, "valor": 0.0}
 	for p in puntos:
 		var rep: Array = _reparto_en(ab, e, forma_de(ab, e, p))
 		if rep.is_empty():

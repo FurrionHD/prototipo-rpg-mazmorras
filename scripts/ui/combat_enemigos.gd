@@ -589,12 +589,6 @@ func _enemy_begin_charge(e: Combatant, ab: AbilityData, obj: Combatant = null, t
 
 
 # Ejecuta una habilidad del enemigo: multi-golpe con dano_mult + sus estados (StatusApplication).
-# UNA EMBESTIDA EN EL MAPA (la carga por su linea: la Cornada, el Placaje, la Rodada...). Ver CombatTactico.mover_enemigo.
-func _es_embestida_mapa(ab: AbilityData, lista_mapa) -> bool:
-	var f = _pantalla.turno_mapa.ultima_forma_enemigo if _pantalla.tactico else null
-	return lista_mapa != null and ab.carga and not ab.salta and f != null and f.tipo == CombatFormas.Tipo.LINEA
-
-
 # SU EFECTO POR EL SUELO (el surco, el charco, la Marea...), con el COLOR del slime en la semilla (SlimeAire).
 # (La Carga acorazada lleva en el nucleo el radio de su PISOTON: la linea no usa nucleo. FieraAire.area.)
 func _suelo_de_habilidad(e: Combatant, ab: AbilityData) -> void:
@@ -631,12 +625,14 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 	# donde esta), no a la fila. [{c, escala}], el principal el primero. null = como en la fila.
 	var lista_mapa = null
 	var obj: Combatant = null
+	var con_forma := false   # acaba de apuntar su forma en el mapa (turno_mapa.ultima_forma_enemigo es ESTA)
 	# (06/10, el abisal) LOS RAYOS de la Constelacion y de la Mirada estelar: a quien crucen (con su dibujo).
 	if _pantalla.tactico and (ab.constelacion or ab.mirada):
 		lista_mapa = _pantalla.turno_mapa.reparto_rayos(e, ab, victima)
 		obj = (lista_mapa as Array)[0]["c"] if not (lista_mapa as Array).is_empty() else null
 	elif _pantalla.tactico and _pantalla.turno_mapa.usa_huella(ab):
 		lista_mapa = _pantalla.turno_mapa.reparto_enemigo(e, ab, victima)
+		con_forma = true
 		# LA LLUVIA DE ESTRELLAS: no a todos los de la huella, a los que les cae una cerca (y una vez por estrella).
 		if ab.estrellas_fugaces > 0:
 			lista_mapa = _pantalla.turno_mapa.reparto_lluvia(e, ab)
@@ -656,11 +652,21 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			_pantalla.efectos.fijar_suelo(ab.suelo_roto, _pantalla.turno_mapa.ultima_forma_enemigo, randi(),
 				float(ab.estrellas_fugaces))
 			_pantalla.efectos.soltar_suelo()
-		# LA EMBESTIDA SALE AUNQUE NO HAYA NADIE (10/10, el jefe: "se desplazara de todas formas aunque no haya nadie
-		# dentro"): recorre su linea con su gesto y su rastro por el suelo, y no pega a nadie.
-		elif _es_embestida_mapa(ab, lista_mapa):
+		# SALE AUNQUE NO HAYA NADIE, como si le diera a alguien pero sin golpes. Primero fue la embestida (10/10, el jefe:
+		# "se desplazara de todas formas aunque no haya nadie dentro"); ahora TODA la que tiene forma en el mapa (29/10, el
+		# jefe: el Reventon salta y cae en su sitio, la Llamarada y las raices del Trent salen igual): se mueve si es de
+		# moverse (el salto, la embestida), echa su efecto por el suelo sobre la forma que ha apuntado, deja lo que se
+		# queda en el suelo (el charco de la Savia, los pedazos) y hace su gesto. Lo mismo que el camino de los golpes.
+		elif con_forma and _pantalla.turno_mapa.ultima_forma_enemigo != null:
+			var forma_suelta = _pantalla.turno_mapa.ultima_forma_enemigo
 			_pantalla.turno_mapa.mover_enemigo(e, ab, [], 1)
+			if ab.suelo_roto >= SueloRoto.Tipo.INSECTO_TELARANA:
+				_pantalla.turno_mapa.desde_quien_lanza(e, forma_suelta)
 			_suelo_de_habilidad(e, ab)
+			if ab.charco_turnos > 0:
+				_pantalla.turno_mapa.poner_charco(e, ab, forma_suelta)
+			if ab.piezas > 0:
+				_pantalla.turno_mapa.poner_piezas(e, ab, forma_suelta)
 			_pantalla.efectos._fx_golpe(e, e, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.MELEE, 1.0,
 				true, _pantalla.efectos._clave_sfx(ab), AbilityData.Gesto.AUTO, ab)
 			_pantalla.efectos.soltar_suelo()
