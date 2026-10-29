@@ -252,14 +252,17 @@ func _conceder_entrada(quien: int, piso: int = 1, volver := false) -> void:
 	Net._dentro[quien] = true
 	Net._muertos.erase(quien)   # el que vuelve a bajar ya no cuenta como caido (ver _registrar_muerte)
 	sala_montar(piso)   # la sala lo monta (si no lo estaba) y yo entro de espejo
-	# Va el diccionario ENTERO, no solo las claves: el valor es el momento en que se pico, y sin el
+	# VA DE CAMINO al piso, igual que en _conceder_piso: desde ya le llega lo que pase alli (Net.peers_en).
+	Net._viajando[quien] = piso
+	# Va el diccionario (de ESE piso) ENTERO, no solo las claves: el valor es el momento en que se pico, y sin el
 	# quien entra no sabria cuanto le queda a cada sitio para revivir.
 	# Los jefes viajan como SEGUNDOS QUE FALTAN, no como el instante en que cayeron: el instante esta
 	# en el reloj de PARED DEL HOST, y el del que recibe no tiene por que ir a la misma hora. Con
 	# timestamps crudos el contador de la sala del jefe le saldria corrido por el desfase entre los dos
 	# relojes (y con uno mal puesto, absurdo). Los segundos que faltan son los mismos en cualquier reloj.
-	_entrar_ok.rpc_id(quien, piso, Net.recoleccion._agotados_sesion, _restantes_boss(), Net.epoca_sesion,
-		Net.recoleccion._nonces_sesion)
+	# Las vetas picadas y los nonces de ESE piso (las de los demas le llegan al viajar, ver _viaje_ok).
+	_entrar_ok.rpc_id(quien, piso, Net.recoleccion.del_piso(Net.recoleccion._agotados_sesion, piso), _restantes_boss(),
+		Net.epoca_sesion, Net.recoleccion.del_piso(Net.recoleccion._nonces_sesion, piso))
 
 
 # ============================================================
@@ -493,9 +496,11 @@ func _olvidar_expedicion() -> void:
 	Net.epoca_sesion = Game.epoca_mazmorra
 	Net.recoleccion._nonces_sesion.clear()
 	for id in Net.suelo._suelo.keys():
-		if str(Net.suelo._suelo[id]["lugar"]).begins_with("piso:"):
+		var lugar_d: String = str(Net.suelo._suelo[id]["lugar"])
+		if lugar_d.begins_with("piso:"):
 			Net.suelo._suelo.erase(id)
-			Net.suelo._despawn_drop.rpc(id)
+			for p in Net.peers_en(lugar_d):
+				Net.suelo._despawn_drop.rpc_id(p, id)
 			Net.suelo._despawn_drop(id)
 	for piso in Net.jefes._bosses_sello.keys():
 		Net.jefes._marcar_boss(piso, false)
@@ -743,7 +748,10 @@ func _conceder_piso(quien: int, nuevo: int, bajando: bool) -> void:
 	Net._viajando[quien] = nuevo   # hasta que llegue su _rel_lugar (ver _alguien_en)
 	if viejo != nuevo:
 		revisar_vacio(viejo, quien)
-	_viaje_ok.rpc_id(quien, nuevo, bajando)
+	# Con las vetas picadas y los nonces del piso NUEVO: lo que pase en un piso solo les llega a los que estan en el
+	# (Net.peers_en), asi que quien llega lo trae aqui, antes de montar el piso.
+	_viaje_ok.rpc_id(quien, nuevo, bajando, Net.recoleccion.del_piso(Net.recoleccion._agotados_sesion, nuevo),
+		Net.recoleccion.del_piso(Net.recoleccion._nonces_sesion, nuevo))
 
 
 # ============================================================
@@ -877,7 +885,10 @@ func _piso_de(quien: int) -> int:
 
 # Corre en EL VIAJERO: ya puede reconstruir su piso (de espejo: lo lleva la sala).
 @rpc("any_peer", "call_remote", "reliable")
-func _viaje_ok(nuevo: int, bajando: bool) -> void:
+func _viaje_ok(nuevo: int, bajando: bool, agotados: Dictionary = {}, nonces: Dictionary = {}) -> void:
+	if not Net.es_host:
+		Net.recoleccion._agotados_sesion = agotados.duplicate()   # los de MI piso (ver _conceder_piso)
+		Net.recoleccion._nonces_sesion = nonces.duplicate()
 	_olvidar_mis_enemigos()   # los del piso que dejo mueren con su escena
 	# Sin memoria local de ese piso: no resucita bichos mios rancios, los veo por red.
 	Game.memoria_pisos.erase(nuevo)

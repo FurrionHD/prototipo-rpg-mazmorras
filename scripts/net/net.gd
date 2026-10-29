@@ -474,6 +474,31 @@ func posicion_de_peer(peer: int) -> Vector2:
 	return Vector2.INF
 
 
+# LOS QUE ESTAN AHORA EN 'lugar' (solo la sala los sabe todos). A ellos, y solo a ellos, van los sucesos de ese sitio
+# (un drop, un enemigo nuevo, un cadaver, una veta picada): a los de otro piso no les sirven de nada. Y no se pierde
+# nada al llegar: quien cambia de sitio avisa ANTES (anunciar_lugar) de pedir lo que hay alli (el suelo y los enemigos,
+# por el mismo canal), y las vetas y sus nonces le llegan con el viaje (_viaje_ok / _entrar_ok).
+# Y LOS QUE VAN DE CAMINO (_viajando, desde que la sala les concede el viaje hasta que llega su _rel_lugar): sin ellos,
+# lo que pasara en el piso nuevo en ese rato no le llegaria a nadie que lo vaya a ver. Lo que les llega antes de tener
+# el piso montado se apunta (las vetas) o se rehace con lo que piden al llegar (el suelo, los enemigos).
+func peers_en(lugar: String) -> Array:
+	var piso: int = int(lugar.substr(5)) if lugar.begins_with("piso:") else -1
+	var out: Array = []
+	for id in _peers:
+		if String(_peers[id].get("lugar", "")) == lugar or (piso >= 0 and int(_viajando.get(id, -1)) == piso):
+			out.append(id)
+	return out
+
+
+# DIAGNOSTICO: cuantos mensajes me han llegado POR LA RED de un sitio que no llevo (un drop, un enemigo, una veta de
+# otro piso). Con peers_en tiene que quedarse quieto mientras no viajo (lo mira prueba_town_dos_pisos).
+var de_otro_sitio: int = 0
+
+func contar_de_otro_sitio() -> void:
+	if multiplayer.get_remote_sender_id() != 0:   # las llamadas locales (la sala a si misma) no cuentan
+		de_otro_sitio += 1
+
+
 # Quien simula ese lugar (0 = nadie). Solo el host lo sabe.
 func _dueno_de(lugar: String) -> int:
 	if not lugar.begins_with("piso:"):

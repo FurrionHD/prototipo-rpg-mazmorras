@@ -99,7 +99,9 @@ func _registrar_y_difundir(d: Dictionary, pos: Vector2, lugar: String) -> void:
 	var id := _next_id
 	_next_id += 1
 	_suelo[id] = {"d": d, "pos": pos, "lugar": lugar}
-	_spawn_drop.rpc(id, IdsRed.a_red(d), pos, lugar)
+	var red: Dictionary = IdsRed.a_red(d)
+	for p in Net.peers_en(lugar):   # solo a los de ese sitio (ver Net.peers_en)
+		_spawn_drop.rpc_id(p, id, red, pos, lugar)
 	_spawn_drop(id, d, pos, lugar)
 
 
@@ -123,7 +125,8 @@ func _hacer_hueco_en(lugar: String) -> void:
 	for i in range(sobran):
 		var viejo: int = ids[i]
 		_suelo.erase(viejo)
-		_despawn_drop.rpc(viejo)
+		for p in Net.peers_en(lugar):
+			_despawn_drop.rpc_id(p, viejo)
 		_despawn_drop(viejo)
 	print("[suelo] %s estaba lleno (%d): se van los %d mas viejos" % [lugar, ids.size(), sobran])
 
@@ -131,6 +134,7 @@ func _hacer_hueco_en(lugar: String) -> void:
 @rpc("any_peer", "call_remote", "reliable")
 func _spawn_drop(id: int, d: Dictionary, pos: Vector2, lugar: String) -> void:
 	if not PisoVivo.lleva(lugar):
+		Net.contar_de_otro_sitio()
 		return   # eso esta en OTRO sitio (otro piso, o el pueblo): aqui no se pinta
 	d = IdsRed.de_red(d)
 	var item := _item_de_dict(d)
@@ -166,8 +170,10 @@ func _resolver_recogida(id: int, ganador: int) -> void:
 	if not _suelo.has(id):
 		return   # llego tarde: silencio
 	var d: Dictionary = _suelo[id]["d"]
+	var lugar: String = String(_suelo[id]["lugar"])
 	_suelo.erase(id)
-	_despawn_drop.rpc(id)
+	for p in Net.peers_en(lugar):
+		_despawn_drop.rpc_id(p, id)
 	_despawn_drop(id)
 	if ganador == 1:
 		_recoger_concedido(d)          # el host se lo queda: sin viaje de red

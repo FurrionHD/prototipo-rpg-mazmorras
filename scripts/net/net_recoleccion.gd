@@ -34,6 +34,15 @@ const BARRIDO_RESPAWN_CADA := 2.0   # cada cuanto repasa el host la tabla (igual
 
 # --- VETAS: una a la vez, con "esta ocupado" --------------------------------------------------
 
+# Lo de UN piso de una tabla por sitio (_agotados_sesion, _nonces_sesion): lo que se le manda a quien entra o viaja.
+static func del_piso(tabla: Dictionary, piso: int) -> Dictionary:
+	var out: Dictionary = {}
+	for s in tabla:
+		if (s as Vector3i).x == piso:
+			out[s] = tabla[s]
+	return out
+
+
 # La clave de un sitio: el piso va DENTRO (ver _agotados_sesion).
 func _sitio(piso: int, celda: Vector2i) -> Vector3i:
 	return Vector3i(piso, celda.x, celda.y)
@@ -119,7 +128,8 @@ func _registrar_agotado(celda: Vector2i, piso: int, retraso: float = 0.0) -> voi
 	_vetas_ocupadas.erase(s)
 	_agotados_sesion[s] = sello
 	(Game.persistente_piso(piso)["agotados"] as Dictionary)[celda] = sello
-	_agotar_celda.rpc(celda, piso, retraso)
+	for p in Net.peers_en("piso:%d" % piso):   # los demas lo traen al viajar alli (_viaje_ok)
+		_agotar_celda.rpc_id(p, celda, piso, retraso)
 	_agotar_celda(celda, piso, retraso)
 
 
@@ -133,6 +143,7 @@ func _registrar_agotado(celda: Vector2i, piso: int, retraso: float = 0.0) -> voi
 func _agotar_celda(celda: Vector2i, piso: int, retraso: float = 0.0) -> void:
 	_agotados_sesion[_sitio(piso, celda)] = Game.reloj_mundo() + retraso
 	if not _llevo_el_piso(piso):
+		Net.contar_de_otro_sitio()
 		return
 	var pv: PisoVivo = _piso_vivo_de(piso)
 	var piso_nodo: Node = pv.primero(&"dungeon_floor") if pv != null else get_tree().get_first_node_in_group("dungeon_floor")
@@ -165,7 +176,8 @@ func _barrer_respawns() -> void:
 		# salga IGUAL en todas las maquinas (ver dungeon_floor._material_del_sitio). Antes cada una
 		# tiraba por su cuenta y la misma veta salia de cobre normal en una y veteado en la otra.
 		var nonce: int = randi()
-		_revivir_celda.rpc(celda, s.x, nonce)
+		for p in Net.peers_en("piso:%d" % s.x):
+			_revivir_celda.rpc_id(p, celda, s.x, nonce)
 		_revivir_celda(celda, s.x, nonce)
 
 
@@ -202,6 +214,7 @@ func _revivir_celda(celda: Vector2i, piso: int, nonce: int = 0) -> void:
 	if Net.es_host:
 		(Game.persistente_piso(piso)["agotados"] as Dictionary).erase(celda)
 	if not _llevo_el_piso(piso):
+		Net.contar_de_otro_sitio()
 		return
 	var pv: PisoVivo = _piso_vivo_de(piso)
 	var piso_nodo: Node = pv.primero(&"dungeon_floor") if pv != null else get_tree().get_first_node_in_group("dungeon_floor")

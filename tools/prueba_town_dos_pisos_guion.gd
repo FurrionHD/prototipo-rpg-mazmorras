@@ -6,6 +6,8 @@
 #   3) A arma jaleo: brote en el piso 1 y no en el 2. Luego B: brote en el 2 (con un medidor unico, el respiro tras el
 #      primer brote no dejaria salir el segundo).
 #   4) B sube al pueblo: el 2 se congela a los 10 s y el 1 sigue montado con A dentro.
+#   Y (29/10, Net.peers_en) lo que pasa en el piso de B (su brote, sus enemigos nuevos) NO me llega: a cada uno solo le
+#   llegan los sucesos de su sitio.
 # Cubre: game.gd (sumar_alboroto con lugar, _sumar_alboroto_piso), piso_vivo.gd (alboroto por piso), net_pisos.gd
 # (_alboroto_en_dueno, sala_montar, sala_congelar) y net_enemigos.gd (_pedir_enemigos por lugar).
 # Se lanza con:  <godot> --headless --path . res://tools/prueba_town_dos_pisos.tscn -- nube_local
@@ -86,8 +88,11 @@ func _guion() -> void:
 	# --- 3) El alboroto, cada piso el suyo ---
 	_ok(await _jaleo_hasta_brote("piso:1", 30.0), "mi jaleo revienta una pared EN EL PISO 1")
 	_ok(_brotes_en("piso:2") == 0, "y en el piso 2 no ha salido nada")
+	var ajenos: int = Net.de_otro_sitio
 	escribir_fase(2)   # ahora B
 	_ok(await _hasta(func(): return _brotes_en("piso:2") > 0, 40.0), "el jaleo de B revienta una pared en el 2, aunque el 1 acabe de tener el suyo")
+	await _esperar(2.0)   # lo que tardaria en llegarme lo de su brote, si me llegara
+	_ok(Net.de_otro_sitio == ajenos, "no me llega nada del piso de B (%d mensajes de otro sitio)" % (Net.de_otro_sitio - ajenos))
 
 	# --- 4) B se va: el 2 se congela y el 1 sigue ---
 	escribir_fase(3)

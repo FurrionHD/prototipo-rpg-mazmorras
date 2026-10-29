@@ -153,21 +153,40 @@ func _apuntar_extrayendo(id: int, quien: int) -> void:
 	if int(_extrayendo.get(id, 0)) == quien:
 		return
 	_extrayendo[id] = quien
-	_difundir_extrayendo()
+	_difundir_extrayendo(_lugar_de(id))
 
 
 func _borrar_extrayendo(id: int) -> void:
 	if not _extrayendo.has(id):
 		return
+	var lugar: String = _lugar_de(id)
 	_extrayendo.erase(id)
-	_difundir_extrayendo()
+	_difundir_extrayendo(lugar)
 
 
-func _difundir_extrayendo() -> void:
+# A CADA UNO, LO DE SU PISO: los cuerpos de otro piso no los tiene. 'lugar' = solo a los de ese sitio (lo que ha
+# cambiado); vacio = a todos, cada uno lo suyo. Quien llega a un piso lo recibe con sus enemigos (_pedir_enemigos).
+func _difundir_extrayendo(lugar: String = "") -> void:
 	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
 	if Net.es_host:
-		_set_extrayendo.rpc(_extrayendo)
+		for p in Net._peers:
+			var suyo: String = String(Net._peers[p].get("lugar", ""))
+			if suyo.begins_with("piso:") and (lugar.is_empty() or suyo == lugar):
+				_set_extrayendo.rpc_id(p, del_lugar(suyo))
+
+
+# Los cuerpos que se estan extrayendo en ese sitio.
+func del_lugar(lugar: String) -> Dictionary:
+	var out: Dictionary = {}
+	for id in _extrayendo:
+		if _lugar_de(id) == lugar:
+			out[id] = _extrayendo[id]
+	return out
+
+
+func _lugar_de(id: int) -> String:
+	return String((Net.enemigos._enemigos.get(id, {}) as Dictionary).get("lugar", ""))
 
 
 @rpc("any_peer", "call_remote", "reliable")

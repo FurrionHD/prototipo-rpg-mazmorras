@@ -40,7 +40,9 @@ func registrar_enemigo(nodo: Node2D, lugar: String) -> void:
 	_enemigos[id] = {"nodo": nodo, "lugar": lugar}
 	var d: Dictionary = _datos_enemigo(nodo)
 	if Net.es_host:
-		_spawn_enemigo.rpc(id, lugar, nodo.global_position, IdsRed.a_red(d))
+		var red: Dictionary = IdsRed.a_red(d)
+		for p in Net.peers_en(lugar):   # solo a los de ese piso; los que lleguen lo piden (_pedir_enemigos)
+			_spawn_enemigo.rpc_id(p, id, lugar, nodo.global_position, red)
 
 
 # TODO lo que el otro necesita para pintarlo Y para pelearlo/extraerlo: su aspecto (color y lado,
@@ -117,7 +119,8 @@ func enemigo_muerto(nodo: Node) -> void:
 	_enemigos[id]["muerto"] = true
 	var lugar: String = _enemigos[id]["lugar"]
 	if Net.es_host:
-		_marcar_cadaver.rpc(id, lugar)
+		for p in Net.peers_en(lugar):
+			_marcar_cadaver.rpc_id(p, id, lugar)
 
 
 # COMER CRISTALES (05/10): lo que hace el bicho al comer, para que los espejos lo vean igual. 'tipo' es
@@ -134,12 +137,14 @@ func aviso_comer(nodo: Node, tipo: String, valor: float, extra: String = "") -> 
 		return
 	var lugar: String = _enemigos[id]["lugar"]
 	if Net.es_host:
-		_aviso_comer.rpc(id, lugar, tipo, valor, extra)
+		for p in Net.peers_en(lugar):
+			_aviso_comer.rpc_id(p, id, lugar, tipo, valor, extra)
 
 
 @rpc("authority", "call_remote", "reliable")
 func _aviso_comer(id: int, lugar: String, tipo: String, valor: float, extra: String = "") -> void:
 	if not PisoVivo.lleva(lugar):
+		Net.contar_de_otro_sitio()
 		return
 	var n = _enem_nodos.get(id)
 	if n != null and is_instance_valid(n) and n.has_method("aviso_comer"):
@@ -149,6 +154,7 @@ func _aviso_comer(id: int, lugar: String, tipo: String, valor: float, extra: Str
 @rpc("authority", "call_remote", "reliable")
 func _marcar_cadaver(id: int, lugar: String) -> void:
 	if not PisoVivo.lleva(lugar):
+		Net.contar_de_otro_sitio()
 		return
 	var n = _enem_nodos.get(id)
 	if n != null and is_instance_valid(n) and n.has_method("marcar_cadaver"):
@@ -158,6 +164,7 @@ func _marcar_cadaver(id: int, lugar: String) -> void:
 @rpc("authority", "call_remote", "reliable")
 func _spawn_enemigo(id: int, lugar: String, pos: Vector2, d: Dictionary) -> void:
 	if not PisoVivo.lleva(lugar):
+		Net.contar_de_otro_sitio()
 		return   # eso esta en OTRO piso: aqui no se pinta
 	if _enem_nodos.has(id) and is_instance_valid(_enem_nodos[id]):
 		return   # ya lo tengo (llego dos veces: difusion + peticion de late-join)
@@ -340,6 +347,8 @@ func _pedir_enemigos(lugar: String) -> void:
 			if is_instance_valid(e["nodo"]) and String(e["lugar"]) == lugar:
 				_spawn_enemigo.rpc_id(quien, id, lugar, (e["nodo"] as Node2D).global_position,
 					IdsRed.a_red(_datos_enemigo(e["nodo"])))
+		# Y los cuerpos que se estan extrayendo en ese piso: tambien solo le llegaban a los que estaban.
+		Net.extraccion._set_extrayendo.rpc_id(quien, Net.extraccion.del_lugar(lugar))
 
 
 # El DUEÑO del piso difunde las posiciones de SUS enemigos a ~20 Hz. En solitario, o si solo espejo el
