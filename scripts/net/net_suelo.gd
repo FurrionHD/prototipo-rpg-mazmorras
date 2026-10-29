@@ -5,6 +5,9 @@
 # ============================================================
 extends Node
 
+# El canal de cada mensaje (ver net_canales.gd: por que va cada uno en el suyo).
+const Canal := preload("res://scripts/net/net_canales.gd")
+
 const _DROP_PICKUP := preload("res://scripts/items/drop_pickup.gd")
 # El HOST es la fuente de verdad: _suelo apunta cada drop vivo por id. Todos los peers (host
 # incluido) mantienen _drops con el NODO visual de cada id. Quien recoge se lo PIDE al host:
@@ -85,7 +88,7 @@ func solicitar_soltar(item: Resource, pos: Vector2, n: int = 1, lugar: String = 
 		_pedir_soltar.rpc_id(1, IdsRed.a_red(d), pos, lugar)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _pedir_soltar(d: Dictionary, pos: Vector2, lugar: String) -> void:
 	if not Net.es_host:
 		return
@@ -131,7 +134,7 @@ func _hacer_hueco_en(lugar: String) -> void:
 	print("[suelo] %s estaba lleno (%d): se van los %d mas viejos" % [lugar, ids.size(), sobran])
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _spawn_drop(id: int, d: Dictionary, pos: Vector2, lugar: String) -> void:
 	if not PisoVivo.lleva(lugar):
 		Net.contar_de_otro_sitio()
@@ -157,7 +160,7 @@ func solicitar_recoger(id: int) -> void:
 		_pedir_recoger.rpc_id(1, id)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _pedir_recoger(id: int) -> void:
 	if not Net.es_host:
 		return
@@ -181,7 +184,7 @@ func _resolver_recogida(id: int, ganador: int) -> void:
 		_recoger_concedido.rpc_id(ganador, IdsRed.a_red(d))
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _despawn_drop(id: int) -> void:
 	var n = _drops.get(id)
 	if n != null and is_instance_valid(n):
@@ -191,7 +194,7 @@ func _despawn_drop(id: int) -> void:
 
 # SOLO le llega al ganador: reconstruye el item y lo embolsa. Como esto corre unicamente en su
 # proceso, el aviso del HUD ("Recoges X") sale solo en SU pantalla.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _recoger_concedido(d: Dictionary) -> void:
 	# Un monton (d["n"]) entra de golpe. Antes iba unidad a unidad, y como _item_de_dict ya le pone su n a cada
 	# pieza, un monton de 5 flechas embolsaba 5 x 5 = 25.
@@ -214,7 +217,7 @@ func solicitar_comer(id: int, bicho: Node) -> void:
 		_pedir_comer.rpc_id(1, id, bid)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _pedir_comer(id: int, bid: int) -> void:
 	if not Net.es_host:
 		return
@@ -238,7 +241,7 @@ func _resolver_comida(id: int, bid: int, dueno: int) -> void:
 
 # El cristal 'id' se lo come el bicho 'bid': el MISMO nodo del suelo se le mete dentro. El bicho es el de verdad en el
 # que simula el piso y su espejo en los demas; si aqui no esta (otro piso, aun no ha llegado), se borra sin mas.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _tragar_drop(id: int, bid: int) -> void:
 	var n = _drops.get(id)
 	_drops.erase(id)
@@ -252,7 +255,7 @@ func _tragar_drop(id: int, bid: int) -> void:
 	ComerCristales.tragar_visual(n, bicho)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _comida_concedida(bid: int, d: Dictionary) -> void:
 	var reg: Dictionary = Net.enemigos._enemigos.get(bid, {})
 	var bicho = reg.get("nodo")

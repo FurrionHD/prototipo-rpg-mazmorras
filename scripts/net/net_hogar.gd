@@ -8,6 +8,9 @@
 # ============================================================
 extends Node
 
+# El canal de cada mensaje (ver net_canales.gd: por que va cada uno en el suyo).
+const Canal := preload("res://scripts/net/net_canales.gd")
+
 
 func _ready() -> void:
 	Net.fotos.llegada.connect(_on_foto_llegada)   # Net monta las fotos antes que el hogar
@@ -113,7 +116,7 @@ func retirar_bote(n: int) -> void:
 		_resolver_retiro(n, 1)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _pedir_depositar(n: int) -> void:
 	if not Net.es_host or n <= 0:
 		return
@@ -121,7 +124,7 @@ func _pedir_depositar(n: int) -> void:
 	_difundir_bote()
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _pedir_retirar(n: int) -> void:
 	if not Net.es_host:
 		return
@@ -145,12 +148,12 @@ func _resolver_retiro(n: int, quien: int) -> void:
 		_retiro_ok.rpc_id(quien, n)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _retiro_ok(n: int) -> void:
 	Game.ingresar(n)   # el dinero entra en MI bolsillo
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _retiro_fallido() -> void:
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud != null and hud.has_method("mostrar_toast"):
@@ -159,7 +162,7 @@ func _retiro_fallido() -> void:
 
 # El host le dice a UN cliente por que no ha podido hacer algo. Generico a proposito: el motivo lo
 # escribe quien lo rechaza, que es el unico que lo sabe.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _aviso_remoto(texto: String) -> void:
 	Net._aviso_esquina(texto)
 
@@ -171,7 +174,7 @@ func _difundir_bote() -> void:
 	Net.hogar_cambiado.emit()
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.HOGAR)
 func _set_bote(v: int) -> void:
 	_bote_mirror = v   # cliente: reflejo del bote del host
 	Net.hogar_cambiado.emit()
@@ -200,7 +203,7 @@ func pedir_tiradas_novato(n: int) -> void:
 		_resolver_tiradas_novato(n, 1)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _pedir_tiradas_novato(n: int) -> void:
 	if not Net.es_host:
 		return
@@ -224,7 +227,7 @@ func _resolver_tiradas_novato(n: int, quien: int) -> void:
 		_tiradas_novato_ok.rpc_id(quien, k)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _tiradas_novato_ok(k: int) -> void:
 	tiradas_novato_concedidas.emit(k)
 
@@ -234,7 +237,7 @@ func _difundir_tiradas_novato() -> void:
 		_set_tiradas_novato.rpc(Game.tiradas_novato)
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.HOGAR)
 func _set_tiradas_novato(v: int) -> void:
 	_tiradas_novato_mirror = v
 
@@ -251,7 +254,7 @@ func _set_tiradas_novato(v: int) -> void:
 #
 # Lo que NO hace es quedarse: al desconectar, exportar_partida_invitado devuelve la biblioteca a como
 # estaba al entrar (ver Net.partida._congelar_mi_mundo). Una tarde con tu hermano no te completa la coleccion.
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.HOGAR)
 func _set_biblioteca(v: Dictionary) -> void:
 	for k in v:
 		Game.biblioteca[k] = true
@@ -260,7 +263,7 @@ func _set_biblioteca(v: Dictionary) -> void:
 # Alguien ha leido un tomo: se apunta en todas las estanterias de la sesion. Lo llama Game al leer
 # (leer_tocho y aprender_de_grimorio), y va por el host para que el reparto sea el mismo que el del
 # resto del estado del hogar.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _apuntar_tomo(id: String) -> void:
 	if id == "":
 		return
@@ -290,14 +293,14 @@ func apuntar_tomo_en_la_sesion(id: StringName) -> void:
 #
 # Lo propio de cada uno sigue en su materiales_vistos (y en su JugadorData); lo de los demas vive en
 # Game.vistos_mundo, que es de la sesion. Asi nadie se lleva a su partida lo que descubrio otro.
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.HOGAR)
 func _set_vistos_mundo(v: Dictionary) -> void:
 	for k in v:
 		Game.vistos_mundo[String(k)] = true
 	Net.hogar_cambiado.emit()   # los menus de crafteo abiertos se repintan con lo nuevo
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _apuntar_visto(id: String) -> void:
 	if id == "" or Game.vistos_mundo.has(id):
 		return
@@ -352,7 +355,7 @@ func meter_en_cofre(item: Resource) -> bool:
 	return true
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _pedir_meter_cofre(d: Dictionary) -> void:
 	if not Net.es_host:
 		return
@@ -381,7 +384,7 @@ func sacar_de_cofre(id: int, vender: bool = false) -> void:
 		_resolver_saca_cofre(id, 1, vender)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _pedir_sacar_cofre(id: int, vender: bool) -> void:
 	if not Net.es_host:
 		return
@@ -415,7 +418,7 @@ func _resolver_saca_cofre(id: int, quien: int, vender: bool = false) -> void:
 		_cofre_concedido.rpc_id(quien, d, vender)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _cofre_concedido(d: Dictionary, vender: bool) -> void:
 	_recibir_del_cofre(d, vender)
 	Net.hogar_cambiado.emit()
@@ -451,7 +454,7 @@ func _cambio(que: String, valor) -> bool:
 	Net.hogar_cambiado.emit()
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.HOGAR)
 func _set_cofre(z: Array) -> void:
 	var lista: Array = Net.unzip_array(z)
 	_cofre_mirror = lista   # cliente: reflejo del cofre del host
@@ -490,7 +493,7 @@ func solicitar_encargo(piso: int, grupos: Dictionary, duracion: int, uids: Array
 	return ""
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _pedir_encargo(piso: int, grupos: Dictionary, duracion: int, uids: Array, cofre_ids: Array,
 		faenas: Dictionary = {}, clases: Dictionary = {}) -> void:
 	if not Net.es_host:
@@ -546,7 +549,7 @@ func solicitar_traer_encargo(id: int) -> void:
 			_difundir_hogar()
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _pedir_traer_encargo(id: int) -> void:
 	if Net.es_host and Game.traer_encargo(id):
 		_difundir_hogar()
@@ -561,7 +564,7 @@ func solicitar_dev_terminar_encargo(id: int) -> void:
 		_difundir_hogar()
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _pedir_dev_terminar_encargo(id: int) -> void:
 	if Net.es_host and Game.dev_terminar_encargo(id):
 		_difundir_hogar()
@@ -576,7 +579,7 @@ func solicitar_recoger_encargo(id: int) -> void:
 			_difundir_hogar()
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _pedir_recoger_encargo(id: int) -> void:
 	if not Net.es_host:
 		return
@@ -601,7 +604,7 @@ func pedir_repasar_encargos() -> void:
 		_difundir_hogar()
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _pedir_repaso_encargos() -> void:
 	if Net.es_host and Game.repasar_encargos() > 0:
 		_difundir_hogar()
@@ -626,7 +629,7 @@ func _difundir_hogar() -> void:
 	Net.hogar_cambiado.emit()
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.HOGAR)
 func _set_encargos(lista: Array) -> void:
 	_encargos_mirror = lista
 	# EL ENCARGO GANA, EL EQUIPO CEDE. Si uno de los MIOS acaba de salir de encargo, se va del
@@ -638,7 +641,7 @@ func _set_encargos(lista: Array) -> void:
 	Net.hogar_cambiado.emit()
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.HOGAR)
 func _set_roster_hogar(z: Array) -> void:
 	var lista: Array = Net.unzip_array(z)
 	_roster_mirror = lista
@@ -717,7 +720,7 @@ func marcar_hogar_sucio() -> void:
 
 
 # Corre en EL HOST: un jugador me dice como esta su hogar AHORA.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _mi_hogar(filas: Array) -> void:
 	if not Net.es_host:
 		return
@@ -850,7 +853,7 @@ func mandar_excelia(identidad: String, entradas: Array) -> void:
 
 
 # Corre en el DUEÑO. Aplica lo suyo a sus propios PersonajeData: son los unicos autoritativos.
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.HOGAR)
 func _set_excelia_encargo(entradas: Array) -> void:
 	var tocados: int = 0
 	for g in entradas:
@@ -878,7 +881,7 @@ func mandar_partes_encargo(identidad: String, partes: Array) -> void:
 		_set_partes_encargo.rpc_id(peer, partes)
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.HOGAR)
 func _set_partes_encargo(partes: Array) -> void:
 	for p in partes:
 		var parte := p as Dictionary
@@ -902,7 +905,7 @@ func meter_consumible_cofre(ruta: String, n: int) -> void:
 		_apuntar_consumible(ruta, quita)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _pedir_meter_consumible(id: int, n: int) -> void:
 	var ruta: String = IdsRed.ruta(id)   # por la red, su id (IdsRed)
 	if ruta.is_empty():
@@ -925,7 +928,7 @@ func sacar_consumible_cofre(ruta: String, n: int, vender: bool = false) -> void:
 		_resolver_saca_consumible(ruta, n, 1, vender)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _pedir_sacar_consumible(id: int, n: int, vender: bool) -> void:
 	var ruta: String = IdsRed.ruta(id)
 	if ruta.is_empty():
@@ -950,7 +953,7 @@ func _resolver_saca_consumible(ruta: String, n: int, quien: int, vender: bool = 
 		_consumible_concedido.rpc_id(quien, IdsRed.de(ruta), da, vender)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _consumible_concedido(id: int, n: int, vender: bool) -> void:
 	_recibir_consumible(IdsRed.ruta(id), n, vender)
 	Net.hogar_cambiado.emit()
@@ -976,7 +979,7 @@ func _difundir_cofre_consumibles() -> void:
 	Net.hogar_cambiado.emit()
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.HOGAR)
 func _set_cofre_consumibles(d: Dictionary) -> void:
 	_cofre_consum_mirror = IdsRed.claves_de_red(d)   # {ruta: cuantas}, por la red con ids   # cliente: reflejo del cofre del host
 	Net.hogar_cambiado.emit()
@@ -1107,7 +1110,7 @@ func cerrar_taller() -> void:
 		_delta_al_host.rpc_id(1, IdsRed.a_red(delta["quitar"]), IdsRed.a_red(delta["poner"]))   # (vacio = solo soltar el permiso)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _pedir_permiso() -> void:
 	if not Net.es_host:
 		return
@@ -1120,12 +1123,12 @@ func _pedir_permiso() -> void:
 	_permiso_ok.rpc_id(quien)
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.HOGAR)
 func _permiso_ok() -> void:
 	_permiso_resp = 1
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.HOGAR)
 func _permiso_no() -> void:
 	_permiso_resp = -1
 
@@ -1188,7 +1191,7 @@ func _aplicar_delta_local(quitar: Array, poner: Array) -> int:
 
 # HOST: lo que ha gastado/añadido el cliente que tenia el permiso. Se aplica al baul bueno, se reparte a los DEMAS (el
 # que lo manda ya lo tiene) y se suelta el permiso. Si algo no cuadra (no deberia, con el permiso), se le corrige entero.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _delta_al_host(quitar: Array, poner: Array) -> void:
 	if not Net.es_host:
 		return
@@ -1210,7 +1213,7 @@ func _delta_al_host(quitar: Array, poner: Array) -> void:
 
 
 # CLIENTE: un delta del host (lo que ha hecho otro).
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.HOGAR)
 func _aplicar_delta(quitar: Array, poner: Array) -> void:
 	_aplicar_delta_local(IdsRed.de_red(quitar), IdsRed.de_red(poner))
 	Net.hogar_cambiado.emit()
@@ -1224,7 +1227,7 @@ func tengo_taller() -> bool:
 	return _taller_dueno == multiplayer.get_unique_id()
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.HOGAR)
 func _set_almacen(z: Array) -> void:
 	var bag: Array = Net.unzip_array(z)
 	# No piso mi baul si soy YO quien tiene el taller prestado (estoy crafteando con el).
@@ -1271,7 +1274,7 @@ func necesito_baul() -> bool:
 
 
 # SALA: alguien quiere el baul. Se le manda entero y desde ahora tambien sus cambios.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _quiero_baul() -> void:
 	var quien := multiplayer.get_remote_sender_id()
 	if not Net.es_host or not Net._peers.has(quien):
@@ -1332,7 +1335,7 @@ func liberar_mis_reservas() -> void:
 	reservar({})
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func pedir_reserva(claim: Dictionary) -> void:
 	if not Net.es_host:
 		return
@@ -1382,7 +1385,7 @@ func _reservado_por_otros_host(salvo: int, clave: String) -> int:
 	return total
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.HOGAR)
 func _set_reservas(todas: Dictionary) -> void:
 	# El ECO de mi propia reserva vuelve por aqui: yo la pido, el host la aplica y me difunde el mapa
 	# entero, que ya incluye lo que acabo de mandar. Si NADA ha cambiado respecto a lo que ya tenia,

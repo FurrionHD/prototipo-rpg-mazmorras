@@ -6,6 +6,9 @@
 # ============================================================
 extends Node
 
+# El canal de cada mensaje (ver net_canales.gd: por que va cada uno en el suyo).
+const Canal := preload("res://scripts/net/net_canales.gd")
+
 # NONCE VIVO de cada sitio de recoleccion de la sesion: sitio -> el numero con el que nacio lo que
 # hay ahi ahora. Hermano de _agotados_sesion y con su misma clave (Vector3i(piso, x, y)).
 #
@@ -56,7 +59,7 @@ func solicitar_veta(celda: Vector2i, piso: int) -> void:
 		_pedir_veta.rpc_id(1, celda, piso)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _pedir_veta(celda: Vector2i, piso: int) -> void:
 	if not Net.es_host:
 		return
@@ -82,7 +85,7 @@ func _resolver_veta(celda: Vector2i, piso: int, quien: int) -> void:
 		_veta_concedida.rpc_id(quien, celda)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _veta_concedida(celda: Vector2i) -> void:
 	for n in get_tree().get_nodes_in_group("recolectable"):
 		if is_instance_valid(n) and n.celda == celda:
@@ -90,7 +93,7 @@ func _veta_concedida(celda: Vector2i) -> void:
 			return
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _veta_ocupada() -> void:
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud != null and hud.has_method("mostrar_toast"):
@@ -109,7 +112,7 @@ func notificar_agotado(celda: Vector2i, piso: int, retraso: float = 0.0) -> void
 		_pedir_agotar.rpc_id(1, celda, piso, retraso)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _pedir_agotar(celda: Vector2i, piso: int, retraso: float = 0.0) -> void:
 	if not Net.es_host:
 		return
@@ -139,7 +142,7 @@ func _registrar_agotado(celda: Vector2i, piso: int, retraso: float = 0.0) -> voi
 #
 # En el host esto corre justo despues de _registrar_agotado (que lo llama directo), asi que tiene que
 # sellar con el MISMO reloj o le pisaria el valor bueno al que se acaba de guardar en el save.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _agotar_celda(celda: Vector2i, piso: int, retraso: float = 0.0) -> void:
 	_agotados_sesion[_sitio(piso, celda)] = Game.reloj_mundo() + retraso
 	if not _llevo_el_piso(piso):
@@ -201,7 +204,7 @@ func _sembrar_agotados_del_save() -> void:
 # Corre en TODOS: se levanta el sello y, si estoy en ese piso, brota el nodo otra vez (con el
 # material RE-TIRADO, igual que en solitario). Si no estoy alli basta con soltar el sello: cuando
 # baje, el piso se construye y la celda vuelve a nacer sola.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _revivir_celda(celda: Vector2i, piso: int, nonce: int = 0) -> void:
 	_agotados_sesion.erase(_sitio(piso, celda))
 	# El nonce se APUNTA, no solo se usa: es lo que hace que el sub-tier con el que acaba de brotar

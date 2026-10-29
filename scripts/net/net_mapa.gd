@@ -5,6 +5,9 @@
 # ============================================================
 extends Node
 
+# El canal de cada mensaje (ver net_canales.gd: por que va cada uno en el suyo).
+const Canal := preload("res://scripts/net/net_canales.gd")
+
 # --- MAPA DE LA SESION (la libreta del mundo del HOST) ----------------------------------------
 #
 # Se juega en el mundo del HOST, asi que la libreta que hay que mirar es la de SU mundo. Antes el
@@ -71,7 +74,7 @@ func comprometer_mapa_sesion(trabajo: Dictionary) -> void:
 	_pedir_fusion_mapa.rpc_id(1, libreta_a_red(trabajo, _vistas_sesion))
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _pedir_fusion_mapa(z: Array) -> void:
 	if not Net.es_host:
 		return
@@ -245,7 +248,7 @@ func _sello_de(e) -> float:
 	return float((e as Dictionary)["t"]) if e is Dictionary else float(e)
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.MUNDO)
 func _set_mapa_sesion(z: Array) -> void:
 	var libreta: Array = libreta_de_red(z)
 	if libreta.is_empty():

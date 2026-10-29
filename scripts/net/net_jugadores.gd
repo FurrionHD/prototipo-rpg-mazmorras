@@ -7,6 +7,9 @@
 # ============================================================
 extends Node
 
+# El canal de cada mensaje (ver net_canales.gd: por que va cada uno en el suyo).
+const Canal := preload("res://scripts/net/net_canales.gd")
+
 const _PROYECTIL_HECHIZO := preload("res://scripts/actors/player/proyectil_hechizo.gd")
 
 
@@ -160,7 +163,7 @@ func avisar_combate(peleando: bool) -> void:
 		_rel_peleando.rpc_id(1, peleando)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _set_peleando(emisor: int, peleando: bool) -> void:
 	if Net._peers.has(emisor):
 		Net._peers[emisor]["peleando"] = peleando
@@ -169,7 +172,7 @@ func _set_peleando(emisor: int, peleando: bool) -> void:
 		Game.zona_ajena_cerrada(emisor)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _rel_peleando(peleando: bool) -> void:
 	if not Net.es_host:
 		return
@@ -196,7 +199,7 @@ func avisar_impacto(pos: Vector2) -> void:
 		_rel_impacto.rpc_id(1, pos)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _rel_impacto(pos: Vector2) -> void:
 	if Net.es_host:
 		_repartir_impacto(multiplayer.get_remote_sender_id(), pos)
@@ -211,7 +214,7 @@ func _repartir_impacto(de: int, pos: Vector2) -> void:
 			_impacto.rpc_id(pid, de, pos)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _impacto(de: int, pos: Vector2) -> void:
 	Game.impacto_ajeno(de, pos)
 
@@ -228,7 +231,7 @@ func anunciar_zona(anfitrion: int, rect: Rect2i, mascara: PackedByteArray) -> vo
 		_rel_zona.rpc_id(1, anfitrion, r, mascara)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _rel_zona(anfitrion: int, r: Array, mascara: PackedByteArray) -> void:
 	if Net.es_host:
 		_repartir_zona(multiplayer.get_remote_sender_id(), anfitrion, r, mascara)
@@ -243,7 +246,7 @@ func _repartir_zona(de: int, anfitrion: int, r: Array, mascara: PackedByteArray)
 			_zona.rpc_id(pid, de, anfitrion, r, mascara)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _zona(de: int, anfitrion: int, r: Array, mascara: PackedByteArray) -> void:
 	if r.size() != 4:
 		return
@@ -277,7 +280,7 @@ func anunciar_retorno(piso_max: int, quien: String) -> void:
 		_rel_retorno.rpc_id(1, piso_max, quien)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _rel_retorno(piso_max: int, quien: String) -> void:
 	if not Net.es_host:
 		return
@@ -306,7 +309,7 @@ func _alcanza_la_piedra(lugar: String, piso_max: int) -> bool:
 	return int(lugar.substr(5)) <= piso_max
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _ofrecer_retorno(piso_max: int, quien: String) -> void:
 	Game.recibir_oferta_retorno(quien, piso_max)
 
@@ -356,7 +359,7 @@ func _datos_grupo() -> Array:
 	return datos
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _set_grupo(emisor: int, datos: Array) -> void:
 	if not Net._peers.has(emisor):
 		return
@@ -393,7 +396,7 @@ func repintar_companeros(huella: int) -> void:
 				pintar_companero(lista[i], comps[i])
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _rel_grupo(datos: Array) -> void:
 	if not Net.es_host:
 		return
@@ -434,7 +437,7 @@ func _mis_imbues() -> PackedInt32Array:
 	return out
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _set_imbue(emisor: int, elems: PackedInt32Array) -> void:
 	if not Net._peers.has(emisor):
 		return
@@ -479,7 +482,7 @@ func apoyo_a_otro(spell: SpellData, peer: int, idx: int, nombre: String, grupo: 
 		_rel_apoyo.rpc_id(1, peer, IdsRed.de(spell), idx, nombre, lanzador, cura, grupo, entre)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _rel_apoyo(peer: int, hechizo: int, idx: int, nombre: String, lanzador: String, cura: float,
 		grupo: bool, entre: int) -> void:
 	if not Net.es_host:
@@ -491,7 +494,7 @@ func _rel_apoyo(peer: int, hechizo: int, idx: int, nombre: String, lanzador: Str
 
 
 # Corre en el DUEÑO del personaje.
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.CONTROL)
 func _apoyarte(hechizo: int, idx: int, nombre: String, lanzador: String, cura: float, grupo: bool,
 		entre: int) -> void:
 	var spell = IdsRed.cargar(hechizo)   # el hechizo, como id: solo los del juego
@@ -545,7 +548,7 @@ func anunciar_fx_cura(que: int) -> void:
 		_rel_fx_cura.rpc_id(1, que, Net._mi_lugar)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _set_fx_cura(emisor: int, que: int) -> void:
 	var viejo = _circulos_cura.get(emisor)   # SIN tipar: puede estar liberado
 	if viejo != null and is_instance_valid(viejo):
@@ -560,7 +563,7 @@ func _set_fx_cura(emisor: int, que: int) -> void:
 		AreaCuracion.onda(a)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _rel_fx_cura(que: int, lugar: String) -> void:
 	if not Net.es_host:
 		return
@@ -586,7 +589,7 @@ func anunciar_circulo(ruta: String, dichas: int, fin: int) -> void:
 		_rel_circulo.rpc_id(1, IdsRed.de(ruta), dichas, fin, Net._mi_lugar)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _set_circulo(emisor: int, hechizo: int, dichas: int, fin: int) -> void:
 	var a = Net._avatares.get(emisor)   # SIN tipar: puede estar liberado
 	if a == null or not is_instance_valid(a) or not (a is Node2D):
@@ -595,7 +598,7 @@ func _set_circulo(emisor: int, hechizo: int, dichas: int, fin: int) -> void:
 	CirculoMagico.en_cuerpo(a, sp as SpellData, dichas, fin)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _rel_circulo(hechizo: int, dichas: int, fin: int, lugar: String) -> void:
 	if not Net.es_host:
 		return
@@ -617,13 +620,13 @@ func unirme_a_la_pelea_del_jugador(peer: int) -> void:
 	_dime_tu_pelea.rpc_id(peer)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _dime_tu_pelea() -> void:
 	# El ID de mi pelea (etapa 3): de el sale quien la ejecuta.
 	_esta_es_mi_pelea.rpc_id(multiplayer.get_remote_sender_id(), Net.peleas.mi_pelea())
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _esta_es_mi_pelea(anfitrion: int) -> void:
 	if anfitrion == 0:
 		Net._toast("Esa pelea ya ha terminado.")
@@ -631,7 +634,7 @@ func _esta_es_mi_pelea(anfitrion: int) -> void:
 	Net.peleas.solicitar_unirse(anfitrion)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _rel_imbue(elems: PackedInt32Array) -> void:
 	if not Net.es_host:
 		return
@@ -736,7 +739,7 @@ func anunciar_luz() -> void:
 		_rel_luz.rpc_id(1, r)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _set_luz(emisor: int, radio: float) -> void:
 	if not Net._peers.has(emisor):
 		return
@@ -755,7 +758,7 @@ func _aplicar_luz_a_avatares(emisor: int, radio: float) -> void:
 			c.aplicar_luz(radio)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _rel_luz(radio: float) -> void:
 	if not Net.es_host:
 		return
@@ -783,7 +786,7 @@ func anunciar_canto(texto: String, color: Color) -> void:
 		_rel_canto.rpc_id(1, texto, color, Net._mi_lugar)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _set_canto(emisor: int, texto: String, color: Color) -> void:
 	var a = Net._avatares.get(emisor)   # SIN tipar: puede estar liberado
 	if a == null or not is_instance_valid(a) or not a.has_method("cantar"):
@@ -791,7 +794,7 @@ func _set_canto(emisor: int, texto: String, color: Color) -> void:
 	a.cantar(texto, color)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _rel_canto(texto: String, color: Color, lugar: String) -> void:
 	if not Net.es_host:
 		return
@@ -822,7 +825,7 @@ func anunciar_conjuro(objetivo: Node, color: Color, spell: SpellData = null) -> 
 		_rel_conjuro.rpc_id(1, id, color, hechizo, Net._mi_lugar)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _set_conjuro(emisor: int, id: int, color: Color, hechizo: int = 0) -> void:
 	var a = Net._avatares.get(emisor)
 	var obj = Net.enemigos._enem_nodos.get(id)
@@ -836,7 +839,7 @@ func _set_conjuro(emisor: int, id: int, color: Color, hechizo: int = 0) -> void:
 		mundo.add_child(p)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _rel_conjuro(id: int, color: Color, hechizo: int, lugar: String) -> void:
 	if not Net.es_host:
 		return

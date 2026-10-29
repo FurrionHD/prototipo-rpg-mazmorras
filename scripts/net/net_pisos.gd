@@ -7,6 +7,9 @@
 # ============================================================
 extends Node
 
+# El canal de cada mensaje (ver net_canales.gd: por que va cada uno en el suyo).
+const Canal := preload("res://scripts/net/net_canales.gd")
+
 # --- AVISO DE PARED replicado (los brotes) ----------------------------------------------------
 #
 # Los partos los simula UN dueño por piso, asi que el AVISO (la pared que late y tiembla) solo se
@@ -28,7 +31,7 @@ func anunciar_brote(paredes_px: Array, dur: float, amp: float, col: Color) -> vo
 
 
 # Solo host: reparte el aviso de un cliente entre los demas de ESE lugar (el emisor ya lo ve).
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _rel_brote(paredes_px: Array, dur: float, amp: float, col: Color, lugar: String) -> void:
 	if not Net.es_host:
 		return
@@ -40,7 +43,7 @@ func _rel_brote(paredes_px: Array, dur: float, amp: float, col: Color, lugar: St
 			_pintar_brote.rpc_id(pid, paredes_px, dur, amp, col)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _pintar_brote(paredes_px: Array, dur: float, amp: float, col: Color) -> void:
 	var piso: Node = Game.get_tree().get_first_node_in_group("dungeon_floor")
 	if piso != null and piso.has_method("pintar_aviso_pared"):
@@ -179,7 +182,7 @@ func anunciar_aspecto() -> void:
 		_rel_aspecto.rpc_id(1, c, m, n, img, al, pz, IdsRed.a_red(eq))
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _set_aspecto(emisor: int, color: Color, metal: float, nombre: String, huella: int,
 		alpha: float = 1.0, piezas: Dictionary = {}, equipo: Dictionary = {}) -> void:
 	if not Net._peers.has(emisor):
@@ -196,7 +199,7 @@ func _set_aspecto(emisor: int, color: Color, metal: float, nombre: String, huell
 	Net.pintar_avatar(emisor)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _rel_aspecto(color: Color, metal: float, nombre: String, huella: int,
 		alpha: float = 1.0, piezas: Dictionary = {}, equipo: Dictionary = {}) -> void:
 	if not Net.es_host:
@@ -226,7 +229,7 @@ func solicitar_entrar(piso: int = 1) -> void:
 		_pedir_entrar.rpc_id(1, piso)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _pedir_entrar(piso: int = 1) -> void:
 	if not Net.es_host:
 		return
@@ -347,7 +350,7 @@ func solicitar_volver(piso: int) -> void:
 	_pedir_volver.rpc_id(1, piso)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _pedir_volver(piso: int) -> void:
 	if not Net.es_host:
 		return
@@ -361,7 +364,7 @@ func _pedir_volver(piso: int) -> void:
 
 
 # No se puede volver (la mazmorra se olvido: habiais caido todos): te quedas en el pueblo.
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.MUNDO)
 func _volver_no() -> void:
 	Game.pos_cargada = Vector2.INF
 
@@ -385,7 +388,7 @@ func _restantes_boss() -> Dictionary:
 # mazmorra persistente la lleva el HOST (_fotos_piso), y tu memoria local solo vale como cache de la
 # foto que el te manda tres lineas mas abajo. Borrarla aqui es lo que impide que tu mundo propio se
 # mezcle con el suyo.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _entrar_ok(piso: int, agotados: Dictionary, sellos_boss: Dictionary = {}, epoca: int = 0,
 		nonces: Dictionary = {}) -> void:
 	Net.recoleccion._agotados_sesion = agotados.duplicate()
@@ -436,7 +439,7 @@ func viajar_al_pueblo() -> void:
 	Net.anunciar_lugar("pueblo")
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _pedir_salir() -> void:
 	if not Net.es_host:
 		return
@@ -471,7 +474,7 @@ func morir_en_la_mazmorra() -> void:
 	Net.anunciar_lugar("pueblo")
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _pedir_muerte() -> void:
 	if not Net.es_host:
 		return
@@ -570,7 +573,7 @@ func pedir_forzar_jefe() -> void:
 		_pedir_forzar_jefe.rpc_id(1, Net._mi_lugar)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _pedir_forzar_jefe(lugar: String) -> void:
 	if Net.es_host:
 		_encaminar_forzar_jefe(lugar)
@@ -604,7 +607,7 @@ func pedir_piso_arena(piso: int) -> void:
 		_pedir_piso_arena.rpc_id(1, Net._mi_lugar, piso)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _pedir_piso_arena(lugar: String, piso: int) -> void:
 	if Net.es_host:
 		_difundir_piso_arena(lugar, piso)
@@ -618,7 +621,7 @@ func _difundir_piso_arena(lugar: String, piso: int) -> void:
 
 
 # En CADA maquina: me lo apunto (para cuando entre) y, si estoy en esa arena, ese es el piso que simulo.
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.MUNDO)
 func _piso_arena(lugar: String, piso: int) -> void:
 	Game.arena_piso_juego = clampi(piso, 1, 30)
 	if PisoVivo.lleva(lugar):
@@ -654,7 +657,7 @@ func pedir_limpiar_arena() -> void:
 		_pedir_arena.rpc_id(1, Net._mi_lugar, "limpiar", [])
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _pedir_arena(lugar: String, que: String, args: Array) -> void:
 	if Net.es_host:
 		_encaminar_arena(lugar, que, args)
@@ -740,7 +743,7 @@ func solicitar_piso(nuevo: int, bajando: bool) -> void:
 	_pedir_viaje.rpc_id(1, nuevo, bajando)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _pedir_viaje(nuevo: int, bajando: bool) -> void:
 	if not Net.es_host:
 		return
@@ -899,7 +902,7 @@ func _piso_de(quien: int) -> int:
 
 
 # Corre en EL VIAJERO: ya puede reconstruir su piso (de espejo: lo lleva la sala).
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _viaje_ok(nuevo: int, bajando: bool, agotados: Dictionary = {}, nonces: Dictionary = {}) -> void:
 	if not Net.es_host:
 		Net.recoleccion._agotados_sesion = agotados.duplicate()   # los de MI piso (ver _conceder_piso)
@@ -1027,7 +1030,7 @@ func _process(delta: float) -> void:
 			_pedir_alboroto.rpc_id(1, Net._mi_lugar, cuanto, int(causante))
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _pedir_alboroto(lugar: String, cuanto: float, causante: int = 0) -> void:
 	if Net.es_host:
 		_encaminar_alboroto(multiplayer.get_remote_sender_id(), lugar, cuanto, causante)

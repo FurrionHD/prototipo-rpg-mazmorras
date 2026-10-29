@@ -5,6 +5,9 @@
 # ============================================================
 extends Node
 
+# El canal de cada mensaje (ver net_canales.gd: por que va cada uno en el suyo).
+const Canal := preload("res://scripts/net/net_canales.gd")
+
 # ==============================================================================================
 #  PESCA COMPARTIDA
 #
@@ -146,7 +149,7 @@ func avisar_mordida(a_quien: int, nonce: int) -> void:
 		_pez_pica.rpc_id(a_quien, nonce)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _pez_pica(nonce: int) -> void:
 	if _charco != null and is_instance_valid(_charco):
 		_charco.me_ha_picado(nonce)
@@ -166,7 +169,7 @@ func resolver_pesca(nonce: int, cobrado: bool) -> void:
 		_fin_pesca.rpc_id(1, Net._mi_lugar, nonce, cobrado)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _fin_pesca(lugar: String, nonce: int, cobrado: bool) -> void:
 	_encaminar_fin_pesca(multiplayer.get_remote_sender_id(), lugar, nonce, cobrado)
 

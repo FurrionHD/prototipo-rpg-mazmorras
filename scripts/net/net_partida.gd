@@ -6,6 +6,9 @@
 # ============================================================
 extends Node
 
+# El canal de cada mensaje (ver net_canales.gd: por que va cada uno en el suyo).
+const Canal := preload("res://scripts/net/net_canales.gd")
+
 # ============================================================
 #  UN PERSONAJE DE VERDAD (no el doble de combate) Y SU JUGADOR
 #  ficha_a_dict/ficha_de_dict son el DOBLE: mandan lo justo para pelear, viajan en CADA union a una
@@ -530,7 +533,7 @@ func desgaste_de_ausente(ident: String, lote: Array) -> void:
 		_desgaste_de_ausente.rpc_id(1, ident, lote)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.PARTIDA)
 func _desgaste_de_ausente(ident: String, lote: Array) -> void:
 	if not Net.es_host:
 		return
@@ -552,7 +555,7 @@ func _desgaste_de_ausente(ident: String, lote: Array) -> void:
 
 
 # Corre en el jugador que ya volvio: lo de la pelea que dejo, sobre sus personajes (por uid).
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.PARTIDA)
 func _desgaste_suelto(lote: Array) -> void:
 	for d_ in lote:
 		var d := d_ as Dictionary
@@ -690,7 +693,10 @@ func recoger_estados(cerrando: bool = false) -> void:
 		return
 	# A cada uno, diciendole si ya tengo una base suya con la que juntar solo lo que cambie (ver _mi_estado).
 	for pid in _estados_pedidos:
-		_dame_tu_estado.rpc_id(pid, cerrando, _base_estado.has(String(Net._identidades.get(pid, ""))))
+		# Con BARRERA (canales, 29/10): lo que le he mandado antes por otros canales (el desgaste de una pelea, un retiro
+		# del hogar...) tiene que estar ya en su estado cuando me lo mande.
+		var hay_base: bool = _base_estado.has(String(Net._identidades.get(pid, "")))
+		_dame_tu_estado.rpc_id(pid, cerrando, hay_base, Net.canales.barrera(pid))
 	var esperado := 0.0
 	while not _estados_pedidos.is_empty() and esperado < _PLAZO_ESTADOS:
 		await get_tree().create_timer(0.1).timeout
@@ -702,10 +708,12 @@ func recoger_estados(cerrando: bool = false) -> void:
 
 
 # El host pide lo mio. Corre en el INVITADO.
-@rpc("any_peer", "call_remote", "reliable")
-func _dame_tu_estado(cerrando: bool, hay_base: bool = false) -> void:
+@rpc("any_peer", "call_remote", "reliable", Canal.PARTIDA)
+func _dame_tu_estado(cerrando: bool, hay_base: bool = false, barrera: int = 0) -> void:
 	if Net.es_host:
 		return
+	# Primero, lo que la sala me mando antes de pedirmelo (por los otros canales): si no, mandaria un estado sin ello.
+	await Net.canales.pasada(multiplayer.get_remote_sender_id(), barrera)
 	# SOLO LO QUE HA CAMBIADO (fase 3, 28/10): eran ~83 KB en cada guardado (el baul entero, cada minuto), y
 	# casi nada cambia de uno a otro. Sin base en la sala (sala nueva, o es la primera vez), entero.
 	var d: Dictionary = jd_a_red(jd_a_dict(Game.mi_jugador_data()))   # con ids: las partes se comparan ya asi
@@ -713,7 +721,7 @@ func _dame_tu_estado(cerrando: bool, hay_base: bool = false) -> void:
 		_hash_enviado.clear()
 	var r: Array = solo_lo_cambiado(d, _hash_enviado)
 	_hash_enviado = r[1]
-	_mi_estado.rpc_id(1, Net.zip(r[0] if hay_base else d))
+	_mi_estado.rpc_id(1, Net.zip(r[0] if hay_base else d), Net.canales.barrera(1))
 	if not cerrando:
 		Net._aviso_esquina("Partida guardada")
 		return
@@ -735,12 +743,14 @@ func _dame_tu_estado(cerrando: bool, hay_base: bool = false) -> void:
 # Su equipo ya se registro cuando entro al mundo (_alta_jugador / _alta_personaje); esto es una
 # ACTUALIZACION, no un alta. Es el mismo fallo que el "bug de las 6 hachas" de ficha_de_dict, que se
 # arreglo para el camino del combate y quedo vivo en este.
-@rpc("any_peer", "call_remote", "reliable")
-func _mi_estado(z: Array) -> void:
+@rpc("any_peer", "call_remote", "reliable", Canal.PARTIDA)
+func _mi_estado(z: Array, barrera: int = 0) -> void:
 	var d: Dictionary = jd_de_red(Net.unzip_dict(z))
 	if not Net.es_host or not Net.mundo_compartido:
 		return
 	var quien := multiplayer.get_remote_sender_id()
+	# Lo que me pidio antes por otros canales (depositar, recoger...) va primero: su estado ya lo cuenta hecho.
+	await Net.canales.pasada(quien, barrera)
 	var identidad := String(Net._identidades.get(quien, ""))
 	if identidad == "":
 		return
@@ -873,9 +883,11 @@ func _olvidar_meta_item(item) -> void:
 func guardar_todos(cerrando: bool = false) -> void:
 	if not Net.activo or not Net.es_host or multiplayer.multiplayer_peer == null:
 		return
-	# .rpc() sin rpc_id = a TODOS los peers. Con dos o tres invitados guardan todos, cada uno en su
-	# ranura: aqui no hay nada que asuma un solo invitado.
-	_guardar_ahora.rpc(cerrando)
+	# A TODOS los peers. Con dos o tres invitados guardan todos, cada uno en su ranura: aqui no hay nada que asuma un
+	# solo invitado.
+	# A cada uno con su BARRERA (canales, 29/10): que guarde con lo que le he mandado antes por los otros canales.
+	for pid in Net._peers:
+		_guardar_ahora.rpc_id(pid, cerrando, Net.canales.barrera(pid))
 	if not cerrando:
 		return
 	# Un respiro antes de que el host corte: los RPC salen en el siguiente poll, y desconectar en el
@@ -895,7 +907,7 @@ func pedir_guardar_todos(cerrando: bool = false) -> void:
 	_pedir_guardar.rpc_id(1, cerrando)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.PARTIDA)
 func _pedir_guardar(cerrando: bool = false) -> void:
 	if not Net.es_host:
 		return
@@ -915,7 +927,7 @@ func _pedir_guardar(cerrando: bool = false) -> void:
 
 
 # Corre en el INVITADO que pidio guardar: si el host no pudo, que no se quede pensando que si.
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.PARTIDA)
 func _aviso_guardado(ok: bool) -> void:
 	Net.guardado_respondido.emit(ok)
 	if not ok:
@@ -923,8 +935,9 @@ func _aviso_guardado(ok: bool) -> void:
 
 
 # Corre en el INVITADO: guarda en SU ranura, en el pueblo de SU mundo.
-@rpc("authority", "call_remote", "reliable")
-func _guardar_ahora(cerrando: bool = false) -> void:
+@rpc("authority", "call_remote", "reliable", Canal.PARTIDA)
+func _guardar_ahora(cerrando: bool = false, barrera: int = 0) -> void:
+	await Net.canales.pasada(multiplayer.get_remote_sender_id(), barrera)
 	# El guardado en si lo hace Game (es quien habla con Perfil): si net.gd llamara a Perfil se cerraria
 	# un ciclo net -> Perfil -> Game -> net y GDScript deja de inferir los tipos de Game.* aqui dentro.
 	var ok: bool = Game.guardar_partida_invitado()
@@ -982,7 +995,7 @@ func mandar_alta_jugador(jd: JugadorData) -> void:
 	_alta_jugador.rpc_id(1, jd_a_red(jd_a_dict(jd)))
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.PARTIDA)
 func _crea_tu_personaje(nombre_mundo: String) -> void:
 	Net._respondio = true
 	Net.estado_cambiado.emit("Es tu primera vez en este mundo: crea tu personaje.")
@@ -991,7 +1004,7 @@ func _crea_tu_personaje(nombre_mundo: String) -> void:
 
 # El invitado manda el personaje recien creado. Corre EN EL HOST: es el que lo guarda en el mundo,
 # porque el mundo es suyo mientras tenga el cerrojo.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.PARTIDA)
 func _alta_personaje(z: Array) -> void:
 	var d: Dictionary = ficha_de_red(Net.unzip_dict(z))
 	if not Net.es_host or not Net.mundo_compartido:
@@ -1027,7 +1040,7 @@ func _alta_personaje(z: Array) -> void:
 # todo lo que llega: no se admite un paquete que diga ser de otra persona, ni un equipo mas grande
 # del que cabe. El equipo que traen los personajes se registra en el baul de este mundo (lo hace
 # jd_de_dict via ficha_de_dict con registrar=true), que es donde tienen que vivir a partir de ahora.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.PARTIDA)
 func _alta_jugador(d: Dictionary) -> void:
 	if not Net.es_host or not Net.mundo_compartido:
 		return
@@ -1083,7 +1096,7 @@ var donde_volver: Dictionary = {}
 
 
 # El host le da al invitado SU jugador de este mundo. Corre en el CLIENTE.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.PARTIDA)
 func _tu_jugador(z: Array, semilla: int, donde: Dictionary = {}) -> void:
 	var d: Dictionary = jd_de_red(Net.unzip_dict(z))
 	donde_volver = donde
@@ -1110,7 +1123,7 @@ func _tu_jugador(z: Array, semilla: int, donde: Dictionary = {}) -> void:
 
 
 # El invitado ya tiene ficha: ahora si se le mete dentro. Corre EN EL HOST.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.PARTIDA)
 func _listo(color: Color, metal: float, nombre: String, huella: int, alpha: float,
 		piezas: Dictionary = {}) -> void:
 	if not Net.es_host:

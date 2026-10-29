@@ -6,6 +6,9 @@
 # ============================================================
 extends Node
 
+# El canal de cada mensaje (ver net_canales.gd: por que va cada uno en el suyo).
+const Canal := preload("res://scripts/net/net_canales.gd")
+
 # JEFES caidos de la sesion: piso -> unix time (reloj de pared) en que cayo. Mismo mecanismo que
 # _agotados_sesion y por la misma razon: el jefe reaparece por RELOJ (Game.BOSS_RESPAWN) y su cuenta
 # atras tiene que sobrevivir a que os subais todos al pueblo.
@@ -41,7 +44,7 @@ func avisar_boss_caido(piso: int) -> void:
 		_pedir_sellar_boss.rpc_id(1, piso)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _pedir_sellar_boss(piso: int) -> void:
 	if Net.es_host:
 		_sellar_boss_host(piso)
@@ -62,7 +65,7 @@ func _sellar_boss_host(piso: int) -> void:
 		piso, roundi(float(Game.BOSS_RESPAWN.get(piso, 0.0)))])
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _marcar_boss(piso: int, muerto: bool, restan: float = -1.0) -> void:
 	if muerto:
 		# Quien MANDA la decision sigue siendo el host (esta clave puesta = el jefe esta muerto). Lo
@@ -129,7 +132,7 @@ func boss_restante(piso: int) -> float:
 # Corre en TODOS: apunta el hito de mundo y, si estoy en ESE piso, abre sus salidas (la escalera
 # de bajada y la puerta al pueblo). Sin esto, el compañero que estaba en la sala del jefe nunca
 # veria aparecer la bajada.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _boss_caido(piso: int) -> void:
 	Game.marcar_boss_derrotado(piso)
 	if Net.pisos.mi_piso() != piso:

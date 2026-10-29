@@ -25,6 +25,9 @@
 # ============================================================
 extends Node
 
+# El canal de cada mensaje (ver net_canales.gd: por que va cada uno en el suyo).
+const Canal := preload("res://scripts/net/net_canales.gd")
+
 # Ha llegado (o la sala ha recibido) la foto con esa huella: quien la pinte, que se repinte.
 signal llegada(huella: int)
 
@@ -167,7 +170,7 @@ static func valida(png) -> bool:
 # ============================================================
 #  LA SALA
 # ============================================================
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.FOTOS)
 func _subir(png) -> void:
 	if Net.es_host and Net._peers.has(multiplayer.get_remote_sender_id()):   # solo de quien esta dentro
 		recibir_subida(multiplayer.get_remote_sender_id(), png)
@@ -189,7 +192,7 @@ func recibir_subida(peer: int, png) -> int:
 	return h
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.FOTOS)
 func _pedir(huellas) -> void:
 	if Net.es_host and huellas is PackedInt64Array and Net._peers.has(multiplayer.get_remote_sender_id()):
 		atender_peticion(multiplayer.get_remote_sender_id(), huellas)
@@ -227,7 +230,7 @@ func _mandar(peer: int, h: int) -> void:
 # ============================================================
 #  EL CLIENTE
 # ============================================================
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.FOTOS)
 func _foto(huella: int, png) -> void:
 	recibir_foto(huella, png)
 

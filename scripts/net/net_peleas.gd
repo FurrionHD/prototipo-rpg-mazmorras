@@ -6,6 +6,9 @@
 # ============================================================
 extends Node
 
+# El canal de cada mensaje (ver net_canales.gd: por que va cada uno en el suyo).
+const Canal := preload("res://scripts/net/net_canales.gd")
+
 # Una pelea EXISTE en la red: tiene id y una maquina que la EJECUTA (la de quien la abrio, porque
 # es la que tiene la pantalla delante; el dueño del piso puede estar en su propia pelea o en
 # ninguna). Los demas participantes la ven en ESPEJO y le mandan sus acciones.
@@ -173,7 +176,7 @@ func solicitar_pelea(id: int) -> void:
 		_pedir_pelea.rpc_id(1, id, Net._mi_lugar)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _pedir_pelea(id: int, lugar: String) -> void:
 	if not Net.es_host:
 		return
@@ -335,7 +338,7 @@ func _entregar_pelea(para: int, ids: Array, emboscada: bool, anfitrion: int, _de
 # Corre en EL QUE PELEA: monta el combate contra sus propios espejos, o los METE en la pelea que ya
 # tenga abierta (hito 5.4). Se les puede pasar tal cual a Game._abrir_pelea porque exponen
 # data/current_t/hp_restante y saben morir().
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _pelea_resuelta(ids: Array, emboscada: bool = false, anfitrion: int = 0) -> void:
 	_llega_pelea(ids, emboscada, anfitrion, 0)
 
@@ -354,14 +357,14 @@ func causante_alboroto(pe: PeleaViva = null) -> int:
 
 
 # Corre en EL QUE ATACA (o al que embisten): el host le dice que su pelea la ejecuta 'ejecutor'.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _pelea_en_ejecutor(ids: Array, emboscada: bool, ejecutor: int) -> void:
 	Medidor.marca("pelea", "cliente_ejecutor")
 	_llega_pelea(ids, emboscada, 0, ejecutor)
 
 
 # Corre en LA SALA: llegan las fichas del que pelea (ver _abre_en_la_sala).
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _abre_mi_pelea(ids: Array, emboscada: bool, z: Array, vel: float = 1.0, espera: float = 0.0) -> void:
 	var fichas: Array = Net.partida.fichas_de_red(Net.unzip_array(z))
 	Medidor.marca("pelea", "sala_abre")
@@ -545,7 +548,7 @@ func _avisar_impacto_de(ids: Array) -> void:
 # Corre en EL ANFITRION: unos bichos han alcanzado a alguien que esta en MI pelea, y me los pasa
 # para que entren en ella (ver _pelea_resuelta). Los nodos que necesito son los MIOS: si simulo el
 # piso son los de verdad, y si no, mis espejos.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _refuerzos_para_mi_pelea(ids: Array) -> void:
 	var pe: PeleaViva = _pe_de_peer(multiplayer.get_remote_sender_id())
 	if pe == null or pe.id == 0 or not Game.combate_activo(pe):
@@ -606,7 +609,7 @@ func reasignar_reservas(ids: Array) -> void:
 		_pedir_reasignacion.rpc_id(1, ids, Net._mi_lugar, yo)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _pedir_reasignacion(ids: Array, lugar: String, para: int) -> void:
 	if not Net.es_host:
 		return
@@ -636,7 +639,7 @@ func resultado_bicho(id: int, ha_muerto: bool, hp: float) -> void:
 		_pedir_resultado.rpc_id(1, id, ha_muerto, hp, Net._mi_lugar)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _pedir_resultado(id: int, ha_muerto: bool, hp: float, lugar: String) -> void:
 	if not Net.es_host:
 		return
@@ -666,7 +669,7 @@ func _aplicar_resultado(id: int, ha_muerto: bool, hp: float) -> void:
 # Alguien se fue (o se le corto). Si tenia bichos RESERVADOS para su pelea, hay que soltarlos o se
 # quedan congelados para siempre: es el bug de las estatuas, pero por red. Lo difunde el host y lo
 # aplica cada dueño sobre los suyos.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _soltar_reservas_de(quien: int) -> void:
 	if not _soy_servidor():
 		return
@@ -847,7 +850,7 @@ func salir_del_espejo() -> void:
 # Corre en EL ANFITRION: uno de los que estaban en mi pelea ha cerrado su pantalla por su cuenta.
 # Es exactamente una huida individual, salvo que la pelea ya ha terminado: se le devuelve lo suyo
 # y se le cierra el espejo.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _salgo_de_la_pelea(pelea: int = 0) -> void:
 	var quien := multiplayer.get_remote_sender_id()
 	var pe: PeleaViva = _peleas.get(pelea) if Net.soy_sala and _peleas.has(pelea) else _pe_de_peer(quien)
@@ -902,7 +905,7 @@ func cerrar_pelea(derrotados: Array = [], pe: PeleaViva = null) -> void:
 # morir en solitario (decision del usuario: en multi los jugadores mueren de verdad, no se quedan a
 # 1 de vida). Primero cierra su espejo (recoge la capa y despausa) y luego morir_jugador cambia de
 # escena al pueblo. Sus personajes viven en SU maquina, asi que la muerte se resuelve aqui.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _moriste(pelea: int = 0) -> void:
 	# Y DE LA PELEA QUE ESPEJO, no de una vieja: mismo motivo que _fin_espejo, pero peor, porque esto
 	# manda al jugador al pueblo con la penalizacion. Un "has muerto" rezagado de otra pelea te mataba
@@ -936,7 +939,7 @@ func _moriste(pelea: int = 0) -> void:
 #     una union anterior, y aqui no se validaba ninguna id de pelea.
 # Como aplicar_desgaste ASIGNA, un desfase de un puesto copiaba al mago encima del tanque: su
 # excelia, su nivel, sus cinco stats y sus contadores. El uid lo hace imposible.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _devolver_desgaste(lote: Array, pelea: int = 0) -> void:
 	# Y SOLO DE UNA PELEA MIA: la que espejo ahora, o la que acabo de dejar y cuyo lote espero. Un lote
 	# de una pelea vieja (una union rechazada, un anfitrion que contesta tarde) trae la vida y el mana
@@ -1118,7 +1121,7 @@ func _mi_formacion() -> Array:
 
 # Corre en EL ANFITRION: alguien quiere entrar en mi pelea, con la ficha de su personaje. En la sala, en la pelea
 # 'pelea' (su id: lleva varias).
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _pedir_unirme(z: Array, pelea: int = 0, espera: float = 0.0) -> void:
 	var fichas: Array = Net.partida.fichas_de_red(Net.unzip_array(z))
 	Medidor.marca("pelea_compa", "anfitrion_recibe_union")
@@ -1209,7 +1212,7 @@ func adoptar_pelea(dobles_por_peer: Dictionary, pe: PeleaViva = null) -> void:
 			pe.participantes.append(peer)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _union_denegada(motivo: String = "Esa pelea ya no está disponible.") -> void:
 	_fichas_mandadas_a = 0   # (etapa 3) la sala me deniega la pelea que le pedi: ya no espero su respuesta
 	Game.soltar_entrando_en_pelea()
@@ -1228,7 +1231,7 @@ func _union_denegada(motivo: String = "Esa pelea ya no está disponible.") -> vo
 # Corre en EL QUE SE UNE: abre su pantalla en espejo.
 # 'idxs' son los huecos de la fila de aliados que han tocado a MIS personajes, en el mismo orden en
 # que mande las fichas. Con ellos se sabe a quien muevo yo cuando el anfitrion pide una accion.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _union_ok(id: int, z: Array, idxs: Array) -> void:
 	var roster: Dictionary = Net.unzip_dict(z)
 	Medidor.marca("pelea", "union_ok")
@@ -1394,7 +1397,7 @@ func difundir_impactos(datos: PackedInt32Array, pe: PeleaViva = null) -> void:
 		_impactos.rpc_id(p, datos, pe.id)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _impactos(datos: PackedInt32Array, pelea: int = 0) -> void:
 	if _pelea_sigo == 0 or not _de_mi_anfitrion(pelea):
 		return
@@ -1405,7 +1408,7 @@ func _impactos(datos: PackedInt32Array, pelea: int = 0) -> void:
 		p.aplicar_impactos(datos)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _instantanea(snap: Dictionary, pelea: int = 0) -> void:
 	if _pelea_sigo == 0 or not _de_mi_anfitrion(pelea):
 		return
@@ -1431,7 +1434,7 @@ func difundir_roster(roster: Dictionary, pe: PeleaViva = null) -> void:
 		_roster_pelea.rpc_id(p, Net.zip(roster), pe.id)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _roster_pelea(z: Array, pelea: int = 0) -> void:
 	var roster: Dictionary = Net.unzip_dict(z)
 	if _pelea_sigo == 0 or not _de_mi_anfitrion(pelea):
@@ -1449,7 +1452,7 @@ func pedir_log_pelea() -> void:
 	_pedir_log_pelea.rpc_id(_pelea_anfitrion)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _pedir_log_pelea() -> void:
 	var pe: PeleaViva = _pe_de_peer(multiplayer.get_remote_sender_id())
 	if pe == null or pe.id == 0:
@@ -1459,7 +1462,7 @@ func _pedir_log_pelea() -> void:
 		_log_pelea.rpc_id(multiplayer.get_remote_sender_id(), p.log_entero(), pe.id)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _log_pelea(lineas: Array, pelea: int = 0) -> void:
 	if _pelea_sigo == 0 or not _de_mi_anfitrion(pelea):
 		return
@@ -1475,7 +1478,7 @@ func pedir_roster_pelea() -> void:
 	_pedir_roster_pelea.rpc_id(_pelea_anfitrion)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _pedir_roster_pelea() -> void:
 	var quien := multiplayer.get_remote_sender_id()
 	var pe: PeleaViva = _pe_de_peer(quien)
@@ -1499,7 +1502,7 @@ func pedir_velocidad(v: float) -> void:
 
 
 # Cualquiera que este DENTRO la cambia, y vale la ultima pulsacion.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _pedir_velocidad(v: float) -> void:
 	var pe: PeleaViva = _pe_de_peer(multiplayer.get_remote_sender_id())
 	if pe == null or pe.id == 0 or not pe.participantes.has(multiplayer.get_remote_sender_id()):
@@ -1594,7 +1597,7 @@ func _desgaste_a_la_sala(peer: int, ident: String, pe: PeleaViva = null) -> void
 
 
 # LA SALA dice quien era el peer que se ha ido (a todos: quien lleve su pelea lo necesita).
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.COMBATE)
 func _ident_caido(peer: int, ident: String) -> void:
 	_ident_de_ido[peer] = ident
 	if _caidos.has(peer) and String(_caidos[peer].get("ident", "")) == "":
@@ -1633,7 +1636,7 @@ func revisar_vuelta(peer: int, lugar: String) -> void:
 
 # EN QUIEN LLEVA LA PELEA: 'viejo' ha vuelto como 'nuevo'. Si estaba en mi cortesia, sus personajes
 # vuelven a ser suyos y se le abre el espejo.
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.COMBATE)
 func _vuelve(viejo: int, nuevo: int) -> void:
 	if not _caidos.has(viejo):
 		return
@@ -1659,7 +1662,7 @@ func _vuelve(viejo: int, nuevo: int) -> void:
 
 
 # EN EL QUE VUELVE: se le abre el espejo de la pelea que dejo a medias, con sus personajes (por uid).
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _retoma_tu_pelea(id: int, roster: Dictionary, pares: Array) -> void:
 	roster = IdsRed.de_red(roster)
 	var otro := multiplayer.get_remote_sender_id()
@@ -1930,7 +1933,7 @@ func pedir_accion(peer: int, idx: int, seq: int = 0, radio: float = 0.0, preps: 
 # respuesta a ESTA peticion de una rezagada (ver combat.gd, _pet_seq).
 # 'radio' es cuanto puede ANDAR en este turno, en la pelea en el mapa (0 = nada, o pelea de fila). Lo
 # calcula el anfitrion: el maniqui del espejo no tiene la Agilidad con la que se saca.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 # 'preps' = las preparaciones (Cargar, Untar) que ya ha hecho en ESTE turno: con alguna, es el mismo turno que sigue.
 func _tu_turno(idx: int, seq: int = 0, radio: float = 0.0, preps: Array = [], pelea: int = 0) -> void:
 	if _pelea_sigo == 0 or not _lo_manda_el_anfitrion(pelea):
@@ -1961,7 +1964,7 @@ func mover_bichos_en_pelea(lote: Array) -> void:
 		_pedir_mover.rpc_id(1, lote, Net._mi_lugar)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _pedir_mover(lote: Array, lugar: String) -> void:
 	if not Net.es_host:
 		return
@@ -1999,7 +2002,7 @@ func pedir_cria(slot: int, ruta: String, pos: Vector2, t: float) -> void:
 		_pedir_cria.rpc_id(1, slot, IdsRed.de(ruta), pos, t, Net._mi_lugar)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _pedir_cria(slot: int, id: int, pos: Vector2, t: float, lugar: String) -> void:
 	if not Net.es_host:
 		return
@@ -2023,7 +2026,7 @@ func _nacer_cria_dueno(slot: int, ruta: String, pos: Vector2, t: float, para: in
 		_cria_lista.rpc_id(para, slot, id)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _cria_lista(slot: int, id: int) -> void:
 	Game.cuerpo_de_cria_listo(slot, id)
 
@@ -2038,7 +2041,7 @@ func pedir_frase(peer: int, idx: int, opciones: Array, nombre: String, largo: in
 	_tu_frase.rpc_id(peer, idx, opciones, nombre, largo, seq, pe.id if pe != null else 0)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _tu_frase(idx: int, opciones: Array, nombre: String, largo: int, seq: int = 0, pelea: int = 0) -> void:
 	if _pelea_sigo == 0 or not _lo_manda_el_anfitrion(pelea):
 		return
@@ -2053,7 +2056,7 @@ func pedir_disparo(peer: int, nombre: String, seq: int = 0, pe: PeleaViva = null
 	_tu_disparo.rpc_id(peer, nombre, seq, pe.id if pe != null else 0)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _tu_disparo(nombre: String, seq: int = 0, pelea: int = 0) -> void:
 	if _pelea_sigo == 0 or not _lo_manda_el_anfitrion(pelea):
 		return
@@ -2070,7 +2073,7 @@ func pedir_soltar(peer: int, nombre: String, seq: int = 0, pe: PeleaViva = null)
 	_tu_carga.rpc_id(peer, nombre, seq, pe.id if pe != null else 0)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _tu_carga(nombre: String, seq: int = 0, pelea: int = 0) -> void:
 	if _pelea_sigo == 0 or not _lo_manda_el_anfitrion(pelea):
 		return
@@ -2134,7 +2137,7 @@ static func accion_de_red(accion: Dictionary) -> Dictionary:
 	return a
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _accion_elegida(accion: Dictionary) -> void:
 	accion = accion_de_red(accion)
 	var pe: PeleaViva = _pe_de_peer(multiplayer.get_remote_sender_id())
@@ -2149,7 +2152,7 @@ func _accion_elegida(accion: Dictionary) -> void:
 
 
 # El anfitrion cierra: los espejos se cierran con el.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
 func _fin_espejo(pelea: int = 0) -> void:
 	var quien := multiplayer.get_remote_sender_id()
 	# ¿ES DE LA PELEA QUE ESTOY VIENDO? Un cierre de OTRA pelea (una union rechazada, un anfitrion

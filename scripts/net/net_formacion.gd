@@ -23,6 +23,9 @@
 # ============================================================
 extends Node
 
+# El canal de cada mensaje (ver net_canales.gd: por que va cada uno en el suyo).
+const Canal := preload("res://scripts/net/net_canales.gd")
+
 const PLAZO_PETICION := 30.0
 
 # Llega una peticion para mover a personajes MIOS. La UI (peticion_formacion.gd) la enseña y contesta
@@ -130,7 +133,7 @@ func difundir() -> void:
 		_set_formacion.rpc(_formacion, _llegada)
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.HOGAR)
 func _set_formacion(lista: Array, llegada: Array) -> void:
 	_formacion_mirror = lista
 	_llegada_mirror = llegada
@@ -149,7 +152,7 @@ func pedir_orden(nueva: Array) -> void:
 		_resolver_orden(nueva, Identidad.id, Identidad.nombre, 1)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _pedir_orden(nueva: Array) -> void:
 	if not Net.es_host:
 		return
@@ -192,7 +195,7 @@ func _resolver_orden(nueva: Array, pide: String, pide_nombre: String, pide_peer:
 	_avisar(pide_peer, "Se lo has pedido a %s." % _nombres(faltan))
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.HOGAR)
 func _peticion(id: int, de_nombre: String, texto: String) -> void:
 	peticion_recibida.emit(id, de_nombre, texto)
 
@@ -205,7 +208,7 @@ func responder(id: int, ok: bool) -> void:
 		_resolver_respuesta(id, ok, Identidad.id)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
 func _respuesta(id: int, ok: bool) -> void:
 	if Net.es_host:
 		_resolver_respuesta(id, ok, Net.hogar._identidad_de_peer(multiplayer.get_remote_sender_id()))

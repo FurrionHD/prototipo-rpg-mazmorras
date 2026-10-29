@@ -6,6 +6,9 @@
 # ============================================================
 extends Node
 
+# El canal de cada mensaje (ver net_canales.gd: por que va cada uno en el suyo).
+const Canal := preload("res://scripts/net/net_canales.gd")
+
 # En multi los enemigos los SIMULA el host (IA, spawns, aforo: su codigo de siempre); los
 # clientes solo los VEN. El host es la fuente de verdad: _enemigos apunta cada bicho vivo por id,
 # con su NODO real (para leer su posicion en el tick), su LUGAR y su aspecto. Los clientes montan
@@ -141,7 +144,7 @@ func aviso_comer(nodo: Node, tipo: String, valor: float, extra: String = "") -> 
 			_aviso_comer.rpc_id(p, id, lugar, tipo, valor, extra)
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.MUNDO)
 func _aviso_comer(id: int, lugar: String, tipo: String, valor: float, extra: String = "") -> void:
 	if not PisoVivo.lleva(lugar):
 		Net.contar_de_otro_sitio()
@@ -151,7 +154,7 @@ func _aviso_comer(id: int, lugar: String, tipo: String, valor: float, extra: Str
 		n.aviso_comer(tipo, valor, extra)
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.MUNDO)
 func _marcar_cadaver(id: int, lugar: String) -> void:
 	if not PisoVivo.lleva(lugar):
 		Net.contar_de_otro_sitio()
@@ -161,7 +164,7 @@ func _marcar_cadaver(id: int, lugar: String) -> void:
 		n.marcar_cadaver()
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.MUNDO)
 func _spawn_enemigo(id: int, lugar: String, pos: Vector2, d: Dictionary) -> void:
 	if not PisoVivo.lleva(lugar):
 		Net.contar_de_otro_sitio()
@@ -190,7 +193,7 @@ func _spawn_enemigo(id: int, lugar: String, pos: Vector2, d: Dictionary) -> void
 	_enem_nodos[id] = cuerpo
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.MUNDO)
 func _despawn_enemigo(id: int) -> void:
 	var n = _enem_nodos.get(id)
 	if n != null and is_instance_valid(n):
@@ -335,7 +338,7 @@ func _tick_enemigos(lote: Array) -> void:
 
 # Alguien que acaba de llegar a un piso pide sus enemigos (late-join / cambio de piso). Se le pregunta
 # a la sala, que lleva todos los pisos (etapa 2).
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _pedir_enemigos(lugar: String) -> void:
 	if not Net.es_host:
 		return

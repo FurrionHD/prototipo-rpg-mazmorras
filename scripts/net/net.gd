@@ -34,6 +34,9 @@
 
 extends Node
 
+# El canal de cada mensaje (ver net_canales.gd: por que va cada uno en el suyo).
+const Canal := preload("res://scripts/net/net_canales.gd")
+
 const PUERTO := 24567
 const MAX_JUGADORES := 4
 # CONEXIONES, que no es lo mismo que jugadores: ENet deja entrar de sobra (los que esperan en la puerta, los
@@ -155,7 +158,10 @@ const MAX_CONEXIONES := 32
 #     ATB tambien (combat_espejo.empaquetar_atb); los dos, solo si cambian (con un latido).
 # 57 (29/10): la LIBRETA del mapa (_set_mapa_sesion, _pedir_fusion_mapa) va comprimida (net_mapa.libreta_a_red): un solo
 #     argumento en vez de mapa y niebla. Un build del 56 descartaria el paquete en silencio y entraria sin mapa.
-const PROTOCOLO := 57
+# 58 (29/10): CANALES por tema (net_canales.gd: control, combate, mundo, hogar, partida, fotos) y BARRERA en el guardado
+#     (_dame_tu_estado, _mi_estado y _guardar_ahora llevan su numero). Un build del 57 lo espera todo por el 0, en
+#     orden: con uno del 58 al otro lado, lo que dependiera de otro tema podria llegarle antes.
+const PROTOCOLO := 58
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -287,7 +293,7 @@ func _pausa_por_nube(hay_red: bool) -> void:
 	_pausa_red.rpc(not hay_red)
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.CONTROL)
 func _pausa_red(on: bool) -> void:
 	if pausa_red == on:
 		return
@@ -335,7 +341,7 @@ func avisar_modales() -> void:
 	_estado_modales.rpc_id(1, ahora[0], ahora[1])
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _estado_modales(menu: bool, pelea: bool) -> void:
 	if not (es_host and soy_sala):
 		return
@@ -376,7 +382,7 @@ func abrir_lan(codigo: String) -> void:
 	_pedir_abrir_lan.rpc_id(1, codigo)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _pedir_abrir_lan(codigo: String) -> void:
 	if not (es_host and soy_sala):
 		return
@@ -390,7 +396,7 @@ func _pedir_abrir_lan(codigo: String) -> void:
 	_lan_respuesta.rpc_id(quien, codigo != "", Nube.direcciones_locales(), "")
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.CONTROL)
 func _lan_respuesta(abierta: bool, direcciones: Array, motivo: String) -> void:
 	lan_abierta = abierta
 	if motivo != "":
@@ -408,7 +414,7 @@ func _lan_respuesta(abierta: bool, direcciones: Array, motivo: String) -> void:
 var lan_abierta := false
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.CONTROL)
 func _pausa_solo(n: int) -> void:
 	if pausa_solo == n:
 		return
@@ -544,6 +550,10 @@ func _ready() -> void:
 	multiplayer.server_disconnected.connect(_on_server_disconnected)
 	# LOS TEMAS DE LA RED, cada uno en su archivo (ver la cabecera de cada uno). Cuelgan con NOMBRE FIJO: sus RPC
 	# viajan por la ruta del nodo, que tiene que ser la misma en todas las maquinas.
+	# Los CANALES (y su barrera), antes que nadie: los demas mandan por ellos.
+	canales = NetCanales.new()
+	canales.name = "Canales"
+	add_child(canales)
 	# Las FOTOS las primeras: otros temas se enganchan a su señal al montarse.
 	fotos = NetFotos.new()
 	fotos.name = "Fotos"
@@ -618,6 +628,7 @@ const NetExtraccion = preload("res://scripts/net/net_extraccion.gd")
 const NetEnemigos = preload("res://scripts/net/net_enemigos.gd")
 const NetSuelo = preload("res://scripts/net/net_suelo.gd")
 const NetFotos = preload("res://scripts/net/net_fotos.gd")
+const NetCanales = preload("res://scripts/net/net_canales.gd")
 var pesca: NetPesca = null
 var jugadores: NetJugadores = null
 var pisos: NetPisos = null
@@ -632,6 +643,7 @@ var extraccion: NetExtraccion = null
 var enemigos: NetEnemigos = null
 var suelo: NetSuelo = null
 var fotos: NetFotos = null
+var canales: NetCanales = null
 
 # --- LA SALA (ver sala.gd) ---
 const _SALA = preload("res://scripts/net/sala.gd")
@@ -749,6 +761,7 @@ func desconectar() -> void:
 	hogar._roster_ajeno.clear()
 	hogar._hogar_sucio = false
 	fotos.olvidar_sesion()
+	canales.olvidar_sesion()
 	hogar._olvidar_baul()
 	hogar._hash_difundido.clear()   # lo que se difundio en esta sesion (ver net_hogar._cambio)
 	epoca_sesion = 0
@@ -874,7 +887,7 @@ func anunciar_lugar(lugar: String) -> void:
 		_reconstruir_vista()
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _cambiar_lugar(emisor: int, lugar: String) -> void:
 	if not _peers.has(emisor):
 		return
@@ -898,7 +911,7 @@ func _cambiar_lugar(emisor: int, lugar: String) -> void:
 		jugadores._quitar_companeros(emisor)   # su sequito se va con el
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _rel_lugar(lugar: String) -> void:
 	if not es_host:
 		return
@@ -952,7 +965,7 @@ func _reconstruir_vista() -> void:
 
 
 # Un cliente que acaba de viajar pide el suelo de su lugar nuevo.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _pedir_suelo(lugar: String) -> void:
 	if not es_host:
 		return
@@ -994,7 +1007,7 @@ func _sync_humanos() -> void:
 
 
 # Corre en los CLIENTES: el host dice cuantos humanos hay. Reajustan su equipo al cupo nuevo.
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.CONTROL)
 func _set_num_humanos(n: int) -> void:
 	_num_humanos = n
 	_aplicar_cupo()
@@ -1132,7 +1145,7 @@ func _esperar_respuesta() -> void:
 
 # Corre EN EL HOST, llamado por el cliente. Valida el codigo y, si vale, se registran
 # mutuamente; si no, se echa al que intenta colarse.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _saludar(codigo: String, protocolo: int, identidad: String, nombre_visible: String,
 		color: Color, metal: float, nombre: String, lugar: String,
 		huella: int = 0, alpha: float = 1.0,
@@ -1280,7 +1293,7 @@ func registrar_invitacion(token: String, segundos: int) -> void:
 		_registrar_invitacion.rpc_id(1, token, segundos)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _registrar_invitacion(token: String, segundos: int) -> void:
 	var quien := multiplayer.get_remote_sender_id()
 	# Solo invita quien esta DENTRO: no alguien que aun espera en la puerta.
@@ -1326,7 +1339,7 @@ func nombre_para_invitados() -> String:
 
 
 # Corre en un CLIENTE que esta dentro: la sala le pregunta si deja entrar a alguien nuevo.
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.CONTROL)
 func _te_piden_permiso(nuevo: int, texto: String) -> void:
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud == null or not hud.has_method("pedir_permiso"):
@@ -1335,7 +1348,7 @@ func _te_piden_permiso(nuevo: int, texto: String) -> void:
 
 
 # Corre en LA SALA: la contestacion de uno de dentro. Vale la primera.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _respuesta_permiso(nuevo: int, si: bool) -> void:
 	if not es_host:
 		return
@@ -1348,7 +1361,7 @@ func _respuesta_permiso(nuevo: int, si: bool) -> void:
 
 # Corre en el CLIENTE: el host me ha oido y le esta preguntando a los de dentro. Cuenta como respuesta
 # para el plazo del saludo (si no, a los 5 s creeria que el anfitrion es de otro build).
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _esperando_permiso() -> void:
 	if multiplayer.get_remote_sender_id() != 1:
 		return
@@ -1428,7 +1441,7 @@ func _admitir(quien: int, color: Color, metal: float, nombre: String, lugar: Str
 	_set_hora_pueblo.rpc_id(quien, Time.get_unix_time_from_system() + float(Encargos.desfase_prueba))
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _set_hora_pueblo(t_host: float) -> void:
 	if multiplayer.get_remote_sender_id() != 1:
 		return
@@ -1447,7 +1460,7 @@ func renovar_semilla_pueblo() -> void:
 	semilla_pueblo_cambiada.emit()
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _set_semilla_pueblo(v: int) -> void:
 	if multiplayer.get_remote_sender_id() != 1:
 		return
@@ -1456,7 +1469,7 @@ func _set_semilla_pueblo(v: int) -> void:
 
 
 # Corre en el CLIENTE, llamado por el host tras aceptarlo: registra al host y guarda su semilla.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _presentarse(color: Color, metal: float, nombre: String, lugar: String, semilla: int,
 		t2: bool, huella: int = 0, alpha: float = 1.0,
 		atajos: PackedInt32Array = PackedInt32Array(), piezas: Dictionary = {}) -> void:
@@ -1477,7 +1490,7 @@ func _presentarse(color: Color, metal: float, nombre: String, lugar: String, sem
 # posterior pise el aviso con un "el host ha cerrado" que no cuenta la verdad.
 var _fui_rechazado := false
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _rechazado(motivo: String = "No hay ninguna sala con ese codigo en esa IP.") -> void:
 	_fui_rechazado = true
 	_respondio = true
@@ -1535,7 +1548,7 @@ func _registrar_peer(peer_id: int, color: Color, metal: float, nombre: String, l
 # `if not _peers.has(emisor)`. El HOST, que si los ve a todos, hace de presentador: cuando entra
 # alguien, le pasa la lista de los que ya estaban y avisa a esos del nuevo. El peer va DENTRO del
 # mensaje porque get_remote_sender_id() aqui seria siempre el host.
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.CONTROL)
 func _presentar_ajeno(peer_id: int, color: Color, metal: float, nombre: String, lugar: String,
 		huella: int = 0, alpha: float = 1.0, comps: Array = [],
 		piezas: Dictionary = {}) -> void:
@@ -1551,7 +1564,7 @@ func _presentar_ajeno(peer_id: int, color: Color, metal: float, nombre: String, 
 
 # El host me dice que un peer ajeno se ha ido. Idempotente: con server_relay podria llegarme
 # ademas mi propia señal peer_disconnected, y no pasa nada por limpiar dos veces.
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", Canal.CONTROL)
 func _quitar_ajeno(peer_id: int) -> void:
 	_olvidar_peer(peer_id)
 
@@ -1659,6 +1672,7 @@ func _on_peer_disconnected(id: int) -> void:
 		if not ident_ida.is_empty() and hogar._roster_ajeno.erase(ident_ida):
 			hogar.marcar_hogar_sucio()
 		fotos.olvidar_peer(id)   # si vuelve es otra conexion: lo que pida se le manda de nuevo
+		canales.olvidar_peer(id)   # y sus marcas de barrera, tambien de esa conexion
 		hogar._con_baul.erase(id)   # y el baul, si lo vuelve a abrir
 		# El piso en el que estaba puede haberse quedado vacio (la sala lo congelara).
 		_viajando.erase(id)

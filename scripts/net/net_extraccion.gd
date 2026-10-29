@@ -6,6 +6,9 @@
 # ============================================================
 extends Node
 
+# El canal de cada mensaje (ver net_canales.gd: por que va cada uno en el suyo).
+const Canal := preload("res://scripts/net/net_canales.gd")
+
 # Cuerpos que alguien esta EXTRAYENDO ahora mismo (net_id -> peer). El candado DURO sigue siendo
 # _enem_ocupados (compartido con las peleas); esto es SOLO el subconjunto de extracciones, y existe
 # para poder DIFUNDIRLO: sin el, con los dos jugadores juntos y dos cuerpos al lado los dos apuntaban
@@ -39,7 +42,7 @@ func solicitar_extraccion(id: int) -> bool:
 	return false   # hay que esperar respuesta: la pantalla la abre _extraccion_concedida
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _pedir_extraccion(id: int, lugar: String) -> void:
 	if not Net.es_host:
 		return
@@ -73,7 +76,7 @@ func _responder_extraccion(quien: int, id: int, ok: bool) -> void:
 
 
 # Corre en QUIEN PIDIO extraer: si se la han dado, se abre el minijuego sobre SU cuerpo espejado.
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _extraccion_concedida(id: int, ok: bool) -> void:
 	_extraccion_pidiendo = false   # la peticion ya no esta en vuelo, salga bien o mal
 	if not ok:
@@ -103,7 +106,7 @@ func notificar_extraido(id: int) -> void:
 		_pedir_consumir.rpc_id(1, id, Net._mi_lugar)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _pedir_consumir(id: int, lugar: String) -> void:
 	if not Net.es_host:
 		return
@@ -127,7 +130,7 @@ func soltar_extraccion(id: int) -> void:
 		_pedir_soltar_cuerpo.rpc_id(1, id, Net._mi_lugar)
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _pedir_soltar_cuerpo(id: int, lugar: String) -> void:
 	if not Net.es_host:
 		return
@@ -189,7 +192,7 @@ func _lugar_de(id: int) -> String:
 	return String((Net.enemigos._enemigos.get(id, {}) as Dictionary).get("lugar", ""))
 
 
-@rpc("any_peer", "call_remote", "reliable")
+@rpc("any_peer", "call_remote", "reliable", Canal.MUNDO)
 func _set_extrayendo(d: Dictionary) -> void:
 	_extrayendo = d.duplicate()
 
