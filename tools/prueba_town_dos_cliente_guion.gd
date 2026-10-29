@@ -63,6 +63,10 @@ func _ready() -> void:
 	var cara_comp: bool = await veo_cara_de_companero(peer_a, 15.0)
 	_ok(cara_comp, "veo la foto del acompañante de A en su cuerpo")
 	print("[B] dato cara_companero_host=%d" % int(cara_comp))
+	# Y LO QUE HE MANDADO, para que A lo compare con lo que le ha llegado (29/10: aspecto y grupo van comprimidos).
+	print("[B] dato piezas_mias=%d" % hash(Game.lider().aspecto_completo()["piezas"]))
+	print("[B] dato equipo_mio=%d" % hash(Game.pj_a_dict(Game.lider()).get("equipo", {})))
+	print("[B] dato comp_piezas=%d" % hash(Game.companeros()[0].aspecto_completo()["piezas"]))
 
 	# FASE 1: bajo al piso 1.
 	await esperar_fase(1, 60.0)

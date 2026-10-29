@@ -721,9 +721,10 @@ func marcar_hogar_sucio() -> void:
 
 # Corre en EL HOST: un jugador me dice como esta su hogar AHORA.
 @rpc("any_peer", "call_remote", "reliable", Canal.HOGAR)
-func _mi_hogar(filas: Array) -> void:
+func _mi_hogar(z: Array) -> void:
 	if not Net.es_host:
 		return
+	var filas: Array = Net.unzip_array(z)
 	var quien := multiplayer.get_remote_sender_id()
 	var identidad: String = Net._identidad_de_peer(quien)
 	if identidad.is_empty():
@@ -1419,6 +1420,10 @@ func _process(delta: float) -> void:
 		return
 	_hogar_sucio = false
 	if Net._soy_cliente():
-		_mi_hogar.rpc_id(1, _mis_filas_hogar())   # al hacer sus filas sube las fotos que falten (_fila_roster)
+		# Al hacer sus filas sube las fotos que falten (_fila_roster). Solo si han CAMBIADO (29/10: ~9 KB cada vez; la
+		# sala ya las tiraba si eran iguales, pero viajaban) y comprimidas.
+		var filas: Array = _mis_filas_hogar()
+		if _cambio("mi_hogar", filas):
+			_mi_hogar.rpc_id(1, Net.zip(filas))
 	elif Net.es_host:
 		_difundir_hogar()

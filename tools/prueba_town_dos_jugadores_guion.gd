@@ -55,6 +55,15 @@ func _ready() -> void:
 	_ok(await veo_cara_de(await _dato_de_b("mi_peer", 5.0), 20.0), "veo la foto de B en el muñeco de su cuerpo")
 	_ok(await _dato_de_b("cara_companero_host", 20.0) == 1, "B ve la foto de mi acompañante en su cuerpo")
 	_ok(await veo_cara_de_companero(await _dato_de_b("mi_peer", 5.0), 20.0), "veo la foto del acompañante de B en su cuerpo")
+	# Y SU ASPECTO ENTERO, tal cual lo mando (29/10: _set_aspecto y _set_grupo van comprimidos y con ids).
+	var pb: Dictionary = Net._peers.get(await _dato_de_b("mi_peer", 5.0), {})
+	var comps_b: Array = pb.get("comps", [])
+	_ok(not (pb.get("piezas", {}) as Dictionary).is_empty()
+		and hash(pb.get("piezas", {})) == await _dato_de_b("piezas_mias", 10.0), "me llegan el pelo y la ropa de B, iguales")
+	_ok(not (pb.get("equipo", {}) as Dictionary).is_empty()
+		and hash(pb.get("equipo", {})) == await _dato_de_b("equipo_mio", 10.0), "y lo que lleva puesto, igual")
+	_ok(not comps_b.is_empty() and hash((comps_b[0] as Dictionary).get("piezas", {})) == await _dato_de_b("comp_piezas", 10.0),
+		"y el pelo y la ropa de su acompañante, iguales")
 	# Una segunda difusion del roster (cambia el color de mi personaje de casa, la foto no) no trae ninguna foto otra vez:
 	# ni yo la vuelvo a pedir al repintar, ni la sala recibe peticiones repetidas.
 	var recibidas: int = Net.fotos.recibidas

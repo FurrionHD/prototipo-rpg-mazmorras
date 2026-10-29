@@ -36,3 +36,17 @@ func test_paquete_raro_no_rompe() -> void:
 	z[0] = int(z[0]) + 5
 	igual(NET.unzip_dict(z).size(), 0, "con el tamaño mentido: nada")
 	igual(NET.unzip_dict(NET.zip([1, 2])).size(), 0, "una lista donde se esperaba diccionario: vacio")
+
+
+# El aspecto (piezas + equipo) y el grupo (net_pisos.anunciar_aspecto, net_jugadores.anunciar_grupo; protocolo 60): las
+# rutas del equipo viajan como ids dentro de lo comprimido y vuelven a ruta.
+func test_aspecto_y_grupo_ida_y_vuelta() -> void:
+	var piezas: Dictionary = {"pelo": {"id": "melena", "color": Color(0.4, 0.2, 0.1)}, "torso": {"id": "camisa", "color": Color.WHITE}}
+	var equipo: Dictionary = {"arma": {"ruta": "res://resources/materials/baba_slime.tres", "tier": 2, "rareza": 1}}
+	var vuelta = NET.unzip(NET.zip([piezas, equipo]))
+	cierto(vuelta is Array and (vuelta as Array).size() == 2, "vuelve [piezas, equipo]")
+	igual(hash(vuelta[0]), hash(piezas), "las piezas, iguales")
+	igual(hash(vuelta[1]), hash(equipo), "el equipo, con su ruta")
+	var grupo: Array = [{"nombre": "Ana", "huella": 123456789, "piezas": piezas, "equipo": equipo},
+		{"nombre": "Luis", "huella": 0, "piezas": piezas, "equipo": {}}]
+	igual(hash(NET.unzip_array(NET.zip(grupo))), hash(grupo), "el grupo entero, igual")

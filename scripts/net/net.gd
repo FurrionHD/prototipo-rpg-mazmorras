@@ -163,7 +163,10 @@ const MAX_CONEXIONES := 32
 #     orden: con uno del 58 al otro lado, lo que dependiera de otro tema podria llegarle antes.
 # 59 (29/10): fuera _pedir_mover, _pedir_cria y _cria_lista (de cuando la pelea la llevaba un jugador: ahora la lleva
 #     siempre la sala, que mueve los bichos y hace nacer las crias ahi mismo). Un build del 58 los mandaria al vacio.
-const PROTOCOLO := 59
+# 60 (29/10): el ASPECTO (_set_aspecto/_rel_aspecto: piezas y equipo), el GRUPO (_set_grupo/_rel_grupo) y las filas del
+#     hogar (_mi_hogar, y solo si cambian) van comprimidos (Net.zip). Un build del 59 los descartaria: sin aspecto
+#     ni compañeros de los demas.
+const PROTOCOLO := 60
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

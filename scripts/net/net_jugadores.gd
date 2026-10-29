@@ -336,12 +336,14 @@ func jugadores_remotos_aqui(lugar: String = "") -> Array:
 func anunciar_grupo() -> void:
 	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
-	var datos: Array = _datos_grupo()
+	# COMPRIMIDO (29/10: ~3 KB por anuncio, el aspecto y el equipo de cada uno) y con ids (Net.zip). La sala lo reenvia
+	# tal cual, sin deshacerlo.
+	var z: Array = Net.zip(_datos_grupo())
 	if Net.es_host:
 		for pid in Net._peers:
-			_set_grupo.rpc_id(pid, Net._mi_id(), IdsRed.a_red(datos))
+			_set_grupo.rpc_id(pid, Net._mi_id(), z)
 	else:
-		_rel_grupo.rpc_id(1, IdsRed.a_red(datos))
+		_rel_grupo.rpc_id(1, z)
 
 
 func _datos_grupo() -> Array:
@@ -360,10 +362,10 @@ func _datos_grupo() -> Array:
 
 
 @rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
-func _set_grupo(emisor: int, datos: Array) -> void:
+func _set_grupo(emisor: int, z: Array) -> void:
 	if not Net._peers.has(emisor):
 		return
-	datos = IdsRed.de_red(datos)   # su equipo viaja con ids
+	var datos: Array = Net.unzip_array(z)   # ya sin ids
 	Net._peers[emisor]["comps"] = datos
 	# Si tenia cuerpos de mas (se dejo gente en casa), fuera; y a los que quedan, su cara nueva.
 	var lista: Array = Net._avatares_comp.get(emisor, [])
@@ -397,14 +399,14 @@ func repintar_companeros(huella: int) -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
-func _rel_grupo(datos: Array) -> void:
+func _rel_grupo(z: Array) -> void:
 	if not Net.es_host:
 		return
 	var de := multiplayer.get_remote_sender_id()
-	_set_grupo(de, datos)
+	_set_grupo(de, z)
 	for pid in Net._peers:
 		if pid != de:
-			_set_grupo.rpc_id(pid, de, datos)
+			_set_grupo.rpc_id(pid, de, z)
 
 
 # --- IMBUICIONES DE MI GRUPO -----------------------------------------------------------------

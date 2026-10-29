@@ -175,19 +175,26 @@ func anunciar_aspecto() -> void:
 	# equipo salen de los campos equipped_* de la ficha (ver JugadorSprites._capas_armadura). Viaja la
 	# IDENTIDAD de cada pieza (ruta + tier/rareza/mejoras), no el objeto: ver Game.pj_a_dict.
 	var eq: Dictionary = Game.pj_a_dict(Game.lider()).get("equipo", {})
+	# Piezas y equipo, COMPRIMIDOS (29/10: ~2,7 KB por anuncio, diccionarios con las mismas claves) y con ids (Net.zip).
+	# La sala lo reenvia tal cual, sin deshacerlo.
+	var z: Array = Net.zip([pz, eq])
 	if Net.es_host:
 		for pid in Net._peers:
-			_set_aspecto.rpc_id(pid, Net._mi_id(), c, m, n, img, al, pz, IdsRed.a_red(eq))
+			_set_aspecto.rpc_id(pid, Net._mi_id(), c, m, n, img, al, z)
 	else:
-		_rel_aspecto.rpc_id(1, c, m, n, img, al, pz, IdsRed.a_red(eq))
+		_rel_aspecto.rpc_id(1, c, m, n, img, al, z)
 
 
 @rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _set_aspecto(emisor: int, color: Color, metal: float, nombre: String, huella: int,
-		alpha: float = 1.0, piezas: Dictionary = {}, equipo: Dictionary = {}) -> void:
+		alpha: float, z: Array) -> void:
 	if not Net._peers.has(emisor):
 		return
-	equipo = IdsRed.de_red(equipo)   # su equipo viaja con ids
+	var pe = Net.unzip(z)   # [piezas, equipo], ya sin ids
+	if not (pe is Array) or (pe as Array).size() != 2 or not (pe[0] is Dictionary) or not (pe[1] is Dictionary):
+		return
+	var piezas: Dictionary = pe[0]
+	var equipo: Dictionary = pe[1]
 	Net._peers[emisor]["color"] = color
 	Net._peers[emisor]["metal"] = metal
 	Net._peers[emisor]["nombre"] = nombre
@@ -200,15 +207,14 @@ func _set_aspecto(emisor: int, color: Color, metal: float, nombre: String, huell
 
 
 @rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
-func _rel_aspecto(color: Color, metal: float, nombre: String, huella: int,
-		alpha: float = 1.0, piezas: Dictionary = {}, equipo: Dictionary = {}) -> void:
+func _rel_aspecto(color: Color, metal: float, nombre: String, huella: int, alpha: float, z: Array) -> void:
 	if not Net.es_host:
 		return
 	var de := multiplayer.get_remote_sender_id()
-	_set_aspecto(de, color, metal, nombre, huella, alpha, piezas, equipo)
+	_set_aspecto(de, color, metal, nombre, huella, alpha, z)
 	for pid in Net._peers:
 		if pid != de:
-			_set_aspecto.rpc_id(pid, de, color, metal, nombre, huella, alpha, piezas, equipo)
+			_set_aspecto.rpc_id(pid, de, color, metal, nombre, huella, alpha, z)
 
 
 # --- EXPEDICION compartida (hito 3b) ---------------------------------------------------------
