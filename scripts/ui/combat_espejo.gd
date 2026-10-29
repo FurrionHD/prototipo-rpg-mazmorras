@@ -2,7 +2,7 @@
 #  combat_espejo.gd  (tema de la pantalla de combate: combat.espejo)
 #  LA PELEA COMPARTIDA (multi): la pantalla que la EJECUTA manda roster, instantaneas, impactos y la
 #  barra de accion; la que la ESPEJA los pinta sin simular nada. Aqui van las dos puntas, el turno de un
-#  personaje ajeno (pedirlo, repetirlo y aplicar su accion), el traspaso cuando se va el anfitrion y la
+#  personaje ajeno (pedirlo, repetirlo y aplicar su accion), la foto de una pelea guardada y como se retoma, y la
 #  unica puerta de salida de las respuestas del espejo. Lo demas, a _pantalla.
 # ============================================================
 extends RefCounted
@@ -607,8 +607,8 @@ func _aplicar_volatil(c: Combatant, v: Dictionary) -> void:
 		c.imbue_cuerpo = bool(imb[3])
 		c.imbue_estado = int(imb[4])
 		c.imbue_prob = float(imb[5])
-		# Los dos escalones y el escalado por Destreza (imbuicion de ARMA). Si no viajaran, tras un
-		# traspaso de anfitrion el veneno de la daga se quedaria en un solo escalon y medido por
+		# Los dos escalones y el escalado por Destreza (imbuicion de ARMA). Si no viajaran, al
+		# rehacer una pelea guardada el veneno de la daga se quedaria en un solo escalon y medido por
 		# Magia -- o sea, en nada, porque un picaro no tiene Magia.
 		if imb.size() >= 8:
 			c.imbue_prob_doble = float(imb[6])
@@ -619,7 +619,7 @@ func _aplicar_volatil(c: Combatant, v: Dictionary) -> void:
 		c.imbue_extra_estado = int(imb[11]) if imb.size() >= 13 else -1
 		c.imbue_extra_prob = float(imb[12]) if imb.size() >= 13 else 0.0
 		# Y la AFINIDAD, que es la mitad de un manto (resistencias, inmunidades, aturdimiento).
-		# Sin esto, quien llevara un Manto y sufriera un traspaso de anfitrion perdia todo el lado
+		# Sin esto, quien llevara un Manto y volviera a una pelea guardada perdia todo el lado
 		# defensivo aunque el chip siguiera diciendo 🛡: solo le quedaba el bonus de daño.
 		if c.imbue_cuerpo and c.imbue_usos > 0:
 			c.elemento = c.imbue_elemento
@@ -630,7 +630,7 @@ func _aplicar_volatil(c: Combatant, v: Dictionary) -> void:
 
 
 # LA PELEA PARA GUARDARLA (fase 6 de la BD): la de un jugador, entera, para seguirla al volver a cargar
-# la partida. Es la foto del traspaso (mismos campos, mismo retomar) pero con TODOS los aliados (son
+# la partida: lo volatil de cada uno, que retomar() le vuelca encima a la pelea rehecha, con TODOS los aliados (son
 # mios) y los enemigos marcados con "id_pelea", que su entrada en memoria_pisos lleva consigo: es lo que
 # los reconoce al reconstruir el piso.
 # EN LA SALA (etapa 3, paso 7) hay varias peleas por piso y las guardadas esperan a su dueño: cada una marca a los suyos
@@ -667,52 +667,11 @@ func estado_para_guardar(base: int = 0) -> Dictionary:
 	return {"aliados": als, "enemigos": ens, "log": _pantalla._log_lines.duplicate()}
 
 
-# LA FOTO de la pelea para el que la recoge. 'nuevo' es su peer: sus personajes los pone EL de su
-# propio equipo (son suyos de verdad), asi que de esos solo viaja lo volatil, no la ficha.
-# Los personajes del que SE VA no van: se retira de la pelea, es justo lo que esta haciendo.
-func estado_para_traspaso(nuevo: int) -> Dictionary:
-	var als: Array = []
-	for c in _pantalla._aliados:
-		var dueno: int = int(_pantalla._dueno_aliado.get(c, 0))
-		if dueno == 0 or _pantalla._huidos.has(c):
-			continue   # los mios (me voy) y los que ya habian huido no siguen en la pelea
-		var fila: Dictionary = {"dueno": dueno, "mio": dueno == nuevo, "vol": _volatil(c),
-			"gauge": float(_pantalla._gauge.get(c, 0.0)), "lentas": int(_pantalla._lentas.get(c, 0)),
-			"defendiendo": bool(_pantalla._defendiendo.get(c, false)), "nombre": c.nombre}
-		if dueno != nuevo:
-			# De los TERCEROS hace falta la ficha entera: el que recoge tiene que montarles un
-			# doble, igual que hace hoy quien recibe a alguien que se une.
-			var pj: PersonajeData = Game.pj_de_combatant(c)
-			if pj != null:
-				Game.volcar_desgaste_en_ficha(pj)
-				fila["ficha"] = Net.partida.ficha_a_dict(pj)
-		if _pantalla._casteos.has(c):
-			# El tercer campo es A QUIEN va (indice en _aliados; -1 = a si mismo): un conjuro de
-			# los que caen sobre un aliado dura 2-3 turnos y puede pillar el traspaso a medias.
-			var dest = _pantalla._casteos[c].get("aliado")
-			# El CUARTO es 'pagado' (el conjuro que alguien se trajo ya recitado del mapa): sin el, al
-			# cambiar de anfitrion se le volveria a cobrar el maná al soltarlo.
-			fila["casteo"] = [String((_pantalla._casteos[c]["spell"] as SpellData).resource_path),
-				int(_pantalla._casteos[c]["idx"]), _pantalla._aliados.find(dest) if dest != null else -1,
-				bool(_pantalla._casteos[c].get("pagado", false))]
-		als.append(fila)
-	var ens: Array = []
-	for i in _pantalla._enemies.size():
-		var e: Combatant = _pantalla._enemies[i]
-		var nodo = _pantalla.pelea.enemigos[i] if i < _pantalla.pelea.enemigos.size() else null
-		if not is_instance_valid(nodo) or not nodo.has_meta("net_id"):
-			continue   # sin net_id no hay forma de que el otro sepa de que bicho hablo
-		ens.append({"net_id": int(nodo.get_meta("net_id")), "vivo": e.is_alive(),
-			"invocado": _pantalla._slots_invocados.has(i), "vol": _volatil(e),
-			"gauge": float(_pantalla._gauge.get(e, 0.0))})
-	return {"aliados": als, "enemigos": ens, "log": _pantalla._log_lines.duplicate()}
-
-
-# Corre en EL QUE RECOGE la pelea, con la pantalla ya montada por el camino de siempre: le vuelca
-# encima lo volatil de la pelea vieja. 'cs' son los combatientes de esta pantalla en el MISMO orden
+# Corre al REHACER una pelea guardada (Net.peleas._rehacer), con la pantalla ya montada por el camino de siempre: le
+# vuelca encima lo volatil de la pelea vieja. 'cs' son los combatientes de esta pantalla en el MISMO orden
 # que estado.aliados; 'filas_e' las filas de los enemigos que SI han venido (los vivos), en el
 # orden en que se le pasaron a _abrir_pelea, o sea el de _enemies.
-func retomar(estado: Dictionary, cs: Array, filas_e: Array, texto := "Tomas el relevo de la pelea.") -> void:
+func retomar(estado: Dictionary, cs: Array, filas_e: Array, texto := "La pelea sigue donde la dejasteis.") -> void:
 	var als: Array = estado.get("aliados", [])
 	for i in mini(cs.size(), als.size()):
 		var c: Combatant = cs[i]
@@ -745,7 +704,7 @@ func retomar(estado: Dictionary, cs: Array, filas_e: Array, texto := "Tomas el r
 		if bool(filas_e[i].get("invocado", false)):
 			_pantalla._slots_invocados[i] = true   # los invocados no dan kill ni maná: la marca viaja
 	_rev += 1
-	# EL REGISTRO ENTERO se viene con la pelea: antes solo la ultima frase, y el que recogia el relevo
+	# EL REGISTRO ENTERO se viene con la pelea: antes solo la ultima frase, y la pelea rehecha
 	# (y todos sus espejos detras) seguia con un registro casi vacio. Los espejos que ya tenian hasta
 	# aqui siguen por su numeracion; al que le falte algo lo pedira por el hueco.
 	var log_viejo = estado.get("log", [])

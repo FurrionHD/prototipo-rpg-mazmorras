@@ -334,7 +334,7 @@ var al_ser_golpeado_texto: String = ""
 # LA TABLA DE AMENAZA de este enemigo (30/09, como en el WoW): cuanta le ha generado cada uno de los tuyos
 # (Combatant -> float). La sube el daño que le hacen (Pantalla._apuntar_dano), las curas (a todos, la mitad y
 # repartida) y la Provocacion (te pone arriba); se enfria al empezar cada turno suyo. La lee su reparto de objetivo
-# (CombatObjetivos._peso_aggro). Solo la lleva quien resuelve la pelea (y viaja en el traspaso).
+# (CombatObjetivos._peso_aggro). Solo la lleva quien resuelve la pelea (y se guarda con ella: CombatEspejo._volatil).
 var amenaza: Dictionary = {}
 # Cuanta amenaza genera ESTE (si es de los tuyos) por cada punto que pega o cura: la del escudo que lleve
 # (ShieldData.amenaza_mult: 2,5 / 3,25 / 4), 1 sin escudo. Lo pone Game al montar su combatiente.

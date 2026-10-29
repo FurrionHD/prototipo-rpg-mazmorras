@@ -175,8 +175,8 @@ func _redirigir_cobertura(obj: Combatant) -> Combatant:
 
 # Cierra las coberturas que llegaron por red como INDICE (ver _volatil / _aplicar_volatil). Corre
 # una vez, con todos los aliados ya montados.
-# Si el indice no cuadra -- el protector era del que se fue, o habia huido, y estado_para_traspaso
-# se los salta -- la cobertura se rompe EN SILENCIO. Mejor quedarse sin protector que quedarse con
+# Si el indice no cuadra -- el protector habia huido, y estado_para_guardar se salta a los huidos -- la
+# cobertura se rompe EN SILENCIO. Mejor quedarse sin protector que quedarse con
 # el equivocado: lo primero se nota (te pegan) y lo segundo manda golpes a quien no toca.
 func _reenlazar_coberturas() -> void:
 	for c in _pantalla._cobertura_pendiente:

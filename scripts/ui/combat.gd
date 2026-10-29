@@ -301,8 +301,8 @@ var _dueno_aliado: Dictionary = {}
 # pierde y quien cobra el mana de la victoria.
 var _huidos: Dictionary = {}
 # COBERTURAS que llegaron por red y todavia son un INDICE, no un puntero (Combatant -> int). Vive
-# entre _aplicar_volatil y _reenlazar_coberturas, y se vacia ahi mismo. Solo se llena en el traspaso
-# de anfitrion: en una pelea normal esta siempre vacio.
+# entre _aplicar_volatil y _reenlazar_coberturas, y se vacia ahi mismo. Solo se llena al rehacer una
+# pelea guardada (retomar): en una pelea normal esta siempre vacio.
 var _cobertura_pendiente: Dictionary = {}
 # Estoy parado esperando la accion de otro (el ATB no corre, ver _process y State.WAITING_PLAYER).
 var _esperando_a: int = 0
@@ -395,7 +395,7 @@ var _cast_index: int:
 
 # A QUIEN va el conjuro cuando es de los que caen sobre un aliado (Filos, Mantos, Fortaleza).
 # Vive en _casteos con el resto del conjuro porque el recitado dura 2-3 turnos y tiene que
-# sobrevivirlos (y al traspaso de anfitrion). Si el elegido cae mientras recitas, se cae al que
+# sobrevivirlos (y a guardar la pelea y rehacerla). Si el elegido cae mientras recitas, se cae al que
 # lanza: el conjuro no se pierde por eso.
 # A QUIEN va una HABILIDAD de las que caen sobre un aliado (Purificar, Égida menor). No puede
 # reutilizar _cast_aliado: ese vive dentro de _casteos y solo existe mientras recitas un conjuro,
@@ -1728,8 +1728,8 @@ func _begin_player_turn() -> void:
 	# el del dueño del personaje, asi que el martillazo caia donde le tocara. Ahora se pide la orden,
 	# con su objetivo, igual que el disparo de un conjuro.
 	#
-	# El descuento y la comprobacion van SEPARADOS para que esto sea idempotente: tras un traspaso de
-	# anfitrion la carga viaja en _volatil con charge_left ya a 0, y el nuevo no debe restar otra vez.
+	# El descuento y la comprobacion van SEPARADOS para que esto sea idempotente: al rehacer una pelea
+	# guardada la carga vuelve en _volatil con charge_left ya a 0, y no se debe restar otra vez.
 	if _player.charging != null:
 		if _player.charge_left > 0:
 			_player.charge_left -= 1
@@ -1739,7 +1739,7 @@ func _begin_player_turn() -> void:
 			_pausa_lectura()
 			return
 		# LISTA. 'charging' se queda puesto hasta que de verdad se suelte: es lo que hace que el estado
-		# sobreviva a un traspaso, a un reenvio del heartbeat y a que su dueño se vaya de la pelea.
+		# sobreviva a guardar la pelea, a un reenvio del heartbeat y a que su dueño se vaya de la pelea.
 		# EN EL MAPA no se pregunta nada: el sitio se eligio al empezar a cargar y cae ahi, este quien
 		# este (lo que se haya ido, se ha librado). Lo suelta esta maquina aunque el personaje sea de
 		# otro humano: el sitio ya viajo sellado con la accion que empezo la carga.
@@ -3004,7 +3004,7 @@ func _pintar_linea_log(texto: String) -> void:
 	_log_al_final()
 
 
-# El registro entero de golpe: al recoger una pelea en un relevo, o cuando el espejo pide el log
+# El registro entero de golpe: al rehacer una pelea guardada, o cuando el espejo pide el log
 # completo porque le falta un trozo (ver espejo.aplicar_log_entero).
 func _rehacer_log(lineas: Array) -> void:
 	_log.clear()
@@ -3335,7 +3335,7 @@ func indice_de_aliado(c: Combatant) -> int:
 func marcar_dueno(c: Combatant, peer: int) -> void:
 	espejo.marcar_dueno(c, peer)
 
-func retomar(estado: Dictionary, cs: Array, filas_e: Array, texto := "Tomas el relevo de la pelea.") -> void:
+func retomar(estado: Dictionary, cs: Array, filas_e: Array, texto := "La pelea sigue donde la dejasteis.") -> void:
 	espejo.retomar(estado, cs, filas_e, texto)
 
 func estado_para_guardar(base: int = 0) -> Dictionary:
