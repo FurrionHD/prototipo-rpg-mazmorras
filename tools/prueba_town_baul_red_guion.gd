@@ -47,7 +47,6 @@ func _ready() -> void:
 		return
 	_ok(await _dato_de_b("baul_al_entrar", 40.0) == 0, "a B tampoco le llega al entrar")
 	# Cambio el baul con B dentro sin haberlo pedido: una baba de fuego normal pasa a dañada (los totales no cambian).
-	var relleno: MaterialData = load("res://resources/materials/baba_fuego.tres")
 	await Net.hogar.abrir_taller()
 	Game.baul.quitar_material(relleno, MaterialItem.Calidad.NORMAL, 1)
 	Game.baul.anadir(MaterialItem.crear(relleno, MaterialItem.Calidad.DANADO))
