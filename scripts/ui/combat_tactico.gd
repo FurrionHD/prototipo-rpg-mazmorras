@@ -5837,6 +5837,19 @@ func pedir_salto(c: Combatant, victima: Combatant, desde: Combatant) -> void:
 	anotar_salto(c, p, hacia)
 
 
+# EL MISMO SALTO SIN NADIE (el Oportunista cuyo enemigo ha muerto, 29/10): al sitio libre mas cerca de 'punto', mirando
+# hacia donde salta. Viaja como el otro, con la victima vacia (el espejo mira hacia el salto).
+func pedir_salto_al_sitio(c: Combatant, punto: Vector2) -> void:
+	if _pantalla._espejo or not _pantalla.tactico or c == null or cuerpo_de(c) == null:
+		return
+	var p: Vector2 = _sitio_libre_hacia(c, punto)
+	var hacia: Vector2 = punto + (punto - pies_de(c))
+	if not _es_mio(c):
+		_pos[c] = p
+	_pantalla.espejo._apuntar_salto_red(c, p, null)
+	anotar_salto(c, p, hacia)
+
+
 # Tambien en el espejo, al leer el paquete de impactos.
 func anotar_salto(c: Combatant, hasta: Vector2, hacia: Vector2) -> void:
 	if c == null:

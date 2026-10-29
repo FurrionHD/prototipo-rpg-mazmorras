@@ -463,12 +463,12 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 			var hay_alguien: bool = not reparto_mapa.is_empty() or (spell.forma_a_aliados
 				and not _pantalla.turno_mapa.aliados_hechizo(spell, _pantalla._player).is_empty())
 			if not hay_alguien:
-				# Sin nadie no hay golpes que lo lleven: se lanza aqui a pelo (el orbe se apaga al final).
-				var arena: Node = _pantalla.turno_mapa._arena()
-				if arena != null:
-					SueloRoto.lanzar(arena, f_ef, _tipo_fallo(spell.suelo_mapa), (randi() & 0x3FFFFFFF) | 1)
-				# Sin golpes no hay cola que traiga el gesto: la floritura, a pelo (como el efecto, solo aqui).
-				_pantalla.turno_mapa.gesto_en_mapa(_pantalla._player, "lanzar", 0.75)
+				# Sin nadie no hay golpes que lo lleven: lo lleva un GOLPE AL AIRE (el gesto de lanzar y su efecto, el del
+				# orbe que se apaga), que viaja a los espejos como un golpe. Antes se lanzaba aqui a pelo y solo lo veia
+				# quien llevaba la pelea: en multi, la sala (29/10).
+				_pantalla.efectos.fijar_suelo(_tipo_fallo(spell.suelo_mapa), f_ef, (randi() & 0x3FFFFFFF) | 1, 0.0)
+				_pantalla.efectos.golpe_al_aire(_pantalla._player)
+				_pantalla.efectos.soltar_suelo()
 			else:
 				_pantalla.efectos.fijar_suelo(spell.suelo_mapa, f_ef, (randi() & 0x3FFFFFFF) | 1, 0.0)
 				con_efecto = true

@@ -179,6 +179,7 @@ TOPES = {             # las que tardan mas de lo normal cuando van bien
     "prueba_solo_por_sala": 420,
     "prueba_huida_lider": 360,       # ~2,5 min: dos huidas con el dado de la sala (a veces hacen falta varios intentos)     # dos entradas por su sala (etapa 4): la de siempre y la vuelta
     "prueba_town_dos_peleas": 480,      # ~5 min: seis peleas en la sala, y la cortesia de 60 s de B al caerse
+    "prueba_todas_al_aire": 480,        # ~2 min: 188 habilidades, una a una, con su espera
     "prueba_town_dos_jugadores": 360,   # ~3-4 min: dos jugadores, cuatro peleas y la arena   # ~105 s: recorre el pueblo andando y corriendo
 }
 

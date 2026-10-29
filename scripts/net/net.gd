@@ -166,7 +166,9 @@ const MAX_CONEXIONES := 32
 # 60 (29/10): el ASPECTO (_set_aspecto/_rel_aspecto: piezas y equipo), el GRUPO (_set_grupo/_rel_grupo) y las filas del
 #     hogar (_mi_hogar, y solo si cambian) van comprimidos (Net.zip). Un build del 59 los descartaria: sin aspecto
 #     ni compañeros de los demas.
-const PROTOCOLO := 60
+# 61 (29/10): el SALTO puede ir sin victima (el Oportunista que salta a su sitio sin nadie: turno_mapa.pedir_salto_al_sitio)
+#     y la magia que no pilla a nadie manda su efecto y su gesto con un golpe al aire. Un build del 60 no veria ninguno.
+const PROTOCOLO := 61
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

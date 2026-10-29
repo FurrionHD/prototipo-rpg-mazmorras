@@ -159,6 +159,16 @@ func _retraso_suelo(victima: Combatant, estilo: int = -1) -> float:
 	return rs
 
 
+# EL GOLPE AL AIRE (29/10, el jefe: "todas las habilidades se ven aunque no le den a nadie"): el gesto de quien ataca,
+# sin victima ni daño. Suelta el efecto por el suelo que este pendiente (fijar_suelo) y viaja a los espejos como
+# cualquier golpe (va en el paquete de impactos). Lo usan las habilidades y las magias que no pillan a nadie.
+func golpe_al_aire(quien: Combatant, anim_de = null, sfx: String = "") -> void:
+	if quien == null:
+		return
+	_fx_golpe(quien, quien, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.MELEE, 1.0, true, sfx,
+		AbilityData.Gesto.AUTO, anim_de)
+
+
 func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 		evadido: bool, elem: int = Elementos.Elemento.NINGUNO,
 		estilo: int = CombatFX.Estilo.MELEE, peso: float = 1.0,

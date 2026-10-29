@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://tools/prueba_todas_al_aire.gd" id="1"]
+
+[node name="PruebaTodasAlAire" type="Node"]
+script = ExtResource("1")

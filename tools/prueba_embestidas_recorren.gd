@@ -187,7 +187,16 @@ func _correr() -> void:
 			sitios.append(pe + lejos * (280 + 30 * (i % 2)) + Vector2(0, -60 + 40 * i))
 		_colocar(t, al, sitios)
 		await _esperar(3)
-		var hp_antes: Array = al.map(func(a): return a.current_hp)
+		# Si le llega a alguien, por la COLA (golpes de verdad contra los tuyos) y no por la vida: un estado del caso 2 les
+		# baja la vida en la espera y con el PC cargado engañaba (29/10).
+		var bloques_al: Array = al.map(func(a): return combat._bloque_de(a))
+		var contra_al := func() -> int:
+			var n := 0
+			for ev in combat._fx._cola:
+				if is_same(ev["ba"], combat._bloque_de(e)) and not bool(ev.get("solo_dibujo", false)) 						and bloques_al.any(func(b): return is_same(b, ev["bv"])):
+					n += 1
+			return n
+		var antes_al: int = contra_al.call()
 		var suelos: Array = []
 		var oye := func(tipo: int, _espera: float): suelos.append(tipo)
 		combat._fx.suelo_lanzado.connect(oye)
@@ -195,10 +204,11 @@ func _correr() -> void:
 		e.ability_cooldowns.erase(hab)
 		combat.enemigos._enemy_use_ability(e, hab, al[0])
 		var d: Dictionary = t._deslices.back() if t._deslices.size() > n_d else {}
+		var le_da: bool = contra_al.call() > antes_al
 		await _esperar_a(func() -> bool: return suelos.has(hab.suelo_roto), 4.0)
 		await get_tree().create_timer(1.2).timeout
 		combat._fx.suelo_lanzado.disconnect(oye)
-		_ver(al.all(func(a): return a.current_hp >= float(hp_antes[al.find(a)]) - 0.001), "%s: no le da a nadie" % hab.nombre)
+		_ver(not le_da, "%s: no le da a nadie" % hab.nombre)
 		_ver(suelos.has(hab.suelo_roto), "%s: su efecto sale por el suelo igual (%s)" % [hab.nombre, str(suelos)])
 		if hab.salta:
 			_ver(not d.is_empty() and float(d.get("arco", 0.0)) > 0.0, "%s: salta (por el aire)" % hab.nombre)

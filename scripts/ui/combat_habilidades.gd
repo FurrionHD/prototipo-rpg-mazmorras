@@ -716,6 +716,11 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 			obj = reparto_mapa[0]["c"]
 			if ab.salto_espalda:
 				_pantalla.turno_mapa.pedir_salto(_pantalla._player, obj, _pantalla._player)
+		# SIN NADIE, SE LANZA IGUAL (29/10, el jefe: "aunque el enemigo muera el personaje se lanzara a su sitio"): al
+		# sitio que apuntaste, con el mismo salto.
+		elif ab.salto_espalda:
+			_pantalla.turno_mapa.pedir_salto_al_sitio(_pantalla._player,
+				_pantalla.turno_mapa.forma_de(ab, _pantalla._player, _pantalla.turno_mapa.apunte).centro)
 		# EL PASO (Paso ligero) y EL AVANCE (Danza de acero): te mueves, antes o despues de pegar. Se pide
 		# ANTES de los golpes, que es el orden en que viaja al espejo (como el salto).
 		if ab.paso or ab.avance:
@@ -810,7 +815,10 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 						# EN EL AVANCE (Danza de acero) van EN ORDEN, los de cada uno seguidos: se los das
 						# al pasar a su lado, no volviendo atras. Del reparto ENTERO (no de los vivos), para
 						# que un muerto a mitad no cambie a quien le toca cada golpe de los que quedan.
-						if ab.avance:
+						# (Sin nadie en su recorrido, nadie: antes el indice salia -1 y la habilidad petaba a medias, 29/10.)
+						if ab.avance and reparto_mapa.is_empty():
+							de_este_golpe = []
+						elif ab.avance:
 							var suyo: Dictionary = reparto_mapa[mini(i * reparto_mapa.size() / maxi(golpes, 1),
 								reparto_mapa.size() - 1)]
 							de_este_golpe = [suyo] if (suyo["c"] as Combatant).is_alive() else []
@@ -969,6 +977,10 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 			if t != null and t.is_alive():
 				estados_log += _tirar_efectos_habilidad(ab, t, false, "objetivo")
 
+	# LA HUELLA NO PILLA A NADIE: el ataque se ve igual, dandole al aire (29/10, el jefe): el gesto, su sonido y su efecto
+	# por el suelo (el que se fijo arriba), por el mismo camino que un golpe, tambien en los espejos.
+	if en_mapa and reparto_mapa.is_empty() and reparto_escudo.is_empty() and not ab.forma_a_aliados:
+		_pantalla.efectos.golpe_al_aire(_pantalla._player, ab, _pantalla.efectos._clave_sfx(ab))
 	_pantalla.efectos.soltar_suelo()
 	# BUFFS PROPIOS (en_objetivo = false): UNA vez por uso, pegue la habilidad o no.
 	#

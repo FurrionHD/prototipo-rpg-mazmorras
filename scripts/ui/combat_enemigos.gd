@@ -667,8 +667,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 				_pantalla.turno_mapa.poner_charco(e, ab, forma_suelta)
 			if ab.piezas > 0:
 				_pantalla.turno_mapa.poner_piezas(e, ab, forma_suelta)
-			_pantalla.efectos._fx_golpe(e, e, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.MELEE, 1.0,
-				true, _pantalla.efectos._clave_sfx(ab), AbilityData.Gesto.AUTO, ab)
+			_pantalla.efectos.golpe_al_aire(e, ab, _pantalla.efectos._clave_sfx(ab))
 			_pantalla.efectos.soltar_suelo()
 		_no_llega(e, ab)
 		_pantalla._pausa_lectura()   # mismo motivo que en _enemy_turn: su barra ya se gasto, hay que reanudar

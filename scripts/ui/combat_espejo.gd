@@ -1490,10 +1490,11 @@ func _aplicar_impactos_ya(datos: PackedInt32Array) -> void:
 		if ca == MARCA_SALTO:
 			var quien: Combatant = _de_codigo(datos[j + 1])
 			var vic: Combatant = _de_codigo(datos[j + 4])
-			if quien != null and vic != null:
-				_pantalla.turno_mapa.anotar_salto(quien,
-					Vector2(float(datos[j + 2]) / 16.0, float(datos[j + 3]) / 16.0),
-					_pantalla.turno_mapa.pies_de(vic))
+			var a_salto := Vector2(float(datos[j + 2]) / 16.0, float(datos[j + 3]) / 16.0)
+			# Sin victima (el salto al sitio, turno_mapa.pedir_salto_al_sitio): mira hacia donde salta.
+			if quien != null:
+				_pantalla.turno_mapa.anotar_salto(quien, a_salto, _pantalla.turno_mapa.pies_de(vic) if vic != null
+					else a_salto + (a_salto - _pantalla.turno_mapa.pos_de(quien)))
 			j += 5
 			continue
 		if ca == MARCA_LANZA:
