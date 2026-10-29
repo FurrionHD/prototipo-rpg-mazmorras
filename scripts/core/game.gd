@@ -15205,7 +15205,9 @@ func cds_a_rutas(cds: Dictionary) -> Dictionary:
 func cds_de_rutas(rutas: Dictionary) -> Dictionary:
 	var d: Dictionary = {}
 	for ruta in rutas:
-		var ab = load(String(ruta)) if ResourceLoader.exists(String(ruta)) else null
+		# Por la red llegan por ID (IdsRed: el lote del desgaste); de una ficha guardada, por ruta.
+		var ab = IdsRed.cargar(int(ruta)) if ruta is int \
+			else load(String(ruta)) if ResourceLoader.exists(String(ruta)) else null
 		if ab is AbilityData:
 			d[ab] = int(rutas[ruta])
 	return d

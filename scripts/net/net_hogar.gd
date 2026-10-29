@@ -1199,7 +1199,7 @@ func _delta_al_host(quitar: Array, poner: Array) -> void:
 			_aplicar_delta.rpc_id(p, IdsRed.a_red(quitar), IdsRed.a_red(poner))
 	if faltan > 0:
 		push_warning("[hogar] %d unidades que gasto %d ya no estaban: le corrijo el baul" % [faltan, quien])
-		_set_almacen.rpc_id(quien, Net.zip(IdsRed.a_red(_almacen_dicts())))
+		_set_almacen.rpc_id(quien, Net.zip(_almacen_dicts()))
 	Net.hogar_cambiado.emit()
 
 
@@ -1220,7 +1220,7 @@ func tengo_taller() -> bool:
 
 @rpc("authority", "call_remote", "reliable")
 func _set_almacen(z: Array) -> void:
-	var bag: Array = IdsRed.de_red(Net.unzip_array(z))
+	var bag: Array = Net.unzip_array(z)
 	# No piso mi baul si soy YO quien tiene el taller prestado (estoy crafteando con el).
 	if _taller_dueno == multiplayer.get_unique_id():
 		return
@@ -1271,7 +1271,7 @@ func _quiero_baul() -> void:
 	if not Net.es_host or not Net._peers.has(quien):
 		return
 	_con_baul[quien] = true
-	_set_almacen.rpc_id(quien, Net.zip(IdsRed.a_red(_almacen_dicts())))
+	_set_almacen.rpc_id(quien, Net.zip(_almacen_dicts()))
 
 
 func _olvidar_baul() -> void:

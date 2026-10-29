@@ -71,8 +71,9 @@ func test_el_baul_de_referencia_por_la_frontera() -> void:
 	igual(IdsRed.de_red(red), msg, "ida y vuelta del baul entero")
 	var antes: int = var_to_bytes(msg).size()
 	var ahora: int = var_to_bytes(red).size()
-	var antes_z: int = (Net.zip(msg)[1] as PackedByteArray).size()
-	var ahora_z: int = (Net.zip(red)[1] as PackedByteArray).size()
+	# Comprimido como lo hace Net.zip, con rutas (antes) y con ids (ahora: Net.zip ya los pone solo).
+	var antes_z: int = var_to_bytes(msg).compress(FileAccess.COMPRESSION_ZSTD).size()
+	var ahora_z: int = (Net.zip(msg)[1] as PackedByteArray).size()
 	print("    [medida] baul por red: %d KB -> %d KB; comprimido %d KB -> %d KB" % [antes / 1024, ahora / 1024,
 		antes_z / 1024, ahora_z / 1024])
 	cierto(ahora < antes and ahora_z <= antes_z, "pesa menos")
@@ -86,3 +87,34 @@ func test_una_accion_de_combate_viaja_con_ids() -> void:
 	igual(NetPeleas.accion_de_red(red), accion, "y vuelve igual")
 	var sin_hab := {"tipo": "atacar", "obj": 1}
 	igual(NetPeleas.accion_de_red(NetPeleas.accion_a_red(sin_hab)), sin_hab, "una sin rutas, intacta")
+
+
+func test_el_jugador_de_referencia_viaja_sin_una_sola_ruta() -> void:
+	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
+	if not cierto(ref is SaveData, "esta la partida de referencia"):
+		return
+	Game.importar_partida(ref)
+	var d: Dictionary = Net.partida.jd_a_dict(Game.mi_jugador_data())
+	var red: Dictionary = Net.partida.jd_a_red(d)
+	var texto: String = var_to_str(red)
+	var quedan: int = texto.count("res://")
+	if quedan > 0:
+		var i: int = texto.find("res://")
+		print("    primera ruta que queda: ", texto.substr(maxi(0, i - 80), 160))
+	igual(quedan, 0, "ni una ruta en el jugador por la red")
+	igual(Net.partida.jd_de_red(red), d, "y vuelve identico")
+	var antes: int = (Net.zip(d)[1] as PackedByteArray).size()
+	print("    [medida] jugador al entrar: %d KB sin comprimir -> %d KB; comprimido %d KB" % [
+		var_to_bytes(d).size() / 1024, var_to_bytes(red).size() / 1024, antes / 1024])
+
+
+func test_la_ficha_de_una_pelea_viaja_sin_rutas() -> void:
+	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
+	if not cierto(ref is SaveData, "esta la partida de referencia"):
+		return
+	Game.importar_partida(ref)
+	for pj in Game.plantilla:
+		var f: Dictionary = Net.partida.ficha_a_dict(pj)
+		var red: Dictionary = Net.partida.ficha_a_red(f)
+		igual(var_to_str(red).count("res://"), 0, "%s: sin rutas" % pj.nombre)
+		igual(Net.partida.ficha_de_red(red), f, "%s: vuelve identica" % pj.nombre)

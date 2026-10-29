@@ -433,10 +433,12 @@ signal venta_cofre(texto: String)
 # hogar, el cofre, las fichas y el roster de una pelea (10-20 KB) son diccionarios con las mismas claves repetidas
 # cientos de veces: con ZSTD se quedan en una fraccion. Solo esos: los ticks pequeños no ganan nada. Va como
 # [tamaño, bytes]; al deshacerlo hay TOPE de tamaño, que un paquete raro no haga reservar memoria sin fin.
+# Y CON IDS (29/10): cada "ruta" de lo comprimido viaja como su numero (IdsRed.a_red) y vuelve a ruta al deshacerlo.
+# Solo se usa para la red: lo que se guarda en disco no pasa por aqui.
 const ZIP_TOPE := 16 * 1024 * 1024
 
 static func zip(v) -> Array:
-	var b: PackedByteArray = var_to_bytes(v)
+	var b: PackedByteArray = var_to_bytes(IdsRed.a_red(v))
 	return [b.size(), b.compress(FileAccess.COMPRESSION_ZSTD)]
 
 
@@ -444,7 +446,7 @@ static func unzip(z: Array):
 	if z.size() != 2 or not (z[1] is PackedByteArray) or int(z[0]) <= 0 or int(z[0]) > ZIP_TOPE:
 		return null
 	var b: PackedByteArray = (z[1] as PackedByteArray).decompress(int(z[0]), FileAccess.COMPRESSION_ZSTD)
-	return bytes_to_var(b) if b.size() == int(z[0]) else null
+	return IdsRed.de_red(bytes_to_var(b)) if b.size() == int(z[0]) else null
 
 
 static func unzip_dict(z: Array) -> Dictionary:
@@ -1153,7 +1155,7 @@ func _saludar(codigo: String, protocolo: int, identidad: String, nombre_visible:
 			estado_cambiado.emit("%s vuelve al mundo." % nombre_visible)
 			# Con DONDE ESTABAS (fase 4 de la BD): sin el, el que volvia al mundo aparecia siempre en la plaza, aunque se
 			# hubiera ido desde un piso (solo se lo decia a los que entraban por primera vez).
-			partida._tu_jugador.rpc_id(quien, zip(partida.jd_a_dict(jd as JugadorData)), Game.semilla_mundo,
+			partida._tu_jugador.rpc_id(quien, zip(partida.jd_a_red(partida.jd_a_dict(jd as JugadorData))), Game.semilla_mundo,
 				partida._donde_estaba(quien))
 		else:
 			# ALGUIEN NUEVO: tener el codigo y la contraseña no basta, alguien de dentro le tiene que
@@ -1350,7 +1352,7 @@ func _admitir(quien: int, color: Color, metal: float, nombre: String, lugar: Str
 		_presentar_ajeno.rpc_id(otro, quien, color, metal, nombre, lugar, huella, alpha, [], piezas)
 		# Al nuevo: este otro ya estaba (con SUS datos, sequito incluido).
 		_presentar_ajeno.rpc_id(quien, otro, p["color"], p["metal"], p["nombre"], p["lugar"],
-			int(p.get("huella", 0)), float(p.get("alpha", 1.0)), p.get("comps", []),
+			int(p.get("huella", 0)), float(p.get("alpha", 1.0)), IdsRed.a_red(p.get("comps", [])),
 			p.get("piezas", {}))
 	# Presentarme al nuevo (registra al HOST en su _peers) ANTES de registrarle yo: _registrar_peer
 	# dispara mi anunciar_grupo(), y si su _set_grupo llegara antes que este _presentarse, el cliente
@@ -1512,7 +1514,7 @@ func _presentar_ajeno(peer_id: int, color: Color, metal: float, nombre: String, 
 	# cliente pero sus acompañantes no naceran hasta que ese cliente vuelva a tocar su grupo. Basta
 	# con guardarlo: _mover_companeros crea los cuerpos con esta cara en cuanto lleguen sus posiciones.
 	if not comps.is_empty():
-		_peers[peer_id]["comps"] = comps
+		_peers[peer_id]["comps"] = IdsRed.de_red(comps)
 
 
 # El host me dice que un peer ajeno se ha ido. Idempotente: con server_relay podria llegarme

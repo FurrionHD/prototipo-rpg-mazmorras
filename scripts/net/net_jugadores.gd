@@ -287,9 +287,9 @@ func anunciar_grupo() -> void:
 	var datos: Array = _datos_grupo()
 	if Net.es_host:
 		for pid in Net._peers:
-			_set_grupo.rpc_id(pid, Net._mi_id(), datos)
+			_set_grupo.rpc_id(pid, Net._mi_id(), IdsRed.a_red(datos))
 	else:
-		_rel_grupo.rpc_id(1, datos)
+		_rel_grupo.rpc_id(1, IdsRed.a_red(datos))
 
 
 func _datos_grupo() -> Array:
@@ -311,6 +311,7 @@ func _datos_grupo() -> Array:
 func _set_grupo(emisor: int, datos: Array) -> void:
 	if not Net._peers.has(emisor):
 		return
+	datos = IdsRed.de_red(datos)   # su equipo viaja con ids
 	Net._peers[emisor]["comps"] = datos
 	# Si tenia cuerpos de mas (se dejo gente en casa), fuera; y a los que quedan, su cara nueva.
 	var lista: Array = Net._avatares_comp.get(emisor, [])

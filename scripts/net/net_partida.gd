@@ -59,6 +59,100 @@ func pj_de_dict(d: Dictionary, registrar := true) -> PersonajeData:
 	return ficha_de_dict(d, registrar)
 
 
+# ------------------------------------------------------------
+#  LAS FICHAS POR LA RED, CON IDS (IdsRed, 29/10)
+#  ficha_a_dict / jd_a_dict siguen con RUTAS porque tambien se GUARDAN (la ficha va en las peleas guardadas de la sala,
+#  sesion_peleas). Al mandarlas se pasan a numeros: cada "ruta" de un dict (el equipo, el conjuro que trae) y las
+#  listas de rutas sueltas (hechizos, habilidades, sus sets, los cooldowns, los consumibles, el cebo). Al recibirlas
+#  se deshace. Lo comprimido ya cambia las "ruta" solo (Net.zip); estas son las que no lo son.
+# ------------------------------------------------------------
+const _LISTAS_DE_RUTAS := ["spells", "spells_sabidos", "habs_sabidas"]
+
+
+static func ficha_a_red(f: Dictionary) -> Dictionary:
+	var r: Dictionary = IdsRed.a_red(f)
+	for k in _LISTAS_DE_RUTAS:
+		if f.has(k):
+			r[k] = _a_ids(f[k])
+	if f.has("habs_sets"):
+		var sets: Dictionary = {}
+		for k in (f["habs_sets"] as Dictionary):
+			sets[k] = _a_ids(f["habs_sets"][k])
+		r["habs_sets"] = sets
+	if f.has("cds"):
+		r["cds"] = _claves_a_ids(f["cds"])
+	return r
+
+
+static func ficha_de_red(f: Dictionary) -> Dictionary:
+	var r: Dictionary = IdsRed.de_red(f)
+	for k in _LISTAS_DE_RUTAS:
+		if f.has(k):
+			r[k] = _de_ids(f[k])
+	if f.has("habs_sets"):
+		var sets: Dictionary = {}
+		for k in (f["habs_sets"] as Dictionary):
+			sets[k] = _de_ids(f["habs_sets"][k])
+		r["habs_sets"] = sets
+	if f.has("cds"):
+		r["cds"] = _claves_de_ids(f["cds"])
+	return r
+
+
+static func fichas_a_red(fichas: Array) -> Array:
+	return fichas.map(func(f): return ficha_a_red(f as Dictionary))
+
+
+static func fichas_de_red(fichas: Array) -> Array:
+	return fichas.map(func(f): return ficha_de_red(f as Dictionary))
+
+
+# El jugador entero (o una PARTE suya, ver solo_lo_cambiado): sus fichas, sus consumibles (por ruta) y su cebo.
+static func jd_a_red(d: Dictionary) -> Dictionary:
+	var r: Dictionary = IdsRed.a_red(d)
+	if d.has("personajes"):
+		r["personajes"] = fichas_a_red(d["personajes"])
+	if d.has("consumibles"):
+		r["consumibles"] = _claves_a_ids(d["consumibles"])
+	if d.has("cebo"):
+		r["cebo"] = IdsRed.de(d["cebo"])
+	return r
+
+
+static func jd_de_red(d: Dictionary) -> Dictionary:
+	var r: Dictionary = IdsRed.de_red(d)
+	if d.has("personajes"):
+		r["personajes"] = fichas_de_red(d["personajes"])
+	if d.has("consumibles"):
+		r["consumibles"] = _claves_de_ids(d["consumibles"])
+	if d.has("cebo"):
+		r["cebo"] = IdsRed.ruta(int(d["cebo"])) if d["cebo"] is int else String(d["cebo"])
+	return r
+
+
+# Una lista de rutas ("" = hueco) en numeros (0 = hueco), y al reves. Lo que ya venga en el otro formato se respeta.
+static func _a_ids(lista) -> Array:
+	return (lista as Array).map(func(x): return IdsRed.de(x) if x is String else x)
+
+
+static func _de_ids(lista) -> Array:
+	return (lista as Array).map(func(x): return IdsRed.ruta(int(x)) if x is int else x)
+
+
+static func _claves_a_ids(d) -> Dictionary:
+	var out: Dictionary = {}
+	for k in (d as Dictionary):
+		out[IdsRed.de(k) if k is String else k] = d[k]
+	return out
+
+
+static func _claves_de_ids(d) -> Dictionary:
+	var out: Dictionary = {}
+	for k in (d as Dictionary):
+		out[IdsRed.ruta(int(k)) if k is int else k] = d[k]
+	return out
+
+
 # TODO lo de una persona en un mundo: sus personajes y lo que es suyo y de nadie mas (dinero, bolsa,
 # oficios, donde se quedo). Es el JugadorData de jugador_data.gd, pero por cable.
 func jd_a_dict(jd: JugadorData) -> Dictionary:
@@ -413,8 +507,9 @@ func desgaste_a_dict(pj: PersonajeData) -> Dictionary:
 	# son los del COMBATIENTE (el dict de Game solo tiene los de la entrada): asi tambien salen bien
 	# si se marcha a mitad, que es el otro camino que pasa por aqui.
 	var vivo: Combatant = Game.combatant_de_pj(pj)
-	d["cds"] = Game.cds_a_rutas(vivo.ability_cooldowns if vivo != null \
-		else Game.ability_cooldowns_persist.get(pj, {}))
+	# Por id (IdsRed): el lote solo viaja, no se guarda. Game.cds_de_rutas entiende los dos.
+	d["cds"] = _claves_a_ids(Game.cds_a_rutas(vivo.ability_cooldowns if vivo != null \
+		else Game.ability_cooldowns_persist.get(pj, {})))
 	# LA DURABILIDAD de lo que lleva puesto, por ranura. La pelea desgasta el arma y la armadura DEL
 	# DOBLE (su equip_meta), que es una copia: sin esto el equipo de quien peleaba en otra maquina no se
 	# gastaba nunca. Con la pelea en la sala eso seria el de TODOS.
@@ -431,7 +526,7 @@ func desgaste_a_dict(pj: PersonajeData) -> Dictionary:
 	var mun: Array = []
 	if vivo != null:
 		for par in vivo.municion_devolver:
-			mun.append([String((par[0] as Resource).resource_path), int(par[1])])
+			mun.append([IdsRed.de(par[0]), int(par[1])])   # por id: el lote solo viaja
 	d["municion"] = mun
 	return d
 
@@ -516,7 +611,7 @@ func aplicar_desgaste(pj: PersonajeData, d: Dictionary) -> void:
 		pj.pasivas_pendientes[id] = true
 	var mun: Array = []
 	for par in (d.get("municion", []) as Array):
-		var md: MunicionData = load(String(par[0])) as MunicionData
+		var md: MunicionData = (IdsRed.cargar(int(par[0])) if par[0] is int else load(String(par[0]))) as MunicionData
 		if md != null:
 			mun.append([md, int(par[1])])
 	Game.devolver_municion_a_bolsa(mun)
@@ -636,7 +731,7 @@ func _dame_tu_estado(cerrando: bool, hay_base: bool = false) -> void:
 		return
 	# SOLO LO QUE HA CAMBIADO (fase 3, 28/10): eran ~83 KB en cada guardado (el baul entero, cada minuto), y
 	# casi nada cambia de uno a otro. Sin base en la sala (sala nueva, o es la primera vez), entero.
-	var d: Dictionary = jd_a_dict(Game.mi_jugador_data())
+	var d: Dictionary = jd_a_red(jd_a_dict(Game.mi_jugador_data()))   # con ids: las partes se comparan ya asi
 	if not hay_base:
 		_hash_enviado.clear()
 	var r: Array = solo_lo_cambiado(d, _hash_enviado)
@@ -665,7 +760,7 @@ func _dame_tu_estado(cerrando: bool, hay_base: bool = false) -> void:
 # arreglo para el camino del combate y quedo vivo en este.
 @rpc("any_peer", "call_remote", "reliable")
 func _mi_estado(z: Array) -> void:
-	var d: Dictionary = Net.unzip_dict(z)
+	var d: Dictionary = jd_de_red(Net.unzip_dict(z))
 	if not Net.es_host or not Net.mundo_compartido:
 		return
 	var quien := multiplayer.get_remote_sender_id()
@@ -899,7 +994,7 @@ signal entrada_lista
 func mandar_alta_personaje(pj: PersonajeData) -> void:
 	if not Net.activo or Net.es_host:
 		return
-	_alta_personaje.rpc_id(1, Net.zip(pj_a_dict(pj)))
+	_alta_personaje.rpc_id(1, Net.zip(ficha_a_red(pj_a_dict(pj))))
 
 
 # MUDANZA: en vez de un personaje recien creado, se manda uno TRAIDO de una partida de un jugador,
@@ -907,7 +1002,7 @@ func mandar_alta_personaje(pj: PersonajeData) -> void:
 func mandar_alta_jugador(jd: JugadorData) -> void:
 	if not Net.activo or Net.es_host or jd == null:
 		return
-	_alta_jugador.rpc_id(1, jd_a_dict(jd))
+	_alta_jugador.rpc_id(1, jd_a_red(jd_a_dict(jd)))
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -921,7 +1016,7 @@ func _crea_tu_personaje(nombre_mundo: String) -> void:
 # porque el mundo es suyo mientras tenga el cerrojo.
 @rpc("any_peer", "call_remote", "reliable")
 func _alta_personaje(z: Array) -> void:
-	var d: Dictionary = Net.unzip_dict(z)
+	var d: Dictionary = ficha_de_red(Net.unzip_dict(z))
 	if not Net.es_host or not Net.mundo_compartido:
 		return
 	var quien := multiplayer.get_remote_sender_id()
@@ -947,7 +1042,7 @@ func _alta_personaje(z: Array) -> void:
 	Game.jugadores_mundo[identidad] = jd
 	print("[multi] alta de ", pj.nombre, " (", jd.nombre_visible, ") en el mundo")
 	# Se le devuelve YA empaquetado: asi los dos lados parten de lo mismo y no hay dos verdades.
-	_tu_jugador.rpc_id(quien, Net.zip(jd_a_dict(jd)), Game.semilla_mundo, _donde_estaba(quien))
+	_tu_jugador.rpc_id(quien, Net.zip(jd_a_red(jd_a_dict(jd))), Game.semilla_mundo, _donde_estaba(quien))
 
 
 # MUDANZA: el invitado trae un jugador ENTERO de una de sus partidas (personajes + bolsa + oficios).
@@ -959,6 +1054,7 @@ func _alta_personaje(z: Array) -> void:
 func _alta_jugador(d: Dictionary) -> void:
 	if not Net.es_host or not Net.mundo_compartido:
 		return
+	d = jd_de_red(d)
 	var quien := multiplayer.get_remote_sender_id()
 	if not Net._en_la_puerta.has(quien):
 		return
@@ -969,7 +1065,7 @@ func _alta_jugador(d: Dictionary) -> void:
 	# mundo, y con el todo lo que hubiera hecho dentro).
 	if Game.jugadores_mundo.get(identidad) is JugadorData:
 		print("[multi] %s ya tiene personaje en este mundo: no se importa nada" % identidad)
-		_tu_jugador.rpc_id(quien, Net.zip(jd_a_dict(Game.jugadores_mundo[identidad])), Game.semilla_mundo,
+		_tu_jugador.rpc_id(quien, Net.zip(jd_a_red(jd_a_dict(Game.jugadores_mundo[identidad]))), Game.semilla_mundo,
 			_donde_estaba(quien))
 		return
 
@@ -996,7 +1092,7 @@ func _alta_jugador(d: Dictionary) -> void:
 	Game.jugadores_mundo[identidad] = jd
 	print("[multi] MUDANZA: entra %s con %d personajes y %d materiales" % [
 		jd.resumen(), jd.personajes.size(), jd.materiales.size()])
-	_tu_jugador.rpc_id(quien, Net.zip(jd_a_dict(jd)), Game.semilla_mundo, _donde_estaba(quien))
+	_tu_jugador.rpc_id(quien, Net.zip(jd_a_red(jd_a_dict(jd))), Game.semilla_mundo, _donde_estaba(quien))
 
 
 # Donde estaba este jugador cuando se guardo el mundo ({lugar, pos}, o vacio): se le devuelve alli al
@@ -1012,7 +1108,7 @@ var donde_volver: Dictionary = {}
 # El host le da al invitado SU jugador de este mundo. Corre en el CLIENTE.
 @rpc("any_peer", "call_remote", "reliable")
 func _tu_jugador(z: Array, semilla: int, donde: Dictionary = {}) -> void:
-	var d: Dictionary = Net.unzip_dict(z)
+	var d: Dictionary = jd_de_red(Net.unzip_dict(z))
 	donde_volver = donde
 	Net._respondio = true
 	# LO PRIMERO, antes de reconstruir nada: fuera lo que quede de mi partida anterior. Game es un

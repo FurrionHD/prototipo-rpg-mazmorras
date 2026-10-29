@@ -363,7 +363,7 @@ func _pelea_en_ejecutor(ids: Array, emboscada: bool, ejecutor: int) -> void:
 # Corre en LA SALA: llegan las fichas del que pelea (ver _abre_en_la_sala).
 @rpc("any_peer", "call_remote", "reliable")
 func _abre_mi_pelea(ids: Array, emboscada: bool, z: Array, vel: float = 1.0, espera: float = 0.0) -> void:
-	var fichas: Array = Net.unzip_array(z)
+	var fichas: Array = Net.partida.fichas_de_red(Net.unzip_array(z))
 	Medidor.marca("pelea", "sala_abre")
 	var quien := multiplayer.get_remote_sender_id()
 	if not Net.soy_sala:
@@ -510,7 +510,7 @@ func _llega_pelea(ids: Array, emboscada: bool, anfitrion: int, ejecutor: int) ->
 		_avisar_impacto_de(ids)   # y el compañero que este cerca, tambien (ver Game.impacto_ajeno)
 		_fichas_mandadas_a = ejecutor
 		_fichas_emboscada = emboscada
-		_abre_mi_pelea.rpc_id(ejecutor, ids, emboscada, Net.zip(_fichas_de_mi_grupo()), Game.velocidad_combate, _espera_golpe())
+		_abre_mi_pelea.rpc_id(ejecutor, ids, emboscada, Net.zip(Net.partida.fichas_a_red(_fichas_de_mi_grupo())), Game.velocidad_combate, _espera_golpe())
 		return
 	# NINGUNA PELEA EN EL PC DE UN JUGADOR (etapa 3, paso 4): todas las ejecuta la sala, y aqui solo hay espejos.
 	# Lo que llegue sin a quien mandarle las fichas vuelve al piso (y el conjuro que viajaba, a su nota).
@@ -1079,7 +1079,7 @@ func solicitar_unirse(pelea: int) -> void:
 	if _fichas_mandadas_a != 0 and _fichas_mandadas_a == a:
 		return
 	Game.marcar_entrando_en_pelea()   # quieto mientras me contestan (ver _llega_pelea)
-	_pedir_unirme.rpc_id(a, Net.zip(_fichas_de_mi_grupo()), pelea, _espera_golpe())
+	_pedir_unirme.rpc_id(a, Net.zip(Net.partida.fichas_a_red(_fichas_de_mi_grupo())), pelea, _espera_golpe())
 
 
 # LAS FICHAS DE MI GRUPO para una pelea que ejecuta la sala (la mia, o unirme a la de otro). Apunta a quien mando (_mis_en_pelea) y se lleva el conjuro que traiga cada uno.
@@ -1120,7 +1120,7 @@ func _mi_formacion() -> Array:
 # 'pelea' (su id: lleva varias).
 @rpc("any_peer", "call_remote", "reliable")
 func _pedir_unirme(z: Array, pelea: int = 0, espera: float = 0.0) -> void:
-	var fichas: Array = Net.unzip_array(z)
+	var fichas: Array = Net.partida.fichas_de_red(Net.unzip_array(z))
 	Medidor.marca("pelea_compa", "anfitrion_recibe_union")
 	var quien := multiplayer.get_remote_sender_id()
 	# Entra al tocar su golpe, como al abrir una (ver _abre_mi_pelea).
@@ -1655,12 +1655,13 @@ func _vuelve(viejo: int, nuevo: int) -> void:
 		pares.append([p.indice_de_aliado(Game.combatant_de_pj(doble)), String((doble as PersonajeData).uid)])
 	print("[pelea] %s ha vuelto (peer %d -> %d): recupera a sus personajes" % [String(c.get("nombre", "")), viejo, nuevo])
 	p._set_log("%s ha vuelto y recupera a sus personajes." % String(c.get("nombre", "Tu compañero")))
-	_retoma_tu_pelea.rpc_id(nuevo, pe.id, p.roster_para_espejo(), pares)
+	_retoma_tu_pelea.rpc_id(nuevo, pe.id, IdsRed.a_red(p.roster_para_espejo()), pares)
 
 
 # EN EL QUE VUELVE: se le abre el espejo de la pelea que dejo a medias, con sus personajes (por uid).
 @rpc("any_peer", "call_remote", "reliable")
 func _retoma_tu_pelea(id: int, roster: Dictionary, pares: Array) -> void:
+	roster = IdsRed.de_red(roster)
 	var otro := multiplayer.get_remote_sender_id()
 	var mios: Array = []
 	var huecos: Dictionary = {}

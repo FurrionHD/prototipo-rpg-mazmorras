@@ -159,9 +159,9 @@ func anunciar_aspecto() -> void:
 	var eq: Dictionary = Game.pj_a_dict(Game.lider()).get("equipo", {})
 	if Net.es_host:
 		for pid in Net._peers:
-			_set_aspecto.rpc_id(pid, Net._mi_id(), c, m, n, img, al, pz, eq)
+			_set_aspecto.rpc_id(pid, Net._mi_id(), c, m, n, img, al, pz, IdsRed.a_red(eq))
 	else:
-		_rel_aspecto.rpc_id(1, c, m, n, img, al, pz, eq)
+		_rel_aspecto.rpc_id(1, c, m, n, img, al, pz, IdsRed.a_red(eq))
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -169,6 +169,7 @@ func _set_aspecto(emisor: int, color: Color, metal: float, nombre: String, huell
 		alpha: float = 1.0, piezas: Dictionary = {}, equipo: Dictionary = {}) -> void:
 	if not Net._peers.has(emisor):
 		return
+	equipo = IdsRed.de_red(equipo)   # su equipo viaja con ids
 	Net._peers[emisor]["color"] = color
 	Net._peers[emisor]["metal"] = metal
 	Net._peers[emisor]["nombre"] = nombre
