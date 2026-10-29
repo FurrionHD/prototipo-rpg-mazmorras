@@ -82,14 +82,14 @@ func solicitar_soltar(item: Resource, pos: Vector2, n: int = 1, lugar: String = 
 	if Net.es_host:
 		_registrar_y_difundir(d, pos, lugar)
 	else:
-		_pedir_soltar.rpc_id(1, d, pos, lugar)
+		_pedir_soltar.rpc_id(1, IdsRed.a_red(d), pos, lugar)
 
 
 @rpc("any_peer", "call_remote", "reliable")
 func _pedir_soltar(d: Dictionary, pos: Vector2, lugar: String) -> void:
 	if not Net.es_host:
 		return
-	_registrar_y_difundir(d, pos, lugar)
+	_registrar_y_difundir(IdsRed.de_red(d), pos, lugar)   # con rutas: _suelo se guarda en disco
 
 
 # Solo host: apunta el drop en el registro y lo difunde (a los peers por RPC, a si mismo directo).
@@ -99,7 +99,7 @@ func _registrar_y_difundir(d: Dictionary, pos: Vector2, lugar: String) -> void:
 	var id := _next_id
 	_next_id += 1
 	_suelo[id] = {"d": d, "pos": pos, "lugar": lugar}
-	_spawn_drop.rpc(id, d, pos, lugar)
+	_spawn_drop.rpc(id, IdsRed.a_red(d), pos, lugar)
 	_spawn_drop(id, d, pos, lugar)
 
 
@@ -132,6 +132,7 @@ func _hacer_hueco_en(lugar: String) -> void:
 func _spawn_drop(id: int, d: Dictionary, pos: Vector2, lugar: String) -> void:
 	if not PisoVivo.lleva(lugar):
 		return   # eso esta en OTRO sitio (otro piso, o el pueblo): aqui no se pinta
+	d = IdsRed.de_red(d)
 	var item := _item_de_dict(d)
 	var mundo: Node = PisoVivo.raiz_del_lugar(lugar, get_tree())
 	if item == null or mundo == null:
@@ -171,7 +172,7 @@ func _resolver_recogida(id: int, ganador: int) -> void:
 	if ganador == 1:
 		_recoger_concedido(d)          # el host se lo queda: sin viaje de red
 	else:
-		_recoger_concedido.rpc_id(ganador, d)
+		_recoger_concedido.rpc_id(ganador, IdsRed.a_red(d))
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -188,7 +189,7 @@ func _despawn_drop(id: int) -> void:
 func _recoger_concedido(d: Dictionary) -> void:
 	# Un monton (d["n"]) entra de golpe. Antes iba unidad a unidad, y como _item_de_dict ya le pone su n a cada
 	# pieza, un monton de 5 flechas embolsaba 5 x 5 = 25.
-	var item := _item_de_dict(d)
+	var item := _item_de_dict(IdsRed.de_red(d))
 	if item != null:
 		Game.embolsar(item, int(d.get("n", 1)))
 
@@ -226,7 +227,7 @@ func _resolver_comida(id: int, bid: int, dueno: int) -> void:
 	if dueno == 1:
 		_comida_concedida(bid, d)
 	else:
-		_comida_concedida.rpc_id(dueno, bid, d)
+		_comida_concedida.rpc_id(dueno, bid, IdsRed.a_red(d))
 
 
 # El cristal 'id' se lo come el bicho 'bid': el MISMO nodo del suelo se le mete dentro. El bicho es el de verdad en el
@@ -251,5 +252,5 @@ func _comida_concedida(bid: int, d: Dictionary) -> void:
 	var bicho = reg.get("nodo")
 	if bicho == null or not is_instance_valid(bicho) or bicho.get("comer") == null:
 		return
-	var cri: Resource = _item_de_dict(d) if not d.is_empty() else null
+	var cri: Resource = _item_de_dict(IdsRed.de_red(d)) if not d.is_empty() else null
 	bicho.comer.concedido(cri as Cristal)

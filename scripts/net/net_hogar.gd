@@ -1094,11 +1094,11 @@ func cerrar_taller() -> void:
 		_taller_dueno = 0
 		if not ((delta["quitar"] as Array).is_empty() and (delta["poner"] as Array).is_empty()):
 			for p in _con_baul:   # a los espejos: los que tienen el baul
-				_aplicar_delta.rpc_id(p, delta["quitar"], delta["poner"])
+				_aplicar_delta.rpc_id(p, IdsRed.a_red(delta["quitar"]), IdsRed.a_red(delta["poner"]))
 			Net.hogar_cambiado.emit()
 	else:
 		_taller_dueno = 0
-		_delta_al_host.rpc_id(1, delta["quitar"], delta["poner"])   # (vacio = solo soltar el permiso)
+		_delta_al_host.rpc_id(1, IdsRed.a_red(delta["quitar"]), IdsRed.a_red(delta["poner"]))   # (vacio = solo soltar el permiso)
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -1191,20 +1191,22 @@ func _delta_al_host(quitar: Array, poner: Array) -> void:
 		_taller_dueno = 0
 	if quitar.is_empty() and poner.is_empty():
 		return
+	quitar = IdsRed.de_red(quitar)
+	poner = IdsRed.de_red(poner)
 	var faltan: int = _aplicar_delta_local(quitar, poner)
 	for p in _con_baul:
 		if p != quien:
-			_aplicar_delta.rpc_id(p, quitar, poner)
+			_aplicar_delta.rpc_id(p, IdsRed.a_red(quitar), IdsRed.a_red(poner))
 	if faltan > 0:
 		push_warning("[hogar] %d unidades que gasto %d ya no estaban: le corrijo el baul" % [faltan, quien])
-		_set_almacen.rpc_id(quien, Net.zip(_almacen_dicts()))
+		_set_almacen.rpc_id(quien, Net.zip(IdsRed.a_red(_almacen_dicts())))
 	Net.hogar_cambiado.emit()
 
 
 # CLIENTE: un delta del host (lo que ha hecho otro).
 @rpc("authority", "call_remote", "reliable")
 func _aplicar_delta(quitar: Array, poner: Array) -> void:
-	_aplicar_delta_local(quitar, poner)
+	_aplicar_delta_local(IdsRed.de_red(quitar), IdsRed.de_red(poner))
 	Net.hogar_cambiado.emit()
 
 
@@ -1218,7 +1220,7 @@ func tengo_taller() -> bool:
 
 @rpc("authority", "call_remote", "reliable")
 func _set_almacen(z: Array) -> void:
-	var bag: Array = Net.unzip_array(z)
+	var bag: Array = IdsRed.de_red(Net.unzip_array(z))
 	# No piso mi baul si soy YO quien tiene el taller prestado (estoy crafteando con el).
 	if _taller_dueno == multiplayer.get_unique_id():
 		return
@@ -1269,7 +1271,7 @@ func _quiero_baul() -> void:
 	if not Net.es_host or not Net._peers.has(quien):
 		return
 	_con_baul[quien] = true
-	_set_almacen.rpc_id(quien, Net.zip(_almacen_dicts()))
+	_set_almacen.rpc_id(quien, Net.zip(IdsRed.a_red(_almacen_dicts())))
 
 
 func _olvidar_baul() -> void:

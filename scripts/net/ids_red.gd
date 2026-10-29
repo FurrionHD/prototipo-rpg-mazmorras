@@ -8,6 +8,10 @@
 #  el MISMO build tienen los mismos numeros. Y para que dos builds distintos no se entiendan mal sin enterarse, el SELLO
 #  de la tabla va en el saludo (Net._saludar) y si no cuadra se rechaza como una version distinta.
 #
+#  EN LA FRONTERA DE LA RED (a_red / de_red): los dicts del juego llevan "ruta" (texto) y asi se GUARDAN (el suelo y las
+#  fotos de los pisos de la sala van al disco); solo al mandarlos se cambia cada "ruta" por su numero, y al recibirlos se
+#  deshace. Asi lo que se guarda no depende nunca de la tabla.
+#
 #  Se lista con ResourceLoader.list_directory, que en el .exe tambien enumera el .pck con los nombres de antes de
 #  exportar (ver Game._rutas_de). Una ruta que no este en la tabla da 0 y un error: lo que viaja tiene que estar.
 # ============================================================
@@ -75,6 +79,52 @@ static func cargar(id: int) -> Resource:
 static func sello() -> int:
 	_montar()
 	return _sello
+
+
+# LO QUE SE MANDA: una copia de 'v' con cada "ruta" de texto cambiada por su numero, en dicts y arrays anidados. Una
+# ruta que no este en la tabla (un recurso hecho en runtime) se queda en texto: el otro lado la entiende igual.
+static func a_red(v):
+	_montar()
+	if v is Dictionary:
+		var out: Dictionary = {}
+		for k in v:
+			var x = v[k]
+			if k is String and k == CLAVE and x is String:
+				var id: int = int(_id_de.get(x, 0))
+				out[k] = id if id != 0 else x
+			else:
+				out[k] = a_red(x)
+		return out
+	if v is Array:
+		var out_a: Array = []
+		out_a.resize((v as Array).size())
+		for i in (v as Array).size():
+			out_a[i] = a_red(v[i])
+		return out_a
+	return v
+
+
+# LO QUE LLEGA: lo contrario. Un "ruta" que ya es texto se queda (las llamadas locales no pasan por a_red).
+static func de_red(v):
+	if v is Dictionary:
+		var out: Dictionary = {}
+		for k in v:
+			var x = v[k]
+			if k is String and k == CLAVE and x is int:
+				out[k] = ruta(x)
+			else:
+				out[k] = de_red(x)
+		return out
+	if v is Array:
+		var out_a: Array = []
+		out_a.resize((v as Array).size())
+		for i in (v as Array).size():
+			out_a[i] = de_red(v[i])
+		return out_a
+	return v
+
+
+const CLAVE := "ruta"
 
 
 static func cuantos() -> int:

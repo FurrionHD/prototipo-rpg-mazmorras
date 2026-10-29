@@ -45,3 +45,32 @@ func test_lo_que_reparte_el_juego_esta_en_la_tabla() -> void:
 func test_lo_que_no_esta_da_cero_y_avisa() -> void:
 	igual(IdsRed.de("res://no/existe.tres"), 0, "0")
 	aviso_esperado("no esta en la tabla")
+
+
+func test_en_la_frontera_cada_ruta_va_como_numero_y_vuelve() -> void:
+	var d := {"t": "mat", "ruta": "res://resources/materials/baba_slime.tres", "calidad": 2,
+		"dentro": [{"ruta": "res://resources/materials/runa_slime.tres"}, {"ruta": "user://no_esta.tres"}]}
+	var red: Dictionary = IdsRed.a_red(d)
+	cierto(red["ruta"] is int, "la ruta va como numero")
+	cierto(red["dentro"][0]["ruta"] is int, "tambien anidada")
+	igual(red["dentro"][1]["ruta"], "user://no_esta.tres", "la que no esta en la tabla se queda en texto")
+	igual(IdsRed.de_red(red), d, "y al llegar sale lo mismo")
+	igual(d["ruta"], "res://resources/materials/baba_slime.tres", "el original no se toca")
+	igual(IdsRed.de_red(d), d, "lo que ya trae rutas (una llamada local) no cambia")
+
+
+func test_el_baul_de_referencia_por_la_frontera() -> void:
+	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
+	if not cierto(ref is SaveData, "esta la partida de referencia"):
+		return
+	Game.importar_partida(ref)
+	var msg: Array = Net.hogar._almacen_dicts()
+	var red: Array = IdsRed.a_red(msg)
+	igual(IdsRed.de_red(red), msg, "ida y vuelta del baul entero")
+	var antes: int = var_to_bytes(msg).size()
+	var ahora: int = var_to_bytes(red).size()
+	var antes_z: int = (Net.zip(msg)[1] as PackedByteArray).size()
+	var ahora_z: int = (Net.zip(red)[1] as PackedByteArray).size()
+	print("    [medida] baul por red: %d KB -> %d KB; comprimido %d KB -> %d KB" % [antes / 1024, ahora / 1024,
+		antes_z / 1024, ahora_z / 1024])
+	cierto(ahora < antes and ahora_z <= antes_z, "pesa menos")

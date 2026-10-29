@@ -926,7 +926,7 @@ func _pedir_suelo(lugar: String) -> void:
 	var quien := multiplayer.get_remote_sender_id()
 	for id in suelo._suelo:
 		if suelo._suelo[id]["lugar"] == lugar:
-			suelo._spawn_drop.rpc_id(quien, id, suelo._suelo[id]["d"], suelo._suelo[id]["pos"], lugar)
+			suelo._spawn_drop.rpc_id(quien, id, IdsRed.a_red(suelo._suelo[id]["d"]), suelo._suelo[id]["pos"], lugar)
 
 
 # --- CUPO de personajes (max 4 en total en la sesion) ----------------------------------------
@@ -1366,7 +1366,7 @@ func _admitir(quien: int, color: Color, metal: float, nombre: String, lugar: Str
 	# Y ponerle al dia el SUELO de su lugar: lo que ya estaba soltado antes de que entrara.
 	for id in suelo._suelo:
 		if suelo._suelo[id]["lugar"] == lugar:
-			suelo._spawn_drop.rpc_id(quien, id, suelo._suelo[id]["d"], suelo._suelo[id]["pos"], lugar)
+			suelo._spawn_drop.rpc_id(quien, id, IdsRed.a_red(suelo._suelo[id]["d"]), suelo._suelo[id]["pos"], lugar)
 	# Estado compartido del hogar (el del HOST): bote y cofre. El BAUL no: lo pide cuando abre algo que lo lee
 	# (Net.hogar.necesito_baul).
 	hogar._set_bote.rpc_id(quien, Game.bote_dinero)
