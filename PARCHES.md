@@ -35,6 +35,14 @@
 - **Ninguna espera de la entrada es para siempre**: si la sala no contesta (o Steam no lleva los paquetes), se dice qué
   pasa y **se reintenta una vez solo**; si tampoco, te lo dice y vuelves a intentarlo cuando quieras.
 
+## 💥 Los ataques se ven aunque no le den a nadie
+
+- **Toda habilidad se lanza aunque no pille a nadie**, tuya o de un enemigo: el Reventón salta y cae en su sitio, la
+  Llamarada y las raíces del Trent salen igual, y tus golpes se ven dándole al aire.
+- **Las de moverse se mueven siempre**: el **Oportunista** salta a su sitio aunque el enemigo haya caído.
+- **Las magias que caen donde no hay nadie** se ven también en la pantalla de tu compañero.
+- **La Danza de acero sin nadie en su camino** ya no deja la habilidad a medias.
+
 ## ⚔️ Arreglos
 
 - **La cría del Rey Slime ya no se ve formada** antes de su vuelo.
