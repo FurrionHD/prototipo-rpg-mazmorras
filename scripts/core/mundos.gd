@@ -616,7 +616,9 @@ func unirse(clave: String, contrasena: String, invitacion := "") -> Dictionary:
 		if motivo == "":
 			var st: Object = Engine.get_singleton("Steam")
 			var puerto: int = Net.tunel.abrir_cliente(_TUNEL.TransporteSteam.new(st, id_steam), id_steam)
-			if puerto > 0 and Net.unirse("127.0.0.1", contrasena, puerto, true) == OK:
+			# Si la entrada se atasca, el reintento es TODO esto otra vez: tunel nuevo, con su sesion de Steam nueva.
+			var otra_vez := func() -> bool: return bool((await unirse(clave, contrasena, invitacion)).get("ok", false))
+			if puerto > 0 and Net.unirse("127.0.0.1", contrasena, puerto, true, otra_vez) == OK:
 				uniendome = clave
 				return {"ok": true, "direccion": "Steam"}
 			Net.tunel.cerrar()

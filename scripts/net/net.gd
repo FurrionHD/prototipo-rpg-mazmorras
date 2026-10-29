@@ -700,7 +700,10 @@ func hostear(codigo: String, puerto: int = PUERTO) -> int:
 
 # compartido = me uno a un MUNDO COMPARTIDO: mi personaje vive alli y me lo dara el host, asi que
 # entro DESDE EL MENU y no desde un pueblo mio (no tengo partida cargada, ni tiene que haberla).
-func unirse(ip: String, codigo: String, puerto: int = PUERTO, compartido := false) -> int:
+# 'reintento' = como repetir la entrada si se atasca (ver fase_entrada); sin el, se repite esta misma llamada. La de
+# Steam pasa el suyo: tiene que volver a abrir el tunel.
+func unirse(ip: String, codigo: String, puerto: int = PUERTO, compartido := false,
+		reintento: Callable = Callable()) -> int:
 	if not compartido and not _en_el_pueblo():
 		estado_cambiado.emit("Solo puedes unirte a una sala desde el pueblo.")
 		return ERR_UNAVAILABLE
@@ -717,12 +720,22 @@ func unirse(ip: String, codigo: String, puerto: int = PUERTO, compartido := fals
 	# propio que no existe ni presentarse con un personaje que todavia no tengo.
 	mundo_compartido = compartido
 	Game._refrescar_pausa()   # regimen multi: los menus dejan de pausar el arbol
+	if reintento.is_valid():
+		_reintento = reintento
+	else:
+		_reintento = func() -> bool: return unirse(ip, codigo, puerto, compartido) == OK
+	if not _en_reintento:
+		_reintentada = false   # una entrada nueva trae su reintento
+	fase_entrada("conectando")
 	estado_cambiado.emit("Conectando a %s..." % ip)
 	return OK
 
 
 func desconectar() -> void:
 	invitacion_saludo = ""
+	_fase_entrada = ""
+	_vigilancia += 1   # los plazos que queden en marcha ya no cortan nada
+	_reintento = Callable()
 	if es_host:
 		_invitaciones.clear()
 	for id in _avatares.keys():
@@ -1118,29 +1131,72 @@ func _on_connected_to_server() -> void:
 	# Sus PIEZAS (pelo y ropa) van con el resto del aspecto. En un mundo compartido todavia no hay
 	# personaje, asi que ahi salen vacias y las buenas llegan luego con _listo.
 	var pzs: Dictionary = {} if mundo_compartido else Game.lider().aspecto_completo()["piezas"]
-	_esperar_respuesta()
+	fase_entrada("saludo")
 	_saludar.rpc_id(1, _codigo, PROTOCOLO, Identidad.id, Identidad.nombre,
 		col, met, nom, _mi_lugar, hue, alp, pzs, invitacion_saludo, IdsRed.sello())
 	invitacion_saludo = ""   # vale para ESTA entrada; la siguiente vez ya tendre personaje
 
 
-# EL PLAZO. Si el host es de otro build, su _saludar tiene otra firma y Godot tira el paquete SIN
-# error: sin esto, el jugador se queda mirando "Validando codigo..." para siempre.
-var _respondio := false
-# Cada intento de entrar lleva su numero. El plazo de un intento VIEJO (salir y volver a entrar en
-# menos de _PLAZO_SALUDO) veia el _respondio del nuevo a false y cortaba la conexion buena.
-var _intento_saludo: int = 0
+# LOS PLAZOS DE LA ENTRADA (29/10; antes solo habia el del saludo). Entrar son varias esperas seguidas, cada una con
+# el suyo, y NINGUNA puede quedarse mirando "Conectando..." para siempre:
+#   conectando    de unirse() a que ENet conecte. Por Steam, si la red de Valve no lleva los paquetes, ENet tarda
+#                 hasta 30 s en rendirse (visto en prueba_sala_steam, 5 seguidas en un mal rato): se corta antes.
+#   saludo        a que la sala conteste al saludo (_tu_jugador, _crea_tu_personaje, _esperando_permiso, o
+#                 _presentarse en LAN). Si es de otro build, su _saludar tiene otra firma y Godot tira el paquete SIN
+#                 error.
+#   alta          de mandar el personaje creado (o traido) a que vuelva como _tu_jugador.
+#   presentacion  de _listo a que la sala me presente (_presentarse). Mi pueblo ya esta cargado.
+# Las que esperan a una PERSONA ("creando" tu personaje, "permiso" de alguien de dentro) no tienen plazo.
+# Si vence (o ENet se rinde antes): se dice y se REINTENTA UNA VEZ, sola, como diga unirse(); si tampoco, se dice que
+# no se ha podido y se para ahi.
+const _PLAZOS_ENTRADA := {"conectando": 15.0, "saludo": _PLAZO_SALUDO, "alta": 10.0, "presentacion": 10.0}
+var _fase_entrada := ""            # "" = no estoy entrando (o ya estoy dentro)
+# Cada fase lleva su numero: el plazo de una VIEJA (salir y volver a entrar en menos de lo que dura) no corta la nueva.
+var _vigilancia := 0
+var _reintento: Callable = Callable()   # como repetir ESTA entrada (lo deja unirse); devuelve si ha arrancado
+var _reintentada := false          # el reintento de esta entrada ya se ha gastado
+var _en_reintento := false         # la entrada que esta empezando ES el reintento: unirse no lo rearma
+var entradas_atascadas := 0        # plazos vencidos en esta ejecucion (lo miran las pruebas)
 
-func _esperar_respuesta() -> void:
-	_respondio = false
-	_intento_saludo += 1
-	var intento: int = _intento_saludo
-	await get_tree().create_timer(_PLAZO_SALUDO).timeout
-	if intento != _intento_saludo or _respondio or not activo or es_host:
+
+func fase_entrada(fase: String) -> void:
+	_fase_entrada = fase
+	_vigilancia += 1
+	var n: int = _vigilancia
+	if not _PLAZOS_ENTRADA.has(fase):
 		return
-	estado_cambiado.emit("El anfitrión no contesta. Lo más probable es que no coincida la versión "
-		+ "del juego: tenéis que ser el mismo build.")
+	await get_tree().create_timer(float(_PLAZOS_ENTRADA[fase]), true).timeout
+	if n == _vigilancia and _fase_entrada == fase and activo and not es_host:
+		_entrada_atascada(fase)
+
+
+func _entrada_atascada(fase: String) -> void:
+	entradas_atascadas += 1
+	var que: String = {
+		"conectando": "No se ha podido llegar por Steam a quien tiene el mundo abierto." if tunel.modo == "cliente"
+			else "No se ha encontrado ninguna partida en esa dirección.",
+		"saludo": "La sala no contesta (puede que sea de otra versión del juego).",
+		"alta": "La sala no ha contestado con tu personaje.",
+		"presentacion": "La sala ha dejado de contestar a mitad de la entrada.",
+	}.get(fase, "La entrada se ha atascado.")
+	print("[entrada] atascada en '%s'%s" % [fase, "" if _reintentada else ": la reintento"])
+	var reintento: Callable = _reintento
+	var puedo: bool = not _reintentada and reintento.is_valid()
+	var a_menu: bool = fase == "presentacion" and mundo_compartido   # ya me habian llevado a mi pueblo
 	desconectar()
+	if a_menu:
+		_sacar_a_escena(Mundos.menu_al_salir())
+	if not puedo:
+		estado_cambiado.emit(que + " No se ha podido entrar: vuelve a intentarlo.")
+		return
+	_reintentada = true
+	_en_reintento = true
+	var arranca: bool = await reintento.call()
+	_en_reintento = false
+	if arranca:
+		estado_cambiado.emit(que + " Segundo intento...")
+	else:
+		estado_cambiado.emit(que + " No se ha podido entrar: vuelve a intentarlo.")
 
 
 # Corre EN EL HOST, llamado por el cliente. Valida el codigo y, si vale, se registran
@@ -1365,7 +1421,7 @@ func _respuesta_permiso(nuevo: int, si: bool) -> void:
 func _esperando_permiso() -> void:
 	if multiplayer.get_remote_sender_id() != 1:
 		return
-	_respondio = true
+	fase_entrada("permiso")   # ahora espera a una persona: sin plazo
 	estado_cambiado.emit("Es tu primera vez en este mundo: esperando a que alguien de dentro te deje entrar...")
 
 
@@ -1474,7 +1530,7 @@ func _presentarse(color: Color, metal: float, nombre: String, lugar: String, sem
 		t2: bool, huella: int = 0, alpha: float = 1.0,
 		atajos: PackedInt32Array = PackedInt32Array(), piezas: Dictionary = {}) -> void:
 	var quien := multiplayer.get_remote_sender_id()
-	_respondio = true
+	fase_entrada("")   # dentro
 	fotos.al_entrar()   # ya estoy dentro: suben mis fotos y salen las peticiones que esperaban
 	semilla_host = semilla
 	tienda_t2_host = t2
@@ -1493,7 +1549,7 @@ var _fui_rechazado := false
 @rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
 func _rechazado(motivo: String = "No hay ninguna sala con ese codigo en esa IP.") -> void:
 	_fui_rechazado = true
-	_respondio = true
+	fase_entrada("")   # me han dicho que no: eso no se reintenta
 	_motivo_rechazo = motivo
 	# El motivo lo redacta el host. Para el codigo malo sigue siendo ambiguo a proposito ("no hay
 	# ninguna sala con ese codigo en esa IP"): no se distingue "la sala existe pero el codigo esta
@@ -1743,6 +1799,9 @@ func _sacar_a_escena(ruta: String) -> void:
 
 
 func _on_connection_failed() -> void:
+	if _fase_entrada == "conectando":
+		_entrada_atascada("conectando")   # ENet se ha rendido antes que mi plazo: lo mismo, con su reintento
+		return
 	if tunel.modo == "cliente":
 		estado_cambiado.emit("No se ha podido llegar por Steam a quien tiene el mundo abierto.")
 	else:

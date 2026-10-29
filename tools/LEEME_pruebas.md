@@ -62,6 +62,9 @@ salida de cada una en `tools/resultados_pruebas/<nombre>.log` y dice BIEN / MAL 
   - `prueba_sala_steam` (15/10): 5 fallos SEGUIDOS (~95 s cada uno, el tunel de Steam se abre pero Ana no llega a entrar
     en el mundo) y despues 20 bien seguidas: apunta a un mal rato de la red de Steam (Valve), no al codigo. Si vuelve a
     fallar, guardar ANTES de repetir `%APPDATA%/DungeonOratoria/logs/prueba_sala_steam_S.log` (cada pasada lo pisa).
+    29/10: el JUEGO ya no se queda esperando en ese caso: cada espera de la entrada tiene plazo (conectando 15 s, saludo
+    5 s, alta y presentacion 10 s), lo dice y reintenta UNA vez (la de Steam, con tunel nuevo). Lo vigila
+    `prueba_sala_muda` (nadie escucha / una sala que acepta y no contesta).
   - `prueba_retraso_barra` (paso 8, OTRA VEZ el 20/10): fallo UNA vez en la bateria entera (rama feat/f2-piso-vivo),
     los dos MAL del paso 8 a la vez (se aparta dentro de tu area / se mueve sin sitio). Sola 3/3 y 4 a la vez 0/24. El
     registro se perdio (pasar la prueba suelta lo pisa): SI VUELVE, COPIAR tools/resultados_pruebas/prueba_retraso_barra.log

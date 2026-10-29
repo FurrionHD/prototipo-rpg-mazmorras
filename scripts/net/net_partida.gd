@@ -984,6 +984,7 @@ signal entrada_lista
 func mandar_alta_personaje(pj: PersonajeData) -> void:
 	if not Net.activo or Net.es_host:
 		return
+	Net.fase_entrada("alta")
 	_alta_personaje.rpc_id(1, Net.zip(ficha_a_red(pj_a_dict(pj))))
 
 
@@ -992,12 +993,13 @@ func mandar_alta_personaje(pj: PersonajeData) -> void:
 func mandar_alta_jugador(jd: JugadorData) -> void:
 	if not Net.activo or Net.es_host or jd == null:
 		return
+	Net.fase_entrada("alta")
 	_alta_jugador.rpc_id(1, jd_a_red(jd_a_dict(jd)))
 
 
 @rpc("any_peer", "call_remote", "reliable", Canal.PARTIDA)
 func _crea_tu_personaje(nombre_mundo: String) -> void:
-	Net._respondio = true
+	Net.fase_entrada("creando")   # lo hace la persona: sin plazo
 	Net.estado_cambiado.emit("Es tu primera vez en este mundo: crea tu personaje.")
 	pedir_personaje.emit(nombre_mundo)
 
@@ -1100,7 +1102,7 @@ var donde_volver: Dictionary = {}
 func _tu_jugador(z: Array, semilla: int, donde: Dictionary = {}) -> void:
 	var d: Dictionary = jd_de_red(Net.unzip_dict(z))
 	donde_volver = donde
-	Net._respondio = true
+	Net.fase_entrada("presentacion")   # mando _listo aqui abajo: ahora la sala tiene que presentarme
 	# LO PRIMERO, antes de reconstruir nada: fuera lo que quede de mi partida anterior. Game es un
 	# autoload y si venia de "Continuar" en una de mis ranuras, mi baul/almacen/mapa siguen puestos y
 	# me los llevaba dentro del mundo de otro (ver Game.limpiar_mundo_heredado). Y va ANTES de
