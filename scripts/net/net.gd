@@ -148,7 +148,9 @@ const MAX_CONEXIONES := 32
 #     de las peleas) llevan "imagen_huella" en vez de "imagen".
 # 54 (29/10): el BAUL ya no va en la entrada: se pide al abrir algo que lo lee (Net.hogar._quiero_baul) y sus cambios
 #     solo van a quien lo tiene. Un build del 53 esperaria el baul al entrar y lo veria vacio.
-const PROTOCOLO := 54
+# 55 (29/10): el saludo lleva el SELLO de la tabla de ids de la red (IdsRed): lo que viaja pasa a ser numeros de 16 bits
+#     en vez de rutas .tres, y dos builds con distintos recursos tienen que rechazarse.
+const PROTOCOLO := 55
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -1072,7 +1074,7 @@ func _on_connected_to_server() -> void:
 	var pzs: Dictionary = {} if mundo_compartido else Game.lider().aspecto_completo()["piezas"]
 	_esperar_respuesta()
 	_saludar.rpc_id(1, _codigo, PROTOCOLO, Identidad.id, Identidad.nombre,
-		col, met, nom, _mi_lugar, hue, alp, pzs, invitacion_saludo)
+		col, met, nom, _mi_lugar, hue, alp, pzs, invitacion_saludo, IdsRed.sello())
 	invitacion_saludo = ""   # vale para ESTA entrada; la siguiente vez ya tendre personaje
 
 
@@ -1101,15 +1103,17 @@ func _esperar_respuesta() -> void:
 func _saludar(codigo: String, protocolo: int, identidad: String, nombre_visible: String,
 		color: Color, metal: float, nombre: String, lugar: String,
 		huella: int = 0, alpha: float = 1.0,
-		piezas: Dictionary = {}, invitacion: String = "") -> void:
+		piezas: Dictionary = {}, invitacion: String = "", sello_ids: int = 0) -> void:
 	var quien := multiplayer.get_remote_sender_id()
 	if codigo != _codigo and (_codigo_lan == "" or codigo != _codigo_lan):
 		estado_cambiado.emit("Rechazado un intento con codigo incorrecto.")
 		await _echar(quien, "No hay ninguna sala con ese codigo en esa IP.")
 		return
-	if protocolo != PROTOCOLO:
-		estado_cambiado.emit("Rechazado: version de juego distinta (la suya %d, la mia %d)." % [
-			protocolo, PROTOCOLO])
+	# Y LA TABLA DE IDS (IdsRed): con el mismo protocolo, dos builds con distintos .tres numerarian distinto y se
+	# entenderian mal sin dar ningun error. Su sello lo delata.
+	if protocolo != PROTOCOLO or sello_ids != IdsRed.sello():
+		estado_cambiado.emit("Rechazado: version de juego distinta (la suya %d, la mia %d%s)." % [
+			protocolo, PROTOCOLO, "" if protocolo != PROTOCOLO else ", otros recursos"])
 		await _echar(quien, "No coincide la versión del juego: tenéis que tener el mismo build.")
 		return
 	# EL TOPE DE HUMANOS. Antes lo ponia ENet de rebote (create_server con MAX_JUGADORES); ahora ENet
