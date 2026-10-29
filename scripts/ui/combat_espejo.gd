@@ -153,15 +153,23 @@ func _maniqui_de_fila(d: Dictionary) -> Combatant:
 		# trae la pieza puesta, y no hace falta mandar nada mas.
 		var off = c.pj_escaparate.equipped_off
 		c.fx_escudo = int((off as ShieldData).tamano) if off is ShieldData else -1
-	# Su cara, para el marcador de turnos: se monta aqui una vez y se cachea por maniqui.
-	var png: PackedByteArray = d.get("imagen", PackedByteArray())
-	var metal: float = float(d.get("metal", 0.0))
-	# La opacidad del color sobre la imagen viaja en el roster: sin ella se fijaba a 1.0 y el color
-	# tapaba la cara. El material solo hace falta si hay imagen o brillo.
-	if not png.is_empty() or metal > 0.0:
-		_pantalla._mat_espejo[c] = Game.material_aspecto(metal, Game.textura_de_png(png),
-			float(d.get("alpha", 1.0)))
+	# Su CARA sale de esa ficha (Game.pj_de_combatant -> pj_escaparate), con su foto: la trae por huella y, si aun no
+	# esta en esta maquina, llega luego y se repinta (repintar_foto).
 	return c
+
+
+# Ha llegado una foto: los aliados que la llevan, repintados en el marcador de turnos y en su figura.
+func repintar_foto(huella: int) -> void:
+	if not _pantalla._espejo:
+		return
+	for i in _pantalla._aliados.size():
+		var c: Combatant = _pantalla._aliados[i]
+		var pj = c.pj_escaparate if c != null else null
+		if not (pj is PersonajeData) or (pj as PersonajeData).huella_imagen() != huella:
+			continue
+		_pantalla.figuras.repintar_cara(c, i)
+		if _pantalla._timeline != null:
+			_pantalla._timeline.repintar(c, _pantalla._color_de(c), _pantalla._material_de(c), "")
 
 
 # Lo que hay que mandarle a un espejo para que MONTE la pantalla (al unirse, y otra vez cada vez que
@@ -204,12 +212,8 @@ func _fila_de_roster(lista: Array) -> Array:
 			# peleara. Con el reingreso por hueco ya no salen duplicados, pero un huido que se queda
 			# fuera tampoco puede seguir ocupando sitio en la fila del compañero.
 			"huido": _pantalla._huidos.has(c),
+			# La CARA (foto por huella, brillo y opacidad) va en "pj", la ficha de escaparate.
 			"color": pj.color if pj != null else c.color_visual,
-			"metal": pj.metalico if pj != null else 0.0,
-			# La OPACIDAD del color sobre la imagen (color_alpha del shader). Sin ella el marcador
-			# de turnos del espejo pintaba el color plano tapando la cara.
-			"alpha": pj.color_alpha if pj != null else 1.0,
-			"imagen": pj.imagen if pj != null else PackedByteArray(),
 			"max_hp": c.max_hp, "hp": c.current_hp,
 			"max_mp": c.max_mp, "mp": c.current_mp,
 			"max_en": c.max_energy, "en": c.current_energy,

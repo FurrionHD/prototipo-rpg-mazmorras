@@ -121,6 +121,10 @@ func pelear_hasta_el_final(plazo: float) -> bool:
 			actue += 1
 			ataques += 1
 			traza.append("ATACA " + antes)
+		elif acercarme(p) and pulsar(0):
+			actue += 1
+			ataques += 1
+			traza.append("ANDA Y ATACA " + antes)
 		elif pasar_turno():
 			actue += 1
 			traza.append("PASA " + antes)
@@ -142,6 +146,36 @@ func pelear_hasta_el_final(plazo: float) -> bool:
 		await _esperar(0.25)
 		t += 0.25
 	return acabo
+
+
+# ANDAR HASTA EL ENEMIGO (29/10). Pasar el turno para que el bicho venga no basta: el SLIME BROTADO no se mueve, y la
+# pelea se quedaba con el lider a 228 px sin poder pegar (batería entera, town_dos_jugadores colgada: solo pegaba el
+# acompañante). En MI turno, mi cuerpo anda hacia el enemigo vivo mas cercano lo que le deja su circulo (radio_de), como
+# lo andaria el jugador; quien lleva la pelea lo recorta a ese circulo igual. Devuelve si se ha movido.
+func acercarme(p: Node) -> bool:
+	if p == null or not p.tactico or int(p.get("_state")) != 1 or caja_abierta(p):
+		return false
+	var tm = p.turno_mapa
+	var q = tm.get("_quien")
+	var cuerpo = tm.get("_cuerpo")
+	if q == null or not is_instance_valid(cuerpo):
+		return false
+	var destino := Vector2.INF
+	for e in p.get("_enemies"):
+		if e != null and e.current_hp > 0.0:
+			var pe: Vector2 = tm.pos_de(e)
+			if destino == Vector2.INF or pe.distance_to(cuerpo.global_position) < destino.distance_to(cuerpo.global_position):
+				destino = pe
+	if destino == Vector2.INF:
+		return false
+	var hacia: Vector2 = destino - cuerpo.global_position
+	# Hasta quedar a medio alcance de su centro (dentro del golpe), sin pasar de lo que anda en un turno.
+	var paso: float = minf(tm.radio_de(q) * 0.95, maxf(0.0, hacia.length() - tm.alcance_de(q) * 0.5))
+	if paso < 1.0:
+		return false
+	cuerpo.global_position += hacia.normalized() * paso
+	p._refresh_actions()
+	return true
 
 
 # Si me ha pillado un bicho mientras esperaba (te ataca si te quedas quieto a su lado), acabo esa pelea antes de seguir

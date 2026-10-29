@@ -13,6 +13,10 @@ salir todas bien. Cada mecanica nueva entra con su prueba (y se apunta aqui si n
   python tools/pasar_pruebas.py arena magias # solo las que contengan esas palabras en el nombre
   python tools/pasar_pruebas.py --lista      # ensena que pasaria y con que tope, sin lanzar nada
   python tools/pasar_pruebas.py --unitarias  # solo las unitarias (tools/unitarias/test_*.gd): segundos
+  python tools/banco.py [commit]             # la bateria entera en ../prm-banco, para seguir trabajando mientras
+
+CON EL BANCO EN MARCHA (tools/banco.py) aqui no se lanzan las de RED: usan puertos fijos y se pisarian con las suyas
+(y si una se colgara, matar_restos le cerraria las del banco). Pasan en el banco; --con-red lo fuerza.
 
 Cada prueba deja su salida en tools/resultados_pruebas/<nombre>.log (ignorada en git) y al final sale
 un resumen: BIEN / MAL / COLGADA (paso su tope) / SIN MARCA (acabo sin decir ni bien ni mal).
@@ -282,6 +286,7 @@ def main() -> int:
     ap.add_argument("--hilos", type=int, default=4, help="cuantas a la vez (por defecto 4; con 6 fallan las que miden tiempos)")
     ap.add_argument("--lista", action="store_true", help="ensena la lista y sale")
     ap.add_argument("--unitarias", action="store_true", help="solo las unitarias (tools/unitarias): segundos")
+    ap.add_argument("--con-red", action="store_true", help="las de red aunque el banco este en marcha (se pisaran)")
     a = ap.parse_args()
 
     nombres = todas_las_pruebas()
@@ -294,6 +299,14 @@ def main() -> int:
         nombres = sorted(set(n for n in IMPRESCINDIBLES if n in nombres) | set(pruebas_de_tocados(nombres)))
     if a.sin_red:
         nombres = [n for n in nombres if not es_de_red(n)]
+    sys.path.insert(0, str(TOOLS))
+    from banco import banco_ocupado, BANCO
+    if RAIZ != BANCO and not a.con_red and banco_ocupado():
+        fuera = [n for n in nombres if es_de_red(n)]
+        nombres = [n for n in nombres if not es_de_red(n)]
+        if fuera:
+            print("EL BANCO ESTA EN MARCHA: sin las %d de red (puertos fijos). Pasan en el banco: %s" % (
+                len(fuera), ", ".join(fuera)))
     sin_red = [n for n in nombres if not va_sola(n)]
     con_red = [n for n in nombres if va_sola(n)]   # las de red y las que comparten ranura: de una en una
     if a.lista:

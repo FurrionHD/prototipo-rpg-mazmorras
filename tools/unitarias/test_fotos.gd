@@ -221,3 +221,33 @@ func test_la_sala_no_pierde_la_foto_si_la_nueva_aun_no_ha_llegado() -> void:
 	igual(pj_n.imagen, vieja, "mientras, la de antes")
 	Net.fotos.recibir_subida(5, nueva)
 	igual(pj_n.imagen, nueva, "y al llegar, la nueva")
+
+
+func test_la_ficha_de_escaparate_lleva_la_huella_y_no_la_foto() -> void:
+	_limpio()
+	Game.nueva_partida("Prueba")
+	var pj: PersonajeData = Game.lider()
+	var a := _png(Color.RED)
+	pj.set_imagen(a)
+	var d: Dictionary = Game.pj_a_dict(pj)
+	cierto(not d.has("imagen"), "el roster de una pelea no lleva la foto")
+	igual(int(d["imagen_huella"]), PersonajeData.huella_de(a), "lleva su huella")
+	igual(Game.pj_de_dict(d).imagen, a, "y el maniqui del espejo sale con su foto")
+
+
+func test_el_marcador_de_turnos_se_repinta_sin_perder_su_sitio() -> void:
+	var tl: Control = load("res://scripts/ui/turn_timeline.gd").new()
+	arbol.add_child(tl)
+	var c := Combatant.new("x", 1, Abilities.new(), 10.0, 1.0, 1.0, 1.0)
+	var pj := PersonajeData.new()
+	c.pj_escaparate = pj
+	tl.anadir(c, Color.RED, null, "")
+	tl._marcadores[c]["ratio"] = 0.4
+	tl.marcar_objetivo(c)
+	var viejo: Node = tl._marcadores[c]["marco"]
+	pj.set_imagen(_png(Color.BLUE))   # le llega la foto
+	tl.repintar(c, Color.RED, null, "")
+	cierto(tl._marcadores[c]["marco"] != viejo, "marcador nuevo (con su cara)")
+	cerca(float(tl._marcadores[c]["ratio"]), 0.4, 0.0001, "en el mismo sitio de la barra")
+	cierto(tl._objetivo == c, "y sigue marcado como objetivo")
+	tl.free()

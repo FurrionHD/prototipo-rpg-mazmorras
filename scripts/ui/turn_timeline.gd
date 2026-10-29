@@ -152,6 +152,19 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
+# Vuelve a montar el marcador de 'c' en su sitio (su cara ha cambiado: le ha llegado la foto).
+func repintar(c: Combatant, color: Color, material: ShaderMaterial, texto: String) -> void:
+	if not _marcadores.has(c):
+		return
+	var ratio: float = float(_marcadores[c]["ratio"])
+	var era_objetivo: bool = _objetivo == c
+	quitar(c)
+	anadir(c, color, material, texto)
+	_marcadores[c]["ratio"] = ratio
+	if era_objetivo:
+		marcar_objetivo(c)
+
+
 # Saca un marcador de la barra (al morir su dueño: ya no espera turno).
 func quitar(c: Combatant) -> void:
 	if not _marcadores.has(c):

@@ -393,6 +393,24 @@ func _poner_muneco(fig: ColorRect, c: Combatant) -> void:
 	fig.color = Color(0, 0, 0, 0)   # manda el muñeco; el rect se queda solo como caja
 
 
+# La CARA del aliado 'c' (el i de _aliados) ha cambiado: le ha llegado la foto. Se vuelve a montar su muñeco con
+# ella (con foto no lleva ojos dibujados, ver remote_player.aplicar_aspecto), o su material si es un cuadrado.
+func repintar_cara(c: Combatant, i: int) -> void:
+	if i < 0 or i >= _pantalla._bloques_aliados.size():
+		return
+	var b: Dictionary = _pantalla._bloques_aliados[i]
+	var pj: PersonajeData = Game.pj_de_combatant(c)
+	var m: MunecoJugador = _muneco_de(b)
+	if m != null and pj != null:
+		m.montar(pj)
+		m.tenir(pj.color, 0.0)
+		m.poner_cara(pj.textura())
+		return
+	var fig = b.get("figura")
+	if fig != null and is_instance_valid(fig):
+		(fig as ColorRect).material = _pantalla._material_de(c)
+
+
 # EL Combatant de un bloque ALIADO. NO se puede leer de b["idx"]: en los bloques de aliado ese
 # campo va siempre a -1 (_anadir_bloque_aliado llama a _crear_bloque(c, 0, -1) -- es un resto del
 # mismo parametro que en los de enemigo SÍ es su hueco en _enemies). _bloques_aliados en cambio SÍ

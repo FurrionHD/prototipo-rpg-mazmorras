@@ -78,6 +78,16 @@ func _ready() -> void:
 	_ok(Net.peleas.espejando() and not Game.combate_activo(),
 		"mi pelea la ejecuta otro y yo la espejo (anfitrion=%d)" % Net.peleas._pelea_anfitrion)
 	print("[B] dato anfitrion_fase2=%d" % Net.peleas._pelea_sigo)   # el ID de mi pelea (etapa 3)
+	# MI CARA EN EL ESPEJO (paso 6 de las fotos): el roster de la pelea trae la huella y el maniqui de mi lider sale con
+	# la foto que me puse en la fase 0 (la pantalla la pinta de ahi: marcador de turnos y figura).
+	var con_foto := false
+	var pa: Node = pantalla()
+	if pa != null and is_instance_valid(pa):
+		for c in pa._aliados:
+			var pj = (c as Combatant).pj_escaparate
+			if pj is PersonajeData and (pj as PersonajeData).nombre == Game.lider().nombre:
+				con_foto = (pj as PersonajeData).imagen == Game.lider().imagen
+	_ok(con_foto, "en el espejo de mi pelea mi lider lleva su foto")
 	# EN PELEA NO SE VIAJA (23/10): pido la escalera como si la hubiera pisado justo cuando me pillo la pelea. La
 	# sala no me la da: sigo en el piso 1 (antes viajaba y la pelea vieja se colaba en la siguiente).
 	Net.pisos.solicitar_piso(2, false)

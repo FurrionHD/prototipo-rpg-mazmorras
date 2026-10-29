@@ -87,3 +87,6 @@ servidor/nube/node_modules/
 
 # Salidas del lanzador de pruebas (tools/pasar_pruebas.py)
 tools/resultados_pruebas/
+
+# El override.cfg del banco de pruebas (tools/banco.py): su propia carpeta de usuario. Solo existe en ../prm-banco.
+override.cfg

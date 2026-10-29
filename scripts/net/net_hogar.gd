@@ -792,6 +792,7 @@ func _fila_roster(pj: PersonajeData, dueno: String, dueno_nombre: String) -> Dic
 static func _aspecto_sin_foto(pj: PersonajeData, con_equipo: bool) -> Dictionary:
 	var d: Dictionary = Game.pj_a_dict(pj) if con_equipo else pj.aspecto_completo()
 	d.erase("imagen")
+	d.erase("imagen_huella")   # va una vez, en la fila (pj_de_fila)
 	d["nombre"] = pj.nombre
 	return d
 

@@ -304,9 +304,6 @@ var _huidos: Dictionary = {}
 # entre _aplicar_volatil y _reenlazar_coberturas, y se vacia ahi mismo. Solo se llena en el traspaso
 # de anfitrion: en una pelea normal esta siempre vacio.
 var _cobertura_pendiente: Dictionary = {}
-# La cara de cada maniqui del espejo (Combatant -> ShaderMaterial), montada desde el PNG que viene
-# en el roster. Aqui no hay fichas locales de las que sacarla.
-var _mat_espejo: Dictionary = {}
 # Estoy parado esperando la accion de otro (el ATB no corre, ver _process y State.WAITING_PLAYER).
 var _esperando_a: int = 0
 
@@ -1007,6 +1004,8 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	# Y que siga ocupandola si la ventana cambia a mitad de pelea (ver _on_viewport_cambia).
 	get_viewport().size_changed.connect(_on_viewport_cambia)
+	# La foto de un aliado del espejo que llega con la pelea ya montada (ver combat_espejo.repintar_foto).
+	Net.fotos.llegada.connect(espejo.repintar_foto)
 
 	# ANTES que nada: _crear_bloque le cuelga a cada tarjeta su capa de efectos, asi que el nodo
 	# de FX tiene que existir antes de que se monte la primera.
@@ -3202,11 +3201,9 @@ func _color_de(c: Combatant) -> Color:
 
 
 func _material_de(c: Combatant) -> ShaderMaterial:
+	# En el espejo tambien: la ficha de escaparate del roster lleva su cara (ver combat_espejo).
 	var pj: PersonajeData = Game.pj_de_combatant(c)
-	if pj != null:
-		return Game.material_de(pj)
-	# En el espejo la cara viaja en el roster (bytes PNG) y se cachea en el propio maniqui.
-	return _mat_espejo.get(c, null)
+	return Game.material_de(pj) if pj != null else null
 
 
 func _update_timeline() -> void:

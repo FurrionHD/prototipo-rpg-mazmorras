@@ -10173,6 +10173,7 @@ func deserializar_equipo(d: Dictionary, registrar: bool = true) -> Resource:
 # El equipo va por serializar_equipo, o sea IDENTIDAD (ruta de la plantilla + tier/rareza/mejoras) y
 # no la copia del objeto: eso es lo que evita el problema de las listas congeladas, y ademas es lo
 # que JugadorSprites necesita para elegir la paleta (familia, tier y numero de mejoras).
+# Y de la FOTO, su huella ("imagen_huella", ver Net.fotos): el roster de una pelea viaja con cada alta.
 const RANURAS_A_LA_VISTA := ["equipped_main", "equipped_off", "equipped_casco", "equipped_pecho",
 	"equipped_manos", "equipped_pantalones", "equipped_botas"]
 
@@ -10181,6 +10182,8 @@ func pj_a_dict(pj: PersonajeData) -> Dictionary:
 	if pj == null:
 		return {}
 	var d: Dictionary = pj.aspecto_completo()
+	d.erase("imagen")
+	d["imagen_huella"] = Net.fotos.huella_de_pj(pj)
 	var eq: Dictionary = {}
 	for r in RANURAS_A_LA_VISTA:
 		var pieza: Resource = pj.get(r)
@@ -10203,6 +10206,7 @@ func pj_de_dict(d: Dictionary) -> PersonajeData:
 		return pj
 	pj.nombre = String(d.get("nombre", ""))
 	pj.aplicar_aspecto(d)
+	Net.fotos.poner_en(pj, int(d.get("imagen_huella", 0)))   # ya, o en cuanto llegue
 	var eq: Dictionary = d.get("equipo", {})
 	for r in RANURAS_A_LA_VISTA:
 		if not eq.has(r):
