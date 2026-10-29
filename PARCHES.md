@@ -2,6 +2,50 @@
 
 ---
 
+# v0.15.5
+
+## 🏰 Todo va por la sala
+
+- **Toda partida va por la sala, también la de uno solo**: jugando solo se juega como siempre (los menús paran el
+  mundo y la pelea), pero es el mismo camino que con amigos.
+- **La partida sigue aunque el que la abrió cierre su juego**: el mundo lo lleva la sala, no el PC de nadie.
+- **Las peleas las lleva la sala**, varias a la vez, y todos las veis igual. Una **pelea a medias se guarda** con el
+  mundo y sigue donde la dejasteis al volver.
+- **La pelea se pide al pulsar**, no al tocar al enemigo: de atacar a estar peleando, ~350 ms.
+
+## 🚀 Más fluido
+
+- **Volver al pueblo**: de ~365 a ~87 ms de tirón. **La primera pelea** de la sesión: de ~115 a ~22 ms. **Abrir una
+  pelea**: de ~45 a ~27 ms.
+- **Los menús y los talleres se montan al abrirlos**, no al cambiar de escena, y el clic en el inventario y en el equipo
+  del Hogar solo repinta lo que cambia (el equipo del Hogar, de 17 a 3 ms por clic).
+- **Las rejillas largas** crean sus celdas al bajar, en vez de todas de golpe.
+
+## 📡 Mucha menos red
+
+- **Una sesión con dos jugadores mueve un 80 % menos de datos** (de ~15 MB a ~3 MB en la misma partida de prueba).
+- **Las fotos de cara viajan una sola vez** por PC; después solo su huella.
+- **El baúl ya no viaja al entrar**: llega cuando abres algo que lo usa.
+- **La pelea no espera a lo demás**: combate, mundo, hogar y guardado van cada uno por su carril. Con una conexión
+  mala, los golpes llegan mucho antes.
+- **El guardado espera a tenerlo todo**: no se guarda un estado al que le falte lo último que pasó.
+
+## 🔌 Entrar sin quedarse colgado
+
+- **Ninguna espera de la entrada es para siempre**: si la sala no contesta (o Steam no lleva los paquetes), se dice qué
+  pasa y **se reintenta una vez solo**; si tampoco, te lo dice y vuelves a intentarlo cuando quieras.
+
+## ⚔️ Arreglos
+
+- **La cría del Rey Slime ya no se ve formada** antes de su vuelo.
+- **El que huye vuelve a ir en cabeza** jugando solo.
+- **Un caído a mitad de pelea vuelve a quedar oculto**, y **en pelea no se viaja de piso**.
+- **Lo que se suelta en un piso cae en ese piso.**
+
+> Multijugador: los dos PCs tienen que llevar esta versión (la de antes no puede entrar en una sala de la 0.15.5).
+
+---
+
 # v0.15.4
 
 ## 🤝 La pelea de tu compañero, vista desde fuera
