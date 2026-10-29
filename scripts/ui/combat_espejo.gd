@@ -129,7 +129,8 @@ func _maniqui_de_fila(d: Dictionary) -> Combatant:
 	c.color_visual = d.get("color", Color.WHITE)
 	# De donde sale su sprite. Un roster de una version anterior no lo trae, y entonces se queda
 	# con la figura de color de siempre en vez de reventar.
-	c.sprite_res = String(d.get("spr", ""))
+	var spr = d.get("spr", 0)   # su .tres, como numero (IdsRed)
+	c.sprite_res = IdsRed.ruta(int(spr)) if spr is int else String(spr)
 	c.sprite_t = float(d.get("spr_t", 0.5))
 	c.es_jefe = bool(d.get("jefe", false))
 	c.uid_formacion = String(d.get("uidf", ""))
@@ -220,7 +221,7 @@ func _fila_de_roster(lista: Array) -> Array:
 			# DE DONDE SACAR SU SPRITE. Viaja la ruta de su .tres y la 't' de su variante, que son
 			# dos datos minusculos y con eso el compañero carga el mismo bicho por su cuenta. Sin
 			# esto, en su pantalla la pelea entera serian cuadrados de color.
-			"spr": c.sprite_res, "spr_t": c.sprite_t,
+			"spr": IdsRed.de(c.sprite_res), "spr_t": c.sprite_t,
 			# SI ES UN JEFE: lo unico que necesita el espejo para poner la musica que toca. La deducia
 			# de sus propios _active_enemies, que estando de espejo estan vacios (los bichos los lleva
 			# la maquina que ejecuta), asi que unirse a la pelea de un jefe sonaba a pelea de rata.

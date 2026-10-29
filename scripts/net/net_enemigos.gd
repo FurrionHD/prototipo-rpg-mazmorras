@@ -40,7 +40,7 @@ func registrar_enemigo(nodo: Node2D, lugar: String) -> void:
 	_enemigos[id] = {"nodo": nodo, "lugar": lugar}
 	var d: Dictionary = _datos_enemigo(nodo)
 	if Net.es_host:
-		_spawn_enemigo.rpc(id, lugar, nodo.global_position, d)
+		_spawn_enemigo.rpc(id, lugar, nodo.global_position, IdsRed.a_red(d))
 
 
 # TODO lo que el otro necesita para pintarlo Y para pelearlo/extraerlo: su aspecto (color y lado,
@@ -161,6 +161,7 @@ func _spawn_enemigo(id: int, lugar: String, pos: Vector2, d: Dictionary) -> void
 		return   # eso esta en OTRO piso: aqui no se pinta
 	if _enem_nodos.has(id) and is_instance_valid(_enem_nodos[id]):
 		return   # ya lo tengo (llego dos veces: difusion + peticion de late-join)
+	d = IdsRed.de_red(d)   # su .tres viaja como numero (IdsRed)
 	var mundo: Node = PisoVivo.raiz_del_lugar(lugar, get_tree())
 	if mundo == null:
 		return
@@ -338,7 +339,7 @@ func _pedir_enemigos(lugar: String) -> void:
 			var e: Dictionary = _enemigos[id]
 			if is_instance_valid(e["nodo"]) and String(e["lugar"]) == lugar:
 				_spawn_enemigo.rpc_id(quien, id, lugar, (e["nodo"] as Node2D).global_position,
-					_datos_enemigo(e["nodo"]))
+					IdsRed.a_red(_datos_enemigo(e["nodo"])))
 
 
 # El DUEÑO del piso difunde las posiciones de SUS enemigos a ~20 Hz. En solitario, o si solo espejo el
