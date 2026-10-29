@@ -1996,14 +1996,14 @@ func pedir_cria(slot: int, ruta: String, pos: Vector2, t: float) -> void:
 	if Net.es_host:
 		_encaminar_cria(slot, ruta, pos, t, Net._mi_lugar, multiplayer.get_unique_id())
 	else:
-		_pedir_cria.rpc_id(1, slot, ruta, pos, t, Net._mi_lugar)
+		_pedir_cria.rpc_id(1, slot, IdsRed.de(ruta), pos, t, Net._mi_lugar)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _pedir_cria(slot: int, ruta: String, pos: Vector2, t: float, lugar: String) -> void:
+func _pedir_cria(slot: int, id: int, pos: Vector2, t: float, lugar: String) -> void:
 	if not Net.es_host:
 		return
-	_encaminar_cria(slot, ruta, pos, t, lugar, multiplayer.get_remote_sender_id())
+	_encaminar_cria(slot, IdsRed.ruta(id), pos, t, lugar, multiplayer.get_remote_sender_id())   # su .tres, por id
 
 
 func _encaminar_cria(slot: int, ruta: String, pos: Vector2, t: float, lugar: String, para: int) -> void:

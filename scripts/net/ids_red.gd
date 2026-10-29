@@ -127,6 +127,30 @@ static func de_red(v):
 const CLAVE := "ruta"
 
 
+# Una LISTA de rutas ("" = hueco) en numeros (0 = hueco), y al reves. Lo que ya venga en el otro formato se respeta.
+static func lista_a_red(lista) -> Array:
+	return (lista as Array).map(func(x): return de(x) if x is String else x)
+
+
+static func lista_de_red(lista) -> Array:
+	return (lista as Array).map(func(x): return ruta(int(x)) if x is int else x)
+
+
+# Un DICT con rutas de CLAVE ({ruta: cuantas}) con numeros de clave, y al reves.
+static func claves_a_red(d) -> Dictionary:
+	var out: Dictionary = {}
+	for k in (d as Dictionary):
+		out[de(k) if k is String else k] = d[k]
+	return out
+
+
+static func claves_de_red(d) -> Dictionary:
+	var out: Dictionary = {}
+	for k in (d as Dictionary):
+		out[ruta(int(k)) if k is int else k] = d[k]
+	return out
+
+
 static func cuantos() -> int:
 	_montar()
 	return _rutas.size()

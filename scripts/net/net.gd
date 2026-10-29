@@ -1374,7 +1374,7 @@ func _admitir(quien: int, color: Color, metal: float, nombre: String, lugar: Str
 	# (Net.hogar.necesito_baul).
 	hogar._set_bote.rpc_id(quien, Game.bote_dinero)
 	hogar._set_cofre.rpc_id(quien, zip(Game.cofre_equipo))
-	hogar._set_cofre_consumibles.rpc_id(quien, Game.cofre_consumibles)
+	hogar._set_cofre_consumibles.rpc_id(quien, IdsRed.claves_a_red(Game.cofre_consumibles))
 	# Los encargos en marcha y quien hay en el hogar de todos: sin esto entraria viendo el hogar
 	# vacio y solo se le poblaria al primer cambio.
 	hogar._set_encargos.rpc_id(quien, Game.encargos)

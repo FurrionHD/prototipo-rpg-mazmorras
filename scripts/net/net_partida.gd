@@ -73,14 +73,14 @@ static func ficha_a_red(f: Dictionary) -> Dictionary:
 	var r: Dictionary = IdsRed.a_red(f)
 	for k in _LISTAS_DE_RUTAS:
 		if f.has(k):
-			r[k] = _a_ids(f[k])
+			r[k] = IdsRed.lista_a_red(f[k])
 	if f.has("habs_sets"):
 		var sets: Dictionary = {}
 		for k in (f["habs_sets"] as Dictionary):
-			sets[k] = _a_ids(f["habs_sets"][k])
+			sets[k] = IdsRed.lista_a_red(f["habs_sets"][k])
 		r["habs_sets"] = sets
 	if f.has("cds"):
-		r["cds"] = _claves_a_ids(f["cds"])
+		r["cds"] = IdsRed.claves_a_red(f["cds"])
 	return r
 
 
@@ -88,14 +88,14 @@ static func ficha_de_red(f: Dictionary) -> Dictionary:
 	var r: Dictionary = IdsRed.de_red(f)
 	for k in _LISTAS_DE_RUTAS:
 		if f.has(k):
-			r[k] = _de_ids(f[k])
+			r[k] = IdsRed.lista_de_red(f[k])
 	if f.has("habs_sets"):
 		var sets: Dictionary = {}
 		for k in (f["habs_sets"] as Dictionary):
-			sets[k] = _de_ids(f["habs_sets"][k])
+			sets[k] = IdsRed.lista_de_red(f["habs_sets"][k])
 		r["habs_sets"] = sets
 	if f.has("cds"):
-		r["cds"] = _claves_de_ids(f["cds"])
+		r["cds"] = IdsRed.claves_de_red(f["cds"])
 	return r
 
 
@@ -113,7 +113,7 @@ static func jd_a_red(d: Dictionary) -> Dictionary:
 	if d.has("personajes"):
 		r["personajes"] = fichas_a_red(d["personajes"])
 	if d.has("consumibles"):
-		r["consumibles"] = _claves_a_ids(d["consumibles"])
+		r["consumibles"] = IdsRed.claves_a_red(d["consumibles"])
 	if d.has("cebo"):
 		r["cebo"] = IdsRed.de(d["cebo"])
 	return r
@@ -124,33 +124,10 @@ static func jd_de_red(d: Dictionary) -> Dictionary:
 	if d.has("personajes"):
 		r["personajes"] = fichas_de_red(d["personajes"])
 	if d.has("consumibles"):
-		r["consumibles"] = _claves_de_ids(d["consumibles"])
+		r["consumibles"] = IdsRed.claves_de_red(d["consumibles"])
 	if d.has("cebo"):
 		r["cebo"] = IdsRed.ruta(int(d["cebo"])) if d["cebo"] is int else String(d["cebo"])
 	return r
-
-
-# Una lista de rutas ("" = hueco) en numeros (0 = hueco), y al reves. Lo que ya venga en el otro formato se respeta.
-static func _a_ids(lista) -> Array:
-	return (lista as Array).map(func(x): return IdsRed.de(x) if x is String else x)
-
-
-static func _de_ids(lista) -> Array:
-	return (lista as Array).map(func(x): return IdsRed.ruta(int(x)) if x is int else x)
-
-
-static func _claves_a_ids(d) -> Dictionary:
-	var out: Dictionary = {}
-	for k in (d as Dictionary):
-		out[IdsRed.de(k) if k is String else k] = d[k]
-	return out
-
-
-static func _claves_de_ids(d) -> Dictionary:
-	var out: Dictionary = {}
-	for k in (d as Dictionary):
-		out[IdsRed.ruta(int(k)) if k is int else k] = d[k]
-	return out
 
 
 # TODO lo de una persona en un mundo: sus personajes y lo que es suyo y de nadie mas (dinero, bolsa,
@@ -508,7 +485,7 @@ func desgaste_a_dict(pj: PersonajeData) -> Dictionary:
 	# si se marcha a mitad, que es el otro camino que pasa por aqui.
 	var vivo: Combatant = Game.combatant_de_pj(pj)
 	# Por id (IdsRed): el lote solo viaja, no se guarda. Game.cds_de_rutas entiende los dos.
-	d["cds"] = _claves_a_ids(Game.cds_a_rutas(vivo.ability_cooldowns if vivo != null \
+	d["cds"] = IdsRed.claves_a_red(Game.cds_a_rutas(vivo.ability_cooldowns if vivo != null \
 		else Game.ability_cooldowns_persist.get(pj, {})))
 	# LA DURABILIDAD de lo que lleva puesto, por ranura. La pelea desgasta el arma y la armadura DEL
 	# DOBLE (su equip_meta), que es una copia: sin esto el equipo de quien peleaba en otra maquina no se

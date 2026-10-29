@@ -897,13 +897,16 @@ func meter_consumible_cofre(ruta: String, n: int) -> void:
 	if quita <= 0:
 		return
 	if Net._soy_cliente():
-		_pedir_meter_consumible.rpc_id(1, ruta, quita)
+		_pedir_meter_consumible.rpc_id(1, IdsRed.de(ruta), quita)
 	else:
 		_apuntar_consumible(ruta, quita)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _pedir_meter_consumible(ruta: String, n: int) -> void:
+func _pedir_meter_consumible(id: int, n: int) -> void:
+	var ruta: String = IdsRed.ruta(id)   # por la red, su id (IdsRed)
+	if ruta.is_empty():
+		return
 	if Net.es_host:
 		_apuntar_consumible(ruta, n)
 
@@ -917,13 +920,16 @@ func _apuntar_consumible(ruta: String, n: int) -> void:
 # vender=true: la TIENDA, igual que sacar_de_cofre.
 func sacar_consumible_cofre(ruta: String, n: int, vender: bool = false) -> void:
 	if Net._soy_cliente():
-		_pedir_sacar_consumible.rpc_id(1, ruta, n, vender)
+		_pedir_sacar_consumible.rpc_id(1, IdsRed.de(ruta), n, vender)
 	else:
 		_resolver_saca_consumible(ruta, n, 1, vender)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _pedir_sacar_consumible(ruta: String, n: int, vender: bool) -> void:
+func _pedir_sacar_consumible(id: int, n: int, vender: bool) -> void:
+	var ruta: String = IdsRed.ruta(id)
+	if ruta.is_empty():
+		return
 	if Net.es_host:
 		_resolver_saca_consumible(ruta, n, multiplayer.get_remote_sender_id(), vender)
 
@@ -941,12 +947,12 @@ func _resolver_saca_consumible(ruta: String, n: int, quien: int, vender: bool = 
 	if quien == 1:
 		_recibir_consumible(ruta, da, vender)
 	else:
-		_consumible_concedido.rpc_id(quien, ruta, da, vender)
+		_consumible_concedido.rpc_id(quien, IdsRed.de(ruta), da, vender)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _consumible_concedido(ruta: String, n: int, vender: bool) -> void:
-	_recibir_consumible(ruta, n, vender)
+func _consumible_concedido(id: int, n: int, vender: bool) -> void:
+	_recibir_consumible(IdsRed.ruta(id), n, vender)
 	Net.hogar_cambiado.emit()
 
 
@@ -966,13 +972,13 @@ func _recibir_consumible(ruta: String, n: int, vender: bool) -> void:
 
 func _difundir_cofre_consumibles() -> void:
 	if Net.activo:
-		_set_cofre_consumibles.rpc(Game.cofre_consumibles)
+		_set_cofre_consumibles.rpc(IdsRed.claves_a_red(Game.cofre_consumibles))
 	Net.hogar_cambiado.emit()
 
 
 @rpc("authority", "call_remote", "reliable")
 func _set_cofre_consumibles(d: Dictionary) -> void:
-	_cofre_consum_mirror = d   # cliente: reflejo del cofre del host
+	_cofre_consum_mirror = IdsRed.claves_de_red(d)   # {ruta: cuantas}, por la red con ids   # cliente: reflejo del cofre del host
 	Net.hogar_cambiado.emit()
 
 

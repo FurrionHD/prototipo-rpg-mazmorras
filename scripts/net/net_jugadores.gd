@@ -532,30 +532,30 @@ func anunciar_circulo(ruta: String, dichas: int, fin: int) -> void:
 	if Net.es_host:
 		for pid in Net._peers:
 			if Net._peers[pid].get("lugar", "") == Net._mi_lugar:
-				_set_circulo.rpc_id(pid, Net._mi_id(), ruta, dichas, fin)
+				_set_circulo.rpc_id(pid, Net._mi_id(), IdsRed.de(ruta), dichas, fin)
 	else:
-		_rel_circulo.rpc_id(1, ruta, dichas, fin, Net._mi_lugar)
+		_rel_circulo.rpc_id(1, IdsRed.de(ruta), dichas, fin, Net._mi_lugar)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _set_circulo(emisor: int, ruta: String, dichas: int, fin: int) -> void:
+func _set_circulo(emisor: int, hechizo: int, dichas: int, fin: int) -> void:
 	var a = Net._avatares.get(emisor)   # SIN tipar: puede estar liberado
 	if a == null or not is_instance_valid(a) or not (a is Node2D):
 		return
-	var sp = load(ruta) if ruta.begins_with("res://") else null
+	var sp = IdsRed.cargar(hechizo)   # el hechizo, como id (IdsRed)
 	CirculoMagico.en_cuerpo(a, sp as SpellData, dichas, fin)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rel_circulo(ruta: String, dichas: int, fin: int, lugar: String) -> void:
+func _rel_circulo(hechizo: int, dichas: int, fin: int, lugar: String) -> void:
 	if not Net.es_host:
 		return
 	var de := multiplayer.get_remote_sender_id()
 	if PisoVivo.lleva(lugar):
-		_set_circulo(de, ruta, dichas, fin)
+		_set_circulo(de, hechizo, dichas, fin)
 	for pid in Net._peers:
 		if pid != de and Net._peers[pid].get("lugar", "") == lugar:
-			_set_circulo.rpc_id(pid, de, ruta, dichas, fin)
+			_set_circulo.rpc_id(pid, de, hechizo, dichas, fin)
 
 
 # --- ENTRAR EN LA PELEA DE UN JUGADOR (el que la ejecuta puede no ser el) ---------------------
