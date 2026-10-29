@@ -26,6 +26,9 @@ func _ready() -> void:
 	# Y MI CARA (la del lider), antes de que entre B: la sala la apunta (_rel_aspecto) y se la pasa al presentarnos.
 	Game.lider().set_imagen(foto_de_prueba(Color(0.2, 0.9, 0.2)))
 	Net.pisos.anunciar_aspecto()
+	# Y la de mi ACOMPAÑANTE (_rel_grupo; a B le llega al presentarnos, en "comps").
+	Game.companeros()[0].set_imagen(foto_de_prueba(Color(0.2, 0.9, 0.9)))
+	Net.jugadores.anunciar_grupo()
 	if not await lanzar_b("prueba_town_dos_cliente"):
 		await _fin()
 		return
@@ -50,6 +53,8 @@ func _ready() -> void:
 	# LA CARA DEL CUERPO de cada uno (saludo, presentaciones y _set_aspecto llevan la huella; la foto, Net.fotos).
 	_ok(await _dato_de_b("cara_del_host", 20.0) == 1, "B ve mi foto en el muñeco de mi cuerpo")
 	_ok(await veo_cara_de(await _dato_de_b("mi_peer", 5.0), 20.0), "veo la foto de B en el muñeco de su cuerpo")
+	_ok(await _dato_de_b("cara_companero_host", 20.0) == 1, "B ve la foto de mi acompañante en su cuerpo")
+	_ok(await veo_cara_de_companero(await _dato_de_b("mi_peer", 5.0), 20.0), "veo la foto del acompañante de B en su cuerpo")
 	# Una segunda difusion del roster (cambia el color de mi personaje de casa, la foto no) no trae ninguna foto otra vez:
 	# ni yo la vuelvo a pedir al repintar, ni la sala recibe peticiones repetidas.
 	var recibidas: int = Net.fotos.recibidas

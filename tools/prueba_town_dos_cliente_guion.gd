@@ -57,6 +57,12 @@ func _ready() -> void:
 	var cara_a: bool = await veo_cara_de(peer_a, 15.0)
 	_ok(cara_a, "veo la foto de A en el muñeco de su cuerpo")
 	print("[B] dato cara_del_host=%d" % int(cara_a))
+	# Y LOS ACOMPAÑANTES: el de A me llego al presentarnos; el mio lo mando ya dentro (_rel_grupo -> _set_grupo).
+	Game.companeros()[0].set_imagen(foto_de_prueba(Color(0.9, 0.2, 0.9)))
+	Net.jugadores.anunciar_grupo()
+	var cara_comp: bool = await veo_cara_de_companero(peer_a, 15.0)
+	_ok(cara_comp, "veo la foto del acompañante de A en su cuerpo")
+	print("[B] dato cara_companero_host=%d" % int(cara_comp))
 
 	# FASE 1: bajo al piso 1.
 	await esperar_fase(1, 60.0)

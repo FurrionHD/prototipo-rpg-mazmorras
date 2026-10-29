@@ -297,8 +297,9 @@ func _datos_grupo() -> Array:
 	for pj in Game.companeros():
 		# "piezas" = su pelo y su ropa (ver PersonajeData.aspecto_completo). La clave que no metas
 		# aqui es la que hace que el compañero se vea distinto en la pantalla del otro, y solo ahi.
+		# De la foto, su HUELLA (Net.fotos): el grupo se re-anuncia con cada cambio de equipo.
 		datos.append({"color": pj.color, "metal": pj.metalico, "nombre": pj.nombre,
-			"imagen": pj.imagen, "alpha": pj.color_alpha,
+			"huella": Net.fotos.publicar_pj(pj), "alpha": pj.color_alpha,
 			"piezas": pj.aspecto_completo()["piezas"],
 			# Lo que lleva puesto, igual que el lider (ver anunciar_aspecto). Aqui sale gratis porque
 			# esto ya viajaba como diccionario.
@@ -318,12 +319,28 @@ func _set_grupo(emisor: int, datos: Array) -> void:
 		if is_instance_valid(sobra):
 			sobra.queue_free()
 	for i in mini(lista.size(), datos.size()):
-		if is_instance_valid(lista[i]):
-			var d: Dictionary = datos[i]
-			lista[i].aplicar_aspecto(d.get("color", Color.WHITE), float(d.get("metal", 0.0)),
-				String(d.get("nombre", "")), d.get("imagen", PackedByteArray()),
-				float(d.get("alpha", 1.0)), d.get("piezas", {}), d.get("equipo", {}))
+		pintar_companero(lista[i], datos[i])
 	Net._avatares_comp[emisor] = lista
+
+
+# Pinta el cuerpo de un acompañante de otro jugador con su ficha del grupo. La foto sale de su huella: si aun no ha
+# llegado, sin ella, y se repinta al llegar (repintar_companeros).
+func pintar_companero(cuerpo, d: Dictionary) -> void:   # cuerpo SIN tipar: puede estar liberado
+	if cuerpo == null or not is_instance_valid(cuerpo):
+		return
+	cuerpo.aplicar_aspecto(d.get("color", Color.WHITE), float(d.get("metal", 0.0)),
+		String(d.get("nombre", "")), Net.fotos.pedir(int(d.get("huella", 0))),
+		float(d.get("alpha", 1.0)), d.get("piezas", {}), d.get("equipo", {}))
+
+
+# Ha llegado la foto con esa huella: los acompañantes que la llevan, repintados.
+func repintar_companeros(huella: int) -> void:
+	for pid in Net._avatares_comp:
+		var comps: Array = (Net._peers.get(pid, {}) as Dictionary).get("comps", [])
+		var lista: Array = Net._avatares_comp[pid]
+		for i in mini(lista.size(), comps.size()):
+			if int((comps[i] as Dictionary).get("huella", 0)) == huella:
+				pintar_companero(lista[i], comps[i])
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -339,9 +356,9 @@ func _rel_grupo(datos: Array) -> void:
 
 # --- IMBUICIONES DE MI GRUPO -----------------------------------------------------------------
 # Canal PROPIO, y no un campo mas en anunciar_aspecto/anunciar_grupo, por una razon de peso: esos
-# dos llevan el PNG del personaje (128x128) y solo cambian cuando te tocas la cara, mientras que la
-# imbuicion se aplica y se gasta en CADA combate. Metida ahi, se habria reenviado la imagen entera
-# de todo el grupo cada vez que a alguien se le acababan las cargas.
+# dos llevan el aspecto entero (piezas y equipo de cada uno) y solo cambian cuando te cambias,
+# mientras que la imbuicion se aplica y se gasta en CADA combate. Metida ahi, se habria reenviado
+# el aspecto de todo el grupo cada vez que a alguien se le acababan las cargas.
 #
 # El paquete es un int por persona, en el orden [lider] + companeros() -- el MISMO que usa
 # anunciar_grupo, asi que el indice i+1 de aqui es el companero i de alli. Solo viaja el ID del
@@ -639,7 +656,7 @@ func barras_de_otros() -> Array:
 # --- EL FAROLILLO DE CADA UNO ------------------------------------------------------------------
 # Cuanto alumbra su lampara, en celdas. Canal propio y calcado del de las imbuiciones, por lo mismo:
 # es un numero minusculo que cambia a su ritmo (enciendes, se gasta el carbon, cambias de farolillo)
-# y no puede ir colgado de anunciar_aspecto, que arrastra el PNG del personaje.
+# y no puede ir colgado de anunciar_aspecto, que arrastra el aspecto entero del personaje.
 #
 # Antes NO viajaba nada de esto, y niebla._focos() le ponia a todos los aliados MI radio: en la
 # pantalla de cada uno, el compañero alumbraba exactamente lo que alumbrabas tu. Se veia raro

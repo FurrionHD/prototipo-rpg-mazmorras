@@ -143,7 +143,8 @@ const MAX_CONEXIONES := 32
 # 52 (28/10): fase 3: en la instantanea, las filas sin cambios van como null (Net.peleas.solo_filas_nuevas).
 # 53 (29/10): las FOTOS por su tema (Net.fotos: _subir / _pedir / _foto, huella de 64 bits); fuera _subir_fotos y
 #     _set_fotos_roster del hogar. Un build del 52 no pediria las fotos y veria a todos sin cara. Y el saludo, _listo,
-#     _presentarse, _presentar_ajeno y _set_aspecto/_rel_aspecto llevan la HUELLA de la foto en vez del PNG.
+#     _presentarse, _presentar_ajeno, _set_aspecto/_rel_aspecto y el grupo (_set_grupo/_rel_grupo, "comps") llevan la
+#     HUELLA de la foto en vez del PNG.
 const PROTOCOLO := 53
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
@@ -1545,11 +1546,12 @@ func pintar_avatar(peer_id: int) -> void:
 		float(p.get("alpha", 1.0)), p.get("piezas", {}), p.get("equipo", {}))
 
 
-# Ha llegado una foto: los cuerpos que la llevan, repintados.
+# Ha llegado una foto: los cuerpos que la llevan (jugadores y acompañantes), repintados.
 func _on_foto_llegada(huella: int) -> void:
 	for id in _peers:
 		if int(_peers[id].get("huella", 0)) == huella:
 			pintar_avatar(id)
+	jugadores.repintar_companeros(huella)
 
 
 # Monta el nodo visual de un peer YA registrado (solo si compartimos lugar).

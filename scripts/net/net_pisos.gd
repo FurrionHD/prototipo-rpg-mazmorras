@@ -130,10 +130,7 @@ func _crear_cuerpo_companero(peer_id: int, idx: int):
 	c.set_meta("peer_id", peer_id)
 	var comps: Array = Net._peers[peer_id].get("comps", [])
 	if idx < comps.size():
-		var d: Dictionary = comps[idx]
-		c.aplicar_aspecto(d.get("color", Color.WHITE), float(d.get("metal", 0.0)),
-			String(d.get("nombre", "")), d.get("imagen", PackedByteArray()),
-			float(d.get("alpha", 1.0)), d.get("piezas", {}), d.get("equipo", {}))
+		Net.jugadores.pintar_companero(c, comps[idx])
 	# Su imbuicion, de lo ultimo que anuncio. Sin esto un companero recreado (al viajar, o al
 	# entrar tu a la partida) nace sin rastro aunque su dueño lleve el manto puesto.
 	# +1 porque el hueco 0 del paquete es el LIDER (ver Net.jugadores.anunciar_imbue).
