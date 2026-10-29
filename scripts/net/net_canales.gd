@@ -57,7 +57,7 @@ var plazos_vencidos := 0           # barreras que no se completaron a tiempo (lo
 
 # Manda una marca por cada canal a 'peer' y devuelve su numero, que viaja en el mensaje que depende de lo de antes.
 func barrera(peer: int) -> int:
-	if not Net.activo or multiplayer.multiplayer_peer == null:
+	if not _conectado():
 		return 0
 	_numero += 1
 	_marca_control.rpc_id(peer, _numero)
@@ -74,12 +74,19 @@ func barrera(peer: int) -> int:
 func pasada(de: int, n: int) -> bool:
 	var hasta: int = Time.get_ticks_msec() + int(PLAZO_BARRERA * 1000.0)
 	while not completa(de, n):
-		if Time.get_ticks_msec() >= hasta or not Net.activo:
+		if Time.get_ticks_msec() >= hasta or not _conectado():
 			plazos_vencidos += 1
 			push_warning("[canales] la barrera %d de %d no se completo en %.0f s: sigo sin ella" % [n, de, PLAZO_BARRERA])
 			return false
 		await get_tree().process_frame
 	return true
+
+
+# La barrera es de la CONEXION (la de este nodo), no del juego: asi vale igual en la sala, en un cliente y en las pruebas
+# que montan su propia red.
+func _conectado() -> bool:
+	var p: MultiplayerPeer = multiplayer.multiplayer_peer if multiplayer != null else null
+	return p != null and not (p is OfflineMultiplayerPeer) 		and p.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED
 
 
 func completa(de: int, n: int) -> bool:
