@@ -24,6 +24,11 @@ func _correr() -> void:
 	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
 	if ref is SaveData:
 		Game.importar_partida(ref)
+	# MIS personajes son de MI identidad, la de este PC. mundo_ref los trae con la del PC que la grabo, y al volver el
+	# mundo se los pone a quien entra: la prueba solo pasaba en ese PC (29/10, en el banco de pruebas, que tiene su
+	# propia carpeta de usuario y otra identidad).
+	for pj in Game.plantilla:
+		(pj as PersonajeData).dueno = Identidad.id
 	# Lo que en la partida de referencia esta a su valor por defecto, con algo de verdad: si no, que no
 	# viaje no se notaria.
 	Game.velocidad_combate = 2.0
