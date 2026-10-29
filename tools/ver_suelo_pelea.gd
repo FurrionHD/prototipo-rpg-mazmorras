@@ -350,7 +350,7 @@ func _circulo_en_pelea(combat: Node, nom: String) -> void:
 	combat._casteos.erase(yo)
 	var red: Dictionary = t.circulos_para_red()
 	print("  red (disparado): ", red)
-	t.aplicar_circulos_red({"c": [[0, s.resource_path, 2]], "f": red["f"]})
+	t.aplicar_circulos_red({"c": [[0, IdsRed.de(s), 2]], "f": red["f"]})
 	print("  espejo lee: ", t._casteos_red, " fin_visto=", t._fin_visto)
 	t._casteos_red.clear()
 	await get_tree().create_timer(0.25, true, false, true).timeout

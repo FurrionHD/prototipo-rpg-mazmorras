@@ -439,14 +439,14 @@ func numeros_de(c: Combatant) -> Array:
 	return _numeros_espejo.get(c, [])
 
 
-# Los cooldowns que estan CORRIENDO, por ruta. Los de 0 no se mandan: en el caso normal esto es un
-# dict vacio y no engorda la instantanea, que sale en cada repintado.
+# Los cooldowns que estan CORRIENDO, por el id de su habilidad (IdsRed). Los de 0 no se mandan: en el caso normal esto es
+# un dict vacio y no engorda la instantanea, que sale en cada repintado.
 func _cds_activos(c: Combatant) -> Dictionary:
 	var out: Dictionary = {}
 	for ab in c.ability_cooldowns:
 		var turnos: int = int(c.ability_cooldowns[ab])
 		if turnos > 0 and ab != null and not String(ab.resource_path).is_empty():
-			out[String(ab.resource_path)] = turnos
+			out[IdsRed.de(ab)] = turnos
 	return out
 
 
@@ -1622,10 +1622,10 @@ func _volcar(lista: Array, valores: Array) -> void:
 			lista[i].runa_agua_paradas = int(v[11][2])
 		if v.size() > 8:
 			lista[i].ability_cooldowns.clear()
-			for ruta in (v[8] as Dictionary):
-				var ab = load(String(ruta))
+			for k in (v[8] as Dictionary):
+				var ab = IdsRed.cargar(int(k)) if k is int else load(String(k))
 				if ab != null:
-					lista[i].ability_cooldowns[ab] = int((v[8] as Dictionary)[ruta])
+					lista[i].ability_cooldowns[ab] = int((v[8] as Dictionary)[k])
 
 
 # ESPEJO: los que han caido en la instantanea se apagan aqui igual que en la pantalla que ejecuta.

@@ -424,27 +424,27 @@ func apoyo_a_otro(spell: SpellData, peer: int, idx: int, nombre: String, grupo: 
 	var lanzador: String = Game.lider().nombre
 	var cura: float = Game.cura_magica_de(spell, Game.lider())
 	if Net.es_host:
-		_apoyarte.rpc_id(peer, spell.resource_path, idx, nombre, lanzador, cura, grupo, entre)
+		_apoyarte.rpc_id(peer, IdsRed.de(spell), idx, nombre, lanzador, cura, grupo, entre)
 	else:
-		_rel_apoyo.rpc_id(1, peer, spell.resource_path, idx, nombre, lanzador, cura, grupo, entre)
+		_rel_apoyo.rpc_id(1, peer, IdsRed.de(spell), idx, nombre, lanzador, cura, grupo, entre)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rel_apoyo(peer: int, ruta: String, idx: int, nombre: String, lanzador: String, cura: float,
+func _rel_apoyo(peer: int, hechizo: int, idx: int, nombre: String, lanzador: String, cura: float,
 		grupo: bool, entre: int) -> void:
 	if not Net.es_host:
 		return
 	if peer == Net._mi_id():
-		_apoyarte(ruta, idx, nombre, lanzador, cura, grupo, entre)
+		_apoyarte(hechizo, idx, nombre, lanzador, cura, grupo, entre)
 	elif Net._peers.has(peer):
-		_apoyarte.rpc_id(peer, ruta, idx, nombre, lanzador, cura, grupo, entre)
+		_apoyarte.rpc_id(peer, hechizo, idx, nombre, lanzador, cura, grupo, entre)
 
 
 # Corre en el DUEÑO del personaje.
 @rpc("authority", "call_remote", "reliable")
-func _apoyarte(ruta: String, idx: int, nombre: String, lanzador: String, cura: float, grupo: bool,
+func _apoyarte(hechizo: int, idx: int, nombre: String, lanzador: String, cura: float, grupo: bool,
 		entre: int) -> void:
-	var spell = load(ruta) if ruta.begins_with("res://") else null
+	var spell = IdsRed.cargar(hechizo)   # el hechizo, como id: solo los del juego
 	if not (spell is SpellData) or not (spell as SpellData).es_apoyo():
 		return
 	var sp: SpellData = spell
@@ -763,23 +763,23 @@ func anunciar_conjuro(objetivo: Node, color: Color, spell: SpellData = null) -> 
 	var id: int = int(objetivo.get_meta("net_id", 0)) if objetivo.has_meta("net_id") else 0
 	if id == 0:
 		return
-	var ruta: String = String(spell.resource_path) if spell != null else ""
+	var hechizo: int = IdsRed.de(spell)   # 0 = sin hechizo
 	if Net.es_host:
 		for pid in Net._peers:
 			if Net._peers[pid].get("lugar", "") == Net._mi_lugar:
-				_set_conjuro.rpc_id(pid, Net._mi_id(), id, color, ruta)
+				_set_conjuro.rpc_id(pid, Net._mi_id(), id, color, hechizo)
 	else:
-		_rel_conjuro.rpc_id(1, id, color, ruta, Net._mi_lugar)
+		_rel_conjuro.rpc_id(1, id, color, hechizo, Net._mi_lugar)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _set_conjuro(emisor: int, id: int, color: Color, ruta: String = "") -> void:
+func _set_conjuro(emisor: int, id: int, color: Color, hechizo: int = 0) -> void:
 	var a = Net._avatares.get(emisor)
 	var obj = Net.enemigos._enem_nodos.get(id)
 	if a == null or not is_instance_valid(a) or obj == null or not is_instance_valid(obj):
 		return
 	var p: Node2D = _PROYECTIL_HECHIZO.new()
-	p.setup(obj, color, load(ruta) as SpellData if ruta != "" else null)
+	p.setup(obj, color, IdsRed.cargar(hechizo) as SpellData)
 	p.global_position = (a as Node2D).global_position
 	var mundo: Node = PisoVivo.raiz_de(a)
 	if mundo != null:
@@ -787,15 +787,15 @@ func _set_conjuro(emisor: int, id: int, color: Color, ruta: String = "") -> void
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rel_conjuro(id: int, color: Color, ruta: String, lugar: String) -> void:
+func _rel_conjuro(id: int, color: Color, hechizo: int, lugar: String) -> void:
 	if not Net.es_host:
 		return
 	var de := multiplayer.get_remote_sender_id()
 	if PisoVivo.lleva(lugar):
-		_set_conjuro(de, id, color, ruta)
+		_set_conjuro(de, id, color, hechizo)
 	for pid in Net._peers:
 		if pid != de and Net._peers[pid].get("lugar", "") == lugar:
-			_set_conjuro.rpc_id(pid, de, id, color, ruta)
+			_set_conjuro.rpc_id(pid, de, id, color, hechizo)
 
 
 # Tira los cuerpos de los acompañantes de un peer (cambio de lugar, se fue, fin de sesion).

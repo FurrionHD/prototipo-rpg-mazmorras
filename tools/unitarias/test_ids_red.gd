@@ -1,8 +1,10 @@
 extends "res://tools/unitarias/caso.gd"
-# Cubre: res://scripts/net/ids_red.gd
+# Cubre: res://scripts/net/ids_red.gd res://scripts/net/net_peleas.gd res://scripts/net/net_suelo.gd res://scripts/net/net_hogar.gd
 # LOS IDS DE LA RED (29/10, PROTOCOLO 55): cada .tres tiene su numero de 16 bits, el mismo en dos arranques del mismo
 # build (la tabla sale ordenada), ida y vuelta exacta, y lo que el juego reparte por sus listas (materiales,
 # consumibles, enemigos) esta en la tabla. Lo que no esta da 0 y un error: no viaja a ciegas.
+
+const NetPeleas = preload("res://scripts/net/net_peleas.gd")
 
 
 func test_cada_recurso_tiene_su_numero_y_vuelve() -> void:
@@ -74,3 +76,13 @@ func test_el_baul_de_referencia_por_la_frontera() -> void:
 	print("    [medida] baul por red: %d KB -> %d KB; comprimido %d KB -> %d KB" % [antes / 1024, ahora / 1024,
 		antes_z / 1024, ahora_z / 1024])
 	cierto(ahora < antes and ahora_z <= antes_z, "pesa menos")
+
+
+func test_una_accion_de_combate_viaja_con_ids() -> void:
+	var accion := {"tipo": "cargar", "ruta": "res://resources/materials/baba_slime.tres",
+		"hab": "res://resources/materials/runa_slime.tres", "obj": 2, "seq": 7}
+	var red: Dictionary = NetPeleas.accion_a_red(accion)
+	cierto(red["ruta"] is int and red["hab"] is int, "ruta y hab como numeros")
+	igual(NetPeleas.accion_de_red(red), accion, "y vuelve igual")
+	var sin_hab := {"tipo": "atacar", "obj": 1}
+	igual(NetPeleas.accion_de_red(NetPeleas.accion_a_red(sin_hab)), sin_hab, "una sin rutas, intacta")

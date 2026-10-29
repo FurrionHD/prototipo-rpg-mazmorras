@@ -2114,11 +2114,28 @@ func _lo_manda_el_anfitrion(pelea: int = 0) -> bool:
 func enviar_accion(accion: Dictionary) -> void:
 	if not Net.activo or _pelea_anfitrion == 0 or multiplayer.multiplayer_peer == null:
 		return
-	_accion_elegida.rpc_id(_pelea_anfitrion, accion)
+	_accion_elegida.rpc_id(_pelea_anfitrion, accion_a_red(accion))
+
+
+# LA ACCION VIAJA CON IDS (IdsRed): su "ruta" (la habilidad, el hechizo, el objeto, la municion) y su "hab" (la
+# habilidad con la que se carga o se unta) van como numero.
+static func accion_a_red(accion: Dictionary) -> Dictionary:
+	var a: Dictionary = IdsRed.a_red(accion)
+	if a.get("hab") is String and String(a["hab"]) != "":
+		a["hab"] = IdsRed.de(a["hab"])
+	return a
+
+
+static func accion_de_red(accion: Dictionary) -> Dictionary:
+	var a: Dictionary = IdsRed.de_red(accion)
+	if a.get("hab") is int:
+		a["hab"] = IdsRed.ruta(int(a["hab"]))
+	return a
 
 
 @rpc("any_peer", "call_remote", "reliable")
 func _accion_elegida(accion: Dictionary) -> void:
+	accion = accion_de_red(accion)
 	var pe: PeleaViva = _pe_de_peer(multiplayer.get_remote_sender_id())
 	if pe == null or pe.id == 0:
 		return

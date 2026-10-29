@@ -561,7 +561,7 @@ func circulo_acaba(c: Combatant, disparo: bool, spell: SpellData = null) -> void
 	# Para los espejos: viaja en la instantanea (circulos_para_red).
 	if not _pantalla._espejo and spell != null:
 		_fin_seq += 1
-		_fines.append([_pantalla._aliados.find(c), disparo, spell.resource_path, _fin_seq])
+		_fines.append([_pantalla._aliados.find(c), disparo, IdsRed.de(spell), _fin_seq])   # el hechizo, como id
 		if _fines.size() > 4:
 			_fines.pop_front()
 	var circ = _circulos.get(c)
@@ -581,7 +581,7 @@ func circulo_acaba(c: Combatant, disparo: bool, spell: SpellData = null) -> void
 
 
 # --- EN RED: quien lleva la pelea manda los conjuros en curso y los finales; el espejo los pinta igual. ---
-var _fines: Array = []            # [aliado, disparo, ruta, seq]: los ultimos, por si se pierde una instantanea
+var _fines: Array = []            # [aliado, disparo, id del hechizo, seq]: los ultimos, por si se pierde una instantanea
 var _fin_seq: int = 0
 var _casteos_red: Dictionary = {} # ESPEJO: {Combatant: [SpellData, frases dichas]}
 var _fin_visto: int = -1          # ESPEJO: el ultimo final ya pintado (-1 = aun no ha llegado ninguna)
@@ -593,7 +593,7 @@ func circulos_para_red() -> Dictionary:
 		var i: int = _pantalla._aliados.find(c)
 		if i >= 0 and d.get("spell") is SpellData:
 			var pt = d.get("punto")
-			cs.append([i, (d["spell"] as SpellData).resource_path, int(d.get("idx", 0))]
+			cs.append([i, IdsRed.de(d["spell"]), int(d.get("idx", 0))]
 				+ ([(pt as Vector2).x, (pt as Vector2).y] if pt is Vector2 else []))
 	return {"c": cs, "f": _fines}
 
@@ -608,14 +608,14 @@ func aplicar_circulos_red(d: Dictionary) -> void:
 		if _fin_visto < 0 or seq <= _fin_visto:
 			continue   # al llegar a mitad no se repiten los de antes
 		var i: int = int(f[0])
-		var sp = load(str(f[2])) if str(f[2]) != "" else null
+		var sp = IdsRed.cargar(int(f[2]))
 		if i >= 0 and i < _pantalla._aliados.size() and sp is SpellData:
 			circulo_acaba(_pantalla._aliados[i], bool(f[1]), sp)
 	_fin_visto = maxi(tope, 0)
 	_casteos_red.clear()
 	for c in d.get("c", []):
 		var i2: int = int(c[0])
-		var sp2 = load(str(c[1])) if str(c[1]) != "" else null
+		var sp2 = IdsRed.cargar(int(c[1]))
 		if i2 >= 0 and i2 < _pantalla._aliados.size() and sp2 is SpellData:
 			_casteos_red[_pantalla._aliados[i2]] = [sp2, int(c[2]),
 				Vector2(float(c[3]), float(c[4])) if (c as Array).size() >= 5 else null]
