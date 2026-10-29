@@ -2,6 +2,9 @@
 # proceso) y B entran como clientes en la sala de la RANURA 89 (ver prueba_town_sala_comun.gd).
 #   godot --headless --path . res://tools/prueba_town_baul_red.tscn -- nube_local
 # Con un baul GORDO (19.000 materiales, como el del usuario), puesto en la ranura:
+#   0) EL BAUL SE PIDE AL ABRIRLO (29/10): al entrar no llega; al pedirlo (Net.hogar.necesito_baul) llega entero. Los
+#      cambios solo van a quien lo tiene: A cambia el baul con B dentro sin haberlo pedido, y a B no le llega nada;
+#      cuando B lo pide, le llega entero y ya con el cambio.
 #   1) B gasta 6 unidades de baba (3 normales) y añade una runa: en B es instantaneo y a A le llega solo el cambio, en menos de 2 s;
 #   2) A gasta 2 runas: B lo ve;
 #   3) los dos van a por la ULTIMA runa a la vez: uno espera al otro y se gasta una sola (sin duplicados).
@@ -33,22 +36,34 @@ func _ready() -> void:
 	if not preparar_mundo(GRUPO_A, CASA_A, GRUPO_B, CASA_B, llenar) or not await abrir_sala_y_entrar():
 		await _fin()
 		return
-	var t := 0.0
-	while Game.baul.total() < TOTAL and t < 40.0:
-		await _esperar(0.5)
-		t += 0.5
-	_ok(Game.baul.total() == TOTAL, "tengo el espejo del baul entero (%d, %.1f s)" % [Game.baul.total(), t])
+	await _esperar(3.0)
+	_ok(Game.baul.total() == 0 and not Net.hogar.baul_al_dia(), "al entrar no me llega el baul (%d)" % Game.baul.total())
+	var t0 := Time.get_ticks_msec()
+	var lo_tengo: bool = await Net.hogar.necesito_baul()
+	_ok(lo_tengo and Game.baul.total() == TOTAL, "al pedirlo me llega entero (%d, %d ms)" % [Game.baul.total(),
+		Time.get_ticks_msec() - t0])
 	if not await lanzar_b("prueba_town_baul_cliente"):
 		await _fin()
 		return
-	_ok(await _dato_de_b("baul_listo", 40.0) == Game.baul.total(), "B tiene el espejo del baul entero")
+	_ok(await _dato_de_b("baul_al_entrar", 40.0) == 0, "a B tampoco le llega al entrar")
+	# Cambio el baul con B dentro sin haberlo pedido: una baba de fuego normal pasa a dañada (los totales no cambian).
+	var relleno: MaterialData = load("res://resources/materials/baba_fuego.tres")
+	await Net.hogar.abrir_taller()
+	Game.baul.quitar_material(relleno, MaterialItem.Calidad.NORMAL, 1)
+	Game.baul.anadir(MaterialItem.crear(relleno, MaterialItem.Calidad.DANADO))
+	Net.hogar.cerrar_taller()
+	_ok(await hasta_sala("con_baul", func(v): return v == "1", 10.0), "la sala solo me manda cambios a mi (%s)" % dato_sala("con_baul"))
+	escribir_fase(1)
+	_ok(await _dato_de_b("delta_sin_baul", 20.0) == 0, "a B no le llega el cambio")
+	_ok(await _dato_de_b("baul_listo", 40.0) == Game.baul.total(), "B lo pide y le llega entero")
+	_ok(await _dato_de_b("danadas_b", 10.0) == 1, "y ya con mi cambio")
 
 	# 1) B gasta y añade. Antes, 3 s: justo al entrar, lo que B le pide a la sala va en cola detras de lo que la sala
 	# le esta mandando (el baul de 19.000 y lo demas del alta) y el permiso tarda 1-2 s (la sala va a 20 fotogramas; en
 	# la etapa 2 sube a 60). Lo que se mide aqui es la accion del taller, no la entrada.
 	await _esperar(3.0)
-	escribir_fase(1)
-	t = 0.0
+	escribir_fase(2)
+	var t := 0.0
 	while (_cuantos(baba) != 27 or _cuantos(runa) != 11) and t < 10.0:
 		await _esperar(0.1)
 		t += 0.1
@@ -62,7 +77,7 @@ func _ready() -> void:
 	for k in 2:
 		_quitar(runa)
 	Net.hogar.cerrar_taller()
-	escribir_fase(2)
+	escribir_fase(3)
 	_ok(await _dato_de_b("visto_host", 10.0) == 9, "B ve las 2 runas que gasto A")
 
 	# 3) LOS DOS A POR LA ULTIMA RUNA REAL A LA VEZ. Solo hay una. A coge el permiso y lo retiene 1 s (como quien
@@ -73,7 +88,7 @@ func _ready() -> void:
 	Net.hogar.cerrar_taller()
 	await _esperar(1.0)
 	_ok(await Net.hogar.abrir_taller(), "A coge el permiso")
-	escribir_fase(3)
+	escribir_fase(4)
 	await _esperar(1.0)   # B lo esta pidiendo ahora mismo
 	_ok(_cuantos(real) == 1, "mientras lo tengo, nadie me toca la runa")
 	_quitar(real)

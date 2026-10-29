@@ -33,6 +33,11 @@ func abrir() -> void:
 	abrir_taller()
 
 
+# No cuenta nada del baul de casa: no lo pide (ver taller_menu._usa_baul).
+func _usa_baul() -> bool:
+	return false
+
+
 func _al_cerrar() -> void:
 	_vaciar_vitrina()
 

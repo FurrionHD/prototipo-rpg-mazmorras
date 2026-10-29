@@ -76,6 +76,8 @@ func _datos() -> Dictionary:
 				if pj is PersonajeData and not (pj as PersonajeData).imagen.is_empty():
 					con_foto += 1
 	d["fotos_mundo"] = con_foto
+	# A cuantos les manda la sala los cambios del baul (los que lo han pedido: Net.hogar._con_baul).
+	d["con_baul"] = Net.hogar._con_baul.size()
 	# LAS PELEAS DE LA SALA (etapa 3): cuantas lleva, en que pisos, y cuantos enemigos tiene reservados.
 	d["peleas"] = Net.peleas._peleas.size()
 	var lugares: Array = []

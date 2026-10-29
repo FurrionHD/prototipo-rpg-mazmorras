@@ -146,7 +146,9 @@ const MAX_CONEXIONES := 32
 #     _presentarse, _presentar_ajeno, _set_aspecto/_rel_aspecto y el grupo (_set_grupo/_rel_grupo, "comps") llevan la
 #     HUELLA de la foto en vez del PNG. Y las fichas (net_partida ficha_a_dict: alta, _tu_jugador, _mi_estado y el doble
 #     de las peleas) llevan "imagen_huella" en vez de "imagen".
-const PROTOCOLO := 53
+# 54 (29/10): el BAUL ya no va en la entrada: se pide al abrir algo que lo lee (Net.hogar._quiero_baul) y sus cambios
+#     solo van a quien lo tiene. Un build del 53 esperaria el baul al entrar y lo veria vacio.
+const PROTOCOLO := 54
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -713,6 +715,7 @@ func desconectar() -> void:
 	hogar._roster_ajeno.clear()
 	hogar._hogar_sucio = false
 	fotos.olvidar_sesion()
+	hogar._olvidar_baul()
 	hogar._hash_difundido.clear()   # lo que se difundio en esta sesion (ver net_hogar._cambio)
 	epoca_sesion = 0
 	semilla_pueblo = 0
@@ -1360,8 +1363,8 @@ func _admitir(quien: int, color: Color, metal: float, nombre: String, lugar: Str
 	for id in suelo._suelo:
 		if suelo._suelo[id]["lugar"] == lugar:
 			suelo._spawn_drop.rpc_id(quien, id, suelo._suelo[id]["d"], suelo._suelo[id]["pos"], lugar)
-	# Estado compartido del hogar (el del HOST): baul de materiales, bote y cofre.
-	hogar._set_almacen.rpc_id(quien, zip(hogar._almacen_dicts()))
+	# Estado compartido del hogar (el del HOST): bote y cofre. El BAUL no: lo pide cuando abre algo que lo lee
+	# (Net.hogar.necesito_baul).
 	hogar._set_bote.rpc_id(quien, Game.bote_dinero)
 	hogar._set_cofre.rpc_id(quien, zip(Game.cofre_equipo))
 	hogar._set_cofre_consumibles.rpc_id(quien, Game.cofre_consumibles)
@@ -1618,6 +1621,7 @@ func _on_peer_disconnected(id: int) -> void:
 		if not ident_ida.is_empty() and hogar._roster_ajeno.erase(ident_ida):
 			hogar.marcar_hogar_sucio()
 		fotos.olvidar_peer(id)   # si vuelve es otra conexion: lo que pida se le manda de nuevo
+		hogar._con_baul.erase(id)   # y el baul, si lo vuelve a abrir
 		# El piso en el que estaba puede haberse quedado vacio (la sala lo congelara).
 		_viajando.erase(id)
 		pisos.revisar_vacio(piso_viejo, id)

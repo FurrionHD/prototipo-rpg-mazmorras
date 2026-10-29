@@ -200,6 +200,9 @@ func _on_hogar_cambiado() -> void:
 func abrir() -> void:
 	if Game._active_layer != null or Game.debug_panel_open:
 		return
+	# El almacen enseña el baul de casa: en multi se pide a la sala la primera vez (Net.hogar.necesito_baul).
+	if not await Net.hogar.necesito_baul():
+		return
 	_tab = 0
 	_aviso = ""
 	_construir()

@@ -13,14 +13,20 @@ func _ready() -> void:
 		print("[B] RESULTADO: FALLAN %d" % maxi(1, fallos.size()))
 		get_tree().quit(1)
 		return
-	var t := 0.0
-	while Game.baul.total() < 19000 and t < 40.0:
-		await _esperar(0.5)
-		t += 0.5
+	# 0) AL ENTRAR NO ME LLEGA EL BAUL; ni el cambio que hace A mientras no lo pido. Al pedirlo, entero.
+	await _esperar(3.0)
+	print("[B] dato baul_al_entrar=%d" % Game.baul.total())
+	await esperar_fase(1, 60.0)
+	await _esperar(2.0)   # lo que tardaria en llegarme el cambio de A, si me llegara
+	print("[B] dato delta_sin_baul=%d" % Game.baul.total())
+	await Net.hogar.necesito_baul()
 	print("[B] dato baul_listo=%d" % Game.baul.total())
+	print("[B] dato danadas_b=%d" % Game.en_hogar(load("res://resources/materials/baba_fuego.tres"),
+		MaterialItem.Calidad.DANADO))
+	var t := 0.0
 
 	# 1) Gasto 6 babas (3 normales) y añado una runa, como hace un taller. Tiene que ser instantaneo.
-	await esperar_fase(1, 60.0)
+	await esperar_fase(2, 60.0)
 	var t0 := Time.get_ticks_msec()
 	var ok: bool = await Net.hogar.abrir_taller()
 	Game._consumir_unidades(baba, 6)
@@ -31,7 +37,7 @@ func _ready() -> void:
 	print("[B] dato ms_accion=%d" % ms)
 
 	# 2) Lo que gasta A me llega.
-	await esperar_fase(2, 30.0)
+	await esperar_fase(3, 30.0)
 	t = 0.0
 	while _cuantos(runa) != 9 and t < 10.0:
 		await _esperar(0.1)
@@ -39,7 +45,7 @@ func _ready() -> void:
 	print("[B] dato visto_host=%d" % _cuantos(runa))
 
 	# 3) Voy a por la ULTIMA runa real a la vez que A (que tiene el permiso cogido): espero y, si ya no esta, nada.
-	await esperar_fase(3, 30.0)
+	await esperar_fase(4, 30.0)
 	var real: MaterialData = load("res://resources/materials/runa_real.tres")
 	var t1 := Time.get_ticks_msec()
 	var ok3: bool = await Net.hogar.abrir_taller()

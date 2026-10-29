@@ -1026,6 +1026,9 @@ func taller_ocupado() -> bool:
 func abrir_taller() -> bool:
 	if not Net.activo:
 		return true   # solitario: el baul es tuyo y punto
+	# Nada toca el baul sin tenerlo (ver EL BAUL, SOLO A QUIEN LO MIRA): la foto de abajo seria de un baul vacio.
+	if not await necesito_baul():
+		return false
 	if _foto_activa:
 		cerrar_taller()   # una accion anterior que no cerro: lo suyo se manda antes de empezar otra
 	var t := 0.0
@@ -1090,7 +1093,8 @@ func cerrar_taller() -> void:
 	if Net.es_host:
 		_taller_dueno = 0
 		if not ((delta["quitar"] as Array).is_empty() and (delta["poner"] as Array).is_empty()):
-			_aplicar_delta.rpc(delta["quitar"], delta["poner"])   # a todos los espejos
+			for p in _con_baul:   # a los espejos: los que tienen el baul
+				_aplicar_delta.rpc_id(p, delta["quitar"], delta["poner"])
 			Net.hogar_cambiado.emit()
 	else:
 		_taller_dueno = 0
@@ -1188,7 +1192,7 @@ func _delta_al_host(quitar: Array, poner: Array) -> void:
 	if quitar.is_empty() and poner.is_empty():
 		return
 	var faltan: int = _aplicar_delta_local(quitar, poner)
-	for p in multiplayer.get_peers():
+	for p in _con_baul:
 		if p != quien:
 			_aplicar_delta.rpc_id(p, quitar, poner)
 	if faltan > 0:
@@ -1219,7 +1223,59 @@ func _set_almacen(z: Array) -> void:
 	if _taller_dueno == multiplayer.get_unique_id():
 		return
 	_cargar_almacen(bag)
+	_baul_al_dia = true
 	Net.hogar_cambiado.emit()
+
+
+# ------------------------------------------------------------
+#  EL BAUL, SOLO A QUIEN LO MIRA (29/10/2026, decision del jefe: "al abrirlo")
+#  El baul son ~700 montones (~110 KB). Antes se mandaba ENTERO a cada uno al entrar, aunque bajara directo a la
+#  mazmorra, y despues cada cambio a todos. Ahora el cliente lo PIDE la primera vez que abre algo que lo lee
+#  (necesito_baul: los talleres, el hogar, la tienda, la pestaña Materiales del inventario) y abrir_taller, por donde
+#  pasa todo lo que lo toca. Desde entonces la sala le manda sus cambios (_con_baul); a quien no lo ha pedido, nada.
+# ------------------------------------------------------------
+const PLAZO_BAUL := 5.0
+var _baul_al_dia := false     # CLIENTE: me ha llegado el baul y me llegan sus cambios
+var _baul_pedido := false     # CLIENTE: ya lo he pedido (no se pide dos veces)
+var _con_baul: Dictionary = {}   # SALA: peer -> true, a quien se le mandan los cambios del baul
+
+
+# ¿Tengo el baul? En solitario y en la sala, siempre (es el suyo).
+func baul_al_dia() -> bool:
+	return not Net._soy_cliente() or _baul_al_dia
+
+
+# CLIENTE: el baul, pidiendolo la primera vez. Devuelve si lo tengo (false si la sala no contesta en PLAZO_BAUL).
+func necesito_baul() -> bool:
+	if baul_al_dia():
+		return true
+	if not _baul_pedido:
+		_baul_pedido = true
+		_quiero_baul.rpc_id(1)
+	var t := 0.0
+	while not _baul_al_dia and t < PLAZO_BAUL and Net._soy_cliente():
+		await get_tree().process_frame
+		t += get_process_delta_time()
+	if not baul_al_dia():
+		_baul_pedido = false   # que el siguiente intento lo vuelva a pedir
+		Net._toast("No llega el baúl de casa: prueba otra vez en un momento.")
+	return baul_al_dia()
+
+
+# SALA: alguien quiere el baul. Se le manda entero y desde ahora tambien sus cambios.
+@rpc("any_peer", "call_remote", "reliable")
+func _quiero_baul() -> void:
+	var quien := multiplayer.get_remote_sender_id()
+	if not Net.es_host or not Net._peers.has(quien):
+		return
+	_con_baul[quien] = true
+	_set_almacen.rpc_id(quien, Net.zip(_almacen_dicts()))
+
+
+func _olvidar_baul() -> void:
+	_baul_al_dia = false
+	_baul_pedido = false
+	_con_baul.clear()
 
 
 # --- RESERVA de materiales EN VIVO (profesiones concurrentes) --------------------------------

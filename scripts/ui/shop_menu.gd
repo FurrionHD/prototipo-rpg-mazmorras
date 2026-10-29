@@ -266,6 +266,9 @@ func abrir() -> void:
 	# No abrir sobre un combate/extraccion ni con el panel DEBUG abierto.
 	if Game._active_layer != null or Game.debug_panel_open:
 		return
+	# Se vende tambien desde el baul de casa: en multi se pide a la sala la primera vez (Net.hogar.necesito_baul).
+	if not await Net.hogar.necesito_baul():
+		return
 	# Con el pack de bienvenida sin reclamar se abre ahi: es lo primero que hay que hacer en la tienda.
 	_tab = TAB_PACK if not Game.pack_inicial_reclamado else TAB_VENDER
 	sel = 0

@@ -224,9 +224,13 @@ func anchos(rejilla: float, ficha: float) -> void:
 #  ABRIR / CERRAR
 # ============================================================
 
-# Deja el menu abierto y pintado. Devuelve false si no se puede abrir ahora (combate, panel de debug).
+# Deja el menu abierto y pintado. Devuelve false si no se puede abrir ahora (combate, panel de debug, o en multi el
+# baul de casa no llega).
 func abrir_taller() -> bool:
 	if Game._active_layer != null or Game.debug_panel_open:
+		return false
+	# Los talleres cuentan lo que hay en el baul de casa: en multi se pide a la sala la primera vez (Net.hogar).
+	if _usa_baul() and not await Net.hogar.necesito_baul():
 		return false
 	asegurar_ui()
 	sel = 0
@@ -235,6 +239,11 @@ func abrir_taller() -> bool:
 	_root.visible = true
 	Game.abrir_menu(self)   # para el mundo entero mientras el menu esta abierto
 	_rebuild()
+	return true
+
+
+# ¿Lee este taller el baul de casa? Los que no (la taberna, el libro del pescador) lo dicen y no lo piden.
+func _usa_baul() -> bool:
 	return true
 
 

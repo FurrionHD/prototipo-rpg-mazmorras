@@ -1011,6 +1011,12 @@ func _on_usar(cons: ConsumableData, pj: PersonajeData = null) -> void:
 # ============================================================
 
 func _build_materiales() -> void:
+	# EN MULTI, EL BAUL SE PIDE AL MIRARLO (Net.hogar.necesito_baul): la primera vez esta pestaña dice que lo esta
+	# trayendo y se repinta al llegar. El resto del inventario no lo lee, asi que en la mazmorra no se descarga.
+	if not Net.hogar.baul_al_dia():
+		_contador("Trayendo el baúl de casa…")
+		_traer_baul()
+		return
 	# El HOGAR no pesa, asi que aqui no hay contador de carga; lo que si dice algo es CUANTO hay
 	# guardado, que es lo que se viene a mirar antes de bajar a por mas.
 	var todos_m: Array = _agrupar(Game.baul.montones())
@@ -1054,6 +1060,12 @@ func _preview_material(vb: VBoxContainer) -> void:
 #  Los ESCUDOS se parten por TAMAÑO porque es como los parte el juego (ShieldData.Tamano) y es lo
 #  unico que los diferencia de verdad.
 # ============================================================
+
+func _traer_baul() -> void:
+	var tab: int = _tab
+	if await Net.hogar.necesito_baul() and _root != null and _root.visible and _tab == tab:
+		_rebuild()
+
 
 # Las tablas viven en MenuScaffold: el cofre del hogar y la tienda enseñan las MISMAS secciones con
 # los MISMOS filtros, y tenerlas copiadas en cada pantalla era pedir que se separaran (y se
