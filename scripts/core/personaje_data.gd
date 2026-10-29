@@ -37,6 +37,8 @@ class_name PersonajeData
 		imagen = v
 		_tex = null
 		_huella = 0
+		if has_meta(META_FOTO_PENDIENTE):
+			remove_meta(META_FOTO_PENDIENTE)   # ya tiene la suya: la que esperaba no la pisa al llegar
 @export var color_alpha: float = 1.0
 
 # --- EL ASPECTO: que lleva puesto y de que color, PIEZA A PIEZA ---
@@ -390,6 +392,9 @@ func base_ataque_destreza() -> float:
 var _tex: Texture2D = null
 # Cache de la huella de la foto (0 = sin calcular). Ver huella_imagen().
 var _huella: int = 0
+# La HUELLA de la foto que le toca y aun no ha llegado por la red (Net.fotos.poner_en). Mientras, es la que viaja como
+# suya: un 0 diria "sin foto" y la sala se la borraria.
+const META_FOTO_PENDIENTE := "foto_pendiente"
 
 
 func _init() -> void:

@@ -218,7 +218,7 @@ func jd_de_dict(d: Dictionary, registrar := true) -> JugadorData:
 
 func ficha_a_dict(pj: PersonajeData) -> Dictionary:
 	var d := {}
-	for campo in ["nombre", "color", "metalico", "imagen", "color_alpha", "aspecto", "level",
+	for campo in ["nombre", "color", "metalico", "color_alpha", "aspecto", "level",
 			"ability_internal", "ability_consolidado", "ability_base_nivel",
 			"fuerza", "resistencia", "destreza", "agilidad", "magia", "voluntad",
 			"base_hp", "base_attack", "base_attack_des", "base_defense", "base_magic", "base_speed",
@@ -232,6 +232,9 @@ func ficha_a_dict(pj: PersonajeData) -> Dictionary:
 	# con uid '' y _devolver_desgaste lo descartaba entero: quien peleaba en otra maquina salia sin la
 	# excelia ganada y con la vida de la entrada. Tambien es la llave de hueco_huido_de al reentrar.
 	d["uid"] = String(pj.uid)
+	# De la FOTO, su huella (Net.fotos): esta ficha viaja en cada guardado y en cada union a una pelea, y la foto pesa
+	# decenas de KB. Publicarla aqui es lo que la sube a la sala, por delante de la ficha.
+	d[_HUELLA] = Net.fotos.huella_de_pj(pj)
 	# Y su pocion a medias, para que el anfitrion pueda meterla en la pelea (ver _COLAS_POCION), y lo
 	# que lleve puesto: estados, cargas de Foco e imbuicion (ver _LO_PUESTO).
 	for campo in Net.peleas._COLAS_POCION + Net.peleas._LO_PUESTO:
@@ -319,10 +322,13 @@ func ficha_a_dict(pj: PersonajeData) -> Dictionary:
 #   true = el personaje es PERMANENTE y este mundo es su casa (un invitado que se crea o que vuelve
 #     en un mundo compartido): entonces su equipo TIENE que registrarse, porque el baul del mundo es
 #     el sitio donde viven esos objetos.
+const _HUELLA := "imagen_huella"
+
 func ficha_de_dict(d: Dictionary, registrar := false) -> PersonajeData:
 	var pj := PersonajeData.new()
 	for campo in d:
-		if campo == "spells" or campo == "habs_sabidas" or campo == "habs_sets" or Net.peleas._RANURAS.has(campo):
+		if campo == "spells" or campo == "habs_sabidas" or campo == "habs_sets" or Net.peleas._RANURAS.has(campo) \
+				or campo == _HUELLA:
 			continue
 		var v = d[campo]
 		if _PERMANENTES_HONDOS.has(campo) and v is Dictionary:
@@ -330,6 +336,8 @@ func ficha_de_dict(d: Dictionary, registrar := false) -> PersonajeData:
 		elif _PERMANENTES_HONDOS.has(campo) and v is Array:
 			v = (v as Array).duplicate(true)
 		pj.set(campo, v)
+	# La foto: ya, o en cuanto llegue (ver ficha_a_dict).
+	Net.fotos.poner_en(pj, int(d.get(_HUELLA, 0)))
 	for r in Net.peleas._RANURAS:
 		var item: Resource = Game.deserializar_equipo(d.get(r, {}), registrar)
 		if item != null:
@@ -675,6 +683,7 @@ func _mi_estado(z: Array) -> void:
 	_base_estado[identidad] = d
 	var jd: JugadorData = jd_de_dict(d, false)
 	jd.id = identidad          # manda MI registro de quien es, no lo que diga el paquete
+	_conservar_fotos(jd, Game.jugadores_mundo.get(identidad))
 	# El estado ANTERIOR se tira: que se lleve consigo la meta de su equipo. Sin esto la fuga seguia
 	# por debajo: crear_item apunta en item_meta ANTES de mirar 'registrar', asi que cada
 	# sincronizacion dejaba ~8 entradas huerfanas que no purga nadie y que se vuelcan enteras al
@@ -683,6 +692,29 @@ func _mi_estado(z: Array) -> void:
 	Game.jugadores_mundo[identidad] = jd
 	_estados_pedidos.erase(quien)
 	print("[multi] estado recibido de ", jd.nombre_visible, ": ", jd.resumen())
+
+
+# LA SALA NO PIERDE UNA FOTO: si el estado nuevo trae la huella de una foto que aun no me ha llegado (no deberia: la
+# subida va por delante en el mismo canal), el personaje se queda con la que ya tenia hasta que llegue la nueva. Si
+# no, el guardado de ese rato lo dejaria sin cara.
+func _conservar_fotos(nuevo: JugadorData, viejo) -> void:
+	if not (viejo is JugadorData):
+		return
+	var antes: Dictionary = {}
+	for pj in (viejo as JugadorData).personajes:
+		if pj is PersonajeData and not (pj as PersonajeData).imagen.is_empty():
+			antes[String((pj as PersonajeData).uid)] = pj
+	for pj in nuevo.personajes:
+		if not (pj is PersonajeData) or not (pj as PersonajeData).imagen.is_empty():
+			continue
+		var espera: int = int(pj.get_meta(PersonajeData.META_FOTO_PENDIENTE, 0))
+		var old: PersonajeData = antes.get(String((pj as PersonajeData).uid))
+		if espera == 0 or old == null:
+			continue
+		push_warning("[fotos] %s llega con una foto que la sala aun no tiene: se queda con la de antes" % old.nombre)
+		(pj as PersonajeData).set_imagen(old.imagen)
+		if old.huella_imagen() != espera:
+			Net.fotos.poner_en(pj, espera)   # y la nueva la pisa al llegar
 
 
 # EL ESTADO EN PARTES (fase 3). En el invitado, el hash de cada seccion de lo ultimo que mande; en la sala, el ultimo

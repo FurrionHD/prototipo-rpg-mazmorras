@@ -167,3 +167,57 @@ func test_el_cliente_no_sube_ni_pide_hasta_que_la_sala_le_admite() -> void:
 		"al cerrar la sesion no queda nada por mandar")
 	Net.activo = activo
 	Net.es_host = host
+
+
+func test_la_ficha_lleva_la_huella_y_vuelve_con_su_foto() -> void:
+	_limpio()
+	Game.nueva_partida("Prueba")
+	var pj: PersonajeData = Game.lider()
+	var a := _png(Color.RED)
+	pj.set_imagen(a)
+	var d: Dictionary = Net.partida.pj_a_dict(pj)
+	cierto(not d.has("imagen"), "la ficha no lleva la foto")
+	igual(int(d["imagen_huella"]), PersonajeData.huella_de(a), "lleva su huella")
+	igual(Net.partida.pj_de_dict(d, false).imagen, a, "y al otro lado sale con su foto")
+
+
+func test_la_foto_pendiente_viaja_y_se_pone_sola_al_llegar() -> void:
+	_limpio()
+	var a := _png(Color.RED)
+	var h: int = PersonajeData.huella_de(a)
+	var pj := PersonajeData.new()
+	Net.fotos.poner_en(pj, h)
+	cierto(pj.imagen.is_empty(), "aun sin foto")
+	igual(Net.fotos.huella_de_pj(pj), h, "pero la que viaja como suya es la que espera (no un 0)")
+	Net.fotos.recibir_subida(5, a)
+	igual(pj.imagen, a, "al llegar se le pone")
+	cierto(not pj.has_meta(PersonajeData.META_FOTO_PENDIENTE), "y ya no espera")
+	# Si entre medias le ponen otra, la que esperaba no la pisa.
+	var b := _png(Color.BLUE)
+	var otro := PersonajeData.new()
+	Net.fotos.poner_en(otro, PersonajeData.huella_de(b))
+	var c := _png(Color.GREEN)
+	otro.set_imagen(c)
+	Net.fotos.recibir_subida(5, b)
+	igual(otro.imagen, c, "la suya nueva se queda")
+
+
+func test_la_sala_no_pierde_la_foto_si_la_nueva_aun_no_ha_llegado() -> void:
+	_limpio()
+	var vieja := _png(Color.RED)
+	var nueva := _png(Color.BLUE)
+	var antes := JugadorData.new()
+	var pj_v := PersonajeData.new()
+	pj_v.uid = "u1"
+	pj_v.set_imagen(vieja)
+	antes.personajes.append(pj_v)
+	var ahora := JugadorData.new()
+	var pj_n := PersonajeData.new()
+	pj_n.uid = "u1"
+	Net.fotos.poner_en(pj_n, PersonajeData.huella_de(nueva))
+	ahora.personajes.append(pj_n)
+	Net.partida._conservar_fotos(ahora, antes)
+	aviso_esperado("se queda con la de antes")
+	igual(pj_n.imagen, vieja, "mientras, la de antes")
+	Net.fotos.recibir_subida(5, nueva)
+	igual(pj_n.imagen, nueva, "y al llegar, la nueva")

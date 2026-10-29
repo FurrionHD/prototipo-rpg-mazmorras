@@ -4,6 +4,8 @@
 #   2. Me voy (como "Guardar y salir") y vuelvo a entrar ENSEGUIDA: la sala sigue viva y me reconecto a la
 #      MISMA, sin lanzar otra, y soy el mismo personaje.
 #   3. Me voy y espero: la sala se cierra sola y el save guarda mi personaje a mi nombre.
+#   Y SU FOTO (Net.fotos, 29/10): las fichas solo llevan la huella. Al volver a entrar la pido a la sala como si fuera
+#   otro PC (sin nada en la memoria) y me vuelve; y el save la guarda.
 # Se lanza con:  <godot> --headless --path . res://tools/prueba_sala_entrar.tscn -- nube_local sala_vacia=4
 extends Node
 
@@ -11,6 +13,7 @@ const Sala = preload("res://scripts/net/sala.gd")
 
 var fallos := 0
 var _dentro := false
+var _foto := PackedByteArray()
 
 
 func ok(c: bool, t: String) -> void:
@@ -42,9 +45,13 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	# Lo que hace el menu: al pedir personaje, se hace uno; al tenerlo, se entra.
+	var img := Image.create(Game.IMAGEN_CUERPO_MAX, Game.IMAGEN_CUERPO_MAX, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0.3, 0.6, 0.9))
+	_foto = img.save_png_to_buffer()
 	Net.partida.pedir_personaje.connect(func(_n: String):
 		var pj := PersonajeData.new()
 		pj.nombre = "Estrena"
+		pj.set_imagen(_foto)
 		Game.asegurar_uid(pj)
 		Net.partida.mandar_alta_personaje(pj))
 	Net.partida.entrada_lista.connect(func(): _dentro = true)
@@ -65,11 +72,13 @@ func _ready() -> void:
 
 	# --- 2. Salir y volver enseguida: la MISMA sala ---
 	await _salir()
+	Net.fotos._png.clear()   # como si entrara desde otro PC: mi foto me la tiene que dar la sala
 	r = await Mundos.entrar(clave, "clave")
 	ok(r.get("ok", false), "vuelvo a entrar")
 	ok(await _esperar_a(func(): return _dentro, 30.0), "y estoy dentro")
 	ok(int(Sala.leer_estado(clave).get("pid", 0)) == pid1, "es la misma sala, no otra")
 	ok(Game.lider().nombre == "Estrena", "con el mismo personaje")
+	ok(await _esperar_a(func(): return Game.lider().imagen == _foto, 20.0), "y con su foto, que me da la sala")
 
 	# --- 3. Salir y dejar que se cierre ---
 	await _salir()
@@ -79,6 +88,7 @@ func _ready() -> void:
 	var jd = d.jugadores.get(Identidad.id) if d != null else null
 	ok(jd is JugadorData and ((jd as JugadorData).personajes[0] as PersonajeData).nombre == "Estrena"
 		and d.jugadores.size() == 1, "el save guarda a Estrena a mi nombre, y a nadie mas")
+	ok(jd is JugadorData and ((jd as JugadorData).personajes[0] as PersonajeData).imagen == _foto, "y con su foto")
 	var e: Dictionary = await Nube.consultar(clave, "clave")
 	ok(e.get("ok", false) and not e.get("abierto", true) and e.get("tiene_save", false), "subido y con el cerrojo suelto")
 	Mundos.borrar(clave)

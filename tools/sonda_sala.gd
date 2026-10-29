@@ -67,6 +67,15 @@ func _datos() -> Dictionary:
 	# maquina pide cada foto UNA vez).
 	d["fotos_de"] = Net.fotos._subidas_de.size()
 	d["fotos_repetidas"] = Net.fotos.repetidas
+	# Y las que van a la partida: personajes de jugadores_mundo con su foto puesta (las fichas solo traen la huella).
+	var con_foto := 0
+	for ident in Game.jugadores_mundo:
+		var jd = Game.jugadores_mundo[ident]
+		if jd is JugadorData:
+			for pj in (jd as JugadorData).personajes:
+				if pj is PersonajeData and not (pj as PersonajeData).imagen.is_empty():
+					con_foto += 1
+	d["fotos_mundo"] = con_foto
 	# LAS PELEAS DE LA SALA (etapa 3): cuantas lleva, en que pisos, y cuantos enemigos tiene reservados.
 	d["peleas"] = Net.peleas._peleas.size()
 	var lugares: Array = []

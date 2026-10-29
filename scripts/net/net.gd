@@ -144,7 +144,8 @@ const MAX_CONEXIONES := 32
 # 53 (29/10): las FOTOS por su tema (Net.fotos: _subir / _pedir / _foto, huella de 64 bits); fuera _subir_fotos y
 #     _set_fotos_roster del hogar. Un build del 52 no pediria las fotos y veria a todos sin cara. Y el saludo, _listo,
 #     _presentarse, _presentar_ajeno, _set_aspecto/_rel_aspecto y el grupo (_set_grupo/_rel_grupo, "comps") llevan la
-#     HUELLA de la foto en vez del PNG.
+#     HUELLA de la foto en vez del PNG. Y las fichas (net_partida ficha_a_dict: alta, _tu_jugador, _mi_estado y el doble
+#     de las peleas) llevan "imagen_huella" en vez de "imagen".
 const PROTOCOLO := 53
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.

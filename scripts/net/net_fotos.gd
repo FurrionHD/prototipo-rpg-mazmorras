@@ -11,6 +11,8 @@
 #                              pinta se repinta.
 #  El cliente no sube ni pide nada hasta que la sala le ha ADMITIDO (al_entrar): antes, la sala no sabe quien es y lo
 #  tira, y el lo daria por hecho. Lo de antes se guarda y sale al entrar.
+#  LOS PERSONAJES que llegan por red con la huella de su foto (las fichas de net_partida): poner_en(pj, huella) se la
+#  pone ya o, si aun no esta, la apunta como PENDIENTE y se la pone sola al llegar. huella_de_pj es la que viaja.
 #  La sala contesta con lo que tenga, y si aun no la tiene (su dueño no la ha subido) apunta quien espera y se la manda
 #  en cuanto llega. Asi da igual el orden en que lleguen la subida, el roster y la peticion.
 #
@@ -36,6 +38,7 @@ const PEDIDAS_POR_MENSAJE := 256
 const _FIRMA_PNG := [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
 
 var _png: Dictionary = {}           # TODAS LAS MAQUINAS: huella -> png (se queda entre sesiones)
+var _pjs_esperan: Dictionary = {}   # huella -> [WeakRef de PersonajeData que la esperan] (poner_en)
 
 # --- CLIENTE ---
 var _subidas: Dictionary = {}       # huella -> true: ya se la he subido a la sala en esta sesion
@@ -64,8 +67,7 @@ func publicar(png: PackedByteArray, huella: int = 0) -> int:
 	if huella == 0:
 		huella = PersonajeData.huella_de(png)
 	if not _png.has(huella):
-		_png[huella] = png
-		_atender_esperas(huella)
+		_guardar(huella, png)
 	if Net._soy_cliente() and not _subidas.has(huella):
 		_subidas[huella] = true
 		if _dentro:
@@ -78,6 +80,38 @@ func publicar(png: PackedByteArray, huella: int = 0) -> int:
 # La de un personaje, con su huella recordada.
 func publicar_pj(pj: PersonajeData) -> int:
 	return 0 if pj == null else publicar(pj.imagen, pj.huella_imagen())
+
+
+# La huella que VIAJA como foto de 'pj': la de su foto, o la que espera si aun no le ha llegado.
+func huella_de_pj(pj: PersonajeData) -> int:
+	if pj == null:
+		return 0
+	if not pj.imagen.is_empty():
+		return publicar_pj(pj)
+	return int(pj.get_meta(PersonajeData.META_FOTO_PENDIENTE, 0))
+
+
+# Le pone a 'pj' la foto de esa huella: ya, si esta maquina la tiene; si no, la pide y se la pone al llegar.
+func poner_en(pj: PersonajeData, huella: int) -> void:
+	if pj == null or huella == 0:
+		return
+	var png: PackedByteArray = pedir(huella)
+	if not png.is_empty():
+		pj.set_imagen(png)
+		return
+	pj.set_meta(PersonajeData.META_FOTO_PENDIENTE, huella)
+	(_pjs_esperan.get_or_add(huella, []) as Array).append(weakref(pj))
+
+
+# Una foto nueva en esta maquina: se guarda, y les llega a quien la esperaba (la sala a los peers, y los personajes).
+func _guardar(h: int, png: PackedByteArray) -> void:
+	_png[h] = png
+	_atender_esperas(h)
+	for w in _pjs_esperan.get(h, []):
+		var pj = (w as WeakRef).get_ref()
+		if pj != null and int(pj.get_meta(PersonajeData.META_FOTO_PENDIENTE, 0)) == h:
+			pj.set_imagen(png)
+	_pjs_esperan.erase(h)
 
 
 # La foto de esa huella, o vacio si esta maquina aun no la tiene (un cliente la pide y avisara con `llegada`).
@@ -150,8 +184,7 @@ func recibir_subida(peer: int, png) -> int:
 	_subidas_de[peer] = int(_subidas_de.get(peer, 0)) + 1
 	var h: int = PersonajeData.huella_de(png)
 	if not _png.has(h):
-		_png[h] = png
-		_atender_esperas(h)
+		_guardar(h, png)
 		llegada.emit(h)
 	return h
 
@@ -207,7 +240,7 @@ func recibir_foto(huella: int, png) -> bool:
 	if not valida(png) or PersonajeData.huella_de(png) != huella:
 		push_warning("[fotos] la foto %d ha llegado mal: no se guarda" % huella)
 		return false
-	_png[huella] = png
+	_guardar(huella, png)
 	recibidas += 1
 	llegada.emit(huella)
 	return true
@@ -238,4 +271,5 @@ func olvidar_sesion() -> void:
 	_esperan.clear()
 	_subidas_de.clear()
 	_mandadas.clear()
+	_pjs_esperan.clear()   # sus peticiones se han perdido con la sesion (los personajes conservan su huella pendiente)
 	repetidas = 0

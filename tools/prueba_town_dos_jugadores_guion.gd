@@ -199,6 +199,11 @@ func _ready() -> void:
 		t += 0.25
 	_ok(await _dato_de_b("arena_fin", 1.0) == 1, "B termina la arena")
 
+	# LAS FOTOS LLEGAN A LA PARTIDA (paso 5): las fichas del guardado solo traen la huella y la sala les pone la foto
+	# que le subimos. Los seis que la llevan (lider, acompañante y el de casa de cada uno), tras su autoguardado.
+	_ok(await hasta_sala("fotos_mundo", func(v): return int(v) >= 6, 75.0),
+		"la sala guarda la foto de los seis personajes que la llevan (%s)" % dato_sala("fotos_mundo"))
+
 	await _fin()
 
 
