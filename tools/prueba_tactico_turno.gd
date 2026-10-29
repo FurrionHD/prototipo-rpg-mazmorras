@@ -155,16 +155,16 @@ func _probar_turnos() -> void:
 	await get_tree().process_frame
 
 
-# 6) LA COPIA DE RED de un bicho SIGUE A LA SALA, tambien a media pelea (29/10): la pelea la lleva la sala, que tiene el
-#    bicho de verdad y lo mueve en su turno, asi que lo que manda su tick es donde esta. (Antes habia una excepcion
-#    para cuando la pelea la llevaba un jugador y el sitio lo mandaba el: ya no existe.)
+# 6) LA COPIA DE RED de un bicho que esta en MI pelea tactica no hace caso de la posicion que le manda
+#    su dueño (la de antes de la pelea): si no, andaba su turno y volvia andando a su sitio. Fuera de
+#    la pelea, si le hace caso.
 func _probar_copia_de_red() -> void:
 	var copia: Node2D = load("res://scripts/actors/enemy/remote_enemy.gd").new()
 	add_child(copia)
 	await get_tree().process_frame
 	const ID := 777
 	Net.enemigos._enem_nodos[ID] = copia
-	# El paquete de la sala, por el MISMO canal que en el juego (el tick de enemigos).
+	# El paquete de su dueño, por el MISMO canal que en el juego (el tick de enemigos).
 	Net.enemigos._tick_enemigos(Net.enemigos.empaquetar_tick([[ID, Vector2(100, 100), 0.0, false, 0, 0, false]]))   # primer paquete: aparece ahi
 	var arena := Node2D.new()
 	add_child(arena)
@@ -172,12 +172,13 @@ func _probar_copia_de_red() -> void:
 	var antes_enem: Array = Game._active_enemies
 	Game._arena_nodo = arena
 	Game._active_enemies = [copia]
-	# A media pelea la sala lo mueve en su turno: aqui llega por el tick y la copia va.
-	Net.enemigos._tick_enemigos(Net.enemigos.empaquetar_tick([[ID, Vector2(160, 100), 0.0, false, 0, 0, false]]))
-	for i in 60:
+	# El turno lo mueve, por el MISMO camino que en el juego.
+	Tactico.new(null)._colocar(null, copia, Vector2(200, 100))
+	Net.enemigos._tick_enemigos(Net.enemigos.empaquetar_tick([[ID, Vector2(100, 100), 0.0, false, 0, 0, false]]))   # y su dueño insiste en el sitio viejo
+	for i in 30:
 		await get_tree().physics_frame
-	_afirmar(copia.global_position.distance_to(Vector2(160, 100)) < 5.0,
-		"en la pelea, la copia va adonde la deja la sala: %s" % str(copia.global_position))
+	_afirmar(copia.global_position.distance_to(Vector2(200, 100)) < 1.0,
+		"en la pelea, la copia vuelve al sitio que manda la red: %s" % str(copia.global_position))
 	Game._arena_nodo = antes_arena
 	Game._active_enemies = antes_enem
 	Net.enemigos._tick_enemigos(Net.enemigos.empaquetar_tick([[ID, Vector2(120, 100), 0.0, false, 0, 0, false]]))
