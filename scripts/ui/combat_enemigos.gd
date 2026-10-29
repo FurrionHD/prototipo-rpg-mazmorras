@@ -506,7 +506,7 @@ func _decreto(e: Combatant, ab: AbilityData) -> void:
 	marcado.decreto_mult = ab.decreto_mult
 	_pantalla.efectos._fx_golpe(e, marcado, 0.0, false, false, Elementos.Elemento.NINGUNO,
 		ab.fx_estilo if ab.fx_estilo >= 0 else CombatFX.Estilo.PASIVA_DESTELLO, 1.0, true, "", AbilityData.Gesto.AUTO,
-		ab.fx_anim)
+		ab)
 	_pantalla._set_log("👑 %s usa %s: ¡%s queda señalado! Sus súbditos van a por él %d turnos." % [_pantalla._etq(e),
 		ab.nombre, marcado.nombre, ab.decreto_turnos])
 	_pantalla._update_hp()
@@ -622,7 +622,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 		var n_b: int = _pantalla.turno_mapa.poner_burbujas(e, ab)
 		# Su gesto (se sacude y se le van las burbujas de la piel), que viaja a los espejos con el golpe.
 		_pantalla.efectos._fx_golpe(e, e, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.MELEE, 1.0,
-			true, "", AbilityData.Gesto.AUTO, ab.fx_anim)
+			true, "", AbilityData.Gesto.AUTO, ab)
 		_pantalla._set_log("🫧 %s suelta %d burbuja%s pestilente%s que se quedan flotando." % [_pantalla._etq(e), n_b,
 			"" if n_b == 1 else "s", "" if n_b == 1 else "s"])
 		_pantalla._pausa_lectura()
@@ -652,7 +652,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 		if lista_mapa != null and ab.estrellas_fugaces > 0 and ab.suelo_roto >= 0 \
 				and _pantalla.turno_mapa.ultima_forma_enemigo != null:
 			_pantalla.efectos._fx_golpe(e, e, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.MELEE, 1.0,
-				true, _pantalla.efectos._clave_sfx(ab), AbilityData.Gesto.AUTO, ab.fx_anim)
+				true, _pantalla.efectos._clave_sfx(ab), AbilityData.Gesto.AUTO, ab)
 			_pantalla.efectos.fijar_suelo(ab.suelo_roto, _pantalla.turno_mapa.ultima_forma_enemigo, randi(),
 				float(ab.estrellas_fugaces))
 			_pantalla.efectos.soltar_suelo()
@@ -662,7 +662,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			_pantalla.turno_mapa.mover_enemigo(e, ab, [], 1)
 			_suelo_de_habilidad(e, ab)
 			_pantalla.efectos._fx_golpe(e, e, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.MELEE, 1.0,
-				true, _pantalla.efectos._clave_sfx(ab), AbilityData.Gesto.AUTO, ab.fx_anim)
+				true, _pantalla.efectos._clave_sfx(ab), AbilityData.Gesto.AUTO, ab)
 			_pantalla.efectos.soltar_suelo()
 		_no_llega(e, ab)
 		_pantalla._pausa_lectura()   # mismo motivo que en _enemy_turn: su barra ya se gasto, hay que reanudar
@@ -835,7 +835,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 		if lista_mapa != null and ab.suelo_roto >= 0 and _pantalla.turno_mapa.ultima_forma_enemigo != null:
 			_pantalla.efectos._fx_tanda(_pantalla._fx.ultima_tanda() + 1 if _pantalla._fx != null else 0)
 			_pantalla.efectos._fx_golpe(e, e, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.MELEE, 1.0,
-				true, _pantalla.efectos._clave_sfx(ab), AbilityData.Gesto.AUTO, ab.fx_anim)
+				true, _pantalla.efectos._clave_sfx(ab), AbilityData.Gesto.AUTO, ab)
 			_pantalla.turno_mapa.desde_quien_lanza(e, _pantalla.turno_mapa.ultima_forma_enemigo)
 			_pantalla.efectos.fijar_suelo(ab.suelo_roto, _pantalla.turno_mapa.ultima_forma_enemigo,
 				SlimeAire.semilla_con_color(randi(), ab.color_fx if ab.color_fx.a > 0.0 else e.color_visual), ab.forma_nucleo)
@@ -878,7 +878,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			_pantalla.efectos._fx_tanda(_k)
 			_pantalla.efectos._fx_golpe(e, cria, 0.0, false, false, e.elemento_ataque,
 				CombatFX.Estilo.CRIA_LANZADA if _pantalla.tactico else CombatFX.Estilo.ESCUPITAJO, 1.2, true,
-				"", ab.gesto, ab.fx_anim)   # el cuerpo del Rey hace SU brote, no la embestida por defecto
+				"", ab.gesto, ab)   # el cuerpo del Rey hace SU brote (su fx_anim), no la embestida por defecto
 		_pantalla._update_hp()   # refresca los bloques revividos/nuevos (nombre + barra)
 
 	# Mensaje: con daño va el DESGLOSE de dos lineas (mismo helper que tus habilidades: rastro golpe
@@ -997,7 +997,7 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 	# (el Frenesi es una racha de seis mordiscos, pero la rata ataca desde su sitio UNA vez, no seis
 	# veces cada una a su aire).
 	var gesto_ab: int = _pantalla.efectos._gesto_de_habilidad(ab)
-	var anim_ab: StringName = ab.fx_anim if ab != null else &""
+	var anim_ab: AbilityData = ab   # de ella sale la animacion (su fx_anim)
 	for i in n_golpes:
 		_pantalla.efectos._fx_tanda(tanda_base + i)
 		# (la Mirada estelar NO FALLA: AbilityData.infalible)
@@ -1143,7 +1143,7 @@ func _enemy_apretar(e: Combatant, presa: Combatant) -> void:
 	# EL APRETON (29/09): su dibujo propio en el mapa; el sprite enroscado aprieta a la vez (CombatTactico).
 	var estilo_ap: int = CombatFX.Estilo.INSECTO_APRETON if _pantalla.tactico else _pantalla.efectos._estilo_de_habilidad(null, e)
 	_pantalla.efectos._fx_golpe(e, presa, dmg, result.crit, false, e.elemento_ataque,
-		estilo_ap, 1.0, false, "", AbilityData.Gesto.EN_SITIO, &"", 0,
+		estilo_ap, 1.0, false, "", AbilityData.Gesto.EN_SITIO, null, 0,
 		float(result.get("mult_elem", 1.0)))
 	var pj_p: PersonajeData = Game.pj_de_combatant(presa)
 	Game.desgastar_armadura(pj_p)

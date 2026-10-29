@@ -149,7 +149,8 @@ const MAX_CONEXIONES := 32
 # 54 (29/10): el BAUL ya no va en la entrada: se pide al abrir algo que lo lee (Net.hogar._quiero_baul) y sus cambios
 #     solo van a quien lo tiene. Un build del 53 esperaria el baul al entrar y lo veria vacio.
 # 55 (29/10): el saludo lleva el SELLO de la tabla de ids de la red (IdsRed): lo que viaja pasa a ser numeros de 16 bits
-#     en vez de rutas .tres, y dos builds con distintos recursos tienen que rechazarse.
+#     en vez de rutas .tres, y dos builds con distintos recursos tienen que rechazarse. La animacion del paquete de
+#     impactos (MARCA_ANIM) va por el id de su habilidad en vez del nombre en UTF-8.
 const PROTOCOLO := 55
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.

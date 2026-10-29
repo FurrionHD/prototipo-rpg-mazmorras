@@ -2211,7 +2211,7 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 	if result.evaded:
 		_set_log("%s esquiva tu ataque (%s)%s. 💨" % [_etq(obj), con_arma, de_nota])
 		efectos._fx_golpe(_player, obj, 0.0, false, true, Elementos.Elemento.NINGUNO, estilo_bas, 1.0, false, "",
-			AbilityData.Gesto.AUTO, &"", semilla_fx)
+			AbilityData.Gesto.AUTO, null, semilla_fx)
 		if corte_mapa:
 			efectos.soltar_suelo()
 		return false
@@ -2219,7 +2219,7 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 		obj.take_damage(result.damage)
 		efectos._fx_golpe(_player, obj, result.damage, result.crit, false,
 			_player.imbue_elemento if float(result.get("dmg_imbue", 0.0)) > 0.0 \
-			else Elementos.Elemento.NINGUNO, estilo_bas, 1.0, false, "", AbilityData.Gesto.AUTO, &"", semilla_fx)
+			else Elementos.Elemento.NINGUNO, estilo_bas, 1.0, false, "", AbilityData.Gesto.AUTO, null, semilla_fx)
 		_apuntar_dano(obj, result.damage, _player)   # contador oculto de Cazador
 		_pasiva_al_golpearle(obj, _player, result.damage)
 		# El filo imbuido tambien gasta lo que lo amplificaba (arma de Rayo sobre un Mojado).

@@ -1013,7 +1013,7 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 		var es_salpicon: bool = desde != null and not rebote
 		_pantalla.efectos._fx_golpe(lanzador, objetivo, dmg, bool(res.get("crit", false)), false, elem,
 			_pantalla.efectos._estilo_hechizo(spell, elem, rebote, es_salpicon), peso, false, "",
-			AbilityData.Gesto.AUTO, &"", 0, float(res.get("mult_elem", 1.0)))
+			AbilityData.Gesto.AUTO, null, 0, float(res.get("mult_elem", 1.0)))
 		_pantalla._apuntar_dano(objetivo, dmg, _pantalla._player)   # contador oculto de Cazador
 		total += dmg
 		# CRITICO MAGICO: mismo 💥 que en el rastro del golpe fisico, para que se lea igual.
@@ -1166,7 +1166,7 @@ func _resolver_dispersa(spell: SpellData, foco: float, puntos: Array = [], dentr
 				bool(res.get("crit", false)), false, elem,
 				estilo_b,
 				_pantalla.efectos._peso_hechizo(spell, float(t.escala)), false, "",
-				AbilityData.Gesto.AUTO, &"", 0, float(res.get("mult_elem", 1.0)))
+				AbilityData.Gesto.AUTO, null, 0, float(res.get("mult_elem", 1.0)))
 			_pantalla._apuntar_dano(obj, dmg, _pantalla._player)   # contador oculto de Cazador
 			if not acc.has(obj):
 				acc[obj] = {"c": obj, "dano": 0.0, "mult": 1.0, "crit": false, "golpes": 0, "trail": [], "estados": []}

@@ -448,7 +448,7 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 		r.evaded = true
 		r.linea = "golpe %d%s: esquivado 💨" % [i + 1, etq]
 		_pantalla.efectos._fx_golpe(_pantalla._player, objetivo, 0.0, false, true, Elementos.Elemento.NINGUNO, estilo_ab,
-			1.0, false, "", AbilityData.Gesto.AUTO, &"", _semilla_mun)
+			1.0, false, "", AbilityData.Gesto.AUTO, null, _semilla_mun)
 		_golpes_mun.append({"c": objetivo, "evadido": true})
 		return r
 	_golpes_mun.append({"c": objetivo, "evadido": false})
@@ -468,7 +468,7 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 		_pantalla._player.heal(r.robado)
 	_pantalla.efectos._fx_golpe(_pantalla._player, objetivo, dmg, result.crit, false,
 		_pantalla._player.imbue_elemento if r.imbue > 0.0 else Elementos.Elemento.NINGUNO, estilo_ab,
-		1.0, false, "", AbilityData.Gesto.AUTO, &"", _semilla_mun)
+		1.0, false, "", AbilityData.Gesto.AUTO, null, _semilla_mun)
 	# Los golpes dados CON EL ESCUDO generan mas amenaza (CombatObjetivos.AMENAZA_ESCUDO).
 	_pantalla._apuntar_dano(objetivo, dmg, _pantalla._player,
 		_pantalla.CombatObjetivos.AMENAZA_ESCUDO if ab.golpe_es_de_escudo(i) else 1.0)   # contador oculto de Cazador

@@ -1,6 +1,7 @@
 # LA ANIMACION DE LA HABILIDAD VIAJA (12/10, playtest del 11/10: en los otros PCs el Minotauro no hacia la cornada y
 # se deslizaba de pie). Con una pelea de verdad en la arena:
-#   1) el bloque MARCA_ANIM de combat_espejo ida y vuelta (vacio, corto, una cadena larga y uno que no cabe);
+#   1) el bloque MARCA_ANIM de combat_espejo ida y vuelta: lleva el ID de la habilidad (IdsRed, 29/10), sin ella y con
+#      ella, y cortado a medias;
 #   2) el anfitrion lo apunta delante del golpe y SOLO cuando cambia (la embestida que pega a dos lo manda una vez);
 #   3) el espejo lo lee y su cola de efectos pide 'mino_cornada' con el gesto de la habilidad.
 #   godot --headless --path . res://tools/prueba_anim_por_red.tscn
@@ -47,17 +48,17 @@ func _ver(ok: bool, que: String) -> void:
 func _correr() -> void:
 	print("1) ida y vuelta del bloque")
 	var E = load("res://scripts/ui/combat_espejo.gd")
-	for nombre in [&"", &"mino_cornada", &"hinchado>aplaston>deshincharse", StringName("x".repeat(70))]:
+	var cornada: AbilityData = load("res://resources/abilities/minotauro_cornada.tres")
+	for pide in [null, cornada, &"lanzar_puas"]:
 		for g in [AbilityData.Gesto.AUTO, AbilityData.Gesto.ATRAVESAR]:
-			var d: PackedInt32Array = E._bloques_anim(103, nombre, g)
+			var d: PackedInt32Array = E._bloques_anim(103, E.cod_anim(pide), g)
 			var r: Array = E._leer_anim(d, 0)
-			var esperado: StringName = nombre if String(nombre).length() <= E.MAX_BYTES_ANIM else &""
-			_ver(int(r[0]) == 103 and r[1] == esperado and int(r[2]) == g and int(r[3]) == d.size() and d.size() % 5 == 0,
-				"'%s' gesto %d (%d enteros)" % [String(r[1]).left(20), g, d.size()])
-	# Cortado a medias: no revienta, ocupa hasta el final y sale vacio.
-	var dc: PackedInt32Array = E._bloques_anim(100, &"mino_cornada", 0).slice(0, 7)
+			_ver(int(r[0]) == 103 and r[1] == pide and int(r[2]) == g and int(r[3]) == d.size() and d.size() == 5,
+				"%s gesto %d" % [str(pide) if not (pide is Resource) else pide.resource_path.get_file(), g])
+	# Cortado a medias: no revienta, ocupa hasta el final y sale sin habilidad.
+	var dc: PackedInt32Array = E._bloques_anim(100, E.cod_anim(cornada), 0).slice(0, 3)
 	var rc: Array = E._leer_anim(dc, 0)
-	_ver(rc[1] == &"" and int(rc[3]) == 7, "un paquete cortado no se lee de mas")
+	_ver(rc[1] == null and int(rc[3]) == 3, "un paquete cortado no se lee de mas")
 
 	# EN SU SALA (etapa 4, 26/10): la prueba es la sala y la pelea se abre por donde la abre ella.
 	sala = preload("res://tools/prueba_sala_propia.gd").new()
@@ -96,9 +97,9 @@ func _correr() -> void:
 	esp._impactos_red = PackedInt32Array()
 	esp._ult_anim_red.clear()
 	esp._apuntar_impacto_red(e, combat._aliados[0], 5.0, false, false, -1, 0, 1.0, false, "", 7, 0,
-		AbilityData.Gesto.ATRAVESAR, &"mino_cornada")
+		AbilityData.Gesto.ATRAVESAR, cornada)
 	esp._apuntar_impacto_red(e, combat._aliados[1], 5.0, false, false, -1, 0, 1.0, false, "", 9, 0,
-		AbilityData.Gesto.ATRAVESAR, &"mino_cornada")
+		AbilityData.Gesto.ATRAVESAR, cornada)
 	esp._apuntar_impacto_red(e, combat._aliados[0], 3.0, false, false, -1, 0, 1.0, false, "", 11, 0)
 	var datos: PackedInt32Array = esp._impactos_red
 	esp._impactos_red = PackedInt32Array()
@@ -108,7 +109,7 @@ func _correr() -> void:
 	for j in range(0, datos.size(), 5):
 		if datos[j] == E.MARCA_ANIM and datos[j + 1] == 100:
 			marcas += 1
-	# Cabeceras (el bloque del nombre lleva bytes detras de la marca, no el 100): la cornada y la vuelta a vacio.
+	# Bloques: la cornada y la vuelta a "ninguna".
 	_ver(marcas == 2, "la cornada viaja una vez para los dos golpes y luego vuelve a vacio (%d cabeceras)" % marcas)
 
 	print("3) el espejo la lee y la pide")

@@ -1245,7 +1245,7 @@ const BIT_MANO_IZQ := 1 << 31
 func _apuntar_impacto_red(atacante: Combatant, victima: Combatant, dmg: float,
 		crit: bool, evadido: bool, elem: int, estilo: int, peso: float,
 		solo_dibujo: bool = false, sfx: String = "", semilla: int = 0, mano: int = 0,
-		gesto: int = AbilityData.Gesto.AUTO, anim: StringName = &"") -> void:
+		gesto: int = AbilityData.Gesto.AUTO, anim_de = null) -> void:
 	if _pantalla._espejo or not Net.activo or _impactos_red.size() >= MAX_IMPACTOS_RED * 5:
 		return
 	var ca: int = _cod_combatiente(atacante)
@@ -1253,10 +1253,10 @@ func _apuntar_impacto_red(atacante: Combatant, victima: Combatant, dmg: float,
 	if cv < 0:
 		return
 	# LA ANIMACION Y EL GESTO, delante del golpe y solo cuando cambian para ese atacante (ver MARCA_ANIM).
-	var clave_anim: Array = [anim, gesto]
-	if _ult_anim_red.get(ca, [&"", AbilityData.Gesto.AUTO]) != clave_anim:
+	var clave_anim: Array = [cod_anim(anim_de), gesto]
+	if _ult_anim_red.get(ca, [0, AbilityData.Gesto.AUTO]) != clave_anim:
 		_ult_anim_red[ca] = clave_anim
-		_impactos_red.append_array(_bloques_anim(ca, anim, gesto))
+		_impactos_red.append_array(_bloques_anim(ca, int(clave_anim[0]), gesto))
 	# LA TANDA VIAJA. El espejo reconstruye la cola llamando a _fx_golpe en orden, pero no pasa por
 	# los _fx_tanda de la resolucion, asi que sin esto veria un molinete como cuatro golpes sueltos
 	# mientras el anfitrion lo ve como un barrido. No hace falta mandar el numero: como el orden se
@@ -1342,43 +1342,49 @@ func _apuntar_lanza_red(c: Combatant) -> void:
 # LA ANIMACION QUE PIDE LA HABILIDAD (AbilityData.fx_anim) y SU GESTO viajan igual (12/10, playtest del 11/10: en
 # los otros PCs el Minotauro no hacia la cornada y se deslizaba de pie). Antes no viajaban ("el Combatant del
 # atacante ya los trae"), pero son de la HABILIDAD, no del bicho, y el espejo los perdia. Un bloque de cinco
-# [M, quien, gesto, bytes del nombre, 0] y detras el nombre en UTF-8, 16 bytes por bloque [M, 4 bytes x 4]. Va
-# delante de los golpes de ese atacante y SOLO CUANDO CAMBIA (vuelve a vacio con un bloque de 0 bytes): la
-# embestida que pega a cuatro manda el nombre una vez, no cuatro. Lo lee el espejo y vale hasta el final del paquete.
+# [M, quien, gesto, codigo de la animacion, 0] (29/10, IdsRed): el codigo es el ID de la HABILIDAD que la trae (el
+# espejo saca de ella su fx_anim), o, negativo, su puesto en ANIMS_SUELTAS; 0 = ninguna. Antes iba el nombre en UTF-8,
+# en bloques de 16 bytes y con tope. Va delante de los golpes de ese atacante y SOLO CUANDO CAMBIA (vuelve a "ninguna"
+# con un 0): la embestida que pega a cuatro lo manda una vez, no cuatro. Lo lee el espejo y vale hasta el final del
+# paquete.
 const MARCA_ANIM := -11
-# Un nombre de mas no viaja (se manda vacio): "hinchado>aplaston>deshincharse" son 30, sobra.
-const MAX_BYTES_ANIM := 64
-var _ult_anim_red: Dictionary = {}   # codigo del atacante -> [anim, gesto] lo ultimo que se le mando en este paquete
+# LAS ANIMACIONES QUE SE PIDEN SIN HABILIDAD (un golpe que no sale de una AbilityData): por la red van por su puesto
+# aqui. Una nueva se APUNTA AQUI (al final, sin mover las demas): si no, cod_anim da error y no viaja.
+const ANIMS_SUELTAS := [&"lanzar_puas"]   # las puas de la pasiva de espinas (combat._espinas)
+var _ult_anim_red: Dictionary = {}   # codigo del atacante -> [codigo de la animacion, gesto] lo ultimo que se le mando
 
-static func _bloques_anim(quien: int, anim: StringName, gesto: int) -> PackedInt32Array:
-	var b: PackedByteArray = String(anim).to_utf8_buffer()
-	if b.size() > MAX_BYTES_ANIM:
-		b = PackedByteArray()
-	var out := PackedInt32Array([MARCA_ANIM, quien, gesto, b.size(), 0])
-	var n_bloques: int = (b.size() + 15) / 16
-	b.resize(n_bloques * 16)
-	for k in n_bloques:
-		out.append(MARCA_ANIM)
-		for m in 4:
-			out.append(b.decode_s32(k * 16 + m * 4))
-	return out
+# El numero de la animacion de un golpe (ver MARCA_ANIM). 'anim_de' es lo que recibe _fx_golpe.
+static func cod_anim(anim_de) -> int:
+	if anim_de is AbilityData:
+		return IdsRed.de(anim_de)
+	if anim_de is StringName and anim_de != &"":
+		var k: int = ANIMS_SUELTAS.find(anim_de)
+		if k < 0:
+			push_error("[red] la animacion '%s' no esta en ANIMS_SUELTAS: no viaja" % anim_de)
+			return 0
+		return -(k + 1)
+	return 0
 
 
-# [quien, anim, gesto, enteros que ocupa todo] desde el bloque que empieza en j. Si el paquete viene cortado, lo
-# que ocupa llega igual hasta el final y el nombre sale vacio.
+# Lo contrario: la habilidad, el nombre suelto o null.
+static func anim_de_cod(cod: int):
+	if cod > 0:
+		return IdsRed.cargar(cod) as AbilityData
+	if cod < 0 and -cod - 1 < ANIMS_SUELTAS.size():
+		return ANIMS_SUELTAS[-cod - 1]
+	return null
+
+
+static func _bloques_anim(quien: int, cod: int, gesto: int) -> PackedInt32Array:
+	return PackedInt32Array([MARCA_ANIM, quien, gesto, cod, 0])
+
+
+# [quien, lo que pide la animacion (habilidad, nombre o null), gesto, enteros que ocupa] desde el bloque que empieza en
+# j. Si el paquete viene cortado, lo que ocupa llega igual hasta el final y sin animacion.
 static func _leer_anim(d: PackedInt32Array, j: int) -> Array:
-	var n_bytes: int = clampi(d[j + 3], 0, MAX_BYTES_ANIM)
-	var n_bloques: int = (n_bytes + 15) / 16
-	var ocupa: int = 5 + n_bloques * 5
-	if j + ocupa > d.size():
-		return [d[j + 1], &"", AbilityData.Gesto.AUTO, d.size() - j]
-	var b := PackedByteArray()
-	b.resize(n_bloques * 16)
-	for k in n_bloques:
-		for m in 4:
-			b.encode_s32(k * 16 + m * 4, d[j + 5 + k * 5 + 1 + m])
-	b.resize(n_bytes)
-	return [d[j + 1], StringName(b.get_string_from_utf8()), d[j + 2], ocupa]
+	if j + 5 > d.size():
+		return [d[j + 1], null, AbilityData.Gesto.AUTO, d.size() - j]
+	return [d[j + 1], anim_de_cod(d[j + 3]), d[j + 2], 5]
 
 
 static func _leer_suelo(d: PackedInt32Array, j: int) -> Array:
@@ -1535,7 +1541,7 @@ func _aplicar_impactos_ya(datos: PackedInt32Array) -> void:
 			# El gesto y la animacion, los del ultimo MARCA_ANIM de ese atacante (o los de siempre). La SEMILLA
 			# se pasa TAL CUAL: es lo que hace que el golpe suene con la misma version y el mismo tono que en
 			# la pantalla del que pega.
-			int(anims.get(ca, [&"", AbilityData.Gesto.AUTO])[1]), anims.get(ca, [&"", AbilityData.Gesto.AUTO])[0],
+			int(anims.get(ca, [null, AbilityData.Gesto.AUTO])[1]), anims.get(ca, [null, AbilityData.Gesto.AUTO])[0],
 			semilla, 1.0, guardia_red, (flags >> 31) & 1)
 	_pantalla.efectos.soltar_suelo()
 	_pantalla._fx.arrancar_cola()

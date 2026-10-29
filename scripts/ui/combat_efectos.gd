@@ -163,8 +163,13 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 		evadido: bool, elem: int = Elementos.Elemento.NINGUNO,
 		estilo: int = CombatFX.Estilo.MELEE, peso: float = 1.0,
 		solo_dibujo: bool = false, sfx: String = "",
-		gesto: int = AbilityData.Gesto.AUTO, anim: StringName = &"",
+		gesto: int = AbilityData.Gesto.AUTO, anim_de = null,
 		semilla: int = 0, mult_elem: float = 1.0, guardia_red: bool = false, mano: int = -1) -> void:
+	# LA ANIMACION que pide el golpe (vacia = la de siempre): la HABILIDAD que la trae (su fx_anim) o, en los pocos golpes
+	# que no salen de una (las puas), su nombre de combat_espejo.ANIMS_SUELTAS. Llega asi y no siempre el nombre porque
+	# por la red viaja como numero (ver combat_espejo.MARCA_ANIM).
+	var anim: StringName = (anim_de as AbilityData).fx_anim if anim_de is AbilityData \
+		else StringName(anim_de) if anim_de is StringName else &""
 	# CON QUE MANO pega (0 la principal/derecha, 1 la secundaria/izquierda). La sabe quien RESUELVE (la mano
 	# activa del Combatant: las habilidades pegan con el arma que las trae, el basico alterna); el espejo la
 	# recibe en el paquete. Con ella el muñeco pega con la mano de verdad (daga + espada corta: cada golpe
@@ -211,7 +216,7 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 	# exactamente los mismos que tu, sin tener que acordarse de nada en cada punto de daño.
 	# (La esquiva en guardia va en el daño, que en un esquivado es siempre 0: -1 = "en guardia".)
 	_pantalla.espejo._apuntar_impacto_red(atacante, victima, -1.0 if en_guardia else dmg, crit, evadido, elem,
-		estilo, peso, solo_dibujo, sfx, semilla, mano, gesto, anim)
+		estilo, peso, solo_dibujo, sfx, semilla, mano, gesto, anim_de)
 
 
 # DE QUE COLOR sale un golpe. Manda el ELEMENTO cuando lo tiene (un rayo es amarillo lo lance quien
