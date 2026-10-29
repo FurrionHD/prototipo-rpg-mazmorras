@@ -68,17 +68,35 @@ func comprometer_mapa_sesion(trabajo: Dictionary) -> void:
 	if Net.es_host:
 		_fusionar_mapa(trabajo, _vistas_sesion)
 		return
-	_pedir_fusion_mapa.rpc_id(1, mapa_a_red(trabajo), _vistas_sesion)
+	_pedir_fusion_mapa.rpc_id(1, libreta_a_red(trabajo, _vistas_sesion))
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _pedir_fusion_mapa(trabajo: Dictionary, vistas: Dictionary) -> void:
+func _pedir_fusion_mapa(z: Array) -> void:
 	if not Net.es_host:
 		return
 	var quien := multiplayer.get_remote_sender_id()
-	_fusionar_mapa(mapa_de_red(trabajo), vistas)
+	var libreta: Array = libreta_de_red(z)
+	if libreta.is_empty():
+		return
+	_fusionar_mapa(libreta[0], libreta[1])
 	# Solo A EL: los demas siguen con su copia vieja hasta que suban ellos.
-	_set_mapa_sesion.rpc_id(quien, mapa_a_red(_mapa_sesion), _vistas_sesion)
+	_set_mapa_sesion.rpc_id(quien, libreta_a_red(_mapa_sesion, _vistas_sesion))
+
+
+# LA LIBRETA ENTERA POR LA RED (mapa + niebla), en los dos sentidos. Ademas del suelo en bits (mapa_a_red), va
+# comprimida (Net.zip, 29/10): lo que queda son los enemigos vistos y las vetas agotadas de cada piso, diccionarios con
+# las mismas claves repetidas, ~8 KB por piso y ~200 KB con 24 pisos explorados. Era el unico mensaje gordo sin zip.
+static func libreta_a_red(mapa: Dictionary, vistas: Dictionary) -> Array:
+	return Net.zip([mapa_a_red(mapa), vistas])
+
+
+# [mapa, vistas] ya deshechos, o [] si el paquete no vale.
+static func libreta_de_red(z: Array) -> Array:
+	var v = Net.unzip(z)
+	if not (v is Array) or (v as Array).size() != 2 or not (v[0] is Dictionary) or not (v[1] is Dictionary):
+		return []
+	return [mapa_de_red(v[0]), v[1]]
 
 
 # EL MAPA POR LA RED (fase 3, 28/10): el "suelo" de cada piso es la lista de celdas descubiertas (Vector2i, ~12 B cada
@@ -228,6 +246,9 @@ func _sello_de(e) -> float:
 
 
 @rpc("authority", "call_remote", "reliable")
-func _set_mapa_sesion(mapa: Dictionary, vistas: Dictionary) -> void:
-	_mapa_sesion = mapa_de_red(mapa.duplicate(true))
-	_vistas_sesion = vistas.duplicate(true)
+func _set_mapa_sesion(z: Array) -> void:
+	var libreta: Array = libreta_de_red(z)
+	if libreta.is_empty():
+		return
+	_mapa_sesion = libreta[0]
+	_vistas_sesion = libreta[1]

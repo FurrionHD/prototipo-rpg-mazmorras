@@ -153,7 +153,9 @@ const MAX_CONEXIONES := 32
 #     impactos (MARCA_ANIM) va por el id de su habilidad en vez del nombre en UTF-8.
 # 56 (29/10): las POSICIONES de los jugadores van empaquetadas (net_jugadores.empaquetar_estado, un PackedByteArray) y el
 #     ATB tambien (combat_espejo.empaquetar_atb); los dos, solo si cambian (con un latido).
-const PROTOCOLO := 56
+# 57 (29/10): la LIBRETA del mapa (_set_mapa_sesion, _pedir_fusion_mapa) va comprimida (net_mapa.libreta_a_red): un solo
+#     argumento en vez de mapa y niebla. Un build del 56 descartaria el paquete en silencio y entraria sin mapa.
+const PROTOCOLO := 57
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -433,8 +435,8 @@ signal venta_cofre(texto: String)
 # ¿Soy un CLIENTE en sesion? (uso el almacen del host via mirror). El host y el modo un jugador
 # usan Game.* directo.
 # LOS MENSAJES GORDOS, COMPRIMIDOS (fase 3, 28/10). El almacen (~112 KB), el jugador al entrar (~85 KB), el roster del
-# hogar, el cofre, las fichas y el roster de una pelea (10-20 KB) son diccionarios con las mismas claves repetidas
-# cientos de veces: con ZSTD se quedan en una fraccion. Solo esos: los ticks pequeños no ganan nada. Va como
+# hogar, el cofre, las fichas y el roster de una pelea (10-20 KB) y la libreta del mapa (net_mapa.libreta_a_red) son
+# diccionarios con las mismas claves repetidas cientos de veces: con ZSTD se quedan en una fraccion. Solo esos: los ticks pequeños no ganan nada. Va como
 # [tamaño, bytes]; al deshacerlo hay TOPE de tamaño, que un paquete raro no haga reservar memoria sin fin.
 # Y CON IDS (29/10): cada "ruta" de lo comprimido viaja como su numero (IdsRed.a_red) y vuelve a ruta al deshacerlo.
 # Solo se usa para la red: lo que se guarda en disco no pasa por aqui.
@@ -1408,7 +1410,7 @@ func _admitir(quien: int, color: Color, metal: float, nombre: String, lugar: Str
 	hogar._set_encargos.rpc_id(quien, Game.encargos)
 	hogar._set_roster_hogar.rpc_id(quien, zip(hogar._construir_roster()))
 	# Y la LIBRETA del mundo (mapa + niebla): al entrar en mi mundo recoge lo que yo tenga descubierto.
-	mapa._set_mapa_sesion.rpc_id(quien, mapa.mapa_a_red(mapa._mapa_sesion), mapa._vistas_sesion)
+	mapa._set_mapa_sesion.rpc_id(quien, mapa.libreta_a_red(mapa._mapa_sesion, mapa._vistas_sesion))
 	# LA BIBLIOTECA DEL MUNDO. Mientras jugais juntos es COMUN: lo que lea uno cuenta para todos, que
 	# es lo que se espera de una estanteria compartida -- si tu hermano ya se ha leido el del kebab,
 	# el texto esta desbloqueado y no tiene sentido que a ti te lo vuelva a dar el gacha.
