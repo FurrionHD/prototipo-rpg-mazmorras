@@ -54,11 +54,18 @@ const MEDIR_CADA_MS := 10000
 const HUECO_TIRON_MS := 150
 var _med_pos: Dictionary = {}   # emisor -> {n, suma, max, lentos, ult, desde}
 
-func _medir_llegada(emisor: int) -> void:
+# QUIETO NO CUENTA (29/10): desde que solo se manda lo que cambia (net_jugadores, LATIDO_ESTADO_MS), alguien parado deja
+# huecos de hasta un segundo que no son tirones. El hueco que sigue a un paquete de "quieto" tampoco se mide.
+func _medir_llegada(emisor: int, se_mueve: bool = true) -> void:
 	var ahora: int = Time.get_ticks_msec()
 	var m: Dictionary = _med_pos.get(emisor, {})
 	if m.is_empty():
-		_med_pos[emisor] = {"n": 0, "suma": 0, "max": 0, "lentos": 0, "ult": ahora, "desde": ahora}
+		_med_pos[emisor] = {"n": 0, "suma": 0, "max": 0, "lentos": 0, "ult": ahora, "desde": ahora, "quieto": true}
+		return
+	var venia_quieto: bool = bool(m.get("quieto", false))
+	m["quieto"] = not se_mueve
+	if venia_quieto or not se_mueve:
+		m["ult"] = ahora
 		return
 	var hueco: int = ahora - int(m["ult"])
 	m["ult"] = ahora
@@ -71,13 +78,21 @@ func _medir_llegada(emisor: int) -> void:
 		print("[red] posiciones de %d: %d en %.0f s, hueco medio %d ms, mayor %d ms, %d de mas de %d ms (fps %d)" % [
 			emisor, int(m["n"]), float(ahora - int(m["desde"])) / 1000.0, int(m["suma"]) / maxi(1, int(m["n"])),
 			int(m["max"]), int(m["lentos"]), HUECO_TIRON_MS, Engine.get_frames_per_second()])
-		_med_pos[emisor] = {"n": 0, "suma": 0, "max": 0, "lentos": 0, "ult": ahora, "desde": ahora}
+		_med_pos[emisor] = {"n": 0, "suma": 0, "max": 0, "lentos": 0, "ult": ahora, "desde": ahora,
+			"quieto": bool(m.get("quieto", false))}
 
 
+# Su posicion, empaquetada (ver net_jugadores.empaquetar_estado).
 @rpc("any_peer", "call_remote", "unreliable_ordered")
-func _recibir_estado(emisor: int, pos: Vector2, facing: Vector2, comps: Array = [],
-		pose: int = 0) -> void:
-	_medir_llegada(emisor)
+func _recibir_estado(emisor: int, paq: PackedByteArray) -> void:
+	var e: Array = Net.jugadores.desempaquetar_estado(paq)
+	if e.is_empty():
+		return
+	var pos: Vector2 = e[0]
+	var facing: Vector2 = e[1]
+	var comps: Array = e[2]
+	var pose: int = e[3]
+	_medir_llegada(emisor, not Net._peers.has(emisor) or Net._peers[emisor].get("pos") != pos)
 	if Net._peers.has(emisor):
 		Net._peers[emisor]["pos"] = pos   # se recuerda: al reconstruir su avatar aparece donde iba
 	var a = Net._avatares.get(emisor)   # SIN tipar: puede ser una instancia ya liberada (ver nota abajo)

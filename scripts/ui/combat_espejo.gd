@@ -177,6 +177,7 @@ func repintar_foto(huella: int) -> void:
 # entra alguien nuevo en la pelea). Va con la REVISION: es lo que permite al espejo saber si se ha
 # perdido un alta (ver aplicar_instantanea).
 func roster_para_espejo() -> Dictionary:
+	_ult_atb = PackedByteArray()   # entra alguien: que le llegue el ATB ya, no al latido (ver _difundir_atb)
 	var r: Dictionary = {"aliados": _fila_de_roster(_pantalla._aliados),
 		"enemigos": _fila_de_roster(_pantalla._enemies), "rev": _rev}
 	# EN EL MAPA: la arena viaja con el roster, y el espejo se monta en el mapa si la trae (ver
@@ -1168,11 +1169,49 @@ func _difundir_atb(delta: float) -> void:
 		r.append(float(_pantalla._gauge.get(c, 0.0)) / _pantalla.UMBRAL)
 	for e in _pantalla._enemies:
 		r.append(float(_pantalla._gauge.get(e, 0.0)) / _pantalla.UMBRAL)
-	# EN EL MAPA, detras de las barras: el circulo de quien tiene el turno (4 floats, ver
-	# turno_mapa.estado_red). Van SIEMPRE los ultimos: el espejo los lee contando desde el final.
-	if _pantalla.tactico:
-		r.append_array(_pantalla.turno_mapa.estado_red())
-	Net.peleas.difundir_atb(r, _pantalla.pelea)
+	# EN EL MAPA, detras de las barras: el circulo de quien tiene el turno (4 floats, ver turno_mapa.estado_red).
+	var paq: PackedByteArray = empaquetar_atb(r,
+		_pantalla.turno_mapa.estado_red() if _pantalla.tactico else PackedFloat32Array())
+	# SOLO SI CAMBIA (29/10): mientras alguien elige, las barras estan quietas. Un latido por si se pierde el ultimo.
+	var ahora: int = Time.get_ticks_msec()
+	if paq == _ult_atb and ahora - _ult_atb_ms < LATIDO_ATB_MS:
+		return
+	_ult_atb = paq
+	_ult_atb_ms = ahora
+	Net.peleas.difundir_atb(paq, _pantalla.pelea)
+
+
+# EL ATB EMPAQUETADO (29/10): [cuantas barras u8][cada barra u16 = su fraccion x ATB_ESCALA][la cola en float32]. Las
+# barras son fracciones de la barra entera (cabe hasta ~2,18); la cola es el circulo del tactico (coordenadas).
+const ATB_ESCALA := 30000.0
+const LATIDO_ATB_MS := 1000
+var _ult_atb := PackedByteArray()
+var _ult_atb_ms: int = 0
+
+static func empaquetar_atb(barras: PackedFloat32Array, cola: PackedFloat32Array) -> PackedByteArray:
+	var n: int = mini(barras.size(), 255)
+	var b := PackedByteArray()
+	b.resize(1 + n * 2 + cola.size() * 4)
+	b[0] = n
+	for i in n:
+		b.encode_u16(1 + i * 2, clampi(roundi(barras[i] * ATB_ESCALA), 0, 65535))
+	for k in cola.size():
+		b.encode_float(1 + n * 2 + k * 4, cola[k])
+	return b
+
+
+# [barras, cola], o [] si el paquete no tiene la forma de uno.
+static func desempaquetar_atb(b: PackedByteArray) -> Array:
+	if b.is_empty() or b.size() < 1 + b[0] * 2 or (b.size() - 1 - b[0] * 2) % 4 != 0:
+		return []
+	var n: int = b[0]
+	var barras := PackedFloat32Array()
+	for i in n:
+		barras.append(float(b.decode_u16(1 + i * 2)) / ATB_ESCALA)
+	var cola := PackedFloat32Array()
+	for k in (b.size() - 1 - n * 2) / 4:
+		cola.append(b.decode_float(1 + n * 2 + k * 4))
+	return [barras, cola]
 
 
 # --- IMPACTOS PARA EL ESPEJO -----------------------------------------------------------------
@@ -1558,20 +1597,22 @@ func _de_codigo(cod: int) -> Combatant:
 
 # Corre en el ESPEJO: los avances que me manda el anfitrion, en el orden del roster (los mios
 # primero y detras los de enfrente). _update_timeline ya los pinta desde _gauge en cada frame.
-func aplicar_atb(ratios: PackedFloat32Array) -> void:
+func aplicar_atb(paq: PackedByteArray) -> void:
 	if not _pantalla._espejo:
 		return
+	var d: Array = desempaquetar_atb(paq)
+	if d.is_empty():
+		return
+	var ratios: PackedFloat32Array = d[0]
 	var n: int = _pantalla._aliados.size()
 	for i in mini(n, ratios.size()):
 		_fijar_objetivo_atb(_pantalla._aliados[i], float(ratios[i]) * _pantalla.UMBRAL)
-	# EN EL MAPA, los 4 ULTIMOS son el circulo de quien anda (ver _difundir_atb). Se cuentan desde el
-	# FINAL y no detras de mis enemigos: si mi roster va un alta por detras del de quien lleva la
-	# pelea, contando desde delante leeria una barra como circulo, o el circulo como barra.
-	var cola: int = 4 if _pantalla.tactico else 0
-	for i in mini(_pantalla._enemies.size(), ratios.size() - n - cola):
+	# Las barras y el circulo van SEPARADOS en el paquete: si mi roster va un alta por detras del de quien lleva la
+	# pelea, no se puede leer una barra como circulo ni al reves.
+	for i in mini(_pantalla._enemies.size(), ratios.size() - n):
 		_fijar_objetivo_atb(_pantalla._enemies[i], float(ratios[n + i]) * _pantalla.UMBRAL)
-	if cola > 0 and ratios.size() >= n + cola:
-		_pantalla.turno_mapa.aplicar_red(ratios.slice(ratios.size() - cola))
+	if _pantalla.tactico and (d[1] as PackedFloat32Array).size() >= 4:
+		_pantalla.turno_mapa.aplicar_red(d[1])
 
 
 # Guarda el destino de la barra de un combatiente. El primer valor se pone TAL CUAL (que la barra

@@ -1321,22 +1321,22 @@ static func olvidar_filas(pe: PeleaViva, peer: int) -> void:
 # forma CONTINUA: metida en la instantanea (que solo sale cuando cambia algo) la barra del espejo
 # iria a saltos, y mandada como fiable seria trafico tonto. Mismo trato que las posiciones de los
 # enemigos: unreliable_ordered y a correr.
-func difundir_atb(ratios: PackedFloat32Array, pe: PeleaViva = null) -> void:
+func difundir_atb(paq: PackedByteArray, pe: PeleaViva = null) -> void:   # empaquetado: combat_espejo.empaquetar_atb
 	if pe == null:
 		pe = Game.pelea
 	if not Net.activo or pe.id == 0 or pe.participantes.is_empty():
 		return
 	for p in pe.participantes:
-		_atb.rpc_id(p, ratios, pe.id)
+		_atb.rpc_id(p, paq, pe.id)
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
-func _atb(ratios: PackedFloat32Array, pelea: int = 0) -> void:
+func _atb(paq: PackedByteArray, pelea: int = 0) -> void:
 	if _pelea_sigo == 0 or not _de_mi_anfitrion(pelea):
 		return
 	var p: Node = _pantalla_combate()
 	if p != null and p.has_method("aplicar_atb"):
-		p.aplicar_atb(ratios)
+		p.aplicar_atb(paq)
 
 
 # LAS HUELLAS DEL MAPA (combate tactico): lo que alguien esta apuntando y lo que se esta cargando, para

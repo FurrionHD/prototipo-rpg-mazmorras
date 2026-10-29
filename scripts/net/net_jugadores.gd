@@ -67,6 +67,49 @@ static func tier_de_pose(pose: int) -> int:
 	return maxi(1, (pose >> POSE_TIER_BIT) & 0b111)
 
 
+# LA POSICION EMPAQUETADA (29/10): un PackedByteArray de 13 bytes, y 8 por acompañante, en vez de dos Vector2, un
+# Array de Vector2 y un int sueltos (~100 bytes, veinte veces por segundo):
+#   [x s32][y s32][mirada u8][pose s32] y por cada acompañante [x s32][y s32]
+# Las coordenadas en pixeles enteros (la interpolacion del otro lado no necesita mas) y la MIRADA en un byte de angulo
+# (1,4 grados; 255 = sin mirada): se usa para la zona del contraataque (remote_player._facing_red).
+# Y SOLO SI CAMBIA: quieto no se manda nada salvo un LATIDO cada LATIDO_ESTADO_MS, por si se pierde el ultimo (va sin
+# garantia). Quien entra o cambia de sitio la recibe al momento (forzar_estado).
+const LATIDO_ESTADO_MS := 1000
+const _ESTADO_FIJO := 13
+var _ult_estado := PackedByteArray()
+var _ult_estado_ms: int = 0
+
+
+static func empaquetar_estado(pos: Vector2, facing: Vector2, comps: Array = [], pose: int = 0) -> PackedByteArray:
+	var b := PackedByteArray()
+	b.resize(_ESTADO_FIJO + comps.size() * 8)
+	b.encode_s32(0, roundi(pos.x))
+	b.encode_s32(4, roundi(pos.y))
+	b[8] = 255 if facing == Vector2.ZERO else int(roundf(fposmod(facing.angle(), TAU) / TAU * 255.0)) % 255
+	b.encode_s32(9, pose)
+	for i in comps.size():
+		var c: Vector2 = comps[i]
+		b.encode_s32(_ESTADO_FIJO + i * 8, roundi(c.x))
+		b.encode_s32(_ESTADO_FIJO + i * 8 + 4, roundi(c.y))
+	return b
+
+
+# [pos, mirada, acompañantes, pose], o [] si el paquete no tiene la forma de uno.
+static func desempaquetar_estado(b: PackedByteArray) -> Array:
+	if b.size() < _ESTADO_FIJO or (b.size() - _ESTADO_FIJO) % 8 != 0:
+		return []
+	var comps: Array = []
+	for i in (b.size() - _ESTADO_FIJO) / 8:
+		comps.append(Vector2(b.decode_s32(_ESTADO_FIJO + i * 8), b.decode_s32(_ESTADO_FIJO + i * 8 + 4)))
+	var facing: Vector2 = Vector2.ZERO if b[8] == 255 else Vector2.from_angle(float(b[8]) / 255.0 * TAU)
+	return [Vector2(b.decode_s32(0), b.decode_s32(4)), facing, comps, b.decode_s32(9)]
+
+
+# Que la proxima posicion salga aunque no haya cambiado: alguien nuevo tiene que verme ya, no al latido.
+func forzar_estado() -> void:
+	_ult_estado = PackedByteArray()
+
+
 # La llama el Player LOCAL cada tick de fisica si Net.activo. Difunde su posicion a los de MI lugar.
 func enviar_estado(pos: Vector2, facing: Vector2, comps: Array = [], pose: int = 0) -> void:
 	if not Net.activo or multiplayer.multiplayer_peer == null:
@@ -75,26 +118,32 @@ func enviar_estado(pos: Vector2, facing: Vector2, comps: Array = [], pose: int =
 	if ahora - _pos_last_ms < _POS_TICK_MS:
 		return
 	_pos_last_ms = ahora
+	var paq: PackedByteArray = empaquetar_estado(pos, facing, comps, pose)
+	if paq == _ult_estado and ahora - _ult_estado_ms < LATIDO_ESTADO_MS:
+		return   # quieto: nada que contar
+	_ult_estado = paq
+	_ult_estado_ms = ahora
 	if Net.es_host:
 		for pid in Net._peers:
 			if Net._peers[pid].get("lugar", "") == Net._mi_lugar:
-				Net.pisos._recibir_estado.rpc_id(pid, Net._mi_id(), pos, facing, comps, pose)
+				Net.pisos._recibir_estado.rpc_id(pid, Net._mi_id(), paq)
 	else:
-		_rel_estado.rpc_id(1, pos, facing, comps, pose)
+		_rel_estado.rpc_id(1, paq)
 
 
-# Cliente -> host: reparte mi posicion a los de MI lugar (el host sabe donde esta cada cual).
+# Cliente -> host: reparte mi posicion a los de MI lugar (el host sabe donde esta cada cual). Va TAL CUAL: no se deshace
+# para volver a hacerlo.
 @rpc("any_peer", "call_remote", "unreliable_ordered")
-func _rel_estado(pos: Vector2, facing: Vector2, comps: Array = [], pose: int = 0) -> void:
-	if not Net.es_host:
+func _rel_estado(paq: PackedByteArray) -> void:
+	if not Net.es_host or desempaquetar_estado(paq).is_empty():
 		return
 	var de := multiplayer.get_remote_sender_id()
 	var lugar: String = Net._peers.get(de, {}).get("lugar", "")
 	if PisoVivo.lleva(lugar):
-		Net.pisos._recibir_estado(de, pos, facing, comps, pose)
+		Net.pisos._recibir_estado(de, paq)
 	for pid in Net._peers:
 		if pid != de and Net._peers[pid].get("lugar", "") == lugar:
-			Net.pisos._recibir_estado.rpc_id(pid, de, pos, facing, comps, pose)
+			Net.pisos._recibir_estado.rpc_id(pid, de, paq)
 
 
 # --- ¿QUIEN ESTA PELEANDO? (hito 5.3) --------------------------------------------------------

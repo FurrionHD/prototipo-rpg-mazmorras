@@ -3301,8 +3301,8 @@ func _chips_de(c: Combatant) -> Array:
 func aplicar_accion_remota(accion: Dictionary, emisor: int = 0) -> void:
 	espejo.aplicar_accion_remota(accion, emisor)
 
-func aplicar_atb(ratios: PackedFloat32Array) -> void:
-	espejo.aplicar_atb(ratios)
+func aplicar_atb(paq: PackedByteArray) -> void:
+	espejo.aplicar_atb(paq)
 
 # Las huellas del mapa (lo que se apunta y lo que se carga): ver turno_mapa.estado_huellas.
 func aplicar_huellas(datos: PackedFloat32Array) -> void:

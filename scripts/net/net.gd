@@ -151,7 +151,9 @@ const MAX_CONEXIONES := 32
 # 55 (29/10): el saludo lleva el SELLO de la tabla de ids de la red (IdsRed): lo que viaja pasa a ser numeros de 16 bits
 #     en vez de rutas .tres, y dos builds con distintos recursos tienen que rechazarse. La animacion del paquete de
 #     impactos (MARCA_ANIM) va por el id de su habilidad en vez del nombre en UTF-8.
-const PROTOCOLO := 55
+# 56 (29/10): las POSICIONES de los jugadores van empaquetadas (net_jugadores.empaquetar_estado, un PackedByteArray) y el
+#     ATB tambien (combat_espejo.empaquetar_atb); los dos, solo si cambian (con un latido).
+const PROTOCOLO := 56
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -859,6 +861,7 @@ func _mi_id() -> int:
 # (avatares y drops del lugar nuevo) cuando la escena nueva ya esta montada.
 func anunciar_lugar(lugar: String) -> void:
 	_mi_lugar = lugar
+	jugadores.forzar_estado()   # los del sitio nuevo tienen que verme ya, aunque este quieto
 	Game.olvidar_zonas_ajenas()   # las zonas de pelea de los demas eran del sitio de antes
 	if activo:
 		if es_host:
@@ -1510,6 +1513,7 @@ func _registrar_peer(peer_id: int, color: Color, metal: float, nombre: String, l
 		"huella": huella, "alpha": alpha, "piezas": piezas}
 	if PisoVivo.lleva(lugar):
 		_crear_avatar_nodo(peer_id)
+	jugadores.forzar_estado()   # el nuevo tiene que verme ya, aunque este quieto
 	if es_host:
 		pisos.contar_piso_arena(peer_id)
 	if avisar:

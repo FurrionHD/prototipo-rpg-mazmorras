@@ -27,9 +27,9 @@ func difundir_instantanea(snap: Dictionary, _pe: PeleaViva = null) -> void:
 		e.aplicar_instantanea(snap)
 
 
-func difundir_atb(ratios: PackedFloat32Array, _pe: PeleaViva = null) -> void:
+func difundir_atb(paq: PackedByteArray, _pe: PeleaViva = null) -> void:
 	for e in _todos():
-		e.aplicar_atb(ratios)
+		e.aplicar_atb(paq)
 
 
 func difundir_impactos(datos: PackedInt32Array, _pe: PeleaViva = null) -> void:

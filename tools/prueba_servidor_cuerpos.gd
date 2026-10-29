@@ -121,8 +121,8 @@ func _correr() -> void:
 		# Las posiciones de red llegan por _recibir_estado; aqui se apuntan a mano.
 		_ver(String(z2.call("_lugar")) == "piso:2" and String(z5.call("_lugar")) == "piso:5", "cada zona sabe su lugar")
 		print("    (sin posicion de red aun: %d y %d)" % [d2.size(), d5.size()])
-		Net.pisos._recibir_estado(ANA, Vector2(100, 100), Vector2.RIGHT)
-		Net.pisos._recibir_estado(BEA, Vector2(200, 200), Vector2.RIGHT)
+		Net.pisos._recibir_estado(ANA, Net.jugadores.empaquetar_estado(Vector2(100, 100), Vector2.RIGHT))
+		Net.pisos._recibir_estado(BEA, Net.jugadores.empaquetar_estado(Vector2(200, 200), Vector2.RIGHT))
 		d2 = Net.jugadores.jugadores_remotos_aqui(String(z2.call("_lugar")))
 		d5 = Net.jugadores.jugadores_remotos_aqui(String(z5.call("_lugar")))
 		_ver(d2.size() == 1 and d2[0]["pos"] == Vector2(100, 100), "la zona del 2 solo ve a Ana")
