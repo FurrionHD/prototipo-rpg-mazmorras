@@ -35,7 +35,7 @@ func test_cada_mensaje_por_su_canal() -> void:
 				continue
 			fiables += 1
 			igual(canal, int(EXCEPCIONES.get(String(metodo), CANAL_DE[tema])), "%s.%s" % [tema, metodo])
-	igual(fiables + no_fiables, 197, "los 197 mensajes auditados (uno nuevo: pensar su canal y contarlo aqui)")
+	igual(fiables + no_fiables, 194, "los 194 mensajes auditados (uno nuevo: pensar su canal y contarlo aqui)")
 	igual(no_fiables, 11, "los no fiables")
 
 

@@ -28,9 +28,8 @@
 #                     canal del jugador (Net.jugadores.enviar_estado, con el sequito). El radio te lo
 #                     manda quien lleva la pelea con la peticion de turno, y tu posicion le vuelve
 #                     sellada con tu accion (pos_para_red / anotar_pos_remota).
-#    LOS BICHOS       los mueve quien lleva la pelea, y se lo cuenta a su DUEÑO (el del piso) para
-#                     que los ponga en su sitio y los reparta por su tick de siempre
-#                     (Net.peleas.mover_bichos_en_pelea).
+#    LOS BICHOS       los mueve la sala, que lleva la pelea Y el piso: son los de verdad, y los demas
+#                     los ven por el tick de enemigos de siempre (Net.enemigos).
 #    EL CIRCULO       de quien tiene el turno viaja con la barra de turnos (estado_red), para que todos
 #                     vean quien anda y hasta donde.
 #  Y CADA MAQUINA ENCUENTRA LOS CUERPOS EN SU MUNDO por una direccion que viaja en el roster: un
@@ -106,11 +105,6 @@ var _fase: int = Fase.NADA
 
 # EN EL ESPEJO: el roster que mando quien lleva la pelea. De ahi sale la direccion de cada cuerpo.
 var roster_red: Dictionary = {}
-
-# LOS BICHOS MOVIDOS que aun no se le han contado a su dueño: id -> [pos, angulo, andando].
-var _bichos_movidos: Dictionary = {}
-var _t_envio: float = 0.0
-const ENVIO_BICHOS := 1.0 / 20.0   # el mismo ritmo que el tick de enemigos de su dueño
 
 # EL QUE TIENE EL TURNO y su cuerpo del mapa.
 var _quien: Combatant = null
@@ -2222,8 +2216,6 @@ func _encarar(e: Combatant, p: Vector2) -> void:
 	if cu == null or p.distance_squared_to(cu.global_position) < 1.0:
 		return
 	_animar(cu, p - cu.global_position, false)
-	_apuntar_bicho(cu, false)
-	_enviar_bichos()
 
 
 # DE DONDE SALE lo que un enemigo lanza a un CIRCULO (la Telaraña vuela desde la araña): el circulo no guarda su origen
@@ -2521,9 +2513,7 @@ func _apretar_vis_enrosque(e: Combatant) -> void:
 #     PEGADA_TURNOS turnos suyos; y cae al lado de su presa.
 const PEGADA_TURNOS := 3
 const SUELTA_PEGADA := 0.25
-const T_ENVIO_PEGADA := 0.15     # cada cuanto se manda su sitio a los demas mientras la presa anda
 var _pegadas: Dictionary = {}    # Combatant (la sanguijuela) -> {presa, hp (al pegarse), turnos, bajo (sus pies - nodo)}
-var _envio_pegada: float = 0.0
 
 func empezar_pegada(e: Combatant, presa: Combatant) -> bool:
 	if _pantalla._espejo or e == null or presa == null or not e.is_alive() or not presa.is_alive() \
@@ -2577,8 +2567,6 @@ func soltar_pegada(e: Combatant, motivo: String) -> void:
 func _tick_pegadas(delta: float) -> void:
 	if _pantalla._espejo:
 		return
-	_envio_pegada += delta
-	var movida: bool = false
 	for e in _pegadas.keys():
 		var d: Dictionary = _pegadas[e]
 		var presa: Combatant = d["presa"]
@@ -2600,11 +2588,6 @@ func _tick_pegadas(delta: float) -> void:
 		p.y = maxf(p.y, pos_de(presa).y + 2.0)
 		if pos_de(e).distance_to(p) > 0.5:
 			_colocar(e, cu, p)
-			_apuntar_bicho(cu, false)
-			movida = true
-	if movida and _envio_pegada >= T_ENVIO_PEGADA:
-		_envio_pegada = 0.0
-		_enviar_bichos()
 	# Una Sanguijuela sin nadie que la sujete (no deberia pasar) no se queda para siempre.
 	for c in _pantalla._aliados + _pantalla._enemies:
 		if not (c as Combatant).has_status(StatusEffects.Id.PEGADO) or _pegadas.has(c):
@@ -3917,11 +3900,6 @@ func _tick_acercando(delta: float) -> void:
 		_dentro(_arena()), _puede_estar.bind(_cuerpo))
 	_colocar(_quien, _cuerpo, nueva)
 	_animar(_cuerpo, hacia, true, (nueva - antes) / maxf(delta, 0.0001))
-	_apuntar_bicho(_cuerpo, true)
-	_t_envio += delta
-	if _t_envio >= ENVIO_BICHOS:
-		_t_envio = 0.0
-		_enviar_bichos()
 	# ATASCADO (contra roca, o en el borde de su circulo): no se agota el tope empujando.
 	if nueva.distance_to(antes) < ATASCO_PX:
 		_t_atasco += dt
@@ -3958,11 +3936,6 @@ func _tick_apartarse(dt: float, delta: float) -> void:
 		_dentro(_arena()), _puede_estar.bind(_cuerpo))
 	_colocar(_quien, _cuerpo, nueva)
 	_animar(_cuerpo, hacia, true, (nueva - antes) / maxf(delta, 0.0001))
-	_apuntar_bicho(_cuerpo, true)
-	_t_envio += delta
-	if _t_envio >= ENVIO_BICHOS:
-		_t_envio = 0.0
-		_enviar_bichos()
 	if nueva.distance_to(antes) < ATASCO_PX:
 		_t_atasco += dt
 		if _t_atasco >= ATASCO_T:
@@ -4280,38 +4253,12 @@ func _actuar() -> void:
 		var mira: Vector2 = pos_de(_presa) - _cuerpo.global_position \
 			if _presa != null else _mirada_de(_cuerpo)
 		_animar(_cuerpo, mira, false)
-		# EL ULTIMO AVISO AL DUEÑO: "se ha parado aqui, mirando alli". Sin el, en las demas pantallas
-		# el bicho se quedaba con la pose de andar o unos pixeles antes de donde se paro de verdad.
-		_apuntar_bicho(_cuerpo, false)
-		_enviar_bichos()
 	_terminar()
 	# La cuenta a cero: si su turno no la vuelve a poner (casi todos acaban en _pausa_lectura, que
 	# si), el siguiente fotograma la pelea sigue sola en vez de quedarse en pausa para siempre.
 	_pantalla._pause_left = 0.0
 	if e != null and e.is_alive() and _pantalla._state != _pantalla.State.FINISHED:
 		_tras_camara(e, cuerpo_de(e), _turno_enemigo_de_siempre.bind(e))
-
-
-# Apunta donde esta un bicho para contarselo a su dueño. Solo si su dueño es OTRA maquina (lo que
-# tengo es su espejo, remote_enemy): si el bicho de verdad es mio, mi propio tick de red ya lo lee
-# de su nodo y no hay nada que contar.
-func _apuntar_bicho(cuerpo: Node2D, andando: bool) -> void:
-	if not Net.activo or not is_instance_valid(cuerpo) or not cuerpo.has_meta("net_id") \
-			or not cuerpo.get("_objetivo") is Vector2:
-		return
-	_bichos_movidos[int(cuerpo.get_meta("net_id"))] = [cuerpo.global_position,
-		_mirada_de(cuerpo).angle(), andando]
-
-
-func _enviar_bichos() -> void:
-	if _bichos_movidos.is_empty():
-		return
-	var lote: Array = []
-	for id in _bichos_movidos:
-		var d: Array = _bichos_movidos[id]
-		lote.append([id, d[0], d[1], d[2]])
-	_bichos_movidos.clear()
-	Net.peleas.mover_bichos_en_pelea(lote)
 
 
 # A QUIEN SE ACERCA: al de los tuyos que tenga mas cerca (por el hueco, como se mide el alcance). No
@@ -4505,9 +4452,7 @@ func _colocar(c: Combatant, cuerpo: Node2D, p: Vector2) -> void:
 	cuerpo.global_position = p
 	_pos[c] = p
 	# LA COPIA DE RED de un bicho (remote_enemy) se arrastra cada fotograma hacia el ultimo sitio que
-	# le mando su dueño: sin moverle tambien el destino, volvia andando a donde estaba. (Lo que le
-	# siga llegando de su dueño durante la pelea ya no se le aplica, ver net_enemigos._tick_enemigos, y
-	# el dueño se entera de donde lo dejo por _enviar_bichos.)
+	# le mando su dueño: sin moverle tambien el destino, volvia andando a donde estaba.
 	if cuerpo.get("_objetivo") is Vector2:
 		cuerpo.set("_objetivo", p)
 		# Y el reloj con el que deduce si anda (remote_enemy._physics_process): sin ponerlo a cero, se
@@ -4611,7 +4556,7 @@ func _huella(cuerpo: Node2D) -> Rect2:
 # ------------------------------------------------------------
 # Lo pide quien RESUELVE la habilidad (AbilityData.tiron) y se hace cuando la cola ENSEÑA el golpe
 # (CombatFX.golpe_encajado): el hacha entra y se lo trae. Solo en quien lleva la pelea; las demas
-# pantallas lo ven por el mismo canal que el paso de un bicho (_apuntar_bicho / _enviar_bichos). Si el
+# pantallas lo ven como el paso de un bicho (el tick de enemigos de la sala). Si el
 # golpe no llega a verse (sin capa de efectos), se hace igual al cabo de T_TIRON_ESPERA.
 # Nunca hasta meterselo encima: se para a ALCANCE_MINIMO de quien tira, en una pared o en el borde.
 const T_TIRON := 0.18
@@ -5850,10 +5795,8 @@ func _tick_tirones(delta: float) -> void:
 			_tirones.erase(tr)
 			continue
 		_colocar(c, cuerpo, p)
-		_apuntar_bicho(cuerpo, false)
 		if u >= 1.0:
 			_tirones.erase(tr)
-	_enviar_bichos()
 
 
 # ------------------------------------------------------------
@@ -6300,8 +6243,6 @@ func _tick_deslices(delta: float) -> void:
 		# apunto en _pos al pedirlo.
 		if _es_mio(c):
 			_colocar(c, cuerpo, Vector2(d["desde"]).lerp(Vector2(d["hasta"]), k))
-			if _pantalla._enemies.has(c):
-				_apuntar_bicho(cuerpo, u < 1.0)
 		# POR EL AIRE: el dibujo sube y baja (en todas las pantallas); los pies siguen por el suelo.
 		var arco: float = float(d.get("arco", 0.0))
 		var sp = cuerpo.get("_sprite")
@@ -6316,7 +6257,6 @@ func _tick_deslices(delta: float) -> void:
 				_cria_cae(c)
 				if _por_nacer.has(c) or _pantalla._espejo:
 					_nacer_cria(c)
-			_enviar_bichos()
 			if _es_mio(c) and _quien == c and _fase == Fase.MOVIENDO:
 				_inicio = cuerpo.global_position
 

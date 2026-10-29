@@ -15304,8 +15304,8 @@ func unir_enemigo_al_combate(nodo: Node, hueco: int = -1, pe: PeleaViva = null) 
 # LAS CRIAS DEL BROTE CON CUERPO (28/09). Antes el Rey metia slimes en la pelea SIN nodo en el mapa: no se
 # les veia, no andaban y no dejaban cadaver (y si reestrenaban el hueco de un muerto, heredaban SU cuerpo).
 # Ahora nacen como enemigos DE VERDAD en el piso, en 'pos', y ocupan el hueco 'slot' del cruce por indice
-# con combat._enemies. Los crea quien simula el piso: si la pelea la lleva otro proceso,
-# se le piden al dueño y el cuerpo se engancha cuando llega su espejo (cuerpo_de_cria_listo).
+# con combat._enemies. Los crea aqui mismo quien lleva la pelea, que es quien simula el piso: la sala (sin sesion, en
+# las pruebas, esta misma maquina). Los demas los ven llegar como cualquier enemigo (Net.enemigos).
 func dar_cuerpo_a_cria(slot: int, data: EnemyData, pos: Vector2, t: float, pe: PeleaViva = null) -> void:
 	if pe == null:
 		pe = pelea
@@ -15318,12 +15318,8 @@ func dar_cuerpo_a_cria(slot: int, data: EnemyData, pos: Vector2, t: float, pe: P
 		matar_enemigo_de_combate(pe.enemigos[slot])   # el cadaver al que releva (como un refuerzo)
 		Net.peleas.soltar_reserva_del_cadaver(pe.enemigos[slot])
 	pe.enemigos[slot] = null
-	if Net.soy_sala:
-		var yo: int = multiplayer.get_unique_id()
-		var lugar_cria: String = pe.piso.lugar if Net.soy_sala and is_instance_valid(pe.piso) else ""
-		_poner_cuerpo_de_cria(slot, nacer_cria_aqui(data, pos, t, yo, lugar_cria), pe)
-	else:
-		Net.peleas.pedir_cria(slot, String(data.resource_path), pos, t)
+	var lugar_cria: String = pe.piso.lugar if Net.soy_sala and is_instance_valid(pe.piso) else ""
+	_poner_cuerpo_de_cria(slot, nacer_cria_aqui(data, pos, t, multiplayer.get_unique_id(), lugar_cria), pe)
 
 
 # SOLO quien simula el piso: la cria, congelada y reservada para la pelea de 'para' (0 = la mia, en solitario).
@@ -15342,19 +15338,7 @@ func nacer_cria_aqui(data: EnemyData, pos: Vector2, t: float, para: int, lugar: 
 	return n
 
 
-# EN QUIEN LLEVA LA PELEA: el dueño ya la creo (net_id 'id'); su espejo puede tardar un pelin en llegar.
-func cuerpo_de_cria_listo(slot: int, id: int) -> void:
-	for _i in 240:
-		var n = Net.peleas._nodo_de_id(id)
-		if n != null and is_instance_valid(n):
-			if n.has_method("entrar_en_pelea"):
-				n.entrar_en_pelea()
-			_poner_cuerpo_de_cria(slot, n)
-			return
-		await get_tree().process_frame
-	print("[brote] la cria %d no llego a tiempo: se queda sin cuerpo" % id)
-
-
+# El cuerpo recien nacido (nacer_cria_aqui), a su hueco de la pelea.
 func _poner_cuerpo_de_cria(slot: int, n, pe: PeleaViva = null) -> void:
 	if pe == null:
 		pe = pelea

@@ -161,7 +161,9 @@ const MAX_CONEXIONES := 32
 # 58 (29/10): CANALES por tema (net_canales.gd: control, combate, mundo, hogar, partida, fotos) y BARRERA en el guardado
 #     (_dame_tu_estado, _mi_estado y _guardar_ahora llevan su numero). Un build del 57 lo espera todo por el 0, en
 #     orden: con uno del 58 al otro lado, lo que dependiera de otro tema podria llegarle antes.
-const PROTOCOLO := 58
+# 59 (29/10): fuera _pedir_mover, _pedir_cria y _cria_lista (de cuando la pelea la llevaba un jugador: ahora la lleva
+#     siempre la sala, que mueve los bichos y hace nacer las crias ahi mismo). Un build del 58 los mandaria al vacio.
+const PROTOCOLO := 59
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

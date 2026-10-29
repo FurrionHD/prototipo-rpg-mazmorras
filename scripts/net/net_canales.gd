@@ -9,7 +9,7 @@
 #
 #  EL PRECIO: entre canales distintos YA NO HAY ORDEN. Lo que dependa de un mensaje de otro canal tiene que ir en el
 #  mismo canal que el, o esperar con la barrera (abajo). Por eso el reparto es por lo que depende de que, no por
-#  archivo. Auditados los 197 @rpc (29/10); los cruces y como se resuelven:
+#  archivo. Auditados los @rpc (29/10: 197; luego 194, fuera los de mover bichos y pedir crias); los cruces y como se resuelven:
 #
 #  CONTROL (0)  net.gd y net_jugadores: saludo, permisos, pausa, PRESENCIA (registro, aspecto, grupo, imbuir, apoyo) y
 #               el LUGAR de cada jugador. Los manejadores de un jugador tiran lo suyo si aun no esta en _peers, y el
@@ -17,9 +17,8 @@
 #               Y las peticiones de "dame lo que hay aqui" al llegar (_pedir_suelo, _pedir_enemigos): van DETRAS del
 #               cambio de lugar, asi la sala ya sabe donde estas cuando contesta. Por otro canal podia contestar antes
 #               de saberlo, y lo que se soltara en ese hueco no te llegaba nunca. Las respuestas van por MUNDO.
-#  COMBATE (1)  net_peleas (lo fiable). La pelea la ejecuta la sala con sus enemigos de verdad: el cliente solo le
-#               reenvia ids, y las crias esperan su cuerpo (Game.cuerpo_de_cria_listo), asi que no depende del orden
-#               de MUNDO.
+#  COMBATE (1)  net_peleas (lo fiable). La pelea la ejecuta la sala con sus enemigos de verdad (y alli nacen las crias):
+#               el cliente solo le reenvia ids, asi que no depende del orden de MUNDO.
 #  MUNDO (2)    lo que hay en los sitios y los VIAJES: net_pisos (salvo el aspecto), enemigos, suelo, recoleccion,
 #               jefes, extraccion, pesca y mapa. Los viajes (_viaje_ok, _entrar_ok) llevan la foto de las vetas del
 #               piso: tienen que ir en orden con _agotar_celda/_revivir_celda o una foto vieja pisaria una veta ya

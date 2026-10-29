@@ -311,19 +311,12 @@ static func filas_de_tick(lote: Array) -> Array:
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
 func _tick_enemigos(lote: Array) -> void:
-	# Los bichos de MI pelea en el mapa: de su sitio mando YO, que llevo la pelea (se lo cuento a su
-	# dueño, ver Net.peleas.mover_bichos_en_pelea). Lo que me llega de el va con retraso -- la ida y
-	# vuelta de lo que yo mismo le dije --, y aplicandolo el bicho daba tirones hacia atras mientras
-	# andaba (y antes de avisar al dueño, volvia a su sitio de antes de la pelea). Solo me quedo con
-	# de quien es la pelea.
-	var mios_tactico: bool = Game.pelea_tactica_en_curso()
+	# Todo lo que llega se aplica: las peleas las lleva la sala, que es tambien la que tiene los bichos de verdad, asi
+	# que lo que dice el tick es donde estan, tambien a media pelea (29/10: fuera la excepcion de cuando la pelea la
+	# llevaba un jugador y el sitio lo mandaba el).
 	for par in filas_de_tick(lote):
 		var n = _enem_nodos.get(par[0])
 		if n == null or not is_instance_valid(n):
-			continue
-		if mios_tactico and Game._active_enemies.has(n):
-			if par.size() >= 5:
-				n.pelea_de = int(par[4])
 			continue
 		n.ir_a(par[1])
 		if par.size() >= 4:
