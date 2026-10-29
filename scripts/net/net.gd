@@ -18,6 +18,7 @@
 #    hogar       net_hogar.gd        bote, cofres, baul, reservas, encargos y roster del hogar
 #    mapa        net_mapa.gd         la libreta del mundo (mapa y niebla)
 #    partida     net_partida.gd      personajes por red, guardado y entrar a un mundo compartido
+#    fotos       net_fotos.gd        las fotos de cara: una vez por maquina, por la red solo su huella
 #
 #  TRAMPA DE GDSCRIPT (costo 471 errores en una prueba headless): los diccionarios de NODOS
 #  (_avatares, _drops, _enem_nodos) guardan referencias que pueden quedar LIBERADAS al cambiar de
@@ -140,7 +141,9 @@ const MAX_CONEXIONES := 32
 # 51 (28/10): fase 3: los mensajes gordos van comprimidos (Net.zip: almacen, jugador, roster y cofre del hogar, estado,
 #     alta, fichas, union y roster de pelea).
 # 52 (28/10): fase 3: en la instantanea, las filas sin cambios van como null (Net.peleas.solo_filas_nuevas).
-const PROTOCOLO := 52
+# 53 (29/10): las FOTOS por su tema (Net.fotos: _subir / _pedir / _foto, huella de 64 bits); fuera _subir_fotos y
+#     _set_fotos_roster del hogar. Un build del 52 no pediria las fotos y veria a todos sin cara.
+const PROTOCOLO := 53
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -502,6 +505,10 @@ func _ready() -> void:
 	multiplayer.server_disconnected.connect(_on_server_disconnected)
 	# LOS TEMAS DE LA RED, cada uno en su archivo (ver la cabecera de cada uno). Cuelgan con NOMBRE FIJO: sus RPC
 	# viajan por la ruta del nodo, que tiene que ser la misma en todas las maquinas.
+	# Las FOTOS las primeras: otros temas se enganchan a su señal al montarse.
+	fotos = NetFotos.new()
+	fotos.name = "Fotos"
+	add_child(fotos)
 	pesca = NetPesca.new()
 	pesca.name = "Pesca"
 	add_child(pesca)
@@ -570,6 +577,7 @@ const NetPeleas = preload("res://scripts/net/net_peleas.gd")
 const NetExtraccion = preload("res://scripts/net/net_extraccion.gd")
 const NetEnemigos = preload("res://scripts/net/net_enemigos.gd")
 const NetSuelo = preload("res://scripts/net/net_suelo.gd")
+const NetFotos = preload("res://scripts/net/net_fotos.gd")
 var pesca: NetPesca = null
 var jugadores: NetJugadores = null
 var pisos: NetPisos = null
@@ -583,6 +591,7 @@ var peleas: NetPeleas = null
 var extraccion: NetExtraccion = null
 var enemigos: NetEnemigos = null
 var suelo: NetSuelo = null
+var fotos: NetFotos = null
 
 # --- LA SALA (ver sala.gd) ---
 const _SALA = preload("res://scripts/net/sala.gd")
@@ -699,7 +708,7 @@ func desconectar() -> void:
 	recoleccion._nonces_sesion.clear()
 	hogar._roster_ajeno.clear()
 	hogar._hogar_sucio = false
-	hogar._olvidar_fotos()
+	fotos.olvidar_sesion()
 	hogar._hash_difundido.clear()   # lo que se difundio en esta sesion (ver net_hogar._cambio)
 	epoca_sesion = 0
 	semilla_pueblo = 0
@@ -1355,9 +1364,7 @@ func _admitir(quien: int, color: Color, metal: float, nombre: String, lugar: Str
 	# Los encargos en marcha y quien hay en el hogar de todos: sin esto entraria viendo el hogar
 	# vacio y solo se le poblaria al primer cambio.
 	hogar._set_encargos.rpc_id(quien, Game.encargos)
-	var roster_ya: Array = hogar._construir_roster()
-	hogar._repartir_fotos(quien, roster_ya)
-	hogar._set_roster_hogar.rpc_id(quien, zip(roster_ya))
+	hogar._set_roster_hogar.rpc_id(quien, zip(hogar._construir_roster()))
 	# Y la LIBRETA del mundo (mapa + niebla): al entrar en mi mundo recoge lo que yo tenga descubierto.
 	mapa._set_mapa_sesion.rpc_id(quien, mapa.mapa_a_red(mapa._mapa_sesion), mapa._vistas_sesion)
 	# LA BIBLIOTECA DEL MUNDO. Mientras jugais juntos es COMUN: lo que lea uno cuenta para todos, que
@@ -1587,7 +1594,7 @@ func _on_peer_disconnected(id: int) -> void:
 		var ident_ida: String = _identidad_de_peer(id)
 		if not ident_ida.is_empty() and hogar._roster_ajeno.erase(ident_ida):
 			hogar.marcar_hogar_sucio()
-		hogar._fotos_mandadas.erase(id)   # si vuelve es otra conexion, sin fotos: se le mandan de nuevo
+		fotos.olvidar_peer(id)   # si vuelve es otra conexion: lo que pida se le manda de nuevo
 		# El piso en el que estaba puede haberse quedado vacio (la sala lo congelara).
 		_viajando.erase(id)
 		pisos.revisar_vacio(piso_viejo, id)

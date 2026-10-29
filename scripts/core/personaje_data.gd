@@ -30,7 +30,13 @@ class_name PersonajeData
 # lleva su propio color y su propio acabado dentro de `aspecto`, y estos dos se quedan con lo unico
 # que no es una capa horneada: el PNG que te pones de cara.
 @export var metalico: float = 0.0
-@export var imagen: PackedByteArray = PackedByteArray()
+# La FOTO de cara (PNG). Con setter: la textura y la huella recordadas dejan de valer al cambiarla, la cambie quien la
+# cambie (set_imagen, el creador, la carga de la partida).
+@export var imagen: PackedByteArray = PackedByteArray():
+	set(v):
+		imagen = v
+		_tex = null
+		_huella = 0
 @export var color_alpha: float = 1.0
 
 # --- EL ASPECTO: que lleva puesto y de que color, PIEZA A PIEZA ---
@@ -382,6 +388,8 @@ func base_ataque_destreza() -> float:
 
 # Cache de la textura del cuerpo (no se guarda: se reconstruye del PNG). Ver textura().
 var _tex: Texture2D = null
+# Cache de la huella de la foto (0 = sin calcular). Ver huella_imagen().
+var _huella: int = 0
 
 
 func _init() -> void:
@@ -445,4 +453,24 @@ func textura() -> Texture2D:
 
 func set_imagen(png: PackedByteArray) -> void:
 	imagen = png
-	_tex = null   # la cache ya no vale
+
+
+# LA HUELLA DE UNA FOTO: los 64 primeros bits de su SHA-256 (0 = sin foto). Es su nombre por la red (Net.fotos): la
+# foto viaja una vez y despues solo la huella. 64 bits y no el hash() de 32 de Godot: con cientos de fotos por mundo,
+# dos distintas con la misma huella pintarian una cara ajena, y eso no se puede dejar al azar.
+static func huella_de(png: PackedByteArray) -> int:
+	if png.is_empty():
+		return 0
+	var ctx := HashingContext.new()
+	ctx.start(HashingContext.HASH_SHA256)
+	ctx.update(png)
+	var h: int = ctx.finish().decode_s64(0)
+	return h if h != 0 else 1
+
+
+# La de MI foto, recordada: el roster del hogar la pide en cada difusion y una SHA-256 de 60 KB por personaje no es
+# gratis. El setter de `imagen` la olvida.
+func huella_imagen() -> int:
+	if _huella == 0 and not imagen.is_empty():
+		_huella = huella_de(imagen)
+	return _huella

@@ -126,7 +126,7 @@ ve su pantalla ~505 ms después del impacto. Por Steam se sumará la latencia de
 | A todos | `_spawn_drop`, `_spawn_enemigo`, `_marcar_cadaver`, `_aviso_comer`, `_agotar_celda`, `_set_extrayendo` van a todos, también a otros pisos | `net_suelo.gd`, `net_enemigos.gd`, `net_recoleccion.gd`, `net_extraccion.gd` |
 | Canales | Todo por el canal 0: lo gordo bloquea los turnos que van detrás | 222 RPC fiables |
 
-Ya bien hechos, para copiar: `_subir_fotos` / `_set_fotos_roster` (foto una vez por huella), `_atb`, `_impactos`
+Ya bien hechos, para copiar: `Net.fotos` (foto una vez por huella, `net_fotos.gd`), `_atb`, `_impactos`
 (empaquetados), los deltas del taller (`_delta_al_host`).
 
 No hay tabla de ids numéricos: todo el contenido viaja por `resource_path`. Hay 614 `.tres`: caben en 16 bits.

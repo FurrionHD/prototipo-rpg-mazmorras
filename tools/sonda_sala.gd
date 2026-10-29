@@ -12,7 +12,6 @@ var _visto: Dictionary = {}
 var _ultima_foto: Dictionary = {}
 var _montados_mirados: Dictionary = {}
 var _t := 0.0
-var _reenvio_mirado := false
 
 
 func _ready() -> void:
@@ -34,7 +33,6 @@ func _process(delta: float) -> void:
 		if not _visto.has(clave) or String(_visto[clave]) != v:
 			_visto[clave] = v
 			print("[S] dato %s=%s" % [clave, v])
-	_mirar_reenvio_de_fotos()
 
 
 func _datos() -> Dictionary:
@@ -65,7 +63,10 @@ func _datos() -> Dictionary:
 		# Y donde esta cada uno en la foto ("x:y;x:y", redondeado): con esto se mira que vuelven a SU sitio.
 		d["foto_pos_%d" % int(piso)] = ";".join(en_foto.map(func(e): return "%d:%d" % [
 			int((e.get("pos", Vector2.ZERO) as Vector2).x), int((e.get("pos", Vector2.ZERO) as Vector2).y)]))
-	d["fotos"] = Net.hogar._fotos.size()
+	# LAS FOTOS (Net.fotos): cuantos jugadores me han subido alguna, y las peticiones repetidas (tiene que ser 0: cada
+	# maquina pide cada foto UNA vez).
+	d["fotos_de"] = Net.fotos._subidas_de.size()
+	d["fotos_repetidas"] = Net.fotos.repetidas
 	# LAS PELEAS DE LA SALA (etapa 3): cuantas lleva, en que pisos, y cuantos enemigos tiene reservados.
 	d["peleas"] = Net.peleas._peleas.size()
 	var lugares: Array = []
@@ -114,20 +115,3 @@ func _mirar_vuelta_desde_foto() -> void:
 					en_su_sitio += 1
 					break
 		print("[S] dato vuelta_piso_%d=%d/%d" % [int(piso), en_su_sitio, pos.size()])
-
-
-# UNA SEGUNDA DIFUSION DEL HOGAR NO REENVIA LAS FOTOS (lo miraba el anfitrion en prueba_town_dos_jugadores): en cuanto a
-# todos los humanos se les ha mandado alguna, se difunde otra vez y se mira que lo mandado no cambia.
-func _mirar_reenvio_de_fotos() -> void:
-	if _reenvio_mirado:
-		return
-	var humanos: Array = Net._peers.keys()
-	if humanos.size() < 2:
-		return
-	for p in humanos:
-		if (Net.hogar._fotos_mandadas.get(p, {}) as Dictionary).is_empty():
-			return
-	_reenvio_mirado = true
-	var antes: Dictionary = Net.hogar._fotos_mandadas.duplicate(true)
-	Net.hogar._difundir_hogar()
-	print("[S] dato reenvio_fotos_igual=%d" % int(Net.hogar._fotos_mandadas == antes))

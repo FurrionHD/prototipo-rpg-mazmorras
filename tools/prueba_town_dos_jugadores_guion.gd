@@ -39,12 +39,23 @@ func _ready() -> void:
 	_ok(libreta.size() > 0 and celdas > 0 and en_bits == 0,
 		"me llega la libreta del mapa con su suelo en celdas (%d pisos, %d celdas)" % [libreta.size(), celdas])
 
-	# 0) LAS FOTOS DEL ROSTER. Los dos subimos la de nuestro personaje de casa a la sala, y cada uno ve la del otro.
-	_ok(await hasta_sala("fotos", func(v): return int(v) >= 2, 20.0), "la sala tiene las fotos de los dos (%s)" % dato_sala("fotos"))
+	# 0) LAS FOTOS DEL ROSTER (Net.fotos). Los dos subimos la de nuestro personaje de casa a la sala, y cada uno pide y ve
+	# la del otro.
+	_ok(await hasta_sala("fotos_de", func(v): return int(v) >= 2, 20.0), "la sala tiene fotos de los dos (%s)" % dato_sala("fotos_de"))
 	_ok(await _veo_foto_de(String(uid_casa["b"]), 20.0), "veo la cara Y la foto del personaje de casa de B")
 	_ok(await _dato_de_b("foto_del_host", 20.0) == 1, "B ve la cara Y la foto de mi personaje de casa")
-	_ok(await hasta_sala("reenvio_fotos_igual", func(v): return v != "", 20.0) and dato_sala("reenvio_fotos_igual") == "1",
-		"una segunda difusion no reenvia las fotos")
+	# Una segunda difusion del roster (cambia el color de mi personaje de casa, la foto no) no trae ninguna foto otra vez:
+	# ni yo la vuelvo a pedir al repintar, ni la sala recibe peticiones repetidas.
+	var recibidas: int = Net.fotos.recibidas
+	var mio: PersonajeData = Game.pj_por_uid(String(uid_casa["a"]))
+	mio.color = mio.color.inverted()
+	Net.hogar.marcar_hogar_sucio()
+	for i in 6:
+		await _veo_foto_de(String(uid_casa["b"]), 0.0)
+		await _esperar(0.5)
+	_ok(Net.fotos.recibidas == recibidas and Net.fotos._pedidas.is_empty(),
+		"una segunda difusion no me trae otra vez la foto (%d -> %d)" % [recibidas, Net.fotos.recibidas])
+	_ok(dato_sala("fotos_repetidas") == "0", "la sala no recibe peticiones repetidas (%s)" % dato_sala("fotos_repetidas"))
 
 	# 0b) EL EQUIPO DE B (10/10, playtest 09/10): su hogar me llega al entrar SIN que toque nada, con sus dos del equipo
 	# marcados. (Sus barras, abajo: salen al bajar al piso.)

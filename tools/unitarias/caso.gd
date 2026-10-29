@@ -12,6 +12,7 @@ extends RefCounted
 #   igual(obtenido, esperado, "que es")
 #   cerca(obtenido, esperado, tolerancia, "que es")     # floats
 #   entre(x, minimo, maximo, "que es")                    # ambos incluidos
+#   aviso_esperado("trozo del aviso")                     # un push_warning que TIENE que salir (y no es fallo)
 
 var fallos: Array[String] = []
 # Un nodo DENTRO del arbol (el propio lanzador), para las pocas que necesitan grupos o subir por padres: de la raiz no
@@ -61,3 +62,16 @@ func entre(x: float, minimo: float, maximo: float, msg: String = "") -> bool:
 		_fallo("%s -> sale %s, fuera de [%s, %s]" % [msg, str(x), str(minimo), str(maximo)])
 		return false
 	return true
+
+
+# UN AVISO QUE TIENE QUE SALIR (push_warning / push_error del juego al rechazar algo): se quita del registro para que
+# no cuente como error de script, y si NO ha salido, eso si es un fallo. Llamarlo justo despues de lo que lo provoca.
+func aviso_esperado(trozo: String) -> bool:
+	comprobaciones += 1
+	var errores: Array[String] = arbol._registro.errores
+	for i in errores.size():
+		if trozo in errores[i]:
+			errores.remove_at(i)
+			return true
+	_fallo("no ha salido el aviso esperado: " + trozo)
+	return false

@@ -20,7 +20,7 @@ func _ready() -> void:
 		await _esperar(0.5)
 		t += 0.5
 	_ok(Net._num_humanos == 2, "estamos los dos (%.1f s)" % t)
-	# Uno de MIS personajes de casa (el que no va en el equipo) con foto: A la tiene que recibir (_subir_fotos).
+	# Uno de MIS personajes de casa (el que no va en el equipo) con foto: A la tiene que poder pedir (Net.fotos).
 	var mio_de_casa: Array = Game.plantilla.filter(func(pj): return not Game.party.has(pj))
 	if not mio_de_casa.is_empty():
 		(mio_de_casa[0] as PersonajeData).set_imagen(foto_de_prueba(Color(0.2, 0.4, 0.9)))
