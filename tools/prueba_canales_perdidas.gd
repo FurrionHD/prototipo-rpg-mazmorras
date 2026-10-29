@@ -1,9 +1,11 @@
 # PRUEBA (29/10): LOS CANALES Y LA BARRERA CON PERDIDAS DE VERDAD (scripts/net/net_canales.gd). Una sala y un cliente en
 # este proceso, cada uno con su SceneMultiplayer, hablando por un RELE UDP que pierde el 10 % de los paquetes y les pone
 # 25 ms por sentido (un Steam malo). Sin el juego: solo la red.
-#   1) LO QUE GANAN LOS CANALES: la sala manda a la vez un chorro del hogar (1 KB por mensaje) y golpes de pelea
-#      pequeños. Se mide cuanto tardan los golpes con todo por el canal 0 y con cada cosa en el suyo. MIDE y lo apunta;
-#      solo falla si con canales va PEOR.
+#   1) LO QUE GANAN LOS CANALES: la sala manda a la vez un chorro del hogar (1 KB por mensaje, a ritmo fijo) y golpes
+#      de pelea pequeños. Se mide cuanto tardan los golpes con todo por el canal 0 y con cada cosa en el suyo, en RONDAS
+#      ALTERNADAS y con la MISMA perdida en las dos de cada pareja (semilla): en el banco van tres pruebas a la vez y,
+#      medido un modo detras del otro, la carga del PC decidia mas que los canales (29/10: salio al reves una vez).
+#      Solo falla si con canales la MEDIANA va peor.
 #   2) LA BARRERA: la sala manda una racha de cambios por el hogar y enseguida pide el estado por la partida, como el
 #      guardado (_dame_tu_estado). Con barrera, el estado cuenta SIEMPRE todos los cambios. Sin ella (de control),
 #      alguna vez no: si nunca falla sin barrera, la prueba no estaria probando nada y lo dice.
@@ -16,6 +18,9 @@ const PUERTO_RELE := 24631
 const PERDIDA := 0.10
 const RETRASO_MS := 25
 const RONDAS_BARRERA := 30
+const RONDAS_MEDIDA := 3          # parejas de rondas (canal 0 / cada uno el suyo), alternadas
+const SEG_RONDA := 3.0
+const HOGAR_POR_SEG := 120.0      # el chorro del hogar, por TIEMPO (no por fotograma: con el PC cargado cambiaria)
 const CAMBIOS_POR_RONDA := 40
 
 
@@ -136,13 +141,18 @@ func _correr() -> void:
 	var cli_id: int = _sala.get_peers()[0]
 
 	# 1) LO QUE GANAN LOS CANALES
-	var en_cero: Array = await _medir(cli_id, false)
-	var separados: Array = await _medir(cli_id, true)
-	print("    golpes con todo por el 0:   media %.0f ms, p95 %.0f ms, peor %.0f ms (%d golpes)" % en_cero)
-	print("    golpes con cada uno el suyo: media %.0f ms, p95 %.0f ms, peor %.0f ms (%d golpes)" % separados)
-	ok(int(en_cero[3]) > 50 and int(separados[3]) > 50, "llegan los golpes de las dos maneras")
-	ok(float(separados[1]) <= float(en_cero[1]) * 1.1, "con canales los golpes no van peor (p95 %.0f frente a %.0f ms)" % [
-		separados[1], en_cero[1]])
+	var g_cero: Array = []
+	var g_sep: Array = []
+	for r in RONDAS_MEDIDA:
+		g_cero.append_array(await _medir(cli_id, false, 1000 + r))
+		g_sep.append_array(await _medir(cli_id, true, 1000 + r))
+	var en_cero: Array = _resumen(g_cero)
+	var separados: Array = _resumen(g_sep)
+	print("    golpes con todo por el 0:    mediana %.0f ms, media %.0f, p95 %.0f, peor %.0f (%d golpes)" % en_cero)
+	print("    golpes con cada uno el suyo: mediana %.0f ms, media %.0f, p95 %.0f, peor %.0f (%d golpes)" % separados)
+	ok(int(en_cero[4]) > 100 and int(separados[4]) > 100, "llegan los golpes de las dos maneras")
+	ok(float(separados[0]) <= float(en_cero[0]), "con canales los golpes no van peor (mediana %.0f frente a %.0f ms)" % [
+		separados[0], en_cero[0]])
 
 	# 2) LA BARRERA
 	var sin: int = await _rondas(cli_id, false)
@@ -157,18 +167,25 @@ func _correr() -> void:
 	get_tree().quit(0 if fallos == 0 else 1)
 
 
-# 4 s de chorro del hogar (1 KB, cada fotograma) con un golpe cada 50 ms. [media, p95, peor, cuantos]
-func _medir(cli_id: int, separados: bool) -> Array:
+# Una ronda de SEG_RONDA: el chorro del hogar a HOGAR_POR_SEG y un golpe cada 50 ms, con la perdida sorteada desde
+# 'semilla'. Devuelve lo que tardo cada golpe (ms).
+func _medir(cli_id: int, separados: bool, semilla: int) -> Array:
 	_hilo_c.golpes_ms.clear()
+	seed(semilla)
 	var relleno := PackedByteArray()
 	relleno.resize(1024)
-	var fin := Time.get_ticks_msec() + 4000
+	var t0 := Time.get_ticks_msec()
+	var fin := t0 + int(SEG_RONDA * 1000.0)
+	var hogar_mandados := 0
 	var t_golpe := 0
 	while Time.get_ticks_msec() < fin:
-		if separados:
-			_hilo_s.hogar_en_su_canal.rpc_id(cli_id, relleno)
-		else:
-			_hilo_s.hogar_en_cero.rpc_id(cli_id, relleno)
+		var deben: int = int((Time.get_ticks_msec() - t0) / 1000.0 * HOGAR_POR_SEG)
+		while hogar_mandados < deben:
+			hogar_mandados += 1
+			if separados:
+				_hilo_s.hogar_en_su_canal.rpc_id(cli_id, relleno)
+			else:
+				_hilo_s.hogar_en_cero.rpc_id(cli_id, relleno)
 		if Time.get_ticks_msec() >= t_golpe:
 			t_golpe = Time.get_ticks_msec() + 50
 			if separados:
@@ -180,14 +197,18 @@ func _medir(cli_id: int, separados: bool) -> Array:
 	var hasta := Time.get_ticks_msec() + 3000
 	while Time.get_ticks_msec() < hasta:
 		await get_tree().process_frame
-	var g: Array = _hilo_c.golpes_ms.duplicate()
-	g.sort()
+	return _hilo_c.golpes_ms.duplicate()
+
+
+# [mediana, media, p95, peor, cuantos]
+func _resumen(g: Array) -> Array:
 	if g.is_empty():
-		return [0.0, 0.0, 0.0, 0]
+		return [0.0, 0.0, 0.0, 0.0, 0]
+	g.sort()
 	var suma := 0.0
 	for x in g:
 		suma += float(x)
-	return [suma / g.size(), float(g[int(g.size() * 0.95)]), float(g[-1]), g.size()]
+	return [float(g[g.size() / 2]), suma / g.size(), float(g[int(g.size() * 0.95)]), float(g[-1]), g.size()]
 
 
 # Cuantas rondas el estado NO contaba todos los cambios mandados antes de pedirlo.
