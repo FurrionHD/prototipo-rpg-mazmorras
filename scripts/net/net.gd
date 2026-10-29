@@ -142,7 +142,8 @@ const MAX_CONEXIONES := 32
 #     alta, fichas, union y roster de pelea).
 # 52 (28/10): fase 3: en la instantanea, las filas sin cambios van como null (Net.peleas.solo_filas_nuevas).
 # 53 (29/10): las FOTOS por su tema (Net.fotos: _subir / _pedir / _foto, huella de 64 bits); fuera _subir_fotos y
-#     _set_fotos_roster del hogar. Un build del 52 no pediria las fotos y veria a todos sin cara.
+#     _set_fotos_roster del hogar. Un build del 52 no pediria las fotos y veria a todos sin cara. Y el saludo, _listo,
+#     _presentarse, _presentar_ajeno y _set_aspecto/_rel_aspecto llevan la HUELLA de la foto en vez del PNG.
 const PROTOCOLO := 53
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
@@ -509,6 +510,7 @@ func _ready() -> void:
 	fotos = NetFotos.new()
 	fotos.name = "Fotos"
 	add_child(fotos)
+	fotos.llegada.connect(_on_foto_llegada)
 	pesca = NetPesca.new()
 	pesca.name = "Pesca"
 	add_child(pesca)
@@ -1051,13 +1053,13 @@ func _on_connected_to_server() -> void:
 	var col := Color(1, 1, 1)
 	var met := 0.0
 	var nom := Identidad.nombre
-	var png := PackedByteArray()
+	var hue := 0   # la HUELLA de mi foto: la foto sube sola en cuanto la sala me admita (Net.fotos)
 	var alp := 1.0
 	if not mundo_compartido:
 		col = Game.player_color
 		met = Game.player_metalico
 		nom = Game.player_nombre
-		png = Game.player_imagen_png
+		hue = fotos.publicar_pj(Game.lider())
 		alp = Game.player_color_alpha
 
 	# Sus PIEZAS (pelo y ropa) van con el resto del aspecto. En un mundo compartido todavia no hay
@@ -1065,7 +1067,7 @@ func _on_connected_to_server() -> void:
 	var pzs: Dictionary = {} if mundo_compartido else Game.lider().aspecto_completo()["piezas"]
 	_esperar_respuesta()
 	_saludar.rpc_id(1, _codigo, PROTOCOLO, Identidad.id, Identidad.nombre,
-		col, met, nom, _mi_lugar, png, alp, pzs, invitacion_saludo)
+		col, met, nom, _mi_lugar, hue, alp, pzs, invitacion_saludo)
 	invitacion_saludo = ""   # vale para ESTA entrada; la siguiente vez ya tendre personaje
 
 
@@ -1093,7 +1095,7 @@ func _esperar_respuesta() -> void:
 @rpc("any_peer", "call_remote", "reliable")
 func _saludar(codigo: String, protocolo: int, identidad: String, nombre_visible: String,
 		color: Color, metal: float, nombre: String, lugar: String,
-		imagen: PackedByteArray = PackedByteArray(), alpha: float = 1.0,
+		huella: int = 0, alpha: float = 1.0,
 		piezas: Dictionary = {}, invitacion: String = "") -> void:
 	var quien := multiplayer.get_remote_sender_id()
 	if codigo != _codigo and (_codigo_lan == "" or codigo != _codigo_lan):
@@ -1165,7 +1167,7 @@ func _saludar(codigo: String, protocolo: int, identidad: String, nombre_visible:
 		return
 
 	# LAN de siempre (cada uno con su ranura): dentro directo, como ha sido siempre.
-	_admitir(quien, color, metal, nombre, lugar, imagen, alpha, piezas)
+	_admitir(quien, color, metal, nombre, lugar, huella, alpha, piezas)
 
 
 # ============================================================
@@ -1328,7 +1330,7 @@ func _echar(quien: int, motivo: String) -> void:
 # porque en un mundo compartido hay un paso intermedio (darle su personaje) y hasta que lo tenga no
 # puede entrar.
 func _admitir(quien: int, color: Color, metal: float, nombre: String, lugar: String,
-		imagen: PackedByteArray, alpha: float, piezas: Dictionary = {}) -> void:
+		huella: int, alpha: float, piezas: Dictionary = {}) -> void:
 	_en_la_puerta.erase(quien)
 	# Presentaciones cruzadas con los que YA estaban (roster): antes de registrar al
 	# nuevo, para no presentarselo a si mismo. Cada cliente que ya estaba se entera del nuevo, y al
@@ -1336,21 +1338,21 @@ func _admitir(quien: int, color: Color, metal: float, nombre: String, lugar: Str
 	for otro in _peers:
 		var p: Dictionary = _peers[otro]
 		# Al que ya estaba: aqui viene uno nuevo.
-		_presentar_ajeno.rpc_id(otro, quien, color, metal, nombre, lugar, imagen, alpha, [], piezas)
+		_presentar_ajeno.rpc_id(otro, quien, color, metal, nombre, lugar, huella, alpha, [], piezas)
 		# Al nuevo: este otro ya estaba (con SUS datos, sequito incluido).
 		_presentar_ajeno.rpc_id(quien, otro, p["color"], p["metal"], p["nombre"], p["lugar"],
-			p.get("imagen", PackedByteArray()), float(p.get("alpha", 1.0)), p.get("comps", []),
+			int(p.get("huella", 0)), float(p.get("alpha", 1.0)), p.get("comps", []),
 			p.get("piezas", {}))
 	# Presentarme al nuevo (registra al HOST en su _peers) ANTES de registrarle yo: _registrar_peer
 	# dispara mi anunciar_grupo(), y si su _set_grupo llegara antes que este _presentarse, el cliente
 	# aun no me tendria en _peers y lo tiraria en la puerta (mi sequito no le apareceria). Viaja la
 	# SEMILLA del mundo del host (para generar la MISMA mazmorra sin replicar geometria) y mi lugar.
 	_presentarse.rpc_id(quien, Game.player_color, Game.player_metalico, Game.player_nombre,
-		_mi_lugar, Game.semilla_mundo, Game.tienda_t2_abierta(), Game.player_imagen_png,
+		_mi_lugar, Game.semilla_mundo, Game.tienda_t2_abierta(), fotos.publicar_pj(Game.lider()),
 		Game.player_color_alpha, PackedInt32Array(Game.pisos_desbloqueados()),
 		Game.lider().aspecto_completo()["piezas"])
 	# Registro mutuo (en el host): apunta al nuevo y me re-anuncia el grupo a todos, el ya incluido.
-	_registrar_peer(quien, color, metal, nombre, lugar, imagen, alpha, true, piezas)
+	_registrar_peer(quien, color, metal, nombre, lugar, huella, alpha, true, piezas)
 	estado_cambiado.emit("%s se ha unido." % nombre)
 	# Y ponerle al dia el SUELO de su lugar: lo que ya estaba soltado antes de que entrara.
 	for id in suelo._suelo:
@@ -1414,14 +1416,15 @@ func _set_semilla_pueblo(v: int) -> void:
 # Corre en el CLIENTE, llamado por el host tras aceptarlo: registra al host y guarda su semilla.
 @rpc("any_peer", "call_remote", "reliable")
 func _presentarse(color: Color, metal: float, nombre: String, lugar: String, semilla: int,
-		t2: bool, imagen: PackedByteArray = PackedByteArray(), alpha: float = 1.0,
+		t2: bool, huella: int = 0, alpha: float = 1.0,
 		atajos: PackedInt32Array = PackedInt32Array(), piezas: Dictionary = {}) -> void:
 	var quien := multiplayer.get_remote_sender_id()
 	_respondio = true
+	fotos.al_entrar()   # ya estoy dentro: suben mis fotos y salen las peticiones que esperaban
 	semilla_host = semilla
 	tienda_t2_host = t2
 	pisos_host = Array(atajos)
-	_registrar_peer(quien, color, metal, nombre, lugar, imagen, alpha, true, piezas)
+	_registrar_peer(quien, color, metal, nombre, lugar, huella, alpha, true, piezas)
 	# MI HOGAR AL ENTRAR (10/10, playtest 09/10: "los personajes de Arian no salen en el Hogar"). Solo se mandaba al
 	# CAMBIAR algo; con la sala de host, ninguno de los dos lo habia mandado y salian los de la foto guardada.
 	hogar.marcar_hogar_sucio()
@@ -1458,16 +1461,16 @@ var _motivo_rechazo := "No hay ninguna sala con ese codigo en esa IP."
 # ajenos de golpe (_presentar_ajeno): alli no quiero N difusiones de grupo en cascada ni tocar el
 # recuento (los ajenos no cambian cuantos humanos hay: eso lo lleva el host aparte).
 func _registrar_peer(peer_id: int, color: Color, metal: float, nombre: String, lugar: String,
-		imagen: PackedByteArray = PackedByteArray(), alpha: float = 1.0, avisar: bool = true,
+		huella: int = 0, alpha: float = 1.0, avisar: bool = true,
 		piezas: Dictionary = {}) -> void:
-	# La IMAGEN del cuerpo viaja UNA VEZ, en el handshake: es un PNG ya recortado a 128x128
-	# (Game.IMAGEN_CUERPO_MAX), no la foto original. Se guarda por peer para poder repintar su
-	# cuerpo cada vez que se recrea (al cambiar de piso, por ejemplo) sin volver a pedirla.
+	# De la FOTO de la cara solo viaja su HUELLA: la foto la tiene Net.fotos, que la pide si no la tiene y avisa al
+	# llegar (_on_foto_llegada repinta su cuerpo). Se guarda por peer para poder repintarle cada vez que se recrea
+	# (al cambiar de piso, por ejemplo).
 	# El ALPHA es la opacidad del color SOBRE la imagen (color_alpha del shader): sin el, el color
 	# tapaba del todo la cara del compañero (se fijaba a 1.0).
 	_peers[peer_id] = {"color": color, "metal": metal, "nombre": nombre,
 		"lugar": lugar, "pos": Vector2.INF, "peleando": false, "comps": [],
-		"imagen": imagen, "alpha": alpha, "piezas": piezas}
+		"huella": huella, "alpha": alpha, "piezas": piezas}
 	if PisoVivo.lleva(lugar):
 		_crear_avatar_nodo(peer_id)
 	if es_host:
@@ -1491,11 +1494,11 @@ func _registrar_peer(peer_id: int, color: Color, metal: float, nombre: String, l
 # mensaje porque get_remote_sender_id() aqui seria siempre el host.
 @rpc("authority", "call_remote", "reliable")
 func _presentar_ajeno(peer_id: int, color: Color, metal: float, nombre: String, lugar: String,
-		imagen: PackedByteArray = PackedByteArray(), alpha: float = 1.0, comps: Array = [],
+		huella: int = 0, alpha: float = 1.0, comps: Array = [],
 		piezas: Dictionary = {}) -> void:
 	if peer_id == multiplayer.get_unique_id() or _peers.has(peer_id):
 		return   # yo mismo, o ya lo conozco (llego dos veces): idempotente
-	_registrar_peer(peer_id, color, metal, nombre, lugar, imagen, alpha, false, piezas)
+	_registrar_peer(peer_id, color, metal, nombre, lugar, huella, alpha, false, piezas)
 	# Su SEQUITO viaja en la misma presentacion (no solo el lider): si no, veria al lider del otro
 	# cliente pero sus acompañantes no naceran hasta que ese cliente vuelva a tocar su grupo. Basta
 	# con guardarlo: _mover_companeros crea los cuerpos con esta cara en cuanto lleguen sus posiciones.
@@ -1531,6 +1534,24 @@ func montar_cuerpos_del_lugar(lugar: String) -> void:
 			_crear_avatar_nodo(id)
 
 
+# Pinta el cuerpo de un peer con lo que se de el en _peers (si lo tengo delante). La foto sale de su huella: si aun no
+# ha llegado, sin ella, y se repinta al llegar (_on_foto_llegada).
+func pintar_avatar(peer_id: int) -> void:
+	var a = _avatares.get(peer_id)   # SIN tipar: puede estar liberado
+	if a == null or not is_instance_valid(a) or not a.has_method("aplicar_aspecto") or not _peers.has(peer_id):
+		return
+	var p: Dictionary = _peers[peer_id]
+	a.aplicar_aspecto(p["color"], p["metal"], p["nombre"], fotos.pedir(int(p.get("huella", 0))),
+		float(p.get("alpha", 1.0)), p.get("piezas", {}), p.get("equipo", {}))
+
+
+# Ha llegado una foto: los cuerpos que la llevan, repintados.
+func _on_foto_llegada(huella: int) -> void:
+	for id in _peers:
+		if int(_peers[id].get("huella", 0)) == huella:
+			pintar_avatar(id)
+
+
 # Monta el nodo visual de un peer YA registrado (solo si compartimos lugar).
 func _crear_avatar_nodo(peer_id: int) -> void:
 	if not _peers.has(peer_id):
@@ -1548,11 +1569,10 @@ func _crear_avatar_nodo(peer_id: int) -> void:
 	# De quien es este cuerpo: al alcanzarlo un bicho hay que mandarle la pelea a SU dueño. Va como
 	# meta, mismo patron que el net_id de bichos y drops.
 	av.set_meta("peer_id", peer_id)
-	av.aplicar_aspecto(p["color"], p["metal"], p["nombre"], p.get("imagen", PackedByteArray()),
-		float(p.get("alpha", 1.0)), p.get("piezas", {}), p.get("equipo", {}))
+	_avatares[peer_id] = av
+	pintar_avatar(peer_id)
 	if p["pos"] != Vector2.INF:
 		av.ir_a(p["pos"])   # aparece donde iba, no en el origen
-	_avatares[peer_id] = av
 	# Su imbuicion, de lo ultimo que anuncio. Va DESPUES de guardar el avatar en _avatares porque
 	# _aplicar_imbue_a_avatares lo busca ahi. Sin esto, entrar a una partida en marcha te mostraba
 	# sin rastro a alguien que ya iba imbuido: el reparto en vivo (_set_imbue) solo alcanza a quien

@@ -785,7 +785,7 @@ func _fila_roster(pj: PersonajeData, dueno: String, dueno_nombre: String) -> Dic
 		# huella, y la foto viaja UNA vez por maquina (Net.fotos: publicarla aqui es lo que la sube a la sala, o la
 		# deja lista en ella para quien la pida).
 		"aspecto": _aspecto_sin_foto(pj, en_equipo),
-		"imagen_huella": Net.fotos.publicar(pj.imagen, pj.huella_imagen()),
+		"imagen_huella": Net.fotos.publicar_pj(pj),
 	}
 
 

@@ -9,6 +9,8 @@
 #    pedir(huella) -> png      la foto si esta maquina la tiene; si no, vacio, y en un cliente la pide a la sala
 #                              (agrupadas por fotograma, una vez por huella). Cuando llega salta `llegada` y quien la
 #                              pinta se repinta.
+#  El cliente no sube ni pide nada hasta que la sala le ha ADMITIDO (al_entrar): antes, la sala no sabe quien es y lo
+#  tira, y el lo daria por hecho. Lo de antes se guarda y sale al entrar.
 #  La sala contesta con lo que tenga, y si aun no la tiene (su dueño no la ha subido) apunta quien espera y se la manda
 #  en cuanto llega. Asi da igual el orden en que lleguen la subida, el roster y la peticion.
 #
@@ -38,7 +40,9 @@ var _png: Dictionary = {}           # TODAS LAS MAQUINAS: huella -> png (se qued
 # --- CLIENTE ---
 var _subidas: Dictionary = {}       # huella -> true: ya se la he subido a la sala en esta sesion
 var _pedidas: Dictionary = {}       # huella -> true: pedida y aun sin llegar (o ya en _por_pedir)
-var _por_pedir: PackedInt64Array = PackedInt64Array()   # lo que sale en la peticion de este fotograma
+var _por_pedir: PackedInt64Array = PackedInt64Array()   # lo que sale en la proxima peticion
+var _por_subir: Dictionary = {}     # huella -> png: publicadas antes de que la sala me admitiera
+var _dentro := false                # ¿me ha admitido ya la sala? (al_entrar)
 var recibidas := 0                  # fotos que me han llegado en esta sesion (lo miran las pruebas)
 
 # --- SALA ---
@@ -64,8 +68,16 @@ func publicar(png: PackedByteArray, huella: int = 0) -> int:
 		_atender_esperas(huella)
 	if Net._soy_cliente() and not _subidas.has(huella):
 		_subidas[huella] = true
-		_subir.rpc_id(1, png)
+		if _dentro:
+			_subir.rpc_id(1, png)
+		else:
+			_por_subir[huella] = png
 	return huella
+
+
+# La de un personaje, con su huella recordada.
+func publicar_pj(pj: PersonajeData) -> int:
+	return 0 if pj == null else publicar(pj.imagen, pj.huella_imagen())
 
 
 # La foto de esa huella, o vacio si esta maquina aun no la tiene (un cliente la pide y avisara con `llegada`).
@@ -85,11 +97,20 @@ func tiene(huella: int) -> bool:
 	return _png.has(huella)
 
 
+# CLIENTE: la sala me acaba de admitir. Sale lo que se publico o pidio antes.
+func al_entrar() -> void:
+	_dentro = true
+	for h in _por_subir:
+		_subir.rpc_id(1, _por_subir[h])
+	_por_subir.clear()
+	set_process(not _por_pedir.is_empty())
+
+
 # Lo pedido en este fotograma sale en UN mensaje: la UI repinta muchas filas de golpe.
 func _process(_delta: float) -> void:
 	set_process(false)
-	if _por_pedir.is_empty():
-		return
+	if _por_pedir.is_empty() or not _dentro:
+		return   # sin admitir aun: espera a al_entrar
 	if Net._soy_cliente():
 		for i in range(0, _por_pedir.size(), PEDIDAS_POR_MENSAJE):
 			_pedir.rpc_id(1, _por_pedir.slice(i, i + PEDIDAS_POR_MENSAJE))
@@ -114,7 +135,7 @@ static func valida(png) -> bool:
 # ============================================================
 @rpc("any_peer", "call_remote", "reliable")
 func _subir(png) -> void:
-	if Net.es_host:
+	if Net.es_host and Net._peers.has(multiplayer.get_remote_sender_id()):   # solo de quien esta dentro
 		recibir_subida(multiplayer.get_remote_sender_id(), png)
 
 
@@ -137,7 +158,7 @@ func recibir_subida(peer: int, png) -> int:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _pedir(huellas) -> void:
-	if Net.es_host and huellas is PackedInt64Array:
+	if Net.es_host and huellas is PackedInt64Array and Net._peers.has(multiplayer.get_remote_sender_id()):
 		atender_peticion(multiplayer.get_remote_sender_id(), huellas)
 
 
@@ -210,6 +231,8 @@ func olvidar_sesion() -> void:
 	_subidas.clear()
 	_pedidas.clear()
 	_por_pedir = PackedInt64Array()
+	_por_subir.clear()
+	_dentro = false
 	set_process(false)
 	recibidas = 0
 	_esperan.clear()

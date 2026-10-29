@@ -65,7 +65,7 @@ func _cuerpo(pid: int):
 
 
 func _registrar(pid: int, nombre: String, lugar: String) -> void:
-	Net._registrar_peer(pid, Color.WHITE, 0.0, nombre, lugar, PackedByteArray(), 1.0, false)
+	Net._registrar_peer(pid, Color.WHITE, 0.0, nombre, lugar, 0, 1.0, false)
 
 
 func _correr() -> void:

@@ -145,3 +145,25 @@ func test_el_roster_lleva_la_huella_y_la_foto_sale_de_ella() -> void:
 	fila = Net.hogar._fila_roster(pj, Identidad.id, "yo")
 	igual(int(fila["imagen_huella"]), 0, "sin foto, huella 0")
 	cierto(Net.hogar.pj_de_fila(fila).imagen.is_empty(), "y sale sin foto")
+
+
+func test_el_cliente_no_sube_ni_pide_hasta_que_la_sala_le_admite() -> void:
+	_limpio()
+	var activo: bool = Net.activo
+	var host: bool = Net.es_host
+	Net.activo = true   # cliente de mentira: sin admitir, no llega a mandar nada (no hace falta red)
+	Net.es_host = false
+	var a := _png(Color.RED)
+	var h: int = Net.fotos.publicar(a)
+	cierto(Net.fotos._por_subir.has(h), "publicada antes de entrar: se guarda para subirla al entrar")
+	cierto(Net.fotos._subidas.has(h), "y cuenta como subida (no sale dos veces)")
+	Net.fotos.publicar(a)
+	igual(Net.fotos._por_subir.size(), 1, "publicarla otra vez no la duplica")
+	Net.fotos.pedir(h + 1)
+	Net.fotos.pedir(h + 1)
+	igual(Net.fotos._por_pedir, PackedInt64Array([h + 1]), "pedida una vez, esperando a entrar")
+	Net.fotos.olvidar_sesion()
+	cierto(Net.fotos._por_subir.is_empty() and Net.fotos._por_pedir.is_empty() and not Net.fotos._dentro,
+		"al cerrar la sesion no queda nada por mandar")
+	Net.activo = activo
+	Net.es_host = host

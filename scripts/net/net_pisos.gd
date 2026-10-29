@@ -150,7 +150,7 @@ func anunciar_aspecto() -> void:
 	var c := Game.player_color
 	var m := Game.player_metalico
 	var n := Game.player_nombre
-	var img := Game.player_imagen_png
+	var img: int = Net.fotos.publicar_pj(Game.lider())   # la HUELLA de la foto (Net.fotos)
 	var al := Game.player_color_alpha
 	# Y sus PIEZAS: el pelo y la ropa. Van aparte del color porque cada una lleva el suyo (ver
 	# PersonajeData.aspecto). Sin esto el compañero te ve calvo y desnudo, y no da ningun error.
@@ -168,33 +168,31 @@ func anunciar_aspecto() -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _set_aspecto(emisor: int, color: Color, metal: float, nombre: String, imagen: PackedByteArray,
+func _set_aspecto(emisor: int, color: Color, metal: float, nombre: String, huella: int,
 		alpha: float = 1.0, piezas: Dictionary = {}, equipo: Dictionary = {}) -> void:
 	if not Net._peers.has(emisor):
 		return
 	Net._peers[emisor]["color"] = color
 	Net._peers[emisor]["metal"] = metal
 	Net._peers[emisor]["nombre"] = nombre
-	Net._peers[emisor]["imagen"] = imagen
+	Net._peers[emisor]["huella"] = huella
 	Net._peers[emisor]["alpha"] = alpha
 	Net._peers[emisor]["piezas"] = piezas
 	Net._peers[emisor]["equipo"] = equipo
 	# Repinta su avatar YA (si lo tengo delante): sin esto el cambio no se veria hasta reconstruir.
-	var a = Net._avatares.get(emisor)   # SIN tipar: puede estar liberado
-	if a != null and is_instance_valid(a) and a.has_method("aplicar_aspecto"):
-		a.aplicar_aspecto(color, metal, nombre, imagen, alpha, piezas, equipo)
+	Net.pintar_avatar(emisor)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rel_aspecto(color: Color, metal: float, nombre: String, imagen: PackedByteArray,
+func _rel_aspecto(color: Color, metal: float, nombre: String, huella: int,
 		alpha: float = 1.0, piezas: Dictionary = {}, equipo: Dictionary = {}) -> void:
 	if not Net.es_host:
 		return
 	var de := multiplayer.get_remote_sender_id()
-	_set_aspecto(de, color, metal, nombre, imagen, alpha, piezas, equipo)
+	_set_aspecto(de, color, metal, nombre, huella, alpha, piezas, equipo)
 	for pid in Net._peers:
 		if pid != de:
-			_set_aspecto.rpc_id(pid, de, color, metal, nombre, imagen, alpha, piezas, equipo)
+			_set_aspecto.rpc_id(pid, de, color, metal, nombre, huella, alpha, piezas, equipo)
 
 
 # --- EXPEDICION compartida (hito 3b) ---------------------------------------------------------

@@ -998,7 +998,7 @@ func _tu_jugador(z: Array, semilla: int, donde: Dictionary = {}) -> void:
 	var l: PersonajeData = Game.lider()
 	# Y ahora si tengo cara: se manda con el "estoy listo" para que el host me registre con ella.
 	_listo.rpc_id(1, Game.player_color, Game.player_metalico, Game.player_nombre,
-		Game.player_imagen_png, Game.player_color_alpha,
+		Net.fotos.publicar_pj(Game.lider()), Game.player_color_alpha,
 		Game.lider().aspecto_completo()["piezas"])
 	Net.estado_cambiado.emit("Entrando con %s." % (l.nombre if l != null else "tu personaje"))
 	entrada_lista.emit()
@@ -1006,7 +1006,7 @@ func _tu_jugador(z: Array, semilla: int, donde: Dictionary = {}) -> void:
 
 # El invitado ya tiene ficha: ahora si se le mete dentro. Corre EN EL HOST.
 @rpc("any_peer", "call_remote", "reliable")
-func _listo(color: Color, metal: float, nombre: String, imagen: PackedByteArray, alpha: float,
+func _listo(color: Color, metal: float, nombre: String, huella: int, alpha: float,
 		piezas: Dictionary = {}) -> void:
 	if not Net.es_host:
 		return
@@ -1014,4 +1014,4 @@ func _listo(color: Color, metal: float, nombre: String, imagen: PackedByteArray,
 	if not Net._en_la_puerta.has(quien):
 		return
 	var lugar := String(Net._en_la_puerta[quien].get("lugar", "pueblo"))
-	Net._admitir(quien, color, metal, nombre, lugar, imagen, alpha, piezas)
+	Net._admitir(quien, color, metal, nombre, lugar, huella, alpha, piezas)

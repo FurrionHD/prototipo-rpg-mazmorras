@@ -23,6 +23,9 @@ func _ready() -> void:
 		if String((pj as PersonajeData).uid) == String(uid_casa["a"]):
 			(pj as PersonajeData).set_imagen(foto_de_prueba(Color(0.9, 0.2, 0.2)))
 	Net.hogar.marcar_hogar_sucio()
+	# Y MI CARA (la del lider), antes de que entre B: la sala la apunta (_rel_aspecto) y se la pasa al presentarnos.
+	Game.lider().set_imagen(foto_de_prueba(Color(0.2, 0.9, 0.2)))
+	Net.pisos.anunciar_aspecto()
 	if not await lanzar_b("prueba_town_dos_cliente"):
 		await _fin()
 		return
@@ -44,6 +47,9 @@ func _ready() -> void:
 	_ok(await hasta_sala("fotos_de", func(v): return int(v) >= 2, 20.0), "la sala tiene fotos de los dos (%s)" % dato_sala("fotos_de"))
 	_ok(await _veo_foto_de(String(uid_casa["b"]), 20.0), "veo la cara Y la foto del personaje de casa de B")
 	_ok(await _dato_de_b("foto_del_host", 20.0) == 1, "B ve la cara Y la foto de mi personaje de casa")
+	# LA CARA DEL CUERPO de cada uno (saludo, presentaciones y _set_aspecto llevan la huella; la foto, Net.fotos).
+	_ok(await _dato_de_b("cara_del_host", 20.0) == 1, "B ve mi foto en el muñeco de mi cuerpo")
+	_ok(await veo_cara_de(await _dato_de_b("mi_peer", 5.0), 20.0), "veo la foto de B en el muñeco de su cuerpo")
 	# Una segunda difusion del roster (cambia el color de mi personaje de casa, la foto no) no trae ninguna foto otra vez:
 	# ni yo la vuelvo a pedir al repintar, ni la sala recibe peticiones repetidas.
 	var recibidas: int = Net.fotos.recibidas

@@ -51,6 +51,12 @@ func _ready() -> void:
 			tf += 0.5
 	_ok(visto == 1, "veo la cara y la foto de un personaje de casa de A")
 	print("[B] dato foto_del_host=%d" % visto)
+	# LA CARA DEL CUERPO: la de A me llego al presentarnos; la mia la mando ya dentro (_rel_aspecto -> _set_aspecto).
+	Game.lider().set_imagen(foto_de_prueba(Color(0.9, 0.9, 0.2)))
+	Net.pisos.anunciar_aspecto()
+	var cara_a: bool = await veo_cara_de(peer_a, 15.0)
+	_ok(cara_a, "veo la foto de A en el muñeco de su cuerpo")
+	print("[B] dato cara_del_host=%d" % int(cara_a))
 
 	# FASE 1: bajo al piso 1.
 	await esperar_fase(1, 60.0)

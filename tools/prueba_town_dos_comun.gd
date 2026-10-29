@@ -227,6 +227,22 @@ func excelia_grupo() -> float:
 	return s
 
 
+# Veo la CARA del cuerpo del jugador 'peer' (Net.fotos): me ha llegado su huella, tengo la foto y su muñeco la lleva.
+func veo_cara_de(peer: int, plazo: float) -> bool:
+	var t := 0.0
+	while true:
+		var h: int = int((Net._peers.get(peer, {}) as Dictionary).get("huella", 0))
+		var av = Net._avatares.get(peer)   # sin tipar: puede estar liberado
+		if h != 0 and Net.fotos.tiene(h) and av != null and is_instance_valid(av) and av._muneco != null \
+				and av._muneco._cara != null and av._muneco._cara.texture != null:
+			return true
+		if t >= plazo:
+			return false
+		await _esperar(0.5)
+		t += 0.5
+	return false
+
+
 # Una foto de cara de mentira (un cuadrado liso del tamaño de las de verdad), para probar que viaja.
 func foto_de_prueba(col: Color) -> PackedByteArray:
 	var img := Image.create(Game.IMAGEN_CUERPO_MAX, Game.IMAGEN_CUERPO_MAX, false, Image.FORMAT_RGBA8)
