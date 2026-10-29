@@ -98,8 +98,15 @@ func _ready() -> void:
 			curados.append("%s %.1f > %.1f" % [c.nombre, c.current_hp, float(vida_a[c.nombre])])
 	_ok(mia._aliados.size() == vida_a.size() and curados.is_empty(),
 		"mis personajes estan todos y no vuelven curados (%d/%d) %s" % [mia._aliados.size(), vida_a.size(), "; ".join(curados)])
-	var lineas: Array = mia.get("_log_lines")
-	_ok(lineas.any(func(l): return String(l).contains("dejasteis")), "el registro dice que la pelea sigue")
+	# La frase la pone la sala al rehacerla y me llega con la SIGUIENTE instantanea (o al pedir el registro por el hueco):
+	# con el PC cargado, un rato despues de abrirse la pantalla. Se le dan 5 s (29/10: fallo una vez en la bateria).
+	var dice_que_sigue := func() -> bool:
+		return is_instance_valid(mia) and (mia.get("_log_lines") as Array).any(func(l): return String(l).contains("dejasteis"))
+	var t_log := 0.0
+	while not dice_que_sigue.call() and t_log < 5.0:
+		await _esperar(0.1)
+		t_log += 0.1
+	_ok(dice_que_sigue.call(), "el registro dice que la pelea sigue (%.1f s)" % t_log)
 
 	# 6) La acabo y la sala se queda limpia.
 	t = 0.0
