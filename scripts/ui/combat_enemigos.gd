@@ -639,8 +639,10 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 		obj = (lista_mapa as Array)[0]["c"] if not (lista_mapa as Array).is_empty() else null
 	else:
 		obj = victima if victima != null and victima.is_alive() else _pantalla.objetivos._elegir_objetivo_enemigo()
-		# LAS QUE SOLO SE ECHA ENCIMA (la Ignicion) no necesitan a nadie a tiro.
-		if obj == null and _pantalla.tactico and _pantalla.turno_mapa.solo_a_si_mismo(ab):
+		# LAS QUE SOLO SE ECHA ENCIMA (la Ignicion) no necesitan a nadie a tiro. Ni LA INVOCACION (30/10, playtest: el
+		# Brote del Rey "no llegaba a nadie" con los tuyos lejos y no sacaba ni una cria): saca las suyas igual.
+		if _pantalla.tactico and (_pantalla.turno_mapa.solo_a_si_mismo(ab) or (ab.invoca_cantidad > 0 and ab.dano_mult <= 0.0)) \
+				and (obj == null or ab.invoca_cantidad > 0):
 			obj = e
 	if obj == null:
 		e.start_cooldown(ab)   # la solto igual (contra el suelo): no vale repetirla al turno siguiente
@@ -670,6 +672,12 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			_pantalla.efectos.golpe_al_aire(e, ab, _pantalla.efectos._clave_sfx(ab))
 			_pantalla.efectos.soltar_suelo()
 		_no_llega(e, ab)
+		# LO QUE SE ECHA ENCIMA no depende de pillar a nadie (30/10: el Bramido cargado con los tuyos ya apartados se
+		# quedaba sin su Furia). Igual que al acertar, donde los "self" van aparte de los golpes.
+		var propios: Array = _enemy_tirar_efectos(e, ab, e, 1.0, "self")
+		if not propios.is_empty():
+			_pantalla._log_extra("Aplica: %s." % ", ".join(propios))
+			_pantalla._update_hp()
 		_pantalla._pausa_lectura()   # mismo motivo que en _enemy_turn: su barra ya se gasto, hay que reanudar
 		return
 	e.start_cooldown(ab)   # instantaneas: cooldown al usar (las cargadas ya lo arrancaron)

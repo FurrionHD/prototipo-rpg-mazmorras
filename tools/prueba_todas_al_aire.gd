@@ -107,6 +107,8 @@ func _correr() -> void:
 	print("--- de los ENEMIGOS")
 	for ruta in _rutas_en(["res://scenes/actors/enemy"]):
 		await _una(combat, t, e, al, load(ruta), true)
+	print("--- de los ENEMIGOS que NO PEGAN (30/10, playtest: el Brote 'no llegaba a nadie' y no sacaba crias)")
+	await _no_pegan(combat, t, e, al)
 	print("--- de tus ARMAS")
 	for ruta in _rutas_en(["res://resources/weapons", "res://resources/shields", "res://resources/wands"]):
 		await _una(combat, t, al[0], [e], load(ruta), false)
@@ -214,6 +216,44 @@ func _una(combat, t, quien: Combatant, otros: Array, ab: AbilityData, enemigo: b
 		_no_se_ven.append(nombre)
 	if _mueve(ab, enemigo) and not se_mueve_pedido and t.pies_de(quien).distance_to(desde) < 4.0:
 		_no_se_mueven.append(nombre)
+
+
+# Con todos LEJOS: la invocacion saca sus crias igual, y lo que se echa encima (la Furia del Bramido) se lo queda aunque su
+# parte contra los tuyos no pille a nadie. Las de solo echarse algo encima (Muralla...) ya iban; se miran tambien.
+func _no_pegan(combat, t, e: Combatant, al: Array) -> void:
+	var casos := {
+		"res://resources/abilities/rey_slime_invocacion.tres": "crias",
+		"res://resources/abilities/minotauro_bramido.tres": "propio",
+		"res://resources/abilities/coloso_muralla.tres": "propio",
+		"res://resources/abilities/slime_afilarse.tres": "propio",
+	}
+	for ruta in casos:
+		var ab: AbilityData = load(ruta)
+		await _esperar_a(func() -> bool: return t._deslices.is_empty() and t._saltos.is_empty(), 6.0)
+		_separar(t, e, al)
+		await _esperar(3)
+		e.statuses.clear()
+		e.ability_cooldowns.erase(ab)
+		var vivos0: int = combat._vivos().size()
+		# Sin alcance de verdad: el guardian es a distancia y llegaria a todos (el Rey, cuerpo a cuerpo, no).
+		# Y que el sorteo de a quien pega mire SU alcance, como en su turno (turno_mapa.atacante).
+		var alcance0: float = e.alcance
+		var atacante0 = t.atacante
+		e.alcance = 0.0
+		t.atacante = e
+		combat.enemigos._enemy_use_ability(e, ab, null)
+		e.alcance = alcance0
+		t.atacante = atacante0
+		await get_tree().create_timer(0.6).timeout
+		if casos[ruta] == "crias":
+			_ver(combat._vivos().size() > vivos0, "%s con todos lejos saca crias (%d -> %d enemigos)" % [ab.nombre, vivos0,
+				combat._vivos().size()])
+		else:
+			var propio: int = -1
+			for a in ab.efectos:
+				if not a.en_objetivo:
+					propio = a.estado
+			_ver(propio >= 0 and e.has_status(propio), "%s con todos lejos se echa encima lo suyo" % ab.nombre)
 
 
 func _magia(combat, t, quien: Combatant, otros: Array, sp: SpellData) -> void:
