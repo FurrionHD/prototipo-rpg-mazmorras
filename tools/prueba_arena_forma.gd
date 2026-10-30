@@ -7,6 +7,8 @@
 #    4) el borde solo va por donde se puede salir (nunca contra la roca);
 #    5) recortar_dentro deja cualquier punto dentro, y el centro de una celda de arena esta dentro;
 #    6) es DETERMINISTA.
+#    7) (30/10, playtest en multi) ESTIRADA para meter a todos (8 cuerpos repartidos, como dos grupos) no pasa de
+#       TOPE_ZONA (13x11), salvo lo que ya midiera la base (un pasillo largo); y lo pedido tampoco.
 #
 #    godot --headless --path . res://tools/prueba_arena_forma.tscn
 # ============================================================
@@ -14,6 +16,7 @@ extends Node
 
 const PISOS := 12
 const PUNTOS_POR_PISO := 60
+const TOPE_ZONA := Vector2i(13, 11)   # lo que pidio el jefe el 30/10 (ArenaCalculo.TAM_MAX)
 
 var _fallos: int = 0
 var _casos: int = 0
@@ -31,6 +34,7 @@ func _ready() -> void:
 		gen.generar(80, 60, 1000 + p * 7)
 		_probar_piso(gen, rng, p)
 	_probar_determinismo()
+	_probar_tope()
 	print("[forma] %d casos, %d en pasillo (%d cogen de una sala por cortos), lado mas largo %d celdas, %d fallos"
 		% [_casos, _rellenos, _con_sala, _largo_max, _fallos])
 	print("[forma] RESULTADO: %s" % ("TODO BIEN" if _fallos == 0 else "HAY FALLOS"))
@@ -139,6 +143,37 @@ func _probar_determinismo() -> void:
 			if fa["rect"] != fb["rect"] or fa["mascara"] != fb["mascara"]:
 				_fallo("determinismo: %s da arenas distintas" % c)
 				return
+
+
+func _probar_tope() -> void:
+	var mayor := Vector2i.ZERO
+	_afirmar(ArenaCalculo.tam_deseado(30).x <= TOPE_ZONA.x and ArenaCalculo.tam_deseado(30).y <= TOPE_ZONA.y,
+		"tope: con 30 enemigos se pide %s (tope %s)" % [ArenaCalculo.tam_deseado(30), TOPE_ZONA])
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 30102026
+	var estiradas := 0
+	for p in 6:
+		var gen := DungeonGenerator.new()
+		gen.generar(80, 60, 2000 + p * 11)
+		for i in 40:
+			var c := Vector2i(rng.randi_range(0, gen.ancho - 1), rng.randi_range(0, gen.alto - 1))
+			if not gen.es_suelo(c):
+				continue
+			var deseado: Vector2i = ArenaCalculo.tam_deseado(rng.randi_range(1, 12))
+			var base: Dictionary = ArenaCalculo.forma_de_arena(gen, gen.centro_px(c), deseado)
+			var dentro: Array = []
+			for k in 8:
+				var q := c + Vector2i(rng.randi_range(-10, 10), rng.randi_range(-10, 10))
+				if gen.es_suelo(q):
+					dentro.append(gen.centro_px(q))
+			var f: Dictionary = ArenaCalculo.forma_de_arena(gen, gen.centro_px(c), deseado, false, dentro)
+			var r: Rect2i = f["rect"]
+			var tope: Vector2i = TOPE_ZONA.max((base["rect"] as Rect2i).size)
+			if r.size != (base["rect"] as Rect2i).size:
+				estiradas += 1
+				mayor = mayor.max(r.size)
+			_afirmar(r.size.x <= tope.x and r.size.y <= tope.y, "tope: piso %d punto %s estirada a %s (tope %s)" % [p, c, r.size, tope])
+	print("[forma] tope: %d estiradas, la mayor %s" % [estiradas, mayor])
 
 
 func _afirmar(ok: bool, mensaje: String) -> void:

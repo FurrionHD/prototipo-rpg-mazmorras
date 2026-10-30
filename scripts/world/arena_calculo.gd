@@ -47,10 +47,19 @@ const ROCA_TOLERADA := 1
 const BUSQUEDA_SUELO := 6
 
 
-# El tamaño que PIDE esta pelea, en celdas: la base y +1 por lado cada ENEMIGOS_POR_CELDA enemigos.
+# LO MAS QUE CRECE LA ZONA (30/10, playtest en multi: "nos entraban de una esquina y de otra del recuadro todo el rato
+# porque es muy grande"; el jefe: "que se quede con el tamaño de maximo 13x11, un poco mas de la base pero no tanto").
+# Crecia por dos lados: +1 por lado cada tres enemigos (los brotes sacan mas con mas jugadores) y, sobre todo, al
+# ESTIRARSE para meter a todos los que empiezan (el grupo del otro jugador a menos de 320 px). Lo que se quede fuera
+# entra andando hasta el borde (CombatTactico._entrar_andando). Un PASILLO conserva su largo (03/10, "maximo 20"): el
+# tope es para lo que CRECE, no para la forma del sitio (ver _limitar).
+const TAM_MAX := Vector2i(13, 11)
+
+
+# El tamaño que PIDE esta pelea, en celdas: la base y +1 por lado cada ENEMIGOS_POR_CELDA enemigos, hasta TAM_MAX.
 static func tam_deseado(enemigos: int) -> Vector2i:
 	var extra: int = maxi(0, enemigos) / ENEMIGOS_POR_CELDA
-	return TAM_BASE + Vector2i(extra, extra)
+	return (TAM_BASE + Vector2i(extra, extra)).min(TAM_MAX)
 
 
 # La celda que contiene un punto en pixeles. Mismo criterio que DungeonFloor.celda_de_px (floor):
@@ -186,6 +195,29 @@ static func forma_de_arena(gen: DungeonGenerator, semilla_px: Vector2, deseado: 
 	var lista: Array[Vector2i] = []
 	for c in celdas:
 		lista.append(c)
+	return _limitar(_empaquetar(lista), rect, _suelo_cerca(gen, celda_de_px(semilla_px)))
+
+
+# EL TOPE AL ESTIRARSE (ver TAM_MAX): la forma estirada no pasa de TAM_MAX por lado, o del tamaño de la base si esta ya
+# era mayor (un pasillo largo). Se queda la ventana de ese tamaño centrada en la semilla (donde empieza la pelea).
+static func _limitar(forma: Dictionary, base: Rect2i, semilla: Vector2i) -> Dictionary:
+	var rect: Rect2i = forma["rect"]
+	var tope: Vector2i = TAM_MAX.max(base.size)
+	if rect.size.x <= tope.x and rect.size.y <= tope.y:
+		return forma
+	var tam: Vector2i = rect.size.min(tope)
+	var centro: Vector2i = semilla if semilla.x >= 0 else rect.get_center()
+	var pos: Vector2i = (centro - tam / 2).clamp(rect.position, rect.end - tam)
+	var ventana := Rect2i(pos, tam)
+	var lista: Array[Vector2i] = []
+	for y in range(ventana.position.y, ventana.end.y):
+		for x in range(ventana.position.x, ventana.end.x):
+			var c := Vector2i(x, y)
+			if en_forma(rect, forma["mascara"], c):
+				lista.append(c)
+	traza.append("  tope: %s -> ventana %s (%d celdas)" % [rect, ventana, lista.size()])
+	if lista.is_empty():
+		return forma
 	return _empaquetar(lista)
 
 
