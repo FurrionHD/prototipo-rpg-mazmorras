@@ -15982,7 +15982,8 @@ func _tirar_drop(corpse: Node, calidad: MaterialItem.Calidad) -> void:
 	# Factor por PROFUNDIDAD: el mismo bicho rinde menos en los pisos donde acaba de aparecer y
 	# llega al 100% mas abajo. Es lo que hace que bajar a por SU material compense. Afecta a las
 	# dos tiradas por igual, y los jefes salen a 1.0 solos (ver EnemyData.drop_factor_piso).
-	var f_piso: float = data.drop_factor_piso(current_floor)
+	# EL PISO DEL CADAVER, no el de la maquina (30/10): en la sala, que lleva varios pisos, current_floor no es el suyo.
+	var f_piso: float = data.drop_factor_piso(PisoVivo.numero_de(corpse))
 
 	# PULSO DE JOYERO: sube las DOS probabilidades (ver PASIVA_JOYERO_*) y, si la extraccion salio
 	# perfecta, cada pieza que caiga puede salir PURA. El bonus se suma DESPUES del factor de piso:
