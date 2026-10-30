@@ -191,6 +191,14 @@ var _brillo: Node2D = null
 const R_BOLA := 16.0
 const BOLAS := 4
 
+# Donde caen las bolas de ESTA Andanada: las elegidas al soltarla (sobre los enemigos de dentro, Forma.puntos) o, sin
+# nadie dentro, las de siempre.
+static func bolas_de(f: CombatFormas.Forma) -> Array:
+	if f != null and not f.puntos.is_empty():
+		return f.puntos
+	return puntos_andanada(f)
+
+
 static func puntos_andanada(f: CombatFormas.Forma) -> Array:
 	var out: Array = []
 	if f == null:
@@ -252,7 +260,7 @@ static func retraso(m: int, f: CombatFormas.Forma, p: Vector2) -> float:
 			return maxf(0.0, (p - o).dot(f.dir)) / V_BOLA
 		Modo.ANDANADA:
 			# La bola MAS CERCANA a 'p' (la que le cae encima).
-			var pts: Array = puntos_andanada(f)
+			var pts: Array = bolas_de(f)
 			var mejor: int = 0
 			for i in pts.size():
 				if (pts[i] as Vector2).distance_squared_to(p) < (pts[mejor] as Vector2).distance_squared_to(p):
@@ -359,7 +367,7 @@ func _preparar_area() -> void:
 				_nubes.append({"u": (float(i) + 0.5) / float(n_nu), "v": _rng.randf_range(-0.25, 0.25),
 					"r": _rng.randf_range(0.34, 0.5) * _ancho, "fase": _rng.randf_range(0.0, TAU)})
 		Modo.ANDANADA:
-			_puntos = puntos_andanada(forma)
+			_puntos = bolas_de(forma)
 			for i in 20:
 				_ascuas.append({"b": i % maxi(_puntos.size(), 1), "a": _rng.randf_range(0.0, TAU),
 					"d": _rng.randf_range(2.0, R_BOLA * 0.9), "tam": _rng.randf_range(0.8, 1.5),

@@ -77,6 +77,9 @@ class Forma extends RefCounted:
 	# CIRCULO alrededor de quien lo lanza: lo que ocupa su CUERPO (09/10). Los anillos se reparten de aqui hacia fuera,
 	# asi el mas fuerte cae justo fuera de el y no debajo, donde nunca hay nadie.
 	var dentro: float = 0.0
+	# (30/10) DONDE CAEN las bolas de la Andanada: sobre los enemigos de dentro, elegidos al soltarla (ver
+	# CombatMagia._bolas_a_los_de_dentro). Vacio = las de siempre, sacadas del centro (MagiaAire.puntos_andanada).
+	var puntos: Array = []
 
 	# ¿Es una fila de circulos? (ver CombatFormas.BOLAS)
 	func en_bolas() -> bool:

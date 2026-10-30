@@ -168,7 +168,9 @@ const MAX_CONEXIONES := 32
 #     ni compañeros de los demas.
 # 61 (29/10): el SALTO puede ir sin victima (el Oportunista que salta a su sitio sin nadie: turno_mapa.pedir_salto_al_sitio)
 #     y la magia que no pilla a nadie manda su efecto y su gesto con un golpe al aire. Un build del 60 no veria ninguno.
-const PROTOCOLO := 61
+# 62 (30/10): las bolas de la Andanada caen sobre los enemigos de dentro y sus puntos viajan con su efecto (MARCA_PUNTOS
+#     en el paquete de golpes). Un build del 61 no sabria leerlos.
+const PROTOCOLO := 62
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

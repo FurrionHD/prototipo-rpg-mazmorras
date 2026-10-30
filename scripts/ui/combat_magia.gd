@@ -462,6 +462,8 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 		# SU EFECTO EN EL MAPA (MagiaAire, por el suelo): cada golpe llega cuando el efecto alcanza a su victima.
 		if spell.suelo_mapa >= 0:
 			var f_ef = _forma_efecto(spell, punto, reparto_mapa)
+			if spell.dispersa and spell.forma_salpicon <= 0.0:
+				f_ef.puntos = _bolas_a_los_de_dentro(spell, punto)
 			# Los de apoyo en area (Fortaleza) no pillan enemigos: cuentan los tuyos que haya dentro.
 			var hay_alguien: bool = not reparto_mapa.is_empty() or (spell.forma_a_aliados
 				and not _pantalla.turno_mapa.aliados_hechizo(spell, _pantalla._player).is_empty())
@@ -520,7 +522,9 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 			if en_mapa and spell.forma_salpicon > 0.0:
 				dentro = _pantalla.turno_mapa.dentro_del_hechizo(spell, _pantalla._player, punto)
 			elif en_mapa:
-				puntos = MagiaAire.puntos_andanada(_pantalla.turno_mapa.forma_hechizo(spell, _pantalla._player, punto))
+				puntos = _bolas_elegidas if not _bolas_elegidas.is_empty() \
+					else MagiaAire.puntos_andanada(_pantalla.turno_mapa.forma_hechizo(spell, _pantalla._player, punto))
+				_bolas_elegidas = []
 			res_area = _resolver_dispersa(spell, foco, puntos, dentro)
 			for r in res_area:
 				tocados.append(r.c)
@@ -696,6 +700,25 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 # LA FORMA DEL EFECTO de un hechizo en el mapa. Los PROYECTILES (orbe, bola) van de tus pies al primero que
 # pillan (hasta el borde de su cuerpo: ahi revientan) o, si no hay nadie, hasta el final de su recorrido; el
 # resto, la huella tal cual.
+# LA ANDANADA A LOS DE DENTRO (30/10, el jefe: "tiene que dar siempre a los enemigos dentro del area"; antes sus bolas
+# caian en puntos al azar del circulo y a veces ninguna daba): cada bola cae sobre uno AL AZAR de los enemigos de dentro
+# (lo eligio el, como la Tormenta), un pelo movida para que dos sobre el mismo no salgan una encima de otra. Esos puntos
+# los usan el dibujo (Forma.puntos, tambien en el espejo) y los golpes (_resolver_dispersa). Sin nadie dentro, [] (las de
+# siempre).
+var _bolas_elegidas: Array = []
+
+func _bolas_a_los_de_dentro(spell: SpellData, punto: Vector2) -> Array:
+	_bolas_elegidas = []
+	var dentro: Array = _pantalla.turno_mapa.dentro_del_hechizo(spell, _pantalla._player, punto)
+	if dentro.is_empty():
+		return []
+	for i in maxi(spell.golpes(), 1):
+		var caja: Rect2 = _pantalla.turno_mapa.bulto_de(dentro.pick_random())
+		var cerca: Vector2 = caja.size * 0.25
+		_bolas_elegidas.append(caja.get_center() + Vector2(randf_range(-cerca.x, cerca.x), randf_range(-cerca.y, cerca.y)))
+	return _bolas_elegidas
+
+
 func _forma_efecto(spell: SpellData, punto: Vector2, reparto: Array) -> CombatFormas.Forma:
 	var tm = _pantalla.turno_mapa
 	var f = tm.forma_hechizo(spell, _pantalla._player, punto)

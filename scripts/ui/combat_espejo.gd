@@ -1291,7 +1291,14 @@ func _apuntar_suelo_red(tipo: int, f: CombatFormas.Forma, semilla: int, nucleo: 
 
 static func _bloques_suelo(tipo: int, f: CombatFormas.Forma, semilla: int, nucleo: float) -> PackedInt32Array:
 	var o: Vector2 = SueloRoto.origen_de(f)
-	return PackedInt32Array([
+	var pts := PackedInt32Array()
+	if not f.puntos.is_empty():
+		pts.append_array([MARCA_PUNTOS, f.puntos.size()])
+		for q in f.puntos:
+			pts.append_array([roundi((q as Vector2).x * 16.0), roundi((q as Vector2).y * 16.0)])
+		while pts.size() < 5:
+			pts.append(0)
+	return pts + PackedInt32Array([
 		MARCA_SUELO, tipo, semilla, f.tipo, roundi(nucleo * 16.0),
 		MARCA_SUELO, roundi(o.x * 16.0), roundi(o.y * 16.0), roundi(f.radio * 16.0), roundi(f.apertura * 16.0),
 		MARCA_SUELO, roundi(f.dir.x * 10000.0), roundi(f.dir.y * 10000.0),
@@ -1300,6 +1307,11 @@ static func _bloques_suelo(tipo: int, f: CombatFormas.Forma, semilla: int, nucle
 
 # EL SALTO A LA ESPALDA (Oportunista) viaja igual, DELANTE de los golpes de quien salta: un bloque de
 # cinco enteros [M, quien, x x16, y x16, victima] (x, y = donde queda su nodo). Ver turno_mapa.pedir_salto.
+# (30/10) LOS PUNTOS de la forma que viene detras (las bolas de la Andanada, Forma.puntos), DELANTE de su MARCA_SUELO:
+#   [M, n, x0 x16, y0 x16, x1 x16, y1 x16, ...] (minimo 5 enteros: se rellena con ceros)
+const MARCA_PUNTOS := -12
+var _puntos_leidos: Array = []   # los de la proxima MARCA_SUELO que se lea
+
 const MARCA_SALTO := -8
 
 func _apuntar_salto_red(c: Combatant, p: Vector2, victima: Combatant) -> void:
@@ -1485,10 +1497,20 @@ func _aplicar_impactos_ya(datos: PackedInt32Array) -> void:
 			anims[a[0]] = [a[1], a[2]]
 			j += int(a[3])
 			continue
+		if ca == MARCA_PUNTOS:
+			var n_p: int = datos[j + 1] if j + 1 < datos.size() else 0
+			_puntos_leidos = []
+			for k in n_p:
+				if j + 3 + 2 * k < datos.size():
+					_puntos_leidos.append(Vector2(float(datos[j + 2 + 2 * k]) / 16.0, float(datos[j + 3 + 2 * k]) / 16.0))
+			j += maxi(5, 2 + 2 * n_p)
+			continue
 		if ca == MARCA_SUELO:
 			if j + 14 < datos.size():
 				var s: Array = _leer_suelo(datos, j)
+				(s[1] as CombatFormas.Forma).puntos = _puntos_leidos
 				_pantalla.efectos.fijar_suelo(int(s[0]), s[1], int(s[2]), float(s[3]))
+			_puntos_leidos = []
 			j += 15
 			continue
 		if ca == MARCA_SALTO:
