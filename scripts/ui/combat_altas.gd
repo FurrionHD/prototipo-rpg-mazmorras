@@ -542,7 +542,7 @@ func _caer_aliado(c: Combatant) -> void:
 func _invocar_slime(data: EnemyData) -> Combatant:
 	if data == null:
 		return null
-	var c: Combatant = data.crear_combatant(0.2)
+	var c: Combatant = data.crear_combatant(0.2, false, false, &"", _piso())
 	return c if _meter_enemigo(c, true) >= 0 else null
 
 
@@ -558,7 +558,7 @@ func anadir_enemigo(data: EnemyData, t: float, hp: float = -1.0, estados: Array 
 	# La MUTACION viaja igual que la 't' y la bandera de jefe, y por el motivo de la nota de mas
 	# abajo: este es el SEGUNDO camino de entrada al combate. Sin pasarla aqui, un mini-jefe que
 	# llega de refuerzo entra con las stats de un bicho corriente.
-	var c: Combatant = data.crear_combatant(t, mutante, es_jefe, mutacion)
+	var c: Combatant = data.crear_combatant(t, mutante, es_jefe, mutacion, _piso())
 	# Un JEFE puede entrar de refuerzo a una pelea ya empezada. Sin esto el roster salia sin bandera
 	# y los espejos seguian con la musica de rata (y esta pantalla tampoco cambiaba de pista).
 	c.es_jefe = es_jefe
@@ -573,6 +573,14 @@ func anadir_enemigo(data: EnemyData, t: float, hp: float = -1.0, estados: Array 
 	# entraba con sus stats de verdad y ensuciaba la medida en silencio.
 	Game.volver_muneco(c, _pantalla._player, muneco)
 	return _meter_enemigo(c, false, hueco)
+
+
+# EL PISO DE LA PELEA, para las stats de quien entra a mitad (refuerzos y crias). Sin pasarlo, crear_combatant tira de
+# Game.current_floor, que en la maquina que lleva la pelea (la sala) NO es el piso de la pelea: en el playtest del 29/10,
+# en el piso 6, un slime de veneno del arranque tenia ~90 de vida y el que se unio despues ~32 (el de piso 1).
+func _piso() -> int:
+	var p = _pantalla.pelea.piso if _pantalla.pelea != null else null
+	return (p as PisoVivo).numero if p != null and is_instance_valid(p) else Game.current_floor
 
 
 # ¿Se esta cerrando? Lo pregunta Game antes de meter a alguien en la cola: a una pelea que acaba no
