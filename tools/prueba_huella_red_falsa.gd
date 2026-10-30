@@ -65,7 +65,7 @@ func pedir_frase(peer: int, idx: int, opciones: Array, nombre: String, largo: in
 		espejos[peer].recitar_frase(idx, opciones, nombre, largo, seq)
 
 
-func pedir_disparo(peer: int, nombre: String, seq: int = 0, _pe: PeleaViva = null) -> void:
+func pedir_disparo(peer: int, nombre: String, seq: int = 0, _pe: PeleaViva = null, _reelegir: bool = false) -> void:
 	if is_instance_valid(espejos.get(peer)):
 		espejos[peer].lanzar_conjuro(nombre, seq)
 
