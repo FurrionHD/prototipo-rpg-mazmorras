@@ -140,7 +140,15 @@ func pelear_hasta_el_final(plazo: float) -> bool:
 		for linea in traza:
 			print("[dev]   " + linea)
 	if acabo:
-		p._on_continue_pressed()
+		# EL CONTINUAR, CUANDO SE HA VISTO EL ULTIMO GOLPE (30/10, playtest): sale, y con la cola de efectos ya parada.
+		var t_c := 0.0
+		while is_instance_valid(p) and not p._continue_button.visible and t_c < 8.0:
+			await _esperar(0.1)
+			t_c += 0.1
+		if is_instance_valid(p):
+			_ok(p._continue_button.visible and not (p._fx != null and p._fx.ocupado()),
+				"el Continuar sale cuando ya se ha visto el ultimo golpe (a los %.1f s)" % t_c)
+			p._on_continue_pressed()
 	t = 0.0
 	while (Game.hay_pelea_en_pantalla() or Net.peleas._desgaste_pendiente) and t < 10.0:
 		await _esperar(0.25)

@@ -2873,6 +2873,37 @@ func _tras_accion_jugador_varios(objs: Array) -> void:
 		_state = State.ADVANCING
 
 
+# EL "CONTINUAR" ESPERA A QUE SE VEA EL ULTIMO GOLPE (30/10, playtest: "el juego ya sabe cuando has matado al enemigo y
+# finaliza el combate: te sale el continuar antes de que siquiera veas la animacion del golpe ni le baje la barra de
+# vida"). La pelea se acaba al RESOLVER el golpe mortal, y su animacion va despues por la cola de efectos: el boton sale
+# cuando la cola ha acabado y las barras han llegado a su sitio (con un tope, por si algo se quedara colgado). Visible Y
+# habilitado Y con su texto (solo 'visible' no bastaba si venia deshabilitado). Lo usan _end y el espejo.
+const CONTINUAR_TOPE_MS := 6000
+const CONTINUAR_RESPIRO := 0.25   # s tras el ultimo golpe, para que se lea antes de que salga el boton
+var _continuar_esperando := false
+
+func mostrar_continuar() -> void:
+	if _continuar_esperando or _continue_button.visible:
+		return
+	_continuar_esperando = true
+	var t0: int = Time.get_ticks_msec()
+	# Unos fotogramas antes de preguntar: en el espejo, los impactos del golpe mortal pueden llegar justo detras del fin.
+	for _i in 3:
+		await get_tree().process_frame
+	while is_inside_tree() and _fx != null and (_fx.ocupado() or not _fx.barras_quietas()) \
+			and Time.get_ticks_msec() - t0 < CONTINUAR_TOPE_MS:
+		await get_tree().process_frame
+	if not is_inside_tree():
+		return
+	await get_tree().create_timer(CONTINUAR_RESPIRO, true).timeout
+	_continuar_esperando = false
+	if not is_inside_tree() or _state != State.FINISHED:
+		return
+	_continue_button.visible = true
+	_continue_button.disabled = false
+	_continue_button.text = "Continuar"
+
+
 func _end(player_won: bool, fled: bool = false) -> void:
 	# El GOLPE MORTAL tambien se ve: la cola se suelta igual aunque la pelea acabe aqui. No se
 	# cancela nada -- la animacion se queda corriendo sobre la pantalla de resultado, que es
@@ -2902,9 +2933,7 @@ func _end(player_won: bool, fled: bool = false) -> void:
 	magia._limpiar_casteo()
 	_casteos.clear()   # y los conjuros a medias de los demas: la pelea ha terminado para todos
 	_ocultar_cajas()
-	_continue_button.visible = true
-	_continue_button.disabled = false
-	_continue_button.text = "Continuar"
+	mostrar_continuar()
 	# EL REMATE SUENA AQUI, con el "Continuar" en pantalla, que es cuando el jugador esta leyendo el
 	# resultado. Estaba en Game._on_combat_finished, o sea al PULSAR el boton: la fanfarria empezaba
 	# justo cuando te ibas y se quedaba sonando encima del mapa. Al pulsar se corta (Musica.desapilar).

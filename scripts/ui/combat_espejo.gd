@@ -482,11 +482,8 @@ func aplicar_instantanea(snap: Dictionary) -> void:
 	if bool(snap.get("fin", false)):
 		_pantalla._state = _pantalla.State.FINISHED
 		_pantalla._acabo_huyendo = bool(snap.get("huida", false))
-		# Igual que en _end(): visible Y habilitado Y con su texto. Solo poner 'visible' no bastaba
-		# si el boton venia deshabilitado de antes: se veia el "Continuar" pero no se podia pulsar.
-		_pantalla._continue_button.visible = true
-		_pantalla._continue_button.disabled = false
-		_pantalla._continue_button.text = "Continuar"
+		# Igual que en _end(): cuando se haya visto el ultimo golpe (ver mostrar_continuar).
+		_pantalla.mostrar_continuar()
 		_pantalla._ocultar_cajas()
 	_pantalla._update_hp()
 

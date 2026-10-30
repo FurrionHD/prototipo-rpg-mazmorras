@@ -1589,6 +1589,20 @@ func _saldar_barras() -> void:
 		_soltar_apagado(b)
 
 
+# ¿Han llegado todas las barras a donde van? (el "Continuar" espera a que se vea bajar la ultima vida, ver
+# combat.mostrar_continuar)
+func barras_quietas() -> bool:
+	for b in _tarjetas:
+		for clave in ["hp", "en", "mp"]:
+			if not b.has(clave) or not b.has(clave + "_meta"):
+				continue
+			var bar: ProgressBar = b[clave]
+			if bar != null and is_instance_valid(bar) and bar.is_visible_in_tree() \
+					and not is_equal_approx(bar.value, float(b[clave + "_meta"])):
+				return false
+	return true
+
+
 func _mover_barras(delta: float) -> void:
 	for b in _tarjetas:
 		for clave in ["hp", "en", "mp"]:
