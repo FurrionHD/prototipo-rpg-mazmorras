@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tools/ver_onda_sigilo.gd" id="1"]
+
+[node name="VerOndaSigilo" type="Node2D"]
+script = ExtResource("1")

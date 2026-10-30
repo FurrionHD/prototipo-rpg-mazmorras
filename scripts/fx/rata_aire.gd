@@ -61,7 +61,7 @@ const T_REMOLINO := 0.32       # lo que dura cada remolino de la Traicion
 const T_VELO := 0.85           # lo que se queda el velo sobre los ojos
 const T_GOLPE := 0.4           # los de sobre el cuerpo
 const T_ONDA := 1.1            # lo que dura la ondulacion del sigilo
-const ONDA_ALFA := 0.26        # lo mas que se insinua la silueta
+const ONDA_ALFA := 0.22        # lo mas que se insinua la silueta
 const ONDA_FRANJAS := 9
 const SILUETA := Color(0.78, 0.80, 0.95)   # la silueta que se insinua: un velo palido, no el bicho
 
@@ -158,7 +158,24 @@ static func onda_sigilo(padre: Node, spr: AnimatedSprite2D, semilla: int) -> Rat
 	e._ritmo = maxf(BarridoAire.ritmo, 0.05)
 	e._preparar()
 	e._montar(padre)
+	# SOLO SU FORMA, en claro: el sprite de la sombria es casi negro y, teñido, seguia negro sobre el suelo negro (hoja
+	# del 30/10: no se leia). El shader pinta el color del velo con el alfa del fotograma.
+	e._delante.material = _mat_silueta()
 	return e
+
+
+static var _silueta: ShaderMaterial = null
+
+static func _mat_silueta() -> ShaderMaterial:
+	if _silueta == null:
+		var sh := Shader.new()
+		# (en Godot 4 el COLOR del fragmento ya viene multiplicado por la textura: el color sale de 'velo' y de COLOR solo
+		# el alfa, que es el del fotograma por el de la onda)
+		sh.code = "shader_type canvas_item;\nuniform vec3 velo = vec3(1.0);\nvoid fragment() {\n\tCOLOR = vec4(velo, COLOR.a);\n}\n"
+		_silueta = ShaderMaterial.new()
+		_silueta.shader = sh
+		_silueta.set_shader_parameter("velo", Vector3(SILUETA.r, SILUETA.g, SILUETA.b))
+	return _silueta
 
 
 # ¿Ese color es el de la de cuarzo ahumado? (oscuro: su cristal es ahumado; el de la drusa, cian).
@@ -573,7 +590,7 @@ func _onda(capa: Node2D) -> void:
 	var alto: float = tam.y / float(ONDA_FRANJAS)
 	capa.draw_set_transform_matrix(_xf)
 	for i in ONDA_FRANJAS:
-		var mece: float = sin(_t * 9.0 + _fase + float(i) * 0.85) * (1.0 + 1.6 * sin(PI * k))
+		var mece: float = sin(_t * 11.0 + _fase + float(i) * 0.9) * (1.2 + 2.0 * sin(PI * k))
 		var src := Rect2(0.0, alto * float(i), tam.x, alto)
 		var dst := Rect2(_rect.position + Vector2(mece, alto * float(i)), Vector2(tam.x, alto))
 		if _al_reves:   # (el sprite va volteado: la franja, del reves)
