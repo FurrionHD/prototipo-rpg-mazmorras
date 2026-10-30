@@ -2232,9 +2232,9 @@ f3157 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f3158 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3158 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f3158 PULSA Atacar
-f3159 LOG Catalardio golpea con Martillo grande por 10.88 de daño.
+f3159 LOG Catalardio golpea con Martillo grande por 13.33 de daño.
 f3159 Catalardio hp=197.950 mp=24.620 en=148.275
-f3159 Rey Slime hp=307.746 mp=21.188 en=0.000
+f3159 Rey Slime hp=306.033 mp=21.188 en=0.000
 f3159 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3159 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f3160 Slime de fuego hp=37.456 mp=20.891 en=0.000
@@ -2936,9 +2936,8 @@ f3499 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f3500 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3500 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f3500 PULSA Atacar
-f3501 LOG Dasui golpea con Mandobles por 11.74 de daño.
+f3501 LOG 1. Rey Slime esquiva tu ataque (Mandobles). 💨
 f3501 Dasui hp=196.821 mp=20.000 en=181.300
-f3501 Rey Slime hp=299.527 mp=21.188 en=0.000
 f3501 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3501 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f3502 Slime de fuego hp=37.456 mp=20.891 en=0.000
@@ -3169,7 +3168,8 @@ f3612 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3612 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f3613 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3613 Slime de fuego hp=42.797 mp=20.891 en=0.000
-f3614 LOG ⏳ 2. Slime de fuego prepara Combustión. ¡Apártate! (aturdirlo lo interrumpe)
+f3614 LOG 2. Slime de fuego ataca a Daniel por 0.90 de daño.
+f3614 Daniel hp=338.443 mp=20.000 en=122.025
 f3614 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3614 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f3615 Slime de fuego hp=37.456 mp=20.891 en=0.000
@@ -3240,121 +3240,160 @@ f3647 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3647 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f3648 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3648 Slime de fuego hp=42.797 mp=20.891 en=0.000
-f3649 LOG El conjuro está listo. ¡Lánzalo!
 f3649 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3649 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f3650 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3650 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f3651 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3651 Slime de fuego hp=42.797 mp=20.891 en=0.000
-f3651 PULSA 🔥 ¡Lanzar Eclipse!
-f3652 LOG … 563.25 de daño en total.
-f3652 Agirato ochinan hp=184.684 mp=17.173 en=177.425
-f3652 Rey Slime hp=83.960 mp=21.188 en=0.000
-f3652 Slime de fuego hp=0.000 mp=20.891 en=0.000
-f3652 Slime venenoso hp=0.000 mp=20.495 en=0.000
-f3722 LOG ¡Turno de Daniel! Elige una acción.
-f3722 Daniel hp=336.348 mp=20.000 en=122.025
-f3724 PULSA Objeto
-f3727 PULSA _objeto_box: Poción de maná media +2  x2
-f3730 PULSA _objeto_box: Agirato ochinan  (185/200 ♥  17/37 🔷)
-f3731 LOG Daniel le da Poción de maná media +2 a Agirato ochinan. 🔷 46 de maná (9 ya), repartido en 5 turnos.
-f3731 Agirato ochinan hp=184.684 mp=26.449 en=177.425
-f3783 LOG ¡Turno de Dasui! Elige una acción.
-f3785 PULSA Defender
-f3786 LOG Dasui se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
-f3786 Dasui hp=196.821 mp=20.000 en=166.300
-f3791 LOG ¡Turno de Agirato ochinan! Elige una acción.
-f3791 Agirato ochinan hp=184.684 mp=36.147 en=177.425
-f3793 PULSA Habilidad
-f3796 PULSA _ability_box: Bastonazo  (26 EN)
-f3797 LOG ⏳ Agirato ochinan prepara Bastonazo. (si le aturden, se interrumpe)
-f3797 Agirato ochinan hp=184.684 mp=36.147 en=151.425
-f3802 LOG ¡Turno de Catalardio! Elige una acción.
-f3804 PULSA Atacar
-f3805 LOG Catalardio golpea con Martillo grande por 13.28 de daño.
-f3805 Rey Slime hp=70.684 mp=21.188 en=0.000
-f3857 LOG ¡Turno de Daniel! Elige una acción.
-f3857 Daniel hp=333.348 mp=20.000 en=122.025
-f3859 PULSA Atacar
-f3860 LOG Daniel golpea con Maza pequeña por 6.08 de daño.
-f3860 Daniel hp=333.348 mp=20.000 en=157.025
-f3860 Rey Slime hp=64.600 mp=21.188 en=0.000
-f3932 LOG Bastonazo está lista. Elige a quién y suéltala.
-f3934 PULSA ⚡ ¡Soltar Bastonazo!
-f3935 LOG … 11.25 de daño (1 de 1 golpes).  +0.2 MP.
-f3935 Agirato ochinan hp=184.684 mp=36.347 en=151.425
-f3935 Rey Slime hp=53.353 mp=21.188 en=0.000
-f3998 LOG … 1.78 de daño: Catalardio (0.92), Agirato ochinan (0.63), Dasui (0.23), Daniel (0.00)  🛡️ Dasui aguanta en guardia (menos daño).  Aplica: Débil.
-f3998 Agirato ochinan hp=184.055 mp=36.347 en=151.425
-f3998 Catalardio hp=196.839 mp=24.620 en=181.275
-f3998 Dasui hp=196.595 mp=20.000 en=166.300
-f4068 LOG ¡Turno de Dasui! Elige una acción.
-f4070 PULSA Defender
-f4071 LOG Dasui se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
-f4071 Dasui hp=196.595 mp=20.000 en=151.300
-f4083 LOG ¡Turno de Daniel! Elige una acción.
-f4083 Daniel hp=330.348 mp=20.000 en=157.025
-f4085 PULSA Habilidad
-f4088 PULSA _ability_box: Golpe demoledor  (42 EN)
-f4089 LOG ⏳ Daniel prepara Golpe demoledor. (si le aturden, se interrumpe)
-f4089 Daniel hp=330.348 mp=20.000 en=115.025
-f4091 LOG ¡Turno de Catalardio! Elige una acción.
-f4093 PULSA Atacar
-f4094 LOG Catalardio golpea con Martillo grande por 12.74 de daño.
-f4094 Rey Slime hp=40.612 mp=21.188 en=0.000
-f4156 LOG ¡Turno de Agirato ochinan! Elige una acción.
-f4156 Agirato ochinan hp=184.055 mp=36.500 en=151.425
-f4158 PULSA Atacar
-f4159 LOG Agirato ochinan golpea con Baston por 4.88 de daño.
-f4159 Agirato ochinan hp=184.055 mp=36.500 en=177.425
-f4159 Rey Slime hp=35.733 mp=21.188 en=0.000
-f4227 LOG Golpe demoledor está lista. Elige a quién y suéltala.
-f4229 PULSA ⚡ ¡Soltar Golpe demoledor!
-f4230 LOG … 7.13 de daño (1 de 1 golpes).
-f4230 Rey Slime hp=28.603 mp=21.188 en=0.000
-f4302 LOG ¡Turno de Dasui! Elige una acción.
-f4304 PULSA Defender
-f4305 LOG Dasui se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
-f4305 Dasui hp=196.595 mp=20.000 en=136.300
-f4324 LOG ¡Turno de Agirato ochinan! Elige una acción.
-f4326 PULSA Habilidad
-f4329 PULSA _ability_box: atras (apagados: Bastonazo  (26 EN)  ⏳1 [⛔ En cooldown: 1 turno])
-f4332 PULSA Atacar
-f4333 LOG Agirato ochinan golpea con Baston por 5.00 de daño.
-f4333 Rey Slime hp=23.604 mp=21.188 en=0.000
-f4384 LOG ¡Turno de Catalardio! Elige una acción.
-f4386 PULSA Atacar
-f4387 LOG Catalardio golpea con Martillo grande por 10.67 de daño.
-f4387 Rey Slime hp=12.933 mp=21.188 en=0.000
-f4446 LOG ⏳ 1. Rey Slime prepara Brote. ¡Apártate! (aturdirlo lo interrumpe)
-f4489 LOG ¡Turno de Daniel! Elige una acción.
-f4489 Daniel hp=165.174 mp=20.000 en=115.025
-f4491 PULSA Atacar
-f4492 LOG 1. Rey Slime esquiva tu ataque (Maza pequeña). 💨
-f4492 Daniel hp=165.174 mp=20.000 en=150.025
-f4568 LOG ¡Turno de Dasui! Elige una acción.
-f4570 PULSA Objeto
-f4573 PULSA _objeto_box: Poción de maná media +2  x1
-f4576 PULSA _objeto_box: Agirato ochinan  (184/200 ♥  37/37 🔷)
-f4577 LOG Dasui le da Poción de maná media +2 a Agirato ochinan. 🔷 46 de maná (9 ya), repartido en 5 turnos.
-f4583 LOG ⚡ 1. Rey Slime se prepara para Brote. ¡Prepárate! (aturdirlo lo interrumpe)
-f4619 LOG ¡Turno de Agirato ochinan! Elige una acción.
-f4621 PULSA Defender
-f4622 LOG Agirato ochinan se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
-f4622 Agirato ochinan hp=184.055 mp=36.500 en=162.425
-f4633 LOG ¡Turno de Catalardio! Elige una acción.
-f4635 PULSA Habilidad
-f4638 PULSA _ability_box: Golpe sísmico  (60 EN)
-f4639 LOG ⏳ Catalardio prepara Golpe sísmico. (si le aturden, se interrumpe)
-f4639 Catalardio hp=196.839 mp=24.620 en=121.275
-f4652 LOG ¡Turno de Daniel! Elige una acción.
-f4654 PULSA Atacar
-f4655 LOG Daniel golpea con Maza pequeña por 4.85 de daño.
-f4655 Daniel hp=165.174 mp=20.000 en=181.025
-f4655 Rey Slime hp=8.082 mp=21.188 en=0.000
-f4727 LOG Golpe sísmico está lista. Elige a quién y suéltala.
-f4729 PULSA ⚡ ¡Soltar Golpe sísmico!
-f4730 LOG ¡GANASTE el combate contra 4 enemigos! 🎉
-f4730 Rey Slime hp=0.000 mp=21.188 en=0.000
-FIN f4730 estado=3
+f3652 Slime de fuego hp=37.456 mp=20.891 en=0.000
+f3652 Slime de fuego hp=42.797 mp=20.891 en=0.000
+f3653 Slime de fuego hp=37.456 mp=20.891 en=0.000
+f3653 Slime de fuego hp=42.797 mp=20.891 en=0.000
+f3654 Slime de fuego hp=37.456 mp=20.891 en=0.000
+f3654 Slime de fuego hp=42.797 mp=20.891 en=0.000
+f3655 Slime de fuego hp=37.456 mp=20.891 en=0.000
+f3655 Slime de fuego hp=42.797 mp=20.891 en=0.000
+f3656 Slime de fuego hp=37.456 mp=20.891 en=0.000
+f3656 Slime de fuego hp=42.797 mp=20.891 en=0.000
+f3657 Slime de fuego hp=37.456 mp=20.891 en=0.000
+f3657 Slime de fuego hp=42.797 mp=20.891 en=0.000
+f3658 Slime de fuego hp=37.456 mp=20.891 en=0.000
+f3658 Slime de fuego hp=42.797 mp=20.891 en=0.000
+f3659 Slime de fuego hp=37.456 mp=20.891 en=0.000
+f3659 Slime de fuego hp=42.797 mp=20.891 en=0.000
+f3660 Slime de fuego hp=37.456 mp=20.891 en=0.000
+f3660 Slime de fuego hp=42.797 mp=20.891 en=0.000
+f3661 Slime de fuego hp=37.456 mp=20.891 en=0.000
+f3661 Slime de fuego hp=42.797 mp=20.891 en=0.000
+f3662 Slime de fuego hp=37.456 mp=20.891 en=0.000
+f3662 Slime de fuego hp=42.797 mp=20.891 en=0.000
+f3663 Slime de fuego hp=37.456 mp=20.891 en=0.000
+f3663 Slime de fuego hp=42.797 mp=20.891 en=0.000
+f3664 Slime de fuego hp=37.456 mp=20.891 en=0.000
+f3664 Slime de fuego hp=42.797 mp=20.891 en=0.000
+f3665 Slime de fuego hp=37.456 mp=20.891 en=0.000
+f3665 Slime de fuego hp=42.797 mp=20.891 en=0.000
+f3666 Slime de fuego hp=37.456 mp=20.891 en=0.000
+f3666 Slime de fuego hp=42.797 mp=20.891 en=0.000
+f3667 Slime de fuego hp=37.456 mp=20.891 en=0.000
+f3667 Slime de fuego hp=42.797 mp=20.891 en=0.000
+f3668 Slime de fuego hp=37.456 mp=20.891 en=0.000
+f3668 Slime de fuego hp=42.797 mp=20.891 en=0.000
+f3669 LOG El conjuro está listo. ¡Lánzalo!
+f3669 Slime de fuego hp=37.456 mp=20.891 en=0.000
+f3669 Slime de fuego hp=42.797 mp=20.891 en=0.000
+f3670 Slime de fuego hp=37.456 mp=20.891 en=0.000
+f3670 Slime de fuego hp=42.797 mp=20.891 en=0.000
+f3671 Slime de fuego hp=37.456 mp=20.891 en=0.000
+f3671 Slime de fuego hp=42.797 mp=20.891 en=0.000
+f3671 PULSA 🔥 ¡Lanzar Eclipse!
+f3672 LOG … 561.02 de daño en total.
+f3672 Agirato ochinan hp=184.684 mp=17.173 en=177.425
+f3672 Rey Slime hp=87.519 mp=21.188 en=0.000
+f3672 Slime de fuego hp=0.000 mp=20.891 en=0.000
+f3672 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f3742 LOG ¡Turno de Daniel! Elige una acción.
+f3742 Daniel hp=335.443 mp=20.000 en=122.025
+f3744 PULSA Objeto
+f3747 PULSA _objeto_box: Poción de maná media +2  x2
+f3750 PULSA _objeto_box: Agirato ochinan  (185/200 ♥  17/37 🔷)
+f3751 LOG Daniel le da Poción de maná media +2 a Agirato ochinan. 🔷 46 de maná (9 ya), repartido en 5 turnos.
+f3751 Agirato ochinan hp=184.684 mp=26.449 en=177.425
+f3803 LOG ¡Turno de Dasui! Elige una acción.
+f3805 PULSA Defender
+f3806 LOG Dasui se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
+f3806 Dasui hp=196.821 mp=20.000 en=166.300
+f3811 LOG ¡Turno de Agirato ochinan! Elige una acción.
+f3811 Agirato ochinan hp=184.684 mp=36.147 en=177.425
+f3813 PULSA Habilidad
+f3816 PULSA _ability_box: Bastonazo  (26 EN)
+f3817 LOG ⏳ Agirato ochinan prepara Bastonazo. (si le aturden, se interrumpe)
+f3817 Agirato ochinan hp=184.684 mp=36.147 en=151.425
+f3822 LOG ¡Turno de Catalardio! Elige una acción.
+f3824 PULSA Atacar
+f3825 LOG Catalardio golpea con Martillo grande por 12.51 de daño.
+f3825 Rey Slime hp=75.014 mp=21.188 en=0.000
+f3877 LOG ¡Turno de Daniel! Elige una acción.
+f3877 Daniel hp=332.443 mp=20.000 en=122.025
+f3879 PULSA Atacar
+f3880 LOG Daniel golpea con Maza pequeña por 5.41 de daño.
+f3880 Daniel hp=332.443 mp=20.000 en=157.025
+f3880 Rey Slime hp=69.608 mp=21.188 en=0.000
+f3952 LOG Bastonazo está lista. Elige a quién y suéltala.
+f3954 PULSA ⚡ ¡Soltar Bastonazo!
+f3955 LOG … 14.70 de daño (1 de 1 golpes).  +0.2 MP.  ✨Lento.
+f3955 Agirato ochinan hp=184.684 mp=36.347 en=151.425
+f3955 Rey Slime hp=54.907 mp=21.188 en=0.000
+f4018 LOG … 5.60 de daño: Daniel (4.79), Agirato ochinan (0.61), Catalardio (0.00), Dasui (0.20)  🛡️ Dasui aguanta en guardia (menos daño).  Aplica: Vulnerable, Débil.
+f4018 Agirato ochinan hp=184.074 mp=36.347 en=151.425
+f4018 Dasui hp=196.620 mp=20.000 en=166.300
+f4018 Daniel hp=327.655 mp=20.000 en=157.025
+f4088 LOG ¡Turno de Dasui! Elige una acción.
+f4090 PULSA Defender
+f4091 LOG Dasui se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
+f4091 Dasui hp=196.620 mp=20.000 en=151.300
+f4103 LOG ¡Turno de Daniel! Elige una acción.
+f4103 Daniel hp=324.655 mp=20.000 en=157.025
+f4105 PULSA Habilidad
+f4108 PULSA _ability_box: Golpe demoledor  (42 EN)
+f4109 LOG ⏳ Daniel prepara Golpe demoledor. (si le aturden, se interrumpe)
+f4109 Daniel hp=324.655 mp=20.000 en=115.025
+f4111 LOG ¡Turno de Catalardio! Elige una acción.
+f4113 PULSA Atacar
+f4114 LOG 1. Rey Slime esquiva tu ataque (Martillo grande). 💨
+f4176 LOG ¡Turno de Agirato ochinan! Elige una acción.
+f4176 Agirato ochinan hp=184.074 mp=36.500 en=151.425
+f4178 PULSA Atacar
+f4179 LOG Agirato ochinan golpea con Baston por 6.94 de daño.
+f4179 Agirato ochinan hp=184.074 mp=36.500 en=177.425
+f4179 Rey Slime hp=47.965 mp=21.188 en=0.000
+f4247 LOG Golpe demoledor está lista. Elige a quién y suéltala.
+f4249 PULSA ⚡ ¡Soltar Golpe demoledor!
+f4250 LOG … 8.54 de daño (1 de 1 golpes).
+f4250 Rey Slime hp=39.427 mp=21.188 en=0.000
+f4322 LOG ¡Turno de Dasui! Elige una acción.
+f4324 PULSA Defender
+f4325 LOG Dasui se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
+f4325 Dasui hp=196.620 mp=20.000 en=136.300
+f4344 LOG ¡Turno de Agirato ochinan! Elige una acción.
+f4346 PULSA Habilidad
+f4349 PULSA _ability_box: atras (apagados: Bastonazo  (26 EN)  ⏳1 [⛔ En cooldown: 1 turno])
+f4352 PULSA Atacar
+f4353 LOG ¡CRITICO! Agirato ochinan golpea con Baston por 9.58 de daño. 💥
+f4353 Rey Slime hp=29.846 mp=21.188 en=0.000
+f4404 LOG ¡Turno de Catalardio! Elige una acción.
+f4406 PULSA Atacar
+f4407 LOG Catalardio golpea con Martillo grande por 11.46 de daño.
+f4407 Rey Slime hp=18.384 mp=21.188 en=0.000
+f4466 LOG ⏳ 1. Rey Slime prepara Brote. ¡Apártate! (aturdirlo lo interrumpe)
+f4509 LOG ¡Turno de Daniel! Elige una acción.
+f4509 Daniel hp=162.327 mp=20.000 en=115.025
+f4511 PULSA Atacar
+f4512 LOG Daniel golpea con Maza pequeña por 4.85 de daño.
+f4512 Daniel hp=162.327 mp=20.000 en=150.025
+f4512 Rey Slime hp=13.533 mp=21.188 en=0.000
+f4588 LOG ¡Turno de Dasui! Elige una acción.
+f4590 PULSA Objeto
+f4593 PULSA _objeto_box: Poción de maná media +2  x1
+f4596 PULSA _objeto_box: Agirato ochinan  (184/200 ♥  37/37 🔷)
+f4597 LOG Dasui le da Poción de maná media +2 a Agirato ochinan. 🔷 46 de maná (9 ya), repartido en 5 turnos.
+f4608 LOG ¡Turno de Agirato ochinan! Elige una acción.
+f4610 PULSA Defender
+f4611 LOG Agirato ochinan se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
+f4611 Agirato ochinan hp=184.074 mp=36.500 en=162.425
+f4619 LOG ⚡ 1. Rey Slime se prepara para Brote. ¡Prepárate! (aturdirlo lo interrumpe)
+f4653 LOG ¡Turno de Catalardio! Elige una acción.
+f4655 PULSA Habilidad
+f4658 PULSA _ability_box: Golpe sísmico  (60 EN)
+f4659 LOG ⏳ Catalardio prepara Golpe sísmico. (si le aturden, se interrumpe)
+f4659 Catalardio hp=197.761 mp=24.620 en=121.275
+f4672 LOG ¡Turno de Daniel! Elige una acción.
+f4674 PULSA Atacar
+f4675 LOG 1. Rey Slime esquiva tu ataque (Maza pequeña). 💨
+f4675 Daniel hp=162.327 mp=20.000 en=181.025
+f4747 LOG Golpe sísmico está lista. Elige a quién y suéltala.
+f4749 PULSA ⚡ ¡Soltar Golpe sísmico!
+f4750 LOG ¡GANASTE el combate contra 4 enemigos! 🎉
+f4750 Rey Slime hp=0.000 mp=21.188 en=0.000
+FIN f4750 estado=3
