@@ -170,7 +170,9 @@ const MAX_CONEXIONES := 32
 #     y la magia que no pilla a nadie manda su efecto y su gesto con un golpe al aire. Un build del 60 no veria ninguno.
 # 62 (30/10): las bolas de la Andanada caen sobre los enemigos de dentro y sus puntos viajan con su efecto (MARCA_PUNTOS
 #     en el paquete de golpes). Un build del 61 no sabria leerlos.
-const PROTOCOLO := 62
+# 63 (30/10): los mutantes de la rata: estado EN_SOMBRAS (el sigilo de verdad de la sombria), estilos de efecto RATA_*
+#     211-216 y suelos RATA_* 105-109. Un build del 62 no sabria pintarlos.
+const PROTOCOLO := 63
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

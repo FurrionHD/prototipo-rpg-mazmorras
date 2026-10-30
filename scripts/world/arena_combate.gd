@@ -424,6 +424,8 @@ func _draw() -> void:
 	# 4) LAS HUELLAS: lo que tapa una habilidad mientras se apunta (y, las cargadas, mientras cargan).
 	# Tambien sin achatar. El NUCLEO (la zona de impacto, con el daño entero) va mas marcado.
 	for clave in huellas:
+		if huellas_ocultas.has(clave):
+			continue
 		var h: Dictionary = huellas[clave]
 		var f = h["forma"]
 		var c: Color = h["color"]
@@ -451,6 +453,10 @@ func _dibujar_ajena() -> void:
 
 # LAS HUELLAS PINTADAS, por clave (quien la lanza): {forma, nucleo, color}.
 var huellas: Dictionary = {}
+# Las que NO se pintan aunque esten (30/10): las de quien esta EN LAS SOMBRAS (la rata sombria: "sin que se vean sus
+# areas de ataque"). Siguen guardadas: si le sacan de las sombras a media carga, su huella aparece. La rellena
+# CombatTactico._sombras_visibles cada fotograma.
+var huellas_ocultas: Dictionary = {}
 
 func poner_huella(clave: Variant, forma: RefCounted, nucleo: float = 0.0,
 		color: Color = Color(0.45, 0.85, 1.0)) -> void:

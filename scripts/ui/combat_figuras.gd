@@ -927,6 +927,9 @@ func _on_bloque_gui_input(ev: InputEvent, idx: int) -> void:
 func _seleccionar(idx: int) -> void:
 	if idx < 0 or idx >= _pantalla._enemies.size() or not _pantalla._enemies[idx].is_alive():
 		return
+	# (30/10) Al que esta EN LAS SOMBRAS no se le elige: no se le ve.
+	if _pantalla._enemies[idx].en_sombras():
+		return
 	_pantalla._target_idx = idx
 	for i in _pantalla._bloques.size():
 		var vivo: bool = _pantalla._enemies[i].is_alive()

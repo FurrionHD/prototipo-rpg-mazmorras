@@ -120,6 +120,21 @@ func seguir() -> void:
 		if col.has_meta(&"oculta_cria"):
 			col.remove_meta(&"oculta_cria")
 			col.visible = true
+		# EN LAS SOMBRAS (30/10, la rata sombria): ni barra ni clic. La marca es suya, como la de la cria.
+		var idx: int = int((f["bloque"] as Dictionary).get("idx", -1))
+		var zona_s: Control = f.get("zona")
+		if idx >= 0 and idx < _pantalla._enemies.size() and _pantalla._enemies[idx].en_sombras():
+			if col.visible:
+				col.visible = false
+				col.set_meta(&"oculta_sombra", true)
+			if is_instance_valid(zona_s):
+				zona_s.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			continue
+		if col.has_meta(&"oculta_sombra"):
+			col.remove_meta(&"oculta_sombra")
+			col.visible = true
+			if is_instance_valid(zona_s):
+				zona_s.mouse_filter = Control.MOUSE_FILTER_STOP
 		# De MUNDO a PANTALLA. La pelea vive en un CanvasLayer, al que la camara de la mazmorra no le
 		# afecta; el cuerpo si esta bajo la camara. Esta transformada es la que cruza los dos mundos.
 		var cuerpo_px: Rect2 = _rect_cuerpo_px(cuerpo)

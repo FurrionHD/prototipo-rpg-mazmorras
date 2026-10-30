@@ -77,6 +77,12 @@ func _enemy_turn(e: Combatant) -> void:
 		return
 	_regenerar(e)
 	e.enfriar_amenaza()   # su tabla de amenaza se enfria un poco cada turno suyo
+	# EL SIGILO DE VERDAD (30/10, la rata sombria): al empezar su turno, su probabilidad de fundirse con las sombras
+	# (si no esta ya; aturdida, no). Lo decide quien lleva la pelea; el estado viaja a los espejos como los demas.
+	if e.sigilo_prob > 0.0 and not ev.stunned and not e.en_sombras() and not _pantalla._espejo \
+			and randf() < e.sigilo_prob:
+		e.apply_status(StatusEffects.Id.EN_SOMBRAS)
+		_pantalla._set_log("%s se funde con las sombras. 🌑" % _pantalla._etq(e))
 	# BARRO COCIDO: se le va secando (o enfriando) turno a turno.
 	if e.ablandado > 0:
 		e.ablandado -= 1
@@ -1011,11 +1017,19 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 	# veces cada una a su aire).
 	var gesto_ab: int = _pantalla.efectos._gesto_de_habilidad(ab)
 	var anim_ab: AbilityData = ab   # de ella sale la animacion (su fx_anim)
+	# DESDE LAS SOMBRAS (30/10, el Mordisco sombrio: AbilityData.primero_infalible_en_sombras): el primer bocado no se ve
+	# venir, asi que no se esquiva.
+	var desde_sombras: bool = ab != null and ab.primero_infalible_en_sombras and e.en_sombras() and tanda_base == 0
+	# POR LA ESPALDA (30/10, el Mordisco a traicion): si su salto le dejo detras de 't', duele mas.
+	if ab != null and ab.extra_espalda > 0.0 and _pantalla.tactico and _pantalla.turno_mapa.por_la_espalda(e, t):
+		escala *= 1.0 + ab.extra_espalda
+		print("        [%s] por la espalda: +%d %%" % [t.nombre, roundi(ab.extra_espalda * 100.0)])
 	for i in n_golpes:
 		_pantalla.efectos._fx_tanda(tanda_base + i)
 		# (la Mirada estelar NO FALLA: AbilityData.infalible)
-		var result := StatsMath.resolve_magico_enemigo(e, t, not ab.infalible) if magico \
-			else StatsMath.resolve_attack(e, t, defendiendo, -1.0, 0.0, 0.0, ab == null or not ab.infalible)
+		var esquivable: bool = (ab == null or not ab.infalible) and not (desde_sombras and i == 0)
+		var result := StatsMath.resolve_magico_enemigo(e, t, esquivable) if magico \
+			else StatsMath.resolve_attack(e, t, defendiendo, -1.0, 0.0, 0.0, esquivable)
 		_pantalla._aplicar_pasivas(result, e, t)
 		if result.evaded:
 			print("        [%s] golpe %d: esquivado 💨" % [t.nombre, i + 1])

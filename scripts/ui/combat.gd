@@ -833,6 +833,10 @@ func _mult_camada(atacante: Combatant) -> float:
 # Aplica _mult_pasivas a un resultado de StatsMath.resolve_attack y lo cuenta en el log si cambia algo.
 func _aplicar_pasivas(result: Dictionary, atacante: Combatant, defensor: Combatant) -> void:
 	if result.get("evaded", false):
+		# SE APARTA DE UN SALTO (30/10, la rata sombria): si esquiva un golpe CUERPO A CUERPO de los tuyos.
+		if tactico and defensor != null and defensor.salto_esquiva > 0.0 and atacante != null \
+				and _enemies.has(defensor) and not _enemies.has(atacante) and not atacante.a_distancia:
+			turno_mapa.pedir_salto_atras(defensor, atacante, defensor.salto_esquiva)
 		return
 	# EN EL AIRE (la gargola cargando el Picado): el golpe de arma de los tuyos no le llega. Aqui solo pasan golpes de
 	# arma (la magia va por otro camino), asi que el hechizo si entra.
@@ -941,8 +945,13 @@ func setup(player_cs: Array, enemy_cs: Array, enemy_initiated: bool,
 # El OBJETIVO de tus acciones: el enemigo que tienes seleccionado. Si el indice apunta a un
 # muerto (o a nada), cae al primer vivo, para que una accion nunca se lance al vacio.
 func _objetivo() -> Combatant:
-	if _target_idx >= 0 and _target_idx < _enemies.size() and _enemies[_target_idx].is_alive():
+	# EN LAS SOMBRAS (30/10, la rata sombria): no se le puede elegir. Si no queda otro, el primero vivo igual (para
+	# que nada se quede sin objetivo), pero llega() no le alcanza: solo le dan las areas.
+	if _target_idx >= 0 and _target_idx < _enemies.size() and _enemies[_target_idx].is_alive() 			and not _enemies[_target_idx].en_sombras():
 		return _enemies[_target_idx]
+	for e in _enemies:
+		if e.is_alive() and not e.en_sombras():
+			return e
 	for e in _enemies:
 		if e.is_alive():
 			return e

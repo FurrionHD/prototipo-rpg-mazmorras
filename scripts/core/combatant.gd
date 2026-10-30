@@ -1090,7 +1090,16 @@ func take_damage(amount: float, es_dot: bool = false) -> void:
 	if not es_dot:
 		_golpe_recibido = maxf(amount, 0.0)
 		_golpe_frame = Engine.get_process_frames()
+		# EL QUE ESTA EN LAS SOMBRAS sale al encajar un golpe de verdad (30/10, la rata sombria). El veneno no le saca.
+		if amount > 0.0 and has_status(StatusEffects.Id.EN_SOMBRAS):
+			_quitar_status(StatusEffects.Id.EN_SOMBRAS)
+			print("[sombras] %s: el golpe le saca de las sombras" % nombre)
 	current_hp = maxf(0.0, current_hp - amount)
+
+
+# EN LAS SOMBRAS (30/10): ni se le ve ni se le puede elegir de objetivo; las areas si le dan.
+func en_sombras() -> bool:
+	return has_status(StatusEffects.Id.EN_SOMBRAS)
 
 # Cura vida SIN pasarse del maximo (pociones / Regeneración). No revive (si estas a 0
 # es que ya perdiste el turno de tick).

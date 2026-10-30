@@ -50,7 +50,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	RESCOLDO,
 	ENCENDIDO, AVIVADO, AFILADO,
 	CONGELACION,
-	DECRETO }
+	DECRETO,
+	EN_SOMBRAS }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -507,6 +508,15 @@ static var _defs: Dictionary = {
 		"turns": 2,
 		"debuff": true,
 		"descripcion": "El rey te ha señalado: todos sus súbditos van a por ti, y con ganas.",
+	},
+	# EL SIGILO DE VERDAD DE LOS ENEMIGOS (30/10, la rata sombria; diseño del jefe). No es el Sigilo de los tuyos (que solo
+	# INCLINA a quien van): este te lo QUITA DE LA VISTA. Sin cuerpo, sin barra y sin huellas, solo una ondulacion del
+	# aire de vez en cuando; no se le puede elegir de objetivo (solo le dan las AREAS). NO se va por turnos: lo quita
+	# el primer golpe que le entra (Combatant.take_damage). Entra con MutacionData.sigilo_prob al empezar su turno.
+	Id.EN_SOMBRAS: {
+		"id": Id.EN_SOMBRAS, "nombre": "En las sombras", "icono": "🌑", "color": Color(0.3, 0.3, 0.42),
+		"turns": 999, "en_sombras": true,
+		"descripcion": "No está. Bueno, sí está. En algún sitio. Mirándote.",
 	},
 	Id.CONGELACION: {
 		"id": Id.CONGELACION, "nombre": "Congelación", "icono": "❄", "color": Color(0.6, 0.85, 1.0),

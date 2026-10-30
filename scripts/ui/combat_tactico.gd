@@ -431,6 +431,7 @@ func desmontar() -> void:
 	_quitar_carne()
 	DistanciaAire.quitar_clavadas(Game.get_tree())   # lo clavado se va con la pelea (lo que aguanta cae al suelo)
 	_sigilo_visible(true)
+	_sombras_visibles(true)
 	pintar_imbuiciones(true)
 	pintar_escudos_agua(true)
 	for cu in _gestos_mapa.keys():   # un gesto a medias no puede dejar la marca puesta: no se volveria a animar
@@ -471,6 +472,53 @@ func _sigilo_visible(quitar: bool) -> void:
 		var esc: Vector2 = Vector2.ONE * (ESCALA_CARNE if carne else 1.0)
 		if m is Node2D and not (m as Node2D).scale.is_equal_approx(esc):
 			(m as Node2D).scale = esc
+
+
+# EL SIGILO DE VERDAD DE LOS ENEMIGOS (30/10, la rata sombria: Id.EN_SOMBRAS). No se le ve: el cuerpo escondido (con la
+# marca de la niebla, que si no lo vuelve a encender), sin ficha ni barra (combat_figuras_mapa) y, cada pocos segundos, el
+# aire ONDULA donde esta (RataAire.onda_sigilo). Lo lee del estado, asi que en el espejo sale igual. 'quitar' los
+# devuelve a todos a la vista (al acabar la pelea).
+const ONDA_CADA := Vector2(2.2, 4.0)   # cada cuanto ondula el aire (s, al azar entre los dos)
+var _en_sombras: Dictionary = {}   # cuerpo -> segundos que faltan para la siguiente onda
+
+func _sombras_visibles(quitar: bool, dt: float = 0.0) -> void:
+	var siguen: Dictionary = {}
+	var ocultas: Dictionary = {}
+	if not quitar:
+		for i in _pantalla._enemies.size():
+			var e: Combatant = _pantalla._enemies[i]
+			var cu: Node2D = cuerpo_de(e)
+			if cu == null or not e.is_alive() or not e.en_sombras():
+				continue
+			siguen[cu] = true
+			# SUS HUELLAS tampoco (las suyas y, en el espejo, las que llegan por red: "red_<codigo>_<clase>").
+			ocultas[e] = true
+			ocultas[_clave_pisoton(e)] = true
+			ocultas["red_%d_%d" % [100 + i, CLASE_CARGA]] = true
+			ocultas["red_%d_%d" % [100 + i, CLASE_PISOTON]] = true
+			if not _en_sombras.has(cu):
+				_en_sombras[cu] = randf_range(0.6, ONDA_CADA.x)
+				print("[sombras] %s desaparece" % e.nombre)
+			if cu.visible:
+				cu.visible = false
+			cu.set_meta(OCULTA_PELEA, true)
+			_en_sombras[cu] = float(_en_sombras[cu]) - dt
+			if float(_en_sombras[cu]) <= 0.0:
+				_en_sombras[cu] = randf_range(ONDA_CADA.x, ONDA_CADA.y)
+				var spr = cu.get("_sprite")
+				if spr is AnimatedSprite2D:
+					RataAire.onda_sigilo(_arena(), spr, randi())
+	var arena_s: ArenaCombate = _arena()
+	if arena_s != null and arena_s.huellas_ocultas != ocultas:
+		arena_s.huellas_ocultas = ocultas
+	for cu in _en_sombras.keys():
+		if siguen.has(cu):
+			continue
+		_en_sombras.erase(cu)
+		if is_instance_valid(cu):
+			(cu as Node2D).remove_meta(OCULTA_PELEA)
+			(cu as Node2D).visible = true
+			print("[sombras] vuelve a verse")
 
 
 # ------------------------------------------------------------
@@ -970,6 +1018,9 @@ func llega(a: Combatant, b: Combatant) -> bool:
 	# En el aire (la gargola cargando el Picado) no la alcanza el cuerpo a cuerpo de los tuyos. Una flecha si.
 	if b.volando() and _pantalla._enemies.has(b) and not _pantalla._enemies.has(a) and not a.a_distancia:
 		return false
+	# EN LAS SOMBRAS (30/10, la rata sombria): a quien no se ve no se le pega a el; solo le dan las areas.
+	if b.en_sombras() and _pantalla._enemies.has(b) and not _pantalla._enemies.has(a):
+		return false
 	var tope: float = alcance_de(a)
 	if not _pantalla._espejo and _pantalla._aliados.has(a) and not _es_mio(a):
 		tope += HOLGURA_ALCANCE
@@ -1246,6 +1297,7 @@ func tick(delta: float) -> bool:
 	if niebla != null and niebla.has_method("seguir_en_pausa"):
 		niebla.seguir_en_pausa(delta)
 	_sigilo_visible(false)
+	_sombras_visibles(false, delta)
 	_tick_circulos()
 	_tick_alcances()
 	_tick_huellas(delta)
@@ -1620,7 +1672,8 @@ func punto_con_iman(spell: SpellData, c: Combatant, punto: Vector2) -> Vector2:
 	if spell == null or spell.forma_iman <= 0.0 or spell.forma_a_aliados or not usa_huella_hechizo(spell):
 		return punto
 	var ab: AbilityData = huella_apunte_hechizo(spell)
-	var rep: Array = _reparto_en(ab, c, forma_de(ab, c, punto))
+	# (30/10) El iman no engancha a quien esta en las sombras (le delataria); el area, si le cae, le da igual.
+	var rep: Array = _reparto_en(ab, c, forma_de(ab, c, punto)).filter(func(r): return not (r["c"] as Combatant).en_sombras())
 	if rep.is_empty():
 		return punto
 	return bulto_de(rep[0]["c"]).get_center()
@@ -1725,8 +1778,8 @@ func siguiente_en_cadena(desde: Combatant, ya: Array, maximo: float) -> Combatan
 	var mejor: Combatant = null
 	var d_mejor: float = INF
 	for e in _pantalla._vivos():
-		if ya.has(e):
-			continue
+		if ya.has(e) or e.en_sombras():
+			continue   # (30/10) la cadena salta a quien se ve
 		var d: float = hueco_entre(desde, e)
 		if d <= maximo and d < d_mejor - 0.001:
 			mejor = e
@@ -2316,6 +2369,11 @@ func reparto_enemigo(e: Combatant, ab: AbilityData, preferido: Combatant = null)
 const T_SALTO_BICHO := 0.4
 const ALTO_SALTO_BICHO := 26.0
 const T_EMBESTIDA_BICHO := 0.2
+var _por_la_espalda: Dictionary = {}   # Combatant (el que salta a la espalda) -> su presa, si cayo detras de ella
+
+# ¿'e' le pega a 't' POR LA ESPALDA con su ultimo salto? (AbilityData.extra_espalda)
+func por_la_espalda(e: Combatant, t: Combatant) -> bool:
+	return _por_la_espalda.get(e) == t
 
 func mover_enemigo(e: Combatant, ab: AbilityData, lista: Array, golpes: int) -> void:
 	var f = ultima_forma_enemigo
@@ -2324,8 +2382,19 @@ func mover_enemigo(e: Combatant, ab: AbilityData, lista: Array, golpes: int) -> 
 	var hasta: Vector2 = pos_de(e)
 	var dur: float = T_EMBESTIDA_BICHO
 	var arco: float = 0.0
+	_por_la_espalda.erase(e)
 	if ab.salta:
 		hasta = _sitio_libre_hacia(e, f.centro)
+		# A LA ESPALDA (30/10, el Mordisco a traicion): cae detras de su presa, del otro lado de donde venia.
+		if ab.salto_espalda and not lista.is_empty():
+			var presa: Combatant = lista[0]["c"]
+			var p = sitio_a_la_espalda(e, presa, e)
+			if p != null:
+				var de_donde: Vector2 = (pies_de(presa) - pies_de(e)).normalized()
+				hasta = p
+				# Por la espalda de verdad si ha caido en la mitad de atras (sin sitio detras, el abanico le abre a un lado).
+				if ((p as Vector2) + _bajo_de(e) - pies_de(presa)).normalized().dot(de_donde) > 0.5:
+					_por_la_espalda[e] = presa
 		dur = T_SALTO_BICHO
 		arco = ALTO_SALTO_BICHO * clampf(radio_pisa(e) / 10.0, 1.0, 2.5)   # el Rey salta mas alto
 	elif (ab.carga or ab.recorre) and f.tipo == CombatFormas.Tipo.LINEA:
@@ -5048,6 +5117,25 @@ func _on_impacto(ev: Dictionary) -> void:
 # dejando su eco (EstoqueAire.Modo.ESQUIVA). Se mueve solo el DIBUJO (el muñeco de los tuyos, el sprite de
 # un enemigo), no su sitio en la pelea. Si esquivaba En guardia, ademas la parada en la hoja. En todas las
 # maquinas: el espejo recibe los mismos golpes (y la marca de guardia, ver efectos._fx_golpe).
+# SE APARTA DE UN SALTO (30/10, la rata sombria: Combatant.salto_esquiva): al esquivar un golpe cuerpo a cuerpo, 'px'
+# hacia atras, lejos de 'de' (la pared o el borde lo paran). Sale en el instante en que se ve la esquiva, como el
+# empujon (Desliz.EMPUJON: lo arma _on_golpe_encajado, que _on_esquiva tambien llama), aqui y en el espejo.
+const T_SALTO_ESQUIVA := 0.22
+const ALTO_SALTO_ESQUIVA := 9.0
+
+func pedir_salto_atras(c: Combatant, de: Combatant, px: float) -> void:
+	if _pantalla._espejo or not _pantalla.tactico or c == null or de == null or cuerpo_de(c) == null \
+			or cuerpo_de(de) == null or c.imparable:
+		return
+	var dir: Vector2 = pies_de(c) - pies_de(de)
+	dir = dir.normalized() if dir.length_squared() > 0.01 else Vector2.RIGHT
+	var hasta: Vector2 = _sitio_libre_hacia(c, pies_de(c) + dir * px)
+	if hasta.distance_to(pos_de(c)) < 2.0:
+		return   # contra la pared: no hay a donde
+	print("[esquiva] %s se aparta de un salto (%.0f px)" % [c.nombre, hasta.distance_to(pos_de(c))])
+	pedir_desliz(c, hasta, Desliz.EMPUJON, 1, T_SALTO_ESQUIVA, ALTO_SALTO_ESQUIVA)
+
+
 func _on_esquiva(ev: Dictionary) -> void:
 	# EL QUE ESQUIVA UNA EMBESTIDA se aparta de un salto en ese instante (pedir_apartar), como el que la encaja.
 	_on_golpe_encajado(ev["bv"], 0.0)
@@ -5850,6 +5938,8 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		var mas_cerca: Combatant = null
 		var d_min: float = INF
 		for e in _pantalla._vivos():
+			if e.en_sombras():
+				continue
 			var d_e: float = pies_de(e).distance_squared_to(pies_de(v))
 			if d_e < d_min:
 				d_min = d_e
@@ -6203,6 +6293,8 @@ func _mas_cercano_al_alcance(c: Combatant, pies: Vector2) -> Combatant:
 	var mejor: Combatant = null
 	var d_mejor: float = INF
 	for e in _pantalla._vivos():
+		if e.en_sombras():
+			continue   # (30/10) en las sombras no se le apunta
 		var r: Rect2 = bulto_de(e)
 		var cerca := Vector2(clampf(pies.x, r.position.x, r.end.x), clampf(pies.y, r.position.y, r.end.y))
 		var hueco: float = pies.distance_to(cerca) - radio_pisa(c)
@@ -6289,6 +6381,8 @@ func pedir_ponerse_delante(c: Combatant, aliado: Combatant) -> void:
 	var enemigo: Combatant = null
 	var d_mejor: float = INF
 	for e in _pantalla._vivos():
+		if e.en_sombras():
+			continue
 		var d: float = hueco_entre(aliado, e)
 		if d < d_mejor:
 			d_mejor = d

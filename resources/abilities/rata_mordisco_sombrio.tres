@@ -20,5 +20,6 @@ efectos = [SubResource("SA_1")]
 efectos_por_golpe = true
 fx_estilo = 14
 cooldown = 2
+primero_infalible_en_sombras = true
 fx_estilo_mapa = 211
 fx_anim = &"desgarro"

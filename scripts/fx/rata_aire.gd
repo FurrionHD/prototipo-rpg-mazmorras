@@ -22,6 +22,8 @@
 #    ESQUIRLAS         esquirlas de cristal que saltan del bocado, con un destello.
 #    CORTE             el corte de cristal a quien atraviesa la Embestida: una media luna de cristal y sus esquirlas.
 #    VELO              el que se come el Destello: un velo oscuro sobre los ojos, con motas de luz (la Ceguera).
+#  Y EL SIGILO (onda_sigilo): la que esta EN LAS SOMBRAS no se ve; cada pocos segundos el aire ONDULA donde esta y se le
+#    insinua la silueta, temblando a franjas, y se vuelve a ir (CombatTactico._sombras_visibles).
 #  NADA DE LINEAS (efectos-sin-lineas). Coordenadas de MUNDO.
 # ============================================================
 extends Node2D
@@ -29,7 +31,7 @@ class_name RataAire
 
 # Los del suelo, en el orden de SueloRoto.Tipo.RATA_*: no reordenar.
 enum Modo { ESTELA_SOMBRA, ANILLO_ESQUIRLAS, SURCO_CRISTAL, DESTELLO, TRAICION,
-	JIRONES, ESQUIRLAS, CORTE, VELO }
+	JIRONES, ESQUIRLAS, CORTE, VELO, ONDA }
 
 const K := 0.7071
 const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
@@ -58,6 +60,10 @@ const T_HUMO := 0.6            # lo que tarda su humo en irse
 const T_REMOLINO := 0.32       # lo que dura cada remolino de la Traicion
 const T_VELO := 0.85           # lo que se queda el velo sobre los ojos
 const T_GOLPE := 0.4           # los de sobre el cuerpo
+const T_ONDA := 1.1            # lo que dura la ondulacion del sigilo
+const ONDA_ALFA := 0.26        # lo mas que se insinua la silueta
+const ONDA_FRANJAS := 9
+const SILUETA := Color(0.78, 0.80, 0.95)   # la silueta que se insinua: un velo palido, no el bicho
 
 var modo: int = Modo.JIRONES
 var forma: CombatFormas.Forma = null
@@ -76,6 +82,11 @@ var _piezas: Array = []
 var _suelo: Node2D = null
 var _delante: Node2D = null
 var _brillo: Node2D = null
+# (la onda del sigilo) el fotograma que se insinua y donde estaba: se copia al nacer, el cuerpo sigue escondido.
+var _tex: Texture2D = null
+var _xf: Transform2D = Transform2D.IDENTITY
+var _rect: Rect2 = Rect2()
+var _al_reves: bool = false
 
 
 # ------------------------------------------------------------
@@ -123,6 +134,28 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, color
 	e._dir = (e._c - desde).normalized() if e._c.distance_squared_to(desde) > 1.0 else Vector2.RIGHT
 	e._r = maxf(caja.size.x, 10.0)
 	e._t = -maxf(espera, 0.0) * e._ritmo
+	e._preparar()
+	e._montar(padre)
+	return e
+
+
+# LA ONDULACION DEL SIGILO sobre 'spr' (el sprite escondido de quien esta en las sombras): copia su fotograma de ahora
+# y donde esta, y lo insinua temblando. null si no hay que dibujar.
+static func onda_sigilo(padre: Node, spr: AnimatedSprite2D, semilla: int) -> RataAire:
+	if padre == null or spr == null or spr.sprite_frames == null or not spr.sprite_frames.has_animation(spr.animation):
+		return null
+	var tex: Texture2D = spr.sprite_frames.get_frame_texture(spr.animation, spr.frame)
+	if tex == null:
+		return null
+	var e := RataAire.new()
+	e.modo = Modo.ONDA
+	e._rng.seed = hash(semilla)
+	e._tex = tex
+	e._xf = spr.get_global_transform()
+	var tam: Vector2 = tex.get_size()
+	e._rect = Rect2((-tam * 0.5 if spr.centered else Vector2.ZERO) + spr.offset, tam)
+	e._al_reves = spr.flip_h
+	e._ritmo = maxf(BarridoAire.ritmo, 0.05)
 	e._preparar()
 	e._montar(padre)
 	return e
@@ -226,6 +259,7 @@ func duracion() -> float:
 		Modo.DESTELLO: return T_FOGONAZO + T_HUMO
 		Modo.TRAICION: return T_SALTO + T_REMOLINO
 		Modo.VELO: return T_VELO
+		Modo.ONDA: return T_ONDA
 	return T_GOLPE
 
 
@@ -252,6 +286,7 @@ func _pintar(capa: Node2D) -> void:
 		Modo.ESQUIRLAS: _esquirlas(capa)
 		Modo.CORTE: _corte(capa)
 		Modo.VELO: _velo(capa)
+		Modo.ONDA: _onda(capa)
 
 
 # ------------------------------------------------------------
@@ -520,3 +555,28 @@ func _velo(capa: Node2D) -> void:
 		var q: Vector2 = ojos + Vector2(float(pz["x"]) * w * 1.4, float(pz["y"]) * w * 0.6)
 		var luce: float = 0.5 + 0.5 * sin(_t * 8.0 + float(pz["f"]))
 		BarridoAire.destello(capa, q, 2.0, Color(AHUMADO_CLARO, alfa * luce), float(pz["f"]))
+
+
+# ------------------------------------------------------------
+#  LA ONDULACION DEL SIGILO
+# ------------------------------------------------------------
+# Su silueta en franjas que se mecen cada una a su aire (el aire caliente sobre el asfalto), sube y se va. Solo un velo
+# palido de su forma: ni sus colores ni su vida. Va con el bicho, en la capa de delante.
+func _onda(capa: Node2D) -> void:
+	if capa != _delante or _tex == null:
+		return
+	var k: float = clampf(_t / T_ONDA, 0.0, 1.0)
+	var alfa: float = ONDA_ALFA * sin(PI * k)
+	if alfa <= 0.01:
+		return
+	var tam: Vector2 = _tex.get_size()
+	var alto: float = tam.y / float(ONDA_FRANJAS)
+	capa.draw_set_transform_matrix(_xf)
+	for i in ONDA_FRANJAS:
+		var mece: float = sin(_t * 9.0 + _fase + float(i) * 0.85) * (1.0 + 1.6 * sin(PI * k))
+		var src := Rect2(0.0, alto * float(i), tam.x, alto)
+		var dst := Rect2(_rect.position + Vector2(mece, alto * float(i)), Vector2(tam.x, alto))
+		if _al_reves:   # (el sprite va volteado: la franja, del reves)
+			dst = Rect2(Vector2(-_rect.position.x - tam.x + mece, dst.position.y) + Vector2(tam.x, 0.0), Vector2(-tam.x, alto))
+		capa.draw_texture_rect_region(_tex, dst, src, Color(SILUETA, alfa))
+	capa.draw_set_transform_matrix(Transform2D.IDENTITY)

@@ -418,6 +418,11 @@ enum Pieza { NINGUNA, PEDAZO, ESQUIRLA }
 @export var atrae: float = 0.0
 # NO FALLA: sus golpes no se esquivan (la Mirada estelar).
 @export var infalible: bool = false
+# DESDE LAS SOMBRAS (30/10, el Mordisco sombrio): si quien la lanza esta EN LAS SOMBRAS, su PRIMER golpe no se esquiva.
+@export var primero_infalible_en_sombras: bool = false
+# POR LA ESPALDA (30/10, el Mordisco a traicion): + este % de daño si quien la lanza pega desde detras de su presa (la
+# mitad de atras de hacia donde mira).
+@export var extra_espalda: float = 0.0
 # EL ELEMENTO DE SUS GOLPES si no es el de quien la lanza (-1 = el suyo): las estrellas del abisal son de LUZ.
 @export var elemento_golpe: int = -1
 # MAGICA (08/10/2026, de momento solo las de los slimes): pega con la MAGIA del que la lanza contra tu DEFENSA MAGICA y
