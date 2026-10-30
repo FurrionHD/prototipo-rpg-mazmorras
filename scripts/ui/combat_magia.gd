@@ -451,6 +451,9 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 	# EN EL MAPA, lo que tape su huella en el sitio que se apunto al empezar: le da a quien este AHI ahora
 	# (si se han ido, mala suerte). Sin nadie dentro, se pierde contra el suelo (el mana ya esta pagado).
 	var punto = (_pantalla._casteos.get(_pantalla._player, {}) as Dictionary).get("punto")
+	# EL IMAN (SpellData.forma_iman, 30/10): si alguien esta en su zona de enganche, va a por el.
+	if _pantalla.tactico and punto is Vector2:
+		punto = _pantalla.turno_mapa.punto_con_iman(spell, _pantalla._player, punto)
 	var en_mapa: bool = _pantalla.tactico and punto is Vector2 and _pantalla.turno_mapa.usa_huella_hechizo(spell)
 	var reparto_mapa: Array = []
 	var con_efecto: bool = false

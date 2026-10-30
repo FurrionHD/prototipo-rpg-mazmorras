@@ -207,6 +207,11 @@ const RADIO_CURA_AREA := 200.0
 # SALPICON EN EL MAPA de un hechizo DISPERSO (la Tormenta): los golpes de su elemento alcanzan ademas a los que
 # esten a estos px del que lo recibe. 0 = no salpica.
 @export var forma_salpicon: float = 0.0
+# EL IMAN (30/10, el jefe: "la Descarga es infumable de acertar, es un punto diminuto"): > 0 = al SOLTARLA, si alguien
+# esta en su zona de enganche, la magia va a el. En un PUNTO/CIRCULO es el radio de esa zona y se la lleva el enemigo mas
+# cercano a su centro; en una LINEA es su anchura y la linea se gira hacia el primero que pilla. 0 = sin iman.
+# Ver CombatTactico.punto_con_iman.
+@export var forma_iman: float = 0.0
 # SU EFECTO EN EL MAPA (SueloRoto.Tipo, los MAGIA_*): lo que se ve al soltarlo, y a cada uno le llega el golpe
 # cuando le alcanza. -1 = ninguno (se pinta como en la fila).
 @export var suelo_mapa: int = -1

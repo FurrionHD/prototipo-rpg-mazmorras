@@ -19,6 +19,7 @@ descripcion = "La primera magia que aprende cualquiera: fuerza sin forma, empuja
 forma = 3
 forma_radio = 150.0
 forma_ancho = 8.0
+forma_iman = 28.0
 forma_apunte = 1
 forma_solo_primero = true
 suelo_mapa = 39

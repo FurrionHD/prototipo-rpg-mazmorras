@@ -1439,14 +1439,53 @@ func huella_hechizo(spell: SpellData) -> AbilityData:
 	# A UNO de los tuyos (Vendaje, Filos) salvo que caiga ALREDEDOR de ti: entonces es a todos los que pille (Fortaleza).
 	if spell.forma_a_aliados and spell.forma_apunte != CombatFormas.Apunte.ALREDEDOR:
 		ab.objetivo_aliado = AbilityData.Objetivo.ALIADO
+	# CON IMAN, la de verdad llega hasta donde engancha: al soltarla puede ir a por uno que estaba en el borde de la zona
+	# (ver punto_con_iman). Lo que se apunta sigue con su alcance de siempre (huella_apunte_hechizo).
+	if spell.forma_iman > 0.0 and int(spell.forma_apunte) == CombatFormas.Apunte.LIBRE:
+		ab.forma_rango = spell.forma_rango + spell.forma_iman
 	_huellas_hechizo[spell] = ab
 	return ab
+
+
+# LO QUE SE VE AL APUNTAR un hechizo con IMAN (SpellData.forma_iman): su zona de enganche (el circulo o la franja), no el
+# puntito o la linea fina de verdad. Sin iman, la de siempre.
+var _huellas_iman: Dictionary = {}   # SpellData -> AbilityData
+
+func huella_apunte_hechizo(spell: SpellData) -> AbilityData:
+	if spell == null or spell.forma_iman <= 0.0 or spell.forma_a_aliados:
+		return huella_hechizo(spell)
+	if _huellas_iman.has(spell):
+		return _huellas_iman[spell]
+	var ab: AbilityData = huella_hechizo(spell).duplicate()
+	ab.forma_rango = spell.forma_rango
+	if int(spell.forma) == CombatFormas.Tipo.LINEA:
+		ab.forma_ancho = spell.forma_iman
+	else:
+		ab.forma = CombatFormas.Tipo.CIRCULO
+		ab.forma_radio = spell.forma_iman
+	ab.forma_solo_primero = true
+	ab.set_meta(&"iman", true)
+	_huellas_iman[spell] = ab
+	return ab
+
+
+# EL IMAN AL SOLTARLA: si alguien esta en la zona de enganche apuntada en 'punto', el punto pasa a SU cuerpo (el mas
+# cercano al centro en un circulo, el primero que se cruza en una linea) y la magia sale hacia el como siempre. Nadie
+# dentro = el punto de siempre (cae donde se apunto).
+func punto_con_iman(spell: SpellData, c: Combatant, punto: Vector2) -> Vector2:
+	if spell == null or spell.forma_iman <= 0.0 or spell.forma_a_aliados or not usa_huella_hechizo(spell):
+		return punto
+	var ab: AbilityData = huella_apunte_hechizo(spell)
+	var rep: Array = _reparto_en(ab, c, forma_de(ab, c, punto))
+	if rep.is_empty():
+		return punto
+	return bulto_de(rep[0]["c"]).get_center()
 
 
 # Elegiste un hechizo con huella: a apuntar. Al confirmar se empieza a recitar (combat_magia._elegir_hechizo).
 func apuntar_hechizo(spell: SpellData, aliado: Combatant) -> void:
 	_hechizo_apuntado = [spell, aliado]
-	apuntar(huella_hechizo(spell))
+	apuntar(huella_apunte_hechizo(spell))
 	if _apuntando == null:
 		_hechizo_apuntado = []
 
@@ -1608,7 +1647,9 @@ func _reparto_en(ab: AbilityData, c: Combatant, f) -> Array:
 			esc = maxf(0.0, ab.forma_escala - ab.forma_tramo_baja * float(f.tramo_de(r)))
 		# SOLO AL PRIMERO: manda lo cerca que este de quien pega, no del centro de la huella. Y en el
 		# AVANCE tambien: los golpes caen en el orden en que te los cruzas.
-		var ref: Vector2 = pies_de(c) if ab.forma_solo_primero or ab.avance or ab.atraviesa or ab.carga 			else f.centro_util()
+		# (El IMAN de un circulo, huella_apunte_hechizo: al mas cercano al CENTRO.)
+		var iman_circulo: bool = f.tipo == CombatFormas.Tipo.CIRCULO and ab.has_meta(&"iman")
+		var ref: Vector2 = pies_de(c) if (ab.forma_solo_primero and not iman_circulo) or ab.avance or ab.atraviesa or ab.carga 			else f.centro_util()
 		lista.append({"c": e, "escala": esc, "d": r.get_center().distance_squared_to(ref),
 			"i": bando.find(e)})
 	lista.sort_custom(func(x, y):
