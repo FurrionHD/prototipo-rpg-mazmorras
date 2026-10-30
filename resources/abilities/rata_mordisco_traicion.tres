@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_1"]
+script = ExtResource("2")
+estado = 1
+prob = 0.6
+
+[resource]
+script = ExtResource("1")
+nombre = "Mordisco a traición"
+descripcion = "Se deshace en sombra delante de ti y aparece a tu espalda, ya mordiendo. Por la espalda duele más."
+coste_energia = 0.0
+dano_mult = 1.3
+efectos = [SubResource("SA_1")]
+fx_estilo = 14
+cooldown = 3
+forma = 1
+forma_apunte = 3
+forma_radio = 16.0
+forma_rango = 110.0
+salta = true
+fx_estilo_mapa = 211
+suelo_roto = 109
+fx_anim = &"salto_rata>desgarro"

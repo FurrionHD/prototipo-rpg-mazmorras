@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_1"]
+script = ExtResource("2")
+estado = 33
+prob = 0.6
+turns = 2
+
+[resource]
+script = ExtResource("1")
+nombre = "Destello"
+descripcion = "Se yergue y sus cristales ahumados sueltan un fogonazo de luz oscura. Daño mágico, y a quien pilla de frente le deja viendo manchas."
+coste_energia = 0.0
+dano_mult = 0.8
+es_magico = true
+efectos = [SubResource("SA_1")]
+area_max = 99
+fx_estilo = 14
+cooldown = 4
+forma = 2
+forma_apunte = 1
+forma_radio = 70.0
+forma_apertura = 70.0
+fx_estilo_mapa = 216
+suelo_roto = 108
+fx_anim = &"destello"

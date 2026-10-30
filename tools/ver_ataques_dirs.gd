@@ -1624,7 +1624,23 @@ const MOMENTOS_BESTIA := {
 	"aberracion_alarido": [0.0, 0.1, 0.2, 0.3, 0.45, 0.7],
 	"carne_cierra": [0.0, 0.1, 0.2, 0.3, 0.45],
 	"carne_quemada": [0.1, 0.4, 0.8, 1.2, 1.6],
+	# Los mutantes de la rata (30/10, RataAire): mordiscos con sus jirones o esquirlas, el salto y la caida del frenesi,
+	# la traicion (el remolino donde se va y donde aparece), la embestida que atraviesa y el destello en abanico.
+	"rata_mordisco_sombrio": [-0.08, 0.0, 0.1, 0.22, 0.4, 0.6],
+	"rata_mordisco_cristal": [-0.08, 0.0, 0.08, 0.18, 0.3, 0.45],
+	"rata_frenesi_sombra": [0.0, 0.1, 0.22, 0.35, 0.6, 0.9],
+	"rata_frenesi_esquirlas": [0.12, 0.22, 0.3, 0.4, 0.55, 0.9],
+	"rata_mordisco_traicion": [0.0, 0.08, 0.16, 0.24, 0.35, 0.5],
+	"rata_embestida_cristal": [0.05, 0.12, 0.25, 0.45, 0.75, 1.05],
+	"rata_destello": [0.03, 0.08, 0.16, 0.3, 0.5, 0.75],
 }
+# Y los MUTANTES DE LA RATA (30/10): [la mandibula de BestiaAire (-1 = ninguna), lo de RataAire encima].
+const ESTILO_A_RATA := {CombatFX.Estilo.RATA_MORDISCO_SOMBRA: [BestiaAire.Modo.MORDISCO_SANGRA, RataAire.Modo.JIRONES],
+	CombatFX.Estilo.RATA_FRENESI_SOMBRA: [BestiaAire.Modo.FRENESI, RataAire.Modo.JIRONES],
+	CombatFX.Estilo.RATA_MORDISCO_CRISTAL: [BestiaAire.Modo.MORDISCO_SANGRA, RataAire.Modo.ESQUIRLAS],
+	CombatFX.Estilo.RATA_FRENESI_CRISTAL: [BestiaAire.Modo.FRENESI, RataAire.Modo.ESQUIRLAS],
+	CombatFX.Estilo.RATA_CORTE_CRISTAL: [-1, RataAire.Modo.CORTE],
+	CombatFX.Estilo.RATA_VELO: [-1, RataAire.Modo.VELO]}
 # Y los INSECTOIDES (29/09, InsectoAire), por la misma tuberia.
 const ESTILO_A_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.QUELICEROS,
 	CombatFX.Estilo.INSECTO_PONZONA: InsectoAire.Modo.PONZONA, CombatFX.Estilo.INSECTO_HEBRAS: InsectoAire.Modo.HEBRAS,
@@ -1680,6 +1696,10 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 	var habs: Array = ["basico"]
 	for h in ed.habilidades:
 		habs.append((h as AbilityData).resource_path.get_file().get_basename())
+	# (30/10) Y LOS PEDIDOS POR NOMBRE que no lleva su ficha (los de sus mutantes, antes de meterlos en el juego).
+	for pedida in pedidas.split(",", false):
+		if not habs.has(pedida) and ResourceLoader.exists("res://resources/abilities/%s.tres" % pedida):
+			habs.append(pedida)
 	# LA PASIVA DEL CAPARAZON (la acorazada, 30/09): uno de los tuyos le pega de frente y se ve el destello en sus placas.
 	if ed.caparazon_frente < 1.0:
 		habs.append("caparazon")
@@ -1719,9 +1739,14 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 			ab = load("res://resources/abilities/%s.tres" % nom)
 		# Las que solo pintan el SUELO (el Pisoton) valen igual: modo -1, nada en los cuerpos.
 		if not ESTILO_A_BESTIA.has(int(ab.fx_estilo_mapa)) and not ESTILO_A_INSECTO.has(int(ab.fx_estilo_mapa)) \
+				and not ESTILO_A_RATA.has(int(ab.fx_estilo_mapa)) \
 				and not ESTILO_A_SIMA.has(int(ab.fx_estilo_mapa)) and not ESTILO_A_FIERA.has(int(ab.fx_estilo_mapa)) 				and ab.suelo_roto < 0:
 			continue   # aun sin efecto propio
 		var modo_b: int = ESTILO_A_BESTIA.get(int(ab.fx_estilo_mapa), -1)
+		var modo_r: int = -1
+		if ESTILO_A_RATA.has(int(ab.fx_estilo_mapa)):
+			modo_b = int(ESTILO_A_RATA[int(ab.fx_estilo_mapa)][0])
+			modo_r = int(ESTILO_A_RATA[int(ab.fx_estilo_mapa)][1])
 		var modo_i: int = ESTILO_A_INSECTO.get(int(ab.fx_estilo_mapa), -1)
 		var modo_s: int = ESTILO_A_SIMA.get(int(ab.fx_estilo_mapa), -1)
 		var modo_f: int = ESTILO_A_FIERA.get(int(ab.fx_estilo_mapa), -1)
@@ -1967,6 +1992,13 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 						bulto.size.x, ed.color_visual(0.5), 0.0, fig_m), "t0": SueloRoto.retraso(f, _pies_caja(rmi), ab.suelo_roto),
 						"sim": false})
 				cajas = []
+			# EL CORTE DE CRISTAL y EL VELO (la rata, 30/10): en TODOS los que pilla, cuando les llega.
+			if modo_r in [RataAire.Modo.CORTE, RataAire.Modo.VELO]:
+				for i in cajas.size():
+					var rr: Rect2 = cajas[i]
+					piezas.append({"n": RataAire.sobre_cuerpo(self, modo_r, bulto.get_center(), rr, ed.color_visual(0.5),
+						semilla + i, 0.0, 1.0), "t0": SueloRoto.retraso(f, _pies_caja(rr), ab.suelo_roto), "sim": false})
+				cajas = []
 			# Solo suelo (el Pisoton): nada en los cuerpos.
 			if modo_b < 0 and modo_i < 0 and modo_s < 0 and modo_f < 0:
 				cajas = []
@@ -2066,6 +2098,10 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 					continue
 				piezas.append({"n": BestiaAire.sobre_cuerpo(self, modo_b, bulto.get_center(), rg, semilla + g, vuelo, 1.0, bulto.size.x,
 					fig_g), "t0": t0, "sim": false})
+				# LO DEL MUTANTE DE LA RATA encima (los jirones o las esquirlas), con el mismo bocado.
+				if modo_r >= 0:
+					piezas.append({"n": RataAire.sobre_cuerpo(self, modo_r, bulto.get_center(), rg, ed.color_visual(0.5),
+						semilla + g * 3 + 1, vuelo, 1.0), "t0": t0, "sim": false})
 				# LA SANGRE (solo las que la echan): como en el juego, desde el cuerpo hacia donde tira quien muerde.
 				if modo_b in [BestiaAire.Modo.MORDISCO_SANGRA, BestiaAire.Modo.FRENESI, BestiaAire.Modo.DENTELLADA,
 						BestiaAire.Modo.YUGULAR]:

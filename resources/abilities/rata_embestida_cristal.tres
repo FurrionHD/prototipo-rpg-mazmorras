@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_1"]
+script = ExtResource("2")
+estado = 1
+prob = 0.5
+
+[resource]
+script = ExtResource("1")
+nombre = "Embestida de cristal"
+descripcion = "Se lanza en línea recta con los cristales de los hombros por delante y te atraviesa: pasa de largo y te deja cortes de cristal."
+coste_energia = 0.0
+dano_mult = 1.1
+efectos = [SubResource("SA_1")]
+area_max = 3
+area_secundario = 0.7
+fx_estilo = 21
+gesto = 3
+cooldown = 3
+forma = 3
+forma_apunte = 1
+forma_radio = 70.0
+forma_ancho = 18.0
+carga = true
+atraviesa = true
+fx_estilo_mapa = 215
+suelo_roto = 107
+fx_anim = &"embestida"

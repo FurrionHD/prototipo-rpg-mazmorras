@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_1"]
+script = ExtResource("2")
+estado = 1
+prob = 0.45
+
+[resource]
+script = ExtResource("1")
+nombre = "Frenesí de esquirlas"
+descripcion = "ATAQUE DE CARGA: se lanza encima y, al caer, le revientan los cristales del lomo en un anillo de esquirlas. Menos mordiscos, pero cada uno corta más. Aturdirla mientras se prepara corta el frenesí."
+coste_energia = 0.0
+golpes_min = 4
+golpes_max = 4
+dano_mult = 0.7
+reparto_por_golpe = true
+efectos = [SubResource("SA_1")]
+efectos_por_golpe = true
+carga_turnos = 1
+fx_estilo = 14
+gesto = 1
+cooldown = 4
+forma = 1
+forma_apunte = 3
+forma_radio = 40.0
+forma_rango = 60.0
+forma_reparte = true
+salta = true
+fx_estilo_mapa = 214
+suelo_roto = 106
+fx_anim = &"salto_rata"
+fx_anim_carga = &"agazapado"

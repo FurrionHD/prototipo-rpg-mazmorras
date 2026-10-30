@@ -4893,6 +4893,9 @@ const _SANGRA := [CombatFX.Estilo.HACHA_TAJO, CombatFX.Estilo.HENDEDURA, CombatF
 	CombatFX.Estilo.GUARDIA_ROTA, CombatFX.Estilo.ESTOCADA_MARCIAL,
 	# La RATA (28/09): el Mordisco sangrante y el Frenesi (el basico, no: muerde, pero no es el que sangra).
 	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI,
+	# los mutantes de la rata (30/10): sus mordiscos, sus frenesies y el corte de cristal.
+	CombatFX.Estilo.RATA_MORDISCO_SOMBRA, CombatFX.Estilo.RATA_FRENESI_SOMBRA, CombatFX.Estilo.RATA_MORDISCO_CRISTAL,
+	CombatFX.Estilo.RATA_FRENESI_CRISTAL, CombatFX.Estilo.RATA_CORTE_CRISTAL,
 	# El REY RATA (29/09): cada tarascada de la Dentellada, y la Yugular con un chorro gordo desde el cuello.
 	CombatFX.Estilo.BESTIA_DENTELLADA, CombatFX.Estilo.BESTIA_YUGULAR,
 	# La SEGADORA (30/09): sus tajos, y el Ensarte con un chorro por detras (por donde asoma la hoja).
@@ -4993,10 +4996,12 @@ func _on_impacto(ev: Dictionary) -> void:
 			SangreMapa.surco(arena, cuerpo, pies_v - cuerpo.global_position)
 		CombatFX.Estilo.HACHA_TAJO:
 			fuerza *= 0.6
-		CombatFX.Estilo.BESTIA_MORDISCO_SANGRA:
+		CombatFX.Estilo.BESTIA_MORDISCO_SANGRA, CombatFX.Estilo.RATA_MORDISCO_SOMBRA, CombatFX.Estilo.RATA_MORDISCO_CRISTAL:
 			fuerza *= 0.7
-		CombatFX.Estilo.BESTIA_FRENESI:
+		CombatFX.Estilo.BESTIA_FRENESI, CombatFX.Estilo.RATA_FRENESI_SOMBRA, CombatFX.Estilo.RATA_FRENESI_CRISTAL:
 			fuerza *= 0.4
+		CombatFX.Estilo.RATA_CORTE_CRISTAL:
+			fuerza *= 0.5
 		CombatFX.Estilo.BESTIA_DENTELLADA:
 			fuerza *= 0.6
 		CombatFX.Estilo.BESTIA_YUGULAR, CombatFX.Estilo.FIERA_YUGULAR:
@@ -5159,6 +5164,14 @@ const _MODO_DISTANCIA := {CombatFX.Estilo.FLECHA: DistanciaAire.Modo.FLECHA,
 const _MODO_SLIME := {CombatFX.Estilo.SLIME_GOLPE: SlimeAire.Modo.GOLPE, CombatFX.Estilo.SLIME_ESCUPE: SlimeAire.Modo.ESCUPE,
 	CombatFX.Estilo.SLIME_TROMBA: SlimeAire.Modo.TROMBA, CombatFX.Estilo.SLIME_TROZO: SlimeAire.Modo.TROZO,
 	CombatFX.Estilo.SLIME_IGNICION: SlimeAire.Modo.IGNICION}
+# Los de los mutantes de la rata: [la mandibula de BestiaAire (-1 = ninguna), lo de RataAire encima].
+const _MODO_RATA := {
+	CombatFX.Estilo.RATA_MORDISCO_SOMBRA: [BestiaAire.Modo.MORDISCO_SANGRA, RataAire.Modo.JIRONES],
+	CombatFX.Estilo.RATA_FRENESI_SOMBRA: [BestiaAire.Modo.FRENESI, RataAire.Modo.JIRONES],
+	CombatFX.Estilo.RATA_MORDISCO_CRISTAL: [BestiaAire.Modo.MORDISCO_SANGRA, RataAire.Modo.ESQUIRLAS],
+	CombatFX.Estilo.RATA_FRENESI_CRISTAL: [BestiaAire.Modo.FRENESI, RataAire.Modo.ESQUIRLAS],
+	CombatFX.Estilo.RATA_CORTE_CRISTAL: [-1, RataAire.Modo.CORTE],
+	CombatFX.Estilo.RATA_VELO: [-1, RataAire.Modo.VELO]}
 const _MODO_BESTIA := {CombatFX.Estilo.BESTIA_MORDISCO: BestiaAire.Modo.MORDISCO,
 	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA: BestiaAire.Modo.MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI: BestiaAire.Modo.FRENESI,
 	CombatFX.Estilo.BESTIA_DENTELLADA: BestiaAire.Modo.DENTELLADA, CombatFX.Estilo.BESTIA_YUGULAR: BestiaAire.Modo.YUGULAR,
@@ -5647,6 +5660,17 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		var desde_s: Vector2 = bulto_de(a).get_center() - Vector2(0.0, bulto_de(a).size.y * 0.15) 			if a != null and cuerpo_de(a) != null else bulto_de(v).get_center() - Vector2(30.0, 0.0)
 		SlimeAire.sobre_cuerpo(arena, int(_MODO_SLIME[estilo]), desde_s, bulto_de(v), ev.get("color", Color.WHITE),
 			semilla, vuelo, ritmo)
+		return
+	# LOS MUTANTES DE LA RATA (30/10): las mandibulas de la rata (BestiaAire) y, encima, lo suyo (RataAire): jirones de
+	# sombra, esquirlas de cristal (ahumado si es la de cuarzo: lo dice su color), el corte de cristal y el velo.
+	if estilo in _MODO_RATA:
+		var desde_r: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null else bulto_de(v).get_center() - Vector2(30.0, 0.0)
+		var par: Array = _MODO_RATA[estilo]
+		if int(par[0]) >= 0:
+			BestiaAire.sobre_cuerpo(arena, int(par[0]), desde_r, bulto_de(v), semilla, vuelo, ritmo,
+				bulto_de(a).size.x if a != null and cuerpo_de(a) != null else -1.0)
+		RataAire.sobre_cuerpo(arena, int(par[1]), desde_r, bulto_de(v), a.color_visual if a != null else Color.WHITE,
+			semilla + 1, vuelo, ritmo)
 		return
 	# LAS BESTIAS (BestiaAire, 28/09): las mandibulas de la rata, de quien muerde al que recibe.
 	if estilo in _MODO_BESTIA:

@@ -452,7 +452,12 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		# LA CRIA LANZADA (09/10, el Brote y la Orden real del Rey): no pinta nada (lo que vuela es la propia cria, en arco:
 		# CombatTactico.lanzar_cria); su gesto es el brote del Rey y su impacto, al CAER, la hace levantarse en todas las
 		# maquinas. Su vuelo = CombatTactico.T_VUELO_CRIA.
-		CRIA_LANZADA = 210 }
+		CRIA_LANZADA = 210,
+		# LOS MUTANTES DE LA RATA (30/10, RataAire encima de las mandibulas de BestiaAire): el mordisco y el frenesi con
+		# JIRONES de sombra (la sombria; tambien su Mordisco a traicion), con ESQUIRLAS de cristal (la drusa y la de cuarzo
+		# ahumado), el CORTE de cristal de la Embestida que atraviesa y el VELO sobre los ojos del Destello.
+		RATA_MORDISCO_SOMBRA = 211, RATA_FRENESI_SOMBRA = 212, RATA_MORDISCO_CRISTAL = 213, RATA_FRENESI_CRISTAL = 214,
+		RATA_CORTE_CRISTAL = 215, RATA_VELO = 216 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -489,6 +494,9 @@ const DIBUJO_MAPA := [Estilo.CRIA_LANZADA, Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA
 	Estilo.PROFUNDO_ANEMONA, Estilo.PROFUNDO_HELADA,
 	# los mutantes del Rey Slime (ReyAire, 07/10): el Decreto y el Tributo.
 	Estilo.REY_DECRETO, Estilo.REY_TRIBUTO,
+	# los mutantes de la rata (RataAire, 30/10).
+	Estilo.RATA_MORDISCO_SOMBRA, Estilo.RATA_FRENESI_SOMBRA, Estilo.RATA_MORDISCO_CRISTAL, Estilo.RATA_FRENESI_CRISTAL,
+	Estilo.RATA_CORTE_CRISTAL, Estilo.RATA_VELO,
 	# los slimes (SlimeAire, 28/09): sobre el cuerpo que recibe.
 	Estilo.SLIME_GOLPE, Estilo.SLIME_ESCUPE, Estilo.SLIME_TROMBA, Estilo.SLIME_TROZO, Estilo.SLIME_IGNICION,
 	# las bestias (BestiaAire, 28/09): sobre el cuerpo que recibe.
@@ -703,6 +711,10 @@ const T_VUELO := {
 	Estilo.PROFUNDO_ANEMONA: 0.12, Estilo.PROFUNDO_HELADA: 0.02,
 	# (el Decreto se forma cuando alza la corona -IMPACTO_ANIM_MAPA 'decreto'-; el Tributo sale al caer el subdito)
 	Estilo.REY_DECRETO: 0.0, Estilo.REY_TRIBUTO: 0.0,
+	# Los mutantes de la rata: las mandibulas como las de la rata (llegan abiertas y se cierran en el golpe); el corte y el
+	# velo, EN el golpe.
+	Estilo.RATA_MORDISCO_SOMBRA: 0.14, Estilo.RATA_FRENESI_SOMBRA: 0.08, Estilo.RATA_MORDISCO_CRISTAL: 0.14,
+	Estilo.RATA_FRENESI_CRISTAL: 0.08, Estilo.RATA_CORTE_CRISTAL: 0.02, Estilo.RATA_VELO: 0.02,
 	# El puño lo lleva su sprite: el barro revienta EN el golpe.
 	Estilo.CONSTRUCTO_PUNO: 0.02, Estilo.CONSTRUCTO_MACHACA: 0.02,
 	# La garra la lleva su sprite y los surcos se abren EN el golpe; la losa cae EN el golpe; la piedra sube cuando le

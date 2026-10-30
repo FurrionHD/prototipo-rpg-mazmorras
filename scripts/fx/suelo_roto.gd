@@ -49,7 +49,10 @@ enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, T
 	SLIME_PUAS,
 	ABISAL_LLUVIA, ABISAL_RAYO, ABISAL_MIRADA, ABISAL_PARPADEO, ABISAL_ECLIPSE, ABISAL_AGUJERO,
 	PROFUNDO_MAREA, PROFUNDO_CHORRO, PROFUNDO_CORAL, PROFUNDO_ESTALLIDO, PROFUNDO_ALIENTO, PROFUNDO_CARAMBANOS,
-	REY_ESQUIRLAS }
+	REY_ESQUIRLAS,
+	RATA_ESTELA_SOMBRA, RATA_ANILLO_ESQUIRLAS, RATA_SURCO_CRISTAL, RATA_DESTELLO, RATA_TRAICION }
+# RATA_* (30/10, los mutantes de la rata): viven en RataAire (su Modo = tipo - RATA_ESTELA_SOMBRA). Al final de todo
+# (105..109 en las fichas) y mirados ANTES que los REY_*.
 # REY_* (07/10, los mutantes del Rey Slime): viven en ReyAire (su Modo = tipo - REY_ESQUIRLAS). Al final de todo (104 en
 # las fichas) y mirados ANTES que los PROFUNDO_*.
 # PROFUNDO_* (07/10, los mutantes del slime profundo: el arrecife y la escarcha): viven en ProfundoAire (su Modo = tipo -
@@ -134,7 +137,7 @@ const V_EMBESTIDA := 200.0
 const T_EMBESTIDA_MIN := 0.15
 const EMBESTIDA_MUDA := 990
 const EMBESTIDAS := [Tipo.SLIME_PRESION, Tipo.SLIME_PLACAJE, Tipo.BESTIA_ESTELA, Tipo.BESTIA_SURCO,
-	Tipo.INSECTO_RODADA, Tipo.FIERA_ARROLLA]
+	Tipo.INSECTO_RODADA, Tipo.FIERA_ARROLLA, Tipo.RATA_SURCO_CRISTAL]
 
 static func es_embestida(t: int, f: CombatFormas.Forma) -> bool:
 	return f != null and f.tipo == CombatFormas.Tipo.LINEA and (t == EMBESTIDA_MUDA or EMBESTIDAS.has(t))
@@ -173,6 +176,8 @@ static func _lanzar_tipo(padre: Node, f: CombatFormas.Forma, t: int, semilla: in
 		return null
 	if t == Tipo.SLIME_PUAS:
 		return SlimeAire.area(padre, f, SlimeAire.Modo.PUAS, semilla, espera)
+	if t >= Tipo.RATA_ESTELA_SOMBRA:
+		return RataAire.area(padre, f, t - Tipo.RATA_ESTELA_SOMBRA, semilla, espera)
 	if t >= Tipo.REY_ESQUIRLAS:
 		return ReyAire.area(padre, f, t - Tipo.REY_ESQUIRLAS, semilla, espera)
 	if t >= Tipo.PROFUNDO_MAREA:
@@ -244,6 +249,8 @@ static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) ->
 		return p.distance_to(origen_de(f)) / EstoqueAire.V_DANZA
 	if t == Tipo.SLIME_PUAS:
 		return SlimeAire.retraso(SlimeAire.Modo.PUAS, f, p)
+	if t >= Tipo.RATA_ESTELA_SOMBRA:
+		return RataAire.retraso(t - Tipo.RATA_ESTELA_SOMBRA, f, p)
 	if t >= Tipo.REY_ESQUIRLAS:
 		return ReyAire.retraso(t - Tipo.REY_ESQUIRLAS, f, p)
 	if t >= Tipo.PROFUNDO_MAREA:
@@ -305,6 +312,8 @@ static func t_salir_de(t: int) -> float:
 		return 0.0
 	if t == Tipo.SLIME_PUAS:
 		return SlimeAire.t_salir(SlimeAire.Modo.PUAS)
+	if t >= Tipo.RATA_ESTELA_SOMBRA:
+		return RataAire.t_salir(t - Tipo.RATA_ESTELA_SOMBRA)
 	if t >= Tipo.REY_ESQUIRLAS:
 		return ReyAire.t_salir(t - Tipo.REY_ESQUIRLAS)
 	if t >= Tipo.PROFUNDO_MAREA:
