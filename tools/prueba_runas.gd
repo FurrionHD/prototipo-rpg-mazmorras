@@ -39,7 +39,7 @@ func _w(ruta: String) -> Resource:
 
 func _catalogo() -> void:
 	print("=== CADA PIEZA, SU LISTA ===")
-	_ok(Runas.sets().size() == 6, "los 6 sets cargan")
+	_ok(Runas.sets().size() == 7, "los 7 sets cargan")
 	var espada: Resource = _w("res://resources/weapons/espada_corta.tres")
 	var varita: Resource = _w("res://resources/wands/varita.tres") if ResourceLoader.exists("res://resources/wands/varita.tres") else null
 	var peto: Resource = _w("res://resources/armor/cuero_pecho.tres")
@@ -186,6 +186,26 @@ func _combate() -> void:
 	_ok(not m.has_status(StatusEffects.Id.LENTO), "con escudo de agua no te dejan Lento")
 	m.take_damage(20.0)
 	_ok(is_equal_approx(m.current_hp, 95.0) and m.runa_agua_rota, "el escudo se come 15 de 20 y se rompe")
+	# Alcantarilla (30/10, la rata): + prob. de Sangrado y + un % del GOLPE que lo abre (no del ataque).
+	var esp2: Resource = _w("res://resources/weapons/espada_corta.tres")
+	pj.equipped_main = espada
+	pj.equipped_off = esp2
+	Game.meta_de(espada)["runas"] = {"set": "rata", "subs": []}
+	Game.meta_de(esp2)["runas"] = {"set": "rata", "subs": []}
+	var c4: Combatant = Game.crear_player_combatant(pj)
+	_ok(is_equal_approx(c4.runa_alcantarilla_prob, 0.05) and is_equal_approx(c4.runa_alcantarilla_dano, 0.05),
+		"2 armas de Alcantarilla: +5 %% prob. y +5 %% del golpe (%.2f, %.2f)" % [c4.runa_alcantarilla_prob, c4.runa_alcantarilla_dano])
+	var v := Combatant.new("Victima", 1, Abilities.new(), 500.0, 3.0, 3.0, 3.0)
+	_ok(is_equal_approx(c4.runa_mag(StatusEffects.Id.SANGRADO, 6.0, v), 6.0), "sin golpe de ahora, el Sangrado no cambia")
+	v.take_damage(40.0)
+	_ok(is_equal_approx(c4.runa_mag(StatusEffects.Id.SANGRADO, 6.0, v), 6.0 + 40.0 * 0.05),
+		"con un golpe de 40: Sangrado 6 -> %.1f" % c4.runa_mag(StatusEffects.Id.SANGRADO, 6.0, v))
+	_ok(is_equal_approx(c4.runa_mag(StatusEffects.Id.VENENO, 6.0, v), 6.0), "al veneno no le toca")
+	var sin := Combatant.new("Sin", 1, Abilities.new(), 500.0, 3.0, 3.0, 3.0)
+	_ok(StatusEffects.prob_final(0.3, c4, v, StatusEffects.Id.SANGRADO) > StatusEffects.prob_final(0.3, sin, v, StatusEffects.Id.SANGRADO),
+		"abre mas el Sangrado que sin el set")
+	Game.meta_de(espada).erase("runas")
+	Game.meta_de(esp2).erase("runas")
 	pj.equipped_main = guardado[0]
 	pj.equipped_off = guardado[1]
 	pj.equipped_pecho = guardado[2]
@@ -194,7 +214,7 @@ func _combate() -> void:
 
 func _drops() -> void:
 	print("=== DROPS ===")
-	for f in ["slime", "slime_veneno", "slime_fuego", "slime_abisal", "slime_profundo", "rey_slime"]:
+	for f in ["slime", "slime_veneno", "slime_fuego", "slime_abisal", "slime_profundo", "rey_slime", "rata"]:
 		var ed: EnemyData = load("res://scenes/actors/enemy/%s.tres" % f)
 		var s_ok: bool = false
 		for s in Runas.sets():

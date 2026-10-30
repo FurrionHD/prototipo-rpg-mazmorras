@@ -1545,7 +1545,7 @@ func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null
 				if a.magnitud < 0.0 else -1.0
 			var mag_h: float = a.magnitud if a.magnitud >= 0.0 \
 				else (mag_real_h if mag_real_h >= 0.0 else StatusEffects.magnitud_por_golpe(int(a.estado), _pantalla._player.atk(), golpe))
-			d_h.apply_status(a.estado, _pantalla._player.runa_turnos(a.estado, a.turns), _pantalla._player.runa_mag(a.estado, mag_h), 1, false, a.cap)
+			d_h.apply_status(a.estado, _pantalla._player.runa_turnos(a.estado, a.turns), _pantalla._player.runa_mag(a.estado, mag_h, d_h), 1, false, a.cap)
 			print("[estado] %s recibe %s del hechizo %s (prob %.0f%%)" % [
 				_pantalla._etq(d_h), nom, spell.nombre, spell.efecto_prob(a) * 100.0])
 		if not aplicados.has(int(a.estado)):

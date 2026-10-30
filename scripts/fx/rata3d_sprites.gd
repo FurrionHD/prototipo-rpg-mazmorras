@@ -34,6 +34,25 @@ const ANIMS := {
 	"encaje": {"hoja": "encaje", "dirs": 8, "marcos": 4, "fps": 18.0, "loop": false},
 	"muerte": {"hoja": "muerte", "dirs": 8, "marcos": 8, "fps": 10.0, "loop": false},
 	"cadaver": {"hoja": "muerte", "dirs": 8, "marcos": 1, "desde": 7, "fps": 1.0, "loop": false},
+	# COMER UN CRISTAL (30/10): la rata y sus mutantes (el rey aun no la tiene: opcional).
+	"comer": {"hoja": "comer", "dirs": 8, "marcos": 10, "fps": 10.0, "loop": false, "opcional": true},
+	# LAS DE LOS MUTANTES (30/10): la transformacion HASTA esa hoja ('evolucion'; la de cuarzo viniendo de la drusa,
+	# 'evolucion_drusa') y el Destello de la de cuarzo.
+	"evolucion": {"hoja": "evolucion", "dirs": 8, "marcos": 18, "fps": 10.0, "loop": false, "opcional": true},
+	"evolucion_drusa": {"hoja": "evolucion_drusa", "dirs": 8, "marcos": 18, "fps": 10.0, "loop": false,
+		"opcional": true},
+	"destello": {"hoja": "destello", "dirs": 8, "marcos": 8, "fps": 12.0, "loop": false, "opcional": true},
+}
+
+# LOS MUTANTES DE LA RATA (30/10, rata-mutante): la variante que dice su MutacionData.sprite -> [carpeta, lienzo, sus
+# animaciones]. Ya vienen dibujados a su tamaño de mutante y con SU color (sin el tinte del piso: la sombria es negra y
+# el cian de las drusas es el de los cristales de los slimes).
+const _COMUNES_MUT := ["idle", "walk", "basico", "desgarro", "agazapado", "salto_rata", "frenesi", "encaje", "muerte",
+	"cadaver", "comer", "evolucion"]
+const MUTANTES := {
+	&"sombria": ["rata_sdf_sombria", Vector2i(64, 64), _COMUNES_MUT],
+	&"drusa": ["rata_sdf_drusa", Vector2i(64, 64), _COMUNES_MUT + ["embestida"]],
+	&"cuarzo": ["rata_sdf_cuarzo", Vector2i(70, 70), _COMUNES_MUT + ["embestida", "destello", "evolucion_drusa"]],
 }
 
 
@@ -70,3 +89,35 @@ static func generar(color: Color = BASE, rey: bool = false) -> SpriteFrames:
 	if rey:
 		return Sprites3D.montar(CARPETA_REY, ANIMS, LIENZO_REY, BASE_REY, col)
 	return Sprites3D.montar(CARPETA, ANIMS, LIENZO, BASE, col)
+
+
+static func _anims_de(lista: Array) -> Dictionary:
+	var anims := {}
+	for k in lista:
+		anims[k] = ANIMS[k]
+	return anims
+
+
+# --- EL SPRITE DE MUTANTE (contrato de SpritesEnemigo, como Slime3DSprites) ---
+static func _variante_mutante(ed: EnemyData, mutacion: StringName) -> Array:
+	var m: MutacionData = ed.mutacion_de(mutacion) if ed != null else null
+	if m == null or not MUTANTES.has(m.sprite):
+		return []
+	return MUTANTES[m.sprite]
+
+
+static func tiene_mutante(ed: EnemyData, mutacion: StringName = &"") -> bool:
+	return not _variante_mutante(ed, mutacion).is_empty()
+
+
+# Sin tinte: la clave no lleva color (es siempre el mismo).
+static func clave_mutante_de(ed: EnemyData, _t: float, mutacion: StringName = &"") -> String:
+	var v: Array = _variante_mutante(ed, mutacion)
+	return "" if v.is_empty() else "rata3d_%s" % String(v[0])
+
+
+static func generar_mutante_de(ed: EnemyData, _t: float, mutacion: StringName = &"") -> SpriteFrames:
+	var v: Array = _variante_mutante(ed, mutacion)
+	if v.is_empty():
+		return null
+	return Sprites3D.montar("res://assets/sprites/enemigos/%s/" % String(v[0]), _anims_de(v[2]), v[1], BASE, BASE)

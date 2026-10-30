@@ -475,6 +475,11 @@ var pasiva_se_apaga_mojado: bool = false
 var fragil_contundente: float = 1.0
 var devuelve_corte_prob: float = 0.0
 var devuelve_corte_frac: float = 0.0
+# (30/10, los mutantes de la rata) RESISTE MAGIA (la drusa: x esto el daño magico que le entra), SIGILO DE VERDAD al
+# empezar su turno (la sombria: prob. de quedar EN_SOMBRAS) y el SALTO AL ESQUIVAR cuerpo a cuerpo (px). Ver MutacionData.
+var resiste_magia: float = 1.0
+var sigilo_prob: float = 0.0
+var salto_esquiva: float = 0.0
 # (06/10, los del slime ABISAL) DEJA ESTRELLAS al moverse en la pelea (las piezas de sus ataques, ver
 # CombatTactico.poner_estrella) y TODO LO VE (el de mil ojos: sin emboscada contra el, ve el sigilo, mas precision).
 var deja_estrellas: bool = false
@@ -551,6 +556,8 @@ var runa_menos_dot: float = 0.0         # -% del daño de los estados (veneno, q
 var runa_crit_ciego: float = 0.0        # set Cielo nocturno: prob. de cegar al critear
 var runa_ignicion_prob: float = 0.0     # set Ignicion: + prob. de prender Quemadura...
 var runa_ignicion_dano: float = 0.0     # ...y lo que arde de mas
+var runa_alcantarilla_prob: float = 0.0  # set Alcantarilla (30/10): + prob. de abrir Sangrado...
+var runa_alcantarilla_dano: float = 0.0  # ...y + este % del golpe que lo abre
 var runa_miasma_carga: float = 0.0      # set Miasma: +% de daño por carga de veneno del objetivo...
 var runa_miasma_max: int = 0            # ...hasta tantas cargas...
 var runa_miasma_turnos: int = 0         # ...y el veneno que pones dura mas
@@ -882,7 +889,7 @@ func roll_imbue(target: Combatant) -> String:
 		return ""
 	for _s in stacks:
 		# duracion/magnitud por defecto del catalogo; el tope, el de la imbuicion
-		target.apply_status(imbue_estado, runa_turnos(imbue_estado, -1), runa_mag(imbue_estado, StatusEffects.magnitud_de(imbue_estado, atk(), atk(), target, motion_value)), 1, false, imbue_tope)
+		target.apply_status(imbue_estado, runa_turnos(imbue_estado, -1), runa_mag(imbue_estado, StatusEffects.magnitud_de(imbue_estado, atk(), atk(), target, motion_value), target), 1, false, imbue_tope)
 	var nom: String = String(StatusEffects.def(imbue_estado).get("nombre", "?"))
 	var txt: String = nom if stacks == 1 else "%s x%d" % [nom, stacks]
 	# EL SEGUNDO ESTADO (unturas): solo si el primero ha entrado, y con su propia tirada contra su Resistencia.
@@ -891,7 +898,7 @@ func roll_imbue(target: Combatant) -> String:
 			StatsMath.imbue_proc_chance(imbue_extra_prob, stat, rival, imbue_por_destreza),
 			self, target, imbue_extra_estado)
 		if randf() < pe:
-			target.apply_status(imbue_extra_estado, runa_turnos(imbue_extra_estado, -1), runa_mag(imbue_extra_estado, StatusEffects.magnitud_de(imbue_extra_estado, atk(), atk(), target, motion_value)))
+			target.apply_status(imbue_extra_estado, runa_turnos(imbue_extra_estado, -1), runa_mag(imbue_extra_estado, StatusEffects.magnitud_de(imbue_extra_estado, atk(), atk(), target, motion_value), target))
 			txt += ", " + String(StatusEffects.def(imbue_extra_estado).get("nombre", "?"))
 	return txt
 
@@ -1095,9 +1102,14 @@ func heal(amount: float) -> void:
 
 # LAS RUNAS sobre los estados que pone ESTE combatiente (08/10): la Quemadura arde mas con Ignicion y el veneno dura mas
 # con Miasma. Se llaman donde el jugador aplica un estado (imbuicion, on_hit, refuerzos, habilidades, hechizos).
-func runa_mag(id: int, mag: float) -> float:
+# (30/10) Y el Sangrado sangra mas con ALCANTARILLA: + un % del GOLPE que lo abre ('objetivo' = a quien se le pone, que
+# es quien sabe cuanto le acaba de quitar ese golpe; sin golpe, nada: no del ataque, que se iba a numeros ridiculos).
+func runa_mag(id: int, mag: float, objetivo = null) -> float:
 	if id == StatusEffects.Id.QUEMADURA and runa_ignicion_dano > 0.0 and mag > 0.0:
 		return mag * (1.0 + runa_ignicion_dano)
+	if id == StatusEffects.Id.SANGRADO and runa_alcantarilla_dano > 0.0 and mag > 0.0 and objetivo != null \
+			and objetivo.has_method("golpe_de_ahora") and float(objetivo.golpe_de_ahora()) > 0.0:
+		return mag + float(objetivo.golpe_de_ahora()) * runa_alcantarilla_dano
 	return mag
 
 func runa_turnos(id: int, turns: int) -> int:
@@ -2198,7 +2210,7 @@ func roll_on_hit(target: Combatant) -> Array:
 		# siempre 1 e ignoraba a.stacks: hoy ningun on_hit lo usa, pero el dia que se ponga
 		# tiene que hacer lo que dice el dato y no fallar en silencio.
 		for _s in maxi(1, a.stacks):
-			target.apply_status(a.estado, runa_turnos(a.estado, a.turns), runa_mag(a.estado, mag), 1, false, a.cap)
+			target.apply_status(a.estado, runa_turnos(a.estado, a.turns), runa_mag(a.estado, mag, target), 1, false, a.cap)
 		aplicados.append(str(StatusEffects.def(a.estado).get("nombre", "?")))
 	if hiela and target.is_alive() and not target.es_inmune(StatusEffects.Id.CONGELACION):
 		target.apply_status(StatusEffects.Id.CONGELACION, int(StatusEffects.def(StatusEffects.Id.CONGELACION)["turns"]))
@@ -2222,7 +2234,7 @@ func tirar_refuerzo(target: Combatant, golpe: float) -> Array:
 			continue
 		target.anotar_intento_estado(self, est, true)
 		var mag: float = StatusEffects.magnitud_de(est, atk(), golpe, target, motion_value)
-		target.apply_status(est, runa_turnos(est, -1), runa_mag(est, mag))
+		target.apply_status(est, runa_turnos(est, -1), runa_mag(est, mag, target))
 		out.append(str(StatusEffects.def(est).get("nombre", "?")))
 	return out
 

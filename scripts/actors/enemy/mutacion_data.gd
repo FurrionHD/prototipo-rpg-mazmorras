@@ -104,3 +104,11 @@ class_name MutacionData
 @export var rabia_tramo: float = 0.0
 @export var rabia_por_tramo: float = 0.10
 @export var rabia_tramos_max: int = 3
+# (30/10, los mutantes de la RATA; numeros aprobados por el jefe)
+# RESISTE MAGIA (la drusa: los cristales la desvian): el daño MAGICO que le entra va por esto (0,6 = un 40 % menos).
+@export var resiste_magia: float = 1.0
+# SIGILO DE VERDAD (la sombria): al EMPEZAR su turno, sigilo_prob de desaparecer (Id.EN_SOMBRAS): no se le ve, ni su
+# vida ni sus huellas, no se le puede elegir de objetivo (solo le dan las AREAS) y sale al recibir un golpe.
+@export var sigilo_prob: float = 0.0
+# SE APARTA DE UN SALTO (la sombria): al ESQUIVAR un golpe cuerpo a cuerpo, salta 'salto_esquiva' px hacia atras.
+@export var salto_esquiva: float = 0.0

@@ -895,6 +895,10 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		c.rabia_tramo = mdat2.rabia_tramo
 		c.rabia_por_tramo = mdat2.rabia_por_tramo
 		c.rabia_tramos_max = mdat2.rabia_tramos_max
+		# (30/10, los de la rata) resiste magia, sigilo de verdad y el salto al esquivar.
+		c.resiste_magia = mdat2.resiste_magia
+		c.sigilo_prob = mdat2.sigilo_prob
+		c.salto_esquiva = mdat2.salto_esquiva
 
 	# RESISTENCIA A EFECTOS Y EFICACIA: la curva del PISO por el ajuste de ESTE bicho. Los dos ejes
 	# hacen falta y hacen cosas distintas: la resistencia decide lo que TE aguanta, la eficacia lo

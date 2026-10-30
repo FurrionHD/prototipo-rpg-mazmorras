@@ -1220,6 +1220,6 @@ func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico:
 			# N stacks por tirada, igual que la rama enemiga. Antes se aplicaba siempre 1 e
 			# ignoraba a.stacks: la primera habilidad que lo use tiene que funcionar sin acordarse.
 			for _s in maxi(1, a.stacks):
-				d.apply_status(a.estado, _pantalla._player.runa_turnos(a.estado, a.turns), _pantalla._player.runa_mag(a.estado, mag), 1, false, a.cap, a.mult)
+				d.apply_status(a.estado, _pantalla._player.runa_turnos(a.estado, a.turns), _pantalla._player.runa_mag(a.estado, mag, d), 1, false, a.cap, a.mult)
 			out.append(nom if al_enemigo else "%s (%s)" % [nom, d.nombre])
 	return out

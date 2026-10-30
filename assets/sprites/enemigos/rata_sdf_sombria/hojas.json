@@ -1,0 +1,96 @@
+{
+ "lienzo": [
+  64,
+  64
+ ],
+ "anims": {
+  "idle": {
+   "fotogramas": 8,
+   "fps": 5.0,
+   "loop": true,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "walk": {
+   "fotogramas": 8,
+   "fps": 10.0,
+   "loop": true,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "basico": {
+   "fotogramas": 8,
+   "fps": 16.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "desgarro": {
+   "fotogramas": 11,
+   "fps": 16.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "agazapado": {
+   "fotogramas": 8,
+   "fps": 12.0,
+   "loop": true,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "salto_rata": {
+   "fotogramas": 8,
+   "fps": 12.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "frenesi": {
+   "fotogramas": 6,
+   "fps": 20.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "encaje": {
+   "fotogramas": 4,
+   "fps": 18.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "muerte": {
+   "fotogramas": 8,
+   "fps": 10.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "comer": {
+   "fotogramas": 10,
+   "fps": 10.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "evolucion": {
+   "fotogramas": 18,
+   "fps": 10.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  }
+ }
+}

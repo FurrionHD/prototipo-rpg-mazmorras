@@ -524,8 +524,11 @@ static func gesto_transformacion(nodo: Node2D, spr: AnimatedSprite2D, mirada: Ve
 		dur: float) -> bool:
 	if spr == null or not spr.visible or spr.sprite_frames == null:
 		return false
-	var nombre: String = "evolucion_punzante" if desde == &"punzante" else "evolucion"
-	var anim := StringName("%s_%d" % [nombre, SpriteLienzo.dir8(mirada)])
+	# (30/10) Y en general 'evolucion_<de donde viene>' si su hoja la tiene: la rata de cuarzo viniendo de la drusa.
+	var dir: int = SpriteLienzo.dir8(mirada)
+	var anim := StringName("evolucion_%s_%d" % [String(desde), dir])
+	if desde == &"" or not spr.sprite_frames.has_animation(anim):
+		anim = StringName("evolucion_%d" % dir)
 	if not spr.sprite_frames.has_animation(anim):
 		return false
 	var marca: int = ComerCristales.poner_marca_gesto(nodo)

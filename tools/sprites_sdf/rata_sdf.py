@@ -47,8 +47,9 @@ def POSE(**k):
     #   cuello    + la cabeza se lanza adelante (morder)                       cabeza_lado  sacude la cabeza de lado
     #   rumbo     giro extra en planta (rad)        abre_patas  patas estiradas adelante y atras (el salto)
     #   tumba     se vuelca de lado (2 = panza arriba)   apoyo  sube del suelo     cola  el meneo de la cola
+    #   evo       (los mutantes) la TRANSFORMACION hasta su hoja: 0 = aun es lo que era, 1 = ya es el mutante
     p = dict(avance=0.0, agacha=0.0, estira=1.0, cuello=0.0, cabeza_lado=0.0, rumbo=0.0, abre_patas=0.0, tumba=0.0,
-             apoyo=0.0, patas=0.0, cola=0.0)
+             apoyo=0.0, patas=0.0, cola=0.0, evo=1.0)
     p.update(k)
     return p
 
@@ -362,6 +363,24 @@ def mat_mutante(**cambios):
     return m
 
 
+# LA TRANSFORMACION hasta el mutante (30/10, como las del slime: ComerCristales.TRANSFORMACION_DUR = 18 marcos a 10):
+# tiembla agazapada, el pelo se le oscurece de golpe en una sacudida, se le encienden los ojos, le brotan los cristales
+# uno a uno, se estira pegada al suelo y crece hasta su tamaño. Lo que cambia cada una lo dice _EVO (abajo).
+def _paso_r(x, a, b):
+    u = min(1.0, max(0.0, (x - a) / (b - a)))
+    return u * u * (3 - 2 * u)
+
+
+def anim_evolucion(t):
+    tiembla = (1.0 if int(t * 14) % 2 == 0 else -1.0) * (1.0 - _paso_r(t, 0.30, 0.40))
+    return POSE(agacha=tramos(t, [(0.0, 0.0), (0.12, 0.45), (0.45, 0.45), (0.55, -0.35), (0.70, 0.10), (1.0, 0.0)]),
+                estira=tramos(t, [(0.0, 1.0), (0.12, 0.88), (0.45, 0.88), (0.55, 1.10), (0.70, 0.98), (1.0, 1.0)]),
+                cuello=tramos(t, [(0.0, 0.0), (0.45, -0.2), (0.55, 0.5), (0.70, 0.0), (1.0, 0.0)]),
+                cabeza_lado=0.12 * tiembla,
+                cola=0.9 * math.sin(TAU * t * 3.0) + 0.3 * tiembla,
+                evo=tramos(t, [(0.0, 0.0), (0.12, 0.0), (0.88, 1.0), (1.0, 1.0)]))
+
+
 if VAR in ('sombria', 'drusa', 'cuarzo'):
     _MUT = {   # [materiales, escala, va pegada al suelo, sus rasgos (de rata_versiones)]
         'sombria': (mat_mutante(ojo=OJO_AMARILLO, **SOMBRA), 1.2 * 1.2, True, ()),
@@ -369,25 +388,75 @@ if VAR in ('sombria', 'drusa', 'cuarzo'):
         'cuarzo': (mat_mutante(ojo=OJO_AMARILLO, cristal=CRISTAL_OSC, **SOMBRA), 1.2 * 1.32, True, ('r_drusas',)),
     }
     _mat_m, _esc_m, _plana, _rasgos = _MUT[VAR]
+    # LO QUE ERA (la evolucion arranca de ahi): los materiales de antes van con '_n' (los de la rata de siempre; el
+    # cristal cian de la drusa, para la de cuarzo que viene de ella).
+    _mat_m = dict(_mat_m, pelo_n=MAT['pelo'], vientre_n=MAT['vientre'], cola_n=MAT['cola'], ojo_n=MAT['ojo'],
+                  cristal_n=CRISTAL)
+    # _EVO[hoja] = (escala de lo que era, se le oscurece el pelo y se le encienden los ojos, se pega al suelo, le
+    #               brotan los cristales, el cristal pasa de cian a ahumado)
+    _EVO = {
+        'sombria': {'evolucion': (1.2, True, True, False, False)},
+        'drusa': {'evolucion': (1.2, False, False, True, False)},
+        # la de cuarzo viene de la SOMBRIA ('evolucion': le salen las drusas ya ahumadas) o de la DRUSA
+        # ('evolucion_drusa': se le oscurece el pelo, se pega al suelo y el cristal se le enturbia)
+        'cuarzo': {'evolucion': (1.2 * 1.2, False, False, True, False),
+                   'evolucion_drusa': (1.2 * 1.2, True, True, False, True)},
+    }[VAR]
     _lado = int(round(48 * _esc_m / 1.2 / 2)) * 2 + 6
     MODELO = Modelo(_esc_m, (_lado, _lado), (_lado // 2, _lado // 2), _mat_m, (0.12, 0.09, 0.07), suaves=('cuerpo',),
-                    brillan=('ojo', 'brillo'), estira=ESTIRA, corta_suelo=True, especular=('cristal',),
-                    umbral_especular=0.955)
-    SALIDA = 'tools/salida/sdf/rata_%s/' % VAR
+                    brillan=('ojo', 'ojo_n', 'brillo'), estira=ESTIRA, corta_suelo=True,
+                    especular=('cristal', 'cristal_n'), umbral_especular=0.955)
+    # (30/10, "ta bien": ya van al juego)
+    SALIDA = 'assets/sprites/enemigos/rata_sdf_%s/' % VAR
     VISTAS = os.path.join(os.path.expanduser('~'), 'Desktop', 'ataques_mapa', 'enemigos', 'prueba_3d', 'mutantes',
                           'rata_%s_hojas' % VAR) + os.sep
+    # SOLO SUS anims (las de la rata de siempre, sin las del rey ni el chillido) + comer, su evolucion y las de sus
+    # ataques nuevos (la embestida de cristal, el destello).
+    _SUYAS = ['idle', 'walk', 'basico', 'desgarro', 'agazapado', 'salto_rata', 'frenesi', 'encaje', 'muerte', 'comer']
+    _SUYAS += {'sombria': [], 'drusa': ['embestida'], 'cuarzo': ['embestida', 'destello']}[VAR]
+    for _h in _EVO:
+        ANIMS[_h] = (18, 10.0, False, 8, anim_evolucion)
+    ANIMS = {k: ANIMS[k] for k in _SUYAS + list(_EVO.keys())}
+    # La hoja de evolucion que se hornea (la de cuarzo tiene dos): RATA_EVO, que pone el __main__ de abajo.
+    _EVO_HOJA = os.environ.get('RATA_EVO', 'evolucion')
 
     def escena(pose):
         # rata_versiones se carga AQUI, al dibujar (cargarlo arriba seria circular: el tambien nos importa).
         import rata_versiones as rv
+        evo = pose.get('evo', 1.0)
+        if evo < 1.0:
+            desde, oscurece, aplasta, brota, enturbia = _EVO.get(_EVO_HOJA, _EVO['evolucion'])
+        else:
+            desde, oscurece, aplasta, brota, enturbia = _esc_m, False, False, False, False
         if _plana:
             pose = dict(pose)
-            pose['estira'] = pose['estira'] * 1.12
-            pose['agacha'] = pose['agacha'] + 0.22
+            f = _paso_r(evo, 0.45, 0.85) if aplasta else 1.0
+            pose['estira'] = pose['estira'] * (1.0 + 0.12 * f)
+            pose['agacha'] = pose['agacha'] + 0.22 * f
         pz = rv._Piezas(pose)
         for r in _rasgos:
-            getattr(rv, r)(pz)
-        return pz.L
+            if r == 'r_drusas' and brota:
+                # uno a uno: de los hombros a las ancas, y el de la frente el ultimo (13 cristales)
+                rv.r_drusas(pz, crece=lambda i: _paso_r(evo, 0.25 + i * 0.035, 0.40 + i * 0.035))
+            else:
+                getattr(rv, r)(pz)
+        L = pz.L
+        # Lo que aun es de antes: el pelo se oscurece en la sacudida (evo 0,5), los ojos se encienden justo despues
+        # (0,62) y el cristal se enturbia al final (0,7).
+        cambia = {}
+        if oscurece and evo < 0.5:
+            cambia.update(pelo='pelo_n', vientre='vientre_n', cola='cola_n')
+        if oscurece and evo < 0.62:
+            cambia['ojo'] = 'ojo_n'
+        if enturbia and evo < 0.7:
+            cambia['cristal'] = 'cristal_n'
+        # Y el TAMAÑO: de lo que era al suyo (todo el modelo, desde los pies).
+        s = (desde + (_esc_m - desde) * _paso_r(evo, 0.2, 0.85)) / _esc_m
+        for i, (fn, m, g, k, Xh, nh) in enumerate(L):
+            if s != 1.0:
+                Xh = (Xh[0] * s, Xh[1] * s)
+            L[i] = (fn, cambia.get(m, m), g, k, Xh, nh)
+        return L
 
 
 if __name__ == '__main__':
@@ -399,4 +468,10 @@ if __name__ == '__main__':
         fotos = [render(MODELO_REY, escena_rey(POSE()), d) for d in range(5)]
         print(vistas_lado_a_lado(fotos, 'rata_aa8a55_1.70_rey', VISTAS + 'rata_rey_vs_viejo.png', 5))
     else:
-        hornear('rata_sdf', args or list(ANIMS.keys()), SALIDA, VISTAS)
+        nombres = args or list(ANIMS.keys())
+        # La segunda evolucion de la de cuarzo (desde la drusa) se hornea aparte: cada proceso lee RATA_EVO al cargar.
+        otras = [n for n in nombres if n.startswith('evolucion_')]
+        hornear('rata_sdf', [n for n in nombres if n not in otras], SALIDA, VISTAS)
+        for n in otras:
+            os.environ['RATA_EVO'] = n
+            hornear('rata_sdf', [n], SALIDA, VISTAS)

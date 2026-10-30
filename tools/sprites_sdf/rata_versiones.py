@@ -125,18 +125,25 @@ def r_cresta_cristal(e, escala=1.0):
                  0.7 + 0.35 * t)
 
 
-def r_drusas(e, frente=True):
+def r_drusas(e, frente=True, crece=None):
     # LOS RACIMOS (drusas) en los hombros y en las ancas: tres o cuatro cristales gordos que salen abanicados.
+    # 'crece' (la evolucion de rata_sdf): crece(i) = lo que ha salido el cristal i, de 0 a 1 (None = todos enteros).
+    i = 0
     for (y, ang, n, largo) in ((2.4, 40, 3, 3.6), (2.4, -40, 3, 3.6), (-2.6, 30, 4, 4.4), (-2.6, -30, 4, 4.4)):
         c = _sobre_cuerpo(y, ang)
         s = 1 if ang > 0 else -1
         for k in range(n):
             gi = (k - (n - 1) / 2) * 0.55
             d = (s * (0.55 + 0.25 * k / n), -0.3 + gi * 0.6, 1.0)
-            _cristal(e.add, c, d, largo * (0.75 + 0.25 * ((k + 1) % 2)), 0.85)
+            f = 1.0 if crece is None else crece(i)
+            if f > 0.05:
+                _cristal(e.add, c, d, largo * (0.75 + 0.25 * ((k + 1) % 2)) * f, 0.85 * (0.4 + 0.6 * f))
+            i += 1
     if frente:
         # Y UNO EN LA FRENTE, entre las orejas.
-        _cristal(e.add, Z(0, 5.6, 4.7), (0, 0.35, 1.0), 2.8, 0.7, hueso='cabeza')
+        f = 1.0 if crece is None else crece(i)
+        if f > 0.05:
+            _cristal(e.add, Z(0, 5.6, 4.7), (0, 0.35, 1.0), 2.8 * f, 0.7 * (0.4 + 0.6 * f), hueso='cabeza')
 
 
 def _con(pose, *rasgos):

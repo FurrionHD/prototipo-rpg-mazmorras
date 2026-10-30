@@ -540,7 +540,7 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 			* attacker.mult_vs(defender.familia) * defender.mult_from(attacker.familia) * mult_imbue \
 			* (1.0 + float(attacker.runa_dano_elem.get(attacker.imbue_elemento, 0.0)))   # runas: daño de ese elemento
 		dmg_imbue = damage(raw_imbue, defender.mdef_value()) \
-			* (1.0 - clampf(defender.armor_reduction_magica, 0.0, ARMOR_REDUCTION_MAX)) * f_comun
+			* (1.0 - clampf(defender.armor_reduction_magica, 0.0, ARMOR_REDUCTION_MAX)) * f_comun * defender.resiste_magia
 		bruto_imbue = raw_imbue * f_comun
 		dmg += dmg_imbue
 		defender.recibe_elemento(attacker.imbue_elemento)
@@ -616,6 +616,9 @@ static func resolve_magico_enemigo(attacker: Combatant, defender: Combatant, pue
 	var f_armadura := 1.0 - clampf(defender.armor_reduction_magica, 0.0, ARMOR_REDUCTION_MAX)
 	dmg *= f_armadura
 	mitig *= f_armadura
+	# RESISTE MAGIA (30/10, la rata drusa): va con lo mitigado, como la armadura magica.
+	dmg *= defender.resiste_magia
+	mitig *= defender.resiste_magia
 	dmg *= attacker.mult_vs(defender.familia)
 	dmg *= defender.mult_from(attacker.familia)
 	var mult_elem := Elementos.mult_recibido(attacker.elemento_ataque, defender)
@@ -693,6 +696,8 @@ static func resolve_spell(attacker: Combatant, defender: Combatant, spell: Spell
 	var dmg := damage(magic_atk, magic_def)
 	# Y el % de la armadura CONTRA LA MAGIA (08/10/2026), con el mismo techo que el fisico.
 	dmg *= 1.0 - clampf(defender.armor_reduction_magica, 0.0, ARMOR_REDUCTION_MAX)
+	# RESISTE MAGIA (30/10, la rata drusa: los cristales la desvian).
+	dmg *= defender.resiste_magia
 	dmg *= randf_range(1.0 - DAMAGE_VARIANCE, 1.0 + DAMAGE_VARIANCE)
 	# CRITICO MAGICO. Mismo CONTEST que el fisico (tu Destreza contra la Agilidad del que lo recibe):
 	# el critico es "encontrar el hueco", y eso no cambia porque lo que lances sea una bola de fuego.
