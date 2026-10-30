@@ -2880,23 +2880,35 @@ func _tras_accion_jugador_varios(objs: Array) -> void:
 # cuando la cola ha acabado y las barras han llegado a su sitio (con un tope, por si algo se quedara colgado). Visible Y
 # habilitado Y con su texto (solo 'visible' no bastaba si venia deshabilitado). Lo usan _end y el espejo.
 const CONTINUAR_TOPE_MS := 6000
-const CONTINUAR_RESPIRO := 0.25   # s tras el ultimo golpe, para que se lea antes de que salga el boton
+const CONTINUAR_RESPIRO := 0.35   # s todo quieto tras el ultimo golpe antes de que salga el boton
 var _continuar_esperando := false
+
+# ¿Se esta viendo todavia algo de la pelea? La cola de efectos, una barra viajando o (en el espejo) golpes esperando turno.
+func _animando_algo() -> bool:
+	if _fx == null:
+		return false
+	return _fx.ocupado() or not _fx.barras_quietas() or (_espejo and espejo.impactos_en_espera())
+
 
 func mostrar_continuar() -> void:
 	if _continuar_esperando or _continue_button.visible:
 		return
 	_continuar_esperando = true
 	var t0: int = Time.get_ticks_msec()
-	# Unos fotogramas antes de preguntar: en el espejo, los impactos del golpe mortal pueden llegar justo detras del fin.
-	for _i in 3:
-		await get_tree().process_frame
-	while is_inside_tree() and _fx != null and (_fx.ocupado() or not _fx.barras_quietas()) \
-			and Time.get_ticks_msec() - t0 < CONTINUAR_TOPE_MS:
+	# QUIETO DE SEGUIDO durante el respiro, no solo un momento (banco 30/10, town_dos_peleas): en el espejo el aviso de fin
+	# puede llegar ANTES que los golpes del remate; mirando un instante, el boton salia y el golpe llegaba justo detras.
+	var quieto_desde: int = -1
+	while is_inside_tree() and Time.get_ticks_msec() - t0 < CONTINUAR_TOPE_MS:
+		var ahora: int = Time.get_ticks_msec()
+		if _animando_algo():
+			quieto_desde = -1
+		elif quieto_desde < 0:
+			quieto_desde = ahora
+		elif ahora - quieto_desde >= int(CONTINUAR_RESPIRO * 1000.0):
+			break
 		await get_tree().process_frame
 	if not is_inside_tree():
 		return
-	await get_tree().create_timer(CONTINUAR_RESPIRO, true).timeout
 	_continuar_esperando = false
 	if not is_inside_tree() or _state != State.FINISHED:
 		return
