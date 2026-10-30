@@ -1452,12 +1452,20 @@ func huella_hechizo(spell: SpellData) -> AbilityData:
 var _huellas_iman: Dictionary = {}   # SpellData -> AbilityData
 
 func huella_apunte_hechizo(spell: SpellData) -> AbilityData:
-	if spell == null or spell.forma_iman <= 0.0 or spell.forma_a_aliados:
+	if spell == null or (spell.forma_iman <= 0.0 and not a_un_aliado(spell)):
 		return huella_hechizo(spell)
 	if _huellas_iman.has(spell):
 		return _huellas_iman[spell]
 	var ab: AbilityData = huella_hechizo(spell).duplicate()
 	ab.forma_rango = spell.forma_rango
+	# A UNO DE LOS TUYOS (Filos, Mantos, Vendaje; 30/10, el jefe: "seleccionas un aliado y se le lanza independientemente
+	# de donde este"): un circulo con iman para elegirle (el mas cercano a su centro, aliados_de_huella), en toda la zona.
+	if a_un_aliado(spell):
+		ab.forma = CombatFormas.Tipo.CIRCULO
+		ab.forma_radio = spell.forma_iman if spell.forma_iman > 0.0 else RADIO_ELEGIR_ALIADO
+		ab.forma_rango = ALCANCE_ELEGIR_ALIADO
+		_huellas_iman[spell] = ab
+		return ab
 	if int(spell.forma) == CombatFormas.Tipo.LINEA:
 		ab.forma_ancho = spell.forma_iman
 	else:
@@ -1467,6 +1475,142 @@ func huella_apunte_hechizo(spell: SpellData) -> AbilityData:
 	ab.set_meta(&"iman", true)
 	_huellas_iman[spell] = ab
 	return ab
+
+
+# Lo que mide el circulo con el que se elige a uno de los tuyos, y hasta donde llega (toda la zona).
+const RADIO_ELEGIR_ALIADO := 36.0
+const ALCANCE_ELEGIR_ALIADO := 4000.0
+
+# ¿Va a UNO de los tuyos, elegido? (Filos, Mantos, Vendaje: no la Fortaleza ni el Manto prismatico, que van alrededor).
+static func a_un_aliado(spell: SpellData) -> bool:
+	return spell != null and spell.forma_a_aliados and int(spell.forma_apunte) != CombatFormas.Apunte.ALREDEDOR
+
+
+# ------------------------------------------------------------
+#  RECOLOCAR AL LANZARLA (30/10, el jefe: "justo cuando te pone lanzar, que te deje clicar el circulo y moverlo")
+# ------------------------------------------------------------
+# Al salir "Lanzar", la huella del conjuro se puede arrastrar: un circulo se mueve hasta REAPUNTE_PX_POR_FRASE por cada
+# frase del hechizo, una linea o un cono gira hasta REAPUNTE_GRADOS_POR_FRASE por frase (las largas, que dan mas tiempo
+# al enemigo para moverse, se pueden corregir mas). Lo recorta tambien quien lleva la pelea (punto_reapuntado).
+const REAPUNTE_PX_POR_FRASE := 30.0
+const REAPUNTE_GRADOS_POR_FRASE := 15.0
+
+# ¿Se puede recolocar este conjuro? Los que se apuntan en el suelo; no los de alrededor de ti ni los de un aliado.
+func se_recoloca(spell: SpellData) -> bool:
+	return spell != null and usa_huella_hechizo(spell) and not spell.forma_a_aliados \
+		and int(spell.forma_apunte) != CombatFormas.Apunte.ALREDEDOR
+
+
+# 'nuevo' recortado al margen del conjuro desde 'base' (donde se apunto): en un circulo, a como mucho N px; en una linea
+# o un cono, girado como mucho N grados alrededor de quien lo lanza (a la misma distancia de antes).
+func punto_reapuntado(spell: SpellData, c: Combatant, base: Vector2, nuevo: Vector2) -> Vector2:
+	if not se_recoloca(spell):
+		return base
+	var frases: float = float(maxi(spell.longitud(), 1))
+	if int(spell.forma_apunte) == CombatFormas.Apunte.LIBRE:
+		return base + (nuevo - base).limit_length(REAPUNTE_PX_POR_FRASE * frases)
+	var pies: Vector2 = pies_de(c)
+	var v0: Vector2 = base - pies
+	var v1: Vector2 = nuevo - pies
+	if v0.length_squared() < 0.01 or v1.length_squared() < 0.01:
+		return base
+	var tope_a: float = deg_to_rad(REAPUNTE_GRADOS_POR_FRASE * frases)
+	return pies + v0.rotated(clampf(v0.angle_to(v1), -tope_a, tope_a))
+
+
+var _recolocar: Dictionary = {}   # {spell, c, base, punto, arrastrando} mientras se puede arrastrar
+const CLAVE_RECOLOCAR := &"recolocar"
+
+func empezar_recolocar(spell: SpellData, c: Combatant, base: Vector2) -> void:
+	acabar_recolocar()
+	if not se_recoloca(spell) or c == null:
+		return
+	_recolocar = {"spell": spell, "c": c, "base": base, "punto": base, "arrastrando": false}
+	_pintar_recolocar()
+
+
+func acabar_recolocar() -> void:
+	if _recolocar.is_empty():
+		return
+	_recolocar = {}
+	var arena: ArenaCombate = _arena()
+	if arena != null:
+		arena.quitar_huella(CLAVE_RECOLOCAR)
+
+
+func recolocando() -> bool:
+	return not _recolocar.is_empty()
+
+
+# Donde queda el conjuro tras arrastrarlo (null si no se esta recolocando o no se ha movido).
+func punto_recolocado():
+	if _recolocar.is_empty() or (_recolocar["punto"] as Vector2).is_equal_approx(_recolocar["base"]):
+		return null
+	return _recolocar["punto"]
+
+
+# Arrastrarlo a mano (las pruebas, y lo que haria el raton): de donde esta a 'nuevo', recortado al margen.
+func arrastrar_recolocar(nuevo: Vector2) -> void:
+	if _recolocar.is_empty():
+		return
+	_recolocar["punto"] = punto_reapuntado(_recolocar["spell"], _recolocar["c"], _recolocar["base"], nuevo)
+	_pintar_recolocar()
+
+
+func _pintar_recolocar() -> void:
+	var arena: ArenaCombate = _arena()
+	if arena == null or _recolocar.is_empty():
+		return
+	arena.poner_huella(CLAVE_RECOLOCAR, forma_hechizo(_recolocar["spell"], _recolocar["c"], _recolocar["punto"]), 0.0)
+
+
+# El raton/dedo sobre la huella: pinchar la coge, mover la arrastra (recortada al margen), soltar la deja.
+func input_recolocar(event: InputEvent) -> bool:
+	if _recolocar.is_empty():
+		return false
+	var spell: SpellData = _recolocar["spell"]
+	var c: Combatant = _recolocar["c"]
+	if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+		var mb := event as InputEventMouseButton
+		if mb.pressed:
+			if _pantalla.get_viewport().gui_get_hovered_control() is BaseButton:
+				return false   # el boton de Lanzar es del boton
+			var raton: Vector2 = _raton_en_mundo()
+			var f = forma_hechizo(spell, c, _recolocar["punto"])
+			if f.toca(Rect2(raton - Vector2(6, 6), Vector2(12, 12))):
+				_recolocar["arrastrando"] = true
+				_recolocar["agarre"] = (_recolocar["punto"] as Vector2) - raton
+				return true
+			return false
+		if bool(_recolocar["arrastrando"]):
+			_recolocar["arrastrando"] = false
+			return true
+	if event is InputEventMouseMotion and bool(_recolocar["arrastrando"]):
+		var nuevo: Vector2 = _raton_en_mundo()
+		# Un circulo se coge por donde se pincho (su centro se mueve lo mismo que el raton); una linea, hacia el raton.
+		if int(spell.forma_apunte) == CombatFormas.Apunte.LIBRE:
+			nuevo += _recolocar.get("agarre", Vector2.ZERO)
+		arrastrar_recolocar(nuevo)
+		return true
+	return false
+
+
+# ELEGIR A OTRO de los tuyos al soltarlo, porque al que iba ha huido de la pelea (30/10, el jefe). Se apunta como al
+# elegirlo; al confirmar se lanza a ese (CombatMagia._disparar_hechizo con aliado).
+var _reeligiendo: SpellData = null
+
+func reelegir_aliado(spell: SpellData, c: Combatant) -> void:
+	# El que lo lanza es quien apunta. En el espejo, la peticion de lanzar no pasa por empezar_turno: sin esto no habria
+	# cuerpo desde el que apuntar.
+	if c != null and _quien != c:
+		var cuerpo: Node2D = cuerpo_de(c)
+		if cuerpo != null:
+			_quien = c
+			_cuerpo = cuerpo
+	_reeligiendo = spell
+	apuntar(huella_apunte_hechizo(spell))
+	if _apuntando == null:
+		_reeligiendo = null
 
 
 # EL IMAN AL SOLTARLA: si alguien esta en la zona de enganche apuntada en 'punto', el punto pasa a SU cuerpo (el mas
@@ -1871,6 +2015,15 @@ func _confirmar_apunte() -> void:
 	if ab.forma_a_aliados and ab.objetivo_aliado == AbilityData.Objetivo.ALIADO \
 			and aliados_de_huella(ab, _quien).is_empty():
 		return
+	# OTRO DE LOS TUYOS para un conjuro ya recitado (el suyo huyo): al que quede bajo la huella, y se lanza.
+	if _reeligiendo != null:
+		var otros: Array = aliados_de_huella(ab, _quien)
+		if otros.is_empty():
+			return
+		_reeligiendo = null
+		_dejar_de_apuntar()
+		_pantalla.magia._disparar_hechizo(otros[0])
+		return
 	# UN HECHIZO: el sitio se queda sellado con el conjuro y se empieza a recitar.
 	if not _hechizo_apuntado.is_empty():
 		var hz: Array = _hechizo_apuntado
@@ -1892,6 +2045,8 @@ func _confirmar_apunte() -> void:
 
 
 func _cancelar_apunte() -> void:
+	if _reeligiendo != null:
+		return   # el conjuro ya esta recitado: hay que elegir a alguien (no hay menu al que volver)
 	var era_hechizo: bool = not _hechizo_apuntado.is_empty()
 	_hechizo_apuntado = []
 	_dejar_de_apuntar()

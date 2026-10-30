@@ -831,7 +831,8 @@ func _enviar_peticion() -> void:
 			Net.peleas.pedir_frase(_pantalla._esperando_a, int(pet.get("idx", 0)), pet.get("opciones", []),
 				String(pet.get("nombre", "")), int(pet.get("largo", 1)), seq, _pantalla.pelea)
 		"disparo":
-			Net.peleas.pedir_disparo(_pantalla._esperando_a, String(pet.get("nombre", "")), seq, _pantalla.pelea)
+			Net.peleas.pedir_disparo(_pantalla._esperando_a, String(pet.get("nombre", "")), seq, _pantalla.pelea,
+				bool(pet.get("reelegir", false)))
 		"soltar":
 			Net.peleas.pedir_soltar(_pantalla._esperando_a, String(pet.get("nombre", "")), seq, _pantalla.pelea)
 
@@ -1037,6 +1038,11 @@ func aplicar_accion_remota(accion: Dictionary, emisor: int = 0) -> void:
 		"disparar":
 			if _pantalla._cast_spell == null:
 				return
+			# Lo recolocado y el aliado nuevo, si los trae (los recorta aplicar_reapunte).
+			var pt_d: Array = accion.get("punto", [])
+			var ia_d: int = int(accion.get("aliado", -1))
+			_pantalla.magia.aplicar_reapunte(Vector2(float(pt_d[0]), float(pt_d[1])) if pt_d.size() >= 2 else null,
+				_pantalla._aliados[ia_d] if ia_d >= 0 and ia_d < _pantalla._aliados.size() else null)
 			_pantalla.magia._disparar_hechizo()
 		"soltar":
 			# Su carga, con SU objetivo (_target_idx ya viene puesto de accion["obj"], arriba).

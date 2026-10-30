@@ -331,6 +331,27 @@ func _cancelar_casteo() -> void:
 	_accion_magia()
 
 
+# LO QUE SE CAMBIO AL LANZARLO (quien lleva la pelea): el punto arrastrado, RECORTADO al margen del conjuro desde donde
+# se apunto (no se fia de lo que llega: turno_mapa.punto_reapuntado), y otro de los tuyos si al que iba ha huido (solo
+# entonces, y solo a uno que siga en la pelea). Si ha huido y nadie eligio (su dueño se cayo de la red), al primero
+# de los tuyos que quede.
+func aplicar_reapunte(punto_nuevo, aliado_nuevo: Combatant) -> void:
+	if not _pantalla.tactico or not _pantalla._casteos.has(_pantalla._player):
+		return
+	var k: Dictionary = _pantalla._casteos[_pantalla._player]
+	var spell = k.get("spell")
+	if not (spell is SpellData):
+		return
+	if punto_nuevo is Vector2 and k.get("punto") is Vector2:
+		k["punto"] = _pantalla.turno_mapa.punto_reapuntado(spell, _pantalla._player, k["punto"], punto_nuevo)
+	if _aliado_huyo():
+		var vivos: Array[Combatant] = _pantalla._aliados_vivos()
+		if aliado_nuevo != null and vivos.has(aliado_nuevo):
+			_pantalla._cast_aliado = aliado_nuevo
+		elif not vivos.is_empty():
+			_pantalla._cast_aliado = vivos[0]
+
+
 # Turno de DISPARO: un unico boton para lanzar el hechizo ya recitado.
 func _mostrar_disparo() -> void:
 	# MULTI: el conjuro es de otro -> el boton va en SU pantalla (y alli puede reapuntar antes de
@@ -346,13 +367,47 @@ func _mostrar_disparo() -> void:
 	if dueno != 0:
 		_pantalla._ocultar_cajas()
 		_pantalla._set_log("%s tiene el conjuro listo. Esperando..." % _pantalla._player.nombre)
-		_pantalla.espejo._pedir_a_remoto(dueno, {"tipo": "disparo", "nombre": _pantalla._cast_spell.nombre})
+		_pantalla.espejo._pedir_a_remoto(dueno, {"tipo": "disparo", "nombre": _pantalla._cast_spell.nombre,
+			"reelegir": _aliado_huyo()})
 		return
-	_pintar_disparo(_pantalla._cast_spell.nombre)
+	_pintar_disparo(_pantalla._cast_spell.nombre, _aliado_huyo())
 
 
-func _pintar_disparo(nombre: String) -> void:
+# ¿El conjuro iba a uno de los tuyos que ha HUIDO de la pelea? (30/10, el jefe: "menos si se sale del combate al huir,
+# que entonces te deja seleccionar a otro de los que esten dentro de la zona"). Solo quien lleva la pelea lo sabe.
+func _aliado_huyo() -> bool:
+	var spell: SpellData = _pantalla._cast_spell
+	if not _pantalla.tactico or not _pantalla.turno_mapa.a_un_aliado(spell):
+		return false
+	# El guardado TAL CUAL: _cast_aliado ya devuelve al que lanza si el elegido huyo o cayo.
+	var al = (_pantalla._casteos.get(_pantalla._player, {}) as Dictionary).get("aliado")
+	return al is Combatant and (_pantalla._huidos.has(al) or not _pantalla._aliados.has(al))
+
+
+# EL CONJURO LISTO de quien lo suelta en ESTA pantalla: [SpellData, punto apuntado o null]. Quien lleva la pelea lo
+# tiene en _casteos; el espejo, en lo que le llega de los circulos (turno_mapa._casteos_red).
+func _conjuro_listo() -> Array:
+	if _pantalla._espejo:
+		var v: Array = _pantalla.turno_mapa._casteos_red.get(_pantalla._player, [])
+		return [v[0], v[2]] if v.size() >= 3 else [null, null]
+	var k: Dictionary = _pantalla._casteos.get(_pantalla._player, {})
+	return [k.get("spell"), k.get("punto")]
+
+
+func _pintar_disparo(nombre: String, reelegir: bool = false) -> void:
 	_pantalla._ocultar_cajas()
+	# EN EL MAPA, al salir Lanzar: si iba a uno de los tuyos que huyo, a elegir a otro (y se lanza al elegirlo); si se
+	# apunta en el suelo, su huella se puede ARRASTRAR un poco antes de lanzarla (turno_mapa.empezar_recolocar).
+	if _pantalla.tactico:
+		var listo: Array = _conjuro_listo()
+		if reelegir and listo[0] is SpellData:
+			var se_fue = (_pantalla._casteos.get(_pantalla._player, {}) as Dictionary).get("aliado")
+			_pantalla._set_log("%s ya no está en la pelea: elige a otro de los tuyos para %s." % [
+				(se_fue as Combatant).nombre if se_fue is Combatant else "Tu aliado", nombre])
+			_pantalla.turno_mapa.reelegir_aliado(listo[0], _pantalla._player)
+			return
+		if listo[0] is SpellData and listo[1] is Vector2:
+			_pantalla.turno_mapa.empezar_recolocar(listo[0], _pantalla._player, listo[1])
 	for c in _pantalla._cast_box.get_children():
 		c.queue_free()
 	var b := Button.new()
@@ -364,12 +419,13 @@ func _pintar_disparo(nombre: String) -> void:
 	_pantalla._cast_box.add_child(b)
 	_pantalla._alto_panel(_pantalla.ALTO_BOTON_ACCION)
 	_pantalla._cast_box.visible = true
-	_pantalla._set_log("El conjuro está listo. ¡Lánzalo!")
+	_pantalla._set_log("El conjuro está listo. ¡Lánzalo!%s" % (
+		"  (Puedes arrastrar su huella un poco antes.)" if _pantalla.tactico and _pantalla.turno_mapa.recolocando() else ""))
 	_pantalla._ocultar_log()   # el boton de disparo ocupa el sitio del historial
 
 
 # ESPEJO: mi conjuro esta listo, el boton de lanzarlo va aqui.
-func lanzar_conjuro(nombre: String, seq: int = 0) -> void:
+func lanzar_conjuro(nombre: String, seq: int = 0, reelegir: bool = false) -> void:
 	if not _pantalla._espejo:
 		return
 	if seq != 0 and seq == _pantalla.espejo._seq_contestada:
@@ -383,17 +439,28 @@ func lanzar_conjuro(nombre: String, seq: int = 0) -> void:
 	_pantalla._state = _pantalla.State.WAITING_PLAYER
 	if _pantalla.tactico:
 		_pantalla.turno_mapa.enfocar(_pantalla._player)   # la camara, al que lo suelta
-	_pintar_disparo(nombre)
+	_pintar_disparo(nombre, reelegir)
 
 
-func _disparar_hechizo() -> void:
+# 'aliado_nuevo': a quien va ahora (el suyo huyo y se eligio a otro, ver _pintar_disparo). null = al de siempre.
+func _disparar_hechizo(aliado_nuevo: Combatant = null) -> void:
 	if _pantalla._state != _pantalla.State.WAITING_PLAYER:
 		return
+	# LO RECOLOCADO al lanzarlo (si se arrastro su huella), antes de que se quite.
+	var recolocado = _pantalla.turno_mapa.punto_recolocado() if _pantalla.tactico else null
+	if _pantalla.tactico:
+		_pantalla.turno_mapa.acabar_recolocar()
 	# ESPEJO: el objetivo viaja como indice; lo resuelve el anfitrion con el conjuro que ya tiene
-	# recitado en la ficha del doble.
+	# recitado en la ficha del doble. Y lo recolocado o el aliado nuevo, que el anfitrion recorta a lo que se puede.
 	if _pantalla._espejo:
-		_pantalla.espejo._responder_al_anfitrion({"tipo": "disparar", "obj": _pantalla._target_idx})
+		var resp: Dictionary = {"tipo": "disparar", "obj": _pantalla._target_idx}
+		if recolocado is Vector2:
+			resp["punto"] = [(recolocado as Vector2).x, (recolocado as Vector2).y]
+		if aliado_nuevo != null:
+			resp["aliado"] = _pantalla._aliados.find(aliado_nuevo)
+		_pantalla.espejo._responder_al_anfitrion(resp)
 		return
+	aplicar_reapunte(recolocado, aliado_nuevo)
 	var spell := _pantalla._cast_spell
 	# ¿ESTE YA ESTABA PAGADO? Lo esta el conjuro que alguien recito en el MAPA y se trajo al unirse a
 	# esta pelea: casteo_mapa cobra el maná antes del impacto (ver Game.casteo_para_viajar). Cobrarlo

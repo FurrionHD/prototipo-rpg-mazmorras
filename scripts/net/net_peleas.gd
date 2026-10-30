@@ -1962,19 +1962,20 @@ func _tu_frase(idx: int, opciones: Array, nombre: String, largo: int, seq: int =
 		p.recitar_frase(idx, opciones, nombre, largo, seq)
 
 
-func pedir_disparo(peer: int, nombre: String, seq: int = 0, pe: PeleaViva = null) -> void:
+# 'reelegir' (30/10): iba a uno de los tuyos que ha huido; su dueño elige a otro al lanzarlo.
+func pedir_disparo(peer: int, nombre: String, seq: int = 0, pe: PeleaViva = null, reelegir: bool = false) -> void:
 	if not Net.activo or peer == 0 or multiplayer.multiplayer_peer == null:
 		return
-	_tu_disparo.rpc_id(peer, nombre, seq, pe.id if pe != null else 0)
+	_tu_disparo.rpc_id(peer, nombre, seq, pe.id if pe != null else 0, reelegir)
 
 
 @rpc("any_peer", "call_remote", "reliable", Canal.COMBATE)
-func _tu_disparo(nombre: String, seq: int = 0, pelea: int = 0) -> void:
+func _tu_disparo(nombre: String, seq: int = 0, pelea: int = 0, reelegir: bool = false) -> void:
 	if _pelea_sigo == 0 or not _lo_manda_el_anfitrion(pelea):
 		return
 	var p: Node = _pantalla_combate()
 	if p != null and p.has_method("lanzar_conjuro"):
-		p.lanzar_conjuro(nombre, seq)
+		p.lanzar_conjuro(nombre, seq, reelegir)
 
 
 # ATAQUE DE CARGA listo: la orden de soltarlo (y el objetivo) es de SU dueño, no del anfitrion.

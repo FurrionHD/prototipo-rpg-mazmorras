@@ -1384,6 +1384,10 @@ func _input(event: InputEvent) -> void:
 	if tactico and turno_mapa.input_apuntando(event):
 		get_viewport().set_input_as_handled()
 		return
+	# Al salir Lanzar, arrastrando la huella del conjuro para recolocarla (turno_mapa.input_recolocar).
+	if tactico and turno_mapa.input_recolocar(event):
+		get_viewport().set_input_as_handled()
+		return
 	# MANTENER PULSADO sobre un combatiente -> ficha de detalle (solo en tu turno). El contador
 	# lo lleva _process; aqui solo se arma, se cancela si el puntero se va, y se suelta al levantar.
 	if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
@@ -3321,8 +3325,8 @@ func aplicar_casteo_entrante(idx_aliado: int, d: Dictionary) -> void:
 func hechizo_de_entrada(spell: SpellData, idx_enemigo: int, idx_lanzador: int) -> void:
 	magia.hechizo_de_entrada(spell, idx_enemigo, idx_lanzador)
 
-func lanzar_conjuro(nombre: String, seq: int = 0) -> void:
-	magia.lanzar_conjuro(nombre, seq)
+func lanzar_conjuro(nombre: String, seq: int = 0, reelegir: bool = false) -> void:
+	magia.lanzar_conjuro(nombre, seq, reelegir)
 
 func recitar_frase(idx: int, opciones: Array, nombre: String, largo: int, seq: int = 0) -> void:
 	magia.recitar_frase(idx, opciones, nombre, largo, seq)
