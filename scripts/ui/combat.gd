@@ -1512,6 +1512,7 @@ func _process(delta: float) -> void:
 	# los de PAUSED/ADVANCING: en el espejo tambien se muere gente, y una tarjeta a medio desvanecer
 	# durante la pausa de lectura se quedaria congelada a medio alpha.
 	altas._avanzar_retiradas(delta)
+	efectos.soltar_chips_retenidos()   # los iconos de estado que esperaban a que aterrizara su golpe (tambien en el espejo)
 	# ESPEJO (hito 5.4-C): esta pantalla no SIMULA nada, solo pinta la pelea que lleva otra
 	# maquina. Ni ATB, ni turnos, ni resolucion: todo eso llega por instantaneas.
 	if _espejo:

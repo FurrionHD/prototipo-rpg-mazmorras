@@ -404,9 +404,26 @@ func _peso_hechizo(spell: SpellData, escala: float) -> float:
 # Se rehace entero en cada refresco: son 0-5 botones y asi no hay que llevar la cuenta de
 # cuales han expirado.
 # 'idx' = indice del enemigo dueño de los chips (-1 = jugador): los chips tambien seleccionan.
-func _refrescar_chips(c: Combatant, bloque: Dictionary, idx: int) -> void:
+#
+# LO QUE TE PONE UN GOLPE SE VE CUANDO TE DA (30/10, playtest: "los iconos de stun, por ejemplo, aparecen antes de que se
+# de el golpe, cuando se empieza a ejecutar; el efecto le entra en el momento en el que golpea el arma"). El estado se
+# aplica al RESOLVER la accion y el golpe se ve despues, por la cola de efectos: igual que la barra de vida (que se
+# retiene hasta que aterriza el impacto), mientras al bloque le quede un golpe por aterrizar sus iconos se quedan como
+# estaban, y se repintan cuando aterriza (soltar_chips_retenidos, cada fotograma). Con un tope por si no aterrizara.
+const CHIPS_RETENCION_MAX_MS := 5000
+var _chips_retenidos: Array = []   # [[Combatant, bloque, idx, desde_ms]] (bloque por referencia: is_same)
+
+func _refrescar_chips(c: Combatant, bloque: Dictionary, idx: int, forzar: bool = false) -> void:
 	var box: Container = bloque.get("chips")
 	if box == null:
+		return
+	if not forzar and _golpe_por_ver(bloque):
+		for r in _chips_retenidos:
+			if is_same(r[1], bloque):
+				r[0] = c
+				r[2] = idx
+				return
+		_chips_retenidos.append([c, bloque, idx, Time.get_ticks_msec()])
 		return
 	for hijo in box.get_children():
 		hijo.queue_free()
@@ -430,6 +447,28 @@ func _refrescar_chips(c: Combatant, bloque: Dictionary, idx: int) -> void:
 		var ultimo: bool = par.size() > 4 and bool(par[4])
 		_chip(box, visible_txt, String(par[1]), idx, col, ultimo)
 	box.visible = box.get_child_count() > 0
+
+
+# ¿Le queda a 'bloque' un golpe por ver? El suyo en la cola, o (en el espejo) golpes que aun esperan turno.
+func _golpe_por_ver(bloque: Dictionary) -> bool:
+	if _pantalla._fx == null:
+		return false
+	return _pantalla._fx.impacto_pendiente(bloque) or (_pantalla._espejo and _pantalla.espejo.impactos_en_espera())
+
+
+# Los iconos que esperaban a su golpe (ver _refrescar_chips): se pintan en cuanto ha aterrizado.
+func soltar_chips_retenidos() -> void:
+	if _chips_retenidos.is_empty():
+		return
+	var ahora: int = Time.get_ticks_msec()
+	for r in _chips_retenidos.duplicate():
+		var b: Dictionary = r[1]
+		if _golpe_por_ver(b) and ahora - int(r[3]) < CHIPS_RETENCION_MAX_MS:
+			continue
+		_chips_retenidos.erase(r)
+		var c: Combatant = r[0]
+		if c != null and c.is_alive():   # a un caido ya se los apago _update_hp
+			_refrescar_chips(c, b, int(r[2]), true)
 
 
 # QUE chips lleva un combatiente, como [[texto, tooltip], ...]. Separado de la pintura porque estos

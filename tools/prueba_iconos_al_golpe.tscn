@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://tools/prueba_iconos_al_golpe.gd" id="1"]
+
+[node name="PruebaIconosAlGolpe" type="Node"]
+script = ExtResource("1")

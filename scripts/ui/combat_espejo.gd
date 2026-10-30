@@ -1449,6 +1449,13 @@ func aplicar_impactos(datos: PackedInt32Array) -> void:
 	_aplicar_impactos_ya(datos)
 
 
+# ¿Hay golpes del anfitrion esperando a que acabe la racha que se esta viendo? Mientras los haya, los iconos de estado
+# esperan tambien: lo que traen ya esta en la instantanea, pero el golpe que lo pone aun no se ha visto
+# (CombatEfectos._refrescar_chips).
+func impactos_en_espera() -> bool:
+	return not _impactos_en_espera.is_empty()
+
+
 func _esperar_racha() -> void:
 	if _esperando_racha or not _pantalla.is_inside_tree():
 		return

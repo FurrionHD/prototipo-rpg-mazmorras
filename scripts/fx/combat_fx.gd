@@ -1572,6 +1572,21 @@ func _soltar_apagado(bloque: Dictionary) -> void:
 
 # ¿Le queda a esta tarjeta algun golpe por aterrizar? Lo pregunta combat.gd antes de poner un
 # cadaver en gris.
+# ¿Le queda a 'bloque' algun golpe de la cola por ATERRIZAR? (o, si es un adorno sin impacto, por salir su dibujo).
+# Lo pregunta el pintado de los iconos de estado: lo que le pone el golpe se ve cuando le da, no antes (ver
+# CombatEfectos._refrescar_chips).
+func impacto_pendiente(bloque: Dictionary) -> bool:
+	for ev in _cola:
+		if not is_same(ev["bv"], bloque):
+			continue
+		if bool(ev.get("solo_dibujo", false)):
+			if not bool(ev.get("fx_lanzado", false)):
+				return true
+		elif not bool(ev["lanzado"]):
+			return true
+	return false
+
+
 func golpes_pendientes(bloque: Dictionary) -> bool:
 	return float(bloque.get("hp_pend", 0.0)) > 0.0
 
