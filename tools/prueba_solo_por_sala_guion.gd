@@ -29,6 +29,8 @@ func _ready() -> void:
 	var v := args.find("vuelta")
 	Net.partida.entrada_lista.connect(func():
 		if v >= 0:
+			Cargando.forzar_sin_ventana = true   # la capa de carga, como con ventana: se mira si tapa el pueblo
+			_vigilar_flash()
 			await Mundos.entrar_al_mundo()   # el del menu: al pueblo, y si estaba abajo, de vuelta a mi piso
 			_entrado = true
 			return
@@ -222,9 +224,24 @@ func _guion() -> void:
 	print("[P] dato lider=%s excelia=%.4f" % [mejor.uid, _excelia(mejor)])
 
 
+# EL FLASHAZO DEL PUEBLO (30/10, playtest: "al entrar teniendo el guardado dentro de la mazmorra primero sale un flashazo de
+# ti fuera en el pueblo y luego ya en el sitio correcto"): fotogramas con el pueblo en pantalla y sin la capa de carga
+# encima, desde que entro hasta que estoy en mi piso.
+var _flash := 0
+
+func _vigilar_flash() -> void:
+	var t0: int = Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t0 < 60000 and Net._mi_lugar != "piso:1":
+		var esc: Node = get_tree().current_scene
+		if esc != null and esc.scene_file_path.ends_with("town.tscn") and not Cargando.visible_ahora():
+			_flash += 1
+		await get_tree().process_frame
+
+
 # LA VUELTA: entro otra vez (sala nueva, la de antes se cerro) y estoy donde lo deje, con lo ganado.
 func _vuelta(uid: String, excelia: float) -> void:
 	_ok(await _hasta(func(): return Net._mi_lugar == "piso:1", 60.0), "la sala me devuelve al piso 1 (%s)" % Net._mi_lugar)
+	_ok(_flash == 0, "sin ver el pueblo por el camino (%d fotogramas con el pueblo destapado)" % _flash)
 	var suyo = null   # el del grupo que mas gano en la pelea (ver el final de _guion)
 	for pj in [Game.lider()] + Game.companeros():
 		if pj != null and pj.uid == uid:

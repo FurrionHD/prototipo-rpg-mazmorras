@@ -733,9 +733,15 @@ func entrar_al_mundo() -> void:
 	var pos = donde.get("pos", Vector2.INF)
 	if lugar == "pueblo" and pos is Vector2:
 		Game.pos_cargada_pueblo = pos
+	var a_piso: bool = lugar.begins_with("piso:") and pos is Vector2
+	# DE VUELTA A UN PISO, la capa de carga no se quita al llegar al pueblo (30/10, playtest: "al entrar teniendo el
+	# guardado dentro de la mazmorra primero sale un flashazo de ti fuera en el pueblo y luego ya en el sitio correcto"):
+	# se pone como la de ir a un piso y la quita el piso al montarse (o _volver_no, si la sala dice que no se puede).
+	if a_piso:
+		await Cargando.cubrir_piso("Entrando en el mundo...")
 	await Cargando.cambiar_escena(arbol, PUEBLO, "Entrando en el mundo...")
 	Net.anunciar_lugar("pueblo")
-	if lugar.begins_with("piso:") and pos is Vector2:
+	if a_piso:
 		Game.pos_cargada = pos
 		Net.pisos.solicitar_volver(int(lugar.substr(5)))
 

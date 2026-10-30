@@ -65,7 +65,7 @@ func cambiar_escena(arbol: SceneTree, ruta: String, texto: String = "Cargando...
 	if arbol.has_signal(&"scene_changed"):
 		await arbol.scene_changed
 	await arbol.process_frame
-	if not _reteniendo:
+	if not reteniendo():   # cubierta para ir a un piso (cubrir_piso): la quita el piso al montarse
 		ocultar()
 
 
@@ -139,6 +139,15 @@ func piso_montado() -> void:
 	Game.salir_modal(_TOKEN_PISO)
 	_cubierto = false
 	_reteniendo = false
+	ocultar()
+
+
+## Se cubrio para ir a un piso y al final no se va (la sala no deja volver a el: te quedas donde estas).
+func soltar_piso() -> void:
+	if not _cubierto or _reteniendo:
+		return
+	Game.salir_modal(_TOKEN_PISO)
+	_cubierto = false
 	ocultar()
 
 

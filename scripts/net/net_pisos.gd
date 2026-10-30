@@ -378,6 +378,7 @@ func _pedir_volver(piso: int) -> void:
 @rpc("authority", "call_remote", "reliable", Canal.MUNDO)
 func _volver_no() -> void:
 	Game.pos_cargada = Vector2.INF
+	Cargando.soltar_piso()   # la capa que tapaba el pueblo mientras se volvia al piso (Mundos.entrar_al_mundo)
 
 
 # {piso: segundos que le faltan a ese jefe}. Solo tiene sentido en el host, que es quien lleva la
