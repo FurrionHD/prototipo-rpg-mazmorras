@@ -26,7 +26,7 @@ efectos = [SubResource("SA_quema")]
 ; LA FORMA EN EL MAPA (26/09, su decision): apuntas un sitio a distancia y 4 bolas caen del cielo en puntos
 ; del circulo (MagiaAire.puntos_andanada); cada una revienta en su circulito (el mas cercano 150%, el resto 75%).
 forma = 1
-forma_radio = 50.0
+forma_radio = 65.0
 forma_apunte = 3
 forma_rango = 160.0
 suelo_mapa = 43

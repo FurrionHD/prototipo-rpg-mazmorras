@@ -39,7 +39,7 @@ descripcion = "Dos golpes en el mismo aliento y en este orden: la llama prende, 
 ; LA FORMA EN EL MAPA (26/09, su decision): circulo r55 LIBRE que se pone al rojo, le cae agua y revienta en
 ; cristales de obsidiana. 1.6 en el centro -> 0.7 en el borde.
 forma = 1
-forma_radio = 55.0
+forma_radio = 70.0
 forma_apunte = 3
 forma_rango = 170.0
 forma_caida = Array[float]([1.6, 0.7])

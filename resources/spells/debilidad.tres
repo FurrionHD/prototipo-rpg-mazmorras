@@ -20,7 +20,7 @@ descripcion = "Le pesan los brazos. Cada golpe suyo llega mas blando que el ante
 efectos = [SubResource("SA_debil")]
 ; LA FORMA EN EL MAPA (26/09, su decision): un circulo MEDIANO a cierta distancia; tira contra cada uno de dentro.
 forma = 1
-forma_radio = 40.0
+forma_radio = 55.0
 forma_apunte = 3
 forma_rango = 160.0
 suelo_mapa = 51
