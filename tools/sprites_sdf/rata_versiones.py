@@ -24,7 +24,7 @@ Z = rs.Z
 ESC_NORMAL = 1.2
 ESC_MUTANTE = 1.2 * 1.2   # la tabla de los mutantes: tamaño x1,2
 
-CRISTAL = [(0.30, 0.72, 0.85), (0.55, 0.95, 1.0), (0.85, 1.0, 1.0), (1.0, 1.0, 1.0)]   # el 4o, el destello (especular)
+CRISTAL = rs.CRISTAL
 
 
 def _mat(**cambios):
@@ -55,7 +55,7 @@ def _sobre_cuerpo(y, ang):
 class _Piezas:
     def __init__(self, pose):
         self.X = rs.huesos(pose)
-        self.L = rs.escena(pose)
+        self.L = rs._escena_base(pose)   # la rata de siempre (con RATA_VAR, rs.escena ya es la del mutante)
 
     def add(self, fn, mat, k=0.0, grupo='cuerpo', hueso='raiz'):
         self.L.append((fn, mat, grupo, k, self.X.get(hueso, IDENT), hueso))
@@ -194,17 +194,15 @@ def evo_las_tres():
     return _con(rs.POSE(estira=1.1, agacha=0.18), lambda e: r_cresta_cristal(e, 1.15), r_bubas, r_llagas)
 
 
-SOMBRA = dict(pelo=[(0.07, 0.07, 0.10), (0.14, 0.14, 0.19), (0.24, 0.24, 0.31)],
-              vientre=[(0.12, 0.12, 0.16), (0.20, 0.20, 0.26), (0.30, 0.30, 0.37)],
-              cola=[(0.10, 0.09, 0.12), (0.18, 0.16, 0.20), (0.27, 0.25, 0.30)])
+SOMBRA = rs.SOMBRA
 PELO_OSC = [(0.05, 0.05, 0.07), (0.11, 0.11, 0.14), (0.20, 0.20, 0.24)]
 SARNA = dict(pelo=[(0.27, 0.27, 0.17), (0.40, 0.40, 0.26), (0.52, 0.52, 0.36)],
              calva=[(0.52, 0.38, 0.38), (0.68, 0.52, 0.50), (0.80, 0.66, 0.62)],
              pustula=[(0.62, 0.60, 0.20), (0.85, 0.82, 0.35), (0.97, 0.95, 0.60)])
 BUBAS = dict(buba=[(0.14, 0.16, 0.08), (0.26, 0.30, 0.14), (0.40, 0.45, 0.24)],
              llaga=[(0.45, 0.10, 0.08), (0.62, 0.18, 0.14), (0.75, 0.30, 0.24)])
-CRISTAL_OSC = [(0.16, 0.30, 0.42), (0.30, 0.55, 0.72), (0.55, 0.80, 0.95), (0.95, 1.0, 1.0)]
-OJO_AMARILLO = [(0.95, 0.80, 0.20)] * 3
+CRISTAL_OSC = rs.CRISTAL_OSC
+OJO_AMARILLO = rs.OJO_AMARILLO
 OJO_ROJO = [(0.90, 0.15, 0.12)] * 3
 ESC_EVO2 = 1.2 * 1.35   # la segunda evolucion, algo mayor que la primera
 

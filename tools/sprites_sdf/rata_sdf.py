@@ -294,7 +294,28 @@ def anim_encaje(t):
                 agacha=tramos(t, [(0.0, 0.85), (0.34, 0.20), (0.67, 0.06), (1.0, 0.0)]))
 
 
+# COMER CRISTALES (30/10, los mutantes): se agacha sobre el cristal, lo muerde y lo roe a bocados cortos, y se relame.
+def anim_comer(t):
+    roe = 0.35 * math.sin(TAU * t * 4.0) * (0.25 < t < 0.85)
+    return POSE(agacha=tramos(t, [(0.0, 0.0), (0.15, 0.55), (0.85, 0.55), (1.0, 0.0)]),
+                estira=tramos(t, [(0.0, 1.0), (0.15, 0.9), (0.85, 0.9), (1.0, 1.0)]),
+                cuello=tramos(t, [(0.0, 0.0), (0.15, 0.9), (0.25, 0.6), (0.85, 0.6), (1.0, 0.0)]) + roe,
+                cabeza_lado=0.25 * math.sin(TAU * t * 2.0) * (0.25 < t < 0.85),
+                cola=0.7 * math.sin(TAU * t))
+
+
+# EL DESTELLO (30/10, la de cuarzo ahumado): se encoge, se yergue de golpe sobre las traseras sacando el pecho (los
+# cristales hacia ti: el destello lo pone el juego como efecto) y vuelve a caer.
+def anim_destello(t):
+    return POSE(agacha=tramos(t, [(0.0, 0.0), (0.25, 0.6), (0.45, -0.8), (0.7, -0.75), (1.0, 0.0)]),
+                estira=tramos(t, [(0.0, 1.0), (0.25, 0.88), (0.45, 1.18), (0.7, 1.15), (1.0, 1.0)]),
+                cuello=tramos(t, [(0.0, 0.0), (0.25, -0.5), (0.45, -0.2), (1.0, 0.0)]),
+                cola=1.2 * math.sin(TAU * t * 1.5))
+
+
 ANIMS = {
+    'comer': (10, 10.0, False, 8, anim_comer),
+    'destello': (8, 12.0, False, 8, anim_destello),
     'idle': (8, 5.0, True, 8, anim_idle),
     'walk': (8, 10.0, True, 8, anim_walk),
     'embestida': (8, 11.0, False, 8, anim_embestida),
@@ -319,6 +340,54 @@ if os.environ.get('RATA_VAR') == 'rey':
 
     def escena(pose):
         return _escena_base(pose, True)
+
+
+# LOS MUTANTES (30/10, rata-mutante): RATA_VAR=sombria | drusa | cuarzo. Su modelo (colores y tamaño de mutante) y sus
+# rasgos (rata_versiones.py) sobre las MISMAS animaciones de la rata; la sombria va mas larga y pegada al suelo. Mientras
+# el jefe no las da por buenas, salen a tools/salida/sdf/rata_<var>/ y las vistas a su escritorio (no al juego).
+VAR = os.environ.get('RATA_VAR', '')
+# Los colores de los mutantes (los usa tambien rata_versiones.py, para las laminas).
+CRISTAL = [(0.30, 0.72, 0.85), (0.55, 0.95, 1.0), (0.85, 1.0, 1.0), (1.0, 1.0, 1.0)]   # el 4o, el destello (especular)
+CRISTAL_OSC = [(0.16, 0.30, 0.42), (0.30, 0.55, 0.72), (0.55, 0.80, 0.95), (0.95, 1.0, 1.0)]   # el ahumado
+SOMBRA = dict(pelo=[(0.07, 0.07, 0.10), (0.14, 0.14, 0.19), (0.24, 0.24, 0.31)],
+              vientre=[(0.12, 0.12, 0.16), (0.20, 0.20, 0.26), (0.30, 0.30, 0.37)],
+              cola=[(0.10, 0.09, 0.12), (0.18, 0.16, 0.20), (0.27, 0.25, 0.30)])
+OJO_AMARILLO = [(0.95, 0.80, 0.20)] * 3
+
+
+def mat_mutante(**cambios):
+    m = dict(MAT)
+    m['cristal'] = CRISTAL
+    m.update(cambios)
+    return m
+
+
+if VAR in ('sombria', 'drusa', 'cuarzo'):
+    _MUT = {   # [materiales, escala, va pegada al suelo, sus rasgos (de rata_versiones)]
+        'sombria': (mat_mutante(ojo=OJO_AMARILLO, **SOMBRA), 1.2 * 1.2, True, ()),
+        'drusa': (mat_mutante(), 1.2 * 1.2, False, ('r_drusas',)),
+        'cuarzo': (mat_mutante(ojo=OJO_AMARILLO, cristal=CRISTAL_OSC, **SOMBRA), 1.2 * 1.32, True, ('r_drusas',)),
+    }
+    _mat_m, _esc_m, _plana, _rasgos = _MUT[VAR]
+    _lado = int(round(48 * _esc_m / 1.2 / 2)) * 2 + 6
+    MODELO = Modelo(_esc_m, (_lado, _lado), (_lado // 2, _lado // 2), _mat_m, (0.12, 0.09, 0.07), suaves=('cuerpo',),
+                    brillan=('ojo', 'brillo'), estira=ESTIRA, corta_suelo=True, especular=('cristal',),
+                    umbral_especular=0.955)
+    SALIDA = 'tools/salida/sdf/rata_%s/' % VAR
+    VISTAS = os.path.join(os.path.expanduser('~'), 'Desktop', 'ataques_mapa', 'enemigos', 'prueba_3d', 'mutantes',
+                          'rata_%s_hojas' % VAR) + os.sep
+
+    def escena(pose):
+        # rata_versiones se carga AQUI, al dibujar (cargarlo arriba seria circular: el tambien nos importa).
+        import rata_versiones as rv
+        if _plana:
+            pose = dict(pose)
+            pose['estira'] = pose['estira'] * 1.12
+            pose['agacha'] = pose['agacha'] + 0.22
+        pz = rv._Piezas(pose)
+        for r in _rasgos:
+            getattr(rv, r)(pz)
+        return pz.L
 
 
 if __name__ == '__main__':
