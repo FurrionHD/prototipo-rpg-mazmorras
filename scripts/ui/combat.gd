@@ -1525,6 +1525,7 @@ func _process(delta: float) -> void:
 	if Net.pausa_solo >= Net.PAUSA_SOLO_TODO:
 		return
 	_tick_platos(delta)   # los buffs de comida se gastan por RELOJ, no por turnos (ver mas abajo)
+	_cortar_por_control()   # aturdido o con miedo a media carga: se le corta YA, no en su turno
 	espejo._difundir_atb(delta)
 	espejo._heartbeat_remoto(delta)   # que un turno de otro no pueda quedarse colgado para siempre
 	# EN EL MAPA: el que tiene el turno anda. Si es un enemigo acercandose, el fotograma es suyo (el
@@ -3074,8 +3075,25 @@ func aviso_inmune(objetivo: Combatant, lanzador: Combatant) -> void:
 		CombatFX.Estilo.AVISO_INMUNE, 1.0, true)
 
 
+# EL CONTROL CORTA AL INSTANTE (30/10, playtest: "en el instante en el que metes un cc deberia dejar de castear las
+# habilidades y ataques de los enemigos, no cuando le llega el turno; incluso el miedo interrumpe los casteos aunque se
+# limpie en su turno"). Antes la carga se cortaba al llegarle el turno al aturdido, y el miedo no la cortaba nunca. Ahora,
+# en cuanto alguien que esta cargando, preparando (retraso) o conjurando tiene un control encima (StatusEffects.CONTROL:
+# aturdido, miedo), lo pierde. Para los dos lados, enemigos y los tuyos. Se mira aqui y no en cada sitio que pone
+# estados: por apply_status entran por muchas vias (golpes, habilidades, hechizos, contraataques, pasivas).
+func _cortar_por_control() -> void:
+	for c in _enemies + _aliados:
+		if c == null or not c.is_alive() or (c.charging == null and not _casteos.has(c)) or not c.aturdido():
+			continue
+		var linea: String = interrumpir(c, null, true)
+		if linea != "":
+			_log_extra(linea)
+			_update_hp()
+
+
 # Le corta a 'c' la carga o el conjuro que lleve (si lleva). Devuelve la linea del log ("" si no llevaba nada).
-func interrumpir(c: Combatant, quien: Combatant = null) -> String:
+# 'por_control': se lo corta un aturdido o un miedo (_cortar_por_control), no un empujon.
+func interrumpir(c: Combatant, quien: Combatant = null, por_control: bool = false) -> String:
 	if c == null:
 		return ""
 	var que: String = ""
@@ -3084,6 +3102,7 @@ func interrumpir(c: Combatant, quien: Combatant = null) -> String:
 		que = c.charging.nombre
 		c.charging = null
 		c.charge_left = 0
+		c.retrasando = false   # la que esperaba (RETRASO_HABILIDAD) tambien se pierde
 		if tactico:
 			turno_mapa.olvidar_carga(c)
 	elif _casteos.has(c):
@@ -3097,11 +3116,13 @@ func interrumpir(c: Combatant, quien: Combatant = null) -> String:
 		_update_hp()   # se va el chip del conjuro de su bloque
 	if que == "":
 		return ""
-	print("[desplazamiento] %s INTERRUMPIDO: pierde %s" % [c.nombre, que])
+	print("[%s] %s INTERRUMPIDO: pierde %s" % ["control" if por_control else "desplazamiento", c.nombre, que])
 	# Se VE (30/09): lo que cargaba salta en esquirlas y sale "¡INTERRUMPIDO!". El peso dice que era (1 carga, 0,5 conjuro).
 	if tactico:
 		efectos._fx_golpe(quien if quien != null else c, c, 0.0, false, false, Elementos.Elemento.NINGUNO,
 			CombatFX.Estilo.AVISO_INTERRUMPIDO, 0.5 if era_conjuro else 1.0, true)
+	if por_control:
+		return "💫 %s pierde %s: no puede seguir así." % [c.nombre, que]
 	return "💢 %s sale despedido%s y pierde %s." % [c.nombre, (" por " + quien.nombre) if quien != null else "", que]
 
 
