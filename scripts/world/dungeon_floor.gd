@@ -2130,7 +2130,8 @@ func _anunciar_boss(data: EnemyData) -> void:
 	# El que solo ESPEJA este piso no tiene nada de esto (los bichos no nacen en su maquina), asi que
 	# veria al jefe aparecer de la nada. Es puro FX y viaja por el mismo canal que el brote.
 	if Net.activo:
-		Net.pisos.anunciar_brote(celdas, BOSS_AVISO_DUR, BOSS_AVISO_AMP, BOSS_AVISO_COLOR)
+		var pv_jefe: PisoVivo = PisoVivo.de(self)
+		Net.pisos.anunciar_brote(celdas, BOSS_AVISO_DUR, BOSS_AVISO_AMP, BOSS_AVISO_COLOR, pv_jefe.lugar if pv_jefe != null else "")
 	# Y el jefe, cuando acaba el aviso. El piso viaja en la llamada por lo mismo que en _colocar_boss:
 	# si entre medias te has ido a otro piso, este jefe ya no es de aqui.
 	var piso: int = _piso_construido

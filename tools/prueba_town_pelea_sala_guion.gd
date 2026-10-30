@@ -15,6 +15,15 @@ extends "res://tools/prueba_town_sala_comun.gd"
 const TODO_EL_GRUPO := ["Agirato ochinan", "Catalardio", "Dasui", "Daniel"]
 
 
+# Los avisos de pared (WallBirthFx) que hay ahora mismo en mi piso.
+func _avisos_de_pared() -> int:
+	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	if piso == null:
+		return 0
+	var fx_script: GDScript = load("res://scripts/world/wall_birth_fx.gd")
+	return piso.find_children("*", "Node2D", true, false).filter(func(n): return n.get_script() == fx_script).size()
+
+
 func _espejos_vivos() -> int:
 	var n := 0
 	for id in Net.enemigos._enem_nodos:
@@ -74,6 +83,9 @@ func _ready() -> void:
 		await _esperar(0.5)
 		t += 0.5
 	_ok(_lineas_sala("en piso:1! Brote disparado") > brotes_antes, "mi ruido de espejo llega a la sala y revienta una pared (%.1f s)" % t)
+	# Y LA VEO RAJARSE (30/10, playtest: "no salen las grietas de la pared al salir enemigos"): el aviso lo manda la sala a
+	# los de ESE piso; con el lugar de la sala ("sala") no le llegaba a nadie.
+	_ok(await _hasta(func(): return _avisos_de_pared() > 0, 5.0), "y en mi pantalla la pared tiembla y se raja (el aviso me llega)")
 
 	# 4) LA PELEA LA EJECUTA LA SALA y yo la veo en ESPEJO.
 	await _esperar(3.0)

@@ -17,17 +17,22 @@ const Canal := preload("res://scripts/net/net_canales.gd")
 # aviso ES la mecanica (decides si te quedas o te largas), asi que se replica a quien este en mi piso.
 # Es puro FX: sin autoridad y sin estado. Va FIABLE: son pocos y sueltos, y perder uno era que al
 # compañero le salieran los bichos de una pared lisa (lo vio en el playtest del 11/09/2026).
-func anunciar_brote(paredes_px: Array, dur: float, amp: float, col: Color) -> void:
+# 'lugar': el del piso donde nace ("piso:N"); "" = el de la maquina. EN LA SALA hay que darlo (30/10, playtest: "no salen
+# las grietas de la pared al salir enemigos"): la sala lleva varios pisos y su lugar es el suyo ("sala"), no el de ninguno,
+# asi que el aviso no le llegaba a nadie.
+func anunciar_brote(paredes_px: Array, dur: float, amp: float, col: Color, lugar: String = "") -> void:
 	if not Net.activo or multiplayer.multiplayer_peer == null or paredes_px.is_empty():
 		return
-	# Solo a los que estan EN MI PISO: el resto no tiene esa pared delante. El host hace de centralita
+	if lugar == "":
+		lugar = Net._mi_lugar
+	# Solo a los que estan EN ESE PISO: el resto no tiene esa pared delante. El host hace de centralita
 	# porque en ENet los clientes no se hablan entre ellos.
 	if Net.es_host:
 		for pid in Net._peers:
-			if (Net._peers[pid] as Dictionary).get("lugar", "") == Net._mi_lugar:
+			if (Net._peers[pid] as Dictionary).get("lugar", "") == lugar:
 				_pintar_brote.rpc_id(pid, paredes_px, dur, amp, col)
 		return
-	_rel_brote.rpc_id(1, paredes_px, dur, amp, col, Net._mi_lugar)
+	_rel_brote.rpc_id(1, paredes_px, dur, amp, col, lugar)
 
 
 # Solo host: reparte el aviso de un cliente entre los demas de ESE lugar (el emisor ya lo ve).

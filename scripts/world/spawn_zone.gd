@@ -225,7 +225,7 @@ func engendrar(sitio: Dictionary, cantidad: int, brote: bool = false, forzar_rec
 	# MULTIJUGADOR: el que solo ESPEJA este piso no tiene zonas vivas (muere en piso.hay_sitio), asi que
 	# sin esto veia salir los bichos de una pared lisa, sin el temblor: el brote se le comia de golpe.
 	if Net.activo:
-		Net.pisos.anunciar_brote(paredes_px, dur, amp, col)
+		Net.pisos.anunciar_brote(paredes_px, dur, amp, col, _lugar())
 
 	_fx_t = dur
 	_fx_brote = brote
