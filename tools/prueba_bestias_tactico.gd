@@ -97,6 +97,11 @@ func _correr() -> void:
 		var clave: String = String(ed.resource_path).get_file().get_basename()
 		if not ALCANCES.has(clave):
 			continue
+		# EN EL CENTRO DE LA ZONA (30/10): los tuyos se ponen alrededor de el, y desde que la zona no pasa de 13x11 (ArenaCalculo
+		# .TAM_MAX) uno de los de la fila quedaba pegado al borde y los tuyos FUERA: ni el empujon ni el salto los sacaban de ahi.
+		var cuerpo_e: Node2D = t.cuerpo_de(e)
+		t._colocar(e, cuerpo_e, cuerpo_e.global_position + (t._arena().rect.get_center() - t.pies_de(e)))
+		await _esperar(2)
 		print("--- %s (alcance %.0f) ---" % [clave, t.alcance_de(e)])
 		_ver(is_equal_approx(t.alcance_de(e), _alcance_esperado(ed, clave)), "alcance del basico %.0f" % _alcance_esperado(ed, clave))
 		if clave == "bestia_acorazada":

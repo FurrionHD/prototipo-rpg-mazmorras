@@ -100,7 +100,13 @@ func _correr() -> void:
 		var clave: String = String(ed.resource_path).get_file().get_basename()
 		if not casos.has(clave):
 			continue
-		print("--- %s (alcance %.0f) ---" % [clave, t.alcance_de(e)])
+		# EN EL CENTRO DE LA ZONA (30/10): los tuyos se ponen alrededor de el, y desde que la zona no pasa de 13x11 (ArenaCalculo
+		# .TAM_MAX) uno de los de la fila quedaba pegado al borde y los tuyos FUERA: ni el empujon ni el salto los sacaban de ahi.
+		var cuerpo_e: Node2D = t.cuerpo_de(e)
+		t._colocar(e, cuerpo_e, cuerpo_e.global_position + (t._arena().rect.get_center() - t.pies_de(e)))
+		await _esperar(2)
+		print("--- %s (alcance %.0f; sus pies %s, dentro de la zona: %s) ---" % [clave, t.alcance_de(e), str(t.pies_de(e).round()),
+			t._en_arena(t.pies_de(e))])
 		# Dos delante, a su alcance (uno un poco arriba y otro abajo), el tercero lejos; el resto, mas lejos.
 		var pe: Vector2 = t.pies_de(e)
 		# (09/10) Desde su centro, como el juego, y siempre FUERA de su cuerpo (con los cuerpos marcados, el 70 % del alcance
