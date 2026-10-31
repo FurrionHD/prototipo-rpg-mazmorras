@@ -305,6 +305,11 @@ func _pelea() -> void:
 		if n is ReyRataAire and n.modo == ReyRataAire.Modo.CHISPAS:
 			n_ch += 1
 	_ver(n_ch == 1, "y saltan chispas de la tapa")
+	var ev_n := {"bv": combat._bloque_de(rey), "ba": combat._bloque_de(yo), "dmg": 5.0, "elem": Elementos.Elemento.NINGUNO}
+	_ver(tm.color_numero(ev_n) == tm.GRIS_BLINDADO, "y su numero sale en gris")
+	cu_rey.set("_facing", Vector2.RIGHT)
+	_ver(tm.color_numero(ev_n).a == 0.0, "(por la espalda, del color de siempre)")
+	cu_rey.set("_facing", Vector2.LEFT)
 
 	print("11) EL TAPAZO")
 	_poner(tm, rey, ps + Vector2(26, 0))

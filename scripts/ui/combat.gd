@@ -1083,6 +1083,7 @@ func _ready() -> void:
 	# Los golpes de la daga se pintan sobre el cuerpo de verdad (ver turno_mapa._on_dibujo_mapa).
 	_fx.dibujo_en_mapa.connect(turno_mapa._on_dibujo_mapa)
 	_fx.marca_numero = turno_mapa.marca_numero
+	_fx.color_numero = turno_mapa.color_numero
 	# Y quien esquiva se aparta de lado (ver turno_mapa._on_esquiva).
 	_fx.esquiva_vista.connect(turno_mapa._on_esquiva)
 	# El gris del cadaver espera a que se vea el golpe que lo mata (ver _apagar_diferido).

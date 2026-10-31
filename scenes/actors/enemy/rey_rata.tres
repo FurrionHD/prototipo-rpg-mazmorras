@@ -11,6 +11,7 @@
 [ext_resource type="Script" path="res://scripts/actors/enemy/mutacion_data.gd" id="9_mut"]
 [ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="10_ab"]
 [ext_resource type="Resource" path="res://resources/abilities/rey_rata_tapazo.tres" id="11_tap"]
+[ext_resource type="Resource" path="res://resources/materials/runa_rey_rata.tres" id="12_runa"]
 
 [sub_resource type="Resource" id="SA_sang"]
 script = ExtResource("2_sa")
@@ -66,6 +67,7 @@ acorazada_lenta = 0.75
 
 [resource]
 script = ExtResource("1_g8nro")
+drop_runa = ExtResource("12_runa")
 dureza = 1.5
 familia = 2
 enemy_name = "Rey rata"

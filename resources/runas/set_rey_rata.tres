@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="RunaSetData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/runa_set_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/materials/cuero_curado.tres" id="2_mat"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_rey_rata.tres" id="3_nuc"]
+[ext_resource type="Resource" path="res://resources/materials/runa_rey_rata.tres" id="4_runa"]
+
+; SANGRE REAL (31/10, el set de ARMADURA del Rey Rata; diseño del jefe): 2 piezas +10 % de Ataque; 5 piezas +2 % de
+; daño por cada carga de Sangrado SUMANDO todos los enemigos de la pelea, hasta +16 %.
+[resource]
+script = ExtResource("1")
+id = &"rey_rata"
+nombre = "Sangre real"
+tipo = 1
+material = ExtResource("2_mat")
+nucleo = ExtResource("3_nuc")
+coste_material = 6
+coste_nucleo = 3
+runa = ExtResource("4_runa")
+bonus_2p = {"ataque_pct": 0.1}
+efecto = &"sangre_real"
+params = {"por_carga": 0.02, "max": 0.16}
+metadata/_custom_type_script = "res://scripts/items/runa_set_data.gd"

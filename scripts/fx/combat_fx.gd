@@ -3229,7 +3229,9 @@ func _soltar_numero_de(ev: Dictionary) -> void:
 		# que es quien sabe de quien es cada bloque (marca_numero).
 		if marca_numero.is_valid():
 			lbl.text += String(marca_numero.call(ev))
-		lbl.add_theme_color_override("font_color", ev["color"])
+		# Y SU COLOR, si la pantalla dice otro (31/10: GRIS el que se come la chatarra del frente blindado).
+		var col_n: Color = color_numero.call(ev) if color_numero.is_valid() else Color(0, 0, 0, 0)
+		lbl.add_theme_color_override("font_color", col_n if col_n.a > 0.0 else ev["color"])
 		lbl.add_theme_font_size_override("font_size", 28 if crit else 19)
 
 	# El sitio: SOBRE LA FIGURA que lo come, en su tercio alto, no pegado a su borde de arriba
@@ -3268,6 +3270,8 @@ func _soltar_numero_de(ev: Dictionary) -> void:
 
 # LA MARCA de un golpe (ev -> " ✱" o ""). La pone la pantalla del combate.
 var marca_numero: Callable = Callable()
+# El color del numero si no es el de siempre (transparente = el de siempre): CombatTactico.color_numero.
+var color_numero: Callable = Callable()
 # (bloque, rect en pantalla donde sale el numero, si salio de la TARJETA por no encontrar el cuerpo, texto). Ver arriba.
 var al_soltar_numero: Callable = Callable()
 

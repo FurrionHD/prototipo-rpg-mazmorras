@@ -5772,20 +5772,38 @@ func _estatua_si_posada(ev: Dictionary) -> void:
 # LAS CHISPAS DEL FRENTE BLINDADO (31/10, el Rey del desguace): el golpe de ARMA de los tuyos que le entra por delante
 # (Pantalla._mult_pasivas le quita su parte): chispas de la tapa hacia quien pega. La misma regla que la placa.
 func _chispas_si_para(ev: Dictionary) -> void:
+	var arena: ArenaCombate = _arena()
+	if arena == null or not _frente_para(ev):
+		return
 	var vc: Combatant = _de_bloque(ev["bv"])
 	var ac: Combatant = _de_bloque(ev["ba"])
-	if vc == null or ac == null or vc.frente_blindado <= 0.0 or bool(ev.get("solo_dibujo", false)) \
-			or float(ev.get("dmg", 0.0)) <= 0.0 or not _pantalla._enemies.has(vc) or _pantalla._enemies.has(ac):
-		return
-	var elem: int = int(ev.get("elem", Elementos.Elemento.NINGUNO))
-	if elem != Elementos.Elemento.NINGUNO and elem != ac.imbue_elemento:
-		return
-	var arena: ArenaCombate = _arena()
-	if arena == null or not de_frente(vc, ac, vc.frente_angulo):
-		return
 	var caja: Rect2 = bulto_de(vc)
 	ReyRataAire.golpe(arena, ReyRataAire.Modo.CHISPAS, caja.get_center(), pies_de(ac) - pies_de(vc),
 		maxf(caja.size.x, caja.size.y) * 0.45, (int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1)
+
+
+# ¿Este golpe se lo ha comido el frente blindado? (golpe de ARMA de los tuyos, con daño, al rey por delante.)
+func _frente_para(ev: Dictionary) -> bool:
+	var vc: Combatant = _de_bloque(ev["bv"])
+	var ac: Combatant = _de_bloque(ev["ba"])
+	if vc == null or ac == null or vc.frente_blindado <= 0.0 or bool(ev.get("solo_dibujo", false)) \
+			or bool(ev.get("evadido", false)) or float(ev.get("dmg", 0.0)) <= 0.0 or not _pantalla._enemies.has(vc) \
+			or _pantalla._enemies.has(ac):
+		return false
+	var elem: int = int(ev.get("elem", Elementos.Elemento.NINGUNO))
+	if elem != Elementos.Elemento.NINGUNO and elem != ac.imbue_elemento:
+		return false
+	return de_frente(vc, ac, vc.frente_angulo)
+
+
+# El color del numero (CombatFX.color_numero): GRIS el que se come la chatarra del frente blindado (lo eligio el jefe con
+# las chispas); transparente = el de siempre.
+const GRIS_BLINDADO := Color(0.62, 0.64, 0.68)
+
+func color_numero(ev: Dictionary) -> Color:
+	if _pantalla.tactico and _frente_para(ev):
+		return GRIS_BLINDADO
+	return Color(0, 0, 0, 0)
 
 
 func _placa_si_para(ev: Dictionary) -> void:

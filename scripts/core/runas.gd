@@ -131,7 +131,7 @@ static func dos_manos(item: Resource) -> bool:
 const RUTAS_SETS := ["res://resources/runas/set_slime.tres", "res://resources/runas/set_profundo.tres",
 	"res://resources/runas/set_rey.tres", "res://resources/runas/set_fuego.tres",
 	"res://resources/runas/set_venenoso.tres", "res://resources/runas/set_abisal.tres",
-	"res://resources/runas/set_rata.tres"]
+	"res://resources/runas/set_rata.tres", "res://resources/runas/set_rey_rata.tres"]
 static var _sets: Array = []
 
 static func sets() -> Array:
@@ -339,6 +339,9 @@ static func efecto_txt(s: RunaSetData) -> String:
 		&"alcantarilla":
 			return "+%d %% de abrir Sangrado, y tus Sangrados sangran un %d %% más del golpe que los abre." % [
 				roundi(float(p.get("prob", 0.05)) * 100.0), roundi(float(p.get("dano", 0.05)) * 100.0)]
+		&"sangre_real":
+			return "+%d %% de daño por cada carga de Sangrado que lleven entre todos los enemigos de la pelea, hasta +%d %%." % [
+				roundi(float(p.get("por_carga", 0.02)) * 100.0), roundi(float(p.get("max", 0.16)) * 100.0)]
 		&"miasma":
 			return "+%d %% de daño por cada carga de veneno del objetivo (hasta %d), y tu veneno dura %d turno más." % [
 				roundi(float(p.get("por_carga", 0.04)) * 100.0), int(p.get("max", 5)), int(p.get("turnos", 1))]
@@ -495,6 +498,9 @@ static func aplicar(c: Combatant, p: PersonajeData) -> void:
 	var alc: Dictionary = efecto_activo(p, &"alcantarilla")
 	c.runa_alcantarilla_prob = float(alc.get("prob", 0.0))
 	c.runa_alcantarilla_dano = float(alc.get("dano", 0.0))
+	var sr: Dictionary = efecto_activo(p, &"sangre_real")
+	c.runa_sangre_real_carga = float(sr.get("por_carga", 0.0))
+	c.runa_sangre_real_max = float(sr.get("max", 0.0))
 	var mia: Dictionary = efecto_activo(p, &"miasma")
 	c.runa_miasma_carga = float(mia.get("por_carga", 0.0))
 	c.runa_miasma_max = int(mia.get("max", 0))

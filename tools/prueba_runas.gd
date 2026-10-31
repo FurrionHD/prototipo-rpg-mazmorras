@@ -39,7 +39,7 @@ func _w(ruta: String) -> Resource:
 
 func _catalogo() -> void:
 	print("=== CADA PIEZA, SU LISTA ===")
-	_ok(Runas.sets().size() == 7, "los 7 sets cargan")
+	_ok(Runas.sets().size() == 8, "los 8 sets cargan")
 	var espada: Resource = _w("res://resources/weapons/espada_corta.tres")
 	var varita: Resource = _w("res://resources/wands/varita.tres") if ResourceLoader.exists("res://resources/wands/varita.tres") else null
 	var peto: Resource = _w("res://resources/armor/cuero_pecho.tres")
@@ -204,6 +204,32 @@ func _combate() -> void:
 	var sin := Combatant.new("Sin", 1, Abilities.new(), 500.0, 3.0, 3.0, 3.0)
 	_ok(StatusEffects.prob_final(0.3, c4, v, StatusEffects.Id.SANGRADO) > StatusEffects.prob_final(0.3, sin, v, StatusEffects.Id.SANGRADO),
 		"abre mas el Sangrado que sin el set")
+	# Sangre real (31/10, el Rey Rata): +2 % por carga de Sangrado de TODOS los enemigos, hasta +16 %.
+	var sr: RunaSetData = null
+	for s2 in Runas.sets():
+		if (s2 as RunaSetData).id == &"rey_rata":
+			sr = s2
+	_ok(sr != null and sr.tipo == RunaSetData.Tipo.ARMADURA and is_equal_approx(float(sr.bonus_2p.get("ataque_pct", 0.0)), 0.1)
+		and Runas.efecto_txt(sr) != "", "Sangre real: de armadura, 2 piezas +10 % de Ataque, con su texto")
+	var rr := Combatant.new("Rey", 1, Abilities.new(), 500.0, 3.0, 3.0, 3.0)
+	rr.runa_sangre_real_carga = 0.02
+	rr.runa_sangre_real_max = 0.16
+	var e1 := Combatant.new("E1", 1, Abilities.new(), 500.0, 3.0, 3.0, 3.0)
+	var e2 := Combatant.new("E2", 1, Abilities.new(), 500.0, 3.0, 3.0, 3.0)
+	var lista: Array = [e1, e2]
+	e1.battle_enemies = lista
+	e2.battle_enemies = lista
+	_ok(is_equal_approx(rr.runa_mult_contra(e1), 1.0), "Sangre real sin sangrados: nada")
+	for _k in 2:
+		e1.apply_status(StatusEffects.Id.SANGRADO, 3, 2.0)
+	e2.apply_status(StatusEffects.Id.SANGRADO, 3, 2.0)
+	var cargas: int = e1.stacks_de(StatusEffects.Id.SANGRADO) + e2.stacks_de(StatusEffects.Id.SANGRADO)
+	_ok(is_equal_approx(rr.runa_mult_contra(e2), 1.0 + 0.02 * cargas),
+		"%d cargas entre los dos: +%d %% (pegando a cualquiera)" % [cargas, 2 * cargas])
+	for _k in 10:
+		e1.apply_status(StatusEffects.Id.SANGRADO, 3, 2.0)
+		e2.apply_status(StatusEffects.Id.SANGRADO, 3, 2.0)
+	_ok(is_equal_approx(rr.runa_mult_contra(e1), 1.16), "con muchas, tope +16 %% (x%.2f)" % rr.runa_mult_contra(e1))
 	Game.meta_de(espada).erase("runas")
 	Game.meta_de(esp2).erase("runas")
 	pj.equipped_main = guardado[0]
@@ -214,7 +240,7 @@ func _combate() -> void:
 
 func _drops() -> void:
 	print("=== DROPS ===")
-	for f in ["slime", "slime_veneno", "slime_fuego", "slime_abisal", "slime_profundo", "rey_slime", "rata"]:
+	for f in ["slime", "slime_veneno", "slime_fuego", "slime_abisal", "slime_profundo", "rey_slime", "rata", "rey_rata"]:
 		var ed: EnemyData = load("res://scenes/actors/enemy/%s.tres" % f)
 		var s_ok: bool = false
 		for s in Runas.sets():

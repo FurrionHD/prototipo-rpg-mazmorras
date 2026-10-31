@@ -9961,6 +9961,7 @@ const _MANIFIESTO_MATERIALES := [
 	"res://resources/materials/runa_fuego.tres", "res://resources/materials/runa_abisal.tres",
 	"res://resources/materials/runa_profunda.tres", "res://resources/materials/runa_real.tres",
 	"res://resources/materials/runa_rata.tres",
+	"res://resources/materials/runa_rey_rata.tres",
 	"res://resources/materials/sanguinaria.tres", "res://resources/materials/seta_simas.tres",
 	"res://resources/materials/tablon_anillada.tres",
 	"res://resources/materials/tablon_calcinada.tres",

@@ -577,6 +577,8 @@ var runa_ignicion_prob: float = 0.0     # set Ignicion: + prob. de prender Quema
 var runa_ignicion_dano: float = 0.0     # ...y lo que arde de mas
 var runa_alcantarilla_prob: float = 0.0  # set Alcantarilla (30/10): + prob. de abrir Sangrado...
 var runa_alcantarilla_dano: float = 0.0  # ...y + este % del golpe que lo abre
+var runa_sangre_real_carga: float = 0.0  # set Sangre real (31/10): +% de daño por carga de Sangrado de TODOS los enemigos...
+var runa_sangre_real_max: float = 0.0    # ...hasta este extra
 var runa_miasma_carga: float = 0.0      # set Miasma: +% de daño por carga de veneno del objetivo...
 var runa_miasma_max: int = 0            # ...hasta tantas cargas...
 var runa_miasma_turnos: int = 0         # ...y el veneno que pones dura mas
@@ -1152,6 +1154,13 @@ func runa_mult_contra(defender: Combatant) -> float:
 		m *= 1.0 + runa_dano_jefes
 	if runa_miasma_carga > 0.0 and defender != null:
 		m *= 1.0 + runa_miasma_carga * float(mini(defender.stacks_de(StatusEffects.Id.VENENO), runa_miasma_max))
+	# SANGRE REAL: las cargas de Sangrado de todos los enemigos de la pelea (su lista compartida, battle_enemies).
+	if runa_sangre_real_carga > 0.0 and defender != null:
+		var n: int = 0
+		for e in (defender.battle_enemies if not defender.battle_enemies.is_empty() else [defender]):
+			if e is Combatant and (e as Combatant).is_alive():
+				n += (e as Combatant).stacks_de(StatusEffects.Id.SANGRADO)
+		m *= 1.0 + minf(runa_sangre_real_carga * float(n), runa_sangre_real_max)
 	return m
 
 # Cuantas cargas de 'id' lleva encima.
