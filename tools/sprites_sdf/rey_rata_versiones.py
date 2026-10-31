@@ -186,22 +186,30 @@ def r_clavos(e):
         e.add(lambda P, a=p, b=p + d * 2.8: sd_cono(P, a, b, 0.55, 0.1), 'hierro', 0, 'clavo')
 
 
-def r_placas(e):
+def r_placas(e, sobre_manto=False):
     # EL PETO DE PLACAS: chapas remachadas por el lomo (unas de hierro y otras oxidadas), con hebillas de cuero.
+    # Sobre el manto (la linea elegida: camada A -> chatarra B) van por fuera de las pieles.
+    fuera = 1.6 if sobre_manto else 0.15
     for i, (y, ang) in enumerate(((1.4, 0), (-0.6, 0), (-2.6, 0), (0.4, 50), (0.4, -50), (-1.8, 55), (-1.8, -55))):
-        p = _sobre_cuerpo(y, ang, 0.15)
+        p = _sobre_cuerpo(y, ang, fuera)
         a = math.radians(ang)
         nrm = np.array([math.sin(a), 0.0, math.cos(a)])
         lado = np.array([math.cos(a), 0.0, -math.sin(a)])
         e.add(lambda P, c=p, ej=[lado, [0, 1.0, 0], nrm]: sd_caja(P, c, ej, [1.4, 1.1, 0.22], 0.1),
               'hierro' if i % 3 else 'oxido', 0, 'placa')
         e.add(lambda P, c=p + nrm * 0.25: sd_esfera(P, c, 0.22), 'oxido', 0, 'placa')
+    if sobre_manto:
+        heb_c, heb_r, heb_z = 2.8, np.array([5.95, 0.6, 4.35]), 2.4
+        hom_c, hom_z = Z(-4.4, 2.8, 5.0), 4.8
+    else:
+        heb_c, heb_r, heb_z = 2.6, np.array([4.25, 0.6, 3.05]), 1.8
+        hom_c, hom_z = Z(-3.0, 3.0, 3.6), 3.4
     for y in (0.4, -1.6):
         def hebilla(P, y=y):
-            return np.maximum(np.abs(sd_elipsoide(P, Z(0, y, 2.6), np.array([4.25, 0.6, 3.05]))) - 0.18, 1.8 - P[:, 2])
+            return np.maximum(np.abs(sd_elipsoide(P, Z(0, y, heb_c), heb_r)) - 0.18, heb_z - P[:, 2])
         e.add(hebilla, 'cuero', 0, 'hebilla')
     # La hombrera: una chapa curva sobre el hombro derecho.
-    e.add(lambda P: np.maximum(np.abs(sd_esfera(P, Z(-3.0, 3.0, 3.6), 1.9)) - 0.25, 3.4 - P[:, 2]), 'hierro', 0, 'placa')
+    e.add(lambda P: np.maximum(np.abs(sd_esfera(P, hom_c, 1.9)) - 0.25, hom_z - P[:, 2]), 'hierro', 0, 'placa')
 
 
 def r_clavada(e):
@@ -240,13 +248,18 @@ def chatarra_b():
                 lambda e: r_tapa(e, True))
 
 
+def chatarra_b_manto():
+    # LA LINEA ELEGIDA (31/10): la chatarra B montada sobre la camada A (manto y corona de siete puntas).
+    return _con(True, r_gordo, r_manto, lambda e: r_placas(e, True), r_yelmo,
+                lambda e: r_corona(e, puntas=7, alto=2.2, z=7.3), r_clavada, lambda e: r_tapa(e, True))
+
+
 # [nombre, escena, escala]
 VERSIONES = [
     ('rey rata hoy', hoy, ESC_REY),
     ('CAMADA A manto', camada_a, ESC_MUT),
-    ('CAMADA B collar', camada_b, ESC_MUT),
-    ('CHATARRA A yelmo (sobre A)', chatarra_a, ESC_MUT2),
     ('CHATARRA B placas (sobre B)', chatarra_b, ESC_MUT2),
+    ('CHATARRA B placas (sobre A)', chatarra_b_manto, ESC_MUT2),
 ]
 
 
@@ -271,7 +284,7 @@ if __name__ == '__main__':
         print(nombre, 'ok')
     W = max(f[1][0].size[0] for f in filas)
     alturas = [f[1][0].size[1] for f in filas]
-    ETQ = 150
+    ETQ = 170
     lam = Image.new('RGB', (W * 5 + ETQ, sum(alturas)), (40, 42, 50))
     dr = ImageDraw.Draw(lam)
     y0 = 0
