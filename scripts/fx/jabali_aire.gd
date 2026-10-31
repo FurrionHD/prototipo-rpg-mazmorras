@@ -37,7 +37,7 @@ const T_ESPORAS := 1.6
 const T_DESTELLO := 0.18
 const T_VUELO := 0.32       # lo que tarda la bola del reflejo en llegar
 const T_QUEMA := 2.2
-const T_LLAMARADA := 0.6    # lo que tarda la llamarada en recorrer el lomo
+const T_LLAMARADA := 1.4    # lo que tarda el fuego en recorrer el lomo (= su animacion 'quemandose': 14 a 10)
 
 var modo: int = Modo.ESTALLIDO
 var _t: float = 0.0
@@ -298,49 +298,127 @@ func _reflejo(capa: Node2D) -> void:
 			capa.draw_circle(_hasta, 3.0 + 3.0 * g, Color(CRISTAL, 0.5 * (1.0 - g)))
 
 
-# LA QUEMA: la llamarada recorre el lomo (lenguas de fuego que nacen a su paso y se apagan), el humo negro que sube de
-# lo quemado y la ceniza y las brasas que caen por los flancos.
-func _quema(capa: Node2D) -> void:
-	var cabeza: Vector2 = _c + Vector2(_dir.x, _dir.y * 0.6) * _largo * 0.5
-	var grupa: Vector2 = _c - Vector2(_dir.x, _dir.y * 0.6) * _largo * 0.5
-	var frente: float = clampf(_t / T_LLAMARADA, 0.0, 1.0)
-	var n_l: int = 9
-	for i in n_l:
-		var u: float = float(i) / float(n_l - 1)
-		if u > frente:
+# LA QUEMA (rehecha el 31/10: la primera eran bolas encima y el musgo desaparecia de golpe, "lamentable"). El musgo
+# arde POCO A POCO en el propio sprite (su animacion 'quemandose': el frente del fuego va de la cabeza a la grupa en
+# T_LLAMARADA, ver jabali_sdf.py); aqui, encima de ese frente, LLAMAS de verdad: siluetas dibujadas por fotogramas
+# (como la llama del altar, LlamaAltar: una forma que cambia poco de un fotograma a otro, no particulas), tres a lo
+# ancho del lomo y las que se van apagando detras. Y el HUMO negro que sube de lo quemado y la CENIZA y las brasas por
+# los flancos (esas si, sueltas).
+const LLAMA_ANCHO := 10
+const LLAMA_ALTO := 16
+const LLAMA_FOTOGRAMAS := 8
+const LLAMA_FPS := 9.0
+const LLAMA_HONDA := Color(0.80, 0.22, 0.05)
+const LLAMA_CONTORNO := Color(0.45, 0.10, 0.04)
+static var _llamas: Array = []   # [ImageTexture] los fotogramas de la llama
+
+static func _llama(k: int) -> ImageTexture:
+	if _llamas.is_empty():
+		for i in LLAMA_FOTOGRAMAS:
+			_llamas.append(ImageTexture.create_from_image(_llama_fotograma(i)))
+	return _llamas[posmod(k, LLAMA_FOTOGRAMAS)]
+
+
+# UN FOTOGRAMA DE LLAMA: gota con la base redonda y la punta que se mece, el borde irregular por fotograma, el corazon
+# amarillo claro, naranja hacia fuera y el contorno rojo oscuro (la receta de LlamaAltar._fotograma, en fuego de verdad).
+static func _llama_fotograma(k: int) -> Image:
+	var W: int = LLAMA_ANCHO
+	var H: int = LLAMA_ALTO
+	var img := Image.create(W, H, false, Image.FORMAT_RGBA8)
+	var fase: float = float(k) / float(LLAMA_FOTOGRAMAS) * TAU
+	var cx: float = float(W) * 0.5
+	var alto_llama: float = float(H - 1) * (0.88 + 0.08 * sin(fase) + 0.04 * sin(fase * 2.0 + 1.0))
+	var base_y: float = float(H - 1)
+	var mascara := PackedByteArray()
+	mascara.resize(W * H)
+	var nucleo := PackedFloat32Array()
+	nucleo.resize(W * H)
+	for y in H:
+		var t: float = (float(y) + 0.5 - (base_y - alto_llama)) / alto_llama
+		if t < 0.0 or t > 1.0:
 			continue
-		var edad: float = _t - u * T_LLAMARADA
-		var vida: float = clampf(1.0 - edad / 0.7, 0.0, 1.0)
-		if vida <= 0.0:
-			continue
-		var base: Vector2 = cabeza.lerp(grupa, u)
-		var alto: float = (5.0 + 4.0 * sin(_t * 18.0 + float(i) * 1.7)) * vida
-		var ancho: float = 3.2 * vida + 1.0
-		if capa == _delante:
-			capa.draw_colored_polygon(PackedVector2Array([base + Vector2(-ancho, 0), base + Vector2(0, -alto * 1.6),
-				base + Vector2(ancho, 0)]), Color(LLAMA, 0.9 * vida))
-			capa.draw_colored_polygon(PackedVector2Array([base + Vector2(-ancho * 0.5, 0), base + Vector2(0, -alto),
-				base + Vector2(ancho * 0.5, 0)]), Color(LLAMA_CLARA, 0.95 * vida))
-		elif capa == _brillo:
-			capa.draw_circle(base - Vector2(0, alto * 0.4), ancho * 2.0, Color(LLAMA, 0.3 * vida))
-	# el humo: bocanadas que suben de lo ya quemado
-	if capa == _delante:
-		for j in 6:
-			var tj: float = _t - 0.25 - float(j) * 0.22
-			if tj < 0.0 or tj > 1.3:
+		var semi: float
+		if t < 0.7:
+			semi = 4.0 * pow(t / 0.7, 0.8)
+		else:
+			var u: float = (t - 0.7) / 0.3
+			semi = 4.0 * sqrt(maxf(0.0, 1.0 - u * u * 0.85))
+		var meneo: float = (sin(fase + t * 3.0) * 1.3 + sin(fase * 2.0 + t * 5.0 + 0.7) * 0.5) * pow(1.0 - t, 1.6)
+		var ruido: float = (PuebloSprites._rnd(y, k, 913) - 0.5) * 1.6 * (1.0 - t * 0.7)
+		for x in W:
+			var dx: float = float(x) + 0.5 - cx - meneo
+			var lim: float = maxf(0.0, semi + ruido)
+			if absf(dx) > lim:
 				continue
-			var uj: float = tj / 1.3
-			var sitio: Vector2 = cabeza.lerp(grupa, fmod(float(j) * 0.37, 1.0))
-			capa.draw_circle(sitio - Vector2(sin(float(j) + _t) * 3.0, 6.0 + 20.0 * uj), 2.0 + 4.0 * uj,
-				Color(HUMO, 0.55 * (1.0 - uj)))
-	# la ceniza y las brasas que caen por los flancos
+			mascara[y * W + x] = 1
+			var sube: float = 1.3 + 0.3 * sin(fase + 1.3)
+			nucleo[y * W + x] = (1.0 - absf(dx) / maxf(lim, 0.5)) * clampf(t * sube, 0.0, 1.0)
+	for y in H:
+		for x in W:
+			var i: int = y * W + x
+			if mascara[i] == 0:
+				continue
+			var es_borde: bool = x == 0 or x == W - 1 or y == 0 or y == H - 1 \
+				or mascara[i - 1] == 0 or mascara[i + 1] == 0 or mascara[i - W] == 0 or mascara[i + W] == 0
+			var n: float = nucleo[i]
+			var c: Color = LLAMA_CONTORNO if es_borde else (LLAMA_CLARA if n > 0.6 else (LLAMA if n > 0.28 else LLAMA_HONDA))
+			img.set_pixel(x, y, c)
+	return img
+
+
+# EL LOMO A LA ALTURA DE 'u' (0 = la cabeza, 1 = la grupa): '_c' es lo alto de la chepa (a ~40 % del lomo desde la
+# cabeza); hacia la cabeza y la grupa baja (PERFIL_BAJA px). Las llamas, el humo y la ceniza salen de ahi.
+const PERFIL_BAJA := 10.0
+
+func _lomo_en(cabeza: Vector2, grupa: Vector2, u: float) -> Vector2:
+	var baja: float = PERFIL_BAJA * (1.0 - exp(-pow((u - 0.4) / 0.33, 2.0)))
+	return cabeza.lerp(grupa, u) + Vector2(0.0, baja)
+
+
+func _quema(capa: Node2D) -> void:
+	var adelante := Vector2(_dir.x, _dir.y * 0.6)
+	var cabeza: Vector2 = _c + adelante * _largo * 0.5
+	var grupa: Vector2 = _c - adelante * _largo * 0.5
+	var lado := Vector2(-adelante.y, adelante.x).normalized() * Vector2(1.0, 0.5)
+	var frente: float = clampf(_t / T_LLAMARADA, 0.0, 1.0)
+	var k0: int = int(_t * LLAMA_FPS)
+	if capa == _delante:
+		# LAS LLAMAS: en el frente, tres a lo ancho (la del medio mas alta); detras, las que se apagan encogiendo. Al
+		# acabar el recorrido se quedan un poco en la grupa y se apagan.
+		var apagado: float = clampf((_t - T_LLAMARADA) / 0.35, 0.0, 1.0)
+		for j in 4:
+			var u: float = frente - float(j) * 0.09
+			if u < 0.0:
+				continue
+			var vida: float = (1.0 - float(j) * 0.28) * (1.0 - apagado)
+			if vida <= 0.02:
+				continue
+			var base: Vector2 = _lomo_en(cabeza, grupa, u)
+			for w in 3:
+				var off: float = float(w - 1)
+				var esc: float = vida * (1.0 if w == 1 else 0.75)
+				var tam := Vector2(LLAMA_ANCHO, LLAMA_ALTO) * esc
+				var pie: Vector2 = base + lado * off * 5.0
+				capa.draw_texture_rect(_llama(k0 + j * 3 + w * 5), Rect2(pie - Vector2(tam.x * 0.5, tam.y), tam), false)
+	# EL HUMO: bocanadas negras que suben de lo ya quemado (por detras del frente) y se deshacen.
+	if capa == _delante:
+		for j in 8:
+			var tj: float = _t - 0.15 - float(j) * 0.18
+			if tj < 0.0 or tj > 1.2:
+				continue
+			var uj: float = tj / 1.2
+			var de: float = minf(float(j) * 0.14, frente)
+			var sitio: Vector2 = _lomo_en(cabeza, grupa, de)
+			capa.draw_circle(sitio - Vector2(sin(float(j) * 1.7 + _t * 2.0) * 3.0, 8.0 + 18.0 * uj), 1.5 + 3.5 * uj,
+				Color(HUMO, 0.5 * (1.0 - uj)))
+	# LA CENIZA Y LAS BRASAS que caen por los flancos desde donde va pasando el fuego.
 	for p in _piezas:
-		var tp: float = _t - float(p["t0"])
+		var tp: float = _t - float(p["u"]) * T_LLAMARADA
 		if tp < 0.0 or tp > 0.9:
 			continue
 		var up: float = tp / 0.9
-		var sale: Vector2 = cabeza.lerp(grupa, float(p["u"])) + Vector2(_dir.y, -_dir.x) * float(p["lado"]) * 5.0
-		var pos: Vector2 = sale + Vector2(float(p["lado"]) * float(p["v"]) * up * 0.4, float(p["v"]) * up * 1.6)
+		var sale: Vector2 = _lomo_en(cabeza, grupa, float(p["u"])) + lado * float(p["lado"]) * 6.0
+		var pos: Vector2 = sale + Vector2(lado.x * float(p["lado"]) * float(p["v"]) * up * 0.4, float(p["v"]) * up * 1.6)
 		if bool(p["brasa"]):
 			if capa == _brillo:
 				capa.draw_circle(pos, 1.2, Color(BRASA, 0.9 * (1.0 - up)))

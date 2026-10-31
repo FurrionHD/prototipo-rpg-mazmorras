@@ -31,6 +31,8 @@ const ANIMS := {
 	# COMER UN CRISTAL y LA EVOLUCION (31/10, los mutantes del jabali): la del jabali normal y la de sus mutantes.
 	"comer": {"hoja": "comer", "dirs": 8, "marcos": 10, "fps": 10.0, "loop": false, "opcional": true},
 	"evolucion": {"hoja": "evolucion", "dirs": 8, "marcos": 18, "fps": 10.0, "loop": false, "opcional": true},
+	# QUEMANDOSE (31/10, el Jabali ancestral): el fuego le recorre el musgo de la cabeza a la grupa (JabaliAire.QUEMA).
+	"quemandose": {"hoja": "quemandose", "dirs": 8, "marcos": 14, "fps": 10.0, "loop": false, "opcional": true},
 }
 
 # LOS MUTANTES DEL JABALI (31/10, jabali-mutante): la variante que dice su MutacionData.sprite -> [carpeta, lienzo, sus
@@ -41,7 +43,7 @@ const _COMUNES_MUT := ["idle", "walk", "embestida", "cornada", "pisoton", "basic
 	"cadaver"]
 const MUTANTES := {
 	&"colmillo": ["jabali_sdf_colmillo", Vector2i(122, 122), _COMUNES_MUT + ["comer", "evolucion"], [&"rotos"]],
-	&"ancestral": ["jabali_sdf_ancestral", Vector2i(132, 132), _COMUNES_MUT + ["comer", "evolucion"],
+	&"ancestral": ["jabali_sdf_ancestral", Vector2i(132, 132), _COMUNES_MUT + ["comer", "evolucion", "quemandose"],
 		[&"rotos", &"pelado", &"pelado_rotos"]],
 }
 
@@ -123,5 +125,6 @@ static func generar_variante_de(ed: EnemyData, mutacion: StringName, variante: S
 	var v: Array = _variante_mutante(ed, mutacion)
 	if v.is_empty() or not (v[3] as Array).has(variante):
 		return null
+	# (la de los colmillos rotos del ancestral tambien se puede quemar: 'quemandose' es opcional)
 	return Sprites3D.montar("res://assets/sprites/enemigos/%s_%s/" % [String(v[0]), String(variante)],
-		_anims_de(_COMUNES_MUT), v[1], BASE, BASE)
+		_anims_de(_COMUNES_MUT + ["quemandose"]), v[1], BASE, BASE)

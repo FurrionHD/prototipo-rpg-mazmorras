@@ -38,7 +38,7 @@ ANCA = Z(0, -8.0, 0.0)        # donde se apoya al empinarse (las traseras)
 def POSE(**k):
     # 'evo' (los mutantes): la TRANSFORMACION hasta su hoja: 0 = aun es lo que era, 1 = ya es el mutante.
     p = dict(avance=0.0, agacha=0.0, cabeza=0.0, estira=1.0, tumba=0.0, empina=0.0, escarba=0.0, patas=0.0,
-             paso=0.0, muere=0.0, evo=1.0)
+             paso=0.0, muere=0.0, evo=1.0, quema=0.0)
     p.update(k)
     return p
 
@@ -214,7 +214,17 @@ def anim_evolucion(t):
                 tumba=0.04 * tiembla, evo=tramos(t, [(0.0, 0.0), (0.12, 0.0), (0.88, 1.0), (1.0, 1.0)]))
 
 
+# QUEMANDOSE (31/10, el Jabali ancestral cuando le queman el musgo): el fuego le recorre el lomo de la cabeza a la
+# grupa ('quema' de 0 a 1: el frente, ver jabali_versiones.frente_quema) mientras se sacude y se revuelve; al acabar el
+# juego le pone la variante PELADA. Dura lo que la llamarada de JabaliAire.QUEMA (T_LLAMARADA_SPRITE).
+def anim_quemandose(t):
+    sacude = math.sin(2 * math.pi * t * 5.0) * (1.0 - t * 0.6)
+    return POSE(quema=t, agacha=0.25 + 0.1 * sacude, cabeza=2.5 * sacude, tumba=0.05 * sacude,
+                escarba=0.6 * max(0.0, math.sin(2 * math.pi * t * 3.0)))
+
+
 ANIMS = {
+    'quemandose': (14, 10.0, False, 8, anim_quemandose),
     'comer': (10, 10.0, False, 8, anim_comer),
     'idle': (8, 5.0, True, 8, anim_idle),
     'walk': (8, 8.0, True, 8, anim_walk),
@@ -246,8 +256,8 @@ if VAR in ('colmillo', 'ancestral'):
     _esc_m, _esc_antes = _ESC_M[VAR]
     _lado = int(round(88 * _esc_m / 1.7 / 2)) * 2 + 16
     MODELO = Modelo(_esc_m, (_lado, _lado), (_lado // 2, int(_lado * 0.56)), _jv._mat(), (0.11, 0.07, 0.05),
-                    suaves=('cuerpo',), brillan=('ojo', 'pupila'), estira=ESTIRA, corta_suelo=True, especular=('cristal',),
-                    umbral_especular=0.955)
+                    suaves=('cuerpo',), brillan=('ojo', 'pupila', 'brasa'), estira=ESTIRA, corta_suelo=True,
+                    especular=('cristal',), umbral_especular=0.955)
     _suf = VAR + ('_pelado' if PELADO and VAR == 'ancestral' else '') + ('_rotos' if ROTOS else '')
     SALIDA = 'assets/sprites/enemigos/jabali_sdf_%s/' % _suf   # (31/10, "ta bien": ya van al juego)
     VISTAS = os.path.join(os.path.expanduser('~'), 'Desktop', 'ataques_mapa', 'enemigos', 'prueba_3d', 'mutantes',
@@ -255,6 +265,9 @@ if VAR in ('colmillo', 'ancestral'):
     _SUYAS = ['idle', 'walk', 'embestida', 'cornada', 'pisoton', 'basico', 'arrollar', 'encaje', 'muerte']
     if not ROTOS and not PELADO:
         _SUYAS += ['comer', 'evolucion']
+    # (el ancestral con su musgo, roto o no, se puede quemar)
+    if VAR == 'ancestral' and not PELADO:
+        _SUYAS += ['quemandose']
     ANIMS['evolucion'] = (18, 10.0, False, 8, anim_evolucion)
     ANIMS = {k: ANIMS[k] for k in _SUYAS}
 
@@ -278,8 +291,16 @@ if VAR in ('colmillo', 'ancestral'):
             jv.r_chepa(pz, ch)
             jv.r_curvos(pz, 1.0 + 0.6 * _paso(evo, 0.35, 0.8), ROTOS)
             jv.r_drusas_morro(pz, _paso(evo, 0.45, 0.75))
+            q = pose.get('quema', 0.0)
             if PELADO:
                 jv.r_quemado(pz, ch)
+            elif q > 0.0:
+                # QUEMANDOSE: el frente del fuego va de la cabeza a la grupa (ya ardido, brasa, musgo aun).
+                fy = jv.frente_quema(q)
+                jv.r_quemado(pz, ch, fy)
+                jv.r_manto_musgo(pz, ch, 80, 1.0, fy)
+                jv.r_helechos(pz, ch, 1.0, fy)
+                jv.r_setas(pz, ch, 3, 1.0, fy)
             else:
                 if evo < 0.3:
                     jv.r_musgo_crin(pz, ch)

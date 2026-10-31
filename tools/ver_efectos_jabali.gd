@@ -55,7 +55,8 @@ func _hacer() -> void:
 	BarridoAire.ritmo = 1.0
 	var sf_col: SpriteFrames = SpritesEnemigo.frames_de(ed, 0.5, true, &"colmillo")
 	var sf_col_r: SpriteFrames = SpritesEnemigo.frames_variante(ed, &"colmillo", &"rotos")
-	var sf_anc: SpriteFrames = SpritesEnemigo.frames_de(ed, 0.5, true, &"ancestral")
+	# (el ancestral sin hornear: lleva la animacion 'quemandose' nueva)
+	var sf_anc: SpriteFrames = Jabali3DSprites.generar_mutante_de(ed, 0.5, &"ancestral")
 	var sf_anc_p: SpriteFrames = SpritesEnemigo.frames_variante(ed, &"ancestral", &"pelado")
 
 	# LA CORNADA DE CRISTAL (mirando al E): el surco por su linea de 50 px; al acabar la animacion, el estallido y la rota.
@@ -107,13 +108,18 @@ func _hacer() -> void:
 	ref.queue_free()
 	_fila += 1
 
-	# LA QUEMA del musgo (y al acabar la llamarada, pelado).
+	# LA QUEMA del musgo: su animacion 'quemandose' (el musgo arde de la cabeza a la grupa) con las llamas encima del
+	# frente; al acabar, pelado.
 	anc.position = Vector2.ZERO
-	var qu: JabaliAire = JabaliAire.quema(self, Vector2(-2, -18), Vector2.RIGHT, 30.0, 11)
+	anc.animation = &"quemandose_2"
+	var qu: JabaliAire = JabaliAire.quema(self, Vector2(-2, -25), Vector2.RIGHT, 40.0, 11)
 	qu.set_process(false)
-	for i in T.size():
-		var t: float = float(T[i])
-		if t >= 0.45 and anc.sprite_frames != sf_anc_p:
+	var tq := [0.0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1.05, 1.25, 1.6]
+	for i in tq.size():
+		var t: float = float(tq[i])
+		if t < JabaliAire.T_LLAMARADA:
+			_a_tiempo(anc, t)
+		elif anc.sprite_frames != sf_anc_p:
 			anc.sprite_frames = sf_anc_p
 			anc.animation = &"idle_2"
 		qu.avanzar_a(t)

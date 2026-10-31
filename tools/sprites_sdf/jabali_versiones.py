@@ -32,12 +32,13 @@ SETA = [(0.42, 0.16, 0.10), (0.62, 0.26, 0.16), (0.78, 0.40, 0.26)]
 PIE_SETA = [(0.70, 0.66, 0.56), (0.86, 0.82, 0.70), (0.95, 0.92, 0.82)]
 RAIZ = [(0.18, 0.12, 0.08), (0.28, 0.19, 0.12), (0.38, 0.27, 0.18)]
 QUEMADO = [(0.10, 0.08, 0.07), (0.18, 0.14, 0.11), (0.28, 0.22, 0.17)]   # el musgo quemado de la chepa pelada
+BRASA = [(0.70, 0.22, 0.06), (0.95, 0.45, 0.12), (1.0, 0.75, 0.30)]        # el musgo ardiendo, en el frente del fuego
 
 
 def _mat():
     m = dict(js.MAT)
     m.update(cristal=CRISTAL, musgo=MUSGO, musgo_claro=MUSGO_CLARO, seta=SETA, pie_seta=PIE_SETA, raiz=RAIZ,
-             quemado=QUEMADO)
+             quemado=QUEMADO, brasa=BRASA)
     return m
 
 
@@ -165,9 +166,18 @@ def r_musgo_crin(e, chepa=0.0, crece=1.0):
             e.add(lambda P, cc=c, r=r * (0.4 + 0.6 * g): sd_esfera(P, cc, r), 'musgo' if i % 3 else 'musgo_claro', 0, 'musgo')
 
 
-def r_manto_musgo(e, chepa, flancos=60, crece=1.0):
+# EL FRENTE DEL FUEGO cuando le queman el musgo (la animacion 'quemandose'): de la cabeza (y alta) a la grupa. Lo que
+# queda por delante del frente (y mayor) ya ha ardido; en el frente, BRASA; detras, musgo aun.
+FRENTE_DESDE, FRENTE_HASTA, FRENTE_ANCHO = 11.0, -12.0, 1.6
+
+
+def frente_quema(q):
+    return FRENTE_DESDE + (FRENTE_HASTA - FRENTE_DESDE) * q
+
+
+def r_manto_musgo(e, chepa, flancos=60, crece=1.0, quema_y=None):
     # EL MANTO DE MUSGO de la 2a: todo el lomo y la chepa cubiertos, bajando por los flancos hasta 'flancos' grados.
-    # 'crece' (la evolucion): se extiende del espinazo hacia los flancos.
+    # 'crece' (la evolucion): se extiende del espinazo hacia los flancos. 'quema_y' (quemandose): el frente del fuego.
     rnd = random.Random(5)
     for i in range(14):
         y = 9.0 - i * 1.45
@@ -175,26 +185,41 @@ def r_manto_musgo(e, chepa, flancos=60, crece=1.0):
             c = _lomo(y, ang + rnd.uniform(-6, 6), -0.5, chepa)
             r = rnd.uniform(1.4, 2.0)
             mat = 'musgo' if rnd.random() < 0.7 else 'musgo_claro'
+            if quema_y is not None:
+                if y > quema_y + FRENTE_ANCHO:
+                    continue                      # ya ha ardido
+                if y > quema_y - FRENTE_ANCHO:
+                    mat = 'brasa'
+                    r *= 0.8
             if abs(ang) <= flancos * crece + 0.01:
                 e.add(lambda P, cc=c, r=r: sd_esfera(P, cc, r), mat, 0, 'musgo')
 
 
-def r_quemado(e, chepa):
+def r_quemado(e, chepa, quema_y=None):
     # LA CHEPA PELADA (le han quemado el musgo con fuego): costras negras de musgo quemado por el lomo, la piel a la vista.
+    # 'quema_y' (quemandose): solo por donde ya ha pasado el fuego.
     rnd = random.Random(17)
     for i in range(10):
-        c = _lomo(8.0 - i * 1.9 + rnd.uniform(-0.5, 0.5), rnd.uniform(-55, 55), -0.9, chepa)
-        e.add(lambda P, cc=c, r=rnd.uniform(0.9, 1.4): sd_esfera(P, cc, r), 'quemado', 0, 'musgo')
+        y = 8.0 - i * 1.9 + rnd.uniform(-0.5, 0.5)
+        c = _lomo(y, rnd.uniform(-55, 55), -0.9, chepa)
+        r = rnd.uniform(0.9, 1.4)
+        if quema_y is not None and y <= quema_y + FRENTE_ANCHO:
+            continue
+        e.add(lambda P, cc=c, r=r: sd_esfera(P, cc, r), 'quemado', 0, 'musgo')
 
 
-def r_setas(e, chepa, n=4, crece=1.0):
-    # SETAS en la chepa: pie claro y sombrero rojizo. 'crece' (la evolucion): de 0 a 1.
+def r_setas(e, chepa, n=4, crece=1.0, quema_y=None):
+    # SETAS en la chepa: pie claro y sombrero rojizo. 'crece' (la evolucion): de 0 a 1. 'quema_y': arden al pasar el fuego.
     if crece <= 0.0:
         return
     rnd = random.Random(9)
     for i in range(n):
-        c = _lomo(4.5 - i * 2.4 + rnd.uniform(-0.5, 0.5), rnd.uniform(-35, 35), 0.8, chepa)
+        ys = 4.5 - i * 2.4 + rnd.uniform(-0.5, 0.5)
+        c = _lomo(ys, rnd.uniform(-35, 35), 0.8, chepa)
         alto = rnd.uniform(1.4, 2.4) * crece
+        if quema_y is not None and ys > quema_y - FRENTE_ANCHO:
+            rnd.uniform(1.1, 1.6)   # (la misma tirada que si se pintara: las demas no cambian de sitio)
+            continue
         e.add(lambda P, a=c, b=c + np.array([0, 0, alto]): sd_cono(P, a, b, 0.45, 0.35), 'pie_seta', 0, 'seta')
         e.add(lambda P, cc=c + np.array([0, 0, alto + 0.3]), r=rnd.uniform(1.1, 1.6) * max(crece, 0.3):
               np.maximum(sd_elipsoide(P, cc, np.array([r, r, r * 0.55])), cc[2] - 0.15 - P[:, 2]), 'seta', 0, 'seta')
@@ -211,11 +236,13 @@ def r_raices(e, n=8):
         e.add(lambda P, aa=a, bb=b: sd_cono(P, aa, bb, 0.55, 0.15), 'raiz', 0, 'raiz')
 
 
-def r_helechos(e, chepa, crece=1.0):
-    # HELECHOS: hojas finas que salen del musgo de la chepa, abiertas. 'crece' (la evolucion): de 0 a 1.
+def r_helechos(e, chepa, crece=1.0, quema_y=None):
+    # HELECHOS: hojas finas que salen del musgo de la chepa, abiertas. 'crece' (la evolucion): de 0 a 1. 'quema_y': arden.
     if crece <= 0.0:
         return
     for (y, ang, s) in ((5.0, 30, 1), (2.0, -30, -1), (-1.5, 25, 1)):
+        if quema_y is not None and y > quema_y - FRENTE_ANCHO:
+            continue
         base = _lomo(y, ang, 0.6, chepa)
         for k in range(3):
             d = np.array([s * (0.4 + 0.25 * k), -0.5 + 0.4 * k, 1.0])

@@ -75,6 +75,14 @@
    "dirs": 8,
    "parpado": false,
    "grupos_parpado": 0
+  },
+  "quemandose": {
+   "fotogramas": 14,
+   "fps": 10.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
   }
  }
 }
