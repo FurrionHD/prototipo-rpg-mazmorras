@@ -31,11 +31,13 @@ MUSGO_CLARO = [(0.30, 0.44, 0.16), (0.45, 0.60, 0.24), (0.60, 0.74, 0.34)]
 SETA = [(0.42, 0.16, 0.10), (0.62, 0.26, 0.16), (0.78, 0.40, 0.26)]
 PIE_SETA = [(0.70, 0.66, 0.56), (0.86, 0.82, 0.70), (0.95, 0.92, 0.82)]
 RAIZ = [(0.18, 0.12, 0.08), (0.28, 0.19, 0.12), (0.38, 0.27, 0.18)]
+QUEMADO = [(0.10, 0.08, 0.07), (0.18, 0.14, 0.11), (0.28, 0.22, 0.17)]   # el musgo quemado de la chepa pelada
 
 
 def _mat():
     m = dict(js.MAT)
-    m.update(cristal=CRISTAL, musgo=MUSGO, musgo_claro=MUSGO_CLARO, seta=SETA, pie_seta=PIE_SETA, raiz=RAIZ)
+    m.update(cristal=CRISTAL, musgo=MUSGO, musgo_claro=MUSGO_CLARO, seta=SETA, pie_seta=PIE_SETA, raiz=RAIZ,
+             quemado=QUEMADO)
     return m
 
 
@@ -43,7 +45,7 @@ class _Piezas:
     """El jabali de siempre, sin sus colmillos de marfil (y sin la crin si se la cambiamos por musgo)."""
     def __init__(self, pose, sin=()):
         self.X = js.huesos(pose)
-        self.L = [t for t in js.escena(pose) if t[2] not in sin]
+        self.L = [t for t in js._escena_base(pose) if t[2] not in sin]   # (con JABALI_VAR, js.escena es la del mutante)
 
     def add(self, fn, mat, k=0.0, grupo='cuerpo', hueso='raiz'):
         self.L.append((fn, mat, grupo, k, self.X.get(hueso, IDENT), hueso))
@@ -107,24 +109,34 @@ def r_lanzas(e, escala=1.0, esquirlas=2):
                       (1.8 + 0.6 * (j % 2)) * escala, 0.55 * escala ** 0.5)
 
 
-def r_curvos(e, escala=1.0):
+def r_curvos(e, escala=1.0, rotos=False, mat='cristal'):
     # LOS COLMILLOS DE SIEMPRE HECHOS CRISTAL: gordos, salen del morro y se curvan arriba y atras (mas largos cuanto mas).
+    # ROTOS (tras la Cornada de cristal): solo los dos primeros tramos, acabados en un MUÑON astillado (tres esquirlas
+    # cortas). 'mat': 'marfil' mientras aun son los de siempre (la evolucion).
     for s in (-1, 1):
         p = Z(2.4 * s, 15.0, 4.0); d = np.array([0.55 * s, 0.4, 0.75]); r = 1.25 * escala ** 0.6
-        for k in range(int(5 + 2 * (escala - 1.0) * 2)):
+        tramos_ = int(5 + 2 * (escala - 1.0) * 2)
+        for k in range(2 if rotos else tramos_):
             dd = d / np.linalg.norm(d); q = p + dd * 1.35 * escala ** 0.5
-            e.add(lambda P, a=p, b=q, ra=r, rb=max(0.2, r - 0.16): sd_cono(P, a, b, ra, rb), 'cristal', 0, 'colmillo',
+            e.add(lambda P, a=p, b=q, ra=r, rb=max(0.2, r - 0.16): sd_cono(P, a, b, ra, rb), mat, 0, 'colmillo',
                   'cabeza')
             p = q; r = max(0.22, r - 0.21 / escala ** 0.5); d = d + np.array([0.05 * s, -0.28 / escala ** 0.4, 0.0])
+        if rotos:
+            dd = d / np.linalg.norm(d)
+            for k, giro in enumerate((-0.5, 0.1, 0.6)):
+                dk = dd + np.array([giro * 0.6, 0.0, 0.25 * k - 0.2])
+                _esquirla(e, p - dd * 0.2, dk, (0.6 + 0.25 * k) * escala ** 0.5, r * 0.9)
 
 
-def r_drusas_morro(e):
-    # DRUSAS en el morro y la frente (la 2a B): racimos de cristal pequeños.
+def r_drusas_morro(e, crece=1.0):
+    # DRUSAS en el morro y la frente (la 2a B): racimos de cristal pequeños. 'crece' (la evolucion): de 0 a 1.
+    if crece <= 0.0:
+        return
     rnd = random.Random(3)
     for (x, y, z) in ((0.0, 13.6, 8.8), (1.4, 12.6, 9.8), (-1.5, 12.8, 9.6), (0.6, 14.8, 7.4)):
         for _ in range(3):
             d = [rnd.uniform(-0.5, 0.5), rnd.uniform(-0.2, 0.5), 1.0]
-            _esquirla(e, Z(x, y, z), d, rnd.uniform(1.2, 2.2), 0.45)
+            _esquirla(e, Z(x, y, z), d, rnd.uniform(1.2, 2.2) * crece, 0.45 * max(crece, 0.3))
 
 
 def r_musgo_parches(e, n=7, chepa=0.0):
@@ -140,34 +152,51 @@ def r_musgo_parches(e, n=7, chepa=0.0):
                   'musgo' if (i + j) % 3 else 'musgo_claro', 0, 'musgo')
 
 
-def r_musgo_crin(e, chepa=0.0):
-    # LA CRIN HECHA MUSGO: una cresta de musgo por el espinazo, de la nuca a media espalda.
+def r_musgo_crin(e, chepa=0.0, crece=1.0):
+    # LA CRIN HECHA MUSGO: una cresta de musgo por el espinazo, de la nuca a media espalda. 'crece' (la evolucion): le
+    # brota de la nuca hacia atras, mata a mata.
     rnd = random.Random(11)
     for i in range(16):
         y = 10.0 - i * 1.2
         c = _lomo(y, rnd.uniform(-12, 12), -0.2, chepa)
-        e.add(lambda P, cc=c, r=rnd.uniform(1.3, 1.9): sd_esfera(P, cc, r), 'musgo' if i % 3 else 'musgo_claro', 0, 'musgo')
+        r = rnd.uniform(1.3, 1.9)
+        g = min(1.0, max(0.0, crece * 16.0 - i))
+        if g > 0.0:
+            e.add(lambda P, cc=c, r=r * (0.4 + 0.6 * g): sd_esfera(P, cc, r), 'musgo' if i % 3 else 'musgo_claro', 0, 'musgo')
 
 
-def r_manto_musgo(e, chepa, flancos=60):
+def r_manto_musgo(e, chepa, flancos=60, crece=1.0):
     # EL MANTO DE MUSGO de la 2a: todo el lomo y la chepa cubiertos, bajando por los flancos hasta 'flancos' grados.
+    # 'crece' (la evolucion): se extiende del espinazo hacia los flancos.
     rnd = random.Random(5)
     for i in range(14):
         y = 9.0 - i * 1.45
         for ang in range(-flancos, flancos + 1, 20):
             c = _lomo(y, ang + rnd.uniform(-6, 6), -0.5, chepa)
-            e.add(lambda P, cc=c, r=rnd.uniform(1.4, 2.0): sd_esfera(P, cc, r),
-                  'musgo' if rnd.random() < 0.7 else 'musgo_claro', 0, 'musgo')
+            r = rnd.uniform(1.4, 2.0)
+            mat = 'musgo' if rnd.random() < 0.7 else 'musgo_claro'
+            if abs(ang) <= flancos * crece + 0.01:
+                e.add(lambda P, cc=c, r=r: sd_esfera(P, cc, r), mat, 0, 'musgo')
 
 
-def r_setas(e, chepa, n=4):
-    # SETAS en la chepa: pie claro y sombrero rojizo.
+def r_quemado(e, chepa):
+    # LA CHEPA PELADA (le han quemado el musgo con fuego): costras negras de musgo quemado por el lomo, la piel a la vista.
+    rnd = random.Random(17)
+    for i in range(10):
+        c = _lomo(8.0 - i * 1.9 + rnd.uniform(-0.5, 0.5), rnd.uniform(-55, 55), -0.9, chepa)
+        e.add(lambda P, cc=c, r=rnd.uniform(0.9, 1.4): sd_esfera(P, cc, r), 'quemado', 0, 'musgo')
+
+
+def r_setas(e, chepa, n=4, crece=1.0):
+    # SETAS en la chepa: pie claro y sombrero rojizo. 'crece' (la evolucion): de 0 a 1.
+    if crece <= 0.0:
+        return
     rnd = random.Random(9)
     for i in range(n):
         c = _lomo(4.5 - i * 2.4 + rnd.uniform(-0.5, 0.5), rnd.uniform(-35, 35), 0.8, chepa)
-        alto = rnd.uniform(1.4, 2.4)
+        alto = rnd.uniform(1.4, 2.4) * crece
         e.add(lambda P, a=c, b=c + np.array([0, 0, alto]): sd_cono(P, a, b, 0.45, 0.35), 'pie_seta', 0, 'seta')
-        e.add(lambda P, cc=c + np.array([0, 0, alto + 0.3]), r=rnd.uniform(1.1, 1.6):
+        e.add(lambda P, cc=c + np.array([0, 0, alto + 0.3]), r=rnd.uniform(1.1, 1.6) * max(crece, 0.3):
               np.maximum(sd_elipsoide(P, cc, np.array([r, r, r * 0.55])), cc[2] - 0.15 - P[:, 2]), 'seta', 0, 'seta')
 
 
@@ -182,14 +211,16 @@ def r_raices(e, n=8):
         e.add(lambda P, aa=a, bb=b: sd_cono(P, aa, bb, 0.55, 0.15), 'raiz', 0, 'raiz')
 
 
-def r_helechos(e, chepa):
-    # HELECHOS: hojas finas que salen del musgo de la chepa, abiertas.
+def r_helechos(e, chepa, crece=1.0):
+    # HELECHOS: hojas finas que salen del musgo de la chepa, abiertas. 'crece' (la evolucion): de 0 a 1.
+    if crece <= 0.0:
+        return
     for (y, ang, s) in ((5.0, 30, 1), (2.0, -30, -1), (-1.5, 25, 1)):
         base = _lomo(y, ang, 0.6, chepa)
         for k in range(3):
             d = np.array([s * (0.4 + 0.25 * k), -0.5 + 0.4 * k, 1.0])
             d = d / np.linalg.norm(d)
-            e.add(lambda P, a=base, b=base + d * 3.0: sd_cono(P, a, b, 0.5, 0.05), 'musgo_claro', 0, 'musgo')
+            e.add(lambda P, a=base, b=base + d * 3.0 * crece: sd_cono(P, a, b, 0.5, 0.05), 'musgo_claro', 0, 'musgo')
 
 
 def _con(sin, *rasgos):

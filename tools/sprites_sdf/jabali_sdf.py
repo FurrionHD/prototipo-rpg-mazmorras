@@ -36,8 +36,9 @@ NUCA = Z(0, 8.0, 9.0)
 ANCA = Z(0, -8.0, 0.0)        # donde se apoya al empinarse (las traseras)
 
 def POSE(**k):
+    # 'evo' (los mutantes): la TRANSFORMACION hasta su hoja: 0 = aun es lo que era, 1 = ya es el mutante.
     p = dict(avance=0.0, agacha=0.0, cabeza=0.0, estira=1.0, tumba=0.0, empina=0.0, escarba=0.0, patas=0.0,
-             paso=0.0, muere=0.0)
+             paso=0.0, muere=0.0, evo=1.0)
     p.update(k)
     return p
 
@@ -190,7 +191,31 @@ def anim_muerte(t):
                 cabeza=tramos(t, [(0, 2.0), (0.4, -1.0), (1, -2.0)]))
 
 
+# COMER CRISTALES (31/10, los mutantes): baja la testuz al cristal, lo hoza y lo masca a golpes de quijada, y resopla.
+def anim_comer(t):
+    masca = 1.4 * math.sin(2 * math.pi * t * 4.0) * (0.25 < t < 0.85)
+    return POSE(agacha=tramos(t, [(0.0, 0.0), (0.15, 0.6), (0.85, 0.6), (1.0, 0.0)]),
+                cabeza=tramos(t, [(0.0, 0.0), (0.15, -4.5), (0.25, -3.5), (0.85, -3.5), (1.0, 0.0)]) + masca,
+                escarba=tramos(t, [(0.0, 0.0), (0.1, 0.8), (0.2, 0.0), (1.0, 0.0)]))
+
+
+# LA TRANSFORMACION hasta el mutante (31/10, 18 marcos a 10 como las demas): tiembla agazapado, se encoge y se ALZA
+# de golpe (ahi cambian los colmillos y brota el musgo, ver la escena del mutante) y crece hasta su tamaño. 'evo' de
+# 0 (lo que era) a 1 (el mutante).
+def _paso(x, a, b):
+    u = min(1.0, max(0.0, (x - a) / (b - a)))
+    return u * u * (3 - 2 * u)
+
+
+def anim_evolucion(t):
+    tiembla = (1.0 if int(t * 14) % 2 == 0 else -1.0) * (1.0 - _paso(t, 0.30, 0.40))
+    return POSE(agacha=tramos(t, [(0.0, 0.0), (0.12, 0.5), (0.45, 0.5), (0.55, -0.2), (0.70, 0.1), (1.0, 0.0)]),
+                cabeza=tramos(t, [(0.0, 0.0), (0.45, -2.0), (0.55, 4.0), (0.70, 0.0), (1.0, 0.0)]) + 0.8 * tiembla,
+                tumba=0.04 * tiembla, evo=tramos(t, [(0.0, 0.0), (0.12, 0.0), (0.88, 1.0), (1.0, 1.0)]))
+
+
 ANIMS = {
+    'comer': (10, 10.0, False, 8, anim_comer),
     'idle': (8, 5.0, True, 8, anim_idle),
     'walk': (8, 8.0, True, 8, anim_walk),
     'embestida': (8, 11.0, False, 8, anim_embestida),
@@ -201,6 +226,73 @@ ANIMS = {
     'encaje': (4, 18.0, False, 8, anim_encaje),
     'muerte': (8, 10.0, False, 8, anim_muerte),
 }
+
+
+_escena_base = escena
+
+# LOS MUTANTES DEL JABALI (31/10, jabali-mutante): JABALI_VAR=colmillo (el Colmillo de cristal: los colmillos curvos de
+# cristal, la crin de musgo y una chepa leve) | ancestral (el Jabali ancestral: los colmillos enormes, drusas en el morro,
+# el manto de musgo con helechos y setas y la chepa enorme). Y lo que les pasa en la pelea, cada uno su carpeta:
+# JABALI_ROTOS=1 (los colmillos partidos tras la Cornada de cristal: los muñones) y, el ancestral, JABALI_PELADO=1 (le
+# han quemado el musgo). Sus piezas, las de jabali_versiones.py; sus animaciones, las del jabali + comer y su evolucion
+# (solo la entera). Las vistas, a su escritorio.
+VAR = os.environ.get('JABALI_VAR', '')
+ROTOS = os.environ.get('JABALI_ROTOS', '') == '1'
+PELADO = os.environ.get('JABALI_PELADO', '') == '1'
+if VAR in ('colmillo', 'ancestral'):
+    sys.modules.setdefault('jabali_sdf', sys.modules[__name__])
+    import jabali_versiones as _jv
+    _ESC_M = {'colmillo': (1.7 * 1.2, 1.7), 'ancestral': (1.7 * 1.32, 1.7 * 1.2)}   # [la suya, la de lo que era]
+    _esc_m, _esc_antes = _ESC_M[VAR]
+    _lado = int(round(88 * _esc_m / 1.7 / 2)) * 2 + 16
+    MODELO = Modelo(_esc_m, (_lado, _lado), (_lado // 2, int(_lado * 0.56)), _jv._mat(), (0.11, 0.07, 0.05),
+                    suaves=('cuerpo',), brillan=('ojo', 'pupila'), estira=ESTIRA, corta_suelo=True, especular=('cristal',),
+                    umbral_especular=0.955)
+    _suf = VAR + ('_pelado' if PELADO and VAR == 'ancestral' else '') + ('_rotos' if ROTOS else '')
+    SALIDA = 'tools/salida/sdf/jabali_sdf_%s/' % _suf   # (hasta su visto bueno: luego a assets/sprites/enemigos/)
+    VISTAS = os.path.join(os.path.expanduser('~'), 'Desktop', 'ataques_mapa', 'enemigos', 'prueba_3d', 'mutantes',
+                          'jabali_%s_hojas' % _suf) + os.sep
+    _SUYAS = ['idle', 'walk', 'embestida', 'cornada', 'pisoton', 'basico', 'arrollar', 'encaje', 'muerte']
+    if not ROTOS and not PELADO:
+        _SUYAS += ['comer', 'evolucion']
+    ANIMS['evolucion'] = (18, 10.0, False, 8, anim_evolucion)
+    ANIMS = {k: ANIMS[k] for k in _SUYAS}
+
+    def escena(pose):
+        jv = _jv
+        evo = pose.get('evo', 1.0)
+        if VAR == 'colmillo':
+            # Del jabali al Colmillo de cristal: le crece la chepa, los colmillos se le hacen CRISTAL en la sacudida
+            # (y se alargan) y la crin se le vuelve musgo de la nuca hacia atras.
+            ch = jv.CH1 * _paso(evo, 0.2, 0.7)
+            pz = jv._Piezas(pose, ('colmillo', 'crin') if evo >= 0.5 else ('colmillo',))
+            jv.r_chepa(pz, ch)
+            jv.r_curvos(pz, 1.0, ROTOS, 'cristal' if evo >= 0.5 else 'marfil')
+            if evo >= 0.5:
+                jv.r_musgo_crin(pz, ch, _paso(evo, 0.5, 0.9))
+        else:
+            # Del Colmillo de cristal al Ancestral: la chepa se hincha, el musgo se extiende del espinazo a los flancos,
+            # los colmillos se alargan, le brotan las drusas del morro y luego los helechos y las setas.
+            ch = jv.CH1 + (jv.CH2 - jv.CH1) * _paso(evo, 0.2, 0.7)
+            pz = jv._Piezas(pose, ('colmillo', 'crin'))
+            jv.r_chepa(pz, ch)
+            jv.r_curvos(pz, 1.0 + 0.6 * _paso(evo, 0.35, 0.8), ROTOS)
+            jv.r_drusas_morro(pz, _paso(evo, 0.45, 0.75))
+            if PELADO:
+                jv.r_quemado(pz, ch)
+            else:
+                if evo < 0.3:
+                    jv.r_musgo_crin(pz, ch)
+                jv.r_manto_musgo(pz, ch, 80, max(_paso(evo, 0.3, 0.8), 0.05))
+                jv.r_helechos(pz, ch, _paso(evo, 0.7, 0.9))
+                jv.r_setas(pz, ch, 3, _paso(evo, 0.75, 0.95))
+        L = pz.L
+        # El TAMAÑO: de lo que era al suyo (todo el modelo, desde los pies).
+        s = (_esc_antes + (_esc_m - _esc_antes) * _paso(evo, 0.2, 0.85)) / _esc_m
+        if s != 1.0:
+            for i, (fn, m, g, k, Xh, nh) in enumerate(L):
+                L[i] = (fn, m, g, k, (Xh[0] * s, Xh[1] * s), nh)
+        return L
 
 
 if __name__ == '__main__':
