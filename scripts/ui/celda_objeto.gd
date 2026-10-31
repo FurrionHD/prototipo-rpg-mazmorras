@@ -66,6 +66,10 @@ var _hover := false
 # shader se comeria tambien el fondo. Lo que no tiene dibujo (materiales, pociones) sigue con su
 # icono de IconoItem.
 var _retrato: TextureRect = null
+# EL SELLO DE LAS RUNAS, en su propia capa ENCIMA del retrato (31/10, el jefe: "el dibujo del equipo sale por encima
+# del buff"). Pintado en el _draw de la celda quedaba debajo del retrato, que es un hijo y se pinta despues.
+var _sello: Control = null
+var _sello_medidas := Vector3.ZERO   # (w, h, y_banda) del ultimo _draw
 # Lo que mide el hueco del retrato, en fraccion del lado. Un pelo mas que el icono (LADO_ICONO): el
 # retrato se recorta a la silueta de la pieza, sin el aire que lleva el cubo alrededor.
 const LADO_RETRATO := 0.56
@@ -121,6 +125,10 @@ func _init() -> void:
 	toggle_mode = true
 	_retrato = RetratoPieza.nodo()
 	add_child(_retrato)
+	_sello = Control.new()
+	_sello.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_sello.draw.connect(_pintar_sello)
+	add_child(_sello)
 	# El estilo del tema se quita entero: lo pinta _draw(). Hay que poner los CINCO estados o Godot
 	# rellena los que falten con su gris y la celda cambia de aspecto al pasar el raton por encima.
 	# UNO para todas las celdas, no cinco por celda: con el baul lleno eran casi tres mil objetos
@@ -284,8 +292,12 @@ func _draw() -> void:
 	var n_plus: int = _plus()
 	if n_plus > 0:
 		_muesca_plus(w, h, n_plus)
-	# 5b. LAS RUNAS (08/10/2026): de que set es y cuantas sub-stats lleva, en todas las rejillas.
-	_marca_runas(w, h, y_banda)
+	# 5b. LAS RUNAS (08/10/2026): de que set es y cuantas sub-stats lleva, en todas las rejillas. En su capa, ENCIMA del
+	# retrato (_pintar_sello), y apagada como el retrato si la celda lo esta.
+	_sello_medidas = Vector3(w, h, y_banda)
+	_sello.size = size
+	_sello.modulate = Color(0.42, 0.43, 0.46) if disabled or tenue else Color.WHITE
+	_sello.queue_redraw()
 
 	# LA MARCA ("PUESTA", el nombre de quien lo lleva) VA SIEMPRE EN LA BANDA DE ABAJO. Antes iba
 	# arriba a la derecha en una pastilla, y solo bajaba aqui cuando el +N ocupaba esa esquina: la
@@ -478,8 +490,12 @@ const GLIFO_SET := {
 }
 
 
-func _marca_runas(w: float, h: float, y_banda: float) -> void:
-	if item == null or not Runas.admite_runas(item):
+func _pintar_sello() -> void:
+	_marca_runas(_sello, _sello_medidas.x, _sello_medidas.y, _sello_medidas.z)
+
+
+func _marca_runas(ci: CanvasItem, w: float, h: float, y_banda: float) -> void:
+	if item == null or w <= 0.0 or not Runas.admite_runas(item):
 		return
 	var s: RunaSetData = Runas.set_de(item)
 	if s == null:
@@ -490,20 +506,20 @@ func _marca_runas(w: float, h: float, y_banda: float) -> void:
 	var r: float = m * 0.105
 	var c := Vector2(w - r - m * 0.05, y_banda * 0.5)
 	# El sello: sombra, disco del color de la runa (apagado para que el blanco de dentro se lea) y aro claro.
-	draw_circle(c + Vector2(1.5, 1.5), r, Color(0, 0, 0, 0.45))
-	draw_circle(c, r, col.darkened(0.35))
-	draw_arc(c, r, 0.0, TAU, 24, col.lightened(0.45), maxf(1.5, m * 0.018), true)
-	_glifo(c, r * 1.25, GLIFO_SET.get(s.id, GLIFO_SET[&"slime"]), Color(1, 1, 1, 0.95))
+	ci.draw_circle(c + Vector2(1.5, 1.5), r, Color(0, 0, 0, 0.45))
+	ci.draw_circle(c, r, col.darkened(0.35))
+	ci.draw_arc(c, r, 0.0, TAU, 24, col.lightened(0.45), maxf(1.5, m * 0.018), true)
+	_glifo(ci, c, r * 1.25, GLIFO_SET.get(s.id, GLIFO_SET[&"slime"]), Color(1, 1, 1, 0.95))
 	# Los 4 puntitos bajo el sello, encendidos los que tiene (con su borde oscuro: se leen sobre cualquier rareza).
 	var paso: float = r * 0.72
 	var y: float = c.y + r + m * 0.05
 	for i in Runas.MAX_SUBS:
 		var p := Vector2(c.x + (float(i) - 1.5) * paso, y)
-		draw_circle(p, m * 0.028, Color(0, 0, 0, 0.65))
-		draw_circle(p, m * 0.020, col.lightened(0.55) if i < n else Color(1, 1, 1, 0.20))
+		ci.draw_circle(p, m * 0.028, Color(0, 0, 0, 0.65))
+		ci.draw_circle(p, m * 0.020, col.lightened(0.55) if i < n else Color(1, 1, 1, 0.20))
 
 
-func _glifo(c: Vector2, lado: float, filas: Array, tinta: Color) -> void:
+func _glifo(ci: CanvasItem, c: Vector2, lado: float, filas: Array, tinta: Color) -> void:
 	var px: float = lado / 7.0
 	var x0: float = c.x - lado * 0.5
 	var y0: float = c.y - lado * 0.5
@@ -511,7 +527,7 @@ func _glifo(c: Vector2, lado: float, filas: Array, tinta: Color) -> void:
 		var f: String = filas[j]
 		for i in f.length():
 			if f[i] == "#":
-				draw_rect(Rect2(x0 + float(i) * px, y0 + float(j) * px, px, px), tinta)
+				ci.draw_rect(Rect2(x0 + float(i) * px, y0 + float(j) * px, px, px), tinta)
 
 
 # LA MUESCA DEL +N: el triangulo de la esquina de arriba a la DERECHA, del color de su nivel y con
