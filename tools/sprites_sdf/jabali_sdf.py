@@ -249,7 +249,7 @@ if VAR in ('colmillo', 'ancestral'):
                     suaves=('cuerpo',), brillan=('ojo', 'pupila'), estira=ESTIRA, corta_suelo=True, especular=('cristal',),
                     umbral_especular=0.955)
     _suf = VAR + ('_pelado' if PELADO and VAR == 'ancestral' else '') + ('_rotos' if ROTOS else '')
-    SALIDA = 'tools/salida/sdf/jabali_sdf_%s/' % _suf   # (hasta su visto bueno: luego a assets/sprites/enemigos/)
+    SALIDA = 'assets/sprites/enemigos/jabali_sdf_%s/' % _suf   # (31/10, "ta bien": ya van al juego)
     VISTAS = os.path.join(os.path.expanduser('~'), 'Desktop', 'ataques_mapa', 'enemigos', 'prueba_3d', 'mutantes',
                           'jabali_%s_hojas' % _suf) + os.sep
     _SUYAS = ['idle', 'walk', 'embestida', 'cornada', 'pisoton', 'basico', 'arrollar', 'encaje', 'muerte']

@@ -28,6 +28,21 @@ const ANIMS := {
 	"encaje": {"hoja": "encaje", "dirs": 8, "marcos": 4, "fps": 18.0, "loop": false},
 	"muerte": {"hoja": "muerte", "dirs": 8, "marcos": 8, "fps": 10.0, "loop": false},
 	"cadaver": {"hoja": "muerte", "dirs": 8, "marcos": 1, "desde": 7, "fps": 1.0, "loop": false},
+	# COMER UN CRISTAL y LA EVOLUCION (31/10, los mutantes del jabali): la del jabali normal y la de sus mutantes.
+	"comer": {"hoja": "comer", "dirs": 8, "marcos": 10, "fps": 10.0, "loop": false, "opcional": true},
+	"evolucion": {"hoja": "evolucion", "dirs": 8, "marcos": 18, "fps": 10.0, "loop": false, "opcional": true},
+}
+
+# LOS MUTANTES DEL JABALI (31/10, jabali-mutante): la variante que dice su MutacionData.sprite -> [carpeta, lienzo, sus
+# animaciones, sus VARIANTES de la pelea]. Ya vienen dibujados a su tamaño y con SU color (sin el tinte del piso). Las
+# variantes (cada una su carpeta 'jabali_sdf_<mutante>_<variante>', sin comer ni evolucion): los colmillos ROTOS tras la
+# Cornada de cristal y, el ancestral, PELADO cuando le queman el musgo (y pelado con los colmillos rotos).
+const _COMUNES_MUT := ["idle", "walk", "embestida", "cornada", "pisoton", "basico", "arrollar", "encaje", "muerte",
+	"cadaver"]
+const MUTANTES := {
+	&"colmillo": ["jabali_sdf_colmillo", Vector2i(122, 122), _COMUNES_MUT + ["comer", "evolucion"], [&"rotos"]],
+	&"ancestral": ["jabali_sdf_ancestral", Vector2i(132, 132), _COMUNES_MUT + ["comer", "evolucion"],
+		[&"rotos", &"pelado", &"pelado_rotos"]],
 }
 
 
@@ -59,3 +74,54 @@ static func tam_cuerpo(escala: float = 1.0) -> Vector2:
 
 static func generar(color: Color = BASE) -> SpriteFrames:
 	return Sprites3D.montar(CARPETA, ANIMS, LIENZO, BASE, SpriteLienzo.cuantizar_hsv(color, JabaliSprites.COLOR_PASOS))
+
+
+static func _anims_de(lista: Array) -> Dictionary:
+	var anims := {}
+	for k in lista:
+		anims[k] = ANIMS[k]
+	return anims
+
+
+# --- EL SPRITE DE MUTANTE (contrato de SpritesEnemigo, como Rata3DSprites) ---
+static func _variante_mutante(ed: EnemyData, mutacion: StringName) -> Array:
+	var m: MutacionData = ed.mutacion_de(mutacion) if ed != null else null
+	if m == null or not MUTANTES.has(m.sprite):
+		return []
+	return MUTANTES[m.sprite]
+
+
+static func tiene_mutante(ed: EnemyData, mutacion: StringName = &"") -> bool:
+	return not _variante_mutante(ed, mutacion).is_empty()
+
+
+# Sin tinte: la clave no lleva color (es siempre el mismo).
+static func clave_mutante_de(ed: EnemyData, _t: float, mutacion: StringName = &"") -> String:
+	var v: Array = _variante_mutante(ed, mutacion)
+	return "" if v.is_empty() else "jabali3d_%s" % String(v[0])
+
+
+static func generar_mutante_de(ed: EnemyData, _t: float, mutacion: StringName = &"") -> SpriteFrames:
+	var v: Array = _variante_mutante(ed, mutacion)
+	if v.is_empty():
+		return null
+	return Sprites3D.montar("res://assets/sprites/enemigos/%s/" % String(v[0]), _anims_de(v[2]), v[1], BASE, BASE)
+
+
+# --- SUS VARIANTES DE LA PELEA (contrato de SpritesEnemigo.frames_variante y del horno) ---
+static func variantes_de_mutante(ed: EnemyData, mutacion: StringName) -> Array:
+	var v: Array = _variante_mutante(ed, mutacion)
+	return [] if v.is_empty() else v[3]
+
+
+static func clave_variante_de(ed: EnemyData, mutacion: StringName, variante: StringName) -> String:
+	var v: Array = _variante_mutante(ed, mutacion)
+	return "" if v.is_empty() else "jabali3d_%s_%s" % [String(v[0]), String(variante)]
+
+
+static func generar_variante_de(ed: EnemyData, mutacion: StringName, variante: StringName) -> SpriteFrames:
+	var v: Array = _variante_mutante(ed, mutacion)
+	if v.is_empty() or not (v[3] as Array).has(variante):
+		return null
+	return Sprites3D.montar("res://assets/sprites/enemigos/%s_%s/" % [String(v[0]), String(variante)],
+		_anims_de(_COMUNES_MUT), v[1], BASE, BASE)

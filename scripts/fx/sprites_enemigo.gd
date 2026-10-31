@@ -248,6 +248,21 @@ static func mutante_propio(ed: EnemyData, mutacion: StringName = &"") -> bool:
 	return g != null and g.has_method("tiene_mutante") and bool(g.tiene_mutante(ed, mutacion))
 
 
+# LAS VARIANTES DE UN MUTANTE EN LA PELEA (31/10, los del jabali: los colmillos rotos, el ancestral pelado): las de su
+# generador (variantes_de_mutante / clave_variante_de / generar_variante_de), horneadas o al vuelo. null si no la tiene.
+static func frames_variante(ed: EnemyData, mutacion: StringName, variante: StringName) -> SpriteFrames:
+	var g = _generador(ed)
+	if g == null or ed.sprite_frames != null or not g.has_method("generar_variante_de") \
+			or not (g.variantes_de_mutante(ed, mutacion) as Array).has(variante):
+		return null
+	var clave: String = g.clave_variante_de(ed, mutacion, variante)
+	if not _horneado.has(clave):
+		_horneado[clave] = SpriteLienzo.cargar_horneado(clave)
+	if _horneado[clave] != null:
+		return _horneado[clave]
+	return g.generar_variante_de(ed, mutacion, variante)
+
+
 # LA VARIANTE ROTA (01/10, el cuerno partido del Minotauro en rabia): la del generador que la tenga (generar_roto_de /
 # clave_roto_de), horneada o al vuelo como la normal. null si ese enemigo no tiene variante rota.
 static func frames_roto_de(ed: EnemyData, t: float) -> SpriteFrames:

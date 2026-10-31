@@ -154,6 +154,17 @@ func _hornear_enemigos() -> void:
 				var r_pm: Array = _hornear_parpados(g, ed, t, true, mdat.id)
 				bytes += int(r_pm[0])
 				total += int(r_pm[1])
+				# Y SUS VARIANTES DE LA PELEA (31/10, el jabali: colmillos rotos, el ancestral pelado).
+				if g.has_method("variantes_de_mutante"):
+					for vr in g.variantes_de_mutante(ed, mdat.id):
+						var clave_v: String = g.clave_variante_de(ed, mdat.id, vr)
+						var sf_v: SpriteFrames = g.generar_variante_de(ed, mdat.id, vr)
+						var n_v: int = SpriteLienzo.hornear(sf_v, clave_v) if sf_v != null else 0
+						if n_v > 0:
+							bytes += n_v
+							total += 1
+							recortados += _avisar_recortes(sf_v, clave_v)
+							sueltas += _avisar_islas(sf_v, clave_v)
 		print("  %-24s %d variantes" % [ruta.get_file(), hechas.size()])
 	print("")
 	print("%d ficheros, %.2f MB, en %.1f s" % [total, bytes / 1048576.0,

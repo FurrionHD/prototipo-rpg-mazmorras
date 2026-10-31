@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 1
+prob = 0.7
+
+[sub_resource type="Resource" id="SA_1"]
+script = ExtResource("2")
+estado = 5
+prob = 0.6
+
+[resource]
+script = ExtResource("1")
+nombre = "Cornada de cristal"
+descripcion = "Baja la cabeza y te atraviesa con dos colmillos de cristal que no deberían existir. Duele mucho. A él también: se le quedan dentro."
+coste_energia = 0.0
+dano_mult = 1.6
+efectos = [SubResource("SA_0"), SubResource("SA_1")]
+fx_anim = &"cornada"
+fx_estilo = 20
+cooldown = 3
+; EN EL MAPA (31/10, el Colmillo de cristal): una linea de 50 px que ATRAVIESA a todos los que pilla.
+forma = 3
+forma_apunte = 1
+forma_radio = 50.0
+forma_ancho = 14.0
+fx_estilo_mapa = 140

@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 1
+prob = 0.7
+stacks = 2
+
+[sub_resource type="Resource" id="SA_1"]
+script = ExtResource("2")
+estado = 5
+prob = 0.6
+
+[resource]
+script = ExtResource("1")
+nombre = "Cornada de cristal"
+descripcion = "Dos colmillos de cristal del tamaño de un brazo, con un bosque entero empujando detrás. Lo que pilla en medio no se aparta: se queda clavado un rato."
+coste_energia = 0.0
+dano_mult = 1.9
+efectos = [SubResource("SA_0"), SubResource("SA_1")]
+fx_anim = &"cornada"
+fx_estilo = 20
+cooldown = 3
+; EN EL MAPA (31/10, el Jabali ancestral): una linea de 60 px que ATRAVIESA a todos los que pilla.
+forma = 3
+forma_apunte = 1
+forma_radio = 60.0
+forma_ancho = 16.0
+fx_estilo_mapa = 140

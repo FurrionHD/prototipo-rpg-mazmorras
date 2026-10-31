@@ -6,7 +6,7 @@ f1 Dasui hp=199.642 mp=20.000 en=181.300
 f1 Daniel hp=190.990 mp=20.000 en=181.025
 f1 Araña de las simas hp=56.050 mp=20.429 en=0.000
 f1 Trent hp=69.950 mp=20.627 en=0.000
-f1 Jabalí hp=54.750 mp=20.297 en=0.000
+f1 Jabalí hp=54.600 mp=20.330 en=0.000
 f30 LOG ¡Turno de Agirato ochinan! Elige una acción.
 f30 Agirato ochinan hp=198.795 mp=14.485 en=177.425
 f32 PULSA Habilidad
@@ -31,11 +31,12 @@ f209 LOG ¡Turno de Catalardio! Elige una acción.
 f211 PULSA Objeto
 f214 PULSA _objeto_box: Poción de maná media  x3
 f217 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  15/37 🔷)
-f218 LOG ⏳ 3. Jabalí prepara Embestida. ¡Apártate! (aturdirlo lo interrumpe)
+f218 LOG Catalardio le da Poción de maná media a Agirato ochinan. 🔷 29 de maná (10 ya), repartido en 3 turnos.
 f218 Agirato ochinan hp=198.795 mp=24.479 en=151.425
+f219 LOG ⏳ 3. Jabalí prepara Embestida. ¡Apártate! (aturdirlo lo interrumpe)
 f280 LOG 2. Trent ataca a Daniel por 0.45 de daño.  Le inflige Veneno.
 f280 Daniel hp=190.537 mp=20.000 en=181.025
-f336 LOG … no te ha dado con ninguno de los 1 golpe.
+f337 LOG … no te ha dado con ninguno de los 1 golpe.
 f409 LOG ¡Turno de Agirato ochinan! Elige una acción.
 f409 Agirato ochinan hp=198.795 mp=34.694 en=151.425
 f411 PULSA Huir
