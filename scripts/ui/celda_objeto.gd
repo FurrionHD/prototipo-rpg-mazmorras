@@ -474,6 +474,7 @@ const GLIFO_SET := {
 	# (31/10, eligio el jefe de tools/glifos_runas_versiones.py) la rata y el Rey Rata.
 	&"rata": [".#####.", "#.#.#.#", "#.#.#.#", "#.#.#.#", "#.#.#.#", "#.#.#.#", ".#####."],      # rejilla de cloaca
 	&"rey_rata": ["#.#.#.#", "#######", "#######", ".#.#.#.", ".#...#.", ".....#.", "......."], # corona de colmillos
+	&"jabali": ["...#...", ".#.#.#.", "..###..", "#.###.#", ".#####.", "...#...", "...#..."],   # helecho (Musgo viejo)
 }
 
 

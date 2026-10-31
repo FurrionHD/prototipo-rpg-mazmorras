@@ -12,6 +12,7 @@
 [ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="10_ab"]
 [ext_resource type="Resource" path="res://resources/abilities/jabali_cornada_cristal.tres" id="11_ccr"]
 [ext_resource type="Resource" path="res://resources/abilities/jabali_cornada_ancestral.tres" id="12_can"]
+[ext_resource type="Resource" path="res://resources/materials/runa_jabali.tres" id="13_runa"]
 
 [sub_resource type="Resource" id="SA_stun"]
 script = ExtResource("2_sa")
@@ -43,6 +44,7 @@ pesos = {"agilidad": 14, "destreza": 12, "fuerza": 40, "magia": 10, "resistencia
 
 [resource]
 script = ExtResource("1_g8nro")
+drop_runa = ExtResource("13_runa")
 dureza = 2.0
 familia = 5
 enemy_name = "Jabalí"

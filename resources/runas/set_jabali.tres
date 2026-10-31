@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="RunaSetData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/runa_set_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/materials/cuero_brunido.tres" id="2_mat"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_jabali.tres" id="3_nuc"]
+[ext_resource type="Resource" path="res://resources/materials/runa_jabali.tres" id="4_runa"]
+
+; MUSGO VIEJO (31/10, el set de ARMADURA del jabali; lo eligio el jefe de mis propuestas): 2 piezas +12 % de Vida;
+; 5 piezas: los golpes de AREA te hacen un 20 % menos, salvo mientras estas QUEMADO (el musgo arde, como la chepa del
+; Jabali ancestral).
+[resource]
+script = ExtResource("1")
+id = &"jabali"
+nombre = "Musgo viejo"
+tipo = 1
+material = ExtResource("2_mat")
+nucleo = ExtResource("3_nuc")
+coste_material = 6
+coste_nucleo = 3
+runa = ExtResource("4_runa")
+bonus_2p = {"vida_pct": 0.12}
+efecto = &"musgo_viejo"
+params = {"reduce": 0.2}
+metadata/_custom_type_script = "res://scripts/items/runa_set_data.gd"

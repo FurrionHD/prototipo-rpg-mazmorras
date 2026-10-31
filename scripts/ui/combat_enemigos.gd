@@ -1129,6 +1129,7 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 			var dmg_bruto: float = float(result.get("dmg_sin_mitigar", result.damage)) \
 				* ab.dano_mult * escala * e.dummy_dmg_out_mult
 			dmg *= _runa_corona_mult(t)
+			dmg *= _runa_musgo_mult(t, ab)
 			t.take_damage(dmg)
 			_runas_al_encajar(e, t, false)
 			_pantalla.objetivos.amenaza_por_parar(t, e, dmg_bruto - dmg)
@@ -1478,6 +1479,16 @@ func _contraatacar(atacante: Combatant, quien: Combatant, mult: float = -1.0,
 # ------------------------------------------------------------
 # SET CORONA: lo que le entra a 't' si tiene pegado a un aliado con la Corona puesta (-10 %). Solo en el mapa: "pegado"
 # es estar cuerpo a cuerpo.
+# MUSGO VIEJO (31/10, el set del jabali): los golpes de AREA de los enemigos (circulos y conos en el mapa, areas en la
+# fila) le hacen a 't' su parte menos, salvo si esta QUEMADO.
+func _runa_musgo_mult(t: Combatant, ab: AbilityData) -> float:
+	if t == null or ab == null or t.runa_musgo_reduce <= 0.0 or t.has_status(StatusEffects.Id.QUEMADURA):
+		return 1.0
+	if not (ab.es_area() or int(ab.forma) == CombatFormas.Tipo.CIRCULO or int(ab.forma) == CombatFormas.Tipo.CONO):
+		return 1.0
+	return 1.0 - t.runa_musgo_reduce
+
+
 func _runa_corona_mult(t: Combatant) -> float:
 	if not _pantalla.tactico or t == null:
 		return 1.0

@@ -39,7 +39,7 @@ func _w(ruta: String) -> Resource:
 
 func _catalogo() -> void:
 	print("=== CADA PIEZA, SU LISTA ===")
-	_ok(Runas.sets().size() == 8, "los 8 sets cargan")
+	_ok(Runas.sets().size() == 9, "los 9 sets cargan")
 	var espada: Resource = _w("res://resources/weapons/espada_corta.tres")
 	var varita: Resource = _w("res://resources/wands/varita.tres") if ResourceLoader.exists("res://resources/wands/varita.tres") else null
 	var peto: Resource = _w("res://resources/armor/cuero_pecho.tres")
@@ -230,6 +230,22 @@ func _combate() -> void:
 		e1.apply_status(StatusEffects.Id.SANGRADO, 3, 2.0)
 		e2.apply_status(StatusEffects.Id.SANGRADO, 3, 2.0)
 	_ok(is_equal_approx(rr.runa_mult_contra(e1), 1.16), "con muchas, tope +16 %% (x%.2f)" % rr.runa_mult_contra(e1))
+	# Musgo viejo (31/10, el jabali): los golpes de AREA de los enemigos, un 20 % menos; quemado, nada.
+	var mv: RunaSetData = null
+	for s3 in Runas.sets():
+		if (s3 as RunaSetData).id == &"jabali":
+			mv = s3
+	_ok(mv != null and mv.tipo == RunaSetData.Tipo.ARMADURA and is_equal_approx(float(mv.bonus_2p.get("vida_pct", 0.0)), 0.12),
+		"Musgo viejo: de armadura, 2 piezas +12 % de Vida")
+	var en = load("res://scripts/ui/combat_enemigos.gd").new(null)
+	var tm := Combatant.new("Tanque", 1, Abilities.new(), 500.0, 3.0, 3.0, 3.0)
+	tm.runa_musgo_reduce = 0.2
+	var pis: AbilityData = load("res://resources/abilities/jabali_pisoton.tres")
+	var cor: AbilityData = load("res://resources/abilities/jabali_cornada_cristal.tres")
+	_ok(is_equal_approx(en._runa_musgo_mult(tm, pis), 0.8), "un Pisoton (circulo): x0,8")
+	_ok(is_equal_approx(en._runa_musgo_mult(tm, cor), 1.0), "una Cornada de cristal (linea): entera")
+	tm.apply_status(StatusEffects.Id.QUEMADURA, 2, 3.0)
+	_ok(is_equal_approx(en._runa_musgo_mult(tm, pis), 1.0), "quemado: el musgo arde y no protege")
 	Game.meta_de(espada).erase("runas")
 	Game.meta_de(esp2).erase("runas")
 	pj.equipped_main = guardado[0]
@@ -240,7 +256,7 @@ func _combate() -> void:
 
 func _drops() -> void:
 	print("=== DROPS ===")
-	for f in ["slime", "slime_veneno", "slime_fuego", "slime_abisal", "slime_profundo", "rey_slime", "rata", "rey_rata"]:
+	for f in ["slime", "slime_veneno", "slime_fuego", "slime_abisal", "slime_profundo", "rey_slime", "rata", "rey_rata", "jabali"]:
 		var ed: EnemyData = load("res://scenes/actors/enemy/%s.tres" % f)
 		var s_ok: bool = false
 		for s in Runas.sets():
