@@ -22,6 +22,8 @@ func _ready() -> void:
 		["fuego", "res://resources/weapons/espada_larga.tres", 1, 1, 2],
 		["venenoso", "res://resources/weapons/daga.tres", 3, 7, 3],
 		["abisal", "res://resources/wands/varita.tres", 2, 5, 4],
+		["rata", "res://resources/weapons/daga.tres", 2, 4, 2],
+		["rey_rata", "res://resources/armor/cuero_casco.tres", 3, 5, 3],
 		["", "res://resources/weapons/daga.tres", 2, 3, 0]]
 	for d in defs:
 		var it: Resource = Game.crear_item(load(d[1]), int(d[2]), int(d[3]), {}, false)
@@ -37,9 +39,9 @@ func _ready() -> void:
 	add_child(vb)
 	for lado in [140.0, 96.0]:
 		var fila := VBoxContainer.new()
-		fila.custom_minimum_size = Vector2(1200, lado + 10.0)
+		fila.custom_minimum_size = Vector2(1240, lado + 10.0)
 		vb.add_child(fila)
-		MenuScaffold.rejilla_objetos(fila, piezas, -1, func(_i): pass, 7, lado)
+		MenuScaffold.rejilla_objetos(fila, piezas, -1, func(_i): pass, 9, lado)
 	for i in 8:
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
