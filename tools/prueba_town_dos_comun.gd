@@ -235,6 +235,17 @@ func enemigo_libre(lejos_de: Vector2 = Vector2.INF, id: int = 0) -> Node2D:
 	return mejor
 
 
+# El sitio a 'px' por DELANTE de 'presa' (hacia donde mira: su _mira, el angulo que llega de la sala). Para que te VEA:
+# el enemigo detecta por su cono de vista (130 px, 50 grados a cada lado) o por el ruido de tus pasos, y uno quieto a su
+# espalda no lo nota (el sigilo, enemy._detecta_a). Plantarse a su lado a ciegas fallaba cuando miraba al otro lado
+# (31/10: "un enemigo me embiste" 3 de 3 con la maquina cargada, y el enemigo se alejaba deambulando).
+func delante_de(presa: Node2D, px: float) -> Vector2:
+	var mira = presa.get("_mira")
+	var f = presa.get("_facing")
+	var hacia: Vector2 = Vector2.RIGHT.rotated(float(mira)) if mira != null 		else ((f as Vector2).normalized() if f is Vector2 and (f as Vector2).length_squared() > 0.0001 else Vector2.RIGHT)
+	return presa.global_position + hacia * px
+
+
 # Me planto al lado de 'presa' y, si no me embiste sola, le ataco. Espera a tener pantalla.
 func pelear_con(presa: Node2D) -> void:
 	var jugador: Node2D = get_tree().get_first_node_in_group("player") as Node2D

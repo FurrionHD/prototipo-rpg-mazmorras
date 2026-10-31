@@ -100,7 +100,7 @@ func _b_se_une(fase: int) -> void:
 	await _sala_limpia("la pelea de los dos")
 
 
-# 3) Me pongo al lado de un enemigo y NO le ataco: me tiene que embestir el y abrirse la pelea.
+# 3) Me pongo DELANTE de un enemigo y NO le ataco: me tiene que embestir el y abrirse la pelea.
 func _me_embisten(fase: int) -> void:
 	escribir_fase(fase)   # B pelea en el 2 a la vez
 	await acabar_pelea_suelta()
@@ -109,7 +109,7 @@ func _me_embisten(fase: int) -> void:
 	_ok(presa != null and jugador != null, "hay un enemigo libre para mi (fase %d)" % fase)
 	if presa == null or jugador == null:
 		return
-	jugador.recolocar(presa.global_position + Vector2(30, 0))
+	jugador.recolocar(delante_de(presa, 40.0))   # DELANTE de el, donde te ve (quieto a su espalda no te nota)
 	_ok(await _hasta(func(): return Game.hay_pelea_en_pantalla(), 20.0),
 		"un enemigo me embiste y se abre la pelea SIN que yo ataque")
 	if not Game.hay_pelea_en_pantalla():
