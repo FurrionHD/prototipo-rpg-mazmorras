@@ -1077,6 +1077,7 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 	var multi: bool = n > 1
 	var total: float = 0.0
 	var trail: Array = []
+	var reflejado: float = 0.0   # (31/10) lo que le devuelven las drusas del Jabali ancestral, al acabar
 	# Estados ya contados en el log, FRESCO por objetivo: si se compartiera entre los enemigos
 	# del area, solo se anunciaria el estado del primero y los demas entrarian en silencio.
 	var anunciados: Dictionary = {}
@@ -1092,11 +1093,20 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 		var elem: int = spell.elemento_de_golpe(i, n)
 		var res: Dictionary = StatsMath.resolve_spell(_pantalla._player, objetivo, spell, elem, frac)
 		var dmg: float = float(res.damage) * foco
+		# (31/10) LA CHEPA del Jabali ancestral aguanta las AREAS (y el fuego se la quema, despues del golpe).
+		dmg *= _pantalla.mult_chepa(objetivo, spell.alcance != SpellData.Alcance.OBJETIVO \
+			or spell.forma == CombatFormas.Tipo.CIRCULO or spell.forma == CombatFormas.Tipo.CONO)
 		var mult: float = float(res.get("mult_elem", 1.0))
 		ultimo_mult = mult
 		if bool(res.get("crit", false)):
 			hubo_crit = true
 		objetivo.take_damage(dmg)
+		_pantalla.fuego_al_musgo(objetivo, elem)
+		# LAS DRUSAS QUE REFLEJAN (31/10, el Jabali ancestral): por delante, una parte vuelve al que lo lanzo.
+		if objetivo.reflejo_magia > 0.0 and _pantalla._enemies.has(objetivo) and lanzador != null \
+				and not _pantalla._enemies.has(lanzador) and (not _pantalla.tactico \
+				or _pantalla.turno_mapa.de_frente(objetivo, lanzador, objetivo.reflejo_angulo)):
+			reflejado += dmg * objetivo.reflejo_magia
 		# Cada golpe del hechizo lleva SU elemento: en un multi-elemento los numeros salen de
 		# colores distintos y con la forma de su elemento, que es justo lo que cuenta el hechizo.
 		# SALPICON = este golpe no va al objetivo principal, sino a un vecino al que ha alcanzado lo
@@ -1123,6 +1133,14 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 			# En multi-objetivo el log lo escribe _log_hechizo de una sentada: aqui callamos.
 			_aplicar_estado_hechizo(spell, objetivo, elem, not multi, anunciados,
 				spell.es_multiobjetivo(), aplicados, dmg)
+	# LAS DRUSAS lo devuelven de una vez, al acabar el hechizo: el destello en su morro y la bola que vuelve.
+	if reflejado > 0.0 and lanzador != null and lanzador.is_alive() and not _pantalla._espejo:
+		lanzador.take_damage(reflejado)
+		_pantalla.efectos._fx_tanda(tanda_base + n)
+		_pantalla.efectos._fx_golpe(objetivo, lanzador, reflejado, false, false, Elementos.Elemento.NINGUNO,
+			CombatFX.Estilo.JABALI_REFLEJO, 1.0, false)
+		_pantalla._log_extra("💎 Las drusas de %s le devuelven a %s %.2f del hechizo" % [_pantalla._etq(objetivo),
+			lanzador.nombre, reflejado])
 	return {
 		"c": objetivo, "dano": total, "mult": ultimo_mult, "crit": hubo_crit,
 		"golpes": trail.size(), "trail": trail, "estados": aplicados,

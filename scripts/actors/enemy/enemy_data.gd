@@ -915,6 +915,13 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		c.camada_acorazada = mdat2.camada_acorazada
 		c.acorazada_vida = mdat2.acorazada_vida
 		c.acorazada_lenta = mdat2.acorazada_lenta
+		# (31/10, el jabali ancestral) esporas, drusas que reflejan y chepa que aguanta.
+		c.esporas_prob = mdat2.esporas_prob
+		c.esporas_radio = mdat2.esporas_radio
+		c.esporas_veneno = mdat2.esporas_veneno
+		c.reflejo_magia = mdat2.reflejo_magia
+		c.reflejo_angulo = mdat2.reflejo_angulo
+		c.chepa_areas = mdat2.chepa_areas
 
 	# RESISTENCIA A EFECTOS Y EFICACIA: la curva del PISO por el ajuste de ESTE bicho. Los dos ejes
 	# hacen falta y hacen cosas distintas: la resistencia decide lo que TE aguanta, la eficacia lo

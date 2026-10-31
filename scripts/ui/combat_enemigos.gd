@@ -687,6 +687,14 @@ func _suelo_de_habilidad(e: Combatant, ab: AbilityData) -> void:
 # varios de los tuyos en pie cada accion enemiga elige a quien va, y una habilidad CARGADA se
 # resuelve turnos despues de anunciarse: para entonces su presa puede haber cambiado.
 func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null) -> void:
+	# (31/10) LOS COLMILLOS ROTOS del jabali: con ellos partidos, su Cornada de cristal es la de los muñones (la de cristal
+	# se enfria igual, o la volveria a elegir cada turno). Y al usar la de cristal, se le parten.
+	if ab.rota != null and e.has_status(StatusEffects.Id.COLMILLOS_ROTOS):
+		e.start_cooldown(ab)
+		ab = ab.rota
+	elif ab.rompe_colmillos > 0 and not _pantalla._espejo:
+		e.apply_status(StatusEffects.Id.COLMILLOS_ROTOS, ab.rompe_colmillos)
+		_pantalla._log_extra("💥 A %s se le parten los colmillos de cristal en la Cornada." % _pantalla._etq(e))
 	# (07/10) EL DECRETO del Rey tirano: no pega, señala.
 	if ab.decreto_turnos > 0:
 		_decreto(e, ab)

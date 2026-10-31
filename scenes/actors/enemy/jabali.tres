@@ -41,6 +41,12 @@ desde = Array[StringName]([&"colmillo"])
 habilidades = Array[ExtResource("10_ab")]([ExtResource("5_emb"), ExtResource("6_pis"), ExtResource("12_can")])
 sprite = &"ancestral"
 pesos = {"agilidad": 14, "destreza": 12, "fuerza": 40, "magia": 10, "resistencia": 44, "voluntad": 16}
+esporas_prob = 0.3
+esporas_radio = 40.0
+esporas_veneno = 0.6
+reflejo_magia = 0.25
+reflejo_angulo = 120.0
+chepa_areas = 0.4
 
 [resource]
 script = ExtResource("1_g8nro")

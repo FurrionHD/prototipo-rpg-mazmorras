@@ -462,7 +462,11 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		# cada rata: va del rey a la rata, que espera escondida y salta al abrirse), el CAMPANAZO del Tapazo (el aro de
 		# metal y la chatarra en quien lo recibe). (Las chispas del frente blindado salen con el impacto, como la placa
 		# de la acorazada: CombatTactico._chispas_si_para.)
-		REY_LLAMADA = 217, REY_CAMPANAZO = 218 }
+		REY_LLAMADA = 217, REY_CAMPANAZO = 218,
+		# LOS MUTANTES DEL JABALI (31/10, JabaliAire): las ESPORAS del ancestral (en el, al recibir un golpe cuerpo a
+		# cuerpo) y el REFLEJO de sus drusas (del jabali, a, a quien lanzo el hechizo, v). (El estallido de los colmillos
+		# y la quema del musgo salen de sus estados: CombatTactico._tick_jabali.)
+		JABALI_ESPORAS = 219, JABALI_REFLEJO = 220 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -504,6 +508,8 @@ const DIBUJO_MAPA := [Estilo.CRIA_LANZADA, Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA
 	Estilo.RATA_CORTE_CRISTAL, Estilo.RATA_VELO,
 	# los mutantes del rey rata (ReyRataAire, 31/10).
 	Estilo.REY_LLAMADA, Estilo.REY_CAMPANAZO,
+	# los mutantes del jabali (JabaliAire, 31/10).
+	Estilo.JABALI_ESPORAS, Estilo.JABALI_REFLEJO,
 	# los slimes (SlimeAire, 28/09): sobre el cuerpo que recibe.
 	Estilo.SLIME_GOLPE, Estilo.SLIME_ESCUPE, Estilo.SLIME_TROMBA, Estilo.SLIME_TROZO, Estilo.SLIME_IGNICION,
 	# las bestias (BestiaAire, 28/09): sobre el cuerpo que recibe.
@@ -684,6 +690,7 @@ const T_VUELO := {
 	# La LLAMADA: se abre la grieta y la rata sale de un salto (ReyRataAire.t_abierto + CombatTactico.T_SALTO_GRIETA).
 	Estilo.REY_LLAMADA: 0.9,
 	Estilo.REY_CAMPANAZO: 0.04,
+	Estilo.JABALI_ESPORAS: 0.05, Estilo.JABALI_REFLEJO: 0.5,
 	Estilo.SLIME_GOLPE: 0.05, Estilo.SLIME_ESCUPE: 0.26, Estilo.SLIME_TROMBA: 0.16, Estilo.SLIME_TROZO: 0.22, Estilo.SLIME_IGNICION: 0.10,
 	# Las mandibulas se cierran en ese tiempo: se juntan justo en el golpe.
 	Estilo.BESTIA_MORDISCO: 0.14, Estilo.BESTIA_MORDISCO_SANGRA: 0.14, Estilo.BESTIA_FRENESI: 0.08,

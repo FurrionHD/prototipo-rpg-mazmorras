@@ -173,7 +173,8 @@ const MAX_CONEXIONES := 32
 # 63 (30/10): los mutantes de la rata: estado EN_SOMBRAS (el sigilo de verdad de la sombria), estilos de efecto RATA_*
 #     211-216 y suelos RATA_* 105-109. Un build del 62 no sabria pintarlos.
 # 64 (31/10): los mutantes del rey rata: estado FURIA_REY, estilos REY_LLAMADA 217 y REY_CAMPANAZO 218, y la cria que sale
-#     de la grieta (desliz CRIA con golpes 2). Un build del 63 no sabria pintarlos.
+#     de la grieta (desliz CRIA con golpes 2); y los del jabali: estados COLMILLOS_ROTOS y MUSGO_QUEMADO, estilos
+#     JABALI_ESPORAS 219 y JABALI_REFLEJO 220. Un build del 63 no sabria pintarlos.
 const PROTOCOLO := 64
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.

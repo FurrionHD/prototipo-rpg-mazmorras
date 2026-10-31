@@ -1387,6 +1387,7 @@ func tick(delta: float) -> bool:
 	_tick_posadas()
 	_tick_runas()
 	_tick_minotauro()
+	_tick_jabali()
 	_tick_olor()
 	_tick_carne()
 	_tick_presas_carga()
@@ -5590,12 +5591,19 @@ func _tick_minotauro() -> void:
 
 # EL CUERNO PARTIDO: su sprite pasa a la variante rota, en la misma animacion y fotograma.
 func _sprite_roto(cu: Node2D) -> void:
-	var spr = cu.get("_sprite")
 	var ed = cu.get("data")
-	if not (spr is AnimatedSprite2D) or not (ed is EnemyData):
+	if not (ed is EnemyData):
 		return
 	var t_v = cu.get("current_t")
-	var roto: SpriteFrames = SpritesEnemigo.frames_roto_de(ed, float(t_v) if t_v != null else 0.5)
+	_poner_frames(cu, SpritesEnemigo.frames_roto_de(ed, float(t_v) if t_v != null else 0.5))
+
+
+# Le cambia los fotogramas a su sprite SIN cortarle lo que estaba haciendo (misma animacion, fotograma y avance). Lo usan
+# el cuerno partido del Minotauro y las variantes del jabali (colmillos rotos, musgo quemado).
+func _poner_frames(cu: Node2D, roto: SpriteFrames) -> void:
+	var spr = cu.get("_sprite")
+	if not (spr is AnimatedSprite2D):
+		return
 	var sp: AnimatedSprite2D = spr
 	if roto == null or sp.sprite_frames == roto:
 		return
@@ -5609,6 +5617,65 @@ func _sprite_roto(cu: Node2D) -> void:
 		if sonando:
 			sp.play(anim)
 		sp.set_frame_and_progress(fr, prog)
+
+
+# LOS MUTANTES DEL JABALI EN EL MAPA (31/10, jabali-mutante). Salen de sus ESTADOS, que viajan a todos los espejos, asi
+# que cada pantalla lo pinta por su cuenta sin mandar nada:
+#  - COLMILLOS ROTOS: al acabar la Cornada (su gesto), el ESTALLIDO de cristal (JabaliAire) y su sprite pasa a la
+#    variante rota; al acabarse el estado, vuelve el entero.
+#  - MUSGO QUEMADO (el ancestral): su animacion 'quemandose' con las LLAMAS por el lomo (JabaliAire.QUEMA) y, al acabar,
+#    la variante pelada (y pelada y rota si lo esta).
+var _jabali_var: Dictionary = {}     # cuerpo -> la variante que lleva puesta ("", "rotos", "pelado", "pelado_rotos")
+var _jabali_quema: Dictionary = {}   # cuerpo -> msec en que acaba de quemarse (hasta entonces, su animacion)
+
+func _tick_jabali() -> void:
+	var arena: ArenaCombate = _arena()
+	if arena == null:
+		return
+	for e in _pantalla._enemies:
+		var cu: Node2D = cuerpo_de(e)
+		if cu == null or not e.is_alive() or not e.mutante:
+			continue
+		var ed = cu.get("data")
+		if not (ed is EnemyData) or (ed as EnemyData).sprite_gen != &"jabali":
+			continue
+		var rotos: bool = e.has_status(StatusEffects.Id.COLMILLOS_ROTOS)
+		var pelado: bool = e.has_status(StatusEffects.Id.MUSGO_QUEMADO)
+		var antes: String = String(_jabali_var.get(cu, ""))
+		var spr = cu.get("_sprite")
+		var en_cornada: bool = spr is AnimatedSprite2D and String((spr as AnimatedSprite2D).animation).begins_with("cornada") \
+			and (spr as AnimatedSprite2D).is_playing()
+		var caja: Rect2 = bulto_de(e)
+		var mira: Vector2 = _mira_de(cu)
+		var sem: int = _cod(e) + randi() % 97
+		# LE ARDE EL MUSGO: su animacion y las llamas; la variante pelada, al acabar.
+		if pelado and not antes.begins_with("pelado") and not _jabali_quema.has(cu):
+			var ritmo: float = maxf(BarridoAire.ritmo, 0.05)
+			_jabali_quema[cu] = Time.get_ticks_msec() + int(JabaliAire.T_LLAMARADA / ritmo * 1000.0)
+			gesto_bicho_en_mapa(e, &"quemandose", JabaliAire.T_LLAMARADA)
+			JabaliAire.quema(arena, Vector2(caja.get_center().x, caja.position.y + caja.size.y * 0.12), mira,
+				maxf(caja.size.x, caja.size.y) * 0.75, sem)
+			continue
+		if _jabali_quema.has(cu):
+			if Time.get_ticks_msec() < int(_jabali_quema[cu]):
+				continue
+			_jabali_quema.erase(cu)
+		# LOS COLMILLOS: se parten al ACABAR la Cornada (no a mitad de la cornada).
+		if rotos and not antes.ends_with("rotos") and en_cornada:
+			continue
+		var quiere: String = ("pelado" if pelado else "")
+		if rotos:
+			quiere = "pelado_rotos" if pelado else "rotos"
+		if quiere == antes:
+			continue
+		if rotos and not antes.ends_with("rotos"):
+			JabaliAire.estallido(arena, caja.get_center() + Vector2(mira.x * caja.size.x * 0.45, mira.y * caja.size.y * 0.3),
+				mira, caja.end.y, sem)
+		_jabali_var[cu] = quiere
+		var t_v = cu.get("current_t")
+		var sf: SpriteFrames = SpritesEnemigo.frames_variante(ed, e.mutacion, StringName(quiere)) if quiere != "" \
+			else SpritesEnemigo.frames_de(ed, float(t_v) if t_v != null else 0.5, true, e.mutacion)
+		_poner_frames(cu, sf)
 
 
 # LA ESTATUA SE VE (30/09, paso 2): posada (y no en el aire) su sprite se va a gris piedra sin brillo (el shader
@@ -5849,6 +5916,16 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	# salta fuera al abrirse. Como la cria, aunque aun no tenga cuerpo.
 	if v != null and estilo == CombatFX.Estilo.REY_LLAMADA:
 		_salir_de_grieta(v, int(ev.get("semilla", 1)))
+		return
+	# LOS DEL JABALI (31/10): las ESPORAS del ancestral (en el, v) y el REFLEJO de sus drusas (de el, a, al lanzador, v).
+	if v != null and estilo == CombatFX.Estilo.JABALI_ESPORAS and cuerpo_de(v) != null:
+		JabaliAire.esporas(arena, pies_de(v), v.esporas_radio, (int(ev.get("semilla", 1)) | 1), vuelo)
+		return
+	if v != null and estilo == CombatFX.Estilo.JABALI_REFLEJO and cuerpo_de(v) != null and a != null and cuerpo_de(a) != null:
+		var caja_j: Rect2 = bulto_de(a)
+		var mira_j: Vector2 = _mira_de(cuerpo_de(a))
+		JabaliAire.reflejo(arena, caja_j.get_center() + Vector2(mira_j.x * caja_j.size.x * 0.45, mira_j.y * caja_j.size.y * 0.3),
+			bulto_de(v).get_center(), (int(ev.get("semilla", 1)) | 1), maxf(vuelo - JabaliAire.T_DESTELLO - JabaliAire.T_VUELO, 0.0))
 		return
 	# EL TAPAZO (31/10): en quien lo recibe (v), el campanazo de la tapa y la chatarra que salta hacia donde le empuja.
 	if v != null and estilo == CombatFX.Estilo.REY_CAMPANAZO and cuerpo_de(v) != null:

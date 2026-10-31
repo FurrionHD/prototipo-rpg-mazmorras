@@ -460,8 +460,13 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	r.mult_imbue = float(result.get("mult_imbue", 1.0))
 	# (31/10) EL ESCUDO DE CARNE del rey rata: una rata pegada puede llevarse parte del golpe.
 	dmg = _pantalla.escudo_carne(objetivo, dmg, _pantalla._player, estilo_ab)
+	# (31/10) LA CHEPA del Jabali ancestral aguanta los golpes de AREA (circulos, conos y areas de la fila).
+	dmg *= _pantalla.mult_chepa(objetivo, ab.es_area() or int(ab.forma) == CombatFormas.Tipo.CIRCULO \
+		or int(ab.forma) == CombatFormas.Tipo.CONO)
 	r.dmg = dmg
 	objetivo.take_damage(dmg)
+	if r.imbue > 0.0:
+		_pantalla.fuego_al_musgo(objetivo, _pantalla._player.imbue_elemento)
 	# ROBO DE VIDA (AbilityData.robo_vida): sobre el daño que de verdad ha entrado. Hoy no lo usa
 	# ninguna tecnica del jugador -- lo estrena el Drenaje del chupasimas, en la rama de enfrente --
 	# pero va tambien aqui porque el campo es de AbilityData: si solo se enchufara en la rama del

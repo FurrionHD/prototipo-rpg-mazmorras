@@ -538,6 +538,11 @@ func secundario_para(n_enemigos: int) -> float:
 # LA LLAMADA (31/10, los mutantes del rey rata): esta habilidad (el Chillido) trae a la camada SI quien la usa tiene
 # Llamada (Combatant.llamada_max > 0; el rey rata normal no). Ver CombatEnemigos._llamada.
 @export var llama_camada: bool = false
+# LOS COLMILLOS QUE SE ROMPEN (31/10, la Cornada de cristal de los mutantes del jabali): al usarla, a quien la usa se
+# le parten los colmillos (StatusEffects.Id.COLMILLOS_ROTOS, 'rompe_colmillos' turnos suyos) y, mientras los tenga
+# rotos, en su lugar usa 'rota' (la de los muñones). Ver CombatEnemigos._enemy_use_ability.
+@export var rompe_colmillos: int = 0
+@export var rota: AbilityData = null
 
 # --- HUELLA: para las de CUERPO QUE CAE ------------------------------------------------------
 # El area normal es "el objetivo y sus vecinos". Para un bicho que se deja caer eso no vale: lo que

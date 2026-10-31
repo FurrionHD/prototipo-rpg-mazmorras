@@ -139,3 +139,16 @@ class_name MutacionData
 @export var camada_acorazada: bool = false
 @export var acorazada_vida: float = 1.5
 @export var acorazada_lenta: float = 0.75
+# (31/10, los mutantes del JABALI: el Jabali ancestral; numeros aprobados por el jefe)
+# ESPORAS: al recibir un golpe cuerpo a cuerpo, esporas_prob de soltar una nube (esporas_radio px desde su centro) que
+# deja Veneno (esporas_veneno de probabilidad) a todos los tuyos de dentro.
+@export var esporas_prob: float = 0.0
+@export var esporas_radio: float = 40.0
+@export var esporas_veneno: float = 0.6
+# DRUSAS QUE REFLEJAN: la magia que le entra por delante (cono de reflejo_angulo) le devuelve reflejo_magia del daño a
+# quien la lanzo.
+@export var reflejo_magia: float = 0.0
+@export var reflejo_angulo: float = 120.0
+# CHEPA QUE AGUANTA: los golpes de AREA de los tuyos le hacen chepa_areas menos mientras tenga el musgo; un golpe de
+# FUEGO (o una Quemadura) se lo quema el resto de la pelea (StatusEffects.Id.MUSGO_QUEMADO).
+@export var chepa_areas: float = 0.0

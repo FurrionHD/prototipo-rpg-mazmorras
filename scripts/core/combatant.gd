@@ -497,6 +497,13 @@ var frente_angulo: float = 120.0
 var camada_acorazada: bool = false
 var acorazada_vida: float = 1.5
 var acorazada_lenta: float = 0.75
+# (31/10, el Jabali ancestral, ver MutacionData) ESPORAS, DRUSAS QUE REFLEJAN y CHEPA QUE AGUANTA.
+var esporas_prob: float = 0.0
+var esporas_radio: float = 40.0
+var esporas_veneno: float = 0.6
+var reflejo_magia: float = 0.0
+var reflejo_angulo: float = 120.0
+var chepa_areas: float = 0.0
 # Lo que anda en el mapa en su turno, por esto (la rata acorazada: CombatTactico.radio_de).
 var mov_mult: float = 1.0
 # (06/10, los del slime ABISAL) DEJA ESTRELLAS al moverse en la pelea (las piezas de sus ataques, ver
@@ -1367,6 +1374,9 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 
 	var nombre_estado: String = String(d.get("nombre", "?"))
 
+	# (31/10) LA CHEPA DEL JABALI ANCESTRAL arde con la primera Quemadura que le entra.
+	if id == StatusEffects.Id.QUEMADURA:
+		quemar_musgo()
 	if mode == "brasas":
 		# CADA QUEMADURA POR SU CUENTA (06/10): se añade con sus turnos y su fuerza; en tick_statuses arde solo la mas
 		# fuerte. Al tope, se va la que menos haria (la mas floja y, a igualdad, la que menos dura).
@@ -1689,6 +1699,14 @@ func has_status(id: int) -> bool:
 		if e.id() == id:
 			return true
 	return false
+
+# LE QUEMAN EL MUSGO DE LA CHEPA (31/10, el Jabali ancestral): si lo tiene y aun no se lo han quemado. True si arde ahora.
+func quemar_musgo() -> bool:
+	if chepa_areas <= 0.0 or has_status(StatusEffects.Id.MUSGO_QUEMADO) or not is_alive():
+		return false
+	apply_status(StatusEffects.Id.MUSGO_QUEMADO)
+	print("[jabali] a %s le arde el musgo de la chepa" % nombre)
+	return true
 
 # La instancia de ese estado (la primera), o null. (31/10: las cargas de la Furia de rey.)
 func get_status(id: int):

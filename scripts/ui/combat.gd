@@ -480,6 +480,7 @@ func _pasiva_al_golpearle(obj: Combatant, quien: Combatant, dmg: float = 0.0) ->
 	_pasiva_hecha[obj] = true
 	_reflejo(obj, quien)
 	_espinas(obj, quien)
+	_esporas(obj, quien)
 	_acido_piel(obj, quien)
 	_devolver_corte(obj, quien, dmg)
 	if obj == null or quien == null or obj.al_ser_golpeado.is_empty() or obj.al_ser_golpeado_prob <= 0.0 \
@@ -501,6 +502,52 @@ func _pasiva_al_golpearle(obj: Combatant, quien: Combatant, dmg: float = 0.0) ->
 		else ("polvo" if obj.al_ser_golpeado_fx == CombatFX.Estilo.SIMA_POLVO else "una bocanada")
 	_log_extra("%s suelta %s sobre %s%s" % [_etq(obj), que, quien.nombre,
 		(": " + ", ".join(puestos)) if not puestos.is_empty() else ", que aguanta"])
+
+
+# LAS ESPORAS (31/10, el Jabali ancestral, ver MutacionData): al que le pega CUERPO A CUERPO, a veces (esporas_prob)
+# sus setas sueltan una nube (esporas_radio px desde el) que deja Veneno a todos los tuyos de dentro. Con su dibujo
+# (CombatFX.Estilo.JABALI_ESPORAS, la bocanada de polvo y las motitas).
+func _esporas(obj: Combatant, quien: Combatant) -> void:
+	if obj == null or quien == null or obj.esporas_prob <= 0.0 or not _enemies.has(obj) or not obj.is_alive() \
+			or not quien.is_alive() or _espejo:
+		return
+	if tactico and turno_mapa.hueco_entre(quien, obj) > HUECO_CUERPO_A_CUERPO:
+		return   # solo cuerpo a cuerpo
+	if randf() >= obj.esporas_prob:
+		return
+	var a_quien: Array = []
+	for al in _aliados:
+		if al.is_alive() and (not tactico or turno_mapa.pies_de(al).distance_to(turno_mapa.pies_de(obj)) \
+				<= obj.esporas_radio + turno_mapa.radio_pisa(al)):
+			a_quien.append(al)
+	if a_quien.is_empty():
+		a_quien.append(quien)
+	var ab := AbilityData.new()
+	var sa := StatusApplication.new()
+	sa.estado = StatusEffects.Id.VENENO
+	sa.prob = obj.esporas_veneno
+	ab.efectos = [sa]
+	efectos._fx_golpe(obj, obj, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.JABALI_ESPORAS, 1.0, true)
+	var puestos: Array = []
+	for al in a_quien:
+		for nom in enemigos._enemy_tirar_efectos(obj, ab, al, 1.0, "objetivo"):
+			puestos.append("%s (%s)" % [nom, (al as Combatant).nombre])
+	_log_extra("🍄 %s suelta una nube de esporas%s" % [_etq(obj), (": " + ", ".join(puestos)) if not puestos.is_empty() else ""])
+
+
+# LA CHEPA QUE AGUANTA (31/10, el Jabali ancestral, ver MutacionData): lo que le queda a un golpe de AREA de los tuyos
+# ('area') con su musgo puesto. Sin area, o quemado, entero.
+func mult_chepa(obj: Combatant, area: bool) -> float:
+	if obj == null or not area or obj.chepa_areas <= 0.0 or obj.has_status(StatusEffects.Id.MUSGO_QUEMADO):
+		return 1.0
+	return 1.0 - obj.chepa_areas
+
+
+# ¿Este golpe de los tuyos es de FUEGO? (el elemento del golpe, o el de la imbuicion que lo ha puesto). Si lo es y le
+# entra al Jabali ancestral, le quema el musgo.
+func fuego_al_musgo(obj: Combatant, elem: int) -> void:
+	if obj != null and elem == Elementos.Elemento.FUEGO and obj.quemar_musgo():
+		_log_extra("🔥 ¡A %s le arde el musgo de la chepa! Ya no le aguanta las áreas." % _etq(obj))
 
 
 # ESPINAS (06/10, el slime punzante y el brotado punzante, ver MutacionData): al que le pega CUERPO A CUERPO, a veces
@@ -2281,6 +2328,9 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 		# (31/10) EL ESCUDO DE CARNE del rey rata: una rata pegada puede llevarse parte del golpe.
 		result.damage = escudo_carne(obj, float(result.damage), _player, estilo_bas)
 		obj.take_damage(result.damage)
+		# (31/10) la imbuicion de FUEGO le quema el musgo al Jabali ancestral.
+		if float(result.get("dmg_imbue", 0.0)) > 0.0:
+			fuego_al_musgo(obj, _player.imbue_elemento)
 		efectos._fx_golpe(_player, obj, result.damage, result.crit, false,
 			_player.imbue_elemento if float(result.get("dmg_imbue", 0.0)) > 0.0 \
 			else Elementos.Elemento.NINGUNO, estilo_bas, 1.0, false, "", AbilityData.Gesto.AUTO, null, semilla_fx)

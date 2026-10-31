@@ -51,7 +51,7 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	ENCENDIDO, AVIVADO, AFILADO,
 	CONGELACION,
 	DECRETO,
-	EN_SOMBRAS, FURIA_REY }
+	EN_SOMBRAS, FURIA_REY, COLMILLOS_ROTOS, MUSGO_QUEMADO }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -525,6 +525,20 @@ static var _defs: Dictionary = {
 		"id": Id.FURIA_REY, "nombre": "Furia de rey", "icono": "😤", "color": Color(0.9, 0.22, 0.15),
 		"turns": 3, "stack_mode": "merge", "max_stacks": 3, "atk_mult": 1.1,
 		"descripcion": "Le estás matando a la familia. Se lo está tomando fatal.",
+	},
+	# LOS COLMILLOS ROTOS (31/10, los mutantes del jabali): tras la Cornada de cristal se le parten; mientras le duren,
+	# su Cornada es la de los muñones (AbilityData.rota) y se le ven partidos. Le vuelven a crecer al acabarse.
+	Id.COLMILLOS_ROTOS: {
+		"id": Id.COLMILLOS_ROTOS, "nombre": "Colmillos rotos", "icono": "🦷", "color": Color(0.45, 0.88, 1.0),
+		"turns": 2, "debuff": true,
+		"descripcion": "Se los ha dejado clavados en alguien. Le están volviendo a salir. Despacio.",
+	},
+	# EL MUSGO QUEMADO (31/10, el Jabali ancestral): le han quemado el musgo de la chepa con fuego; ya no le aguanta las
+	# areas (MutacionData.chepa_areas) el resto de la pelea, y se le ve pelado.
+	Id.MUSGO_QUEMADO: {
+		"id": Id.MUSGO_QUEMADO, "nombre": "Musgo quemado", "icono": "🔥", "color": Color(0.6, 0.35, 0.2),
+		"turns": 999, "debuff": true,
+		"descripcion": "Olía a bosque. Ahora huele a jabalí a la brasa.",
 	},
 	Id.CONGELACION: {
 		"id": Id.CONGELACION, "nombre": "Congelación", "icono": "❄", "color": Color(0.6, 0.85, 1.0),

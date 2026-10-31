@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+[ext_resource type="Resource" path="res://resources/abilities/jabali_cornada_rota.tres" id="3_rota"]
 
 [sub_resource type="Resource" id="SA_0"]
 script = ExtResource("2")
@@ -29,3 +30,8 @@ forma_apunte = 1
 forma_radio = 50.0
 forma_ancho = 14.0
 fx_estilo_mapa = 140
+; EL SURCO DE ESQUIRLAS por su linea (el de la Embestida de cristal de la rata: SueloRoto.Tipo.RATA_SURCO_CRISTAL).
+suelo_roto = 107
+; AL USARLA SE LE PARTEN LOS COLMILLOS: 2 turnos suyos con la de los muñones.
+rompe_colmillos = 2
+rota = ExtResource("3_rota")
