@@ -458,6 +458,9 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	r.dmg = dmg
 	r.imbue = float(result.get("dmg_imbue", 0.0)) * ab.dano_mult * m_golpe * escala
 	r.mult_imbue = float(result.get("mult_imbue", 1.0))
+	# (31/10) EL ESCUDO DE CARNE del rey rata: una rata pegada puede llevarse parte del golpe.
+	dmg = _pantalla.escudo_carne(objetivo, dmg, _pantalla._player, estilo_ab)
+	r.dmg = dmg
 	objetivo.take_damage(dmg)
 	# ROBO DE VIDA (AbilityData.robo_vida): sobre el daño que de verdad ha entrado. Hoy no lo usa
 	# ninguna tecnica del jugador -- lo estrena el Drenaje del chupasimas, en la rama de enfrente --

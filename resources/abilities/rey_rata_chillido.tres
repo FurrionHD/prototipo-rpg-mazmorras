@@ -26,6 +26,8 @@ efectos = [SubResource("SA_0"), SubResource("SA_1")]
 fx_anim = &"chillido"
 fx_estilo = 17
 cooldown = 3
+; LA LLAMADA (31/10): si quien chilla la tiene (los mutantes del rey rata), salen ratas de una grieta junto a el.
+llama_camada = true
 ; EN EL MAPA (28/09): cono ancho a 2 tramos, cerca pega mas (como el Grito del mandoble).
 forma = 2
 forma_apunte = 1

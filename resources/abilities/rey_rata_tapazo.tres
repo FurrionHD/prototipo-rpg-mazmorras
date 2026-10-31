@@ -19,6 +19,8 @@ efectos = [SubResource("SA_0")]
 tiron = -40.0
 cooldown = 3
 fx_anim = &"tapazo"
+; EN EL MAPA: el campanazo de la tapa y la chatarra que salta (ReyRataAire, CombatFX.Estilo.REY_CAMPANAZO).
+fx_estilo_mapa = 218
 ; EN EL MAPA (31/10, el Rey del desguace): un golpe corto por delante al primero que pilla, que lo EMPUJA 40 px.
 forma = 3
 forma_apunte = 1

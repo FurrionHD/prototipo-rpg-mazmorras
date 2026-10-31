@@ -432,6 +432,7 @@ func desmontar() -> void:
 	DistanciaAire.quitar_clavadas(Game.get_tree())   # lo clavado se va con la pelea (lo que aguanta cae al suelo)
 	_sigilo_visible(true)
 	_sombras_visibles(true)
+	_furias_visibles(true)
 	pintar_imbuiciones(true)
 	pintar_escudos_agua(true)
 	for cu in _gestos_mapa.keys():   # un gesto a medias no puede dejar la marca puesta: no se volveria a animar
@@ -787,7 +788,84 @@ func radio_de(c: Combatant) -> float:
 	# CONGELADO (07/10, el slime de escarcha): la mitad del camino.
 	if c.congelado():
 		r *= StatusEffects.CONGELACION_MOV
+	# (31/10) la rata acorazada del Rey del desguace va cargada de chatarra.
+	return r * c.mov_mult
+
+
+# LA FURIA DE REY A LA VISTA (31/10, el rey rata): quien lleve FURIA_REY lleva encima sus ojos rojos y su vaho
+# (ReyRataAire.furia), con tantas bocanadas como cargas; se va con el estado. En todas las pantallas (el estado viaja).
+var _furias: Dictionary = {}   # cuerpo -> ReyRataAire
+
+func _furias_visibles(quitar: bool) -> void:
+	var siguen: Dictionary = {}
+	var arena: ArenaCombate = _arena()
+	if not quitar and arena != null:
+		for e in _pantalla._enemies:
+			var cu: Node2D = cuerpo_de(e)
+			var inst = e.get_status(StatusEffects.Id.FURIA_REY) if e.is_alive() else null
+			if cu == null or inst == null or not cu.visible:
+				continue
+			siguen[cu] = true
+			var spr = cu.get("_sprite")
+			var mira: Vector2 = _mirada_de(cu)
+			if not _furias.has(cu) or not is_instance_valid(_furias[cu]):
+				_furias[cu] = ReyRataAire.furia(arena, spr if spr is Node2D else cu, int(inst.stacks), mira, randi())
+			else:
+				(_furias[cu] as ReyRataAire).poner_nivel(int(inst.stacks), mira)
+	for cu in _furias.keys():
+		if siguen.has(cu):
+			continue
+		if is_instance_valid(_furias[cu]):
+			(_furias[cu] as ReyRataAire).parar()
+		_furias.erase(cu)
+
+
+# A MI ESPALDA (31/10, el rey rata): al empezar su turno, si se esconde (CombatEnemigos.rata_para_recular), recula de un
+# salto DETRAS de la rata que le cubre (del lado contrario a los tuyos) y su turno se lo cede a ella (cede_de).
+const T_RECULA := 0.35
+const ALTO_RECULA := 8.0
+var _cede: Dictionary = {}   # rey -> la rata que le cubre
+
+func _recular(e: Combatant) -> bool:
+	var rata: Combatant = _pantalla.enemigos.rata_para_recular(e)
+	if rata == null or cuerpo_de(rata) == null:
+		return false
+	_cede[e] = rata
+	var al: Combatant = mas_cerca_de_los_tuyos([rata], true)
+	var lejos: Vector2 = pies_de(rata) - (pies_de(al) if al != null else pies_de(e))
+	lejos = lejos.normalized() if lejos.length_squared() > 0.01 else (pies_de(e) - pies_de(rata)).normalized()
+	var p: Vector2 = pies_de(rata) + lejos * (radio_pisa(rata) + radio_pisa(e) + 6.0)
+	if p.distance_to(pies_de(e)) > radio_de(e):
+		p = pies_de(e) + (p - pies_de(e)).normalized() * radio_de(e)
+	var hasta: Vector2 = _sitio_libre_hacia(e, p)
+	if hasta.distance_to(pos_de(e)) >= 2.0:
+		print("[espalda] %s recula detras de %s" % [e.nombre, rata.nombre])
+		pedir_desliz(e, hasta, Desliz.YA, 0, T_RECULA, ALTO_RECULA)
+	return true
+
+
+# La rata a la que 'e' le cede el turno (y se olvida), o null.
+func cede_de(e: Combatant) -> Combatant:
+	var r = _cede.get(e)
+	_cede.erase(e)
 	return r
+
+
+# De 'lista', el mas cercano a los tuyos (o, con 'aliado', el de los tuyos mas cercano al primero de la lista).
+func mas_cerca_de_los_tuyos(lista: Array, aliado: bool = false) -> Combatant:
+	var mejor: Combatant = null
+	var d_mejor: float = INF
+	for c in lista:
+		if cuerpo_de(c) == null:
+			continue
+		for al in _pantalla._aliados:
+			if not al.is_alive() or cuerpo_de(al) == null:
+				continue
+			var d: float = pies_de(c).distance_to(pies_de(al))
+			if d < d_mejor:
+				d_mejor = d
+				mejor = al if aliado else c
+	return mejor
 
 
 # ------------------------------------------------------------
@@ -1298,6 +1376,7 @@ func tick(delta: float) -> bool:
 		niebla.seguir_en_pausa(delta)
 	_sigilo_visible(false)
 	_sombras_visibles(false, delta)
+	_furias_visibles(false)
 	_tick_circulos()
 	_tick_alcances()
 	_tick_huellas(delta)
@@ -4080,6 +4159,11 @@ func turno_enemigo(e: Combatant) -> void:
 	var presa: Combatant = _presa_de(e)
 	_tiradas.erase(e)
 	_decididas.erase(e)
+	# A MI ESPALDA (31/10, el rey rata): se esconde detras de una rata suya y le cede el turno (CombatEnemigos._a_mi_espalda).
+	_cede.erase(e)
+	if cuerpo != null and _recular(e):
+		_tras_camara(e, cuerpo, _turno_enemigo_de_siempre.bind(e))
+		return
 	# COLOCARSE FUERA DE TUS AREAS (06/10, lo pidio el jefe: "que los enemigos sean mas o menos inteligentes... si tienes
 	# un area delante y te puedes poner fuera de ella SIGUIENDO PUDIENDO PEGAR a tu objetivo, lo haces; no que se salgan
 	# siempre sin poder actuar"): si una huella tuya le va a caer ANTES de su proximo turno y hay un sitio a su alcance
@@ -4990,6 +5074,7 @@ func _on_impacto(ev: Dictionary) -> void:
 	# la para: se reconoce por el elemento (sin elemento, o el de la imbuicion de quien pega, es el arma).
 	if _pantalla.tactico:
 		_placa_si_para(ev)
+		_chispas_si_para(ev)
 		_estatua_si_posada(ev)
 	# EL VENENO DE LA ARAÑA (29/09): solo si entra, gotitas verdes y la mancha donde se ha clavado. Y el de las forcipulas
 	# del ciempies (el de la Oleada va en sus propias patitas: InsectoAire._patitas).
@@ -5164,6 +5249,21 @@ func fijar_frente_defensa(c: Combatant) -> void:
 	var cuerpo: Node2D = cuerpo_de(c)
 	if cuerpo != null:
 		_frente_defensa[c] = _mirada_de(cuerpo)
+
+
+# ¿'atacante' esta DELANTE de 'c', dentro de su cono de 'angulo' grados (hacia donde mira)? (31/10, el frente blindado
+# del Rey del desguace: 120 grados; cubre_de_frente es la media vuelta entera.)
+func de_frente(c: Combatant, atacante: Combatant, angulo: float) -> bool:
+	if not _pantalla.tactico or c == null or atacante == null:
+		return false
+	var cuerpo: Node2D = cuerpo_de(c)
+	if cuerpo == null or cuerpo_de(atacante) == null:
+		return false
+	var mira: Vector2 = _mirada_de(cuerpo)
+	var hacia: Vector2 = pies_de(atacante) - pies_de(c)
+	if hacia.length_squared() < 0.01 or mira.length_squared() < 0.01:
+		return false
+	return mira.normalized().dot(hacia.normalized()) >= cos(deg_to_rad(angulo * 0.5))
 
 
 func cubre_de_frente(c: Combatant, atacante: Combatant) -> bool:
@@ -5669,6 +5769,25 @@ func _estatua_si_posada(ev: Dictionary) -> void:
 		_pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0)
 
 
+# LAS CHISPAS DEL FRENTE BLINDADO (31/10, el Rey del desguace): el golpe de ARMA de los tuyos que le entra por delante
+# (Pantalla._mult_pasivas le quita su parte): chispas de la tapa hacia quien pega. La misma regla que la placa.
+func _chispas_si_para(ev: Dictionary) -> void:
+	var vc: Combatant = _de_bloque(ev["bv"])
+	var ac: Combatant = _de_bloque(ev["ba"])
+	if vc == null or ac == null or vc.frente_blindado <= 0.0 or bool(ev.get("solo_dibujo", false)) \
+			or float(ev.get("dmg", 0.0)) <= 0.0 or not _pantalla._enemies.has(vc) or _pantalla._enemies.has(ac):
+		return
+	var elem: int = int(ev.get("elem", Elementos.Elemento.NINGUNO))
+	if elem != Elementos.Elemento.NINGUNO and elem != ac.imbue_elemento:
+		return
+	var arena: ArenaCombate = _arena()
+	if arena == null or not de_frente(vc, ac, vc.frente_angulo):
+		return
+	var caja: Rect2 = bulto_de(vc)
+	ReyRataAire.golpe(arena, ReyRataAire.Modo.CHISPAS, caja.get_center(), pies_de(ac) - pies_de(vc),
+		maxf(caja.size.x, caja.size.y) * 0.45, (int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1)
+
+
 func _placa_si_para(ev: Dictionary) -> void:
 	var vc: Combatant = _de_bloque(ev["bv"])
 	var ac: Combatant = _de_bloque(ev["ba"])
@@ -5708,6 +5827,20 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	# LA CRIA, AUNQUE AUN NO TENGA CUERPO (13/10, C3): en el espejo el escupitajo llega antes que su cuerpo (lo crea
 	# el dueño del piso, otro proceso). Su vuelo ya esta apuntado y espera al cuerpo (_tick_deslices); si aqui se
 	# exigia el cuerpo, el escupitajo se perdia y la cria se quedaba escondida esperandolo.
+	# LA LLAMADA DEL REY RATA (31/10): la grieta se abre junto al rey (a) y la rata (v), que esperaba escondida en ella,
+	# salta fuera al abrirse. Como la cria, aunque aun no tenga cuerpo.
+	if v != null and estilo == CombatFX.Estilo.REY_LLAMADA:
+		_salir_de_grieta(v, int(ev.get("semilla", 1)))
+		return
+	# EL TAPAZO (31/10): en quien lo recibe (v), el campanazo de la tapa y la chatarra que salta hacia donde le empuja.
+	if v != null and estilo == CombatFX.Estilo.REY_CAMPANAZO and cuerpo_de(v) != null:
+		var caja_t: Rect2 = bulto_de(v)
+		var empuja: Vector2 = pies_de(v) - pies_de(a) if a != null and cuerpo_de(a) != null else Vector2.RIGHT
+		var sem_t: int = (int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1
+		ReyRataAire.golpe(arena, ReyRataAire.Modo.CAMPANAZO, caja_t.get_center(), empuja,
+			maxf(caja_t.size.x, caja_t.size.y) * 0.5, sem_t, vuelo)
+		ReyRataAire.golpe(arena, ReyRataAire.Modo.CHATARRA, pies_de(v), empuja, 10.0, sem_t + 1, vuelo)
+		return
 	if v != null and estilo == CombatFX.Estilo.CRIA_LANZADA:
 		# La cria sale AHORA, cuando la escupe: vuela una bola de baba del color del Rey, desde su cuerpo (lanzar_cria,
 		# _tick_deslices). Aqui y en el espejo, que tambien recibe el escupitajo.
@@ -6533,6 +6666,8 @@ func _tick_deslices(delta: float) -> void:
 		var c: Combatant = d["c"]
 		var cuerpo: Node2D = cuerpo_de(c)
 		var cria: bool = bool(d.get("cria", false))
+		# (31/10) la rata de la Llamada: sale de la grieta de un salto, a la vista (sin bola de baba).
+		var de_grieta: bool = cria and int(d["golpes"]) == 2
 		# EN EL ESPEJO el cuerpo de la cria puede llegar un pelin despues que su vuelo: se le espera (un rato).
 		if cria and cuerpo == null and c.is_alive() and Time.get_ticks_msec() - int(d.get("nace", 0)) < 3000:
 			continue
@@ -6543,7 +6678,7 @@ func _tick_deslices(delta: float) -> void:
 				(cuerpo.get("_sprite") as Node2D).position = Vector2(d["sp0"])
 			continue
 		# LA CRIA NO SE VE hasta caer: lo que vuela es su bola de baba (aqui y en el espejo, aunque su cuerpo llegue tarde).
-		if cria and cuerpo.visible:
+		if cria and cuerpo.visible and not (de_grieta and float(d["t"]) >= 0.0):
 			_esconder_cria(cuerpo, true)
 		if float(d["t"]) < 0.0:
 			d["espera"] = float(d["espera"]) + delta
@@ -6560,7 +6695,9 @@ func _tick_deslices(delta: float) -> void:
 				d["sp0"] = (sp0 as Node2D).position
 			# Su BOLA DE BABA sale ahora: de la boca del Rey y de su color si la escupe el (_soltar_cria), si no de donde
 			# esta ella y del suyo (las del brotado).
-			if cria:
+			if de_grieta:
+				_esconder_cria(cuerpo, false)
+			elif cria:
 				_bola_cria(c, d, Vector2(d.get("desde_bola", cuerpo.global_position)), d.get("col", c.color_visual))
 				# EN EL ESPEJO, ya en su sitio (escondida): su posicion por red llega tarde (ver remote_enemy.fijar_en).
 				if not _es_mio(c) and cuerpo.has_method("fijar_en"):
@@ -6871,22 +7008,90 @@ var _vuelo_cria: Dictionary = {}   # slot -> destino
 # 'con_gota' = quien la lanza manda tambien su CombatFX.Estilo.CRIA_LANZADA (el Rey): se levanta con ese impacto, al caer,
 # en todas las maquinas. Sin el (el brotado, que ya esta muerto), por tiempo: al acabar el vuelo.
 # 'col' = el color de la bola de baba (el de quien la lanza; sin el, el del Rey cuando la escupe).
+# 'de_grieta' (31/10, la Llamada del rey rata): no vuela ninguna bola; la rata espera escondida en la grieta y, al
+# abrirse (su REY_LLAMADA), salta fuera ella misma, a la vista (T_SALTO_GRIETA, ALTO_GRIETA). Viaja como golpes = 2.
 func lanzar_cria(cria: Combatant, data: EnemyData, origen: Vector2, hasta: Vector2, con_gota: bool = false,
-		col: Color = Color(0, 0, 0, 0)) -> void:
+		col: Color = Color(0, 0, 0, 0), de_grieta: bool = false) -> void:
 	if _pantalla._espejo:
 		return
 	var slot: int = _pantalla._enemies.find(cria)
 	if slot < 0:
 		return
 	_sitios_cria.append([hasta, Time.get_ticks_msec()])
-	_vuelo_cria[slot] = [hasta, con_gota, col]
+	_vuelo_cria[slot] = [hasta, con_gota, col, de_grieta]
 	# EL VUELO VIAJA YA (13/10, C3 del playtest 11/10), en el paquete de ESTA accion, delante del escupitajo del Rey.
 	# Antes salia al ponerle cuerpo (cria_con_cuerpo), y en red el cuerpo lo crea el dueño del piso, que es otro
 	# proceso: llegaba tras un viaje de ida y vuelta, con la accion ya enviada, y se iba en el paquete de la SIGUIENTE.
 	# En el espejo la cria salia formada y andando y "caia" turnos despues; la del Rey se quedaba esperando un
 	# escupitajo que ya habia pasado, escondida para siempre.
-	_pantalla.espejo._apuntar_desliz_red(cria, hasta, Desliz.CRIA, 1 if con_gota else 0, T_VUELO_CRIA, ALTO_VUELO_CRIA)
+	if de_grieta:
+		_pantalla.espejo._apuntar_desliz_red(cria, hasta, Desliz.CRIA, 2, T_SALTO_GRIETA, ALTO_GRIETA)
+	else:
+		_pantalla.espejo._apuntar_desliz_red(cria, hasta, Desliz.CRIA, 1 if con_gota else 0, T_VUELO_CRIA, ALTO_VUELO_CRIA)
 	Game.dar_cuerpo_a_cria(slot, data, origen, 0.2, _pantalla.pelea)
+
+
+# LA GRIETA DE LA LLAMADA (31/10, los mutantes del rey rata): junto al rey, hacia los tuyos, a GRIETA_LEJOS px de su
+# borde (en abanico si no cabe una rata); las ratas saltan de ahi a GRIETA_SALTO px (sitio_salida_grieta), cada una a
+# un lado. T_SALTO_GRIETA y ALTO_GRIETA, su salto; la grieta (ReyRataAire.agujero) se dibuja en todas las pantallas.
+const GRIETA_LEJOS := 14.0
+const GRIETA_SALTO := 22.0
+const T_SALTO_GRIETA := 0.3
+const ALTO_GRIETA := 12.0
+var _grietas_vistas: Array = []   # [[pos, msec]]: una grieta por Llamada aunque salgan dos
+
+func sitio_grieta(rey: Combatant, data: EnemyData) -> Vector2:
+	var hacia := Vector2.DOWN
+	var pr: Vector2 = pies_de(rey)
+	var d_mejor: float = INF
+	for al in _pantalla._aliados:
+		if al.is_alive() and cuerpo_de(al) != null and pies_de(al).distance_to(pr) < d_mejor:
+			d_mejor = pies_de(al).distance_to(pr)
+			hacia = pies_de(al) - pr
+	if hacia.length_squared() < 0.01:
+		hacia = Vector2.DOWN
+	var cc: Rect2 = data.cuerpo_en() if data != null and data.tiene_cuerpo() else Rect2(-12, -8, 24, 16)
+	for giro in [0.0, 0.5, -0.5, 1.0, -1.0, 1.6, -1.6, 2.2, -2.2, PI]:
+		var p: Vector2 = _a_hueco(bulto_de(rey), cc, hacia.normalized().rotated(float(giro)), GRIETA_LEJOS)
+		if cabe_cria(p, data):
+			return p
+	return pr + hacia.normalized() * (radio_pisa(rey) + GRIETA_LEJOS)
+
+
+func sitio_salida_grieta(hoyo: Vector2, data: EnemyData, k: int) -> Vector2:
+	var cc: Rect2 = data.cuerpo_en() if data != null and data.tiene_cuerpo() else Rect2(-12, -8, 24, 16)
+	var caja := Rect2(hoyo - Vector2(4.0, 4.0), Vector2(8.0, 8.0))
+	var base: float = 0.6 + float(k) * 2.4
+	for giro in [0.0, 0.6, -0.6, 1.2, -1.2, 1.8, -1.8, PI]:
+		var p: Vector2 = _a_hueco(caja, cc, Vector2.RIGHT.rotated(base + float(giro)), GRIETA_SALTO)
+		if cabe_cria(p, data):
+			return p
+	return hoyo
+
+
+# La rata 'c' de la Llamada: se abre su grieta (donde espera su cuerpo; si aun no lo tiene, en su sitio de llegada) y
+# salta cuando la grieta ya esta abierta. Una sola grieta aunque salgan dos.
+func _salir_de_grieta(c: Combatant, semilla: int) -> void:
+	var d_c: Dictionary = {}
+	for d in _deslices:
+		if d["c"] == c and bool(d.get("cria", false)) and int(d["golpes"]) == 2 and float(d["t"]) < 0.0:
+			d_c = d
+	var cuerpo: Node2D = cuerpo_de(c)
+	var hoyo: Vector2 = cuerpo.global_position if cuerpo != null else Vector2(d_c.get("hasta", pos_de(c)))
+	var ahora: int = Time.get_ticks_msec()
+	var ya: bool = false
+	for g in _grietas_vistas.duplicate():
+		if ahora - int(g[1]) > 2500:
+			_grietas_vistas.erase(g)
+		elif Vector2(g[0]).distance_to(hoyo) < 16.0:
+			ya = true
+	var arena: ArenaCombate = _arena()
+	if not ya and arena != null:
+		_grietas_vistas.append([hoyo, ahora])
+		ReyRataAire.agujero(arena, hoyo, ReyRataAire.Version.GRIETA, semilla)
+	if not d_c.is_empty():
+		d_c["espera"] = 0.0
+		d_c["tope"] = ReyRataAire.t_abierto()
 
 
 # ¿Cabe una cria de 'data' con su nodo en 'p'? Su caja MARCADA (EnemyData.cuerpo) sobre suelo pisable, dentro de la
@@ -6997,6 +7202,7 @@ func cria_con_cuerpo(slot: int) -> void:
 		var hasta: Vector2 = _vuelo_cria[slot][0]
 		con_gota = bool(_vuelo_cria[slot][1])
 		var col_bola: Color = _vuelo_cria[slot][2]
+		var de_grieta: bool = (_vuelo_cria[slot] as Array).size() > 3 and bool(_vuelo_cria[slot][3])
 		_vuelo_cria.erase(slot)
 		_pos[c] = cuerpo.global_position
 		# LA DEL REY ESPERA A QUE LA ESCUPA (09/10, su prueba de la 16: "estaban dentro del Rey y de repente aparecieron
@@ -7004,7 +7210,10 @@ func cria_con_cuerpo(slot: int) -> void:
 		# cuerpo se comia el vuelo. Ahora espera ESCONDIDA dentro de el y sale con su CRIA_LANZADA (_on_dibujo_mapa),
 		# volando lo que tarda ese efecto en caer. Lo que vuela es una BOLA DE BABA (SlimeAire.Modo.CRIA), no ella. El
 		# desliz CRIA viaja al espejo, que hace lo mismo (anotar_desliz, _tick_deslices).
-		pedir_desliz(c, hasta, Desliz.CRIA, 1 if con_gota else 0, T_VUELO_CRIA, ALTO_VUELO_CRIA, false)
+		if de_grieta:
+			pedir_desliz(c, hasta, Desliz.CRIA, 2, T_SALTO_GRIETA, ALTO_GRIETA, false)
+		else:
+			pedir_desliz(c, hasta, Desliz.CRIA, 1 if con_gota else 0, T_VUELO_CRIA, ALTO_VUELO_CRIA, false)
 		_esconder_cria(cuerpo, true)
 		# La del brotado, de su color (aqui: el espejo no lo sabe y la pinta del de la cria, que es casi el mismo).
 		if not con_gota and col_bola.a > 0.0:

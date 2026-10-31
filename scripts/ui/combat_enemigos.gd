@@ -21,6 +21,10 @@ func _init(pantalla: Pantalla) -> void:
 # normal esquivado; con el, esquivar un chaparron sigue valiendo mas que esquivar un golpe suelto
 # (es mas dificil) pero no se dispara.
 const ESQUIVA_HAB_MAX := 2.0
+# LA CAMADA que trae la Llamada (31/10, los mutantes del rey rata): la rata de siempre, o la acorazada si quien llama la
+# arma (el Rey del desguace).
+const RATA_CAMADA: EnemyData = preload("res://scenes/actors/enemy/rata.tres")
+const RATA_ACORAZADA: EnemyData = preload("res://resources/enemigos_invocados/rata_chatarra.tres")
 
 
 # Empieza una accion enemiga: se abre el cupo de gasto DEFENSIVO de las imbuiciones. Cada accion
@@ -108,6 +112,10 @@ func _enemy_turn(e: Combatant) -> void:
 		else:
 			_pantalla._set_log("%s está aturdido y pierde el turno. 💫" % _pantalla._etq(e))
 		_pantalla._pausa_lectura()   # ya se le resto la barra ATB en _process; pierde la accion
+		return
+
+	# A MI ESPALDA (31/10, los mutantes del rey rata): con poca vida, recula detras de sus ratas y le cede el turno a una.
+	if not _pantalla._dps_on and _a_mi_espalda(e):
 		return
 
 	# ATAQUE DE CARGA en curso: consume un turno cargando; al llegar a 0, se dispara.
@@ -491,6 +499,74 @@ func _orden_real(e: Combatant) -> void:
 		"", AbilityData.Gesto.AUTO, &"brote")
 	_pantalla._update_hp()
 	_pantalla._log_extra("👑 %s da una orden: ¡un %s se le pone delante!" % [_pantalla._etq(e), pick.enemy_name.to_lower()])
+
+
+# LA LLAMADA (31/10, los mutantes del rey rata, ver MutacionData): de llamada_min a llamada_max ratas, sin pasar de
+# llamada_tope suyas vivas. EN EL MAPA el suelo se raja junto a el (la grieta de los brotes) y cada rata salta fuera
+# (CombatTactico.lanzar_cria con de_grieta); van en su propia tanda, despues del chillido. El Rey del desguace las arma:
+# mas vida y mas lentas (en la barra y en el mapa).
+func _llamada(e: Combatant) -> void:
+	var vivas: int = 0
+	for c in _pantalla._enemies:
+		if c != e and c.is_alive() and c.familia == e.familia:
+			vivas += 1
+	var n: int = mini(randi_range(e.llamada_min, e.llamada_max), e.llamada_tope - vivas)
+	if n <= 0:
+		return
+	var data: EnemyData = RATA_ACORAZADA if e.camada_acorazada else RATA_CAMADA
+	var hoyo: Vector2 = _pantalla.turno_mapa.sitio_grieta(e, data) if _pantalla.tactico else Vector2.ZERO
+	if _pantalla._fx != null:
+		_pantalla.efectos._fx_tanda(_pantalla._fx.ultima_tanda() + 1)
+	var salen: int = 0
+	for k in n:
+		var cria: Combatant = data.crear_combatant(0.2, false, false, &"", _pantalla.altas._piso())
+		if e.camada_acorazada:
+			cria.max_hp *= e.acorazada_vida
+			cria.current_hp = cria.max_hp
+			cria.velocidad_mult *= e.acorazada_lenta
+			cria.mov_mult = e.acorazada_lenta
+		if _pantalla.altas._meter_enemigo(cria, true) < 0:
+			break   # no cabe ninguna mas
+		salen += 1
+		if _pantalla.tactico:
+			_pantalla.turno_mapa.lanzar_cria(cria, data, hoyo, _pantalla.turno_mapa.sitio_salida_grieta(hoyo, data, k),
+				true, Color(0, 0, 0, 0), true)
+			_pantalla.efectos._fx_golpe(e, cria, 0.0, false, false, Elementos.Elemento.NINGUNO,
+				CombatFX.Estilo.REY_LLAMADA, 1.0, true, "", AbilityData.Gesto.QUIETO, &"")
+	if salen <= 0:
+		return
+	_pantalla._update_hp()
+	_pantalla._log_extra("🐀 ¡%s llama a su camada! %s del suelo." % [_pantalla._etq(e),
+		"Sale una rata" if salen == 1 else "Salen %d ratas" % salen])
+
+
+# A MI ESPALDA (31/10, ver MutacionData): con menos de espalda_vida de su vida, sin nada cargando y con ratas suyas
+# vivas, espalda_prob de esconderse. Devuelve la rata que le cubre (la mas cercana a los tuyos) o null. EN EL MAPA lo
+# decide CombatTactico al empezar su turno (recula de un salto detras de ella); aqui, si no hay mapa.
+func rata_para_recular(e: Combatant) -> Combatant:
+	if e.espalda_vida <= 0.0 or e.max_hp <= 0.0 or e.current_hp / e.max_hp >= e.espalda_vida or e.charging != null \
+			or e.aturdido() or _pantalla._espejo:
+		return null
+	var ratas: Array = []
+	for c in _pantalla._enemies:
+		if c != e and c.is_alive() and c.familia == e.familia:
+			ratas.append(c)
+	if ratas.is_empty() or randf() >= e.espalda_prob:
+		return null
+	if not _pantalla.tactico:
+		return ratas[randi() % ratas.size()]
+	return _pantalla.turno_mapa.mas_cerca_de_los_tuyos(ratas)
+
+
+# Su turno, si se esconde: la rata que le cubre actua YA (se le llena la barra) y el se queda detras.
+func _a_mi_espalda(e: Combatant) -> bool:
+	var rata: Combatant = _pantalla.turno_mapa.cede_de(e) if _pantalla.tactico else rata_para_recular(e)
+	if rata == null or not rata.is_alive():
+		return false
+	_pantalla._gauge[rata] = _pantalla.UMBRAL
+	_pantalla._set_log("🐀 %s se esconde detrás de %s: «¡Tú, por tu rey!»" % [_pantalla._etq(e), _pantalla._etq(rata)])
+	_pantalla._pausa_lectura()
+	return true
 
 
 # EL DECRETO (07/10, el Rey tirano): marca a uno de los tuyos (el que mas le pesa de su tabla, este donde este) con el
@@ -899,6 +975,10 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 				CombatFX.Estilo.CRIA_LANZADA if _pantalla.tactico else CombatFX.Estilo.ESCUPITAJO, 1.2, true,
 				"", ab.gesto, ab)   # el cuerpo del Rey hace SU brote (su fx_anim), no la embestida por defecto
 		_pantalla._update_hp()   # refresca los bloques revividos/nuevos (nombre + barra)
+
+	# LA LLAMADA (31/10, los mutantes del rey rata): su Chillido, ademas, trae a la camada por una grieta.
+	if ab.llama_camada and e.llamada_max > 0 and not _pantalla._espejo:
+		_llamada(e)
 
 	# Mensaje: con daño va el DESGLOSE de dos lineas (mismo helper que tus habilidades: rastro golpe
 	# a golpe + reparto por aliado); de puro estado, la cabecera simple (no hay golpes que contar).

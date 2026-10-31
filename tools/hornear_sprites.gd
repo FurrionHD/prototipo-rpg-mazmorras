@@ -16,6 +16,9 @@
 extends Node
 
 const FICHAS := "res://scenes/actors/enemy/"
+# (31/10) Y los que solo salen invocados (la rata acorazada del Rey del desguace): fuera de FICHAS para que no salgan solos
+# por un piso, pero con su sprite horneado igual.
+const FICHAS_INVOCADOS := "res://resources/enemigos_invocados/"
 # Cuantas 't' se prueban por enemigo. 't' solo entra por color_visual, que es monotona, y tras
 # cuantizar deja 3-4 escalones: con 24 muestras se cubren todos de sobra.
 const MUESTRAS := 24
@@ -86,6 +89,11 @@ func _hornear_enemigos() -> void:
 	for f in d.get_files():
 		if f.ends_with(".tres"):
 			rutas.append(FICHAS + f)
+	var di := DirAccess.open(FICHAS_INVOCADOS)
+	if di != null:
+		for f in di.get_files():
+			if f.ends_with(".tres"):
+				rutas.append(FICHAS_INVOCADOS + f)
 	rutas.sort()
 
 	var total: int = 0

@@ -51,6 +51,11 @@ const ANIMS := {
 # el cian de las drusas es el de los cristales de los slimes).
 const _COMUNES_MUT := ["idle", "walk", "basico", "desgarro", "agazapado", "salto_rata", "frenesi", "encaje", "muerte",
 	"cadaver", "comer", "evolucion"]
+# LA RATA ACORAZADA (31/10, la que llama el Rey del desguace: resources/enemigos_invocados/rata_chatarra.tres): la rata
+# de siempre con el dedal y la placa, de su color (sin el tinte del piso). Sin comer: viene llamada, no muta.
+const CARPETA_CHATARRA := "res://assets/sprites/enemigos/rata_sdf_chatarra/"
+const _ANIMS_CHATARRA := ["idle", "walk", "basico", "desgarro", "agazapado", "salto_rata", "frenesi", "embestida",
+	"chillido", "dentellada", "yugular", "zarandeo", "encaje", "muerte", "cadaver"]
 const _COMUNES_REY_MUT := _COMUNES_MUT + ["embestida", "chillido", "dentellada", "yugular", "zarandeo"]
 const MUTANTES := {
 	&"sombria": ["rata_sdf_sombria", Vector2i(64, 64), _COMUNES_MUT],
@@ -64,11 +69,15 @@ const MUTANTES := {
 
 # --- Contrato de SpritesEnemigo ---
 static func generar_de(ed: EnemyData, t: float) -> SpriteFrames:
+	if ed.sprite_variante == &"chatarra":
+		return Sprites3D.montar(CARPETA_CHATARRA, _anims_de(_ANIMS_CHATARRA), LIENZO, BASE, BASE)
 	return generar(ed.color_visual(t), ed.sprite_variante == &"rey")
 
 
 # 'rata3d_' y no 'rata_': con la clave vieja, SpritesEnemigo cargaria el horneado VIEJO de disco.
 static func clave_de(ed: EnemyData, t: float) -> String:
+	if ed.sprite_variante == &"chatarra":
+		return "rata3d_rata_sdf_chatarra"   # sin tinte: siempre la misma
 	return "rata3d_%s%s" % [SpriteLienzo.cuantizar_hsv(ed.color_visual(t), RataSprites.COLOR_PASOS).to_html(false),
 		"_rey" if ed.sprite_variante == &"rey" else ""]
 

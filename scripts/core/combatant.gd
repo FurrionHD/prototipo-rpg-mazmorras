@@ -497,6 +497,8 @@ var frente_angulo: float = 120.0
 var camada_acorazada: bool = false
 var acorazada_vida: float = 1.5
 var acorazada_lenta: float = 0.75
+# Lo que anda en el mapa en su turno, por esto (la rata acorazada: CombatTactico.radio_de).
+var mov_mult: float = 1.0
 # (06/10, los del slime ABISAL) DEJA ESTRELLAS al moverse en la pelea (las piezas de sus ataques, ver
 # CombatTactico.poner_estrella) y TODO LO VE (el de mil ojos: sin emboscada contra el, ve el sigilo, mas precision).
 var deja_estrellas: bool = false
@@ -1677,6 +1679,13 @@ func has_status(id: int) -> bool:
 		if e.id() == id:
 			return true
 	return false
+
+# La instancia de ese estado (la primera), o null. (31/10: las cargas de la Furia de rey.)
+func get_status(id: int):
+	for e in statuses:
+		if e.id() == id:
+			return e
+	return null
 
 func status_atk_mult() -> float:
 	var m: float = 1.0

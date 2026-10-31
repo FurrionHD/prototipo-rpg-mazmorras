@@ -535,6 +535,9 @@ func secundario_para(n_enemigos: int) -> float:
 # Suele ir telegrafiada (carga_turnos) para dar contrajuego. Ver combat.gd._invocar_slime.
 @export var invoca_pool: Array = []      # Array[EnemyData]; vacio = no invoca nada
 @export var invoca_cantidad: int = 0     # cuantos slimes por lanzamiento (el Rey saca 2)
+# LA LLAMADA (31/10, los mutantes del rey rata): esta habilidad (el Chillido) trae a la camada SI quien la usa tiene
+# Llamada (Combatant.llamada_max > 0; el rey rata normal no). Ver CombatEnemigos._llamada.
+@export var llama_camada: bool = false
 
 # --- HUELLA: para las de CUERPO QUE CAE ------------------------------------------------------
 # El area normal es "el objetivo y sus vecinos". Para un bicho que se deja caer eso no vale: lo que

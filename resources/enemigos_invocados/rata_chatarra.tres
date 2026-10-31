@@ -1,0 +1,42 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
+[ext_resource type="Resource" path="res://resources/abilities/rata_mordisco_sangrante.tres" id="4_mor"]
+[ext_resource type="Resource" path="res://resources/abilities/rata_frenesi_dentelladas.tres" id="5_fre"]
+
+; LA RATA ACORAZADA (31/10, rey-rata-mutante): la que llama el Rey del desguace ("arma a la camada"). Es la rata de
+; siempre (mismas stats y ataques) con el dedal de casco y la placa al lomo (Rata3DSprites, sprite_variante chatarra).
+; La vida y lo lenta que va las pone quien la llama (MutacionData.acorazada_*). Vive FUERA de scenes/actors/enemy para
+; que nunca salga sola por un piso: solo la trae la Llamada (y no suelta nada: es invocada).
+[resource]
+script = ExtResource("1_g8nro")
+dureza = 1.0
+familia = 2
+enemy_name = "Rata acorazada"
+sprite_variante = &"chatarra"
+centro_suelo = 0.4
+color = Color(0.5, 0.42, 0.34, 1)
+escala_visual = 1.19
+fuerza = 26
+resistencia = 18
+destreza = 36
+agilidad = 40
+magia = 12
+voluntad = 18
+franja_low = 0.0
+franja_high = 0.45
+base_hp = 22.0
+base_attack = 3.5
+base_defense = 2.4
+base_magic = 1.5
+base_speed = 6.0
+move_speed_min = 45.0
+move_speed_max = 75.0
+chase_speed_mult = 2.6
+fx_basico = 14
+habilidades = [ExtResource("4_mor"), ExtResource("5_fre")]
+prob_habilidad = 0.5
+metadata/_custom_type_script = "uid://le6jfvhlcbou"
+cuerpo = Rect2(-7.31, -13.61, 12.35, 20.76)
+centro_golpe = Vector2(1.43, -2.69)
+alcance_marcado = 21.01

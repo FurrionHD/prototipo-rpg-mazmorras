@@ -762,6 +762,9 @@ func _mult_pasivas(atacante: Combatant, defensor: Combatant) -> float:
 		m *= defensor.volteo_mult
 	elif defensor.caparazon_frente != 1.0 and tactico and turno_mapa.cubre_de_frente(defensor, atacante):
 		m *= defensor.caparazon_frente
+	# (31/10) EL FRENTE BLINDADO del Rey del desguace: por delante (su cono) la chatarra se come parte del golpe de arma.
+	elif defensor.frente_blindado > 0.0 and tactico and turno_mapa.de_frente(defensor, atacante, defensor.frente_angulo):
+		m *= 1.0 - defensor.frente_blindado
 	if atacante.olor_sangre_mult != 1.0 and defensor.has_status(StatusEffects.Id.SANGRADO):
 		m *= atacante.olor_sangre_mult
 	# EMBOSCADA (la araña): a quien esta pegado en su telaraña.
@@ -802,6 +805,47 @@ func escudo_subdito(obj: Combatant, quien: Combatant) -> Combatant:
 	_log_extra("🛡 %s se lanza delante de %s y se come el golpe de %s" % [_etq(escudo), _etq(obj),
 		quien.nombre if quien != null else "los tuyos"])
 	return escudo
+
+
+# ESCUDO DE CARNE (31/10, los mutantes del rey rata, ver MutacionData): un golpe de arma de 'quien' a EL, con una rata
+# suya pegada (a un paso): escudo_carne_prob de que ella se lleve escudo_carne_frac del golpe ('estilo', con su numero).
+# Devuelve lo que le queda a el. El del Rey slime (escudo_subdito) cambia el objetivo entero; este lo parte.
+func escudo_carne(obj: Combatant, dmg: float, quien: Combatant, estilo: int) -> float:
+	if obj == null or obj.escudo_carne_prob <= 0.0 or dmg <= 0.0 or not _enemies.has(obj) or not obj.is_alive() or _espejo:
+		return dmg
+	var cerca: Array = []
+	for s in _enemies:
+		var sc: Combatant = s
+		if sc != obj and sc.is_alive() and sc.familia == obj.familia \
+				and (not tactico or turno_mapa.hueco_entre(sc, obj) <= HUECO_CUERPO_A_CUERPO):
+			cerca.append(sc)
+	if cerca.is_empty() or randf() >= obj.escudo_carne_prob:
+		return dmg
+	var rata: Combatant = cerca[randi() % cerca.size()]
+	var parte: float = dmg * obj.escudo_carne_frac
+	rata.take_damage(parte)
+	efectos._fx_golpe(quien, rata, parte, false, false, Elementos.Elemento.NINGUNO, estilo, 1.0, false, "",
+		AbilityData.Gesto.QUIETO, null)
+	_apuntar_dano(rata, parte, quien)
+	_log_extra("🐀 %s se mete en medio y se lleva %.2f del golpe a %s" % [_etq(rata), parte, _etq(obj)])
+	return dmg - parte
+
+
+# LA FURIA DE REY (31/10, los mutantes del rey rata, ver MutacionData): al caer una rata, su rey (el de su familia que
+# tenga Furia) se lleva una carga de FURIA_REY (hasta furia_max) y sus turnos se renuevan. Solo quien ejecuta la pelea;
+# el estado viaja a los espejos como los demas.
+func _furia_rey(muerto: Combatant) -> void:
+	if muerto == null or _espejo or muerto.furia_por_muerte > 0.0:
+		return
+	for r in _enemies:
+		var rey: Combatant = r
+		if rey == muerto or not rey.is_alive() or rey.furia_por_muerte <= 0.0 or rey.familia != muerto.familia:
+			continue
+		rey.apply_status(StatusEffects.Id.FURIA_REY, rey.furia_turnos, -1.0, 1, false, rey.furia_max,
+			1.0 + rey.furia_por_muerte)
+		var inst = rey.get_status(StatusEffects.Id.FURIA_REY)
+		_log_extra("😤 %s ve caer a %s y se enfurece (+%d%% de daño)" % [_etq(rey), muerto.nombre,
+			roundi(rey.furia_por_muerte * 100.0 * float(inst.stacks if inst != null else 1))])
 
 
 # TRIBUTO (07/10, el Rey tirano, ver MutacionData): al caer uno de sus subditos, el rey recoge su cristal y se cura una
@@ -852,6 +896,8 @@ func _aplicar_pasivas(result: Dictionary, atacante: Combatant, defensor: Combata
 		_log_extra("%s está volcada y enseña la tripa" % _etq(defensor))
 	elif defensor.caparazon_frente != 1.0 and m < 1.0:
 		_log_extra("el caparazón de %s para el golpe de frente" % _etq(defensor))
+	elif defensor.frente_blindado > 0.0 and m < 1.0:
+		_log_extra("🛡 la chatarra de %s se come el golpe de frente: ¡rodéalo!" % _etq(defensor))
 	elif atacante.olor_sangre_mult != 1.0:
 		_log_extra("%s huele la sangre de %s" % [_etq(atacante), defensor.nombre])
 	elif atacante.emboscada_mult != 1.0:
@@ -2231,6 +2277,8 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 			efectos.soltar_suelo()
 		return false
 	else:
+		# (31/10) EL ESCUDO DE CARNE del rey rata: una rata pegada puede llevarse parte del golpe.
+		result.damage = escudo_carne(obj, float(result.damage), _player, estilo_bas)
 		obj.take_damage(result.damage)
 		efectos._fx_golpe(_player, obj, result.damage, result.crit, false,
 			_player.imbue_elemento if float(result.get("dmg_imbue", 0.0)) > 0.0 \
@@ -2660,6 +2708,7 @@ func _morir_enemigo(e: Combatant) -> void:
 		# DIVIDIRSE (06/10): el que se divide suelta a los suyos al caer (despues de la cola: si entra uno, ocupa el hueco).
 		_dividirse(e)
 		_tributo(e)
+		_furia_rey(e)
 		if hueco >= 0 and hueco < _enemies.size() and _enemies[hueco] != e \
 				and _target_idx == hueco:
 			figuras._seleccionar(hueco)   # el nuevo ocupa el sitio de tu objetivo: que se vea marcado

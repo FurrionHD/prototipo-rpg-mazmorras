@@ -457,7 +457,12 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		# JIRONES de sombra (la sombria; tambien su Mordisco a traicion), con ESQUIRLAS de cristal (la drusa y la de cuarzo
 		# ahumado), el CORTE de cristal de la Embestida que atraviesa y el VELO sobre los ojos del Destello.
 		RATA_MORDISCO_SOMBRA = 211, RATA_FRENESI_SOMBRA = 212, RATA_MORDISCO_CRISTAL = 213, RATA_FRENESI_CRISTAL = 214,
-		RATA_CORTE_CRISTAL = 215, RATA_VELO = 216 }
+		RATA_CORTE_CRISTAL = 215, RATA_VELO = 216,
+		# LOS MUTANTES DEL REY RATA (31/10, ReyRataAire): la LLAMADA (la grieta de los brotes junto al rey de la que salta
+		# cada rata: va del rey a la rata, que espera escondida y salta al abrirse), el CAMPANAZO del Tapazo (el aro de
+		# metal y la chatarra en quien lo recibe). (Las chispas del frente blindado salen con el impacto, como la placa
+		# de la acorazada: CombatTactico._chispas_si_para.)
+		REY_LLAMADA = 217, REY_CAMPANAZO = 218 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -497,6 +502,8 @@ const DIBUJO_MAPA := [Estilo.CRIA_LANZADA, Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA
 	# los mutantes de la rata (RataAire, 30/10).
 	Estilo.RATA_MORDISCO_SOMBRA, Estilo.RATA_FRENESI_SOMBRA, Estilo.RATA_MORDISCO_CRISTAL, Estilo.RATA_FRENESI_CRISTAL,
 	Estilo.RATA_CORTE_CRISTAL, Estilo.RATA_VELO,
+	# los mutantes del rey rata (ReyRataAire, 31/10).
+	Estilo.REY_LLAMADA, Estilo.REY_CAMPANAZO,
 	# los slimes (SlimeAire, 28/09): sobre el cuerpo que recibe.
 	Estilo.SLIME_GOLPE, Estilo.SLIME_ESCUPE, Estilo.SLIME_TROMBA, Estilo.SLIME_TROZO, Estilo.SLIME_IGNICION,
 	# las bestias (BestiaAire, 28/09): sobre el cuerpo que recibe.
@@ -674,6 +681,9 @@ const T_VUELO := {
 	Estilo.SPLAT: 0.34, Estilo.ESCUPITAJO: 0.26, Estilo.AURA: 0.10,
 	# Los del slime en el mapa: el escupitajo y el trozo VIAJAN (su vuelo es el viaje), la columna cae.
 	Estilo.CRIA_LANZADA: 0.45,
+	# La LLAMADA: se abre la grieta y la rata sale de un salto (ReyRataAire.t_abierto + CombatTactico.T_SALTO_GRIETA).
+	Estilo.REY_LLAMADA: 0.9,
+	Estilo.REY_CAMPANAZO: 0.04,
 	Estilo.SLIME_GOLPE: 0.05, Estilo.SLIME_ESCUPE: 0.26, Estilo.SLIME_TROMBA: 0.16, Estilo.SLIME_TROZO: 0.22, Estilo.SLIME_IGNICION: 0.10,
 	# Las mandibulas se cierran en ese tiempo: se juntan justo en el golpe.
 	Estilo.BESTIA_MORDISCO: 0.14, Estilo.BESTIA_MORDISCO_SANGRA: 0.14, Estilo.BESTIA_FRENESI: 0.08,

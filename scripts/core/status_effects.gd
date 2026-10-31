@@ -51,7 +51,7 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	ENCENDIDO, AVIVADO, AFILADO,
 	CONGELACION,
 	DECRETO,
-	EN_SOMBRAS }
+	EN_SOMBRAS, FURIA_REY }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -517,6 +517,14 @@ static var _defs: Dictionary = {
 		"id": Id.EN_SOMBRAS, "nombre": "En las sombras", "icono": "🌑", "color": Color(0.3, 0.3, 0.42),
 		"turns": 999, "en_sombras": true,
 		"descripcion": "No está. Bueno, sí está. En algún sitio. Mirándote.",
+	},
+	# LA FURIA DE REY (31/10, los mutantes del rey rata): cada rata suya que muere le sube el daño (una carga, hasta
+	# MutacionData.furia_max, de furia_por_muerte cada una: mult_override) y le renueva los turnos (furia_turnos). Se ve
+	# en el mapa: ojos rojos y vaho por el hocico (ReyRataAire.furia, mas cuantas mas cargas).
+	Id.FURIA_REY: {
+		"id": Id.FURIA_REY, "nombre": "Furia de rey", "icono": "😤", "color": Color(0.9, 0.22, 0.15),
+		"turns": 3, "stack_mode": "merge", "max_stacks": 3, "atk_mult": 1.1,
+		"descripcion": "Le estás matando a la familia. Se lo está tomando fatal.",
 	},
 	Id.CONGELACION: {
 		"id": Id.CONGELACION, "nombre": "Congelación", "icono": "❄", "color": Color(0.6, 0.85, 1.0),
