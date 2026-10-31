@@ -480,6 +480,23 @@ var devuelve_corte_frac: float = 0.0
 var resiste_magia: float = 1.0
 var sigilo_prob: float = 0.0
 var salto_esquiva: float = 0.0
+# (31/10, los mutantes del rey rata, ver MutacionData) LLAMADA, ESCUDO DE CARNE, FURIA DE REY, A MI ESPALDA, FRENTE
+# BLINDADO y ARMA A LA CAMADA.
+var llamada_min: int = 0
+var llamada_max: int = 0
+var llamada_tope: int = 4
+var escudo_carne_prob: float = 0.0
+var escudo_carne_frac: float = 0.5
+var furia_por_muerte: float = 0.0
+var furia_max: int = 3
+var furia_turnos: int = 3
+var espalda_vida: float = 0.0
+var espalda_prob: float = 0.5
+var frente_blindado: float = 0.0
+var frente_angulo: float = 120.0
+var camada_acorazada: bool = false
+var acorazada_vida: float = 1.5
+var acorazada_lenta: float = 0.75
 # (06/10, los del slime ABISAL) DEJA ESTRELLAS al moverse en la pelea (las piezas de sus ataques, ver
 # CombatTactico.poner_estrella) y TODO LO VE (el de mil ojos: sin emboscada contra el, ve el sigilo, mas precision).
 var deja_estrellas: bool = false

@@ -8,11 +8,61 @@
 [ext_resource type="Resource" uid="uid://bdp75q647wbkt" path="res://resources/abilities/rey_rata_chillido.tres" id="6_chi"]
 [ext_resource type="Resource" uid="uid://chytal5j21ku5" path="res://resources/abilities/rey_rata_yugular.tres" id="7_yug"]
 [ext_resource type="Resource" path="res://resources/materials/carne_rata.tres" id="8_carne"]
+[ext_resource type="Script" path="res://scripts/actors/enemy/mutacion_data.gd" id="9_mut"]
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="10_ab"]
+[ext_resource type="Resource" path="res://resources/abilities/rey_rata_tapazo.tres" id="11_tap"]
 
 [sub_resource type="Resource" id="SA_sang"]
 script = ExtResource("2_sa")
 estado = 1
 prob = 0.35
+
+; LOS MUTANTES DEL REY RATA (31/10, diseño y numeros del jefe: memoria rey-rata-mutante). UNA LINEA, como el Rey Slime:
+;     Rey rata --muta--> Rey de las cloacas (llama a su camada) --come mas--> Rey del desguace (y ademas se arma)
+; Pesos de stats con las SEIS (suma 170, como el rey normal).
+[sub_resource type="Resource" id="MUT_cloacas"]
+script = ExtResource("9_mut")
+id = &"cloacas"
+nombre = "Rey de las cloacas"
+grado = 1
+habilidades = Array[ExtResource("10_ab")]([ExtResource("5_den"), ExtResource("6_chi"), ExtResource("7_yug")])
+sprite = &"cloacas"
+pesos = {"agilidad": 28, "destreza": 28, "fuerza": 28, "magia": 14, "resistencia": 34, "voluntad": 38}
+llamada_min = 1
+llamada_max = 2
+llamada_tope = 4
+escudo_carne_prob = 0.35
+escudo_carne_frac = 0.5
+furia_por_muerte = 0.1
+furia_max = 3
+furia_turnos = 3
+espalda_vida = 0.3
+espalda_prob = 0.5
+
+[sub_resource type="Resource" id="MUT_desguace"]
+script = ExtResource("9_mut")
+id = &"desguace"
+nombre = "Rey del desguace"
+grado = 2
+desde = Array[StringName]([&"cloacas"])
+habilidades = Array[ExtResource("10_ab")]([ExtResource("5_den"), ExtResource("6_chi"), ExtResource("7_yug"), ExtResource("11_tap")])
+sprite = &"desguace"
+pesos = {"agilidad": 22, "destreza": 24, "fuerza": 32, "magia": 12, "resistencia": 42, "voluntad": 38}
+llamada_min = 1
+llamada_max = 2
+llamada_tope = 4
+escudo_carne_prob = 0.35
+escudo_carne_frac = 0.5
+furia_por_muerte = 0.1
+furia_max = 3
+furia_turnos = 3
+espalda_vida = 0.3
+espalda_prob = 0.5
+frente_blindado = 0.4
+frente_angulo = 120.0
+camada_acorazada = true
+acorazada_vida = 1.5
+acorazada_lenta = 0.75
 
 [resource]
 script = ExtResource("1_g8nro")
@@ -23,11 +73,12 @@ centro_suelo = 0.46
 sprite_variante = &"rey"
 color = Color(0.62, 0.5, 0.3, 1)
 escala_visual = 1.68
-fuerza = 34
+fuerza = 32
 resistencia = 26
-destreza = 38
-agilidad = 44
+destreza = 36
+agilidad = 42
 magia = 14
+voluntad = 20
 franja_low = 0.2
 franja_high = 0.7
 base_hp = 34.0
@@ -51,6 +102,7 @@ al_golpear = [SubResource("SA_sang")]
 fx_basico = 14
 habilidades = [ExtResource("5_den"), ExtResource("6_chi"), ExtResource("7_yug")]
 prob_habilidad = 0.55
+mutaciones = Array[ExtResource("9_mut")]([SubResource("MUT_cloacas"), SubResource("MUT_desguace")])
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
 ; ALCANCE del basico en el mapa (28/09): mas grande que la rata.
 alcance = 20.0

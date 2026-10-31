@@ -899,6 +899,22 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		c.resiste_magia = mdat2.resiste_magia
 		c.sigilo_prob = mdat2.sigilo_prob
 		c.salto_esquiva = mdat2.salto_esquiva
+		# (31/10, los del rey rata) llamada, escudo de carne, furia, a mi espalda, frente blindado y camada acorazada.
+		c.llamada_min = mdat2.llamada_min
+		c.llamada_max = mdat2.llamada_max
+		c.llamada_tope = mdat2.llamada_tope
+		c.escudo_carne_prob = mdat2.escudo_carne_prob
+		c.escudo_carne_frac = mdat2.escudo_carne_frac
+		c.furia_por_muerte = mdat2.furia_por_muerte
+		c.furia_max = mdat2.furia_max
+		c.furia_turnos = mdat2.furia_turnos
+		c.espalda_vida = mdat2.espalda_vida
+		c.espalda_prob = mdat2.espalda_prob
+		c.frente_blindado = mdat2.frente_blindado
+		c.frente_angulo = mdat2.frente_angulo
+		c.camada_acorazada = mdat2.camada_acorazada
+		c.acorazada_vida = mdat2.acorazada_vida
+		c.acorazada_lenta = mdat2.acorazada_lenta
 
 	# RESISTENCIA A EFECTOS Y EFICACIA: la curva del PISO por el ajuste de ESTE bicho. Los dos ejes
 	# hacen falta y hacen cosas distintas: la resistencia decide lo que TE aguanta, la eficacia lo

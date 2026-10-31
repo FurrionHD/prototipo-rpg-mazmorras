@@ -475,8 +475,7 @@ if VAR in ('sombria', 'drusa', 'cuarzo'):
 # LOS MUTANTES DEL REY RATA (31/10, rey-rata-mutante): RATA_VAR=cloacas (el Rey de las cloacas: mas gordo, el manto de
 # pieles y la corona alta de siete puntas) | desguace (el Rey del desguace: sobre el manto, las placas remachadas, el
 # yelmo con la corona clavada encima y la tapa de olla delante). Sus piezas, las de rey_rata_versiones.py; sus
-# animaciones, las del rey + comer, su evolucion y (el desguace) el Tapazo. Mientras el jefe no las da por buenas, a
-# tools/salida/sdf/ y las vistas a su escritorio (no al juego).
+# animaciones, las del rey + comer, su evolucion y (el desguace) el Tapazo. Las vistas, a su escritorio.
 if VAR in ('cloacas', 'desguace'):
     _ESC_REY = {'cloacas': (1.7 * 1.2, 1.7), 'desguace': (1.7 * 1.32, 1.7 * 1.2)}   # [la suya, la de lo que era]
     _esc_m, _esc_antes = _ESC_REY[VAR]
@@ -487,7 +486,8 @@ if VAR in ('cloacas', 'desguace'):
     import rey_rata_versiones as _rrv
     MODELO = Modelo(_esc_m, (_lado, _lado), (_lado // 2, _lado // 2), _rrv._mat(), (0.12, 0.09, 0.07), suaves=('cuerpo',),
                     brillan=('ojo', 'brillo', 'cicatriz', 'rubi'), estira=ESTIRA, corta_suelo=True)
-    SALIDA = 'tools/salida/sdf/rata_sdf_%s/' % VAR
+    # (31/10, "yo los veo bien": ya van al juego)
+    SALIDA = 'assets/sprites/enemigos/rata_sdf_%s/' % VAR
     VISTAS = os.path.join(os.path.expanduser('~'), 'Desktop', 'ataques_mapa', 'enemigos', 'prueba_3d', 'mutantes',
                           'rey_rata_%s_hojas' % VAR) + os.sep
     _SUYAS = ['idle', 'walk', 'basico', 'desgarro', 'agazapado', 'salto_rata', 'frenesi', 'embestida', 'chillido',
@@ -539,7 +539,7 @@ if VAR == 'chatarra':
     import rey_rata_versiones as _rrv
     MODELO = Modelo(1.2, (48, 48), (24, 24), _rrv._mat(), (0.12, 0.09, 0.07), suaves=('cuerpo',),
                     brillan=('ojo', 'brillo'), estira=ESTIRA, corta_suelo=True)
-    SALIDA = 'tools/salida/sdf/rata_sdf_chatarra/'
+    SALIDA = 'assets/sprites/enemigos/rata_sdf_chatarra/'   # (31/10, visto bueno del jefe)
     VISTAS = os.path.join(os.path.expanduser('~'), 'Desktop', 'ataques_mapa', 'enemigos', 'prueba_3d', 'mutantes',
                           'rata_chatarra_hojas') + os.sep
     ANIMS = {k: ANIMS[k] for k in ['idle', 'walk', 'basico', 'desgarro', 'agazapado', 'salto_rata', 'frenesi',

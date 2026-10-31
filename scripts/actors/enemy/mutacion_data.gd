@@ -112,3 +112,30 @@ class_name MutacionData
 @export var sigilo_prob: float = 0.0
 # SE APARTA DE UN SALTO (la sombria): al ESQUIVAR un golpe cuerpo a cuerpo, salta 'salto_esquiva' px hacia atras.
 @export var salto_esquiva: float = 0.0
+# (31/10, los mutantes del REY RATA: el de las cloacas y el del desguace; numeros aprobados por el jefe)
+# LLAMADA: su Chillido trae de llamada_min a llamada_max ratas de un agujero junto a el, sin pasar de llamada_tope ratas
+# suyas vivas a la vez.
+@export var llamada_min: int = 0
+@export var llamada_max: int = 0
+@export var llamada_tope: int = 4
+# ESCUDO DE CARNE: un golpe de arma a EL, con una rata pegada: escudo_carne_prob de que ella se lleve escudo_carne_frac
+# del golpe (el, el resto). El del Rey slime (escudo_subditos_prob) se lo come entero.
+@export var escudo_carne_prob: float = 0.0
+@export var escudo_carne_frac: float = 0.5
+# FURIA DE REY: cada rata suya que muere, +furia_por_muerte de daño, hasta furia_max veces, durante furia_turnos.
+@export var furia_por_muerte: float = 0.0
+@export var furia_max: int = 3
+@export var furia_turnos: int = 3
+# A MI ESPALDA: con menos de espalda_vida de su vida y ratas vivas, espalda_prob en su turno de recular detras de ellas
+# y cederle el turno a una.
+@export var espalda_vida: float = 0.0
+@export var espalda_prob: float = 0.5
+# FRENTE BLINDADO (el desguace): los golpes de ARMA que le llegan por delante (un cono de frente_angulo grados) le hacen
+# frente_blindado menos (0,4 = un 40 % menos). La magia entra entera.
+@export var frente_blindado: float = 0.0
+@export var frente_angulo: float = 120.0
+# ARMA A LA CAMADA (el desguace): las ratas que llama vienen con chatarra (el sprite 'chatarra' de la rata): x vida y
+# x velocidad (en el mapa y en la barra de turnos).
+@export var camada_acorazada: bool = false
+@export var acorazada_vida: float = 1.5
+@export var acorazada_lenta: float = 0.75

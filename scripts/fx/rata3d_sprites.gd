@@ -42,6 +42,8 @@ const ANIMS := {
 	"evolucion_drusa": {"hoja": "evolucion_drusa", "dirs": 8, "marcos": 18, "fps": 10.0, "loop": false,
 		"opcional": true},
 	"destello": {"hoja": "destello", "dirs": 8, "marcos": 8, "fps": 12.0, "loop": false, "opcional": true},
+	# (31/10) el Tapazo del Rey del desguace.
+	"tapazo": {"hoja": "tapazo", "dirs": 8, "marcos": 9, "fps": 14.0, "loop": false, "opcional": true},
 }
 
 # LOS MUTANTES DE LA RATA (30/10, rata-mutante): la variante que dice su MutacionData.sprite -> [carpeta, lienzo, sus
@@ -49,10 +51,14 @@ const ANIMS := {
 # el cian de las drusas es el de los cristales de los slimes).
 const _COMUNES_MUT := ["idle", "walk", "basico", "desgarro", "agazapado", "salto_rata", "frenesi", "encaje", "muerte",
 	"cadaver", "comer", "evolucion"]
+const _COMUNES_REY_MUT := _COMUNES_MUT + ["embestida", "chillido", "dentellada", "yugular", "zarandeo"]
 const MUTANTES := {
 	&"sombria": ["rata_sdf_sombria", Vector2i(64, 64), _COMUNES_MUT],
 	&"drusa": ["rata_sdf_drusa", Vector2i(64, 64), _COMUNES_MUT + ["embestida"]],
 	&"cuarzo": ["rata_sdf_cuarzo", Vector2i(70, 70), _COMUNES_MUT + ["embestida", "destello", "evolucion_drusa"]],
+	# LOS DEL REY RATA (31/10, rey-rata-mutante): con todo lo del rey (el chillido, la dentellada, la yugular).
+	&"cloacas": ["rata_sdf_cloacas", Vector2i(90, 90), _COMUNES_REY_MUT],
+	&"desguace": ["rata_sdf_desguace", Vector2i(98, 98), _COMUNES_REY_MUT + ["tapazo"]],
 }
 
 
