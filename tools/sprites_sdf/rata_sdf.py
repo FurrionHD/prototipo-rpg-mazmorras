@@ -257,7 +257,8 @@ def anim_dentellada(t):
 
 
 # El REY, estirandose como la rata (1,35), se salia del lienzo de 66 mirando al E y al O: el estiron, mas corto en el.
-ESTIRON_YUGULAR = 0.22 if os.environ.get('RATA_VAR') == 'rey' else 0.35
+# (Los mutantes del rey, cloacas y desguace, son el rey: el mismo estiron.)
+ESTIRON_YUGULAR = 0.22 if os.environ.get('RATA_VAR') in ('rey', 'cloacas', 'desguace') else 0.35
 
 
 def anim_yugular(t):
@@ -314,7 +315,19 @@ def anim_destello(t):
                 cola=1.2 * math.sin(TAU * t * 1.5))
 
 
+# EL TAPAZO (31/10, el Rey del desguace): se revuelve de lado echando atras el hombro de la tapa de olla y la descarga de
+# golpe contra ti con un paso adelante (el empujon y el aturdido los pone el juego). Toca hacia la mitad (0,5).
+def anim_tapazo(t):
+    return POSE(rumbo=tramos(t, [(0.0, 0.0), (0.3, -0.45), (0.5, 0.35), (0.7, 0.3), (1.0, 0.0)]),
+                avance=tramos(t, [(0.0, 0.0), (0.3, -0.6), (0.5, 2.2), (0.7, 2.0), (1.0, 0.0)]),
+                agacha=tramos(t, [(0.0, 0.0), (0.3, 0.4), (0.5, -0.15), (0.7, 0.0), (1.0, 0.0)]),
+                estira=tramos(t, [(0.0, 1.0), (0.3, 0.9), (0.5, 1.1), (0.7, 1.05), (1.0, 1.0)]),
+                cuello=tramos(t, [(0.0, 0.0), (0.3, -0.4), (0.5, 0.4), (1.0, 0.0)]),
+                cola=1.2 * math.sin(TAU * t * 1.5))
+
+
 ANIMS = {
+    'tapazo': (9, 14.0, False, 8, anim_tapazo),
     'comer': (10, 10.0, False, 8, anim_comer),
     'destello': (8, 12.0, False, 8, anim_destello),
     'idle': (8, 5.0, True, 8, anim_idle),
@@ -456,6 +469,65 @@ if VAR in ('sombria', 'drusa', 'cuarzo'):
             if s != 1.0:
                 Xh = (Xh[0] * s, Xh[1] * s)
             L[i] = (fn, cambia.get(m, m), g, k, Xh, nh)
+        return L
+
+
+# LOS MUTANTES DEL REY RATA (31/10, rey-rata-mutante): RATA_VAR=cloacas (el Rey de las cloacas: mas gordo, el manto de
+# pieles y la corona alta de siete puntas) | desguace (el Rey del desguace: sobre el manto, las placas remachadas, el
+# yelmo con la corona clavada encima y la tapa de olla delante). Sus piezas, las de rey_rata_versiones.py; sus
+# animaciones, las del rey + comer, su evolucion y (el desguace) el Tapazo. Mientras el jefe no las da por buenas, a
+# tools/salida/sdf/ y las vistas a su escritorio (no al juego).
+if VAR in ('cloacas', 'desguace'):
+    _ESC_REY = {'cloacas': (1.7 * 1.2, 1.7), 'desguace': (1.7 * 1.32, 1.7 * 1.2)}   # [la suya, la de lo que era]
+    _esc_m, _esc_antes = _ESC_REY[VAR]
+    _lado = int(round(66 * _esc_m / 1.7 / 2)) * 2 + 10
+    # rey_rata_versiones nos importa a su vez: que encuentre ESTE modulo (a medio cargar, con lo de arriba ya hecho)
+    # tambien cuando se ejecuta como script.
+    sys.modules.setdefault('rata_sdf', sys.modules[__name__])
+    import rey_rata_versiones as _rrv
+    MODELO = Modelo(_esc_m, (_lado, _lado), (_lado // 2, _lado // 2), _rrv._mat(), (0.12, 0.09, 0.07), suaves=('cuerpo',),
+                    brillan=('ojo', 'brillo', 'cicatriz', 'rubi'), estira=ESTIRA, corta_suelo=True)
+    SALIDA = 'tools/salida/sdf/rata_sdf_%s/' % VAR
+    VISTAS = os.path.join(os.path.expanduser('~'), 'Desktop', 'ataques_mapa', 'enemigos', 'prueba_3d', 'mutantes',
+                          'rey_rata_%s_hojas' % VAR) + os.sep
+    _SUYAS = ['idle', 'walk', 'basico', 'desgarro', 'agazapado', 'salto_rata', 'frenesi', 'embestida', 'chillido',
+              'dentellada', 'yugular', 'zarandeo', 'encaje', 'muerte', 'comer', 'evolucion']
+    if VAR == 'desguace':
+        _SUYAS.append('tapazo')
+    ANIMS['evolucion'] = (18, 10.0, False, 8, anim_evolucion)
+    ANIMS = {k: ANIMS[k] for k in _SUYAS}
+
+    def escena(pose):
+        rv = _rrv
+        evo = pose.get('evo', 1.0)
+        pz = rv._Piezas(pose, True)
+        if VAR == 'cloacas':
+            # De rey a rey de las cloacas: engorda, le cae el manto por encima y la corona de cinco puntas da paso
+            # (en la sacudida) a la alta de siete, que se estira hasta su altura.
+            rv.r_gordo(pz, _paso_r(evo, 0.2, 0.6))
+            rv.r_manto(pz, _paso_r(evo, 0.35, 0.85))
+            if evo < 0.55:
+                rv.r_corona(pz, puntas=5, alto=2.0, z=5.9)
+            else:
+                rv.r_corona(pz, puntas=7, alto=2.0 + 1.1 * _paso_r(evo, 0.55, 0.8), z=6.0)
+        else:
+            # De rey de las cloacas a rey del desguace: le salen las placas una a una por encima del manto, las
+            # hebillas y la hombrera; el yelmo le crece en la cabeza levantando la corona; los clavos y la tapa.
+            rv.r_gordo(pz)
+            rv.r_manto(pz)
+            rv.r_placas(pz, True, crece=lambda i: _paso_r(evo, 0.22 + i * 0.05, 0.34 + i * 0.05))
+            gy = _paso_r(evo, 0.45, 0.7)
+            rv.r_yelmo(pz, gy)
+            rv.r_corona(pz, puntas=7, alto=3.1 + (2.2 - 3.1) * gy, z=6.0 + (7.3 - 6.0) * gy)
+            if evo >= 0.75:
+                rv.r_clavada(pz)
+            rv.r_tapa(pz, True, _paso_r(evo, 0.7, 0.9))
+        L = pz.L
+        # El TAMAÑO: de lo que era al suyo (todo el modelo, desde los pies).
+        s = (_esc_antes + (_esc_m - _esc_antes) * _paso_r(evo, 0.2, 0.85)) / _esc_m
+        if s != 1.0:
+            for i, (fn, m, g, k, Xh, nh) in enumerate(L):
+                L[i] = (fn, m, g, k, (Xh[0] * s, Xh[1] * s), nh)
         return L
 
 

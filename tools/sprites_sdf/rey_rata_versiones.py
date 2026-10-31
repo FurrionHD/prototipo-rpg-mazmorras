@@ -46,7 +46,7 @@ class _Piezas:
     """El rey de siempre (rata_sdf.escena con rey=True), sin su corona si se la cambiamos."""
     def __init__(self, pose, sin_corona=False):
         self.X = rs.huesos(pose)
-        self.L = rs.escena(pose, True)
+        self.L = rs._escena_base(pose, True)   # el rey de siempre (con RATA_VAR, rs.escena ya es la del mutante)
         if sin_corona:
             keep = [t for t in self.L if t[2] != 'corona']
             del self.L[:]
@@ -67,10 +67,12 @@ def _sobre_cuerpo(y, ang, fuera=0.0):
 # ------------------------------------------------------------
 #  LOS RASGOS
 # ------------------------------------------------------------
-def r_gordo(e):
-    # MAS GORDO: una panza y unas ancas de mas, fundidas con el cuerpo.
-    e.add(lambda P: sd_elipsoide(P, Z(0, -0.6, 2.6), np.array([4.7, 5.2, 3.0])), 'pelo', 1.4)
-    e.add(lambda P: sd_elipsoide(P, Z(0, 0.0, 1.5), np.array([3.7, 4.8, 1.5])), 'vientre', 1.0)
+def r_gordo(e, f=1.0):
+    # MAS GORDO: una panza y unas ancas de mas, fundidas con el cuerpo. 'f' (la evolucion): de 0 (metidas dentro del
+    # cuerpo de siempre) a 1.
+    g = 0.85 + 0.15 * f
+    e.add(lambda P: sd_elipsoide(P, Z(0, -0.6, 2.6), np.array([4.7, 5.2, 3.0]) * g), 'pelo', 1.4)
+    e.add(lambda P: sd_elipsoide(P, Z(0, 0.0, 1.5), np.array([3.7, 4.8, 1.5]) * g), 'vientre', 1.0)
 
 
 def r_corona(e, puntas=5, alto=2.0, z=5.9, ladeo=0.0, abollada=False, mat='oro'):
@@ -94,17 +96,26 @@ def r_corona(e, puntas=5, alto=2.0, z=5.9, ladeo=0.0, abollada=False, mat='oro')
     e.add(lambda P: sd_esfera(P, cc + np.array([0.0, 2.5, 0.0]), 0.55), 'rubi', 0, 'corona', 'cabeza')
 
 
-def r_manto(e):
+def r_manto(e, f=1.0):
     # EL MANTO DE PIELES: una capa por el lomo, de los hombros a la grupa, que cae por los flancos con el borde
-    # deshilachado (mechones colgando).
+    # deshilachado (mechones colgando). 'f' (la evolucion): se le extiende por encima de los hombros a la grupa, como
+    # una capa que se echa (desde arriba es lo que se lee), luego los mechones y el cuello de piel.
+    if f <= 0.0:
+        return
     c = Z(0, -0.4, 2.8)
     rad = np.array([5.3, 6.0, 3.7])
+    corte = 6.0 - 13.5 * min(1.0, f / 0.7)
     def manto(P):
         d = np.abs(sd_elipsoide(P, c, rad)) - 0.55
         ang = np.arctan2(P[:, 1] - c[1], P[:, 0] - c[0])
         borde = 2.3 + 0.45 * np.sin(ang * 9.0)
-        return np.maximum(d, borde - P[:, 2])
+        d = np.maximum(d, borde - P[:, 2])
+        if corte > -7.0:
+            d = np.maximum(d, corte + 0.5 * np.sin(P[:, 0] * 2.1) - P[:, 1])
+        return d
     e.add(manto, 'piel', 0, 'manto')
+    if f < 0.7:
+        return
     for k in range(10):
         ang = k / 10 * 2 * math.pi
         x = math.cos(ang) * 5.0; y = -0.4 + math.sin(ang) * 5.7
@@ -112,8 +123,8 @@ def r_manto(e):
     # Y el cuello de piel clara, mullido, a los hombros.
     for k in range(9):
         a = math.radians(-120 + k * 30)
-        e.add(lambda P, cc=Z(3.6 * math.sin(a), 3.9, 3.2 + 2.6 * math.cos(a)): sd_esfera(P, cc, 1.3), 'piel_clara', 0.3,
-              'manto')
+        e.add(lambda P, cc=Z(3.6 * math.sin(a), 3.9, 3.2 + 2.6 * math.cos(a)), r=1.3 * min(1.0, (f - 0.7) / 0.3 + 0.2):
+              sd_esfera(P, cc, r), 'piel_clara', 0.3, 'manto')
 
 
 def r_collar(e):
@@ -138,12 +149,15 @@ def r_capa(e):
     e.add(capa, 'tela', 0, 'capa')
 
 
-def r_yelmo(e):
+def r_yelmo(e, g=1.0):
     # EL YELMO ABOLLADO: un casco de hierro sobre la cabeza, con la ranura de los ojos y dos abolladuras; las orejas
-    # asoman por los lados.
+    # asoman por los lados. 'g' (la evolucion): la chatarra le crece encima de la cabeza (de dentro de ella a su tamaño).
+    if g <= 0.0:
+        return
     c = Z(0, 5.5, 3.5)
+    t = 0.7 + 0.3 * g
     def yelmo(P):
-        d = sd_elipsoide(P, c, np.array([3.1, 3.2, 2.7]))
+        d = sd_elipsoide(P, c, np.array([3.1, 3.2, 2.7]) * t)
         d = np.maximum(d, 2.7 - P[:, 2])                                       # solo la mitad de arriba
         d = np.maximum(d, -sd_esfera(P, c + np.array([1.9, 1.3, 1.6]), 0.8))   # abolladuras
         d = np.maximum(d, -sd_esfera(P, c + np.array([-1.2, -0.6, 2.2]), 0.7))
@@ -151,29 +165,31 @@ def r_yelmo(e):
         return d
     e.add(yelmo, 'hierro', 0, 'yelmo', 'cabeza')
     # Una cresta remachada por arriba.
-    e.add(lambda P: sd_caja(P, c + np.array([0, -0.4, 2.55]), [[1, 0, 0], [0, 1, 0], [0, 0, 1]], [0.4, 2.0, 0.45]), 'oxido', 0,
+    e.add(lambda P: sd_caja(P, c + np.array([0, -0.4, 2.55 * t]), [[1, 0, 0], [0, 1, 0], [0, 0, 1]], [0.4, 2.0 * t, 0.45]), 'oxido', 0,
           'yelmo', 'cabeza')
 
 
-def r_tapa(e, delante=False):
+def r_tapa(e, delante=False, f=1.0):
     # LA TAPA DE OLLA de escudo: un disco de hierro con el borde oxidado y el asa en medio. En el costado (A) o por
     # delante del hombro (B).
     if delante:
         c = Z(3.6, 3.6, 2.8); n = np.array([0.75, 0.66, 0.0])
     else:
         c = Z(5.0, -0.4, 3.0); n = np.array([1.0, 0.0, 0.25])
+    if f <= 0.0:
+        return
     n = n / np.linalg.norm(n)
     u = np.cross(n, [0, 0, 1.0]); u /= np.linalg.norm(u); v = np.cross(n, u)
     ejes = [n, u, v]
     def disco(P, c=c, ejes=ejes):
         q = (P - c) @ np.array(ejes).T
         r = np.sqrt(q[:, 1] ** 2 + q[:, 2] ** 2)
-        return np.maximum(r - (2.7 if delante else 3.2), np.abs(q[:, 0]) - 0.32)
+        return np.maximum(r - (2.7 if delante else 3.2) * f, np.abs(q[:, 0]) - 0.32)
     e.add(disco, 'hierro', 0, 'tapa')
     def borde(P, c=c, ejes=ejes):
         q = (P - c) @ np.array(ejes).T
         r = np.sqrt(q[:, 1] ** 2 + q[:, 2] ** 2)
-        return np.maximum(np.abs(r - (2.6 if delante else 3.1)) - 0.32, np.abs(q[:, 0]) - 0.42)
+        return np.maximum(np.abs(r - (2.6 if delante else 3.1) * f) - 0.32, np.abs(q[:, 0]) - 0.42)
     e.add(borde, 'oxido', 0, 'tapa')
     e.add(lambda P, cc=c + n * 0.45: sd_esfera(P, cc, 0.55), 'oxido', 0, 'tapa')
 
@@ -186,16 +202,21 @@ def r_clavos(e):
         e.add(lambda P, a=p, b=p + d * 2.8: sd_cono(P, a, b, 0.55, 0.1), 'hierro', 0, 'clavo')
 
 
-def r_placas(e, sobre_manto=False):
+def r_placas(e, sobre_manto=False, crece=None):
     # EL PETO DE PLACAS: chapas remachadas por el lomo (unas de hierro y otras oxidadas), con hebillas de cuero.
-    # Sobre el manto (la linea elegida: camada A -> chatarra B) van por fuera de las pieles.
+    # Sobre el manto (la linea elegida: camada A -> chatarra B) van por fuera de las pieles. 'crece(i)' (la evolucion,
+    # 0..1): la placa i (0-6), luego las hebillas (7) y la hombrera (8); a 0 no esta.
+    crece = crece or (lambda i: 1.0)
     fuera = 1.6 if sobre_manto else 0.15
     for i, (y, ang) in enumerate(((1.4, 0), (-0.6, 0), (-2.6, 0), (0.4, 50), (0.4, -50), (-1.8, 55), (-1.8, -55))):
+        g = crece(i)
+        if g <= 0.0:
+            continue
         p = _sobre_cuerpo(y, ang, fuera)
         a = math.radians(ang)
         nrm = np.array([math.sin(a), 0.0, math.cos(a)])
         lado = np.array([math.cos(a), 0.0, -math.sin(a)])
-        e.add(lambda P, c=p, ej=[lado, [0, 1.0, 0], nrm]: sd_caja(P, c, ej, [1.4, 1.1, 0.22], 0.1),
+        e.add(lambda P, c=p, ej=[lado, [0, 1.0, 0], nrm], g=g: sd_caja(P, c, ej, [1.4 * g, 1.1 * g, 0.22], 0.1),
               'hierro' if i % 3 else 'oxido', 0, 'placa')
         e.add(lambda P, c=p + nrm * 0.25: sd_esfera(P, c, 0.22), 'oxido', 0, 'placa')
     if sobre_manto:
@@ -204,12 +225,15 @@ def r_placas(e, sobre_manto=False):
     else:
         heb_c, heb_r, heb_z = 2.6, np.array([4.25, 0.6, 3.05]), 1.8
         hom_c, hom_z = Z(-3.0, 3.0, 3.6), 3.4
-    for y in (0.4, -1.6):
-        def hebilla(P, y=y):
-            return np.maximum(np.abs(sd_elipsoide(P, Z(0, y, heb_c), heb_r)) - 0.18, heb_z - P[:, 2])
-        e.add(hebilla, 'cuero', 0, 'hebilla')
+    if crece(7) > 0.0:
+        for y in (0.4, -1.6):
+            def hebilla(P, y=y):
+                return np.maximum(np.abs(sd_elipsoide(P, Z(0, y, heb_c), heb_r)) - 0.18, heb_z - P[:, 2])
+            e.add(hebilla, 'cuero', 0, 'hebilla')
     # La hombrera: una chapa curva sobre el hombro derecho.
-    e.add(lambda P: np.maximum(np.abs(sd_esfera(P, hom_c, 1.9)) - 0.25, hom_z - P[:, 2]), 'hierro', 0, 'placa')
+    g = crece(8)
+    if g > 0.0:
+        e.add(lambda P: np.maximum(np.abs(sd_esfera(P, hom_c, 1.9 * g)) - 0.25, hom_z - P[:, 2]), 'hierro', 0, 'placa')
 
 
 def r_clavada(e):
