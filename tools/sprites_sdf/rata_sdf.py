@@ -531,6 +531,28 @@ if VAR in ('cloacas', 'desguace'):
         return L
 
 
+# LA RATA CON CHATARRA (31/10, rey-rata-mutante): RATA_VAR=chatarra. La que llama el Rey del desguace ("arma a la
+# camada"): la rata de siempre, a su tamaño, con el dedal de casco y la placa remachada al lomo (la A de
+# rata_chatarra_versiones.py, la que eligio el jefe). Las animaciones de la rata (sin comer: viene llamada, no muta).
+if VAR == 'chatarra':
+    sys.modules.setdefault('rata_sdf', sys.modules[__name__])
+    import rey_rata_versiones as _rrv
+    MODELO = Modelo(1.2, (48, 48), (24, 24), _rrv._mat(), (0.12, 0.09, 0.07), suaves=('cuerpo',),
+                    brillan=('ojo', 'brillo'), estira=ESTIRA, corta_suelo=True)
+    SALIDA = 'tools/salida/sdf/rata_sdf_chatarra/'
+    VISTAS = os.path.join(os.path.expanduser('~'), 'Desktop', 'ataques_mapa', 'enemigos', 'prueba_3d', 'mutantes',
+                          'rata_chatarra_hojas') + os.sep
+    ANIMS = {k: ANIMS[k] for k in ['idle', 'walk', 'basico', 'desgarro', 'agazapado', 'salto_rata', 'frenesi',
+                                   'embestida', 'chillido', 'dentellada', 'yugular', 'zarandeo', 'encaje', 'muerte']}
+
+    def escena(pose):
+        import rata_chatarra_versiones as rc
+        e = rc._Rata(pose)
+        rc.r_dedal(e)
+        rc.r_placa_lomo(e)
+        return e.L
+
+
 if __name__ == '__main__':
     args = sys.argv[1:]
     if args == ['vistas']:
