@@ -11,6 +11,7 @@
 #    marchito A   ESPANTAJO: altisimo y flaco, muy encorvado, la cabeza colgando delante, una COPA de ramas muertas y
 #                 brazos larguisimos hasta el suelo con garras
 #    marchito B   TOCON ARAÑA: un tocon PARTIDO y HUECO (luz violeta dentro) que anda sobre seis raices como una araña
+#    ambar C      el TOCON ARAÑA de corteza viva rebosando ambar por arriba, chorreones, ojos y grumos de ambar (su peticion)
 #    carnivoro A  FLOR: flaco, de piernas de ave, la cabeza una FLOR con boca de dientes, latigos con capullos y manos
 #                 de petalos-garra
 #    carnivoro B  FAUCES: sin piernas, sobre una masa de raices gordas; unas FAUCES enormes parten el tronco y las ramas
@@ -356,26 +357,47 @@ def espantajo():
 # ------------------------------------------------------------
 #  MARCHITO B -- TOCON ARAÑA
 # ------------------------------------------------------------
-def tocon_arana():
+def tocon_arana(ambar=False):
+    # 'ambar' (02/11, "haz el de ambar como el B de este"): el mismo tocon araña pero de corteza VIVA, rebosando ambar
+    # por la boca de arriba (un domo con bichos), con chorreones por los costados, ojos de ambar y grumos en las rodillas.
     e = _Cuerpo()
+    mat = 'corteza' if ambar else 'seca'
     # EL TOCON: ancho y bajo, en alto sobre las patas; la boca de arriba PARTIDA en astillas y HUECO por dentro.
     eje = [(0, 0, 8.0), (0, 0.3, 14.0), (0, 0.5, 21.0)]
     rad = [8.0, 8.6, 8.2]
-    _tubo(e, eje, rad, 'seca', 'cuerpo', 1.5)
-    _elip(e, (0, 0.5, 21.2), (6.4, 6.4, 1.2), 'hueco', 0, 'hueco')
-    _elip(e, (0, 0.5, 21.0), (2.6, 2.6, 1.3), 'grieta_luz', 0, 'hueco')
+    _tubo(e, eje, rad, mat, 'cuerpo', 1.5)
+    if ambar:
+        # (la tapa del tronco es redonda y sube hasta z 29: el domo va ENCIMA, o la tapa se lo come)
+        _ambar_con_bichos(e, (0, 0.5, 27.5), (5.8, 5.8, 3.8), 3, 61, 0.6)
+        _escarabajo(e, V((0, 1.5, 29.0)), 1.3)
+        # y se DESBORDA: grumos que caen por el borde, entre las astillas
+        for k, ang in enumerate((40, 110, 200, 290)):
+            a = math.radians(ang)
+            _ambar_con_bichos(e, (math.cos(a) * 6.0, 0.5 + math.sin(a) * 6.0, 24.0), (3.0, 3.0, 3.6), k % 2, 70 + k, 0.8)
+        for k, ang in enumerate((20, 55, 125, 160, 215, 270, 325)):
+            p = _sobre(eje, rad, 0.95, ang, -0.3)
+            _gota(e, p, 5.0 + (k % 3) * 2.5, 0.8 + 0.15 * (k % 2))
+    else:
+        _elip(e, (0, 0.5, 21.2), (6.4, 6.4, 1.2), 'hueco', 0, 'hueco')
+        _elip(e, (0, 0.5, 21.0), (2.6, 2.6, 1.3), 'grieta_luz', 0, 'hueco')
     rnd = random.Random(5)
     for i in range(11):
         a = i / 11 * 2 * math.pi
         alto = rnd.uniform(3.0, 9.0) if math.sin(a) < 0.5 else rnd.uniform(2.0, 4.0)
         b = V((math.cos(a) * 7.4, 0.5 + math.sin(a) * 7.4, 20.0))
-        _cono(e, b, b + V((math.cos(a) * 0.8, math.sin(a) * 0.8, alto)), 1.6, 0.1, 'seca', 0.3, 'astilla')
-    _grietas(e, eje, rad, (30, 150, 210, 330), 'savia_negra', 'grieta_luz', 41, 0.0, 0.9, 0.2)
-    # La cara, en el frente del tocon: ojos violeta y una raja dentada.
-    _ojos(e, V((0, 9.2, 16.5)), 2.4, 'ojo_palido', (1.0, 0.5, 0.7))
+        if ambar:
+            alto += 6.0          # que asomen por encima del ambar
+        _cono(e, b, b + V((math.cos(a) * 0.8, math.sin(a) * 0.8, alto)), 1.6, 0.1, mat, 0.3, 'astilla')
+    if not ambar:
+        _grietas(e, eje, rad, (30, 150, 210, 330), 'savia_negra', 'grieta_luz', 41, 0.0, 0.9, 0.2)
+    # La cara, en el frente del tocon: ojos (violeta o de ambar) y una raja dentada.
+    _ojos(e, V((0, 9.2, 16.5)), 2.4, 'ojo_ambar' if ambar else 'ojo_palido', (1.0, 0.5, 0.7))
     _elip(e, (0, 9.0, 12.5), (3.4, 0.7, 1.1), 'hueco', 0, 'boca')
     for x in (-2.4, -0.8, 0.8, 2.4):
-        _cono(e, (x, 9.3, 13.4), (x, 9.6, 12.0), 0.45, 0.06, 'seca', 0, 'diente')
+        _cono(e, (x, 9.3, 13.4), (x, 9.6, 12.0), 0.45, 0.06, mat, 0, 'diente')
+    if ambar:
+        for x in (-1.6, 1.4):
+            _gota(e, V((x, 9.4, 11.8)), 2.2, 0.45)
     # SEIS RAICES como patas de araña: salen del tocon, suben a la rodilla y bajan clavadas al suelo.
     for i in range(6):
         a = (i + 0.5) / 6 * 2 * math.pi + (0.0 if i < 3 else 0.0)
@@ -383,13 +405,15 @@ def tocon_arana():
         b = V((0, 0, 9.0)) + u * 7.0
         rod = V((0, 0, 15.0)) + u * 14.0
         punta = V((0, 0, 0.3)) + u * 19.0
-        _tubo(e, [b, rod, punta], [2.4, 1.7, 0.3], 'seca', 'pata%d' % i, 0.4)
+        _tubo(e, [b, rod, punta], [2.4, 1.7, 0.3], mat, 'pata%d' % i, 0.4)
+        if ambar:
+            _ambar_con_bichos(e, rod, (2.4, 2.4, 2.2), 1 if i % 2 else 0, 80 + i, 0.4)
     # Dos brazos flacos por delante, que agarran.
     for s in (-1, 1):
         g = 'brazo%d' % s
         mano = V((6.5 * s, 16.0, 6.0))
-        _tubo(e, [(5.0 * s, 6.0, 15.0), (8.5 * s, 11.0, 13.0), mano], [1.6, 1.3, 1.1], 'seca', g, 0.4)
-        _dedos(e, mano, (0.0, 1.0, -0.6), 'seca', 3, 4.5, 0.5, 1.1, g)
+        _tubo(e, [(5.0 * s, 6.0, 15.0), (8.5 * s, 11.0, 13.0), mano], [1.6, 1.3, 1.1], mat, g, 0.4)
+        _dedos(e, mano, (0.0, 1.0, -0.6), mat, 3, 4.5, 0.5, 1.1, g)
     return e.L
 
 
@@ -581,6 +605,7 @@ VERSIONES = [
     ('ambar B relicario', relicario, ('ambar',)),
     ('marchito A espantajo', espantajo, ()),
     ('marchito B tocon', tocon_arana, ()),
+    ('ambar C tocon', lambda: tocon_arana(True), ('ambar',)),
     ('carnivoro A flor', flor, ()),
     ('carnivoro B fauces', fauces, ()),
     ('ascua (nueva)', ascua, ()),
