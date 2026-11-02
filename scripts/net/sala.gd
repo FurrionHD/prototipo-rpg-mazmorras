@@ -65,15 +65,22 @@ static func ruta_pedido(clave_: String) -> String:
 
 
 # Lo que la sala cuenta de si misma, leido desde FUERA (el menu). Vacio = no hay fichero.
+# La sala lo reescribe (_escribir) vaciandolo y escribiendo despues: pillado en medio sale vacio o a
+# medias, y eso NO es "no hay sala" (el menu lo borraba y lanzaba otra; banco 02/11). Se vuelve a leer.
 static func leer_estado(clave_: String) -> Dictionary:
 	var ruta := ruta_estado(clave_)
-	if not FileAccess.file_exists(ruta):
-		return {}
-	var f := FileAccess.open(ruta, FileAccess.READ)
-	if f == null:
-		return {}
-	var d = JSON.parse_string(f.get_as_text())
-	return d if d is Dictionary else {}
+	for intento in 10:
+		if not FileAccess.file_exists(ruta):
+			return {}
+		var f := FileAccess.open(ruta, FileAccess.READ)
+		if f != null:
+			var texto := f.get_as_text()
+			f.close()
+			var j := JSON.new()
+			if texto != "" and j.parse(texto) == OK and j.data is Dictionary:
+				return j.data
+		OS.delay_msec(20)
+	return {}
 
 
 func _ready() -> void:
