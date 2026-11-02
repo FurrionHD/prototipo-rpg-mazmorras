@@ -129,6 +129,11 @@ static var GENERADORES_POR_NOMBRE := {
 	# justo cuando lo que se esta haciendo es otra cosa. Una familia con un solo miembro es una
 	# coincidencia, no una regla.
 	&"minotauro": MinotauroSprites,
+	# LOS BICHOS DEL AMBAR (02/11, trent-mutante): los suelta la costra del Tocon ambarino. Los tres son familia INSECTO
+	# (las slayer) y no se parecen en nada entre ellos ni a los insectos del piso: por nombre, como la araña y compañia.
+	&"garrapata": Garrapata3DSprites,
+	&"mosquito": Mosquito3DSprites,
+	&"pelotero": Pelotero3DSprites,
 }
 
 

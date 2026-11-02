@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_pri"]
+script = ExtResource("2")
+estado = 50
+prob = 0.7
+
+[resource]
+script = ExtResource("1")
+nombre = "Bola de caca"
+descripcion = "Se gira, apunta con las patas de atrás y te manda rodando lo que lleva toda la pelea amasando. No preguntes de qué es."
+coste_energia = 0.0
+dano_mult = 0.8
+efectos = [SubResource("SA_pri")]
+fx_estilo = 10
+fx_anim = &"bola"
+cooldown = 3
+; EL PELOTERO DEL AMBAR (02/11, trent-mutante): su UNICA habilidad. La bola rueda en LINEA 100 px y al que pilla lo deja
+; PRINGADO (sin objetos). Luego se hace otra (la hoja 'bola': la patea y le crece una nueva al lado).
+forma = 3
+forma_apunte = 1
+forma_radio = 100.0
+forma_ancho = 14.0

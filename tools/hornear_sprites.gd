@@ -139,6 +139,17 @@ func _hornear_enemigos() -> void:
 					bytes += n_r
 					total += 1
 					recortados += _avisar_recortes(sf_r, clave_r)
+			# Y SUS VARIANTES DE LA PELEA SIN SER MUTANTE (02/11, las hinchazones de la garrapata del ambar).
+			if g.has_method("variantes_de_mutante") and not g.has_method("tiene_mutante"):
+				for vr in g.variantes_de_mutante(ed, &""):
+					var clave_vn: String = g.clave_variante_de(ed, &"", vr)
+					var sf_vn: SpriteFrames = g.generar_variante_de(ed, &"", vr)
+					var n_vn: int = SpriteLienzo.hornear(sf_vn, clave_vn) if sf_vn != null else 0
+					if n_vn > 0:
+						bytes += n_vn
+						total += 1
+						recortados += _avisar_recortes(sf_vn, clave_vn)
+						sueltas += _avisar_islas(sf_vn, clave_vn)
 			# Y LOS SPRITES DE SUS MUTACIONES (06/10, el arbol del slime normal: brotado, punzante, brotado punzante).
 			for mdat in ed.mutaciones:
 				if mdat == null or not g.has_method("tiene_mutante") or not g.tiene_mutante(ed, mdat.id):

@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/abilities/mosquito_picadura.tres" id="2_pic"]
+
+; EL MOSQUITO DEL AMBAR (02/11, trent-mutante): lo suelta la costra del Tocon ambarino. Vuela (solo en el dibujo, como
+; la polilla). Solo el basico y la Picadura (el Picor). Aguanta como la Rata acorazada.
+; Vive FUERA de scenes/actors/enemy para que nunca salga sola por un piso, y no suelta nada (es invocada).
+[resource]
+script = ExtResource("1")
+dureza = 1.0
+familia = 3
+enemy_name = "Mosquito del ámbar"
+historia = "Del tamaño de un gato y con la misma educación. Lleva mil años sin comer y se le nota en la trompa."
+sprite_gen = &"mosquito"
+centro_suelo = 0.5
+color = Color(0.45, 0.28, 0.12, 1)
+escala_visual = 1.2
+fuerza = 16
+resistencia = 16
+destreza = 34
+agilidad = 50
+magia = 14
+voluntad = 20
+franja_low = 0.0
+franja_high = 0.45
+base_hp = 22.0
+base_attack = 3.5
+base_defense = 2.4
+base_magic = 1.5
+base_speed = 6.0
+move_speed_min = 45.0
+move_speed_max = 75.0
+chase_speed_mult = 2.6
+alcance = 15.0
+habilidades = [ExtResource("2_pic")]
+prob_habilidad = 0.5
+metadata/_custom_type_script = "uid://le6jfvhlcbou"

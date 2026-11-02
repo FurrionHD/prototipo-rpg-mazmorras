@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/abilities/pelotero_bola.tres" id="2_bol"]
+
+; EL PELOTERO DEL AMBAR (02/11, trent-mutante): lo suelta la costra del Tocon ambarino. Siempre con su bola al lado. Solo
+; el basico y la Bola de caca (Pringado: sin objetos). Aguanta como la Rata acorazada.
+; Vive FUERA de scenes/actors/enemy para que nunca salga sola por un piso, y no suelta nada (es invocada).
+[resource]
+script = ExtResource("1")
+dureza = 1.0
+familia = 3
+enemy_name = "Pelotero del ámbar"
+historia = "Un escarabajo que se pasó mil años empujando la misma bola dentro del ámbar. Ahora que está fuera, tiene a quién tirársela."
+sprite_gen = &"pelotero"
+centro_suelo = 0.5
+color = Color(0.16, 0.24, 0.18, 1)
+escala_visual = 1.3
+fuerza = 24
+resistencia = 40
+destreza = 26
+agilidad = 26
+magia = 12
+voluntad = 22
+franja_low = 0.0
+franja_high = 0.45
+base_hp = 22.0
+base_attack = 3.5
+base_defense = 2.4
+base_magic = 1.5
+base_speed = 6.0
+move_speed_min = 45.0
+move_speed_max = 75.0
+chase_speed_mult = 2.6
+alcance = 15.0
+habilidades = [ExtResource("2_bol")]
+prob_habilidad = 0.5
+metadata/_custom_type_script = "uid://le6jfvhlcbou"

@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/abilities/garrapata_enganche.tres" id="2_eng"]
+
+; LA GARRAPATA DEL AMBAR (02/11, trent-mutante): la suelta la costra del Tocon ambarino al romperse (una al azar de las
+; tres, tope 2 vivas). Solo el basico y el Enganche. Se HINCHA con cada chupada y, muerta hinchada, REVIENTA (las hojas
+; garrapata_h1..h3_sdf; la mecanica va aparte). Aguanta como la Rata acorazada.
+; Vive FUERA de scenes/actors/enemy para que nunca salga sola por un piso, y no suelta nada (es invocada).
+[resource]
+script = ExtResource("1")
+dureza = 1.0
+familia = 3
+enemy_name = "Garrapata del ámbar"
+historia = "Llevaba mil años dentro de una gota de ámbar con la boca abierta. Ha salido con la misma cara y con la misma hambre."
+sprite_gen = &"garrapata"
+centro_suelo = 0.5
+color = Color(0.55, 0.36, 0.18, 1)
+escala_visual = 1.2
+fuerza = 20
+resistencia = 36
+destreza = 30
+agilidad = 32
+magia = 12
+voluntad = 20
+franja_low = 0.0
+franja_high = 0.45
+base_hp = 22.0
+base_attack = 3.5
+base_defense = 2.4
+base_magic = 1.5
+base_speed = 6.0
+move_speed_min = 45.0
+move_speed_max = 75.0
+chase_speed_mult = 2.6
+alcance = 15.0
+habilidades = [ExtResource("2_eng")]
+prob_habilidad = 0.5
+metadata/_custom_type_script = "uid://le6jfvhlcbou"

@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_pic"]
+script = ExtResource("2")
+estado = 49
+prob = 0.7
+
+[resource]
+script = ExtResource("1")
+nombre = "Picadura"
+descripcion = "Una trompa del largo de un dedo, sin prisa y sin anestesia. Lo que se lleva no es mucho. Lo que te deja, sí."
+coste_energia = 0.0
+dano_mult = 0.7
+robo_vida = 0.5
+efectos = [SubResource("SA_pic")]
+fx_estilo = 14
+fx_anim = &"picadura"
+cooldown = 2
+; EL MOSQUITO DEL AMBAR (02/11, trent-mutante): su UNICA habilidad. Cuerpo a cuerpo: chupa (la mitad para el) y te deja
+; el PICOR (pierdes energia al empezar cada turno tuyo). No se pega: pica y se va.

@@ -1543,6 +1543,7 @@ func tick_statuses() -> Dictionary:
 	var total_dmg: float = 0.0
 	var total_heal: float = 0.0
 	var total_mana: float = 0.0
+	var picor: float = 0.0   # fraccion de la energia QUE QUEDA que se pierde (el Picor del mosquito del ambar)
 	var stunned: bool = false
 	var expired: Array = []
 	var dot_labels: Array = []
@@ -1581,6 +1582,7 @@ func tick_statuses() -> Dictionary:
 			heal_labels.append("%s %.1f" % [str(e.d.get("icono", "?")), cura])
 		if mana > 0.0:
 			total_mana += mana
+		picor += float(e.d.get("picor", 0.0))
 		if es_stat and e.fresh:
 			e.fresh = false   # se salta el primer decremento: activo durante este turno
 			kept.append(e)
@@ -1622,6 +1624,11 @@ func tick_statuses() -> Dictionary:
 		heal(total_heal)
 	if total_mana > 0.0:
 		regen_mana(total_mana)
+	var energia_perdida: float = current_energy * minf(picor, 1.0) if picor > 0.0 else 0.0
+	if energia_perdida > 0.0:
+		spend_energy(energia_perdida)
+		print("[estado] %s pierde energía por el picor: %.2f | EN %.2f/%.2f" % [nombre, energia_perdida,
+			current_energy, max_energy])
 	# Log de consola para montar Excel (combate completo copiable). Un [estado] por
 	# tick con el desglose de DoT + la vida resultante, mas expiraciones y aturdido.
 	if total_dmg > 0.0:
@@ -1639,7 +1646,7 @@ func tick_statuses() -> Dictionary:
 		print("[estado] %s: se le pasa el %s (se disipa) -> actua con normalidad" % [nombre, nom])
 	if stunned:
 		print("[estado] %s aturdido: pierde el turno" % nombre)
-	return {"damage": total_dmg, "heal": total_heal, "mana": total_mana, "stunned": stunned,
+	return {"damage": total_dmg, "heal": total_heal, "mana": total_mana, "energia": energia_perdida, "stunned": stunned,
 		"expired": expired, "dot": dot_labels, "heal_labels": heal_labels}
 
 
@@ -2137,6 +2144,7 @@ const PUERTA_ENRAIZADO := 2
 const PUERTA_ENROSCADO := 4
 const PUERTA_PEGADO := 8
 const PUERTA_CONGELADO := 16
+const PUERTA_PRINGADO := 32
 var puertas_remotas: int = -1
 
 
@@ -2196,6 +2204,17 @@ func congelado() -> bool:
 	return false
 
 
+# ¿Pringado? (la Bola de caca del pelotero del ambar, 02/11): no puede usar objetos. Viaja como puerta (el maniqui del
+# espejo no tiene estados y el boton de Objeto saldria encendido).
+func pringado() -> bool:
+	if puertas_remotas >= 0:
+		return (puertas_remotas & PUERTA_PRINGADO) != 0
+	for e in statuses:
+		if bool(e.d.get("sin_objetos", false)):
+			return true
+	return false
+
+
 # Las puertas en un numero, para mandarlas en la instantanea del espejo (ver puertas_remotas).
 func puertas() -> int:
 	var v: int = 0
@@ -2209,6 +2228,8 @@ func puertas() -> int:
 		v |= PUERTA_PEGADO
 	if congelado():
 		v |= PUERTA_CONGELADO
+	if pringado():
+		v |= PUERTA_PRINGADO
 	return v
 
 

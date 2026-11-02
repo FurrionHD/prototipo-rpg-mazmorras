@@ -1932,6 +1932,8 @@ func _log_tick(c: Combatant, ev: Dictionary) -> void:
 		_set_log("%s se cura %s (%.2f). ✚" % [c.nombre, ", ".join(ev.get("heal_labels", [])), float(ev.heal)])
 	if float(ev.get("mana", 0.0)) > 0.0:
 		_set_log("%s recupera %.2f de maná. 🔷" % [c.nombre, float(ev.mana)])
+	if float(ev.get("energia", 0.0)) > 0.0:
+		_set_log("A %s el picor le quita %.2f de energía. 🦟" % [c.nombre, float(ev.energia)])
 	if not (ev.expired as Array).is_empty():
 		_set_log("A %s se le disipa: %s." % [c.nombre, ", ".join(ev.expired)])
 
@@ -2007,6 +2009,8 @@ func _motivo_bloqueo(id: int) -> String:
 	# tengas una jugada.
 	if _player != null and _player.enraizado() and id == Action.HABILIDAD and not tactico:
 		return "Estás enraizado (puedes lanzar hechizos)"
+	if _player != null and _player.pringado() and id == Action.OBJETO:
+		return "Estás pringado: no puedes usar objetos"
 	if not _preps_turno.is_empty() and id in [Action.MAGIC, Action.OBJETO, Action.HABILIDAD]:
 		return "Ya te has preparado este turno: te quedan el básico, Defender, Pasar o la otra preparación"
 	if id == Action.ATTACK and tactico and _pasa_el_turno():
@@ -2076,7 +2080,7 @@ func _accion_disponible(id: int) -> bool:
 		# para abrir un submenu sin nada dentro.
 		Action.HABILIDAD: return _tiene_alguna_habilidad() \
 			and not _player.silenciado() and not (_player.enraizado() and not tactico)
-		Action.OBJETO: return Game.consumibles_total() > 0
+		Action.OBJETO: return Game.consumibles_total() > 0 and not _player.pringado()
 	return false
 
 

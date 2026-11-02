@@ -52,7 +52,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	CONGELACION,
 	DECRETO,
 	EN_SOMBRAS, FURIA_REY, COLMILLOS_ROTOS, MUSGO_QUEMADO,
-	RESINADO, SAVIA_NEGRA }
+	RESINADO, SAVIA_NEGRA,
+	PICOR, PRINGADO }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -101,6 +102,9 @@ const QUEMADURA_FRACCION := 0.30
 const RESCOLDO_FRACCION := 0.15
 # LA CONGELACION (07/10): lo que te deja andar en tu turno (la mitad).
 const CONGELACION_MOV := 0.5
+# EL PICOR (02/11, el mosquito del ambar): la parte de la energia que TE QUEDA que pierdes al empezar cada turno tuyo (de la
+# que queda y no de la maxima, decision del jefe: "con poca no te afecta tanto; con la maxima te destroza la energia").
+const PICOR_ENERGIA := 0.10
 # Cuantas quemaduras sueltas puede llevar uno a la vez (si no, una lluvia de chispas llenaria la lista).
 const BRASAS_MAX := 6
 
@@ -554,6 +558,19 @@ static var _defs: Dictionary = {
 		"turns": 3, "stack_mode": "merge", "max_stacks": 5, "def_mult": 0.92, "debuff": true,
 		"descripcion": "Una savia negra que se come la armadura. Huele a árbol muerto y a herrero llorando.",
 	},
+	# LOS BICHOS DEL AMBAR (02/11, trent-mutante: los suelta la costra del Tocon ambarino). El PICOR (la Picadura del
+	# mosquito): al empezar cada turno tuyo pierdes una parte de tu energia ('picor': fraccion de la que te QUEDA, ver
+	# Combatant.tick_statuses). Y el PRINGADO (la Bola de caca del pelotero): no puedes usar objetos mientras te dure.
+	Id.PICOR: {
+		"id": Id.PICOR, "nombre": "Picor", "icono": "🦟", "color": Color(0.85, 0.5, 0.35),
+		"turns": 3, "picor": PICOR_ENERGIA, "debuff": true,
+		"descripcion": "Te ha picado algo prehistórico. Rascarte cansa más que pelear.",
+	},
+	Id.PRINGADO: {
+		"id": Id.PRINGADO, "nombre": "Pringado", "icono": "💩", "color": Color(0.5, 0.36, 0.2),
+		"turns": 2, "sin_objetos": true, "debuff": true,
+		"descripcion": "Llevas las manos llenas de algo que no es barro. No vas a meterlas en la mochila.",
+	},
 	Id.CONGELACION: {
 		"id": Id.CONGELACION, "nombre": "Congelación", "icono": "❄", "color": Color(0.6, 0.85, 1.0),
 		"turns": 1, "mov_mult": CONGELACION_MOV,
@@ -946,6 +963,10 @@ class Instance extends RefCounted:
 			lineas.append("No te mueves ni puedes hacer nada más que pasar.")
 		if bool(d.get("pega", false)):
 			lineas.append("Te chupa cada turno suyo hasta que se la quitan.")
+		if float(d.get("picor", 0.0)) > 0.0:
+			lineas.append("Al empezar tu turno pierdes el %d %% de la energía que te quede." % roundi(float(d["picor"]) * 100.0))
+		if bool(d.get("sin_objetos", false)):
+			lineas.append("Impide usar objetos.")
 		# ESCOLTA, igual: era un chip mudo.
 		if float(d.get("seguimiento_pct", 0.0)) > 0.0:
 			lineas.append("Atacas detrás de un compañero.")
@@ -1107,6 +1128,10 @@ static func efecto_legible(id: int, mult: float = 0.0, escala: float = 1.0) -> S
 		return "le enrosca: no se mueve ni puede hacer nada más que pasar"
 	if bool(d.get("pega", false)):
 		return "se le pega encima y le chupa cada turno"
+	if float(d.get("picor", 0.0)) > 0.0:
+		return "le quita energía al empezar cada turno suyo"
+	if bool(d.get("sin_objetos", false)):
+		return "no le deja usar objetos"
 	if float(d.get("seguimiento_pct", 0.0)) > 0.0:
 		return "pegas detrás de cada aliado realizando un %d%% del daño básico" % roundi(
 			float(d["seguimiento_pct"]) * 100.0)

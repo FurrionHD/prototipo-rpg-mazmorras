@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Enganche"
+descripcion = "Salta, se agarra con las pinzas y mete la cabeza. No se va a ir hasta que esté llena. Y cada vez está más llena."
+coste_energia = 0.0
+dano_mult = 0.6
+robo_vida = 0.5
+fx_estilo = 114
+fx_anim = &"adherirse"
+cooldown = 3
+; LA GARRAPATA DEL AMBAR (02/11, trent-mutante: la suelta la costra del Tocon ambarino). Su UNICA habilidad: salta hasta
+; 60 px y se queda PEGADA como el Chupasimas (AbilityData.pega, CombatTactico.empezar_pegada). Ya pegada, esta misma
+; es su chupada de cada turno (la que roba vida, ver combat_enemigos: x0,6 y la mitad para ella).
+forma = 1
+forma_apunte = 3
+forma_radio = 12.0
+forma_rango = 60.0
+salta = true
+pega = true
+fx_estilo_mapa = 159
