@@ -11,6 +11,7 @@
 #            A  HILOS violeta que reptan por el suelo y BOLITAS de luz que suben por ellos
 #            B  un REMOLINO sobre la victima y MOTAS que vuelan en espiral hasta el
 #            C  una RAIZ negra que asoma entre los dos y LATE: pulsos de luz que viajan hasta el
+#  A LA ESCALA DEL ESPANTAJO (casi 1,5 veces el trent): a la del jabali el chorro y los hilos eran rayas finas.
 #  NADA DE LINEAS (efectos-sin-lineas): todo relleno. NADA se queda en el suelo: las manchas se apagan. Coordenadas de
 #  MUNDO.
 # ============================================================
@@ -207,7 +208,7 @@ func _salpica(capa: Node2D, p: Vector2, u: float, tam: float) -> void:
 # ------------------------------------------------------------
 #  EL GEISER
 # ------------------------------------------------------------
-const ALTO_CHORRO := 120.0
+const ALTO_CHORRO := 170.0
 
 # EL CHORRO: sale de la grieta y sube (0..1 = 'sube'); despues la cola se despega y sube detras ('suelta' 0..1).
 func _chorro(capa: Node2D, sube: float, suelta: float, ancho: float) -> Vector2:
@@ -253,20 +254,20 @@ func _geiser(capa: Node2D) -> void:
 
 # A: el chorro sube y se va; las GOTAS gordas caen sobre el area con su salpicadura.
 func _geiser_gotas(capa: Node2D, sube: float, suelta: float) -> void:
-	_chorro(capa, sube, suelta, 7.0)
+	_chorro(capa, sube, suelta, 14.0)
 	for p in _piezas:
 		var u: float = (_t - float(p["t0"])) / 0.28
 		var tam: float = float(p["tam"])
 		var en: Vector2 = p["en"]
 		if u >= 0.0 and u < 1.0 and capa == _delante:
-			_gota(capa, en + Vector2(0.0, -150.0 * (1.0 - u * u)), 3.2 * tam, 1.4 + u, 1.0)
+			_gota(capa, en + Vector2(0.0, -190.0 * (1.0 - u * u)), 6.0 * tam, 1.4 + u, 1.0)
 		elif u >= 1.0:
-			_salpica(capa, en, (_t - float(p["t0"]) - 0.28) / 0.35, tam)
+			_salpica(capa, en, (_t - float(p["t0"]) - 0.28) / 0.35, 1.8 * tam)
 
 
 # B: el chorro sube y en lo alto forma una NUBE de savia sobre el area que llueve y se deshace.
 func _geiser_nube(capa: Node2D, sube: float, suelta: float) -> void:
-	var arriba: Vector2 = _chorro(capa, sube, suelta, 6.0)
+	var arriba: Vector2 = _chorro(capa, sube, suelta, 12.0)
 	var cielo: Vector2 = _c + Vector2(0.0, -ALTO_CHORRO * 0.85)
 	var forma: float = clampf((_t - T_SALE - 0.2) / 0.3, 0.0, 1.0)
 	var deshace: float = clampf((_t - 1.3) / 0.35, 0.0, 1.0)
@@ -275,7 +276,7 @@ func _geiser_nube(capa: Node2D, sube: float, suelta: float) -> void:
 		for j in 7:
 			var a: float = TAU * float(j) / 7.0 + 0.3
 			var q: Vector2 = centro + Vector2(cos(a) * _r * 0.6, sin(a) * 6.0) * forma
-			var rr: float = (9.0 + 3.0 * sin(float(j) * 2.1 + _t * 3.0)) * forma * (1.0 - deshace * 0.6)
+			var rr: float = (16.0 + 4.0 * sin(float(j) * 2.1 + _t * 3.0)) * forma * (1.0 - deshace * 0.6)
 			if capa == _delante:
 				MagiaMayor._disco(capa, q, rr, Color(SAVIA, 1.0 - deshace), Color(NEGRO, 0.9 * (1.0 - deshace)))
 				capa.draw_circle(q + Vector2(-rr * 0.3, -rr * 0.35), rr * 0.35, Color(BORDE, 0.5 * (1.0 - deshace)))
@@ -286,14 +287,14 @@ func _geiser_nube(capa: Node2D, sube: float, suelta: float) -> void:
 		var en: Vector2 = p["en"]
 		var desde: Vector2 = Vector2(en.x, cielo.y + 8.0)
 		if u >= 0.0 and u < 1.0 and capa == _delante:
-			_gota(capa, desde.lerp(en, u * u), 1.6 * float(p["tam"]), 2.4, 1.0)
+			_gota(capa, desde.lerp(en, u * u), 3.2 * float(p["tam"]), 2.4, 1.0)
 		elif u >= 1.0:
-			_salpica(capa, en, (_t - float(p["t0"]) - 0.22) / 0.3, 0.6 * float(p["tam"]))
+			_salpica(capa, en, (_t - float(p["t0"]) - 0.22) / 0.3, 1.2 * float(p["tam"]))
 
 
 # C: el chorro se abre arriba en BRAZOS de tinta que se curvan y caen como latigos, cada uno sobre un punto del area.
 func _geiser_brazos(capa: Node2D, sube: float, suelta: float) -> void:
-	var arriba: Vector2 = _chorro(capa, sube, 0.0 if _t < 1.2 else clampf((_t - 1.2) / 0.3, 0.0, 1.0), 8.0)
+	var arriba: Vector2 = _chorro(capa, sube, 0.0 if _t < 1.2 else clampf((_t - 1.2) / 0.3, 0.0, 1.0), 16.0)
 	for p in _piezas:
 		var t0: float = float(p["t0"])
 		var u: float = clampf((_t - t0) / 0.25, 0.0, 1.0)
@@ -303,7 +304,7 @@ func _geiser_brazos(capa: Node2D, sube: float, suelta: float) -> void:
 			continue
 		if capa == _delante and vuelve < 1.0:
 			# el brazo: de lo alto del chorro, arqueado hacia fuera, hasta el punto; crece a lo largo y se recoge
-			var ctrl: Vector2 = arriba.lerp(en, 0.5) + Vector2(float(p["lado"]) * 40.0, -50.0)
+			var ctrl: Vector2 = arriba.lerp(en, 0.5) + Vector2(float(p["lado"]) * 50.0, -70.0)
 			var hasta: float = u * (1.0 - vuelve)
 			var pts := PackedVector2Array()
 			var an := PackedFloat32Array()
@@ -311,10 +312,10 @@ func _geiser_brazos(capa: Node2D, sube: float, suelta: float) -> void:
 				var s: float = float(i) / 11.0 * hasta
 				var q: Vector2 = arriba.lerp(ctrl, s).lerp(ctrl.lerp(en, s), s)
 				pts.append(q)
-				an.append(lerpf(6.0, 2.0, s) * (1.0 - vuelve * 0.5))
+				an.append(lerpf(13.0, 4.0, s) * (1.0 - vuelve * 0.5))
 			_cinta(capa, pts, an, Color(SAVIA, 1.0))
 		if u >= 1.0:
-			_salpica(capa, en, (_t - t0 - 0.25) / 0.4, 1.4)
+			_salpica(capa, en, (_t - t0 - 0.25) / 0.4, 2.4)
 
 
 # ------------------------------------------------------------
@@ -331,7 +332,7 @@ func _chupar(capa: Node2D) -> void:
 func _camino(u: float, curva: float, onda: float) -> Vector2:
 	var d: Vector2 = _c - _o
 	var n: Vector2 = d.orthogonal().normalized() * Vector2(1.0, 0.6)
-	return _o.lerp(_c, u) + n * (sin(PI * u) * curva * 14.0 + sin(u * 9.0 + onda) * 2.0)
+	return _o.lerp(_c, u) + n * (sin(PI * u) * curva * 22.0 + sin(u * 9.0 + onda) * 3.0)
 
 
 # A: HILOS violeta que reptan de la victima a sus pies y BOLITAS de luz que suben por ellos.
@@ -347,7 +348,7 @@ func _chupar_hilos(capa: Node2D) -> void:
 			for i in 16:
 				var u: float = float(i) / 15.0 * crece
 				pts.append(_camino(u, curva, fase + _t * 4.0))
-				an.append(1.8)
+				an.append(3.6)
 			_cinta(capa, pts, an, Color(SAVIA, 0.9 * (1.0 - apaga)))
 		elif capa == _brillo:
 			var pts2 := PackedVector2Array()
@@ -355,39 +356,39 @@ func _chupar_hilos(capa: Node2D) -> void:
 			for i in 16:
 				var u2: float = float(i) / 15.0 * crece
 				pts2.append(_camino(u2, curva, fase + _t * 4.0))
-				an2.append(0.8)
+				an2.append(1.6)
 			_cinta(capa, pts2, an2, Color(VIOLETA, 0.6 * (1.0 - apaga)))
 			for j in 2:
 				var ub: float = (_t - 0.3 - float(j) * 0.25 - float(p["k"]) * 0.08) / 0.5
 				if ub < 0.0 or ub > 1.0:
 					continue
 				var q: Vector2 = _camino(ub, curva, fase + _t * 4.0)
-				capa.draw_circle(q, 2.6, Color(VIOLETA, 0.5))
-				capa.draw_circle(q, 1.3, Color(LUZ, 0.9))
+				capa.draw_circle(q, 4.5, Color(VIOLETA, 0.5))
+				capa.draw_circle(q, 2.2, Color(LUZ, 0.9))
 	if capa == _brillo:
 		var llega: float = clampf((_t - 0.75) / 0.4, 0.0, 1.0) * (1.0 - apaga)
-		capa.draw_circle(_c, 8.0 * llega, Color(VIOLETA, 0.3 * llega))
+		capa.draw_circle(_c, 16.0 * llega, Color(VIOLETA, 0.3 * llega))
 
 
 # B: un REMOLINO oscuro sobre la victima (cuñas que giran y se cierran) y MOTAS que salen en espiral y vuelan a el.
 func _chupar_espiral(capa: Node2D) -> void:
 	var abre: float = clampf(_t / 0.25, 0.0, 1.0) * (1.0 - clampf((_t - 1.0) / 0.3, 0.0, 1.0))
-	var sobre: Vector2 = _o + Vector2(0.0, -14.0)
+	var sobre: Vector2 = _o + Vector2(0.0, -20.0)
 	if capa == _delante and abre > 0.0:
 		for j in 5:
 			var a: float = TAU * float(j) / 5.0 + _t * 7.0
-			MagiaMayor._cuna(capa, sobre, a, 2.0, 13.0 * abre, 0.6, Color(SAVIA, 0.85 * abre), 0.6)
+			MagiaMayor._cuna(capa, sobre, a, 3.0, 22.0 * abre, 0.6, Color(SAVIA, 0.85 * abre), 0.6)
 	for p in _piezas:
 		var u: float = (_t - float(p["t0"])) / 0.7
 		if u < 0.0 or u > 1.0:
 			continue
 		var giro: float = float(p["fase"]) + u * 9.0
-		var rr: float = 12.0 * (1.0 - u)
-		var hacia: Vector2 = sobre.lerp(_c + Vector2(0.0, -30.0), u * u)
+		var rr: float = 18.0 * (1.0 - u)
+		var hacia: Vector2 = sobre.lerp(_c + Vector2(0.0, -90.0), u * u)
 		var q: Vector2 = hacia + Vector2(cos(giro), sin(giro) * 0.5) * rr - Vector2(0.0, 18.0 * sin(PI * u))
 		if capa == _brillo:
-			capa.draw_circle(q, 2.4, Color(VIOLETA, 0.45 * (1.0 - u * 0.4)))
-			capa.draw_circle(q, 1.1, Color(LUZ, 0.9))
+			capa.draw_circle(q, 4.0, Color(VIOLETA, 0.45 * (1.0 - u * 0.4)))
+			capa.draw_circle(q, 2.0, Color(LUZ, 0.9))
 
 
 # C: una RAIZ negra que asoma del suelo entre los dos (ondulada, gorda, con el filo violeta) y LATE: bultos de luz que
@@ -395,7 +396,7 @@ func _chupar_espiral(capa: Node2D) -> void:
 func _chupar_raiz(capa: Node2D) -> void:
 	var asoma: float = clampf(_t / 0.3, 0.0, 1.0)
 	var hunde: float = clampf((_t - 1.0) / 0.3, 0.0, 1.0)
-	var grosor: float = 4.0 * asoma * (1.0 - hunde)
+	var grosor: float = 8.0 * asoma * (1.0 - hunde)
 	var pts := PackedVector2Array()
 	var an := PackedFloat32Array()
 	for i in 20:
@@ -404,7 +405,7 @@ func _chupar_raiz(capa: Node2D) -> void:
 		var late: float = 0.0
 		for p in _piezas:
 			var ul: float = (_t - 0.25 - float(p["k"]) * 0.14) / 0.45
-			late += 2.2 * exp(-pow((u - ul) / 0.06, 2.0))
+			late += 4.5 * exp(-pow((u - ul) / 0.06, 2.0))
 		an.append(grosor * (0.8 + 0.3 * sin(u * 11.0)) + late * (1.0 - hunde))
 	if capa == _delante:
 		_cinta(capa, pts, an, Color(SAVIA, 1.0))
@@ -417,9 +418,9 @@ func _chupar_raiz(capa: Node2D) -> void:
 		for j in 3:
 			var a: float = -PI * 0.5 + (float(j) - 1.0) * 0.9
 			var b: Vector2 = _o + Vector2(cos(a) * 3.0, 2.0)
-			var garfio := PackedVector2Array([b, b + Vector2(cos(a) * 7.0, sin(a) * 9.0) * asoma * (1.0 - hunde),
-				b + Vector2(cos(a) * 9.0 + 2.0, sin(a) * 6.0) * asoma * (1.0 - hunde)])
-			var ang := PackedFloat32Array([2.4 * (1.0 - hunde), 1.4, 0.4])
+			var garfio := PackedVector2Array([b, b + Vector2(cos(a) * 12.0, sin(a) * 15.0) * asoma * (1.0 - hunde),
+				b + Vector2(cos(a) * 15.0 + 3.0, sin(a) * 10.0) * asoma * (1.0 - hunde)])
+			var ang := PackedFloat32Array([4.0 * (1.0 - hunde), 2.4, 0.6])
 			_cinta(capa, garfio, ang, Color(SAVIA, 1.0))
 	elif capa == _brillo:
 		for p in _piezas:
@@ -427,7 +428,7 @@ func _chupar_raiz(capa: Node2D) -> void:
 			if ul2 < 0.0 or ul2 > 1.0:
 				continue
 			var q: Vector2 = _camino(ul2, 0.6, 1.0) - Vector2(0.0, 2.0 * sin(PI * ul2))
-			capa.draw_circle(q, 3.2, Color(VIOLETA, 0.5))
-			capa.draw_circle(q, 1.4, Color(LUZ, 0.9))
+			capa.draw_circle(q, 5.5, Color(VIOLETA, 0.5))
+			capa.draw_circle(q, 2.6, Color(LUZ, 0.9))
 			if ul2 > 0.9:
 				capa.draw_circle(_c, 9.0 * (ul2 - 0.9) * 10.0, Color(VIOLETA, 0.25))

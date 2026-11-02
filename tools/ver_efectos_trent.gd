@@ -12,7 +12,7 @@ const ESCALA := 1.15           # SpriteLienzo.UNIDADES_POR_CELDA
 const SUELO := Color(0.13, 0.12, 0.14)
 const T := [0.0, 0.3, 0.45, 0.6, 0.75, 0.9, 1.05, 1.2, 1.4, 1.6]
 const HOJAS := "res://tools/salida/sdf/trent_sdf_espantajo/"
-const LIENZO := Vector2(300, 330)
+const LIENZO := Vector2(340, 400)
 const DIR := 1                 # la fila de las hojas: mirando abajo a la derecha (hacia el area)
 
 var _rotulo: Label = null
@@ -55,7 +55,7 @@ func _hacer() -> void:
 	_esp.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_esp.position = Vector2(-70, 40)
 	add_child(_esp)
-	var grieta: Vector2 = _esp.position + Vector2(-4, -88)
+	var grieta: Vector2 = _esp.position + Vector2(-10, -125)   # la grieta de la espalda, bajo la copa
 	var centro := Vector2(55, 55)
 
 	for v in 3:

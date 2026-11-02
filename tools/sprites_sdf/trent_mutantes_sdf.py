@@ -20,13 +20,32 @@ V = np.array
 VAR = os.environ.get('TRENT_VAR', 'ambarino')
 ESC = {'ambarino': 2.5 * 1.15, 'espantajo': 2.5 * 1.3}[VAR]
 ESC_ANTES = {'ambarino': 2.5, 'espantajo': 2.5 * 1.15}[VAR]
-LIENZO = {'ambarino': (240, 216), 'espantajo': (300, 330)}[VAR]
+LIENZO = {'ambarino': (240, 216), 'espantajo': (340, 400)}[VAR]   # (330 de alto: la copa se salia al alzar los brazos)
 PIES = (LIENZO[0] / 2.0, LIENZO[1] * 2.10 / 3.80)
 SALIDA = 'tools/salida/sdf/trent_sdf_%s/' % VAR
 VISTAS = os.path.join(os.path.expanduser('~'), 'Desktop', 'ataques_mapa', 'enemigos', 'prueba_3d', 'mutantes',
                       'trent_%s_hojas' % VAR) + os.sep
-MODELO = Modelo(ESC, LIENZO, PIES, tv._mat(), (0.12, 0.06, 0.05), suaves=('cuerpo', 'musgo'), brillan=tv.BRILLAN,
-                corta_suelo=True, especular=('ambar', 'savia_negra'), umbral_especular=0.9,
+# EL PUDRIRSE de la evolucion al Espantajo, POCO A POCO (02/11: cambiar el material de golpe "es muy de golpe"): tonos
+# intermedios del ambar a la savia negra, de la corteza viva a la seca y de los ojos de ambar a los palidos.
+PUDRE = 5
+PUDRE_DE = {'ambar': 'savia_negra', 'corteza': 'seca', 'ojo_ambar': 'ojo_palido'}
+
+
+def _mat_pudre():
+    m = tv._mat()
+    for de, a in PUDRE_DE.items():
+        for k in range(1, PUDRE):
+            u = k / PUDRE
+            t0, t1 = m[de], m[a]
+            n = min(len(t0), len(t1))
+            m['%s_p%d' % (de, k)] = [tuple(t0[i][c] * (1 - u) + t1[i][c] * u for c in range(3)) for i in range(n)]
+    return m
+
+
+MODELO = Modelo(ESC, LIENZO, PIES, _mat_pudre(), (0.12, 0.06, 0.05), suaves=('cuerpo', 'musgo'),
+                brillan=tv.BRILLAN + tuple('ojo_ambar_p%d' % k for k in range(1, PUDRE)),
+                corta_suelo=True, especular=('ambar', 'savia_negra') + tuple('ambar_p%d' % k for k in range(1, PUDRE)),
+                umbral_especular=0.9,
                 translucidos=('ambar',) if VAR == 'ambarino' else (), alfa=0.72)
 
 
@@ -305,9 +324,11 @@ def anim_muerte(t):
                     hunde=tramos(t, [(0.0, 0.0), (0.3, 1.0), (0.6, 6.0), (0.8, 8.0), (1.0, 7.6)]),
                     balanceo=tramos(t, [(0.0, 0.0), (0.3, -0.8), (0.8, 1.6), (1.0, 1.5)]),
                     alza=tramos(t, [(0.0, 0.0), (0.3, 0.6), (1.0, -0.5)]))
-    # SE DESPLOMA DE BRUCES como un arbol seco: se tambalea, se dobla y cae hacia delante acelerando.
-    return POSE(tumba=tramos(t, [(0.0, 0.0), (0.14, -0.04), (0.28, 0.10), (0.45, 0.40), (0.62, 0.80), (0.78, 1.02),
-                                 (0.90, 0.97), (1.0, 1.0)]),
+    # SE DERRUMBA DE RODILLAS como un arbol seco que se quiebra: se tambalea, le fallan las piernas, se hinca y se dobla
+    # hacia delante (no cae cuan largo es: no cabia en el lienzo y en la pelea tapaba media pantalla).
+    return POSE(tumba=tramos(t, [(0.0, 0.0), (0.14, -0.04), (0.28, 0.05), (0.45, 0.20), (0.62, 0.38), (0.78, 0.50),
+                                 (0.90, 0.47), (1.0, 0.48)]),
+                hunde=tramos(t, [(0.0, 0.0), (0.28, 1.0), (0.45, 5.0), (0.62, 9.0), (0.78, 10.0), (1.0, 10.0)]),
                 mece=tramos(t, [(0.0, 0.0), (0.14, -1.0), (0.45, 1.5), (1.0, 2.0)]),
                 alza=tramos(t, [(0.0, 0.0), (0.28, 0.6), (0.62, 1.0), (1.0, 1.1)]),
                 recoge=tramos(t, [(0.0, 0.0), (0.45, 1.0), (1.0, 2.0)]),
@@ -356,7 +377,7 @@ ANIMS = {
     'encaje': (4, 18.0, False, 8, anim_encaje),
     'muerte': (8, 10.0, False, 8, anim_muerte),
     'comer': (10, 10.0, False, 8, anim_comer),
-    'evolucion': (18, 10.0, False, 8, anim_evolucion),
+    'evolucion': (18 if VAR == 'ambarino' else 24, 10.0, False, 8, anim_evolucion),   # (el pudrirse, despacio)
 }
 if VAR == 'espantajo':
     ANIMS['geiser_carga'] = (8, 8.0, True, 8, anim_geiser_carga)
@@ -429,18 +450,25 @@ def escena(pose):
     # DEL TOCON AL ESPANTAJO: el ambar se PUDRE (ennegrece) y el tocon se hunde en la tierra encogiendo las patas;
     # de ese sitio el Espantajo SALE CRECIENDO del suelo como un arbol, desplegando la copa.
     s_t = ESC_ANTES / ESC
-    if evo < 0.62:
-        negro = _paso(evo, 0.05, 0.35)
-        sink = _paso(evo, 0.35, 0.62)
+    if evo < 0.66:
+        sink = _paso(evo, 0.42, 0.66)
         pt = POSE(recoge=0.7 * sink, hunde=14.0 * sink, balanceo=pose['balanceo'])
         e = _Esc(huesos_tocon(pt))
         piezas_tocon(e)
         Lt = list(e.L)
-        if negro >= 0.5:
-            Lt = _cambia_mat(Lt, {'ambar': 'savia_negra', 'corteza': 'seca', 'ojo_ambar': 'ojo_palido'})
+        # primero se pudre el ambar y los ojos; la corteza se seca un poco despues
+        cambios = {}
+        for de, a_, u in (('ambar', 'savia_negra', _paso(evo, 0.04, 0.36)), ('ojo_ambar', 'ojo_palido', _paso(evo, 0.04, 0.36)),
+                          ('corteza', 'seca', _paso(evo, 0.14, 0.44))):
+            k = int(round(u * PUDRE))
+            if k >= PUDRE:
+                cambios[de] = a_
+            elif k > 0:
+                cambios[de] = '%s_p%d' % (de, k)
+        Lt = _cambia_mat(Lt, cambios)
         L.extend(_escala(Lt, s_t))
-    if evo > 0.45:
-        sube = _paso(evo, 0.45, 0.95)
+    if evo > 0.52:
+        sube = _paso(evo, 0.52, 0.96)
         Lm = list(escena_mutante(POSE(mece=1.2 * (1 - sube), alza=0.8 * (1 - sube), cabeza=2.0 * (1 - sube))))
         L.extend(_escala(Lm, 0.55 + 0.45 * sube, -38.0 * (1 - sube)))
     return L
