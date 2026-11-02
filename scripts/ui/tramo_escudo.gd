@@ -3,7 +3,9 @@
 #  EL ESCUDO DE AGUA EN LA BARRA DE VIDA (09/10/2026, set Marea; eligio "burbuja + barra"): un tramo azul encima de la
 #  vida, justo detras de lo que tienes. Si vida + escudo pasa del maximo, el tramo se mete hacia dentro desde el final
 #  (para que se vea entero). Sin escudo no pinta nada. Es un hijo de la ProgressBar de la vida, del tamaño de ella.
-#  Y LA COSTRA DE AMBAR (02/11, el Tocon ambarino): lo mismo en ambar (poner_costra), en un tramo aparte.
+#  Y LA COSTRA DE AMBAR (02/11, el Tocon ambarino; como la quiso el jefe): una capa ambar ENCIMA de la vida, desde la
+#  IZQUIERDA y del ancho de lo que le queda (entera, el 20 % de la barra). Los golpes se comen primero el ambar (se
+#  encoge hacia la izquierda) y, rota, la vida baja como siempre, de derecha a izquierda (poner_costra, tramo aparte).
 # ============================================================
 extends Control
 class_name TramoEscudo
@@ -18,6 +20,7 @@ var _max: float = 1.0
 var _escudo: float = 0.0
 var _color: Color = AGUA
 var _brillo: Color = ESPUMA
+var _desde_izquierda: bool = false   # la costra: encima de la vida desde el borde izquierdo
 
 
 # Pone (o actualiza) el tramo en 'barra'. Devuelve el texto que va detras del numero de vida ("" sin escudo).
@@ -27,12 +30,12 @@ static func poner(barra: ProgressBar, vida: float, maximo: float, escudo: float)
 
 
 static func poner_costra(barra: ProgressBar, vida: float, maximo: float, costra: float) -> String:
-	_poner(barra, "TramoCostra", vida, maximo, costra, AMBAR, AMBAR_BRILLO)
+	_poner(barra, "TramoCostra", vida, maximo, costra, AMBAR, AMBAR_BRILLO, true)
 	return "  +%.0f 🍯" % costra if costra > 0.0 else ""
 
 
 static func _poner(barra: ProgressBar, nombre: String, vida: float, maximo: float, escudo: float, color: Color,
-		brillo: Color) -> void:
+		brillo: Color, desde_izquierda: bool = false) -> void:
 	var t: TramoEscudo = barra.get_node_or_null(nombre) as TramoEscudo
 	if t == null:
 		if escudo <= 0.0:
@@ -41,6 +44,7 @@ static func _poner(barra: ProgressBar, nombre: String, vida: float, maximo: floa
 		t.name = nombre
 		t._color = color
 		t._brillo = brillo
+		t._desde_izquierda = desde_izquierda
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		t.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		barra.add_child(t)
@@ -59,7 +63,10 @@ func _draw() -> void:
 	var h: float = size.y
 	var desde: float = clampf(_vida / _max, 0.0, 1.0)
 	var hasta: float = clampf((_vida + _escudo) / _max, 0.0, 1.0)
-	if (_vida + _escudo) > _max:
+	if _desde_izquierda:
+		desde = 0.0
+		hasta = clampf(_escudo / _max, 0.0, 1.0)
+	elif (_vida + _escudo) > _max:
 		# No cabe detras: se mete desde el final hacia dentro, del ancho del escudo.
 		hasta = 1.0
 		desde = clampf(1.0 - _escudo / _max, 0.0, 1.0)
