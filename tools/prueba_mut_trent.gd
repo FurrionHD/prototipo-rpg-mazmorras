@@ -227,9 +227,13 @@ func _pelea() -> void:
 	_ver(tm.cuerpo_de(g) != null, "tiene cuerpo en el mapa")
 	var eng: AbilityData = g.habilidades[0]
 	var ps: Vector2 = tm.pies_de(yo)
+	# A su lado (el salto del Tocon la deja donde caiga, a veces fuera de los 60 px del Enganche).
+	var cg: Node2D = tm.cuerpo_de(g)
+	cg.global_position += ps + Vector2(35, 0) - tm.pies_de(g)
+	tm._pos[g] = cg.global_position
+	await _esperar(3)
 	for _i in 8:
 		g.ability_cooldowns.clear()
-		tm._pos[g] = tm.cuerpo_de(g).global_position
 		en._enemy_use_ability(g, eng, yo)
 		await _esperar(3)
 		if g.hinchazon > 0:
