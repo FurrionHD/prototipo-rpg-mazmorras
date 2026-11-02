@@ -237,6 +237,15 @@ func _probar_chillon(combat, t, e, al: Array) -> void:
 	var pic: AbilityData = load("res://resources/abilities/chillon_picado.tres")
 	# (07/10) La presa HACIA DENTRO de la zona de pelea: el salto se para donde se acaba el suelo, y con el chillon cerca
 	# del borde la presa caia fuera y la prueba fallaba a ratos (0-15 px). Se busca un lado con 110 px de zona por delante.
+	# (02/11) Y EL CHILLON DENTRO DE LA ZONA: lo de antes de la prueba a veces lo deja en el borde, con el nodo ya fuera; sin
+	# ningun lado que valga se quedaba en la derecha, el salto no puede salir de la zona y fallaba con 0 px (2 de 10).
+	if not t._en_arena(t.pos_de(e)):
+		for cand in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]:
+			var dentro: Vector2 = t.pos_de(e) + cand * 120.0
+			if t._en_arena(dentro):
+				t._colocar(e, t.cuerpo_de(e), dentro)
+				await _esperar(2)
+				break
 	pe = t.pies_de(e)
 	var lado: Vector2 = Vector2.RIGHT
 	for cand in [Vector2.RIGHT, Vector2.LEFT, Vector2.DOWN, Vector2.UP]:
