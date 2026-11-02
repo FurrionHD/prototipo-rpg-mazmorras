@@ -22,9 +22,13 @@ ESC = {'ambarino': 2.5 * 1.15, 'espantajo': 2.5 * 1.3}[VAR]
 ESC_ANTES = {'ambarino': 2.5, 'espantajo': 2.5 * 1.15}[VAR]
 LIENZO = {'ambarino': (240, 216), 'espantajo': (340, 400)}[VAR]   # (330 de alto: la copa se salia al alzar los brazos)
 PIES = (LIENZO[0] / 2.0, LIENZO[1] * 2.10 / 3.80)
-SALIDA = 'tools/salida/sdf/trent_sdf_%s/' % VAR
+# SIN COSTRA (02/11, la variante de la pelea del Tocon cuando se le rompe la costra de ambar: "se ve sin costra" hasta
+# que le vuelve a brotar): sin el ambar, con el domo roto (un hueco arriba) y las cuencas vacias en las rodillas.
+SIN_COSTRA = VAR == 'ambarino' and os.environ.get('TRENT_SIN_COSTRA', '') == '1'
+_suf = VAR + ('_sin_costra' if SIN_COSTRA else '')
+SALIDA = 'assets/sprites/enemigos/trent_sdf_%s/' % _suf   # (02/11, "estan guapardos": ya van al juego)
 VISTAS = os.path.join(os.path.expanduser('~'), 'Desktop', 'ataques_mapa', 'enemigos', 'prueba_3d', 'mutantes',
-                      'trent_%s_hojas' % VAR) + os.sep
+                      'trent_%s_hojas' % _suf) + os.sep
 # EL PUDRIRSE de la evolucion al Espantajo, POCO A POCO (02/11: cambiar el material de golpe "es muy de golpe"): tonos
 # intermedios del ambar a la savia negra, de la corteza viva a la seca y de los ojos de ambar a los palidos.
 PUDRE = 5
@@ -122,12 +126,18 @@ def huesos_tocon(p):
 
 
 def piezas_tocon(e, ambar=True):
-    # El cuerpo de la lamina ('ambar C tocon'), con cada cosa en su hueso.
+    # El cuerpo de la lamina ('ambar C tocon'), con cada cosa en su hueso. SIN_COSTRA: sin el ambar (lo de abajo lo quita).
     mat = 'corteza' if ambar else 'seca'
     e.h = 'tronco'
     eje = [(0, 0, 8.0), (0, 0.3, 14.0), (0, 0.5, 21.0)]
     rad = [8.0, 8.6, 8.2]
     tv._tubo(e, eje, rad, mat, 'cuerpo', 1.5)
+    if SIN_COSTRA:
+        # el domo ROTO: la boca de arriba hueca, con restos de ambar pegados al borde, y las cuencas de las rodillas
+        tv._elip(e, (0, 0.5, 28.6), (5.6, 5.6, 1.0), 'hueco', 0, 'hueco')
+        for k, ang in enumerate((30, 150, 260)):
+            a = math.radians(ang)
+            tv._elip(e, (math.cos(a) * 5.2, 0.5 + math.sin(a) * 5.2, 28.0), (1.2, 1.0, 0.8), 'ambar', 0.3, 'resto')
     tv._ambar_con_bichos(e, (0, 0.5, 27.5), (5.8, 5.8, 3.8), 3, 61, 0.6)
     tv._escarabajo(e, V((0, 1.5, 29.0)), 1.3)
     for k, ang in enumerate((40, 110, 200, 290)):
@@ -155,7 +165,10 @@ def piezas_tocon(e, ambar=True):
         rod = V((0, 0, 15.0)) + u * 14.0
         punta = V((0, 0, 0.3)) + u * 19.0
         tv._tubo(e, [b, rod, punta], [2.4, 1.7, 0.3], mat, 'pata%d' % i, 0.4)
-        tv._ambar_con_bichos(e, rod, (2.4, 2.4, 2.2), 1 if i % 2 else 0, 80 + i, 0.4)
+        if SIN_COSTRA:
+            tv._elip(e, rod + V((0, 0, 0.6)), (1.5, 1.5, 0.7), 'hueco', 0, 'cuenca')
+        else:
+            tv._ambar_con_bichos(e, rod, (2.4, 2.4, 2.2), 1 if i % 2 else 0, 80 + i, 0.4)
     for s in (-1, 1):
         e.h = 'brazo_d' if s < 0 else 'brazo_i'
         g = 'brazo%d' % s
@@ -379,6 +392,8 @@ ANIMS = {
     'comer': (10, 10.0, False, 8, anim_comer),
     'evolucion': (18 if VAR == 'ambarino' else 24, 10.0, False, 8, anim_evolucion),   # (el pudrirse, despacio)
 }
+if SIN_COSTRA:
+    del ANIMS['comer'], ANIMS['evolucion']
 if VAR == 'espantajo':
     ANIMS['geiser_carga'] = (8, 8.0, True, 8, anim_geiser_carga)
     ANIMS['geiser'] = (8, 10.0, False, 8, anim_geiser)
@@ -402,6 +417,10 @@ def escena_mutante(pose):
     if VAR == 'ambarino':
         e = _Esc(huesos_tocon(pose))
         piezas_tocon(e)
+        if SIN_COSTRA:
+            # fuera el ambar del tronco (el domo, los grumos, las gotas, sus bichos y el escarabajo); quedan los restos
+            fuera = {'ambar', 'bicho'}
+            e.L[:] = [x for x in e.L if not (x[1] in fuera and x[2] != 'resto')]
     else:
         e = _Esc(huesos_espantajo(pose))
         piezas_espantajo(e, pose['carga'])

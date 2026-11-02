@@ -25,7 +25,7 @@ MODELO = Modelo(bv.ESC, (LADO, LADO), (LADO // 2, int(LADO * 0.62)), bv.MAT, (0.
                 especular=('garrapata', 'escudo', 'hinchada', 'pelotero'), umbral_especular=0.92, translucidos=('ala',),
                 alfa=0.45)
 _suf = BICHO + ('_h%d' % HINCHA if HINCHA else '')
-SALIDA = 'tools/salida/sdf/%s_sdf/' % _suf
+SALIDA = 'assets/sprites/enemigos/%s_sdf/' % _suf   # (02/11, "estan guapardos": ya van al juego)
 VISTAS = os.path.join(os.path.expanduser('~'), 'Desktop', 'ataques_mapa', 'enemigos', 'prueba_3d', 'mutantes',
                       'bicho_%s_hojas' % _suf) + os.sep
 

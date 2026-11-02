@@ -51,7 +51,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	ENCENDIDO, AVIVADO, AFILADO,
 	CONGELACION,
 	DECRETO,
-	EN_SOMBRAS, FURIA_REY, COLMILLOS_ROTOS, MUSGO_QUEMADO }
+	EN_SOMBRAS, FURIA_REY, COLMILLOS_ROTOS, MUSGO_QUEMADO,
+	RESINADO, SAVIA_NEGRA }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -539,6 +540,19 @@ static var _defs: Dictionary = {
 		"id": Id.MUSGO_QUEMADO, "nombre": "Musgo quemado", "icono": "🔥", "color": Color(0.6, 0.35, 0.2),
 		"turns": 999, "debuff": true,
 		"descripcion": "Olía a bosque. Ahora huele a jabalí a la brasa.",
+	},
+	# LOS MUTANTES DEL TRENT (02/11, trent-mutante). El RESINADO (la Resina del Tocon ambarino): te deja PEGADO al suelo
+	# como el Enraizado (no te mueves; los brazos libres), con su pegote de ambar en los pies. Y la SAVIA NEGRA (la del
+	# Espantajo): te come la armadura POR CARGAS, cada golpe suyo la renueva (no confundir con la Corrosion de siempre).
+	Id.RESINADO: {
+		"id": Id.RESINADO, "nombre": "Resinado", "icono": "🍯", "color": Color(0.95, 0.6, 0.15),
+		"turns": 1, "enraiza": true, "debuff": true,
+		"descripcion": "Tienes los pies dentro de un pegote de ámbar. Dentro de mil años alguien te encontrará así.",
+	},
+	Id.SAVIA_NEGRA: {
+		"id": Id.SAVIA_NEGRA, "nombre": "Savia negra", "icono": "🖤", "color": Color(0.55, 0.4, 0.8),
+		"turns": 3, "stack_mode": "merge", "max_stacks": 5, "def_mult": 0.92, "debuff": true,
+		"descripcion": "Una savia negra que se come la armadura. Huele a árbol muerto y a herrero llorando.",
 	},
 	Id.CONGELACION: {
 		"id": Id.CONGELACION, "nombre": "Congelación", "icono": "❄", "color": Color(0.6, 0.85, 1.0),

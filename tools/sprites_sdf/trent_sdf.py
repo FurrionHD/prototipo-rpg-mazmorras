@@ -294,7 +294,17 @@ def anim_muerte(t):
                 derrumbe=tramos(t, [(0.0, 0.0), (0.62, 0.0), (0.78, 0.06), (1.0, 0.08)]))
 
 
+# COMER UN CRISTAL (02/11, los mutantes del trent): se inclina, se lleva las manazas a la boca y masca.
+def anim_comer(t):
+    masca = math.sin(2 * math.pi * t * 4.0) * (0.25 < t < 0.85)
+    return POSE(mece=tramos(t, [(0.0, 0.0), (0.15, 1.8), (0.85, 1.8), (1.0, 0.0)]),
+                alza=tramos(t, [(0.0, 0.0), (0.15, 0.45), (0.85, 0.45), (1.0, 0.0)]) + 0.08 * masca,
+                abre=tramos(t, [(0.0, 0.0), (0.15, -0.3), (0.85, -0.3), (1.0, 0.0)]),
+                balanceo=0.25 * masca)
+
+
 ANIMS = {
+    'comer': (10, 10.0, False, 8, anim_comer),
     'idle': (8, 3.0, True, 8, anim_idle),
     'walk': (8, 5.0, True, 8, anim_walk),
     'embestida': (8, 8.0, False, 8, anim_embestida),

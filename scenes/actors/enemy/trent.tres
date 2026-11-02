@@ -7,6 +7,11 @@
 [ext_resource type="Resource" uid="uid://bq7xt2mvn4rc8" path="res://resources/abilities/trent_raices_atenazantes.tres" id="7_rai"]
 [ext_resource type="Resource" path="res://resources/materials/raiz_amarga.tres" id="5_raiz"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_trent.tres" id="6_nuc"]
+[ext_resource type="Script" path="res://scripts/actors/enemy/mutacion_data.gd" id="9_mut"]
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="10_ab"]
+[ext_resource type="Resource" path="res://resources/abilities/trent_resina.tres" id="11_res"]
+[ext_resource type="Resource" path="res://resources/abilities/trent_savia_negra.tres" id="12_sav"]
+[ext_resource type="Resource" path="res://resources/abilities/trent_geiser.tres" id="13_gei"]
 
 [sub_resource type="Resource" id="SA_ven"]
 script = ExtResource("2_sa")
@@ -19,6 +24,25 @@ script = ExtResource("2_sa")
 estado = 9
 prob = 0.4
 
+[sub_resource type="Resource" id="MUT_ambarino"]
+script = ExtResource("9_mut")
+id = &"ambarino"
+nombre = "Tocón ambarino"
+grado = 1
+habilidades = Array[ExtResource("10_ab")]([ExtResource("11_res"), ExtResource("4_plc"), ExtResource("7_rai")])
+sprite = &"ambarino"
+pesos = {"agilidad": 8, "destreza": 12, "fuerza": 28, "magia": 17, "resistencia": 56, "voluntad": 14}
+
+[sub_resource type="Resource" id="MUT_espantajo"]
+script = ExtResource("9_mut")
+id = &"espantajo"
+nombre = "Espantajo"
+grado = 2
+desde = Array[StringName]([&"ambarino"])
+habilidades = Array[ExtResource("10_ab")]([ExtResource("12_sav"), ExtResource("4_plc"), ExtResource("7_rai"), ExtResource("13_gei")])
+sprite = &"espantajo"
+pesos = {"agilidad": 16, "destreza": 18, "fuerza": 38, "magia": 15, "resistencia": 36, "voluntad": 12}
+
 [resource]
 script = ExtResource("1_g8nro")
 dureza = 3.0
@@ -27,11 +51,12 @@ enemy_name = "Trent"
 sprite_gen = &"trent"
 color = Color(0.35, 0.5, 0.25, 1)
 escala_visual = 2.5
-fuerza = 35
-resistencia = 55
-destreza = 15
+fuerza = 32
+resistencia = 50
+destreza = 14
 agilidad = 10
-magia = 20
+magia = 17
+voluntad = 12
 base_hp = 62.0
 base_attack = 4.2
 base_defense = 4.5
@@ -55,7 +80,11 @@ fx_basico = 23
 fx_basico_mapa = 142
 habilidades = [ExtResource("3_esc"), ExtResource("4_plc"), ExtResource("7_rai")]
 prob_habilidad = 0.5
+mutaciones = Array[ExtResource("9_mut")]([SubResource("MUT_ambarino"), SubResource("MUT_espantajo")])
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
+; LOS MUTANTES (02/11, trent-mutante): una linea unida por la savia. El TOCON AMBARINO (savia dura: Resina, costra de
+; ambar y bichos) y el ESPANTAJO (savia negra: Savia negra, Geiser, chupar a los enraizados, mas seco mas pega). Stats
+; (suma 135, la del trent): el normal estrena Voluntad. Sus pasivas, en el paso de mecanicas.
 ; ALCANCE del basico en el mapa (28/09): es enorme.
 alcance = 35.0
 ; SU TIEMPO DE GOLPE en el mapa (30/09, revision de sincronia): su basico toca en ese marco (CombatFX.IMPACTO_ANIM_MAPA).

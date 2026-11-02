@@ -5,7 +5,7 @@ f1 Catalardio hp=198.733 mp=24.620 en=181.275
 f1 Dasui hp=199.642 mp=20.000 en=181.300
 f1 Daniel hp=190.990 mp=20.000 en=181.025
 f1 Araña de las simas hp=56.050 mp=20.429 en=0.000
-f1 Trent hp=69.950 mp=20.627 en=0.000
+f1 Trent hp=69.950 mp=20.594 en=0.000
 f1 Jabalí hp=54.600 mp=20.330 en=0.000
 f30 LOG ¡Turno de Agirato ochinan! Elige una acción.
 f30 Agirato ochinan hp=198.795 mp=14.485 en=177.425
