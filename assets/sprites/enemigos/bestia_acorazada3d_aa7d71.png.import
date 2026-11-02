@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://co3jm7dpmcjcf"
-path="res://.godot/imported/bestia_acorazada3d_aa7d71.png-ac184514e7d188fb0751a7b414cda488.ctex"
+path.bptc="res://.godot/imported/bestia_acorazada3d_aa7d71.png-ac184514e7d188fb0751a7b414cda488.bptc.ctex"
+path.astc="res://.godot/imported/bestia_acorazada3d_aa7d71.png-ac184514e7d188fb0751a7b414cda488.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/sprites/enemigos/bestia_acorazada3d_aa7d71.png"
-dest_files=["res://.godot/imported/bestia_acorazada3d_aa7d71.png-ac184514e7d188fb0751a7b414cda488.ctex"]
+dest_files=["res://.godot/imported/bestia_acorazada3d_aa7d71.png-ac184514e7d188fb0751a7b414cda488.bptc.ctex", "res://.godot/imported/bestia_acorazada3d_aa7d71.png-ac184514e7d188fb0751a7b414cda488.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

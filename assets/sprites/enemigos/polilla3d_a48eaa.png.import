@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cv0yl8qwda2o"
-path="res://.godot/imported/polilla3d_a48eaa.png-3cbbbbd510bc95974679ee726862cce4.ctex"
+path.bptc="res://.godot/imported/polilla3d_a48eaa.png-3cbbbbd510bc95974679ee726862cce4.bptc.ctex"
+path.astc="res://.godot/imported/polilla3d_a48eaa.png-3cbbbbd510bc95974679ee726862cce4.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/sprites/enemigos/polilla3d_a48eaa.png"
-dest_files=["res://.godot/imported/polilla3d_a48eaa.png-3cbbbbd510bc95974679ee726862cce4.ctex"]
+dest_files=["res://.godot/imported/polilla3d_a48eaa.png-3cbbbbd510bc95974679ee726862cce4.bptc.ctex", "res://.godot/imported/polilla3d_a48eaa.png-3cbbbbd510bc95974679ee726862cce4.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

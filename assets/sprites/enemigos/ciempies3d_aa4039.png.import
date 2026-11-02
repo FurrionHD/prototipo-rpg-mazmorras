@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bjus8amiv58xa"
-path="res://.godot/imported/ciempies3d_aa4039.png-3b16aa02d0cdbd5a57614a244a2e1f1b.ctex"
+path.bptc="res://.godot/imported/ciempies3d_aa4039.png-3b16aa02d0cdbd5a57614a244a2e1f1b.bptc.ctex"
+path.astc="res://.godot/imported/ciempies3d_aa4039.png-3b16aa02d0cdbd5a57614a244a2e1f1b.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/sprites/enemigos/ciempies3d_aa4039.png"
-dest_files=["res://.godot/imported/ciempies3d_aa4039.png-3b16aa02d0cdbd5a57614a244a2e1f1b.ctex"]
+dest_files=["res://.godot/imported/ciempies3d_aa4039.png-3b16aa02d0cdbd5a57614a244a2e1f1b.bptc.ctex", "res://.godot/imported/ciempies3d_aa4039.png-3b16aa02d0cdbd5a57614a244a2e1f1b.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

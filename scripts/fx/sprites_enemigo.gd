@@ -453,9 +453,8 @@ static func zoom_visor(ed: EnemyData, ancho_pantalla: float) -> float:
 			if not frames.has_animation(anim):
 				continue
 			var tex: Texture2D = frames.get_frame_texture(anim, 0)
-			var img: Image = tex.get_image() if tex != null else null
-			if img != null:
-				lado = maxi(lado, maxi(img.get_width(), img.get_height()))
+			var tam: Vector2i = SpriteLienzo.caja_pintada(tex)["tam"]
+			lado = maxi(lado, maxi(tam.x, tam.y))
 	if lado > 0:
 		return ancho_pantalla / float(lado)
 	return ancho_pantalla / float(g.ancho_px(ed.escala_visual))

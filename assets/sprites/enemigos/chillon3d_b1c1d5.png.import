@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://jg17aanlf7c0"
-path="res://.godot/imported/chillon3d_b1c1d5.png-df40e13d7e23307ac1e667ab1f06a506.ctex"
+path.bptc="res://.godot/imported/chillon3d_b1c1d5.png-df40e13d7e23307ac1e667ab1f06a506.bptc.ctex"
+path.astc="res://.godot/imported/chillon3d_b1c1d5.png-df40e13d7e23307ac1e667ab1f06a506.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/sprites/enemigos/chillon3d_b1c1d5.png"
-dest_files=["res://.godot/imported/chillon3d_b1c1d5.png-df40e13d7e23307ac1e667ab1f06a506.ctex"]
+dest_files=["res://.godot/imported/chillon3d_b1c1d5.png-df40e13d7e23307ac1e667ab1f06a506.bptc.ctex", "res://.godot/imported/chillon3d_b1c1d5.png-df40e13d7e23307ac1e667ab1f06a506.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bavhusoitsxc2"
-path="res://.godot/imported/slime3d_lava160_ffb780.png-6d46a4df118fba9428cb654b63357d8c.ctex"
+path.bptc="res://.godot/imported/slime3d_lava160_ffb780.png-6d46a4df118fba9428cb654b63357d8c.bptc.ctex"
+path.astc="res://.godot/imported/slime3d_lava160_ffb780.png-6d46a4df118fba9428cb654b63357d8c.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/sprites/enemigos/slime3d_lava160_ffb780.png"
-dest_files=["res://.godot/imported/slime3d_lava160_ffb780.png-6d46a4df118fba9428cb654b63357d8c.ctex"]
+dest_files=["res://.godot/imported/slime3d_lava160_ffb780.png-6d46a4df118fba9428cb654b63357d8c.bptc.ctex", "res://.godot/imported/slime3d_lava160_ffb780.png-6d46a4df118fba9428cb654b63357d8c.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

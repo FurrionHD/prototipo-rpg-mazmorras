@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cdsuqk87yxke1"
-path="res://.godot/imported/trent3d_trent_sdf_ambarino.png-f246c3d841876a7760ab17f0a9b5e104.ctex"
+path.bptc="res://.godot/imported/trent3d_trent_sdf_ambarino.png-f246c3d841876a7760ab17f0a9b5e104.bptc.ctex"
+path.astc="res://.godot/imported/trent3d_trent_sdf_ambarino.png-f246c3d841876a7760ab17f0a9b5e104.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/sprites/enemigos/trent3d_trent_sdf_ambarino.png"
-dest_files=["res://.godot/imported/trent3d_trent_sdf_ambarino.png-f246c3d841876a7760ab17f0a9b5e104.ctex"]
+dest_files=["res://.godot/imported/trent3d_trent_sdf_ambarino.png-f246c3d841876a7760ab17f0a9b5e104.bptc.ctex", "res://.godot/imported/trent3d_trent_sdf_ambarino.png-f246c3d841876a7760ab17f0a9b5e104.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

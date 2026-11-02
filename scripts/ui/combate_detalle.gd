@@ -557,11 +557,9 @@ func _sprite_enemigo(c: Combatant) -> AnimatedSprite2D:
 	if tex != null and tex.get_height() > 0:
 		_fig_marco = tex.get_size()
 		_fig_rect = Rect2i(Vector2i.ZERO, Vector2i(tex.get_size()))
-		var img: Image = tex.get_image()
-		if img != null and img.get_height() > 0:
-			var usado: Rect2i = img.get_used_rect()
-			if usado.size.x > 0 and usado.size.y > 0:
-				_fig_rect = usado
+		var usado: Rect2i = SpriteLienzo.caja_pintada(tex)["caja"]
+		if usado.size.x > 0 and usado.size.y > 0:
+			_fig_rect = usado
 	sp.play()
 	return sp
 

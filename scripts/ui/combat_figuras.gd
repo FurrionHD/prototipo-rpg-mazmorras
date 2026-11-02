@@ -747,11 +747,11 @@ func _poner_sprite(fig: ColorRect, c: Combatant) -> void:
 		# apoyandolos por el borde del frame, los que llevan mas aire abajo (el jabali) flotaban.
 		var alto_px: float = float(tex.get_height())
 		var dentro: float = float(tex.get_height())   # donde acaba el dibujo dentro del frame
-		var img: Image = tex.get_image()
-		if img != null and img.get_height() > 0:
-			alto_px = float(img.get_height())
+		var tam: Vector2i = SpriteLienzo.caja_pintada(tex)["tam"]
+		if tam.y > 0:
+			alto_px = float(tam.y)
 			dentro = alto_px
-			fig.set_meta("ancho_base", float(img.get_width()))
+			fig.set_meta("ancho_base", float(tam.x))
 			var at := tex as AtlasTexture
 			if at != null:
 				dentro += at.margin.position.y

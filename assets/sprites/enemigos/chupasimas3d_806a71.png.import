@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cxsgmcp3lit1i"
-path="res://.godot/imported/chupasimas3d_806a71.png-43b1c889dc1e8a58190c96ea276b3fcb.ctex"
+path.bptc="res://.godot/imported/chupasimas3d_806a71.png-43b1c889dc1e8a58190c96ea276b3fcb.bptc.ctex"
+path.astc="res://.godot/imported/chupasimas3d_806a71.png-43b1c889dc1e8a58190c96ea276b3fcb.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/sprites/enemigos/chupasimas3d_806a71.png"
-dest_files=["res://.godot/imported/chupasimas3d_806a71.png-43b1c889dc1e8a58190c96ea276b3fcb.ctex"]
+dest_files=["res://.godot/imported/chupasimas3d_806a71.png-43b1c889dc1e8a58190c96ea276b3fcb.bptc.ctex", "res://.godot/imported/chupasimas3d_806a71.png-43b1c889dc1e8a58190c96ea276b3fcb.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

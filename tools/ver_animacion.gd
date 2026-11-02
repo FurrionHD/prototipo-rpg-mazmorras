@@ -110,6 +110,8 @@ func _tira(sf: SpriteFrames, nom: String) -> Image:
 		var lienzo := Image.create(w, h, false, Image.FORMAT_RGBA8)
 		lienzo.fill(Color(0, 0, 0, 0))
 		var src: Image = at.atlas.get_image()
+		if src.is_compressed():   # los atlas de enemigos van en BC7
+			src.decompress()
 		src.convert(Image.FORMAT_RGBA8)
 		lienzo.blit_rect(src, Rect2i(at.region), Vector2i(at.margin.position))
 		var amp: Image = lienzo.get_region(caja)

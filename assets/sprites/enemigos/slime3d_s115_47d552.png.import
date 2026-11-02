@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://ci80i2uj2i0ao"
-path="res://.godot/imported/slime3d_s115_47d552.png-f84e1a2acdf661e2dde30c160f36546b.ctex"
+path.bptc="res://.godot/imported/slime3d_s115_47d552.png-f84e1a2acdf661e2dde30c160f36546b.bptc.ctex"
+path.astc="res://.godot/imported/slime3d_s115_47d552.png-f84e1a2acdf661e2dde30c160f36546b.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/sprites/enemigos/slime3d_s115_47d552.png"
-dest_files=["res://.godot/imported/slime3d_s115_47d552.png-f84e1a2acdf661e2dde30c160f36546b.ctex"]
+dest_files=["res://.godot/imported/slime3d_s115_47d552.png-f84e1a2acdf661e2dde30c160f36546b.bptc.ctex", "res://.godot/imported/slime3d_s115_47d552.png-f84e1a2acdf661e2dde30c160f36546b.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

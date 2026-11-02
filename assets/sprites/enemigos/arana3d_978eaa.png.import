@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dsrbayf6cmpyj"
-path="res://.godot/imported/arana3d_978eaa.png-d1a94a9d1d82e0ee6710baa27d9e414c.ctex"
+path.bptc="res://.godot/imported/arana3d_978eaa.png-d1a94a9d1d82e0ee6710baa27d9e414c.bptc.ctex"
+path.astc="res://.godot/imported/arana3d_978eaa.png-d1a94a9d1d82e0ee6710baa27d9e414c.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/sprites/enemigos/arana3d_978eaa.png"
-dest_files=["res://.godot/imported/arana3d_978eaa.png-d1a94a9d1d82e0ee6710baa27d9e414c.ctex"]
+dest_files=["res://.godot/imported/arana3d_978eaa.png-d1a94a9d1d82e0ee6710baa27d9e414c.bptc.ctex", "res://.godot/imported/arana3d_978eaa.png-d1a94a9d1d82e0ee6710baa27d9e414c.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

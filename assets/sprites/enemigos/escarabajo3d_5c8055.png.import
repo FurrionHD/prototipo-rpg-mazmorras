@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c6g1xp2yg2yr8"
-path="res://.godot/imported/escarabajo3d_5c8055.png-0f1e8070a56c51f9f6bd54c63774ec1c.ctex"
+path.bptc="res://.godot/imported/escarabajo3d_5c8055.png-0f1e8070a56c51f9f6bd54c63774ec1c.bptc.ctex"
+path.astc="res://.godot/imported/escarabajo3d_5c8055.png-0f1e8070a56c51f9f6bd54c63774ec1c.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/sprites/enemigos/escarabajo3d_5c8055.png"
-dest_files=["res://.godot/imported/escarabajo3d_5c8055.png-0f1e8070a56c51f9f6bd54c63774ec1c.ctex"]
+dest_files=["res://.godot/imported/escarabajo3d_5c8055.png-0f1e8070a56c51f9f6bd54c63774ec1c.bptc.ctex", "res://.godot/imported/escarabajo3d_5c8055.png-0f1e8070a56c51f9f6bd54c63774ec1c.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

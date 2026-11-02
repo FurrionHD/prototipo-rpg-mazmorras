@@ -512,6 +512,7 @@ static func cargar_horneado(clave: String, carpeta: String = CARPETA_HORNO, pere
 	var hoja: Texture2D = _hoja_gris(png) if desc.gris else 		(load(png) as Texture2D if ResourceLoader.exists(png) else null)
 	if hoja == null:
 		return null
+	hoja.set_meta(META_RECORTADA, true)   # ver caja_pintada
 	var sf := SpriteFrames.new()
 	sf.remove_animation("default")
 	# Los fotogramas REPETIDOS (tools/compactar_hojas.py los deja apuntando al mismo recorte) comparten tambien el
@@ -623,6 +624,30 @@ static func _hoja_gris(png: String) -> Texture2D:
 	if img.get_format() != Image.FORMAT_LA8:
 		img.convert(Image.FORMAT_LA8)
 	return ImageTexture.create_from_image(img)
+
+
+# LO PINTADO DE UN FOTOGRAMA (02/11, atlas de enemigos en BC7): la caja con dibujo, en pixeles de la imagen de 'tex'
+# (la de get_image(): el recorte, sin el 'margin' del AtlasTexture), y el tamaño de esa imagen. Vacia si no hay nada.
+# Las hojas HORNEADAS van recortadas justo al dibujo (comprobado en los 147.889 fotogramas de enemigos): la caja es el
+# recorte entero y no hace falta leer ni un pixel. Y no se puede: su atlas va comprimido en la grafica (BC7, ver
+# tools/compactar_hojas.py) y get_image() de un AtlasTexture de un atlas comprimido falla ("Cannot blit_rect in
+# compressed image formats"). De paso se ahorra bajar la hoja entera de la grafica por cada fotograma.
+const META_RECORTADA := &"hoja_recortada"
+
+static func caja_pintada(tex: Texture2D) -> Dictionary:
+	var vacia := {"caja": Rect2i(), "tam": Vector2i.ZERO}
+	if tex == null:
+		return vacia
+	var at := tex as AtlasTexture
+	if at != null and at.atlas != null and at.atlas.has_meta(META_RECORTADA):
+		var t := Vector2i(at.region.size)
+		return {"caja": Rect2i(Vector2i.ZERO, t), "tam": t}
+	var img: Image = tex.get_image()
+	if img == null or img.is_empty():
+		return vacia
+	if img.is_compressed():
+		img.decompress()
+	return {"caja": img.get_used_rect(), "tam": img.get_size()}
 
 
 # ------------------------------------------------------------

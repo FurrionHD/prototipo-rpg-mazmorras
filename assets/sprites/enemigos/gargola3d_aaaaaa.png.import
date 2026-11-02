@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://d3m40hwh0byce"
-path="res://.godot/imported/gargola3d_aaaaaa.png-dbabe7f89ae6b538525aa18a2e51c30a.ctex"
+path.bptc="res://.godot/imported/gargola3d_aaaaaa.png-dbabe7f89ae6b538525aa18a2e51c30a.bptc.ctex"
+path.astc="res://.godot/imported/gargola3d_aaaaaa.png-dbabe7f89ae6b538525aa18a2e51c30a.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/sprites/enemigos/gargola3d_aaaaaa.png"
-dest_files=["res://.godot/imported/gargola3d_aaaaaa.png-dbabe7f89ae6b538525aa18a2e51c30a.ctex"]
+dest_files=["res://.godot/imported/gargola3d_aaaaaa.png-dbabe7f89ae6b538525aa18a2e51c30a.bptc.ctex", "res://.godot/imported/gargola3d_aaaaaa.png-dbabe7f89ae6b538525aa18a2e51c30a.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

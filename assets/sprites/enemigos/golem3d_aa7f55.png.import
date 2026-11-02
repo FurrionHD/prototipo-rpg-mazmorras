@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://1p4qtpfyl4ob"
-path="res://.godot/imported/golem3d_aa7f55.png-c68ab98afb2d79b960eddefc81863719.ctex"
+path.bptc="res://.godot/imported/golem3d_aa7f55.png-c68ab98afb2d79b960eddefc81863719.bptc.ctex"
+path.astc="res://.godot/imported/golem3d_aa7f55.png-c68ab98afb2d79b960eddefc81863719.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/sprites/enemigos/golem3d_aa7f55.png"
-dest_files=["res://.godot/imported/golem3d_aa7f55.png-c68ab98afb2d79b960eddefc81863719.ctex"]
+dest_files=["res://.godot/imported/golem3d_aa7f55.png-c68ab98afb2d79b960eddefc81863719.bptc.ctex", "res://.godot/imported/golem3d_aa7f55.png-c68ab98afb2d79b960eddefc81863719.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

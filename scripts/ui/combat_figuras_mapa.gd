@@ -331,13 +331,11 @@ func _pintado_de(tex: Texture2D) -> Rect2i:
 	if _cache_pintado.has(clave):
 		return _cache_pintado[clave]
 	var r := Rect2i(Vector2i.ZERO, tex.get_size())
-	var img: Image = tex.get_image()
-	if img != null:
-		var usado: Rect2i = img.get_used_rect()
-		# Una textura entera transparente (un fotograma en blanco) devolveria un rect vacio: en ese
-		# caso vale mas la lona entera que un cero, que dejaria la barra sin ancho.
-		if usado.size.x > 0 and usado.size.y > 0:
-			r = usado
+	var usado: Rect2i = SpriteLienzo.caja_pintada(tex)["caja"]
+	# Una textura entera transparente (un fotograma en blanco) devolveria un rect vacio: en ese
+	# caso vale mas la lona entera que un cero, que dejaria la barra sin ancho.
+	if usado.size.x > 0 and usado.size.y > 0:
+		r = usado
 	_cache_pintado[clave] = r
 	return r
 

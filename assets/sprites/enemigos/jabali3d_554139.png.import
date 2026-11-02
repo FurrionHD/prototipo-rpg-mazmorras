@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b7mi2w5f1yvx1"
-path="res://.godot/imported/jabali3d_554139.png-485b242f306b860af17bce7984331bec.ctex"
+path.bptc="res://.godot/imported/jabali3d_554139.png-485b242f306b860af17bce7984331bec.bptc.ctex"
+path.astc="res://.godot/imported/jabali3d_554139.png-485b242f306b860af17bce7984331bec.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/sprites/enemigos/jabali3d_554139.png"
-dest_files=["res://.godot/imported/jabali3d_554139.png-485b242f306b860af17bce7984331bec.ctex"]
+dest_files=["res://.godot/imported/jabali3d_554139.png-485b242f306b860af17bce7984331bec.bptc.ctex", "res://.godot/imported/jabali3d_554139.png-485b242f306b860af17bce7984331bec.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

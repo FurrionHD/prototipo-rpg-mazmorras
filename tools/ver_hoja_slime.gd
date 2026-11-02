@@ -60,6 +60,8 @@ func _hoja_con_presa(sf: SpriteFrames, anim: String, escala: float) -> Image:
 
 func _pegar(lienzo: Image, at: AtlasTexture) -> void:
 	var src: Image = at.atlas.get_image()
+	if src.is_compressed():   # los atlas de enemigos van en BC7
+		src.decompress()
 	src.convert(Image.FORMAT_RGBA8)
 	var trozo: Image = src.get_region(Rect2i(at.region))
 	lienzo.blend_rect(trozo, Rect2i(Vector2i.ZERO, trozo.get_size()), Vector2i(at.margin.position))
@@ -97,6 +99,8 @@ func _hoja(sf: SpriteFrames, anim: String) -> Image:
 			var lienzo := Image.create(wh.x, wh.y, false, Image.FORMAT_RGBA8)
 			lienzo.fill(Color(0, 0, 0, 0))
 			var src: Image = at.atlas.get_image()
+			if src.is_compressed():   # los atlas de enemigos van en BC7
+				src.decompress()
 			src.convert(Image.FORMAT_RGBA8)
 			lienzo.blit_rect(src, Rect2i(at.region), Vector2i(at.margin.position))
 			var amp: Image = lienzo.get_region(caja)

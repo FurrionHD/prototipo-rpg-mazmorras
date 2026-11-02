@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://uy1gbbr7wrx0"
-path="res://.godot/imported/gargola3d_808080.png-18f1a404eceb8e53b7cc9c3c2df4b3b3.ctex"
+path.bptc="res://.godot/imported/gargola3d_808080.png-18f1a404eceb8e53b7cc9c3c2df4b3b3.bptc.ctex"
+path.astc="res://.godot/imported/gargola3d_808080.png-18f1a404eceb8e53b7cc9c3c2df4b3b3.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/sprites/enemigos/gargola3d_808080.png"
-dest_files=["res://.godot/imported/gargola3d_808080.png-18f1a404eceb8e53b7cc9c3c2df4b3b3.ctex"]
+dest_files=["res://.godot/imported/gargola3d_808080.png-18f1a404eceb8e53b7cc9c3c2df4b3b3.bptc.ctex", "res://.godot/imported/gargola3d_808080.png-18f1a404eceb8e53b7cc9c3c2df4b3b3.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

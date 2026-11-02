@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://clqp2oghwoak6"
-path="res://.godot/imported/slime3d_pes152_47d552_parpado.png-3e308d165b3b808d0bcd8885f95ba950.ctex"
+path.bptc="res://.godot/imported/slime3d_pes152_47d552_parpado.png-3e308d165b3b808d0bcd8885f95ba950.bptc.ctex"
+path.astc="res://.godot/imported/slime3d_pes152_47d552_parpado.png-3e308d165b3b808d0bcd8885f95ba950.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/sprites/enemigos/slime3d_pes152_47d552_parpado.png"
-dest_files=["res://.godot/imported/slime3d_pes152_47d552_parpado.png-3e308d165b3b808d0bcd8885f95ba950.ctex"]
+dest_files=["res://.godot/imported/slime3d_pes152_47d552_parpado.png-3e308d165b3b808d0bcd8885f95ba950.bptc.ctex", "res://.godot/imported/slime3d_pes152_47d552_parpado.png-3e308d165b3b808d0bcd8885f95ba950.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

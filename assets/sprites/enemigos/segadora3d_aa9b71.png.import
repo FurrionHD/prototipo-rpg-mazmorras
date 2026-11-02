@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://d1vkakdrjl6bi"
-path="res://.godot/imported/segadora3d_aa9b71.png-824d8b85f9c28fc5b906fe4d0d666f98.ctex"
+path.bptc="res://.godot/imported/segadora3d_aa9b71.png-824d8b85f9c28fc5b906fe4d0d666f98.bptc.ctex"
+path.astc="res://.godot/imported/segadora3d_aa9b71.png-824d8b85f9c28fc5b906fe4d0d666f98.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/sprites/enemigos/segadora3d_aa9b71.png"
-dest_files=["res://.godot/imported/segadora3d_aa9b71.png-824d8b85f9c28fc5b906fe4d0d666f98.ctex"]
+dest_files=["res://.godot/imported/segadora3d_aa9b71.png-824d8b85f9c28fc5b906fe4d0d666f98.bptc.ctex", "res://.godot/imported/segadora3d_aa9b71.png-824d8b85f9c28fc5b906fe4d0d666f98.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

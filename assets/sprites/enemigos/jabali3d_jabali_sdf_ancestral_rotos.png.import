@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cto3vp1qnyicx"
-path="res://.godot/imported/jabali3d_jabali_sdf_ancestral_rotos.png-189f3a1aa1f5c78f43582382a75a5bbc.ctex"
+path.bptc="res://.godot/imported/jabali3d_jabali_sdf_ancestral_rotos.png-189f3a1aa1f5c78f43582382a75a5bbc.bptc.ctex"
+path.astc="res://.godot/imported/jabali3d_jabali_sdf_ancestral_rotos.png-189f3a1aa1f5c78f43582382a75a5bbc.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/sprites/enemigos/jabali3d_jabali_sdf_ancestral_rotos.png"
-dest_files=["res://.godot/imported/jabali3d_jabali_sdf_ancestral_rotos.png-189f3a1aa1f5c78f43582382a75a5bbc.ctex"]
+dest_files=["res://.godot/imported/jabali3d_jabali_sdf_ancestral_rotos.png-189f3a1aa1f5c78f43582382a75a5bbc.bptc.ctex", "res://.godot/imported/jabali3d_jabali_sdf_ancestral_rotos.png-189f3a1aa1f5c78f43582382a75a5bbc.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

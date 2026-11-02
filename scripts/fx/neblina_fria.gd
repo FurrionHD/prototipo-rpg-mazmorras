@@ -116,11 +116,9 @@ func _dibujo() -> Rect2:
 		usado = Rect2(Vector2.ZERO, tex.get_size())
 		if tex is AtlasTexture:
 			usado = Rect2((tex as AtlasTexture).margin.position, (tex as AtlasTexture).region.size)
-		var img: Image = tex.get_image()
-		if img != null:
-			var u: Rect2i = img.get_used_rect()
-			if u.size.x > 0 and u.size.y > 0:
-				usado = Rect2(usado.position + Vector2(u.position), Vector2(u.size))
+		var u: Rect2i = SpriteLienzo.caja_pintada(tex)["caja"]
+		if u.size.x > 0 and u.size.y > 0:
+			usado = Rect2(usado.position + Vector2(u.position), Vector2(u.size))
 		_cache_pintado[clave] = usado
 	var origen: Vector2 = _principal.offset - (tex.get_size() * 0.5 if _principal.centered else Vector2.ZERO)
 	var esc: Vector2 = _principal.get_global_transform().get_scale().abs()

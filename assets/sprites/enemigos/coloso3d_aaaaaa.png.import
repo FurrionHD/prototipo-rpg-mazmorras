@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://4snlcg2h4fws"
-path="res://.godot/imported/coloso3d_aaaaaa.png-ce1aeadfcb8af6ad278cce4ee560c05c.ctex"
+path.bptc="res://.godot/imported/coloso3d_aaaaaa.png-ce1aeadfcb8af6ad278cce4ee560c05c.bptc.ctex"
+path.astc="res://.godot/imported/coloso3d_aaaaaa.png-ce1aeadfcb8af6ad278cce4ee560c05c.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/sprites/enemigos/coloso3d_aaaaaa.png"
-dest_files=["res://.godot/imported/coloso3d_aaaaaa.png-ce1aeadfcb8af6ad278cce4ee560c05c.ctex"]
+dest_files=["res://.godot/imported/coloso3d_aaaaaa.png-ce1aeadfcb8af6ad278cce4ee560c05c.bptc.ctex", "res://.godot/imported/coloso3d_aaaaaa.png-ce1aeadfcb8af6ad278cce4ee560c05c.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

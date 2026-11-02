@@ -66,10 +66,7 @@ static func miniatura_enemigo(c: Combatant) -> Texture2D:
 	var clave: int = tex.get_instance_id()
 	if _recortes.has(clave):
 		return _recortes[clave]
-	var img: Image = tex.get_image()
-	if img == null:
-		return tex
-	var usado: Rect2i = img.get_used_rect()
+	var usado: Rect2i = SpriteLienzo.caja_pintada(tex)["caja"]
 	if usado.size.x <= 0 or usado.size.y <= 0:
 		return tex
 	var recorte := AtlasTexture.new()

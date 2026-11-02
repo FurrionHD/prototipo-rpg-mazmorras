@@ -6,6 +6,13 @@
 #      GRIS + ALFA, y el juego las sube a la grafica como LA8: 2 bytes por pixel en vez de 4. Su .import pasa a "keep"
 #      (Godot las exporta tal cual: con "Lossless" las guardaria en WebP y volverian a ser de 4 bytes). El JSON lo
 #      dice con "gris": true (ver SpriteLienzo.cargar_horneado).
+#   3. LOS ENEMIGOS VAN EN BC7 (02/11, el Espantajo eran 65 MB de grafica): las hojas de color de assets/sprites/enemigos
+#      se importan comprimidas en la grafica (compress/mode=2 + high_quality = BPTC/BC7 en PC, ASTC en movil): 1 byte
+#      por pixel en vez de 4, a ojo igual (error medio 1-4 de 255, el alfa no cambia en ningun pixel; ver la hoja
+#      Desktop/.../mutantes/comparacion_bc7.png). Esto lo escribe AQUI en su .import, tambien en las ya compactadas, asi
+#      que un enemigo nuevo sale comprimido solo con pasar el compactador. SIN_PERDIDA: las que un shader reconoce por
+#      su COLOR EXACTO (ojos de la camada, ojos de la rabia del minotauro), que con BC7 se mueve unos puntos.
+#      El juego no lee pixeles de estas hojas: la caja pintada sale de SpriteLienzo.caja_pintada.
 # Reempaqueta en estantes por altura. Si una hoja ya esta compactada ("compacta": true en su JSON) no la toca.
 #   python tools/compactar_hojas.py assets/sprites/player/pelo_bob_1.00.png [mas.png ...]
 #   python tools/compactar_hojas.py --todas assets/sprites/player
@@ -16,6 +23,34 @@ from PIL import Image
 import numpy as np
 
 IMPORT_KEEP = '[remap]\n\nimporter="keep"\n'
+SIN_PERDIDA = ('minotauro3d', 'rata3d')
+# Lo minimo para una hoja nueva sin .import: Godot completa el resto (uid, rutas, los demas parametros) al importar.
+IMPORT_BC7 = ('[remap]\n\nimporter="texture"\ntype="CompressedTexture2D"\n\n[params]\n\ncompress/mode=2\n'
+              'compress/high_quality=true\nmipmaps/generate=false\nprocess/fix_alpha_border=true\n'
+              'detect_3d/compress_to=1\n')
+
+
+def va_en_bc7(png):
+    ruta = png.replace('\\', '/')
+    return '/sprites/enemigos/' in ruta and not os.path.basename(png).startswith(SIN_PERDIDA)
+
+
+def poner_bc7(png):
+    # Toca solo los dos parametros (el uid y lo demas se quedan como estan). True si ha cambiado algo.
+    imp = png + '.import'
+    if not os.path.exists(imp):
+        with open(imp, 'w', encoding='utf-8', newline='\n') as f:
+            f.write(IMPORT_BC7)
+        return True
+    texto = open(imp, encoding='utf-8').read()
+    if 'importer="keep"' in texto:
+        return False
+    nuevo = texto.replace('compress/mode=0', 'compress/mode=2').replace('compress/mode=1', 'compress/mode=2')
+    nuevo = nuevo.replace('compress/high_quality=false', 'compress/high_quality=true')
+    if nuevo != texto:
+        with open(imp, 'w', encoding='utf-8', newline='\n') as f:
+            f.write(nuevo)
+    return nuevo != texto
 
 
 def es_gris(arr):
@@ -85,7 +120,7 @@ def compactar(png, gris_vale=True):
     with open(js, 'w', encoding='utf-8', newline='\n') as f:
         f.write(json.dumps(d, separators=(',', ':')))
     mb_antes = im.width * im.height * 4 / 1048576
-    mb_despues = ancho * alto * (2 if gris else 4) / 1048576
+    mb_despues = ancho * alto * (2 if gris else (1 if va_en_bc7(png) else 4)) / 1048576
     print('%-48s %5dx%-5d -> %5dx%-5d %s  grafica %6.1f -> %5.1f MB  disco %5.0f -> %5.0f KB' % (
         os.path.basename(png), im.width, im.height, ancho, alto, 'GRIS ' if gris else 'color', mb_antes, mb_despues,
         antes / 1024, os.path.getsize(png) / 1024))
@@ -102,9 +137,14 @@ if __name__ == '__main__':
         args = sorted(glob.glob(os.path.join(args[1], '*.png')))
         args = [p for p in args if os.path.exists(p[:-4] + '.json')]
     tot_a = tot_d = 0.0
+    bc7 = 0
     for p in args:
         r = compactar(p, gris_vale)
         if r:
             tot_a += r[0]
             tot_d += r[1]
+        if va_en_bc7(p) and not json.load(open(p[:-4] + '.json', encoding='utf-8')).get('gris') and poner_bc7(p):
+            bc7 += 1
+    if bc7:
+        print('%d hojas pasadas a BC7 (falta el --import de Godot)' % bc7)
     print('TOTAL grafica %.1f -> %.1f MB' % (tot_a, tot_d))

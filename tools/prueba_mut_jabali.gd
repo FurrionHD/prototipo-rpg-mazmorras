@@ -184,7 +184,11 @@ func _pelea() -> void:
 	var res0: float = yo.status_resist
 	yo.status_resist = 0.0
 	yo.statuses.clear()
-	combat._esporas(jab, yo)
+	# Hasta 6 nubes: ningun estado entra SEGURO (StatusEffects.PROB_TECHO = 95 %), y con una sola fallaba 1 de cada 20.
+	for _i in 6:
+		combat._esporas(jab, yo)
+		if yo.has_status(StatusEffects.Id.VENENO):
+			break
 	_ver(yo.has_status(StatusEffects.Id.VENENO), "un golpe cuerpo a cuerpo: la nube le envenena")
 	yo.statuses.clear()
 	_poner(tm, jab, ps + Vector2(120, 0))

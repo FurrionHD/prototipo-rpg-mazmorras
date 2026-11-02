@@ -2060,11 +2060,9 @@ static func _pintado_local(spr: AnimatedSprite2D, anim: StringName, marco: int) 
 		if tex is AtlasTexture:
 			var at: AtlasTexture = tex
 			r = Rect2(at.margin.position, at.region.size)
-		var img: Image = tex.get_image()
-		if img != null:
-			var usado: Rect2i = img.get_used_rect()
-			if usado.size.x > 0 and usado.size.y > 0:
-				r = Rect2(r.position + Vector2(usado.position), Vector2(usado.size))
+		var usado: Rect2i = SpriteLienzo.caja_pintada(tex)["caja"]
+		if usado.size.x > 0 and usado.size.y > 0:
+			r = Rect2(r.position + Vector2(usado.position), Vector2(usado.size))
 		r.position -= tex.get_size() * 0.5   # relativo al centro del lienzo
 		_cache_dibujo[clave] = r
 	if not spr.centered:
