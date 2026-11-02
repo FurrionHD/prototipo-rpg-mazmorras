@@ -159,7 +159,7 @@ def huesos_mosquito(p):
     alto = p['alto'] - p['cae']
     raiz = (np.eye(3), V((0.0, p['avance'], p['bota'] + alto)))
     X['raiz'] = raiz
-    M = rx(p['mece'] * 0.15 - p['pica'] * 0.6) @ ry(p['ladea'] * 0.2)
+    M = rx(p['mece'] * 0.15 + p['pica'] * 0.6) @ ry(p['ladea'] * 0.2)   # (+: el morro ABAJO; con - lo alzaba y se le veia la tripa)
     if p['tumba'] > 0.0:
         M = ry(p['tumba'] * math.pi * 0.9) @ M
     X['cuerpo'] = comp(raiz, sobre(V((0.0, 0.5, M_Z)), M))
@@ -345,7 +345,7 @@ def anim_bola(t):
     # LA BOLA DE CACA: se planta, PATEA la bola hacia atras con las de atras (sale rodando: el efecto la sigue) y se
     # queda sin ella; escarba y se hace otra que va creciendo.
     return POSE(patea=tramos(t, [(0.0, 0.0), (0.25, -0.5), (0.35, 1.0), (0.5, 0.3), (1.0, 0.0)]),
-                bola_y=tramos(t, [(0.0, 0.0), (0.3, 0.0), (0.45, 25.0), (1.0, 25.0)]),
+                bola_y=tramos(t, [(0.0, 0.0), (0.3, 0.0), (0.45, 25.0), (0.59, 25.0), (0.6, 0.0), (1.0, 0.0)]),   # la nueva, a su lado
                 bola=tramos(t, [(0.0, 1.0), (0.44, 1.0), (0.45, 0.0), (0.6, 0.0), (1.0, 0.8)]),
                 mece=tramos(t, [(0.0, 0.0), (0.25, 1.0), (0.35, 1.6), (0.6, 0.8), (1.0, 0.0)]),
                 paso=tramos(t, [(0.0, 0.0), (0.55, 0.0), (0.6, 1.0), (1.0, 1.0)]), fase=t * 3.0)
