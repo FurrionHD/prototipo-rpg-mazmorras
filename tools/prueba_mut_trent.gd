@@ -1,15 +1,33 @@
 # LOS MUTANTES DEL TRENT (02/11): Trent -> TOCON AMBARINO -> ESPANTAJO, unidos por la savia. El arbol, sus stats (las
 # seis, suma 135, el trent estrena Voluntad), sus ataques (la Resina en vez de la Savia corrosiva; el Espantajo, la Savia
 # negra y el Geiser) y sus sprites (cada uno con su cuerpo; la variante del Tocon sin costra; el trent normal ya come).
+# Y EN LA PELEA (su sala, 02/11 pasos 3-4): la COSTRA DE AMBAR del Tocon (se come los golpes antes que la vida, no la
+# toca el veneno, suelta un bicho al romperse sin pasar de dos, vuelve entera a los tres turnos suyos, se ve sin ambar
+# mientras esta rota y viaja al espejo).
 # Sin ventana:
 #   godot --headless --path . res://tools/prueba_mut_trent.tscn
 extends Node
 
+var sala = null   # su sala: tools/prueba_sala_propia.gd
 var _mal: int = 0
 
 
 func _ready() -> void:
-	call_deferred("_correr")
+	call_deferred("_empezar")
+
+
+func _empezar() -> void:
+	reparent(get_tree().root)
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	var hueco := Node.new()
+	get_tree().root.add_child(hueco)
+	get_tree().current_scene = hueco
+	_correr()
+
+
+func _esperar(n: int) -> void:
+	for _i in n:
+		await get_tree().process_frame
 
 
 func _ver(ok: bool, que: String) -> void:
@@ -88,5 +106,151 @@ func _correr() -> void:
 	_ver(sv != null and sv.has_animation(&"idle_0") and sv.has_animation(&"raices_4")
 		and sv != SpritesEnemigo.frames_de(ed, 0.5, true, &"ambarino"), "el Tocon sin costra: su variante")
 
+	await _pelea()
 	print("FIN: %s" % ("TODO BIEN" if _mal == 0 else "%d MAL" % _mal))
 	get_tree().quit(0 if _mal == 0 else 1)
+
+
+func _pelea() -> void:
+	sala = preload("res://tools/prueba_sala_propia.gd").new()
+	add_child(sala)
+	if not await sala.arrancar("prueba_mut_trent", Game.PISO_ARENA):
+		_ver(false, "arranca la sala")
+		return
+	sala.poner("res://scenes/actors/enemy/trent.tres", Vector2(90, 0), {})
+	await _esperar(25)
+	var nodos: Array = get_tree().get_nodes_in_group("enemy")
+	nodos[0].aplicar_mutacion(&"ambarino", 0.0)
+	await _esperar(5)
+	if await sala.pelear(nodos, false) == null:
+		_ver(false, "arranca la pelea")
+		return
+	await _esperar(8)
+	var combat: Node = null
+	for n in get_tree().root.get_children() + sala.capas():
+		if n is CanvasLayer:
+			for h in n.get_children():
+				if h.get("tactico") != null:
+					combat = h
+	combat.set_process(false)
+	var tm = combat.turno_mapa
+	var en = combat.enemigos
+	var toc: Combatant = null
+	for e in combat._enemies:
+		if e.mutacion == &"ambarino":
+			toc = e
+	_ver(toc != null, "en la pelea, un Tocon ambarino")
+	if toc == null:
+		return
+
+	print("6) LA COSTRA DE AMBAR")
+	_ver(toc.costra_max > 0.0 and is_equal_approx(toc.costra_max, toc.max_hp * 0.2) and is_equal_approx(toc.costra, toc.costra_max),
+		"empieza entera: el 20 %% de su vida (%.1f de %.1f)" % [toc.costra, toc.max_hp])
+	toc.invulnerable = false
+	var hp0: float = toc.current_hp
+	toc.take_damage(toc.costra_max * 0.5)
+	_ver(is_equal_approx(toc.current_hp, hp0) and is_equal_approx(toc.costra, toc.costra_max * 0.5),
+		"un golpe se lo come la costra, no la vida")
+	toc.take_damage(5.0, true)
+	_ver(is_equal_approx(toc.costra, toc.costra_max * 0.5) and toc.current_hp < hp0, "el veneno no la toca: va a la vida")
+	var hp1: float = toc.current_hp
+	toc.take_damage(toc.costra_max)
+	_ver(toc.costra <= 0.0 and toc.costra_rota and is_equal_approx(toc.current_hp, hp1 - toc.costra_max * 0.5),
+		"se rompe y lo que sobra va a la vida")
+	var antes: int = combat._enemies.size()
+	en.costra_rota(toc)
+	var bichos: Array = combat._enemies.filter(func(c): return c.sprite_res.contains("enemigos_invocados/bicho_"))
+	_ver(not toc.costra_rota and combat._enemies.size() == antes + 1 and bichos.size() == 1,
+		"al romperse suelta un bicho del ambar (%s)" % [bichos.map(func(c): return c.nombre)])
+	await _esperar(30)
+	tm._tick_costra()   # (la pelea va con el _process apagado: el tick, a mano)
+	var cu: Node2D = tm.cuerpo_de(toc)
+	_ver(bool(tm._costra_var.get(cu, false)), "rota, se le ve sin ambar")
+	_ver(bichos.size() == 1 and tm.cuerpo_de(bichos[0]) != null, "y el bicho tiene cuerpo en el mapa")
+	# Tope de dos vivos: dos roturas mas, uno mas y ya no.
+	toc.costra = 1.0
+	toc.take_damage(2.0)
+	en.costra_rota(toc)
+	toc.costra = 1.0
+	toc.take_damage(2.0)
+	en.costra_rota(toc)
+	bichos = combat._enemies.filter(func(c): return c.sprite_res.contains("enemigos_invocados/bicho_"))
+	_ver(bichos.size() == 2, "sin pasar de dos bichos vivos (%d)" % bichos.size())
+	# Vuelve ENTERA a los tres turnos suyos.
+	en._costra_vuelve(toc)
+	en._costra_vuelve(toc)
+	_ver(toc.costra <= 0.0, "a los dos turnos aun no")
+	en._costra_vuelve(toc)
+	_ver(is_equal_approx(toc.costra, toc.costra_max), "al tercero vuelve entera")
+	tm._tick_costra()
+	_ver(not bool(tm._costra_var.get(cu, true)), "y se le vuelve a ver con su ambar")
+	# EL ESPEJO: viaja en la instantanea (campo 12).
+	toc.costra = toc.costra_max * 0.25
+	var v: Array = combat.espejo._valores([toc])[0]
+	_ver(v.size() > 12 and is_equal_approx(float(v[12][0]), toc.costra) and is_equal_approx(float(v[12][1]), toc.costra_max),
+		"la costra viaja al espejo (campo 12)")
+
+	print("7) EL ESPANTAJO: CHUPAR A LOS ENRAIZADOS Y MAS SECO MAS PEGA")
+	var ed: EnemyData = load("res://scenes/actors/enemy/trent.tres")
+	var esp: Combatant = ed.crear_combatant(0.5, true, false, &"espantajo")
+	_ver(is_equal_approx(esp.chupa_enraizados, 0.06), "chupa el 6 % de la vida maxima")
+	esp.current_hp = esp.max_hp * 0.4
+	_ver(is_equal_approx(esp.mult_rabia_tramos(), 1.2) and not esp.rabia_tramos_velocidad,
+		"al 40 %% de vida pega un 20 %% mas (x%.2f) y no corre mas" % esp.mult_rabia_tramos())
+	esp.current_hp = esp.max_hp * 0.2
+	_ver(is_equal_approx(esp.mult_rabia_tramos(), 1.3), "por debajo del 25 %, un 30 % mas")
+	var yo: Combatant = combat._aliados_vivos()[0]
+	yo.invulnerable = false
+	yo.current_hp = yo.max_hp
+	toc.chupa_enraizados = 0.06   # (el de la pelea es el Tocon: se le presta la pasiva)
+	toc.current_hp = toc.max_hp * 0.5
+	var vida_toc: float = toc.current_hp
+	en._chupar_enraizados(toc)
+	_ver(is_equal_approx(yo.current_hp, yo.max_hp), "sin enraizar no le chupa")
+	yo.apply_status(StatusEffects.Id.ENRAIZADO, 2)
+	en._chupar_enraizados(toc)
+	var quitado: float = yo.max_hp - yo.current_hp
+	_ver(is_equal_approx(quitado, yo.max_hp * 0.06), "enraizado le quita el 6 %% de su maxima (%.2f)" % quitado)
+	_ver(is_equal_approx(toc.current_hp - vida_toc, quitado), "y se cura justo eso (+%.2f)" % (toc.current_hp - vida_toc))
+	yo.statuses.clear()
+	toc.chupa_enraizados = 0.0
+
+	print("8) LA GARRAPATA: ENGORDA Y REVIENTA")
+	var dg: EnemyData = load("res://resources/enemigos_invocados/bicho_garrapata.tres")
+	var g: Combatant = dg.crear_combatant(0.5, false, false, &"", 1)
+	_ver(g.hincha_tope == 3, "se hincha hasta 3")
+	if combat.altas._meter_enemigo(g, true) < 0:
+		_ver(false, "cabe en la pelea")
+		return
+	tm.lanzar_cria(g, dg, tm.pos_de(toc), tm.sitio_grieta(toc, dg))   # el cuerpo se lo da el salto
+	await _esperar(60)
+	_ver(tm.cuerpo_de(g) != null, "tiene cuerpo en el mapa")
+	var eng: AbilityData = g.habilidades[0]
+	var ps: Vector2 = tm.pies_de(yo)
+	for _i in 8:
+		g.ability_cooldowns.clear()
+		tm._pos[g] = tm.cuerpo_de(g).global_position
+		en._enemy_use_ability(g, eng, yo)
+		await _esperar(3)
+		if g.hinchazon > 0:
+			break
+	_ver(g.hinchazon >= 1, "cada chupada la hincha (%d)" % g.hinchazon)
+	g.hinchazon = 3
+	en._enemy_use_ability(g, eng, yo)
+	_ver(g.hinchazon == 3, "sin pasar de 3")
+	tm._tick_hinchazon()
+	_ver(int(tm._hincha_var.get(tm.cuerpo_de(g), 0)) == 3, "y se le ve hinchada (su hoja h3)")
+	var vg: Array = combat.espejo._valores([g])[0]
+	_ver(int(vg[12][2]) == 3, "la hinchazon viaja al espejo")
+	yo.current_hp = yo.max_hp
+	tm.soltar_pegada(g, "")
+	await _esperar(3)
+	var cug: Node2D = tm.cuerpo_de(g)
+	cug.global_position += ps + Vector2(10, 0) - tm.pies_de(g)
+	tm._pos[g] = cug.global_position
+	g.current_hp = 0.0
+	combat._morir_enemigo(g)
+	var esperado: float = g.atk() * 0.4 * 3.0
+	_ver(yo.max_hp - yo.current_hp > 0.0, "muerta hinchada revienta y le da al de al lado (%.2f, esperado %.2f sin mitigar)" % [
+		yo.max_hp - yo.current_hp, esperado])
+	_ver(g.hinchazon == 0, "y revienta una sola vez")

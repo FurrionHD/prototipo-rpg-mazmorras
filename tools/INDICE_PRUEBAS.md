@@ -267,7 +267,7 @@ entero": sirve para ver los **huecos** y para saber qué pruebas pasar después 
 - `scripts/core/elements.gd`: `prueba_bestias_tactico.gd`, `prueba_constructos_tactico.gd`, `prueba_continuar_tras_golpe.gd`, `prueba_iconos_al_golpe.gd`, `prueba_mut_fuego.gd`, `prueba_mut_jabali.gd` y 2 más
 - `scripts/core/encargos.gd`: `prueba_encargos_excelia.gd`, `prueba_town_dos_cliente_guion.gd`, `prueba_town_dos_jugadores_guion.gd`, `unitarias/test_estados_y_encargos.gd`
 - `scripts/core/forge.gd`: `prueba_armadura_magica.gd`
-- `scripts/core/game.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_andanada_dentro.gd`, `prueba_andar_apuntando.gd`, `prueba_anim_por_red.gd`, `prueba_antorchas_sonido.gd` y 133 más
+- `scripts/core/game.gd`: `prueba_alcances.gd`, `prueba_amenaza_tactico.gd`, `prueba_andanada_dentro.gd`, `prueba_andar_apuntando.gd`, `prueba_anim_por_red.gd`, `prueba_antorchas_sonido.gd` y 134 más
 - `scripts/core/huella_save.gd`: `prueba_bd_ida_vuelta.gd`, `prueba_bd_nube.gd`, `prueba_bd_partida.gd`, `prueba_bd_ranura.gd`, `prueba_huella_save.gd`
 - `scripts/core/identity.gd`: `prueba_bd_altf4.gd`, `prueba_bd_nube.gd`, `prueba_bd_un_jugador.gd`, `prueba_con_jugador.gd`, `prueba_lan_por_sala.gd`, `prueba_menu_por_sala.gd` y 18 más
 - `scripts/core/informe.gd`: `unitarias/test_medidor.gd`

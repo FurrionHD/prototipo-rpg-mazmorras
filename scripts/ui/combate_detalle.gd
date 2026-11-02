@@ -706,6 +706,8 @@ func _barras(c: Combatant) -> void:
 	var bv: ProgressBar = MenuScaffold.barra(_panel, MenuScaffold.COLOR_VIDA, c.current_hp, c.max_hp, "%.0f / %.0f", 22, 14)
 	# EL ESCUDO DE AGUA (set Marea, 09/10): su tramo azul encima de la vida y lo que le queda junto al numero.
 	var extra: String = TramoEscudo.poner(bv, c.current_hp, c.max_hp, c.runa_escudo_agua)
+	# Y LA COSTRA DE AMBAR (el Tocon ambarino, 02/11), igual en ambar.
+	extra += TramoEscudo.poner_costra(bv, c.current_hp, c.max_hp, c.costra)
 	if extra != "" and bv.get_child_count() > 0:
 		var lbl: Label = bv.get_child(bv.get_child_count() - 1) as Label
 		if lbl != null:

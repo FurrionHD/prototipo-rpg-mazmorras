@@ -1388,6 +1388,8 @@ func tick(delta: float) -> bool:
 	_tick_runas()
 	_tick_minotauro()
 	_tick_jabali()
+	_tick_costra()
+	_tick_hinchazon()
 	_tick_olor()
 	_tick_carne()
 	_tick_presas_carga()
@@ -5673,6 +5675,56 @@ func _tick_jabali() -> void:
 		var t_v = cu.get("current_t")
 		var sf: SpriteFrames = SpritesEnemigo.frames_variante(ed, e.mutacion, StringName(quiere)) if quiere != "" \
 			else SpritesEnemigo.frames_de(ed, float(t_v) if t_v != null else 0.5, true, e.mutacion)
+		_poner_frames(cu, sf)
+
+
+# LA COSTRA DE AMBAR SE VE (02/11, el Tocon ambarino): mientras la tiene rota, su hoja SIN ambar (grumos vacios, el domo
+# roto: Trent3DSprites, variante 'sin_costra'); al volver a brotar, la de siempre. Mira solo los numeros de la costra, que
+# en el espejo llegan en la instantanea (campo 12): se ve igual en todas las maquinas.
+var _costra_var: Dictionary = {}   # cuerpo -> true si lleva puesta la hoja sin costra
+
+func _tick_costra() -> void:
+	for e in _pantalla._enemies:
+		if e.costra_max <= 0.0 or not e.is_alive():
+			continue
+		var cu: Node2D = cuerpo_de(e)
+		if cu == null:
+			continue
+		var ed = cu.get("data")
+		if not (ed is EnemyData):
+			continue
+		var rota: bool = e.costra <= 0.0
+		if rota == bool(_costra_var.get(cu, false)):
+			continue
+		var t_v = cu.get("current_t")
+		var sf: SpriteFrames = SpritesEnemigo.frames_variante(ed, e.mutacion, &"sin_costra") if rota \
+			else SpritesEnemigo.frames_de(ed, float(t_v) if t_v != null else 0.5, true, e.mutacion)
+		if sf == null:
+			continue
+		_costra_var[cu] = rota
+		_poner_frames(cu, sf)
+
+
+# LA GARRAPATA SE VE HINCHADA (02/11): su hoja de cada hinchazon (Garrapata3DSprites, variantes h1..h3). Mira solo el
+# numero, que en el espejo llega en la instantanea (campo 12).
+var _hincha_var: Dictionary = {}   # cuerpo -> la hinchazon que lleva puesta
+
+func _tick_hinchazon() -> void:
+	for e in _pantalla._enemies:
+		if e.hincha_tope <= 0 or not e.is_alive():
+			continue
+		var cu: Node2D = cuerpo_de(e)
+		if cu == null:
+			continue
+		var ed = cu.get("data")
+		if not (ed is EnemyData) or int(_hincha_var.get(cu, 0)) == e.hinchazon:
+			continue
+		var t_v = cu.get("current_t")
+		var sf: SpriteFrames = SpritesEnemigo.frames_variante(ed, &"", StringName("h%d" % e.hinchazon)) \
+			if e.hinchazon > 0 else SpritesEnemigo.frames_de(ed, float(t_v) if t_v != null else 0.5)
+		if sf == null:
+			continue
+		_hincha_var[cu] = e.hinchazon
 		_poner_frames(cu, sf)
 
 

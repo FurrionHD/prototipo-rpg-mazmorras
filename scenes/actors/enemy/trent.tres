@@ -12,6 +12,9 @@
 [ext_resource type="Resource" path="res://resources/abilities/trent_resina.tres" id="11_res"]
 [ext_resource type="Resource" path="res://resources/abilities/trent_savia_negra.tres" id="12_sav"]
 [ext_resource type="Resource" path="res://resources/abilities/trent_geiser.tres" id="13_gei"]
+[ext_resource type="Resource" path="res://resources/enemigos_invocados/bicho_garrapata.tres" id="14_gar"]
+[ext_resource type="Resource" path="res://resources/enemigos_invocados/bicho_mosquito.tres" id="15_mos"]
+[ext_resource type="Resource" path="res://resources/enemigos_invocados/bicho_pelotero.tres" id="16_pel"]
 
 [sub_resource type="Resource" id="SA_ven"]
 script = ExtResource("2_sa")
@@ -31,6 +34,10 @@ nombre = "Tocón ambarino"
 grado = 1
 habilidades = Array[ExtResource("10_ab")]([ExtResource("11_res"), ExtResource("4_plc"), ExtResource("7_rai")])
 sprite = &"ambarino"
+costra_frac = 0.2
+costra_turnos = 3
+costra_tope = 2
+costra_bichos = Array[ExtResource("1_g8nro")]([ExtResource("14_gar"), ExtResource("15_mos"), ExtResource("16_pel")])
 pesos = {"agilidad": 8, "destreza": 12, "fuerza": 28, "magia": 17, "resistencia": 56, "voluntad": 14}
 
 [sub_resource type="Resource" id="MUT_espantajo"]
@@ -41,6 +48,11 @@ grado = 2
 desde = Array[StringName]([&"ambarino"])
 habilidades = Array[ExtResource("10_ab")]([ExtResource("12_sav"), ExtResource("4_plc"), ExtResource("7_rai"), ExtResource("13_gei")])
 sprite = &"espantajo"
+chupa_enraizados = 0.06
+rabia_tramo = 0.25
+rabia_por_tramo = 0.1
+rabia_tramos_max = 3
+rabia_tramos_velocidad = false
 pesos = {"agilidad": 16, "destreza": 18, "fuerza": 38, "magia": 15, "resistencia": 36, "voluntad": 12}
 
 [resource]

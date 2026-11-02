@@ -672,6 +672,44 @@ func _revienta(e: Combatant) -> void:
 	turno_mapa.charcos_al_nacer()
 
 
+# LA GARRAPATA HINCHADA REVIENTA AL MORIR (02/11, ver EnemyData.hincha_tope): a los tuyos a revienta_radio px de sus pies
+# (en la fila, al que tenga delante), revienta_mult de su ataque por cada hinchazon y su Veneno (con su tirada). Sin
+# hinchar, muere sin mas. Solo quien ejecuta la pelea.
+func _reventon_garrapata(e: Combatant) -> void:
+	if e == null or e.hinchazon <= 0 or _espejo:
+		return
+	var n: int = e.hinchazon
+	e.hinchazon = 0
+	var a_quien: Array = []
+	for al in _aliados:
+		if not al.is_alive():
+			continue
+		if not tactico or turno_mapa.pies_de(al).distance_to(turno_mapa.pies_de(e)) \
+				<= e.revienta_radio + turno_mapa.radio_pisa(al):
+			a_quien.append(al)
+	if not tactico and a_quien.size() > 1:
+		a_quien = [a_quien[0]]
+	var dano: float = e.atk() * e.revienta_mult * float(n)
+	var ab := AbilityData.new()
+	var sa := StatusApplication.new()
+	sa.estado = StatusEffects.Id.VENENO
+	sa.prob = e.revienta_veneno
+	ab.efectos = [sa]
+	if _fx != null:
+		efectos._fx_tanda(_fx.ultima_tanda() + 1)
+	var nombres: Array = []
+	for v in a_quien:
+		v.take_damage(dano)
+		var puestos: Array = enemigos._enemy_tirar_efectos(e, ab, v, 1.0, "objetivo")
+		nombres.append(v.nombre + ((" (%s)" % ", ".join(puestos)) if not puestos.is_empty() else ""))
+		efectos._fx_golpe(e, v, dano, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.SLIME_GOLPE, 1.0, false)
+		if not v.is_alive():
+			altas._caer_aliado(v)
+	_update_hp()
+	_log_extra("💥 %s revienta de lo llena que iba%s" % [_etq(e),
+		(": %.2f a %s." % [dano, ", ".join(nombres)]) if not nombres.is_empty() else "."])
+
+
 # DIVIDIRSE AL MORIR (06/10, el slime brotado y el brotado punzante, ver MutacionData): se encoge (su muerte) y le salen
 # DOS de su enemigo normal a su lado, como las crias del Rey; su cadaver se queda. Si la pelea ya esta llena, los que
 # quepan. Solo quien ejecuta la pelea.
@@ -1434,6 +1472,7 @@ func _update_hp() -> void:
 		# pintaba llena como si fuera 75.
 		# La barra se DESLIZA hasta la vida nueva (lo mueve CombatFX) y EL NUMERO VIAJA CON ELLA.
 		efectos._fijar_barra_num(b, "hp", e.current_hp, e.max_hp, "%.2f / %.2f")
+		TramoEscudo.poner_costra(b["hp"] as ProgressBar, e.current_hp, e.max_hp, e.costra)   # el Tocon ambarino
 		# La etiqueta se queda SOLO con el nombre; los estados van en su fila de chips, porque ahi
 		# cada uno se puede señalar y explicarse solo. El nivel se cayo de aqui: en una tarjeta que
 		# al tope se aprieta a 130 px se comia el sitio del nombre, que es lo unico que hay que
@@ -1684,7 +1723,8 @@ func _process(delta: float) -> void:
 		var cspeed: float = c.cast_spd() if casteando else c.spd()
 		_gauge[c] += cspeed * datb * rate
 	for e in _vivos():
-		_gauge[e] += e.spd() * datb * escala * (e.rabia_velocidad if e.en_rabia() else 1.0) * e.mult_rabia_tramos()
+		_gauge[e] += e.spd() * datb * escala * (e.rabia_velocidad if e.en_rabia() else 1.0) \
+			* (e.mult_rabia_tramos() if e.rabia_tramos_velocidad else 1.0)
 
 	# Actua el que tenga la barra MAS llena por encima del umbral. Se arranca por los TUYOS y se
 	# compara con > estricto, asi los empates caen de tu lado (es lo mismo que hacia el
@@ -2759,6 +2799,7 @@ func _morir_enemigo(e: Combatant) -> void:
 	if not _espejo:
 		var hueco: int = _enemies.find(e)
 		_revienta(e)   # antes de la cola: su nube con su codigo y sus pies
+		_reventon_garrapata(e)
 		Game.meter_de_la_cola(hueco, pelea)
 		# DIVIDIRSE (06/10): el que se divide suelta a los suyos al caer (despues de la cola: si entra uno, ocupa el hueco).
 		_dividirse(e)
@@ -2971,6 +3012,11 @@ func _tras_accion_jugador_varios(objs: Array) -> void:
 	if _vivos().is_empty():
 		_end(true)
 		return
+	# LA COSTRA DE AMBAR que se ha roto en esta accion (el Tocon ambarino): suelta su bicho. Aqui y no al romperse, para no
+	# meter un enemigo nuevo con los golpes de un area a medias (es el mismo motivo del remate de arriba).
+	for e in _enemies.duplicate():
+		if e.costra_rota:
+			enemigos.costra_rota(e)
 	# EL QUE ACTUABA PUEDE HABER CAIDO en su propia accion (el Filo de reflejo de la segadora, 30/09).
 	if _player != null and not _player.is_alive():
 		altas._caer_aliado(_player)

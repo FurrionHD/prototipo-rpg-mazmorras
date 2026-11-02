@@ -66,6 +66,8 @@ func _enemy_turn(e: Combatant) -> void:
 	if _pantalla.tactico:
 		_pantalla.turno_mapa.charcos_turno_enemigo(e)
 	e.tick_cooldowns()   # habilidades del enemigo (KAN-58): baja 1 turno los cooldowns
+	_costra_vuelve(e)
+	_chupar_enraizados(e)
 	# Estados alterados (KAN-58): tick al inicio del turno del enemigo.
 	var ev: Dictionary = e.tick_statuses()
 	_pantalla._log_tick(e, ev)
@@ -538,6 +540,72 @@ func _llamada(e: Combatant) -> void:
 	_pantalla._update_hp()
 	_pantalla._log_extra("🐀 ¡%s llama a su camada! %s del suelo." % [_pantalla._etq(e),
 		"Sale una rata" if salen == 1 else "Salen %d ratas" % salen])
+
+
+# LA COSTRA DE AMBAR ROTA (02/11, el Tocon ambarino, ver MutacionData): suelta UNO al azar de sus bichos, sin pasar de
+# costra_tope vivos de los suyos. EN EL MAPA sale de el de un salto, como las crias del Rey (CombatTactico.lanzar_cria).
+func costra_rota(e: Combatant) -> void:
+	e.costra_rota = false
+	if not e.is_alive() or _pantalla._espejo:
+		return
+	_pantalla._log_extra("🍯 ¡Se le rompe la costra de ámbar a %s!" % _pantalla._etq(e))
+	if e.costra_bichos.is_empty():
+		return
+	var vivos: int = 0
+	for c in _pantalla._enemies:
+		if c.is_alive() and c.sprite_res != "" and e.costra_bichos.any(func(b): return b.resource_path == c.sprite_res):
+			vivos += 1
+	if vivos >= e.costra_tope:
+		return
+	var data: EnemyData = e.costra_bichos[randi() % e.costra_bichos.size()]
+	var bicho: Combatant = data.crear_combatant(0.5, false, false, &"", _pantalla.altas._piso())
+	if _pantalla.altas._meter_enemigo(bicho, true) < 0:
+		return   # no cabe
+	if _pantalla.tactico:
+		# Salta del ambar roto a su lado, hacia los tuyos (sin gota ni grieta: cae por tiempo, como la cria del brotado).
+		_pantalla.turno_mapa.lanzar_cria(bicho, data, _pantalla.turno_mapa.pos_de(e),
+			_pantalla.turno_mapa.sitio_grieta(e, data))
+	_pantalla._update_hp()
+	_pantalla._log_extra("🪲 Del ámbar roto sale %s." % data.enemy_name.to_lower())
+
+
+# CHUPAR A LOS ENRAIZADOS (02/11, el Espantajo, ver MutacionData): a cada uno de los tuyos clavado al suelo le quita
+# chupa_enraizados de su vida MAXIMA (sin armadura que valga: no es un golpe) y se cura justo lo que le ha quitado.
+func _chupar_enraizados(e: Combatant) -> void:
+	if e.chupa_enraizados <= 0.0 or not e.is_alive() or _pantalla._espejo:
+		return
+	var total: float = 0.0
+	var nombres: Array = []
+	for al in _pantalla._aliados_vivos():
+		if not al.enraizado():
+			continue
+		var antes: float = al.current_hp
+		al.take_damage(minf(al.max_hp * e.chupa_enraizados, al.current_hp), true)
+		var quitado: float = antes - al.current_hp
+		if quitado <= 0.0:
+			continue
+		total += quitado
+		nombres.append(al.nombre)
+		if not al.is_alive():
+			_pantalla.altas._caer_aliado(al)
+	if total <= 0.0:
+		return
+	e.heal(total)
+	print("[chupar] %s chupa %.2f a %s y se cura" % [e.nombre, total, ", ".join(nombres)])
+	_pantalla._log_extra("🖤 %s chupa de las raíces de %s (+%.1f)." % [_pantalla._etq(e), ", ".join(nombres), total])
+	_pantalla._update_hp()
+
+
+# Y VUELVE A BROTAR ENTERA a los costra_turnos turnos suyos (al empezar el que toca).
+func _costra_vuelve(e: Combatant) -> void:
+	if e.costra_max <= 0.0 or e.costra > 0.0 or e.costra_espera <= 0:
+		return
+	e.costra_espera -= 1
+	if e.costra_espera > 0:
+		return
+	e.costra = e.costra_max
+	_pantalla._log_extra("🍯 A %s le vuelve a brotar la costra de ámbar." % _pantalla._etq(e))
+	_pantalla._update_hp()
 
 
 # A MI ESPALDA (31/10, ver MutacionData): con menos de espalda_vida de su vida, sin nada cargando y con ratas suyas
@@ -1018,6 +1086,10 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 	# simplemente no baja de vida, y eso parece un fallo en vez de su mecanica.
 	if robado_total > 0.0:
 		msg += "  🩸 Se cura %.2f con lo que te saca." % robado_total
+		# LA GARRAPATA ENGORDA con cada chupada (EnemyData.hincha_tope).
+		if e.hincha_tope > 0 and e.hinchazon < e.hincha_tope:
+			e.hinchazon += 1
+			msg += "  Se hincha (%d/%d)." % [e.hinchazon, e.hincha_tope]
 	if not estados_log.is_empty():
 		# Neutro: las entradas ya dicen "(a sí mismo)" cuando el estado es un buff propio.
 		msg += "  Aplica: %s." % ", ".join(estados_log)

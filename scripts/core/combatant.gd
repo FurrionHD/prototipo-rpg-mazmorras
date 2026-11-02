@@ -292,6 +292,12 @@ var rompe_flechas: float = 0.0
 var regen_turno: float = 0.0
 var regen_corta_elem: int = 0
 var regen_corta_turnos: int = 2
+# (02/11, la garrapata del ambar, ver EnemyData) ENGORDA Y REVIENTA: lo hinchada que va (0..hincha_tope) y su reventon.
+var hinchazon: int = 0
+var hincha_tope: int = 0
+var revienta_radio: float = 30.0
+var revienta_mult: float = 0.4
+var revienta_veneno: float = 0.5
 var regen_cortada: int = 0
 # Las del repaso de pasivas (30/09): ver EnemyData.
 var camada_mult: float = 1.0
@@ -504,6 +510,18 @@ var esporas_veneno: float = 0.6
 var reflejo_magia: float = 0.0
 var reflejo_angulo: float = 120.0
 var chepa_areas: float = 0.0
+# (02/11, el Tocon ambarino, ver MutacionData) LA COSTRA DE AMBAR: lo que le queda, con lo que empieza (0 = no tiene),
+# cuantos turnos suyos le faltan para volver a brotar rota, y la marca de que se acaba de romper (la recoge la pelea al
+# acabar la accion: combat._tras_accion_jugador_varios suelta el bicho).
+var costra: float = 0.0
+var costra_max: float = 0.0
+var costra_turnos: int = 3
+var costra_espera: int = 0
+var costra_tope: int = 2
+var costra_bichos: Array = []
+var costra_rota: bool = false
+# (02/11, el Espantajo, ver MutacionData) CHUPAR A LOS ENRAIZADOS: lo que les quita de su vida maxima cada turno suyo.
+var chupa_enraizados: float = 0.0
 # Lo que anda en el mapa en su turno, por esto (la rata acorazada: CombatTactico.radio_de).
 var mov_mult: float = 1.0
 # (06/10, los del slime ABISAL) DEJA ESTRELLAS al moverse en la pelea (las piezas de sus ataques, ver
@@ -529,6 +547,7 @@ var tributo_cura: float = 0.0
 var rabia_tramo: float = 0.0
 var rabia_por_tramo: float = 0.0
 var rabia_tramos_max: int = 0
+var rabia_tramos_velocidad: bool = true   # (02/11) el Espantajo: sus tramos no le dan velocidad, solo daño
 # EL DECRETO (el tirano): el marcado (estado DECRETO) se lleva este extra de daño de los subditos.
 var decreto_mult: float = 1.0
 
@@ -1114,6 +1133,16 @@ func take_damage(amount: float, es_dot: bool = false) -> void:
 			if runa_escudo_agua <= 0.0:
 				runa_agua_rota = true
 				print("[runas] %s: se rompe su escudo de agua" % nombre)
+		# ...y la costra de ambar (el Tocon ambarino) igual, despues del agua.
+		if costra > 0.0 and amount > 0.0:
+			var come_c: float = minf(costra, amount)
+			costra -= come_c
+			amount -= come_c
+			if costra <= 0.0:
+				costra = 0.0
+				costra_rota = true
+				costra_espera = costra_turnos
+				print("[costra] %s: se le rompe la costra de ambar" % nombre)
 	else:
 		amount *= 1.0 - clampf(runa_menos_dot, 0.0, 0.9)
 	if not es_dot:

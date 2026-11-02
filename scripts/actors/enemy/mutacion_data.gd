@@ -104,6 +104,8 @@ class_name MutacionData
 @export var rabia_tramo: float = 0.0
 @export var rabia_por_tramo: float = 0.10
 @export var rabia_tramos_max: int = 3
+# Y si la velocidad sube tambien con los tramos (02/11: el Espantajo, "cuanto mas seco mas pega", solo pega mas).
+@export var rabia_tramos_velocidad: bool = true
 # (30/10, los mutantes de la RATA; numeros aprobados por el jefe)
 # RESISTE MAGIA (la drusa: los cristales la desvian): el daño MAGICO que le entra va por esto (0,6 = un 40 % menos).
 @export var resiste_magia: float = 1.0
@@ -152,3 +154,14 @@ class_name MutacionData
 # CHEPA QUE AGUANTA: los golpes de AREA de los tuyos le hacen chepa_areas menos mientras tenga el musgo; un golpe de
 # FUEGO (o una Quemadura) se lo quema el resto de la pelea (StatusEffects.Id.MUSGO_QUEMADO).
 @export var chepa_areas: float = 0.0
+# (02/11, los mutantes del TRENT: el Tocon ambarino; numeros del jefe)
+# LA COSTRA DE AMBAR: como el escudo de agua del set Marea, una capa de costra_frac de su vida POR ENCIMA de la vida (se
+# come los golpes antes; el veneno y las brasas no la tocan). Rota, vuelve ENTERA a los costra_turnos turnos suyos, y al
+# romperse suelta UNO al azar de costra_bichos (los bichos del ambar), sin pasar de costra_tope vivos.
+@export var costra_frac: float = 0.0
+@export var costra_turnos: int = 3
+@export var costra_tope: int = 2
+@export var costra_bichos: Array[EnemyData] = []
+# CHUPAR A LOS ENRAIZADOS (el Espantajo): al empezar su turno, a cada uno de los tuyos que este clavado al suelo
+# (Enraizado o Resinado) le quita chupa_enraizados de su vida MAXIMA y se cura exactamente lo que le ha quitado.
+@export var chupa_enraizados: float = 0.0

@@ -139,7 +139,8 @@ func refrescar() -> void:
 	# Mismo formato que la barra de la tarjeta (ver combat._update_hp), que es donde se decidio.
 	_hp.max_value = c.max_hp
 	_hp.value = c.current_hp
-	_hp_lbl.text = "%.2f / %.2f" % [c.current_hp, c.max_hp]
+	_hp_lbl.text = "%.2f / %.2f" % [c.current_hp, c.max_hp] \
+		+ TramoEscudo.poner_costra(_hp, c.current_hp, c.max_hp, c.costra)   # la costra de ambar (el Tocon ambarino)
 
 	# LOS CHIPS se borran y se recrean enteros, asi que solo cuando cambian de verdad: si no, esto
 	# estaria creando y tirando botones sesenta veces por segundo.

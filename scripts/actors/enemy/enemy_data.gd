@@ -365,6 +365,13 @@ func drop_factor_piso(piso: int) -> float:
 @export var regen_turno: float = 0.0
 @export var regen_corta_elem: int = 0
 @export var regen_corta_turnos: int = 2
+# ENGORDA Y REVIENTA (02/11, la garrapata del ambar): cada chupada (cada vez que se cura con lo que roba) se hincha una
+# vez mas, hasta hincha_tope (su sprite va por hinchazones: Garrapata3DSprites). Muerta hinchada REVIENTA: a los tuyos a
+# revienta_radio px de sus pies, revienta_mult de su ataque por hinchazon y revienta_veneno de Veneno.
+@export var hincha_tope: int = 0
+@export var revienta_radio: float = 30.0
+@export var revienta_mult: float = 0.4
+@export var revienta_veneno: float = 0.5
 # --- LAS PASIVAS DEL REPASO (30/09, decididas con el; ver la memoria pasivas-de-enemigos) ---
 # REY DE LA CAMADA (rey rata): mientras vive, las de su familia pegan por 'camada_mult'; y cuando EL pega, las que
 # esten a 'camada_radio' de su victima (en el mapa) saltan a morderla detras de el (el Oportunista de la daga, en
@@ -831,6 +838,10 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	c.regen_turno = regen_turno
 	c.regen_corta_elem = regen_corta_elem
 	c.regen_corta_turnos = regen_corta_turnos
+	c.hincha_tope = hincha_tope
+	c.revienta_radio = revienta_radio
+	c.revienta_mult = revienta_mult
+	c.revienta_veneno = revienta_veneno
 	# Habilidades del enemigo (KAN-58): tecnicas que puede lanzar en combate.
 	c.habilidades = habilidades
 	# Los ataques de SU mutacion, si los trae (el brotado, el punzante...).
@@ -895,6 +906,7 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		c.rabia_tramo = mdat2.rabia_tramo
 		c.rabia_por_tramo = mdat2.rabia_por_tramo
 		c.rabia_tramos_max = mdat2.rabia_tramos_max
+		c.rabia_tramos_velocidad = mdat2.rabia_tramos_velocidad
 		# (30/10, los de la rata) resiste magia, sigilo de verdad y el salto al esquivar.
 		c.resiste_magia = mdat2.resiste_magia
 		c.sigilo_prob = mdat2.sigilo_prob
@@ -922,6 +934,13 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		c.reflejo_magia = mdat2.reflejo_magia
 		c.reflejo_angulo = mdat2.reflejo_angulo
 		c.chepa_areas = mdat2.chepa_areas
+		# (02/11, el Tocon ambarino) la costra de ambar: entera al empezar.
+		c.costra_max = c.max_hp * mdat2.costra_frac
+		c.costra = c.costra_max
+		c.costra_turnos = mdat2.costra_turnos
+		c.costra_tope = mdat2.costra_tope
+		c.costra_bichos = mdat2.costra_bichos.duplicate()
+		c.chupa_enraizados = mdat2.chupa_enraizados
 
 	# RESISTENCIA A EFECTOS Y EFICACIA: la curva del PISO por el ajuste de ESTE bicho. Los dos ejes
 	# hacen falta y hacen cosas distintas: la resistencia decide lo que TE aguanta, la eficacia lo
