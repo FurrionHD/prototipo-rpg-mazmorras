@@ -66,7 +66,7 @@ func _enemy_turn(e: Combatant) -> void:
 	if _pantalla.tactico:
 		_pantalla.turno_mapa.charcos_turno_enemigo(e)
 	e.tick_cooldowns()   # habilidades del enemigo (KAN-58): baja 1 turno los cooldowns
-	_costra_vuelve(e)
+	costra_vuelve(e)
 	_chupar_enraizados(e)
 	# Estados alterados (KAN-58): tick al inicio del turno del enemigo.
 	var ev: Dictionary = e.tick_statuses()
@@ -599,15 +599,20 @@ func _chupar_enraizados(e: Combatant) -> void:
 	_pantalla._update_hp()
 
 
-# Y VUELVE A BROTAR ENTERA a los costra_turnos turnos suyos (al empezar el que toca).
-func _costra_vuelve(e: Combatant) -> void:
-	if e.costra_max <= 0.0 or e.costra > 0.0 or e.costra_espera <= 0:
+# Y VUELVE A BROTAR ENTERA a los costra_turnos turnos suyos (al empezar el que toca). Tambien la CAPA DE AMBAR de los
+# tuyos con el set Ambar (03/11), que es la misma costra: la llama CombatPantalla al empezar su turno.
+func costra_vuelve(e: Combatant) -> void:
+	if e.costra_max <= 0.0 or e.costra > 0.0 or e.costra_espera <= 0 or _pantalla._espejo:
 		return
 	e.costra_espera -= 1
 	if e.costra_espera > 0:
 		return
 	e.costra = e.costra_max
-	_pantalla._log_extra("🍯 A %s le vuelve a brotar la costra de ámbar." % _pantalla._etq(e))
+	e.costra_rota = false
+	if _pantalla._enemies.has(e):
+		_pantalla._log_extra("🍯 A %s le vuelve a brotar la costra de ámbar." % _pantalla._etq(e))
+	else:
+		_pantalla._log_extra("🍯 A %s se le vuelve a formar la capa de ámbar." % _pantalla._etq(e))
 	_pantalla._update_hp()
 
 

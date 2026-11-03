@@ -131,7 +131,8 @@ static func dos_manos(item: Resource) -> bool:
 const RUTAS_SETS := ["res://resources/runas/set_slime.tres", "res://resources/runas/set_profundo.tres",
 	"res://resources/runas/set_rey.tres", "res://resources/runas/set_fuego.tres",
 	"res://resources/runas/set_venenoso.tres", "res://resources/runas/set_abisal.tres",
-	"res://resources/runas/set_rata.tres", "res://resources/runas/set_rey_rata.tres", "res://resources/runas/set_jabali.tres"]
+	"res://resources/runas/set_rata.tres", "res://resources/runas/set_rey_rata.tres", "res://resources/runas/set_jabali.tres",
+	"res://resources/runas/set_trent.tres"]
 static var _sets: Array = []
 
 static func sets() -> Array:
@@ -342,6 +343,9 @@ static func efecto_txt(s: RunaSetData) -> String:
 		&"musgo_viejo":
 			return "Los golpes de área te hacen un %d %% menos, salvo mientras estás Quemado (el musgo arde)." % [
 				roundi(float(p.get("reduce", 0.2)) * 100.0)]
+		&"ambar":
+			return "Empiezas la pelea con una capa de ámbar que aguanta el %d %% de tu vida máxima en daño. Si te la rompen, vuelve entera a los %d turnos tuyos." % [
+				roundi(float(p.get("capa", 0.08)) * 100.0), int(p.get("turnos", 3))]
 		&"sangre_real":
 			return "+%d %% de daño por cada carga de Sangrado que lleven entre todos los enemigos de la pelea, hasta +%d %%." % [
 				roundi(float(p.get("por_carga", 0.02)) * 100.0), roundi(float(p.get("max", 0.16)) * 100.0)]
@@ -502,6 +506,9 @@ static func aplicar(c: Combatant, p: PersonajeData) -> void:
 	c.runa_alcantarilla_prob = float(alc.get("prob", 0.0))
 	c.runa_alcantarilla_dano = float(alc.get("dano", 0.0))
 	c.runa_musgo_reduce = float(efecto_activo(p, &"musgo_viejo").get("reduce", 0.0))
+	var amb: Dictionary = efecto_activo(p, &"ambar")
+	c.runa_ambar = float(amb.get("capa", 0.0))
+	c.runa_ambar_turnos = int(amb.get("turnos", 3))
 	var sr: Dictionary = efecto_activo(p, &"sangre_real")
 	c.runa_sangre_real_carga = float(sr.get("por_carga", 0.0))
 	c.runa_sangre_real_max = float(sr.get("max", 0.0))

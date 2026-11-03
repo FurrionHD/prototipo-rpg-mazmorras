@@ -39,7 +39,7 @@ func _w(ruta: String) -> Resource:
 
 func _catalogo() -> void:
 	print("=== CADA PIEZA, SU LISTA ===")
-	_ok(Runas.sets().size() == 9, "los 9 sets cargan")
+	_ok(Runas.sets().size() == 10, "los 10 sets cargan")
 	var espada: Resource = _w("res://resources/weapons/espada_corta.tres")
 	var varita: Resource = _w("res://resources/wands/varita.tres") if ResourceLoader.exists("res://resources/wands/varita.tres") else null
 	var peto: Resource = _w("res://resources/armor/cuero_pecho.tres")
@@ -246,6 +246,7 @@ func _combate() -> void:
 	_ok(is_equal_approx(en._runa_musgo_mult(tm, cor), 1.0), "una Cornada de cristal (linea): entera")
 	tm.apply_status(StatusEffects.Id.QUEMADURA, 2, 3.0)
 	_ok(is_equal_approx(en._runa_musgo_mult(tm, pis), 1.0), "quemado: el musgo arde y no protege")
+	_ambar(pj)
 	Game.meta_de(espada).erase("runas")
 	Game.meta_de(esp2).erase("runas")
 	pj.equipped_main = guardado[0]
@@ -254,9 +255,55 @@ func _combate() -> void:
 	pj.equipped_casco = guardado[3]
 
 
+# AMBAR (03/11, el trent): 2 piezas +12 % de Defensa; 5 piezas, la capa de ambar del 8 % de la vida (la costra del
+# Tocon): se la comen antes que la vida y, rota, vuelve entera a los 3 turnos tuyos.
+func _ambar(pj: PersonajeData) -> void:
+	var am: RunaSetData = null
+	for s in Runas.sets():
+		if (s as RunaSetData).id == &"trent":
+			am = s
+	_ok(am != null and am.tipo == RunaSetData.Tipo.ARMADURA and is_equal_approx(float(am.bonus_2p.get("defensa_pct", 0.0)), 0.12),
+		"Ambar: de armadura, 2 piezas +12 % de Defensa")
+	var huecos := ["equipped_casco", "equipped_pecho", "equipped_manos", "equipped_pantalones", "equipped_botas"]
+	var piezas := ["cuero_casco", "cuero_pecho", "cuero_manos", "cuero_pantalones", "cuero_botas"]
+	var antes: Array = []
+	for i in 5:
+		antes.append(pj.get(huecos[i]))
+		pj.set(huecos[i], null)
+	var c0: Combatant = Game.crear_player_combatant(pj)
+	_ok(c0.costra_max == 0.0 and c0.costra == 0.0, "sin el set, sin capa")
+	var items: Array = []
+	for i in 5:
+		var it: Resource = _w("res://resources/armor/%s.tres" % piezas[i])
+		Game.meta_de(it)["runas"] = {"set": "trent", "subs": []}
+		pj.set(huecos[i], it)
+		items.append(it)
+	var c5: Combatant = Game.crear_player_combatant(pj)
+	_ok(is_equal_approx(c5.costra_max, float(c5.max_hp) * 0.08) and is_equal_approx(c5.costra, c5.costra_max),
+		"5 piezas: empieza con la capa del 8 %% de su vida (%.1f de %.1f)" % [c5.costra, c5.max_hp])
+	var vida: float = c5.current_hp
+	var capa: float = c5.costra
+	c5.take_damage(capa * 0.5)
+	_ok(is_equal_approx(c5.current_hp, vida) and is_equal_approx(c5.costra, capa * 0.5), "un golpe pequeño se lo come la capa")
+	c5.take_damage(capa)
+	_ok(c5.costra == 0.0 and is_equal_approx(c5.current_hp, vida - capa * 0.5), "la rompe y lo que sobra va a la vida")
+	# vuelve a los 3 turnos suyos (CombatEnemigos.costra_vuelve, la de la costra del Tocon)
+	var pan = load("res://scripts/ui/combat.gd").new()
+	var en = load("res://scripts/ui/combat_enemigos.gd").new(pan)
+	for k in 2:
+		en.costra_vuelve(c5)
+	_ok(c5.costra == 0.0, "a los 2 turnos aun no ha vuelto")
+	en.costra_vuelve(c5)
+	_ok(is_equal_approx(c5.costra, c5.costra_max), "al 3o vuelve entera")
+	pan.free()
+	for i in 5:
+		Game.meta_de(items[i]).erase("runas")
+		pj.set(huecos[i], antes[i])
+
+
 func _drops() -> void:
 	print("=== DROPS ===")
-	for f in ["slime", "slime_veneno", "slime_fuego", "slime_abisal", "slime_profundo", "rey_slime", "rata", "rey_rata", "jabali"]:
+	for f in ["slime", "slime_veneno", "slime_fuego", "slime_abisal", "slime_profundo", "rey_slime", "rata", "rey_rata", "jabali", "trent"]:
 		var ed: EnemyData = load("res://scenes/actors/enemy/%s.tres" % f)
 		var s_ok: bool = false
 		for s in Runas.sets():

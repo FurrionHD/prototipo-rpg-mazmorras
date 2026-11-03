@@ -10,7 +10,8 @@
 #    PICOR        las ronchas (AmbarAire.PICOR).
 #    EL GEISER    mientras carga (su animacion 'geiser_carga'), la grieta de la espalda brilla (TrentAire.CARGA).
 #    MAS SECO     el Espantajo con tramos de rabia: las grietas que laten (TrentAire.SECO).
-#  El ESTALLIDO de la costra lo lanza CombatTactico._tick_costra al romperse (ahi se cambia su hoja).
+#  El ESTALLIDO de la costra lo lanza CombatTactico._tick_costra al romperse (ahi se cambia su hoja); el de la CAPA DE
+#  AMBAR de los tuyos (set Ambar), aqui.
 # ============================================================
 extends RefCounted
 class_name TacticoTrent
@@ -23,6 +24,7 @@ var _pringue: Dictionary = {}
 var _picor: Dictionary = {}
 var _carga: Dictionary = {}
 var _seco: Dictionary = {}
+var _capa: Dictionary = {}   # Combatant -> si llevaba la capa de ambar (set Ambar) el fotograma anterior
 
 
 func _init(t) -> void:
@@ -48,6 +50,12 @@ func tick() -> void:
 		_uno(arena, _picor, cb, vivo and cb.has_status(StatusEffects.Id.PICOR), caja, 1, AmbarAire.Modo.PICOR, true)
 		_uno(arena, _carga, cb, vivo and _cargando_geiser(cb), caja, 1, TrentAire.Modo.CARGA, false)
 		_uno(arena, _seco, cb, tramos > 0, caja, tramos, TrentAire.Modo.SECO, false)
+		# LA CAPA DE AMBAR de los tuyos (set Ambar): al romperse, el mismo estallido de grumos que la costra del Tocon.
+		if cb.costra_max > 0.0 and _t._pantalla._aliados.has(cb):
+			var tenia: bool = bool(_capa.get(cb, cb.costra > 0.0))
+			if tenia and cb.costra <= 0.0 and vivo:
+				TrentAire.estallido(arena, caja, _t._cod(cb) + randi() % 97)
+			_capa[cb] = cb.costra > 0.0
 
 
 # Pone, sigue o seca el de 'c' en 'tabla' (de TrentAire o, con 'de_ambar', de AmbarAire). 'nivel': las cargas del humo,
@@ -86,3 +94,4 @@ func quitar() -> void:
 			if is_instance_valid(tabla[c]):
 				(tabla[c] as Node).queue_free()
 		tabla.clear()
+	_capa.clear()

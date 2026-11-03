@@ -487,6 +487,8 @@ const GLIFO_SET := {
 	&"rata": [".#####.", "#.#.#.#", "#.#.#.#", "#.#.#.#", "#.#.#.#", "#.#.#.#", ".#####."],      # rejilla de cloaca
 	&"rey_rata": ["#.#.#.#", "#######", "#######", ".#.#.#.", ".#...#.", ".....#.", "......."], # corona de colmillos
 	&"jabali": ["...#...", ".#.#.#.", "..###..", "#.###.#", ".#####.", "...#...", "...#..."],   # helecho (Musgo viejo)
+	# (03/11, el set Ambar del trent) la gota de ambar con un bichito dentro (el hueco con su cuerpo en medio).
+	&"trent": ["...#...", "..###..", ".##.##.", "##...##", "##.#.##", ".##.##.", "..###.."],    # gota con bicho (Ambar)
 }
 
 

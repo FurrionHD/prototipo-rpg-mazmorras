@@ -9099,6 +9099,11 @@ func crear_player_combatant(pj: PersonajeData = null) -> Combatant:
 	# El ESCUDO DE AGUA del set Marea: se monta con la pelea (esta fabrica es la de los dos caminos de entrada).
 	c.runa_escudo_agua = float(c.max_hp) * c.runa_marea
 	c.runa_escudo_max = c.runa_escudo_agua
+	# Y LA CAPA DE AMBAR del set Ambar (03/11): es la costra del Tocon ambarino (se la come antes que la vida, viaja al
+	# espejo, su tramo en la barra); rota, vuelve a los runa_ambar_turnos turnos suyos (CombatEnemigos.costra_vuelve).
+	c.costra_max = float(c.max_hp) * c.runa_ambar
+	c.costra = c.costra_max
+	c.costra_turnos = c.runa_ambar_turnos
 	_aplicar_pasivas_slayer(c, p)   # multiplicadores de daño por familia (pasivas RNG)
 	# La IMBUICION que traia puesta del combate anterior. Va aqui, en la fabrica del combatiente, y
 	# no en _abrir_pelea, porque asi la recuperan TAMBIEN los que se unen a mitad de pelea
@@ -9963,6 +9968,7 @@ const _MANIFIESTO_MATERIALES := [
 	"res://resources/materials/runa_rata.tres",
 	"res://resources/materials/runa_rey_rata.tres",
 	"res://resources/materials/runa_jabali.tres",
+	"res://resources/materials/runa_trent.tres",
 	"res://resources/materials/sanguinaria.tres", "res://resources/materials/seta_simas.tres",
 	"res://resources/materials/tablon_anillada.tres",
 	"res://resources/materials/tablon_calcinada.tres",

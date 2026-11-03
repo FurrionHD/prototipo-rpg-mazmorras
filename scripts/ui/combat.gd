@@ -1829,6 +1829,8 @@ func _begin_player_turn() -> void:
 	if _player.proteger_turnos > 0:
 		_defendiendo[_player] = true
 	# La IMBUICION ya NO baja aqui: dura ATAQUES, no turnos. Ver _gastar_imbue().
+	# LA CAPA DE AMBAR del set Ambar (03/11): rota, vuelve a los tantos turnos suyos (la costra del Tocon, ver alli).
+	enemigos.costra_vuelve(_player)
 	# Estados alterados (KAN-58): tick al inicio del turno (DoT, expira, aturdido).
 	var ev: Dictionary = _player.tick_statuses()
 	_log_tick(_player, ev)

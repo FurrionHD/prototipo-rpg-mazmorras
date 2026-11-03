@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="RunaSetData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/runa_set_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/materials/raiz_amarga.tres" id="2_mat"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_trent.tres" id="3_nuc"]
+[ext_resource type="Resource" path="res://resources/materials/runa_trent.tres" id="4_runa"]
+
+; AMBAR (02/11, el set de ARMADURA del trent; lo eligio el jefe): 2 piezas +12 % de Defensa; 5 piezas: una CAPA DE AMBAR
+; del 8 % de tu vida encima de la barra (la costra del Tocon ambarino: se come los golpes antes que la vida) y, rota,
+; vuelve entera a los 3 turnos tuyos (a diferencia del escudo de agua de la Marea, que no vuelve).
+[resource]
+script = ExtResource("1")
+id = &"trent"
+nombre = "Ámbar"
+tipo = 1
+material = ExtResource("2_mat")
+nucleo = ExtResource("3_nuc")
+coste_material = 6
+coste_nucleo = 3
+runa = ExtResource("4_runa")
+bonus_2p = {"defensa_pct": 0.12}
+efecto = &"ambar"
+params = {"capa": 0.08, "turnos": 3}
+metadata/_custom_type_script = "res://scripts/items/runa_set_data.gd"

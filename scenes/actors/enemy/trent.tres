@@ -15,6 +15,7 @@
 [ext_resource type="Resource" path="res://resources/enemigos_invocados/bicho_garrapata.tres" id="14_gar"]
 [ext_resource type="Resource" path="res://resources/enemigos_invocados/bicho_mosquito.tres" id="15_mos"]
 [ext_resource type="Resource" path="res://resources/enemigos_invocados/bicho_pelotero.tres" id="16_pel"]
+[ext_resource type="Resource" path="res://resources/materials/runa_trent.tres" id="17_runa"]
 
 [sub_resource type="Resource" id="SA_ven"]
 script = ExtResource("2_sa")
@@ -79,6 +80,7 @@ crystal_category_min = 4
 crystal_category_max = 5
 crystal_category_weights = PackedFloat32Array(0.6, 0.4)
 drop_material = ExtResource("5_raiz")
+drop_runa = ExtResource("17_runa")
 nucleo = ExtResource("6_nuc")
 drop_piso_debut = 4
 drop_piso_pleno = 6

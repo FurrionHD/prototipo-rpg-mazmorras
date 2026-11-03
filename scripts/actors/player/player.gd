@@ -2400,7 +2400,11 @@ func _refrescar_barras() -> void:
 		(fila["hp"] as ProgressBar).value = hp_c
 		# EL ESCUDO DE AGUA (set Marea, 09/10): su tramo azul encima de la vida, solo en la pelea.
 		var escudo_c: float = c.runa_escudo_agua if c != null else 0.0
-		(fila["hp_lbl"] as Label).text = "%.1f/%.1f" % [hp_c, maxhp_c] 			+ TramoEscudo.poner(fila["hp"] as ProgressBar, hp_c, maxhp_c, escudo_c)
+		# Y LA CAPA DE AMBAR (set Ambar, 03/11): su tramo dorado, como la costra del Tocon.
+		var costra_c: float = c.costra if c != null else 0.0
+		(fila["hp_lbl"] as Label).text = "%.1f/%.1f" % [hp_c, maxhp_c] \
+			+ TramoEscudo.poner(fila["hp"] as ProgressBar, hp_c, maxhp_c, escudo_c) \
+			+ TramoEscudo.poner_costra(fila["hp"] as ProgressBar, hp_c, maxhp_c, costra_c)
 		var en_bar: ProgressBar = fila["en"]
 		var maxen_c: float = c.max_energy if c != null else float(maximos[2])
 		var en_c: float = c.current_energy if c != null else (maxen_c if pj.stamina < 0.0 else clampf(pj.stamina, 0.0, maxen_c))   # = _aguante_de
