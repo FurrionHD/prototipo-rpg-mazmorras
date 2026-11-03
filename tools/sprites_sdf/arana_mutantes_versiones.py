@@ -12,6 +12,8 @@
 #      B plasma        el globo detras, donde va el abdomen, con un nucleo blanco y arcos que saltan hasta los hilos
 #      C neon entero   tambien el cuerpo es de hilos y las patas son de luz: casi no le queda nada solido
 #      D globo macizo  el abdomen es una bola oscura con los hilos por fuera: se lee mejor en pequeño
+#    Eligio la C, pero demasiado brillante y de un solo azul: de ahi las tres con menos brillo y varios tonos.
+#    (Las otras tres siguen como funciones; la lista VERSIONES solo saca lo que esta en juego.)
 #  Uso: python tools/sprites_sdf/arana_mutantes_versiones.py [filtro ...] -> tools/salida/sdf/arana_mutantes_versiones.png
 #  (y al escritorio; con filtro solo esas filas, a arana_mutantes_prueba.png; RAPIDO=1: solo dos vistas)
 # ============================================================
@@ -34,17 +36,23 @@ PATA_AZUL = [(0.03, 0.06, 0.26), (0.07, 0.13, 0.46), (0.14, 0.24, 0.68)]
 CIAN = [(0.28, 0.92, 1.0)] * 3
 TURQUESA = [(0.35, 1.0, 0.86)] * 3
 BLANCO_RAYO = [(0.92, 0.98, 1.0)] * 3
+HILO_AZUL = [(0.10, 0.26, 0.72)] * 3
+HILO_MEDIO = [(0.13, 0.50, 0.82)] * 3
+HILO_CLARO = [(0.36, 0.80, 0.92)] * 3
+HILO_TEAL = [(0.16, 0.68, 0.62)] * 3
 ROJO_MOTA = [(1.0, 0.16, 0.20)] * 3
 OJO_RAYO = [(0.72, 0.94, 1.0)] * 3
 
-BRILLAN = ('ojo', 'ojo_fuego', 'ojo_rayo', 'brasa', 'nucleo', 'cian', 'turquesa', 'blanco_rayo', 'rojo_mota')
+BRILLAN = ('ojo', 'ojo_fuego', 'ojo_rayo', 'brasa', 'nucleo', 'cian', 'turquesa', 'blanco_rayo', 'rojo_mota', 'hilo_azul', 'hilo_medio',
+           'hilo_claro', 'hilo_teal')
 
 
 def _mat():
     m = dict(ars.MAT)
     m.update(carbon=CARBON, pata_carbon=PATA_CARBON, ceniza=CENIZA, brasa=BRASA, nucleo=NUCLEO, ojo_fuego=OJO_FUEGO,
              noche=NOCHE, pata_azul=PATA_AZUL, cian=CIAN, turquesa=TURQUESA, blanco_rayo=BLANCO_RAYO, rojo_mota=ROJO_MOTA,
-             ojo_rayo=OJO_RAYO)
+             ojo_rayo=OJO_RAYO, hilo_azul=HILO_AZUL, hilo_medio=HILO_MEDIO, hilo_claro=HILO_CLARO,
+             hilo_teal=HILO_TEAL)
     return m
 
 
@@ -94,7 +102,7 @@ def _gira_x(p, centro, ang):
 
 
 def _patas(e, mat, largo=11.6, alto=5.4, r=(1.0, 0.8, 0.6, 0.35), ancho=2.4, z_base=3.2, y_ini=None, abanico=None,
-           punta=None, punta_r=0.0, placa=None, zigzag=0.0, sube=None, nudo=None, nudo_r=0.0):
+           punta=None, punta_r=0.0, placa=None, zigzag=0.0, sube=None, nudo=None, nudo_r=0.0, tramos=None):
     # Las ocho, con la forma de la de siempre (arquean por encima del lomo y bajan en tijera) y su largo y grosor propios.
     ys = y_ini if y_ini is not None else [p[0] for p in ars.PATAS]
     angs = abanico if abanico is not None else [p[1] for p in ars.PATAS]
@@ -116,6 +124,10 @@ def _patas(e, mat, largo=11.6, alto=5.4, r=(1.0, 0.8, 0.6, 0.35), ancho=2.4, z_b
                 m1 = (base + rod) * 0.5 + lado + V((0, 0, zigzag * 0.5))
                 m2 = (rod + tob) * 0.5 - lado * 0.8 + V((0, 0, zigzag * 0.5))
                 _tubo(e, [base, m1, rod, m2, tob, pie], [r[0], r[0] * 0.92, r[1], r[1] * 0.9, r[2], r[3]], mat, g)
+            elif tramos is not None:
+                _tubo(e, [base, rod], [r[0], r[1]], tramos[0], g)
+                _tubo(e, [rod, tob], [r[1], r[2]], tramos[1], g)
+                _tubo(e, [tob, pie], [r[2], r[3]], tramos[2], g)
             else:
                 _tubo(e, [base, rod, tob, pie], list(r), mat, g)
             _elip(e, rod, (r[1] * 1.2,) * 3, mat, 0, g)
@@ -231,19 +243,22 @@ def tejedora_horno():
 
 # ---------------- ARAÑA TORMENTOSA ----------------
 def _globo(e, c, r, n, mat, hilo, grupo='hilos', paralelos=()):
-    # Una bola de hilos que se juntan arriba y abajo (el eje es la vertical, como en la referencia).
+    # Una bola de hilos que se juntan arriba y abajo (el eje es la vertical, como en la referencia). 'mat' puede ser una
+    # funcion (numero de hilo, altura de -1 a 1) -> material, para repartir los tonos.
     c = V(c, dtype=float)
+    tono = mat if callable(mat) else (lambda i, z: mat)
     for i in range(n):
         a = 2 * math.pi * i / n + 0.2
         pts = []
         for j in range(15):
             th = math.pi * j / 14
             pts.append(c + V((r * math.sin(th) * math.cos(a), r * math.sin(th) * math.sin(a), r * math.cos(th))))
-        _tubo(e, pts, [hilo] * 15, mat, grupo)
+        for j in range(14):
+            _cono(e, pts[j], pts[j + 1], hilo, hilo, tono(i, math.cos(math.pi * (j + 0.5) / 14)), 0, grupo)
     for z in paralelos:
         rad = r * math.sqrt(max(0.0, 1.0 - z * z))
         pts = [c + V((rad * math.cos(2 * math.pi * j / 20), rad * math.sin(2 * math.pi * j / 20), r * z)) for j in range(21)]
-        _tubo(e, pts, [hilo * 0.85] * 21, mat, grupo)
+        _tubo(e, pts, [hilo * 0.85] * 21, tono(0, z), grupo)
 
 
 def _cuerpo_noche(e, z=3.2):
@@ -290,7 +305,8 @@ def tormentosa_plasma():
     return e.L
 
 
-def tormentosa_neon():
+def tormentosa_neon(globo='cian', hilos_cuerpo='cian', tramos=None, patas='cian', nudo='blanco_rayo', ojos='blanco_rayo',
+                    boca='turquesa', palpo='cian', tallo='turquesa', paralelo=(0.0,)):
     e = _Cuerpo()
     # Hasta el cuerpo es de hilos: dentro solo queda un poco de noche para que no se vea el suelo a traves.
     _elip(e, (0, 3.0, 3.2), (1.4, 1.7, 1.0), 'noche', 0.3, 'cuerpo')
@@ -301,16 +317,38 @@ def tormentosa_neon():
             t = -0.96 + 1.92 * j / 10
             rad = math.sqrt(1 - t * t)
             pts.append((2.5 * rad * math.cos(a), 3.0 + 3.0 * t, 3.2 + 1.7 * rad * math.sin(a)))
-        _tubo(e, pts, [0.26] * 11, 'cian', 'hilos_cuerpo')
-    _ojos(e, 5.6, 4.1, 'blanco_rayo', 0.85)
-    _boca(e, 5.4, 2.9, mat='turquesa', palpo='cian')
+        _tubo(e, pts, [0.26] * 11, hilos_cuerpo, 'hilos_cuerpo')
+    _ojos(e, 5.6, 4.1, ojos, 0.85)
+    _boca(e, 5.4, 2.9, mat=boca, palpo=palpo)
     c = V((0.0, -5.2, 9.4))
-    _tubo(e, [(0, 1.0, 3.7), (0, -1.0, 4.8), (0, -3.0, 5.1)], [0.42, 0.36, 0.32], 'turquesa', 'tallo')
-    _globo(e, c, 6.8, 12, 'cian', 0.34, paralelos=(0.0,))
+    _tubo(e, [(0, 1.0, 3.7), (0, -1.0, 4.8), (0, -3.0, 5.1)], [0.42, 0.36, 0.32], tallo, 'tallo')
+    _globo(e, c, 6.8, 12, globo, 0.34, paralelos=paralelo)
     for q in ((-2.8, -5.8, 10.0), (2.2, -4.2, 8.0), (0.6, -7.0, 11.3)):
         _elip(e, q, (0.62, 0.62, 0.62), 'rojo_mota', 0, 'mota')
-    _patas(e, 'cian', largo=14.0, alto=6.0, r=(0.38, 0.32, 0.26, 0.16), nudo='blanco_rayo', nudo_r=0.62)
+    _patas(e, patas, largo=14.0, alto=6.0, r=(0.38, 0.32, 0.26, 0.16), nudo=nudo, nudo_r=0.62, tramos=tramos)
     return e.L
+
+
+def neon_dos_tonos():
+    # Hilo si, hilo no, y las patas azules con las juntas turquesa.
+    return tormentosa_neon(globo=lambda i, z: 'hilo_medio' if i % 2 == 0 else 'hilo_azul', hilos_cuerpo='hilo_medio',
+                           patas='hilo_azul', nudo='hilo_teal', ojos='hilo_claro', boca='hilo_teal', palpo='hilo_azul',
+                           tallo='hilo_teal')
+
+
+def neon_degradado():
+    # Claro arriba y azul abajo; las patas se apagan hacia la punta.
+    grad = lambda i, z: 'hilo_claro' if z > 0.5 else ('hilo_medio' if z > -0.25 else 'hilo_azul')
+    return tormentosa_neon(globo=grad, hilos_cuerpo='hilo_medio', tramos=('hilo_medio', 'hilo_azul', 'hilo_azul'),
+                           nudo='hilo_teal', ojos='hilo_claro', boca='hilo_teal', palpo='hilo_azul', tallo='hilo_medio',
+                           paralelo=())
+
+
+def neon_vetas():
+    # Casi todo azul oscuro y solo unas vetas claras: es la mas apagada, y lo que manda son las juntas y las motas rojas.
+    return tormentosa_neon(globo=lambda i, z: 'hilo_claro' if i % 4 == 0 else 'hilo_azul', hilos_cuerpo='hilo_azul',
+                           tramos=('hilo_azul', 'pata_azul', 'pata_azul'), nudo='hilo_teal', ojos='hilo_claro',
+                           boca='hilo_teal', palpo='pata_azul', tallo='hilo_azul', paralelo=())
 
 
 def tormentosa_maciza():
@@ -328,19 +366,18 @@ def tormentosa_maciza():
 
 
 VERSIONES = [
-    ('la de siempre', lambda: ars.escena(ars.POSE())),
-    ('brasas A farol', tejedora_farol),
-    ('tormenta A globo alzado', tormentosa_globo),
-    ('tormenta B plasma', tormentosa_plasma),
-    ('tormenta C neon entero', tormentosa_neon),
-    ('tormenta D globo macizo', tormentosa_maciza),
+    ('brasas farol (aprobada)', tejedora_farol),
+    ('neon de antes', tormentosa_neon),
+    ('neon 1 dos tonos', neon_dos_tonos),
+    ('neon 2 degradado', neon_degradado),
+    ('neon 3 vetas', neon_vetas),
 ]
 
 
 def modelo():
     mo = Modelo(2.2, (300, 300), (150, 190), _mat(), (0.07, 0.06, 0.09), suaves=('cuerpo',), brillan=BRILLAN,
                 corta_suelo=True)
-    mo.sin_borde = ('cian', 'turquesa', 'blanco_rayo', 'rojo_mota')
+    mo.sin_borde = ('cian', 'turquesa', 'blanco_rayo', 'rojo_mota', 'hilo_azul', 'hilo_medio', 'hilo_claro', 'hilo_teal')
     return mo
 
 
