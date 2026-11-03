@@ -2846,6 +2846,8 @@ func _tras_accion_jugador(obj: Combatant) -> void:
 # CORTAFUEGOS: un golpe de seguimiento NO dispara mas seguimientos. Sin la bandera, dos personajes
 # con Escolta se rebotarian el uno al otro hasta colgar el juego.
 var _en_seguimiento: bool = false
+# Los que ha tocado un rebote del set Hilo conductor en esta accion (CombatEfectos._rebote_hilo): se rematan con los demas.
+var _caidos_de_rebote: Array = []
 
 # Lo que pega la SEGUNDA mano al entrar detras, con dos armas. Es el mismo 0.6 que llevan por defecto
 # las habilidades en su mano mala (AbilityData.dual_golpe_mult): entrar con dos armas tiene que valer
@@ -3009,7 +3011,9 @@ func _tras_accion_jugador_varios(objs: Array) -> void:
 	golpeados_en_la_accion.clear()
 	_pasiva_hecha.clear()
 	var vistos: Dictionary = {}   # el mismo enemigo puede venir por el area Y por un rebote
-	for o in objs:
+	var caidos_rebote: Array = _caidos_de_rebote
+	_caidos_de_rebote = []
+	for o in objs + caidos_rebote:
 		if o != null and not o.is_alive() and not vistos.has(o):
 			vistos[o] = true
 			_morir_enemigo(o)

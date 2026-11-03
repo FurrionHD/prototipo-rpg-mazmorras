@@ -27,7 +27,13 @@ JABALI = {   # Musgo viejo (31/10): verde de la Runa de jabali
     'B helecho': ("...#...", ".#.#.#.", "..###..", "#.###.#", ".#####.", "...#...", "...#..."),
     'C colmillo': ("#......", "#......", "##.....", ".##....", "..###..", "...####", "....##."),
 }
-COL = {'ya': (0.36, 0.7, 0.42), 'rata': (0.55, 0.45, 0.6), 'rey': (0.62, 0.22, 0.2), 'jabali': (0.32, 0.5, 0.22)}
+ARANA = {   # Hilo conductor (03/11): azul de la Runa de araña
+    'A hilo con chispazo': ("...#...", "...#...", "..##...", "..###..", "...##..", "...#...", "...#..."),
+    'B globo de hilos': ("..###..", ".#.#.#.", "#.#.#.#", "#.#.#.#", "#.#.#.#", ".#.#.#.", "..###.."),
+    'C tela de araña': ("#..#..#", ".#.#.#.", "..###..", "###.###", "..###..", ".#.#.#.", "#..#..#"),
+    'D rayo': ("....##.", "...##..", "..####.", "...#...", ".####..", "..##...", ".##...."),
+}
+COL = {'arana': (0.2, 0.5, 0.62), 'ya': (0.36, 0.7, 0.42), 'rata': (0.55, 0.45, 0.6), 'rey': (0.62, 0.22, 0.2), 'jabali': (0.32, 0.5, 0.22)}
 
 
 def sello(glifo, col, r):
@@ -51,8 +57,8 @@ def sello(glifo, col, r):
 
 
 filas = [('ahora', YA, COL['ya']), ('RATA (Alcantarilla)', RATA, COL['rata']), ('REY RATA (Sangre real)', REY, COL['rey']),
-         ('JABALI (Musgo viejo)', JABALI, COL['jabali'])]
-W, H = 980, 120 * len(filas) + 20
+         ('JABALI (Musgo viejo)', JABALI, COL['jabali']), ('ARAÑA (Hilo conductor)', ARANA, COL['arana'])]
+W, H = 1240, 120 * len(filas) + 20
 lam = Image.new('RGB', (W, H), (40, 42, 50))
 d = ImageDraw.Draw(lam)
 for k, (titulo, tabla, col) in enumerate(filas):

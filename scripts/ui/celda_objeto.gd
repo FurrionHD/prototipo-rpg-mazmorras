@@ -489,6 +489,8 @@ const GLIFO_SET := {
 	&"jabali": ["...#...", ".#.#.#.", "..###..", "#.###.#", ".#####.", "...#...", "...#..."],   # helecho (Musgo viejo)
 	# (03/11, el set Ambar del trent) la gota de ambar con un bichito dentro (el hueco con su cuerpo en medio).
 	&"trent": ["...#...", "..###..", ".##.##.", "##...##", "##.#.##", ".##.##.", "..###.."],    # gota con bicho (Ambar)
+	# (03/11, eligio el jefe de tools/glifos_runas_versiones.py) el rayo, del set Hilo conductor de la araña.
+	&"arana": ["....##.", "...##..", "..####.", "...#...", ".####..", "..##...", ".##...."],   # rayo, centrado
 }
 
 

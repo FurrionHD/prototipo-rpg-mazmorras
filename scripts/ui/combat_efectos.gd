@@ -175,6 +175,51 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 		solo_dibujo: bool = false, sfx: String = "",
 		gesto: int = AbilityData.Gesto.AUTO, anim_de = null,
 		semilla: int = 0, mult_elem: float = 1.0, guardia_red: bool = false, mano: int = -1) -> void:
+	_dibujar_golpe(atacante, victima, dmg, crit, evadido, elem, estilo, peso, solo_dibujo, sfx, gesto, anim_de, semilla,
+		mult_elem, guardia_red, mano)
+	if not solo_dibujo and not evadido and dmg > 0.0:
+		_rebote_hilo(atacante, victima, dmg)
+
+
+# EL SET HILO CONDUCTOR (03/11, las arañas mutantes): el golpe puede saltar en rayo a otro enemigo cercano. Va detras del
+# dibujo y aqui porque por _fx_golpe pasan TODOS los golpes, sean del basico, de una habilidad o de un hechizo. Lo
+# resuelve quien lleva la pelea; al espejo le llega como un golpe mas. El rebote no vuelve a rebotar (_en_rebote), y
+# el que cae por el se remata al final de la accion, como todos (CombatPantalla._caidos_de_rebote).
+var _en_rebote: bool = false
+
+func _rebote_hilo(atacante: Combatant, victima: Combatant, dmg: float) -> void:
+	if _en_rebote or _pantalla._espejo or atacante == null or victima == null or atacante.runa_hilo_prob <= 0.0 \
+			or not _pantalla._aliados.has(atacante) or not _pantalla._enemies.has(victima):
+		return
+	if not victima.has_status(StatusEffects.Id.RAYO) and randf() >= atacante.runa_hilo_prob:
+		return
+	var a_tiro: Array = []
+	for e in _pantalla._vivos():
+		if e != victima and not e.en_sombras() and (not _pantalla.tactico \
+				or _pantalla.turno_mapa.hueco_entre(victima, e) <= atacante.runa_hilo_radio):
+			a_tiro.append(e)
+	if a_tiro.is_empty():
+		return   # sin nadie cerca, el rebote se pierde
+	var v: Combatant = a_tiro.pick_random()
+	var elem: int = Elementos.Elemento.RAYO
+	var mult: float = Elementos.mult_recibido(elem, v)
+	var d: float = maxf(0.1, dmg * atacante.runa_hilo_dano * mult)
+	v.take_damage(d)
+	_en_rebote = true
+	_fx_golpe(victima, v, d, false, false, elem, CombatFX.Estilo.ARCO, 0.6, false, "", AbilityData.Gesto.AUTO, null, 0, mult)
+	_en_rebote = false
+	_pantalla._apuntar_dano(v, d, atacante)
+	_pantalla.magia._gastar_amplificadores(v, elem)
+	if v.is_alive() and randf() < StatusEffects.prob_final(1.0, atacante, v, StatusEffects.Id.RAYO):
+		v.apply_status(StatusEffects.Id.RAYO)
+	_pantalla._caidos_de_rebote.append(v)
+	_pantalla._log_extra("⚡ El hilo de %s salta de %s a %s: %.2f" % [atacante.nombre, _pantalla._etq(victima),
+		_pantalla._etq(v), d])
+
+
+func _dibujar_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
+		evadido: bool, elem: int, estilo: int, peso: float, solo_dibujo: bool, sfx: String, gesto: int, anim_de,
+		semilla: int, mult_elem: float, guardia_red: bool, mano: int) -> void:
 	# LA ANIMACION que pide el golpe (vacia = la de siempre): la HABILIDAD que la trae (su fx_anim) o, en los pocos golpes
 	# que no salen de una (las puas), su nombre de combat_espejo.ANIMS_SUELTAS. Llega asi y no siempre el nombre porque
 	# por la red viaja como numero (ver combat_espejo.MARCA_ANIM).

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="RunaSetData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/runa_set_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/materials/cuero_reforzado.tres" id="2_mat"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_arana.tres" id="3_nuc"]
+[ext_resource type="Resource" path="res://resources/materials/runa_arana.tres" id="4_runa"]
+
+[resource]
+script = ExtResource("1")
+id = &"arana"
+nombre = "Hilo conductor"
+tipo = 0
+material = ExtResource("2_mat")
+nucleo = ExtResource("3_nuc")
+coste_material = 6
+coste_nucleo = 3
+runa = ExtResource("4_runa")
+bonus_2p = {}
+efecto = &"hilo_conductor"
+params = {"prob": 0.25, "dano": 0.4, "radio": 60.0}
+metadata/_custom_type_script = "res://scripts/items/runa_set_data.gd"

@@ -350,7 +350,8 @@ def hornear(modname, nombres, salida, vistas):
     W, H = mod.MODELO.W, mod.MODELO.H
     os.makedirs(salida, exist_ok=True); os.makedirs(vistas, exist_ok=True)
     trabajos = [(modname, nm, d, i) for nm in nombres for d in range(mod.ANIMS[nm][3]) for i in range(mod.ANIMS[nm][0])]
-    with Pool() as pool:
+    # PROCESOS=n: menos a la vez cuando va justa la RAM (cada uno carga el modelo entero).
+    with Pool(int(os.environ.get('PROCESOS', 0)) or None) as pool:
         hechos = pool.map(_trabajo, trabajos)
     meta_path = salida + 'hojas.json'
     meta = json.load(open(meta_path)) if os.path.exists(meta_path) else {}

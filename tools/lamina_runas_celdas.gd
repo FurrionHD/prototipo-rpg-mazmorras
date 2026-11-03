@@ -26,7 +26,8 @@ func _ready() -> void:
 		["rey_rata", "res://resources/armor/cuero_casco.tres", 3, 5, 3],
 		["jabali", "res://resources/armor/hierro_pecho.tres", 2, 4, 1],
 		["", "res://resources/weapons/daga.tres", 2, 3, 0],
-		["trent", "res://resources/armor/cuero_pantalones.tres", 3, 5, 2]]
+		["trent", "res://resources/armor/cuero_pantalones.tres", 3, 5, 2],
+		["arana", "res://resources/weapons/espada_corta.tres", 2, 4, 2]]
 	for d in defs:
 		var it: Resource = Game.crear_item(load(d[1]), int(d[2]), int(d[3]), {}, false)
 		if String(d[0]) != "":

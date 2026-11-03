@@ -39,7 +39,7 @@ func _w(ruta: String) -> Resource:
 
 func _catalogo() -> void:
 	print("=== CADA PIEZA, SU LISTA ===")
-	_ok(Runas.sets().size() == 10, "los 10 sets cargan")
+	_ok(Runas.sets().size() == 11, "los 11 sets cargan")
 	var espada: Resource = _w("res://resources/weapons/espada_corta.tres")
 	var varita: Resource = _w("res://resources/wands/varita.tres") if ResourceLoader.exists("res://resources/wands/varita.tres") else null
 	var peto: Resource = _w("res://resources/armor/cuero_pecho.tres")
@@ -195,6 +195,15 @@ func _combate() -> void:
 	var c4: Combatant = Game.crear_player_combatant(pj)
 	_ok(is_equal_approx(c4.runa_alcantarilla_prob, 0.05) and is_equal_approx(c4.runa_alcantarilla_dano, 0.05),
 		"2 armas de Alcantarilla: +5 %% prob. y +5 %% del golpe (%.2f, %.2f)" % [c4.runa_alcantarilla_prob, c4.runa_alcantarilla_dano])
+	# Hilo conductor (03/11, las arañas): los numeros llegan al combatiente (el rebote lo mira prueba_tactico_turno).
+	Game.meta_de(espada)["runas"] = {"set": "arana", "subs": []}
+	Game.meta_de(esp2)["runas"] = {"set": "arana", "subs": []}
+	var c_hilo: Combatant = Game.crear_player_combatant(pj)
+	_ok(is_equal_approx(c_hilo.runa_hilo_prob, 0.25) and is_equal_approx(c_hilo.runa_hilo_dano, 0.4) \
+		and is_equal_approx(c_hilo.runa_hilo_radio, 60.0), "2 armas de Hilo conductor: 25 %% de rebote, 40 %% a 60 px")
+	Game.meta_de(espada)["runas"] = {"set": "rata", "subs": []}
+	Game.meta_de(esp2)["runas"] = {"set": "rata", "subs": []}
+	c4 = Game.crear_player_combatant(pj)
 	var v := Combatant.new("Victima", 1, Abilities.new(), 500.0, 3.0, 3.0, 3.0)
 	_ok(is_equal_approx(c4.runa_mag(StatusEffects.Id.SANGRADO, 6.0, v), 6.0), "sin golpe de ahora, el Sangrado no cambia")
 	v.take_damage(40.0)
@@ -303,7 +312,7 @@ func _ambar(pj: PersonajeData) -> void:
 
 func _drops() -> void:
 	print("=== DROPS ===")
-	for f in ["slime", "slime_veneno", "slime_fuego", "slime_abisal", "slime_profundo", "rey_slime", "rata", "rey_rata", "jabali", "trent"]:
+	for f in ["slime", "slime_veneno", "slime_fuego", "slime_abisal", "slime_profundo", "rey_slime", "rata", "rey_rata", "jabali", "trent", "arana"]:
 		var ed: EnemyData = load("res://scenes/actors/enemy/%s.tres" % f)
 		var s_ok: bool = false
 		for s in Runas.sets():

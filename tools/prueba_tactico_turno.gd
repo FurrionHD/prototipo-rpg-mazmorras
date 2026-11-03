@@ -291,6 +291,34 @@ func _probar_alcance() -> void:
 	t.apuntar_al_mas_cercano(yo)
 	_afirmar(pelea._objetivo() == cerca, "al empezar el turno tendria que apuntar al de cerca")
 	_afirmar(not b.disabled, "apuntando solo al de cerca, Atacar sigue apagado")
+	# EL SET HILO CONDUCTOR (03/11): el golpe rebota en rayo al que este cerca del golpeado.
+	var pos_lejos: Vector2 = t.cuerpos[lejos].global_position
+	var hp_lejos: float = lejos.current_hp
+	yo.runa_hilo_prob = 1.0
+	yo.runa_hilo_dano = 0.4
+	yo.runa_hilo_radio = 60.0
+	pelea.efectos._fx_golpe(yo, cerca, 10.0, false, false)
+	_afirmar(is_equal_approx(lejos.current_hp, hp_lejos), "el rebote no llega tan lejos: sin nadie cerca se pierde")
+	t.cuerpos[lejos].global_position = t.cuerpos[cerca].global_position + Vector2(20, 0)
+	var mult_rayo: float = Elementos.mult_recibido(Elementos.Elemento.RAYO, lejos)
+	pelea.efectos._fx_golpe(yo, cerca, 10.0, false, false)
+	_afirmar(is_equal_approx(lejos.current_hp, hp_lejos - 4.0 * mult_rayo),
+		"el rebote es el 40 %% del golpe, de rayo (%.1f de %.1f)" % [lejos.current_hp, hp_lejos])
+	var tras_uno: float = lejos.current_hp
+	# Sin suerte tampoco rebota... salvo que el golpeado ya este Electrizado.
+	yo.runa_hilo_prob = 0.000001
+	pelea.efectos._fx_golpe(yo, cerca, 10.0, false, false)
+	_afirmar(is_equal_approx(lejos.current_hp, tras_uno), "con prob. casi nula, y sin Electrizado, no tendria que rebotar")
+	cerca.apply_status(StatusEffects.Id.RAYO)
+	pelea.efectos._fx_golpe(yo, cerca, 10.0, false, false)
+	_afirmar(lejos.current_hp < tras_uno, "con el golpeado Electrizado, el rebote sale siempre")
+	yo.runa_hilo_prob = 0.0
+	cerca.quitar_estado(StatusEffects.Id.RAYO)
+	lejos.quitar_estado(StatusEffects.Id.RAYO)
+	lejos.current_hp = hp_lejos
+	t.cuerpos[lejos].global_position = pos_lejos
+	pelea._caidos_de_rebote.clear()
+	pelea.golpeados_en_la_accion.clear()
 	# Lejos de todos: Atacar se APAGA (ya no se vuelve "Esperar": se perdian turnos sin querer) y el
 	# sexto boton es Pasar, que cede el turno sin pegar y repone algo de energia.
 	t.cuerpos[yo].global_position = Vector2(-200, 0)

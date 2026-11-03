@@ -132,7 +132,7 @@ const RUTAS_SETS := ["res://resources/runas/set_slime.tres", "res://resources/ru
 	"res://resources/runas/set_rey.tres", "res://resources/runas/set_fuego.tres",
 	"res://resources/runas/set_venenoso.tres", "res://resources/runas/set_abisal.tres",
 	"res://resources/runas/set_rata.tres", "res://resources/runas/set_rey_rata.tres", "res://resources/runas/set_jabali.tres",
-	"res://resources/runas/set_trent.tres"]
+	"res://resources/runas/set_trent.tres", "res://resources/runas/set_arana.tres"]
 static var _sets: Array = []
 
 static func sets() -> Array:
@@ -340,6 +340,10 @@ static func efecto_txt(s: RunaSetData) -> String:
 		&"alcantarilla":
 			return "+%d %% de abrir Sangrado, y tus Sangrados sangran un %d %% más del golpe que los abre." % [
 				roundi(float(p.get("prob", 0.05)) * 100.0), roundi(float(p.get("dano", 0.05)) * 100.0)]
+		&"hilo_conductor":
+			return "Cada golpe tiene un %d %% de saltar a un enemigo a %d px con un rebote de rayo: el %d %% del golpe, y deja Electrizado. Si el golpeado ya está Electrizado, el rebote sale siempre." % [
+				roundi(float(p.get("prob", 0.25)) * 100.0), roundi(float(p.get("radio", 60.0))),
+				roundi(float(p.get("dano", 0.4)) * 100.0)]
 		&"musgo_viejo":
 			return "Los golpes de área te hacen un %d %% menos, salvo mientras estás Quemado (el musgo arde)." % [
 				roundi(float(p.get("reduce", 0.2)) * 100.0)]
@@ -505,6 +509,10 @@ static func aplicar(c: Combatant, p: PersonajeData) -> void:
 	var alc: Dictionary = efecto_activo(p, &"alcantarilla")
 	c.runa_alcantarilla_prob = float(alc.get("prob", 0.0))
 	c.runa_alcantarilla_dano = float(alc.get("dano", 0.0))
+	var hilo: Dictionary = efecto_activo(p, &"hilo_conductor")
+	c.runa_hilo_prob = float(hilo.get("prob", 0.0))
+	c.runa_hilo_dano = float(hilo.get("dano", 0.0))
+	c.runa_hilo_radio = float(hilo.get("radio", 0.0))
 	c.runa_musgo_reduce = float(efecto_activo(p, &"musgo_viejo").get("reduce", 0.0))
 	var amb: Dictionary = efecto_activo(p, &"ambar")
 	c.runa_ambar = float(amb.get("capa", 0.0))
