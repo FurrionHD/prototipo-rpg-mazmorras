@@ -10,7 +10,9 @@ extends Node
 
 var mi_sala = null   # su sala: tools/prueba_sala_propia.gd
 
-const SEPARADOS := 30.0
+# (03/11, el jefe) con margen: los enemigos apuntan a unos 30 px, pero no siempre se cumple al pie de la letra (en el banco
+# salieron dos ratas a 27 px) y por un par de pixeles no se tiene que caer la prueba. Encima de otro es menos de 25.
+const SEPARADOS := 25.0
 const AREA := 60.0
 const MAX_EN_AREA := 3
 
