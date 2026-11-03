@@ -466,7 +466,11 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		# LOS MUTANTES DEL JABALI (31/10, JabaliAire): las ESPORAS del ancestral (en el, al recibir un golpe cuerpo a
 		# cuerpo) y el REFLEJO de sus drusas (del jabali, a, a quien lanzo el hechizo, v). (El estallido de los colmillos
 		# y la quema del musgo salen de sus estados: CombatTactico._tick_jabali.)
-		JABALI_ESPORAS = 219, JABALI_REFLEJO = 220 }
+		JABALI_ESPORAS = 219, JABALI_REFLEJO = 220,
+		# LOS MUTANTES DEL TRENT (03/11, TrentAire y AmbarAire): el Espantajo CHUPA a un enraizado (los hilos de el, a, a
+		# la victima, v) y la garrapata hinchada REVIENTA al morir (en ella). (Lo demas sale de sus huellas o de sus estados:
+		# SueloRoto.Tipo.TRENT_*, TacticoTrent.)
+		TRENT_CHUPAR = 221, AMBAR_REVIENTA = 222 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -510,6 +514,8 @@ const DIBUJO_MAPA := [Estilo.CRIA_LANZADA, Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA
 	Estilo.REY_LLAMADA, Estilo.REY_CAMPANAZO,
 	# los mutantes del jabali (JabaliAire, 31/10).
 	Estilo.JABALI_ESPORAS, Estilo.JABALI_REFLEJO,
+	# los mutantes del trent (TrentAire, AmbarAire, 03/11).
+	Estilo.TRENT_CHUPAR, Estilo.AMBAR_REVIENTA,
 	# los slimes (SlimeAire, 28/09): sobre el cuerpo que recibe.
 	Estilo.SLIME_GOLPE, Estilo.SLIME_ESCUPE, Estilo.SLIME_TROMBA, Estilo.SLIME_TROZO, Estilo.SLIME_IGNICION,
 	# las bestias (BestiaAire, 28/09): sobre el cuerpo que recibe.
@@ -691,6 +697,7 @@ const T_VUELO := {
 	Estilo.REY_LLAMADA: 0.9,
 	Estilo.REY_CAMPANAZO: 0.04,
 	Estilo.JABALI_ESPORAS: 0.05, Estilo.JABALI_REFLEJO: 0.5,
+	Estilo.TRENT_CHUPAR: 0.05, Estilo.AMBAR_REVIENTA: 0.05,
 	Estilo.SLIME_GOLPE: 0.05, Estilo.SLIME_ESCUPE: 0.26, Estilo.SLIME_TROMBA: 0.16, Estilo.SLIME_TROZO: 0.22, Estilo.SLIME_IGNICION: 0.10,
 	# Las mandibulas se cierran en ese tiempo: se juntan justo en el golpe.
 	Estilo.BESTIA_MORDISCO: 0.14, Estilo.BESTIA_MORDISCO_SANGRA: 0.14, Estilo.BESTIA_FRENESI: 0.08,

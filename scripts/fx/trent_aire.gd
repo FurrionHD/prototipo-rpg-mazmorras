@@ -1,8 +1,19 @@
 # ============================================================
 #  trent_aire.gd  (class_name TrentAire)
 #  LOS EFECTOS DE LOS MUTANTES DEL TRENT en el mapa (02/11/2026: el Tocon ambarino y el Espantajo; ver la memoria
-#  trent-mutante). De momento, las VERSIONES que pidio ver el jefe de los dos del Espantajo (la savia negra, en el
-#  lenguaje de la oscuridad del juego: formas negras rellenas, borde violeta claro, luz blanco-violeta):
+#  trent-mutante). Los del Espantajo van en el lenguaje de la oscuridad del juego (formas negras rellenas, borde violeta
+#  claro, luz blanco-violeta); los del Tocon ambarino, en ambar (cuerpo dorado, filo oscuro, brillo claro).
+#  LO QUE ELIGIO EL JEFE: el GEISER B (nube) y el CHUPAR A (hilos); las otras versiones se quedan para la hoja de
+#  versiones (tools/ver_efectos_trent). Y ademas (paso 5, 03/11):
+#    RESINA     (se queda) el pegote de ambar alrededor de los pies de un Resinado, como un cepo; al soltarle se
+#               agrieta y cae a trozos.
+#    ESTALLIDO  se le rompe la costra al Tocon: los grumos de ambar revientan hacia fuera (como el capullo de su
+#               evolucion) y caen alrededor.
+#    HUMO       (se queda) la Savia negra: humo violeta que sube del cuerpo, mas denso cuantas mas cargas.
+#    CARGA      (se queda) el Geiser cargando: la grieta de la espalda brilla y late.
+#    SECO       (se queda) cuanto mas seco mas pega: grietas violeta que laten por el cuerpo, mas cuantos mas tramos.
+#    GOTERON    la Resina y la Savia negra: el pegote vuela en parabola desde su boca y revienta al caer.
+#  Las versiones del Espantajo:
 #    GEISER  sale por la grieta de su espalda y cae sobre un circulo:
 #            A  CHORRO y GOTAS gordas que caen con salpicadura
 #            B  el chorro forma una NUBE negra encima del area que LLUEVE
@@ -18,7 +29,7 @@
 extends Node2D
 class_name TrentAire
 
-enum Modo { GEISER, CHUPAR }
+enum Modo { GEISER, CHUPAR, RESINA, ESTALLIDO, HUMO, CARGA, SECO, GOTERON }
 
 const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
 
@@ -27,10 +38,22 @@ const SAVIA := Color(0.12, 0.07, 0.16)
 const BORDE := Color(0.55, 0.42, 0.78)       # el filo claro de la savia (la pincelada)
 const VIOLETA := Color(0.62, 0.40, 0.95)
 const LUZ := Color(0.92, 0.86, 1.0)
+const AMBAR := Color(0.95, 0.62, 0.15)
+const AMBAR_OSCURO := Color(0.45, 0.22, 0.04)
+const AMBAR_CLARO := Color(1.0, 0.9, 0.55)
 
 const T_SALE := 0.28        # el chorro sale cuando se arquea (su 'geiser': 8 a 10, el arqueo en el 0,35)
 const T_GEISER := 1.7
 const T_CHUPAR := 1.3
+const T_SECA := 0.7         # lo que tarda en irse lo que se queda (la resina cae a trozos, el humo se apaga)
+const T_ESTALLIDO := 1.1
+const T_GOTERON := 0.4      # lo que vuela el pegote hasta caer (= retraso del golpe)
+const ALTO_GRIETA := 125.0  # la grieta de la espalda del Espantajo sobre el fondo de su dibujo (bajo la copa)
+# Y SOBRE EL SITIO DE SU NODO (pies_de: el centro de su lienzo, 90 px por encima del fondo del dibujo; medido el 03/11
+# con CombatTactico.rect_dibujo): de donde salen el chorro del Geiser y los goterones en el juego (la huella solo sabe eso).
+const GRIETA_NODO := 35.0
+const BOCA_TOCON := 25.0
+const BOCA_ESPANTAJO := 85.0
 
 var modo: int = Modo.GEISER
 var version: int = 0
@@ -41,6 +64,10 @@ var _o: Vector2 = Vector2.ZERO        # de donde sale (la grieta de la espalda /
 var _c: Vector2 = Vector2.ZERO        # el centro del area (geiser) / sus pies (chupar)
 var _r: float = 45.0
 var _piezas: Array = []
+var nivel: int = 1                    # HUMO: las cargas; SECO: los tramos
+var ambar: bool = true                # GOTERON: resina (true) o savia negra
+var _secando: float = -1.0            # lo que se queda: desde cuando se esta yendo (-1 = sigue)
+var _caja: Rect2 = Rect2()            # lo que se queda: el cuerpo al que va pegado
 var _suelo: Node2D = null
 var _delante: Node2D = null
 var _brillo: Node2D = null
@@ -68,6 +95,75 @@ static func chupar(padre: Node, victima: Vector2, pies: Vector2, version_: int, 
 	e._preparar()
 	e._montar(padre)
 	return e
+
+
+# EN EL JUEGO, por la huella (SueloRoto.Tipo.TRENT_*): el GEISER (siempre la nube, la B) y el GOTERON de la Resina
+# ('m' = RESINA) o de la Savia negra ('m' = HUMO, la savia). De donde sale lo da el 'ancho' del circulo (lo lejos que
+# esta quien lo lanza: CombatTactico.desde_quien_lanza). 'espera' = hasta el golpe de su animacion (el arqueo del
+# geiser, el escupitajo): ahi empieza a subir el chorro o a volar el pegote.
+static func area(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, espera: float) -> TrentAire:
+	if padre == null or f == null:
+		return null
+	var dir: Vector2 = f.dir.normalized() if f.dir.length_squared() > 0.0001 else Vector2.RIGHT
+	var pies: Vector2 = f.centro - dir * f.ancho if f.ancho > 1.0 else f.centro
+	var e: TrentAire
+	if m == Modo.GEISER:
+		e = _nuevo(Modo.GEISER, 1, semilla)
+		e._o = pies + Vector2(-signf(dir.x) * 10.0, -GRIETA_NODO)
+		e._t = T_SALE - espera * e._ritmo
+	else:
+		e = _nuevo(Modo.GOTERON, 0, semilla)
+		e.ambar = m == Modo.RESINA
+		e._o = pies + Vector2(dir.x * 14.0, -(BOCA_TOCON if e.ambar else BOCA_ESPANTAJO))
+		e._t = -espera * e._ritmo
+	e._c = f.centro
+	e._r = maxf(f.radio, 10.0)
+	e._preparar()
+	e._montar(padre)
+	return e
+
+
+# Cuando le llega el golpe (segundos desde el golpe de su animacion): el pegote, al caer; la lluvia del geiser, cuando
+# las gotas de la nube empiezan a tocar el suelo.
+static func retraso(m: int) -> float:
+	return 0.75 if m == Modo.GEISER else T_GOTERON
+
+
+# LO QUE SE QUEDA PEGADO A ALGUIEN (RESINA, HUMO, CARGA, SECO): va sobre 'caja' (su cuerpo; los pies, abajo en el
+# medio), la sigue con seguir() y se va con secar(). 'nivel_' = las cargas del humo o los tramos de lo seco.
+static func pegado(padre: Node, m: int, caja: Rect2, nivel_: int, semilla: int) -> TrentAire:
+	if padre == null:
+		return null
+	var e := _nuevo(m, 0, semilla)
+	e.nivel = maxi(nivel_, 1)
+	e._caja = caja
+	e._preparar()
+	e._montar(padre)
+	return e
+
+
+# EL ESTALLIDO de la costra, en el cuerpo 'caja' del Tocon.
+static func estallido(padre: Node, caja: Rect2, semilla: int) -> TrentAire:
+	if padre == null:
+		return null
+	var e := _nuevo(Modo.ESTALLIDO, 0, semilla)
+	e._caja = caja
+	e._preparar()
+	e._montar(padre)
+	return e
+
+
+func seguir(caja: Rect2) -> void:
+	_caja = caja
+
+
+func poner_nivel(n: int) -> void:
+	nivel = maxi(n, 1)
+
+
+func secar() -> void:
+	if _secando < 0.0:
+		_secando = maxf(_t, 0.0)
 
 
 static func _nuevo(m: int, v: int, semilla: int) -> TrentAire:
@@ -126,10 +222,61 @@ func _preparar() -> void:
 			for i in n2:
 				_piezas.append({"t0": _rng.randf_range(0.0, 0.25) + 0.12 * float(i) * (1.0 if version != 0 else 0.0),
 					"fase": _rng.randf_range(0.0, TAU), "curva": _rng.randf_range(-1.0, 1.0), "k": i})
+		Modo.RESINA:
+			# Los trozos en que se parte al soltarle: cada uno un pedazo del cepo (su angulo alrededor de los pies),
+			# con su forma y hacia donde salta.
+			for i in 9:
+				_piezas.append({"a": TAU * (float(i) + _rng.randf_range(0.0, 0.6)) / 9.0, "tam": _rng.randf_range(0.8, 1.2),
+					"v": _rng.randf_range(10.0, 20.0), "sube": _rng.randf_range(6.0, 14.0),
+					"giro": _rng.randf_range(-6.0, 6.0), "lob": _lobulos(5)})
+		Modo.ESTALLIDO:
+			# Los grumos: salen de lo alto del cuerpo (el domo de ambar) en abanico, suben y caen alrededor.
+			for i in 14:
+				var a2: float = -PI * 0.5 + _rng.randf_range(-1.35, 1.35)
+				_piezas.append({"x": _rng.randf_range(-0.35, 0.35), "y": _rng.randf_range(0.1, 0.4),
+					"vx": cos(a2) * _rng.randf_range(22.0, 48.0), "sube": _rng.randf_range(14.0, 30.0),
+					"tam": _rng.randf_range(2.2, 4.6), "giro": _rng.randf_range(-8.0, 8.0), "lob": _lobulos(6),
+					"suelo": _rng.randf_range(-4.0, 6.0)})
+		Modo.HUMO:
+			for i in 12:
+				_piezas.append({"x": _rng.randf_range(-0.4, 0.4), "y": _rng.randf_range(0.35, 0.8),
+					"per": _rng.randf_range(1.1, 1.7), "fase": _rng.randf(), "r": _rng.randf_range(4.0, 7.0),
+					"deriva": _rng.randf_range(-6.0, 6.0), "k": i})
+		Modo.SECO:
+			# Las grietas del cuerpo: su quiebro (en fracciones de su caja, desde lo alto en medio) y su fase.
+			for i in 6:
+				var pts := PackedVector2Array()
+				var q := Vector2(_rng.randf_range(-0.3, 0.3), _rng.randf_range(0.2, 0.75))
+				var ang: float = _rng.randf_range(0.0, TAU)
+				pts.append(q)
+				for k in 4:
+					ang += _rng.randf_range(-0.9, 0.9)
+					q += Vector2(cos(ang), sin(ang)) * _rng.randf_range(0.04, 0.07)
+					pts.append(q)
+				_piezas.append({"pts": pts, "fase": _rng.randf_range(0.0, 0.5), "k": i})
+		Modo.GOTERON:
+			for i in 10:
+				_piezas.append({"a": TAU * (float(i) + _rng.randf_range(0.0, 0.7)) / 10.0,
+					"v": _rng.randf_range(0.45, 1.0) * maxf(_r, 14.0), "sube": _rng.randf_range(8.0, 18.0),
+					"tam": _rng.randf_range(1.4, 2.6)})
+
+
+# Un borde irregular (los trozos de ambar): n radios entre 0,7 y 1.
+func _lobulos(n: int) -> PackedFloat32Array:
+	var l := PackedFloat32Array()
+	for i in n:
+		l.append(_rng.randf_range(0.7, 1.0))
+	return l
 
 
 func duracion() -> float:
-	return T_GEISER if modo == Modo.GEISER else T_CHUPAR
+	match modo:
+		Modo.GEISER: return T_GEISER
+		Modo.CHUPAR: return T_CHUPAR
+		Modo.ESTALLIDO: return T_ESTALLIDO
+		Modo.GOTERON: return T_GOTERON + 0.6
+	# lo que se queda, hasta que se seca
+	return INF if _secando < 0.0 else _secando + T_SECA
 
 
 func _process(delta: float) -> void:
@@ -149,10 +296,15 @@ func avanzar_a(t: float) -> void:
 func _pintar(capa: Node2D) -> void:
 	if _t < 0.0:
 		return
-	if modo == Modo.GEISER:
-		_geiser(capa)
-	else:
-		_chupar(capa)
+	match modo:
+		Modo.GEISER: _geiser(capa)
+		Modo.CHUPAR: _chupar(capa)
+		Modo.RESINA: _resina(capa)
+		Modo.ESTALLIDO: _estallido(capa)
+		Modo.HUMO: _humo(capa)
+		Modo.CARGA: _carga(capa)
+		Modo.SECO: _seco(capa)
+		Modo.GOTERON: _goteron(capa)
 
 
 # ------------------------------------------------------------
@@ -235,7 +387,7 @@ func _chorro(capa: Node2D, sube: float, suelta: float, ancho: float) -> Vector2:
 		_cinta(capa, filo, anf, Color(BORDE, 0.85))
 		capa.draw_circle(arriba, ancho * 0.75, Color(SAVIA, 1.0))
 	elif capa == _brillo:
-		capa.draw_circle(_o, ancho * 1.6 * (1.0 - suelta), Color(VIOLETA, 0.5 * (1.0 - suelta)))
+		MagiaMayor._disco(capa, _o, ancho * 1.1 * (1.0 - suelta), Color(VIOLETA, 0.45 * (1.0 - suelta)), Color(VIOLETA, 0.0))
 	return arriba
 
 
@@ -432,3 +584,234 @@ func _chupar_raiz(capa: Node2D) -> void:
 			capa.draw_circle(q, 2.6, Color(LUZ, 0.9))
 			if ul2 > 0.9:
 				capa.draw_circle(_c, 9.0 * (ul2 - 0.9) * 10.0, Color(VIOLETA, 0.25))
+
+
+# ------------------------------------------------------------
+#  EL AMBAR Y LO QUE SE QUEDA
+# ------------------------------------------------------------
+# Lo que le queda a lo que se queda: 1 mientras sigue, de 1 a 0 al secarse.
+func _queda() -> float:
+	return 1.0 if _secando < 0.0 else 1.0 - clampf((_t - _secando) / T_SECA, 0.0, 1.0)
+
+
+func _pies() -> Vector2:
+	return Vector2(_caja.get_center().x, _caja.end.y)
+
+
+# UN TROZO DE AMBAR: borde irregular ('lob'), filo oscuro, cuerpo dorado y su brillo.
+static func _trozo(ci: CanvasItem, c: Vector2, tam: float, giro: float, lob: PackedFloat32Array, alfa: float) -> void:
+	if alfa <= 0.01 or tam <= 0.3:
+		return
+	var n: int = lob.size()
+	var borde := PackedVector2Array()
+	var cuerpo := PackedVector2Array()
+	for i in n:
+		var a: float = giro + TAU * float(i) / float(n)
+		var d := Vector2(cos(a), sin(a) * 0.85) * tam * lob[i]
+		borde.append(c + d * 1.25)
+		cuerpo.append(c + d)
+	Poligono.relleno(ci, borde, Color(AMBAR_OSCURO, alfa))
+	Poligono.relleno(ci, cuerpo, Color(AMBAR, alfa))
+	ci.draw_circle(c + Vector2(-tam * 0.3, -tam * 0.3), tam * 0.3, Color(AMBAR_CLARO, 0.9 * alfa))
+
+
+# EL CEPO DE RESINA: un cerro de ambar alrededor de los pies (apoyado en el suelo), dos lenguas que trepan por las
+# piernas, burbujas atrapadas y su brillo. Al soltarle tiembla, se agrieta y salta a trozos que caen y se apagan.
+func _resina(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var pies: Vector2 = _pies()
+	var ancho: float = clampf(_caja.size.x * 0.42, 9.0, 34.0)
+	var alto: float = clampf(_caja.size.y * 0.16, 5.0, 18.0)
+	var sale: float = clampf(_t / 0.22, 0.0, 1.0)
+	sale = sale * (1.0 + 0.12 * sin(PI * sale))
+	var seca: float = -1.0 if _secando < 0.0 else clampf((_t - _secando) / T_SECA, 0.0, 1.0)
+	if capa == _suelo:
+		var a_s: float = 0.55 * (1.0 if seca < 0.0 else 1.0 - seca)
+		MagiaMayor._disco(capa, pies, ancho * 1.25 * sale, Color(AMBAR_OSCURO, a_s), Color(AMBAR_OSCURO, 0.0), 0.45)
+		return
+	if seca < 0.15:
+		var tiembla := Vector2(sin(_t * 90.0) * (1.6 if seca >= 0.0 else 0.0), 0.0)
+		var o: Vector2 = pies + tiembla
+		if capa == _brillo:
+			MagiaMayor._disco(capa, o + Vector2(-ancho * 0.3, -alto * 0.6) * sale, ancho * 0.35 * sale,
+				Color(AMBAR_CLARO, 0.35), Color(AMBAR_CLARO, 0.0), 0.6)
+			return
+		var monte := PackedVector2Array()
+		var filo := PackedVector2Array()
+		for i in 17:
+			var u: float = float(i) / 16.0
+			var x: float = lerpf(-1.0, 1.0, u)
+			var h: float = alto * sale * (1.0 - x * x * 0.85) * (1.0 + 0.12 * sin(u * 13.0 + 1.7))
+			monte.append(o + Vector2(x * ancho * sale, 2.0 - h))
+			filo.append(o + Vector2(x * ancho * sale * 1.08, 2.0 - h * 1.12 - 0.8))
+		monte.append(o + Vector2(ancho * sale * 0.92, 4.0))
+		monte.append(o + Vector2(-ancho * sale * 0.92, 4.0))
+		filo.append(o + Vector2(ancho * sale * 1.0, 5.0))
+		filo.append(o + Vector2(-ancho * sale * 1.0, 5.0))
+		Poligono.relleno(capa, filo, Color(AMBAR_OSCURO, 0.95))
+		Poligono.relleno(capa, monte, Color(AMBAR, 0.82))
+		# LAS LENGUAS que trepan por las piernas
+		for s in [-1.0, 1.0]:
+			var base: Vector2 = o + Vector2(s * ancho * 0.35, -alto * 0.6) * sale
+			var punta: Vector2 = base + Vector2(s * 1.5, -alto * 0.9 * sale - 1.5 * sin(_t * 2.0 + s))
+			_cinta(capa, PackedVector2Array([base, base.lerp(punta, 0.5), punta]),
+				PackedFloat32Array([ancho * 0.28, ancho * 0.18, 1.0]), Color(AMBAR, 0.85))
+		# burbujas atrapadas
+		for j in 3:
+			var b: Vector2 = o + Vector2((float(j) - 1.0) * ancho * 0.45, -alto * (0.3 + 0.15 * float(j % 2))) * sale
+			capa.draw_circle(b, 1.3, Color(AMBAR_CLARO, 0.75))
+		# LAS GRIETAS al soltarse: tiras oscuras que corren del centro
+		if seca >= 0.0:
+			var k: float = seca / 0.15
+			for j in 4:
+				var a: float = -PI * 0.5 + (float(j) - 1.5) * 0.7
+				var c: Vector2 = o + Vector2(0.0, -alto * 0.45)
+				var fin: Vector2 = c + Vector2(cos(a) * ancho * 0.9, sin(a) * alto * 0.7 + alto * 0.4) * k
+				_cinta(capa, PackedVector2Array([c, c.lerp(fin, 0.5) + Vector2(1.5, 0.0), fin]),
+					PackedFloat32Array([1.8, 1.2, 0.4]), Color(AMBAR_OSCURO, 0.95))
+		return
+	# A TROZOS
+	if capa != _delante:
+		return
+	var kt: float = (seca - 0.15) / 0.85
+	for p in _piezas:
+		var a2: float = float(p["a"])
+		var desde: Vector2 = pies + Vector2(cos(a2) * ancho * 0.6, -alto * 0.4 + sin(a2) * alto * 0.3)
+		var q: Vector2 = desde + Vector2(cos(a2) * float(p["v"]) * kt,
+			-float(p["sube"]) * 4.0 * kt * (1.0 - kt) + alto * 0.4 * kt)
+		_trozo(capa, q, 3.0 * float(p["tam"]), float(p["giro"]) * kt, p["lob"], 1.0 - kt * kt)
+
+
+# EL ESTALLIDO DE LA COSTRA: un fogonazo dorado en lo alto del cuerpo y los grumos que salen disparados hacia arriba y
+# afuera, caen alrededor de sus pies, botan un pelin y se apagan (con su manchita en el suelo).
+const T_CAER_GRUMO := 0.55
+
+func _estallido(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var pies: Vector2 = _pies()
+	var domo := Vector2(_caja.get_center().x, _caja.position.y + _caja.size.y * 0.3)
+	if capa == _brillo:
+		var f: float = clampf(1.0 - _t / 0.3, 0.0, 1.0)
+		MagiaMayor._disco(capa, domo, _caja.size.x * 0.55 * (0.6 + 0.6 * (1.0 - f)), Color(AMBAR_CLARO, 0.7 * f),
+			Color(AMBAR, 0.0))
+		return
+	var alfa: float = 1.0 - clampf((_t - 0.8) / 0.3, 0.0, 1.0)
+	for p in _piezas:
+		var desde: Vector2 = domo + Vector2(float(p["x"]) * _caja.size.x, (float(p["y"]) - 0.1) * _caja.size.y * 0.5)
+		var u: float = clampf(_t / T_CAER_GRUMO, 0.0, 1.0)
+		var x: float = float(p["vx"]) * u
+		var abajo: float = pies.y + float(p["suelo"]) - desde.y
+		var y: float = -float(p["sube"]) * 4.0 * u * (1.0 - u) + abajo * u * u
+		if _t > T_CAER_GRUMO:
+			var kb: float = clampf((_t - T_CAER_GRUMO) / 0.2, 0.0, 1.0)
+			y -= 3.0 * sin(PI * kb)
+			x += float(p["vx"]) * 0.12 * kb
+		var q: Vector2 = desde + Vector2(x, y)
+		if capa == _delante:
+			_trozo(capa, q, float(p["tam"]), float(p["giro"]) * u, p["lob"], alfa)
+		elif capa == _suelo and _t > T_CAER_GRUMO:
+			MagiaMayor._disco(capa, Vector2(q.x, pies.y + float(p["suelo"])), float(p["tam"]) * 1.4,
+				Color(AMBAR_OSCURO, 0.35 * alfa), Color(AMBAR_OSCURO, 0.0), 0.5)
+
+
+# EL HUMO VIOLETA de la Savia negra: bocanadas que salen de su cuerpo y suben deshaciendose. Cuantas mas cargas, mas
+# bocanadas a la vez y mas espesas (con 1, dos hilillos; con 5, una columna).
+func _humo(capa: Node2D) -> void:
+	if _t < 0.0 or capa == _suelo:
+		return
+	var queda: float = _queda()
+	var n: int = mini(2 + nivel * 2, _piezas.size())
+	var dens: float = lerpf(0.45, 0.85, clampf(float(nivel - 1) / 4.0, 0.0, 1.0))
+	for i in n:
+		var p: Dictionary = _piezas[i]
+		var u: float = fposmod(_t / float(p["per"]) + float(p["fase"]), 1.0)
+		var base := Vector2(_caja.get_center().x + float(p["x"]) * _caja.size.x,
+			_caja.position.y + float(p["y"]) * _caja.size.y)
+		var q: Vector2 = base + Vector2(float(p["deriva"]) * u + sin(u * 5.0 + float(p["k"])) * 2.0,
+			-u * (_caja.size.y * 0.55 + 10.0))
+		# (a la medida del cuerpo: en el Espantajo, bocanadas gordas; en una rata, hilillos)
+		var r: float = float(p["r"]) * (0.6 + 1.1 * u) * clampf(_caja.size.x / 30.0, 0.8, 2.5)
+		var a: float = dens * sin(PI * minf(u * 1.4, 1.0)) * (1.0 - u * 0.5) * queda
+		if capa == _delante:
+			BestiaAire._bola(capa, q, r, Color(SAVIA.lerp(VIOLETA, 0.55), a * 0.85))
+		else:
+			BestiaAire._bola(capa, q, r * 0.6, Color(VIOLETA, a * 0.35))
+
+
+# LA GRIETA QUE BRILLA mientras carga el Geiser: en su espalda, un brillo violeta que late cada vez mas deprisa y
+# gotitas negras que se escapan hacia arriba.
+func _carga(capa: Node2D) -> void:
+	if _t < 0.0 or capa == _suelo:
+		return
+	var queda: float = _queda()
+	var g: Vector2 = _pies() + Vector2(0.0, -minf(ALTO_GRIETA, _caja.size.y * 0.7))
+	var late: float = 0.5 + 0.5 * sin(_t * (6.0 + minf(_t, 2.0) * 3.0))
+	if capa == _brillo:
+		MagiaMayor._disco(capa, g, (12.0 + 6.0 * late) * queda, Color(VIOLETA, (0.35 + 0.35 * late) * queda),
+			Color(VIOLETA, 0.0), 0.8)
+		capa.draw_circle(g, 2.5 + 1.5 * late, Color(LUZ, 0.8 * queda))
+	else:
+		for j in 3:
+			var u: float = fposmod(_t * 1.3 + float(j) / 3.0, 1.0)
+			_gota(capa, g + Vector2((float(j) - 1.0) * 4.0, -u * 22.0), 1.8 * (1.0 - u * 0.5), 1.4, (1.0 - u) * queda)
+
+
+# MAS SECO MAS PEGA: grietas violeta por el cuerpo que laten como un corazon; dos mas por cada tramo.
+func _seco(capa: Node2D) -> void:
+	if _t < 0.0 or capa != _brillo:
+		return
+	var queda: float = _queda()
+	var n: int = mini(nivel * 2, _piezas.size())
+	var latido: float = pow(maxf(sin(_t * TAU * (0.8 + 0.25 * float(nivel))), 0.0), 3.0)
+	var base := Vector2(_caja.get_center().x, _caja.position.y)
+	for i in n:
+		var p: Dictionary = _piezas[i]
+		var pts := PackedVector2Array()
+		var an := PackedFloat32Array()
+		var an2 := PackedFloat32Array()
+		for q in p["pts"]:
+			pts.append(base + (q as Vector2) * _caja.size)
+			an.append(2.2)
+			an2.append(0.9)
+		an[an.size() - 1] = 0.6
+		an2[an2.size() - 1] = 0.3
+		var a: float = (0.35 + 0.65 * latido) * queda
+		_cinta(capa, pts, an, Color(VIOLETA, a))
+		_cinta(capa, pts, an2, Color(LUZ, a * 0.8))
+
+
+# EL GOTERON (la Resina y la Savia negra): de su boca en parabola hasta el centro, con su reguero de gotitas detras; al
+# caer revienta en corona. La resina en ambar; la savia en negro con su destello violeta.
+func _goteron(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var cuerpo: Color = AMBAR if ambar else SAVIA
+	var filo: Color = AMBAR_OSCURO if ambar else NEGRO
+	var claro: Color = AMBAR_CLARO if ambar else BORDE
+	var lejos: float = _o.distance_to(_c)
+	if _t < T_GOTERON:
+		if capa != _delante:
+			return
+		var k: float = _t / T_GOTERON
+		for j in 4:
+			var kj: float = maxf(k - float(j) * 0.07, 0.0)
+			var q: Vector2 = _o.lerp(_c, kj) - Vector2(0.0, (lejos * 0.35 + 18.0) * sin(PI * kj))
+			var tam: float = 5.0 if j == 0 else 2.6 - float(j) * 0.5
+			capa.draw_circle(q, tam + 1.0, Color(filo, 1.0 - float(j) * 0.2))
+			capa.draw_circle(q, tam, Color(cuerpo, 1.0 - float(j) * 0.2))
+			if j == 0:
+				capa.draw_circle(q + Vector2(-1.5, -1.5), 1.6, claro)
+		return
+	var kv: float = clampf((_t - T_GOTERON) / 0.5, 0.0, 1.0)
+	if capa == _suelo:
+		MagiaMayor._disco(capa, _c, _r * 0.8 * (0.5 + 0.5 * kv), Color(cuerpo, 0.5 * (1.0 - kv)), Color(cuerpo, 0.0), 0.5)
+	elif capa == _delante:
+		for p in _piezas:
+			var d := Vector2(cos(float(p["a"])), sin(float(p["a"])) * 0.6)
+			var q2: Vector2 = _c + d * float(p["v"]) * kv - Vector2(0.0, float(p["sube"]) * 4.0 * kv * (1.0 - kv))
+			capa.draw_circle(q2, float(p["tam"]) + 0.6, Color(filo, 1.0 - kv * kv))
+			capa.draw_circle(q2, float(p["tam"]), Color(cuerpo, 1.0 - kv * kv))
+	elif capa == _brillo and not ambar:
+		capa.draw_circle(_c, 10.0 * (1.0 - kv), Color(VIOLETA, 0.4 * (1.0 - kv)))

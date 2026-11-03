@@ -586,6 +586,9 @@ func _chupar_enraizados(e: Combatant) -> void:
 			continue
 		total += quitado
 		nombres.append(al.nombre)
+		# los hilos violeta de el hasta sus pies (TrentAire.CHUPAR): solo el dibujo, el daño ya va puesto
+		_pantalla.efectos._fx_golpe(e, al, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.TRENT_CHUPAR,
+			1.0, true)
 		if not al.is_alive():
 			_pantalla.altas._caer_aliado(al)
 	if total <= 0.0:

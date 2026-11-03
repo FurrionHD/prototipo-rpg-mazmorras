@@ -433,6 +433,8 @@ func desmontar() -> void:
 	_sigilo_visible(true)
 	_sombras_visibles(true)
 	_furias_visibles(true)
+	if _trent != null:
+		_trent.quitar()
 	pintar_imbuiciones(true)
 	pintar_escudos_agua(true)
 	for cu in _gestos_mapa.keys():   # un gesto a medias no puede dejar la marca puesta: no se volveria a animar
@@ -790,6 +792,10 @@ func radio_de(c: Combatant) -> float:
 		r *= StatusEffects.CONGELACION_MOV
 	# (31/10) la rata acorazada del Rey del desguace va cargada de chatarra.
 	return r * c.mov_mult
+
+
+# LO DE LOS MUTANTES DEL TRENT Y SUS BICHOS encima de los cuerpos (03/11): la resina, el humo, el pringue... aparte.
+var _trent: TacticoTrent = null
 
 
 # LA FURIA DE REY A LA VISTA (31/10, el rey rata): quien lleve FURIA_REY lleva encima sus ojos rojos y su vaho
@@ -1377,6 +1383,9 @@ func tick(delta: float) -> bool:
 	_sigilo_visible(false)
 	_sombras_visibles(false, delta)
 	_furias_visibles(false)
+	if _trent == null:
+		_trent = TacticoTrent.new(self)
+	_trent.tick()
 	_tick_circulos()
 	_tick_alcances()
 	_tick_huellas(delta)
@@ -3886,6 +3895,9 @@ func _charco_visible(clave: String, f, queda: float, dueno: Combatant = null) ->
 # LA BABA (06/10, el slime brotado y el brotado punzante): el charco de siempre, del color de SU slime y, el de pinchos,
 # sembrado de puas de cristal.
 func _vestir_charco(b: BestiaAire, estilo: int, dueno: Combatant) -> void:
+	if b != null and estilo == 11:
+		b.vestir_savia_negra()   # (03/11) la Savia negra del Espantajo
+		return
 	if b == null or (estilo != 3 and estilo != 4):
 		return
 	b.vestir_baba(_color_de(dueno), estilo == 4)
@@ -3924,7 +3936,9 @@ func _tick_raices() -> void:
 	todos.append_array(_pantalla._aliados)
 	todos.append_array(_pantalla._enemies)
 	for c in todos:
-		var atado: bool = (c as Combatant).is_alive() and (c as Combatant).enraizado() and cuerpo_de(c) != null
+		# (el Resinado tambien enraiza, pero lo suyo es el cepo de ambar: TacticoTrent)
+		var atado: bool = (c as Combatant).is_alive() and (c as Combatant).enraizado() and cuerpo_de(c) != null \
+			and not (c as Combatant).has_status(StatusEffects.Id.RESINADO)
 		var n = _raices.get(c)
 		# EL DEL MICELIO (30/09): lo marca el Latigazo al pegar (_on_dibujo_mapa), con el color del miconido.
 		var micelio = cuerpo_de(c).get_meta("atado_micelio") if cuerpo_de(c) != null and cuerpo_de(c).has_meta("atado_micelio") else null
@@ -5695,7 +5709,11 @@ func _tick_costra() -> void:
 			continue
 		var rota: bool = e.costra <= 0.0
 		if rota == bool(_costra_var.get(cu, false)):
+			_costra_var[cu] = rota
 			continue
+		# AL ROMPERSE (no al llegar a una pelea con la costra ya rota): el ESTALLIDO de los grumos (TrentAire).
+		if rota and _costra_var.has(cu) and _arena() != null:
+			TrentAire.estallido(_arena(), bulto_visual(e), _cod(e) + randi() % 97)
 		var t_v = cu.get("current_t")
 		var sf: SpriteFrames = SpritesEnemigo.frames_variante(ed, e.mutacion, &"sin_costra") if rota \
 			else SpritesEnemigo.frames_de(ed, float(t_v) if t_v != null else 0.5, true, e.mutacion)
@@ -5976,6 +5994,14 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		var mira_j: Vector2 = _mira_de(cuerpo_de(a))
 		JabaliAire.reflejo(arena, caja_j.get_center() + Vector2(mira_j.x * caja_j.size.x * 0.45, mira_j.y * caja_j.size.y * 0.3),
 			bulto_de(v).get_center(), (int(ev.get("semilla", 1)) | 1), maxf(vuelo - JabaliAire.T_DESTELLO - JabaliAire.T_VUELO, 0.0))
+		return
+	# LOS DEL TRENT (03/11): el Espantajo (a) CHUPA a un enraizado (v): los hilos violeta de el hasta sus pies; y la
+	# garrapata hinchada (v) REVIENTA al morir.
+	if v != null and estilo == CombatFX.Estilo.TRENT_CHUPAR and cuerpo_de(v) != null and a != null and cuerpo_de(a) != null:
+		TrentAire.chupar(arena, pies_de(v), pies_de(a), 0, (int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1)
+		return
+	if v != null and estilo == CombatFX.Estilo.AMBAR_REVIENTA and cuerpo_de(v) != null:
+		AmbarAire.revienta(arena, pies_de(v), v.revienta_radio, (int(ev.get("semilla", 1)) | 1), vuelo)
 		return
 	# EL TAPAZO (31/10): en quien lo recibe (v), el campanazo de la tapa y la chatarra que salta hacia donde le empuja.
 	if v != null and estilo == CombatFX.Estilo.REY_CAMPANAZO and cuerpo_de(v) != null:

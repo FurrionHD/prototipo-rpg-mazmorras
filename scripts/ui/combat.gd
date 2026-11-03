@@ -697,6 +697,8 @@ func _reventon_garrapata(e: Combatant) -> void:
 	ab.efectos = [sa]
 	if _fx != null:
 		efectos._fx_tanda(_fx.ultima_tanda() + 1)
+	# EL REVENTON se ve aunque no pille a nadie (AmbarAire.REVIENTA, en ella)
+	efectos._fx_golpe(e, e, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.AMBAR_REVIENTA, 1.0, true)
 	var nombres: Array = []
 	for v in a_quien:
 		v.take_damage(dano)

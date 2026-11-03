@@ -355,6 +355,7 @@ func es_preparacion() -> bool:
 # 'apertura' de su huella (el circulo no la usa): ver CombatTactico.poner_charco.
 @export var charco_estilo: int = 0
 # (06/10, las mutaciones del slime normal) 3 = charco de BABA del color del slime; 4 = baba con PINCHOS de cristal.
+# (03/11) 11 = el charco de SAVIA NEGRA del Espantajo (BestiaAire.vestir_savia_negra).
 # EL RASTRO: lo que se queda no es un charco donde cae sino la LINEA que ha recorrido (el Placaje del slime brotado).
 @export var rastro: bool = false
 # Los estados que mete el charco/rastro al pisarlo. Vacio = los de 'efectos' (como la Savia de siempre).

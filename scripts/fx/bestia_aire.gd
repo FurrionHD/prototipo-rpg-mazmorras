@@ -112,6 +112,7 @@ var _col_charco: Color = SAVIA
 var _col_charco_osc: Color = SAVIA_OSCURA
 var _col_charco_cla: Color = SAVIA_CLARA
 var _es_baba: bool = false
+var _col_vaho: Color = Color(0.75, 0.8, 0.45)   # (03/11) el de la Savia negra del Espantajo, violeta (vestir_savia_negra)
 var _pinchos: Array = []              # {x, y, a, l}: las puas de cristal del rastro de pinchos
 var _secando: float = -1.0            # CHARCO / ATADO: desde cuando se esta yendo (-1 = sigue)
 var _hojas: Array = []                # RAMAZO / RAMALAZO: hojas y astillas que salen volando
@@ -416,6 +417,15 @@ static func charco(padre: Node, f: CombatFormas.Forma, semilla: int, espera: flo
 
 
 # LA BABA de un slime (CombatTactico._vestir_charco): su color, y con 'pinchos' las puas de cristal.
+# EL CHARCO DE SAVIA NEGRA (03/11, el Espantajo: charco_estilo 11): el mismo charco de savia, negro con el filo violeta
+# y el vaho violeta (los colores de TrentAire).
+func vestir_savia_negra() -> void:
+	_col_charco = TrentAire.SAVIA
+	_col_charco_osc = TrentAire.NEGRO
+	_col_charco_cla = TrentAire.BORDE
+	_col_vaho = TrentAire.VIOLETA
+
+
 func vestir_baba(col: Color, pinchos: bool) -> void:
 	_es_baba = true
 	_col_charco = col
@@ -1424,17 +1434,17 @@ func _charco(capa: Node2D) -> void:
 		var c: Vector2 = _o + Vector2(float(b["x"]), float(b["y"])) * r
 		if ciclo < 0.8:
 			var rb: float = float(b["r"]) * (ciclo / 0.8)
-			capa.draw_circle(c, rb + 0.5, Color(SAVIA_OSCURA, 0.7 * alfa))
-			capa.draw_circle(c, rb, Color(SAVIA_CLARA, 0.8 * alfa))
+			capa.draw_circle(c, rb + 0.5, Color(_col_charco_osc, 0.7 * alfa))
+			capa.draw_circle(c, rb, Color(_col_charco_cla, 0.8 * alfa))
 		else:
 			var kr: float = (ciclo - 0.8) / 0.2
-			_bola(capa, c, float(b["r"]) * (1.0 + 1.5 * kr), Color(SAVIA_CLARA, 0.5 * alfa * (1.0 - kr)))
+			_bola(capa, c, float(b["r"]) * (1.0 + 1.5 * kr), Color(_col_charco_cla, 0.5 * alfa * (1.0 - kr)))
 	# EL VAHO: dos hilos tenues que suben del charco (corrosiva).
 	for i in 2:
 		var kv: float = fposmod(_t * 0.6 + float(i) * 0.5, 1.0)
 		var base: Vector2 = _o + Vector2((float(i) - 0.5) * r * 0.6, 0.0)
 		_bola(capa, base + Vector2(sin(kv * 6.0 + float(i)) * 2.0, -kv * 16.0), 3.0 + 3.0 * kv,
-			Color(0.75, 0.8, 0.45, 0.18 * alfa * (1.0 - kv)))
+			Color(_col_vaho, 0.18 * alfa * (1.0 - kv)))
 
 
 # LAS RAICES QUE ATAN: cuatro raices enroscadas en sus piernas, que suben de sus pies cruzandole el cuerpo, se

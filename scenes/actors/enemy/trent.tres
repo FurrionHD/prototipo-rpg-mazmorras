@@ -38,6 +38,7 @@ costra_frac = 0.2
 costra_turnos = 3
 costra_tope = 2
 costra_bichos = Array[ExtResource("1_g8nro")]([ExtResource("14_gar"), ExtResource("15_mos"), ExtResource("16_pel")])
+color_fx = Color(0.95, 0.62, 0.15, 1)
 pesos = {"agilidad": 8, "destreza": 12, "fuerza": 28, "magia": 17, "resistencia": 56, "voluntad": 14}
 
 [sub_resource type="Resource" id="MUT_espantajo"]
@@ -53,6 +54,7 @@ rabia_tramo = 0.25
 rabia_por_tramo = 0.1
 rabia_tramos_max = 3
 rabia_tramos_velocidad = false
+color_fx = Color(0.22, 0.12, 0.3, 1)
 pesos = {"agilidad": 16, "destreza": 18, "fuerza": 38, "magia": 15, "resistencia": 36, "voluntad": 12}
 
 [resource]

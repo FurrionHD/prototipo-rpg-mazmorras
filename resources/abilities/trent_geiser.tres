@@ -34,3 +34,4 @@ carga = true
 carga_turnos = 1
 fx_anim_carga = &"geiser_carga"
 fx_anim = &"geiser"
+suelo_roto = 112

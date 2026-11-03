@@ -30,5 +30,6 @@ forma = 1
 forma_apunte = 3
 forma_radio = 20.0
 forma_rango = 100.0
-suelo_roto = 75
+suelo_roto = 111
+charco_estilo = 11
 charco_turnos = 3
