@@ -6,10 +6,12 @@
 #      A farol      el abdomen es una JAULA de costillas de carbon, alzada, con el nucleo de ascuas a la vista
 #      B mortaja    patas larguisimas de zancuda, el cuerpo pequeño colgando y envuelto en capas de seda de ceniza
 #      C horno      baja y maciza, patas gruesas con placas, abdomen de horno con chimeneas encendidas
-#    ARAÑA TORMENTOSA (rayo)
-#      A nube       el abdomen es una NUBE de tormenta, a bultos, con grietas de luz; patas finas y claras
-#      B pararrayos larga y plana, una doble fila de pinchos con la punta encendida y patas en zigzag
-#      C bobina     el abdomen alzado son anillos apilados que acaban en una bola de luz
+#    ARAÑA TORMENTOSA (rayo), de SU referencia (03/11: la araña de neon, un globo de hilos de luz y patas de huesos con
+#    las juntas encendidas). Las tres primeras que le saque (nube, pararrayos, bobina) no le gustaron.
+#      A globo alzado  lo mas fiel: el globo hueco de hilos encima del cuerpo, con motas rojas y un nudo blanco dentro
+#      B plasma        el globo detras, donde va el abdomen, con un nucleo blanco y arcos que saltan hasta los hilos
+#      C neon entero   tambien el cuerpo es de hilos y las patas son de luz: casi no le queda nada solido
+#      D globo macizo  el abdomen es una bola oscura con los hilos por fuera: se lee mejor en pequeño
 #  Uso: python tools/sprites_sdf/arana_mutantes_versiones.py [filtro ...] -> tools/salida/sdf/arana_mutantes_versiones.png
 #  (y al escritorio; con filtro solo esas filas, a arana_mutantes_prueba.png; RAPIDO=1: solo dos vistas)
 # ============================================================
@@ -27,22 +29,22 @@ CENIZA = [(0.30, 0.29, 0.30), (0.47, 0.45, 0.45), (0.64, 0.62, 0.60)]
 BRASA = [(1.0, 0.42, 0.08)] * 3
 NUCLEO = [(1.0, 0.80, 0.32)] * 3
 OJO_FUEGO = [(1.0, 0.62, 0.12)] * 3
-TORMENTA = [(0.14, 0.17, 0.27), (0.25, 0.30, 0.43), (0.40, 0.46, 0.60)]
-NUBE = [(0.22, 0.25, 0.35), (0.40, 0.44, 0.54), (0.62, 0.66, 0.74)]
-PATA_CLARA = [(0.26, 0.31, 0.44), (0.42, 0.49, 0.64), (0.62, 0.69, 0.82)]
-AISLANTE = [(0.10, 0.13, 0.22), (0.19, 0.24, 0.36), (0.31, 0.37, 0.52)]
-LUZ_RAYO = [(0.62, 0.86, 1.0)] * 3
+NOCHE = [(0.02, 0.03, 0.08), (0.05, 0.07, 0.17), (0.10, 0.14, 0.30)]
+PATA_AZUL = [(0.03, 0.06, 0.26), (0.07, 0.13, 0.46), (0.14, 0.24, 0.68)]
+CIAN = [(0.28, 0.92, 1.0)] * 3
+TURQUESA = [(0.35, 1.0, 0.86)] * 3
 BLANCO_RAYO = [(0.92, 0.98, 1.0)] * 3
+ROJO_MOTA = [(1.0, 0.16, 0.20)] * 3
 OJO_RAYO = [(0.72, 0.94, 1.0)] * 3
 
-BRILLAN = ('ojo', 'ojo_fuego', 'ojo_rayo', 'brasa', 'nucleo', 'luz_rayo', 'blanco_rayo')
+BRILLAN = ('ojo', 'ojo_fuego', 'ojo_rayo', 'brasa', 'nucleo', 'cian', 'turquesa', 'blanco_rayo', 'rojo_mota')
 
 
 def _mat():
     m = dict(ars.MAT)
     m.update(carbon=CARBON, pata_carbon=PATA_CARBON, ceniza=CENIZA, brasa=BRASA, nucleo=NUCLEO, ojo_fuego=OJO_FUEGO,
-             tormenta=TORMENTA, nube=NUBE, pata_clara=PATA_CLARA, aislante=AISLANTE, luz_rayo=LUZ_RAYO,
-             blanco_rayo=BLANCO_RAYO, ojo_rayo=OJO_RAYO)
+             noche=NOCHE, pata_azul=PATA_AZUL, cian=CIAN, turquesa=TURQUESA, blanco_rayo=BLANCO_RAYO, rojo_mota=ROJO_MOTA,
+             ojo_rayo=OJO_RAYO)
     return m
 
 
@@ -92,7 +94,7 @@ def _gira_x(p, centro, ang):
 
 
 def _patas(e, mat, largo=11.6, alto=5.4, r=(1.0, 0.8, 0.6, 0.35), ancho=2.4, z_base=3.2, y_ini=None, abanico=None,
-           punta=None, punta_r=0.0, placa=None, zigzag=0.0, sube=None):
+           punta=None, punta_r=0.0, placa=None, zigzag=0.0, sube=None, nudo=None, nudo_r=0.0):
     # Las ocho, con la forma de la de siempre (arquean por encima del lomo y bajan en tijera) y su largo y grosor propios.
     ys = y_ini if y_ini is not None else [p[0] for p in ars.PATAS]
     angs = abanico if abanico is not None else [p[1] for p in ars.PATAS]
@@ -121,6 +123,10 @@ def _patas(e, mat, largo=11.6, alto=5.4, r=(1.0, 0.8, 0.6, 0.35), ancho=2.4, z_b
                 for t in (0.35, 0.72):
                     q = base + (rod - base) * t
                     _elip(e, q, (r[0] * 1.5, r[0] * 1.5, r[0] * 1.15), placa, 0, g + 'p')
+            if nudo is not None:
+                # LAS JUNTAS ENCENDIDAS: patas de huesos, cada articulacion con su punto de luz.
+                for q in (base, rod, tob, tob + (pie - tob) * 0.55):
+                    _elip(e, q, (nudo_r,) * 3, nudo, 0, 'nudo')
             if punta is not None:
                 _elip(e, pie + V((0, 0, 0.5)), (punta_r, punta_r, punta_r * 1.3), punta, 0, 'punta')
 
@@ -224,96 +230,118 @@ def tejedora_horno():
 
 
 # ---------------- ARAÑA TORMENTOSA ----------------
-def tormentosa_nube():
+def _globo(e, c, r, n, mat, hilo, grupo='hilos', paralelos=()):
+    # Una bola de hilos que se juntan arriba y abajo (el eje es la vertical, como en la referencia).
+    c = V(c, dtype=float)
+    for i in range(n):
+        a = 2 * math.pi * i / n + 0.2
+        pts = []
+        for j in range(15):
+            th = math.pi * j / 14
+            pts.append(c + V((r * math.sin(th) * math.cos(a), r * math.sin(th) * math.sin(a), r * math.cos(th))))
+        _tubo(e, pts, [hilo] * 15, mat, grupo)
+    for z in paralelos:
+        rad = r * math.sqrt(max(0.0, 1.0 - z * z))
+        pts = [c + V((rad * math.cos(2 * math.pi * j / 20), rad * math.sin(2 * math.pi * j / 20), r * z)) for j in range(21)]
+        _tubo(e, pts, [hilo * 0.85] * 21, mat, grupo)
+
+
+def _cuerpo_noche(e, z=3.2):
+    _elip(e, (0, 3.0, z), (2.5, 2.9, 1.6), 'noche', 0.5, 'cuerpo')
+    _cono(e, (0, 0.9, z + 1.5), (0, 4.6, z + 1.2), 0.28, 0.22, 'cian', 0, 'veta')
+    _ojos(e, 5.3, z + 0.9, 'ojo_rayo', 0.85)
+    _boca(e, 5.3, z - 0.4, palpo='pata_azul')
+
+
+def tormentosa_globo():
     e = _Cuerpo()
-    _elip(e, (0, 3.2, 3.8), (2.7, 3.1, 1.8), 'tormenta', 0.5, 'cuerpo')
-    _ojos(e, 5.6, 4.8, 'ojo_rayo')
-    _boca(e, 5.6, 3.3, palpo='pata_clara')
-    # LA NUBE: muchos bultos que no acaban de formar una bola, a lo ancho y a lo alto.
-    rnd = random.Random(8)
-    c = V((0.0, -6.5, 8.5))
-    _cono(e, (0, 0.8, 4.0), (0, -3.4, 7.0), 1.1, 1.3, 'tormenta', 0, 'cintura')
-    for i in range(18):
-        a = rnd.uniform(0, 2 * math.pi)
-        b = rnd.uniform(-0.9, 1.0)
-        rr = rnd.uniform(2.5, 3.9)
-        p = c + V((7.0 * math.cos(a) * math.sqrt(1 - b * b * 0.8), 6.2 * math.sin(a) * math.sqrt(1 - b * b * 0.8), 3.9 * b))
-        _elip(e, p, (rr, rr, rr * 0.85), 'nube', 0.0, 'nube')
-    _elip(e, c, (6.8, 6.2, 4.1), 'nube', 0.0, 'nube')
-    # Las panzas oscuras por debajo, como una nube de agua.
-    for x, y in ((-3.8, -5.2), (3.8, -5.0), (0.0, -8.9), (0.2, -2.7)):
-        _elip(e, (x, y, 5.3), (3.6, 3.4, 1.9), 'tormenta', 0.0, 'panza')
-    # EL RAYO DENTRO: una grieta de luz en zigzag que se asoma por la nube.
-    for pts, r in (([(-5.6, -3.2, 9.8), (-3.1, -4.6, 12.6), (-0.8, -3.2, 12.2), (1.7, -5.2, 13.3)], 0.55),
-                   ([(3.8, -8.6, 12.5), (5.9, -7.0, 10.6), (7.4, -8.2, 8.7)], 0.5),
-                   ([(-3.4, -10.5, 10.2), (-1.2, -11.2, 12.1), (0.8, -10.2, 11.6)], 0.48)):
-        _tubo(e, pts, [r] * len(pts), 'blanco_rayo', 'rayo')
-    _patas(e, 'pata_clara', largo=13.0, alto=7.0, r=(0.82, 0.62, 0.44, 0.2), punta='luz_rayo', punta_r=0.34)
+    _cuerpo_noche(e)
+    c = V((0.0, -2.6, 12.0))
+    r = 6.8
+    _tubo(e, [(0, 1.0, 3.6), (0, -1.0, 4.4), c + V((0, 0, -r))], [0.8, 0.65, 0.5], 'pata_azul', 'tallo')
+    _globo(e, c, r, 12, 'cian', 0.34)
+    # Dentro: las motas rojas y el nudo blanco de abajo.
+    for q in ((-3.0, -3.4, 12.8), (2.0, -1.4, 9.8), (-1.2, -3.6, 8.9), (2.6, -4.2, 13.6)):
+        _elip(e, q, (0.62, 0.62, 0.62), 'rojo_mota', 0, 'mota')
+    _tubo(e, [(-2.6, -2.2, 7.4), (0.2, -3.6, 8.2), (2.5, -2.0, 7.4), (0.0, -1.2, 8.4), (-2.6, -2.2, 7.4)], [0.3] * 5,
+          'blanco_rayo', 'nudo_blanco')
+    _patas(e, 'pata_azul', largo=14.5, alto=5.6, r=(0.62, 0.48, 0.34, 0.16), nudo='turquesa', nudo_r=0.62)
     return e.L
 
 
-def tormentosa_pararrayos():
+def tormentosa_plasma():
     e = _Cuerpo()
-    # Larga, baja y afilada: de delante a atras una sola linea, con la doble fila de pararrayos.
-    _elip(e, (0, 5.8, 2.9), (2.6, 4.2, 1.5), 'tormenta', 0.4, 'cuerpo')
-    _ojos(e, 9.5, 3.5, 'ojo_rayo', 0.8)
-    _boca(e, 9.5, 2.4, largo=1.1, palpo='pata_clara')
-    _elip(e, (0, -5.6, 3.8), (3.7, 9.2, 2.4), 'tormenta', 0.6, 'cuerpo')
-    _elip(e, (0, 1.1, 3.2), (1.9, 2.4, 1.3), 'aislante', 0.4, 'cuerpo')
-    # Los segmentos del lomo y LOS PARARRAYOS, mas altos en el centro.
-    for i, y in enumerate((-12.0, -9.2, -6.3, -3.3, -0.4)):
-        alto = (5.0, 7.0, 9.4, 8.0, 5.5)[i]
-        an = (1.5, 2.2, 2.6, 2.4, 1.6)[i]
-        _elip(e, (0, y, 5.2 + (0.1 if i else -0.7)), (an + 0.6, 0.72, 0.75), 'aislante', 0, 'segmento')
-        for s in (-1, 1):
-            b = V((an * 0.72 * s, y, 5.3))
-            t = b + V((an * 0.4 * s, -0.5, alto))
-            _cono(e, b, t, 0.56, 0.17, 'aislante', 0, 'pincho')
-            _elip(e, b + (t - b) * 0.55, (0.5, 0.5, 0.2), 'pata_clara', 0, 'anillo')
-            _elip(e, t, (0.72, 0.72, 0.72), 'blanco_rayo', 0, 'punta_pincho')
-    _patas(e, 'pata_clara', largo=12.0, alto=6.0, r=(0.82, 0.62, 0.48, 0.2), ancho=2.0, z_base=2.8,
-           y_ini=(8.0, 5.6, 3.2, 0.8), abanico=(0.7, 0.22, -0.28, -0.72), zigzag=1.5, punta='luz_rayo', punta_r=0.34)
+    _cuerpo_noche(e)
+    c = V((0.0, -6.8, 7.2))
+    r = 6.6
+    _tubo(e, [(0, 1.0, 3.6), (0, -0.9, 4.5)], [0.9, 0.8], 'pata_azul', 'tallo')
+    _globo(e, c, r, 9, 'cian', 0.3)
+    _elip(e, c, (1.7, 1.7, 1.7), 'blanco_rayo', 0, 'nucleo_rayo')
+    # LOS ARCOS: saltan del nucleo a los hilos en zigzag.
+    rnd = random.Random(4)
+    for i in range(6):
+        a = 2 * math.pi * i / 6 + 0.5
+        b = rnd.uniform(-0.65, 0.65)
+        d = V((math.cos(a) * math.sqrt(1 - b * b), math.sin(a) * math.sqrt(1 - b * b), b))
+        lado = V((-d[1], d[0], 0.2))
+        _tubo(e, [c + d * 1.4, c + d * 3.0 + lado * 0.9, c + d * 4.4 - lado * 0.8, c + d * (r - 0.1)], [0.3, 0.26, 0.24, 0.2],
+              'blanco_rayo', 'arco')
+    _patas(e, 'pata_azul', largo=13.5, alto=6.2, r=(0.68, 0.52, 0.36, 0.17), nudo='turquesa', nudo_r=0.6)
     return e.L
 
 
-def tormentosa_bobina():
+def tormentosa_neon():
     e = _Cuerpo()
-    _elip(e, (0, 3.2, 3.4), (3.0, 3.1, 1.9), 'tormenta', 0.5, 'cuerpo')
-    _ojos(e, 5.7, 4.3, 'ojo_rayo')
-    _boca(e, 5.7, 2.9, palpo='pata_clara')
-    # LA BOBINA: el abdomen se alza casi en vertical, anillos cada vez mas pequeños y una bola de luz arriba.
-    base = V((0.0, -0.6, 4.0))
-    eje = V((0.0, -0.45, 0.89))
-    _cono(e, (0, 1.2, 3.8), base + eje * 2.0, 1.4, 1.4, 'aislante', 0, 'cintura')
-    d = 3.0
-    radios = (5.4, 6.2, 5.8, 5.1, 4.3, 3.5, 2.6)
-    for i, r in enumerate(radios):
-        p = base + eje * d
-        _elip(e, p, (r, r, 1.32), 'tormenta' if i % 2 == 0 else 'aislante', 0, 'anillo%d' % i)
-        _elip(e, p + eje * 0.75, (r * 0.62, r * 0.62, 0.82), 'luz_rayo', 0, 'junta%d' % i)
-        d += 2.3
-    tope = base + eje * d
-    _cono(e, tope - eje * 0.7, tope + eje * 1.5, 0.8, 0.5, 'aislante', 0, 'mastil')
-    _elip(e, tope + eje * 2.3, (1.65, 1.65, 1.65), 'luz_rayo', 0, 'bola')
-    _elip(e, tope + eje * 2.3, (0.98, 0.98, 0.98), 'blanco_rayo', 0, 'bola2')
-    _patas(e, 'pata_clara', largo=12.5, alto=5.2, r=(1.05, 0.8, 0.58, 0.28), punta='luz_rayo', punta_r=0.38)
+    # Hasta el cuerpo es de hilos: dentro solo queda un poco de noche para que no se vea el suelo a traves.
+    _elip(e, (0, 3.0, 3.2), (1.4, 1.7, 1.0), 'noche', 0.3, 'cuerpo')
+    for i in range(6):
+        a = 2 * math.pi * i / 6
+        pts = []
+        for j in range(11):
+            t = -0.96 + 1.92 * j / 10
+            rad = math.sqrt(1 - t * t)
+            pts.append((2.5 * rad * math.cos(a), 3.0 + 3.0 * t, 3.2 + 1.7 * rad * math.sin(a)))
+        _tubo(e, pts, [0.26] * 11, 'cian', 'hilos_cuerpo')
+    _ojos(e, 5.6, 4.1, 'blanco_rayo', 0.85)
+    _boca(e, 5.4, 2.9, mat='turquesa', palpo='cian')
+    c = V((0.0, -5.2, 9.4))
+    _tubo(e, [(0, 1.0, 3.7), (0, -1.0, 4.8), (0, -3.0, 5.1)], [0.42, 0.36, 0.32], 'turquesa', 'tallo')
+    _globo(e, c, 6.8, 12, 'cian', 0.34, paralelos=(0.0,))
+    for q in ((-2.8, -5.8, 10.0), (2.2, -4.2, 8.0), (0.6, -7.0, 11.3)):
+        _elip(e, q, (0.62, 0.62, 0.62), 'rojo_mota', 0, 'mota')
+    _patas(e, 'cian', largo=14.0, alto=6.0, r=(0.38, 0.32, 0.26, 0.16), nudo='blanco_rayo', nudo_r=0.62)
+    return e.L
+
+
+def tormentosa_maciza():
+    e = _Cuerpo()
+    _cuerpo_noche(e)
+    c = V((0.0, -6.4, 7.0))
+    r = 6.5
+    _tubo(e, [(0, 1.0, 3.6), (0, -0.8, 4.4)], [0.95, 0.85], 'noche', 'tallo')
+    _elip(e, c, (r - 0.15, r - 0.15, r - 0.15), 'noche', 0, 'bola')
+    _globo(e, c, r, 10, 'cian', 0.34, paralelos=(0.42,))
+    for q in (V((-3.4, -4.6, 11.2)), V((3.8, -5.4, 9.9)), V((0.4, -2.2, 10.5))):
+        _elip(e, q, (0.6, 0.6, 0.6), 'rojo_mota', 0, 'mota')
+    _patas(e, 'pata_azul', largo=13.0, alto=6.4, r=(0.82, 0.62, 0.44, 0.2), nudo='turquesa', nudo_r=0.68)
     return e.L
 
 
 VERSIONES = [
     ('la de siempre', lambda: ars.escena(ars.POSE())),
     ('brasas A farol', tejedora_farol),
-    ('brasas B mortaja', tejedora_mortaja),
-    ('brasas C horno', tejedora_horno),
-    ('tormenta A nube', tormentosa_nube),
-    ('tormenta B pararrayos', tormentosa_pararrayos),
-    ('tormenta C bobina', tormentosa_bobina),
+    ('tormenta A globo alzado', tormentosa_globo),
+    ('tormenta B plasma', tormentosa_plasma),
+    ('tormenta C neon entero', tormentosa_neon),
+    ('tormenta D globo macizo', tormentosa_maciza),
 ]
 
 
 def modelo():
-    return Modelo(2.2, (300, 300), (150, 190), _mat(), (0.07, 0.06, 0.09), suaves=('cuerpo',), brillan=BRILLAN,
-                  corta_suelo=True)
+    mo = Modelo(2.2, (300, 300), (150, 190), _mat(), (0.07, 0.06, 0.09), suaves=('cuerpo',), brillan=BRILLAN,
+                corta_suelo=True)
+    mo.sin_borde = ('cian', 'turquesa', 'blanco_rayo', 'rojo_mota')
+    return mo
 
 
 if __name__ == '__main__':

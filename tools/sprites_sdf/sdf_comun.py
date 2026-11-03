@@ -247,6 +247,8 @@ def render(mo, L, dir_i):
     opaco = img[:, :, 3] > 0
     ns = len(mo.suaves)
     lineas = np.zeros_like(opaco)
+    # HILOS DE LUZ (03/11, la araña tormentosa): un tubo de 1-2 px es todo contorno y salia negro. Estos materiales no llevan.
+    sin_borde = np.isin(matmap, [mo.nombres.index(b) for b in getattr(mo, 'sin_borde', ()) if b in mo.nombres])
     # Lo que se ve A TRAVES del gel va sin contorno: los ojos pequeños, vistos de espaldas, eran todo linea oscura.
     for dx, dy in (() if getattr(mo, 'sin_lineas', False) else ((1, 0), (-1, 0), (0, 1), (0, -1))):
         vec_op = np.zeros_like(opaco); vec_pr = np.full_like(prof, np.inf)
@@ -255,7 +257,7 @@ def render(mo, L, dir_i):
         vec_op[yd, xd] = opaco[ys, xs]; vec_pr[yd, xd] = prof[ys, xs]
         vec_g = np.full_like(grpmap, -1); vec_g[yd, xd] = grpmap[ys, xs]
         cruza = (vec_g != grpmap) & (grpmap < ns) & (vec_g >= 0) & (vec_g < ns) & (vec_pr - prof > mo.salto_grupos)
-        borde = opaco & (~vec_op | ((~brilla) & (vec_pr - prof > mo.salto_linea)) | cruza)
+        borde = opaco & ~sin_borde & (~vec_op | ((~brilla) & (vec_pr - prof > mo.salto_linea)) | cruza)
         sal[borde, :3] = mo.borde
         lineas = lineas | borde
     if sombra.any():
