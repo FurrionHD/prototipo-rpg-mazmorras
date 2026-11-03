@@ -33,6 +33,7 @@ habilidades = Array[ExtResource("10_ab")]([ExtResource("3_fre")])
 resist_elemental = {
 1: 0.01
 }
+sprite = &"tejedora"
 carga_elemento = 1
 carga_estallido = ExtResource("11_exp")
 color_fx = Color(1, 0.42, 0.08, 1)
@@ -51,6 +52,7 @@ resist_elemental = {
 2: 0.4,
 3: 0.01
 }
+sprite = &"tormentosa"
 carga_elemento = 3
 carga_estallido = ExtResource("12_des")
 color_fx = Color(0.36, 0.8, 0.92, 1)

@@ -199,6 +199,13 @@ def anim_muerte(t):
                 alza=tramos(t, [(0.0, 0.0), (0.16, 0.34), (0.38, 0.06), (1.0, 0.0)]))
 
 
+def anim_comer(t):
+    # COME (03/11, para mutar): baja la cabeza, sube el abdomen y masca.
+    masca = math.sin(2 * math.pi * t * 4.0) * (0.25 < t < 0.85)
+    return POSE(agacha=tramos(t, [(0.0, 0.0), (0.15, 0.55), (0.85, 0.55), (1.0, 0.0)]),
+                abdomen=tramos(t, [(0.0, 0.0), (0.15, 0.3), (0.85, 0.3), (1.0, 0.0)]), muerde=0.7 * masca)
+
+
 # nombre: (fotogramas, fps, loop, direcciones, funcion) -- los del viejo.
 ANIMS = {
     'idle': (8, 3.0, True, 8, anim_idle),
@@ -209,6 +216,7 @@ ANIMS = {
     'mordisco': (10, 14.0, False, 8, anim_mordisco),
     'encaje': (4, 18.0, False, 8, anim_encaje),
     'muerte': (8, 10.0, False, 8, anim_muerte),
+    'comer': (10, 10.0, False, 8, anim_comer),
 }
 
 

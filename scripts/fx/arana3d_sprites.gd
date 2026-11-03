@@ -29,6 +29,31 @@ const ANIMS := {
 	"basico": {"hoja": "basico", "dirs": 8, "marcos": 8, "fps": 16.0, "loop": false},
 	"encaje": {"hoja": "encaje", "dirs": 8, "marcos": 4, "fps": 18.0, "loop": false},
 	"cadaver": {"hoja": "muerte", "dirs": 8, "marcos": 1, "desde": 7, "fps": 1.0, "loop": false},
+	# COMER UN CRISTAL y LA EVOLUCION (03/11, los mutantes de la araña).
+	"comer": {"hoja": "comer", "dirs": 8, "marcos": 10, "fps": 10.0, "loop": false, "opcional": true},
+	"evolucion": {"hoja": "evolucion", "dirs": 8, "marcos": 18, "fps": 10.0, "loop": false, "opcional": true},
+	# LA TEJEDORA: el Hilo al rojo (dispara en el 0,4, tira en el 0,6), el Capullo (tejiendo en bucle y soltando en el
+	# 0,35) y la Explosion (revienta en el 0,3).
+	"hilo": {"hoja": "hilo", "dirs": 8, "marcos": 10, "fps": 12.0, "loop": false, "opcional": true},
+	"capullo_carga": {"hoja": "capullo_carga", "dirs": 8, "marcos": 8, "fps": 8.0, "loop": true, "opcional": true},
+	"capullo": {"hoja": "capullo", "dirs": 8, "marcos": 8, "fps": 10.0, "loop": false, "opcional": true},
+	"explosion": {"hoja": "explosion", "dirs": 8, "marcos": 8, "fps": 14.0, "loop": false, "opcional": true},
+	# LA TORMENTOSA: el Pisoton (cae en el 0,5), el Salto (despega en el 0,25, cae en el 0,72) y la Descarga (0,3).
+	"pisoton": {"hoja": "pisoton", "dirs": 8, "marcos": 10, "fps": 12.0, "loop": false, "opcional": true},
+	"salto": {"hoja": "salto", "dirs": 8, "marcos": 10, "fps": 12.0, "loop": false, "opcional": true},
+	"descarga": {"hoja": "descarga", "dirs": 8, "marcos": 8, "fps": 14.0, "loop": false, "opcional": true},
+}
+
+# LOS MUTANTES DE LA ARAÑA (03/11, arana-mutante): UNA LINEA. La TEJEDORA DE BRASAS (1a: el abdomen es una jaula de carbon
+# con ascuas) y la ARAÑA TORMENTOSA (2a: un globo de hilos de luz). Cada una CON SU CUERPO, de
+# tools/sprites_sdf/arana_mutantes_sdf.py: [carpeta, lienzo, sus animaciones, grupos de hilos]. Ya vienen a su tamaño y
+# con su color (sin el tinte del piso). LOS HILOS de la Tormentosa van como los ojos del slime de mil ojos: una hoja
+# de capa por grupo (<anim>_parpado<N>.png), y el juego los enciende cada uno a su aire.
+const _COMUNES_MUT := ["idle", "walk", "embestida", "telarana", "basico", "encaje", "muerte", "cadaver", "comer", "evolucion"]
+const GRUPOS_HILOS := 4
+const MUTANTES := {
+	&"tejedora": ["arana_sdf_tejedora", Vector2i(160, 150), _COMUNES_MUT + ["hilo", "capullo_carga", "capullo", "explosion"], 0],
+	&"tormentosa": ["arana_sdf_tormentosa", Vector2i(180, 190), _COMUNES_MUT + ["mordisco", "pisoton", "salto", "descarga"], 4],
 }
 
 
@@ -60,3 +85,58 @@ static func tam_cuerpo(escala: float = 1.0) -> Vector2:
 
 static func generar(color: Color = BASE) -> SpriteFrames:
 	return Sprites3D.montar(CARPETA, ANIMS, LIENZO, BASE, SpriteLienzo.cuantizar_hsv(color, AranaSprites.COLOR_PASOS))
+
+
+# --- EL SPRITE DE MUTANTE (contrato de SpritesEnemigo, como Trent3DSprites) ---
+static func _variante_mutante(ed: EnemyData, mutacion: StringName) -> Array:
+	var m: MutacionData = ed.mutacion_de(mutacion) if ed != null else null
+	if m == null or not MUTANTES.has(m.sprite):
+		return []
+	return MUTANTES[m.sprite]
+
+
+static func _anims_de(lista: Array) -> Dictionary:
+	var anims := {}
+	for k in lista:
+		anims[k] = ANIMS[k].duplicate()
+	return anims
+
+
+static func tiene_mutante(ed: EnemyData, mutacion: StringName = &"") -> bool:
+	return not _variante_mutante(ed, mutacion).is_empty()
+
+
+# Sin tinte: la clave no lleva color (es siempre el mismo).
+static func clave_mutante_de(ed: EnemyData, _t: float, mutacion: StringName = &"") -> String:
+	var v: Array = _variante_mutante(ed, mutacion)
+	return "" if v.is_empty() else "arana3d_%s" % String(v[0])
+
+
+static func generar_mutante_de(ed: EnemyData, _t: float, mutacion: StringName = &"") -> SpriteFrames:
+	var v: Array = _variante_mutante(ed, mutacion)
+	if v.is_empty():
+		return null
+	return Sprites3D.montar("res://assets/sprites/enemigos/%s/" % String(v[0]), _anims_de(v[2]), v[1], BASE, BASE)
+
+
+# --- LOS HILOS DE LA TORMENTOSA (contrato de SpritesEnemigo: van por los parpados, como los ojos del de mil ojos) ---
+static func _hilos(ed: EnemyData, mutacion: StringName, grupo: int) -> SpriteFrames:
+	var v: Array = _variante_mutante(ed, mutacion)
+	if v.is_empty() or int(v[3]) < grupo:
+		return null
+	var sufijo: String = "_parpado" if grupo <= 1 else "_parpado%d" % grupo
+	return Sprites3D.montar("res://assets/sprites/enemigos/%s/" % String(v[0]), _anims_de(v[2]), v[1], BASE, BASE, sufijo)
+
+
+static func parpados_de(ed: EnemyData, _t: float, mutante: bool = false, mutacion: StringName = &"") -> SpriteFrames:
+	return _hilos(ed, mutacion, 1) if mutante else null
+
+
+static func parpados_extra_de(ed: EnemyData, _t: float, mutante: bool = false, mutacion: StringName = &"") -> Array:
+	var out: Array = []
+	if mutante:
+		for g in range(2, GRUPOS_HILOS + 1):
+			var f: SpriteFrames = _hilos(ed, mutacion, g)
+			if f != null:
+				out.append(f)
+	return out

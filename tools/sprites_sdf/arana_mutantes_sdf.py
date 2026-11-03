@@ -8,7 +8,7 @@
 #  LOS HILOS DE LA TORMENTOSA (como los ojos del slime de mil ojos): el cuerpo va con todos los hilos apagados y cada uno
 #  de los GRUPOS_PARPADO (3 hilos repartidos) sale en su hoja de capa; el juego las enciende cada una a su aire.
 #  Uso: ARANA_VAR=tejedora python tools/sprites_sdf/arana_mutantes_sdf.py [anim ...]
-#       -> tools/salida/sdf/arana_sdf_<var>/ (SIN hornear al juego hasta su visto bueno) y las vistas a su escritorio
+#       -> assets/sprites/enemigos/arana_sdf_<var>/ y las vistas a su escritorio
 # ============================================================
 import sys, os, math
 import numpy as np
@@ -23,7 +23,7 @@ ESC = {'tejedora': 2.2 * 1.15, 'tormentosa': 2.2 * 1.3}[VAR]
 ESC_ANTES = {'tejedora': 2.2, 'tormentosa': 2.2 * 1.15}[VAR]
 LIENZO = {'tejedora': (160, 150), 'tormentosa': (180, 190)}[VAR]
 PIES = {'tejedora': (80, 88), 'tormentosa': (90, 118)}[VAR]
-SALIDA = 'tools/salida/sdf/arana_sdf_%s/' % VAR   # al juego (assets/sprites/enemigos/) cuando las apruebe
+SALIDA = 'assets/sprites/enemigos/arana_sdf_%s/' % VAR   # (03/11, aprobadas: ya van al juego)
 VISTAS = os.path.join(os.path.expanduser('~'), 'Desktop', 'ataques_mapa', 'enemigos', 'prueba_3d', 'mutantes',
                       'arana_%s_hojas' % VAR) + os.sep
 PARPADOS = VAR == 'tormentosa'
