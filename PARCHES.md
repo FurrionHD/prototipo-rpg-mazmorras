@@ -2,6 +2,42 @@
 
 ---
 
+# v0.15.6
+
+## 🧬 Los mutantes de los primeros pisos
+
+Comer cristales los cambia de verdad: cuerpo nuevo, ataques nuevos y su propio set de runas.
+
+- **Rata**: la rata sombría, la drusa y la de cuarzo ahumado. Hay una que se esconde en las sombras: mientras no se la ve, solo le dan los ataques de área.
+- **Rey Rata**: el Rey de las cloacas y el Rey del desguace, con su camada y ratas acorazadas.
+- **Jabalí**: el Colmillo de cristal y el Jabalí ancestral, con musgo que arde y drusas que devuelven la magia.
+- **Trent**: el Tocón ambarino, con una costra de ámbar que suelta bichos al romperse, y el Espantajo.
+- **Araña**: la Tejedora de brasas y la Araña tormentosa.
+
+## 🕷️ Las arañas nuevas
+
+- **Se cargan**: una carga por turno y otra si les das con su elemento, que además las cura. A las cuatro revientan al instante, sea su turno o no.
+- **Se pueden frenar**: aturdirlas, asustarlas o retrasarlas les quita una carga.
+- **Capullo de ceniza**: la Tejedora envuelve a uno de los tuyos. Es un enemigo más, con su barra de vida: rómpelo para sacarlo.
+- **Rayos que saltan**: cada golpe de la Tormentosa rebota a alguien cercano. Si ya estaba Electrizado, salta otra vez.
+- **Parálisis**, estado nuevo: durante unos turnos, en cada uno puedes quedarte sin actuar.
+
+## 🔮 Runas
+
+- **Sets nuevos**: Alcantarilla, Sangre real, Musgo viejo, Ámbar e Hilo conductor, con su símbolo en la celda.
+
+## ⚔️ Combate
+
+- **Al empezar tu turno se apunta solo al enemigo más cercano**; con un clic eliges a otro.
+- **Magias nuevas de atraer** y mejoras al colocarlas en el mapa.
+- **Algunos ataques pasan a ser mágicos**: el Géiser, las savias del Trent y el Chillido del Rey Rata.
+
+## ⚡ Rendimiento
+
+- **Los enemigos gastan mucha menos memoria gráfica.**
+
+---
+
 # v0.15.5
 
 ## 🏰 Todo va por la sala

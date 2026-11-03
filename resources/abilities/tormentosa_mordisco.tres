@@ -18,6 +18,5 @@ es_magico = true
 elemento_golpe = 3
 efectos = [SubResource("SA_par")]
 fx_anim = &"mordisco"
-fx_estilo = 28
-fx_estilo_mapa = 145
+fx_estilo = 223
 cooldown = 4
