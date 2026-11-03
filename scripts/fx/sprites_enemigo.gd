@@ -134,6 +134,8 @@ static var GENERADORES_POR_NOMBRE := {
 	&"garrapata": Garrapata3DSprites,
 	&"mosquito": Mosquito3DSprites,
 	&"pelotero": Pelotero3DSprites,
+	# EL CAPULLO DE CENIZA (03/11): lo teje la Tejedora de brasas.
+	&"capullo": Capullo3DSprites,
 }
 
 

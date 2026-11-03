@@ -14,6 +14,7 @@
 [ext_resource type="Resource" path="res://resources/abilities/arana_descarga.tres" id="12_des"]
 [ext_resource type="Resource" path="res://resources/abilities/tejedora_telarana.tres" id="13_tt"]
 [ext_resource type="Resource" path="res://resources/abilities/tejedora_hilo.tres" id="14_th"]
+[ext_resource type="Resource" path="res://resources/abilities/tejedora_capullo.tres" id="19_tc"]
 [ext_resource type="Resource" path="res://resources/abilities/tormentosa_red.tres" id="15_tr"]
 [ext_resource type="Resource" path="res://resources/abilities/tormentosa_mordisco.tres" id="16_tm"]
 [ext_resource type="Resource" path="res://resources/abilities/tormentosa_pisoton.tres" id="17_tp"]
@@ -40,7 +41,7 @@ script = ExtResource("9_mut")
 id = &"tejedora"
 nombre = "Tejedora de brasas"
 grado = 1
-habilidades = Array[ExtResource("10_ab")]([ExtResource("13_tt"), ExtResource("14_th")])
+habilidades = Array[ExtResource("10_ab")]([ExtResource("13_tt"), ExtResource("14_th"), ExtResource("19_tc")])
 resist_elemental = {
 1: 0.01
 }

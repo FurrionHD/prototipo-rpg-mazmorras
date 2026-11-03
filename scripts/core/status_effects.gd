@@ -54,7 +54,7 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	EN_SOMBRAS, FURIA_REY, COLMILLOS_ROTOS, MUSGO_QUEMADO,
 	RESINADO, SAVIA_NEGRA,
 	PICOR, PRINGADO,
-	PARALISIS }
+	PARALISIS, ENCAPULLADO }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -566,6 +566,12 @@ static var _defs: Dictionary = {
 	# Combatant.tick_statuses). Y el PRINGADO (la Bola de caca del pelotero): no puedes usar objetos mientras te dure.
 	# LA PARALISIS (03/11, el Mordisco de la Araña tormentosa): dura sus turnos fijos, y en cada uno tiras: si sale, lo
 	# pierdes. Distinta de los otros controles a proposito: no sabes si vas a poder jugar. Volver a morderte la renueva.
+	# ENCAPULLADO (03/11, el Capullo de la Tejedora): clavado 2 turnos dentro de su capullo; si lo rompen, se le quita antes.
+	Id.ENCAPULLADO: {
+		"id": Id.ENCAPULLADO, "nombre": "Encapullado", "icono": "🕸️", "color": Color(1.0, 0.42, 0.08),
+		"turns": 2, "enraiza": true, "debuff": true,
+		"descripcion": "Seda ardiendo hasta el cuello. No vas a ir a ninguna parte hasta que alguien la rompa.",
+	},
 	Id.PARALISIS: {
 		"id": Id.PARALISIS, "nombre": "Parálisis", "icono": "🫨", "color": Color(0.36, 0.8, 0.92),
 		"turns": 3, "paralisis": 0.40, "debuff": true,

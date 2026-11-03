@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1"]
+
+; EL CAPULLO DE CENIZA (03/11, arana-mutante): lo teje la Tejedora de brasas alrededor de un personaje. Es un enemigo de
+; verdad para que se le vea la barra y se le pueda elegir de objetivo: no anda ni ataca, y al romperse suelta al atrapado.
+; Su vida la pone quien lo teje (CombatEnemigos.CAPULLO_VIDA). Vive FUERA de scenes/actors/enemy para que nunca salga solo
+; por un piso, y no suelta nada.
+[resource]
+script = ExtResource("1")
+dureza = 1.0
+familia = 3
+enemy_name = "Capullo de ceniza"
+historia = "Seda caliente, tejida con prisa y con mala idea. Por dentro hay alguien que preferiría estar en otra parte."
+sprite_gen = &"capullo"
+centro_suelo = 0.5
+color = Color(0.43, 0.41, 0.41, 1)
+escala_visual = 1.0
+fuerza = 5
+resistencia = 25
+destreza = 5
+agilidad = 5
+magia = 5
+voluntad = 25
+franja_low = 0.0
+franja_high = 0.3
+base_hp = 20.0
+base_attack = 0.1
+base_defense = 1.0
+base_magic = 0.1
+base_speed = 1.0
+move_speed_min = 0.0
+move_speed_max = 0.0
+chase_speed_mult = 0.0
+alcance = 1.0
+metadata/_custom_type_script = "uid://le6jfvhlcbou"
+cuerpo = Rect2(-13, -24, 26, 24)
+centro_golpe = Vector2(0, -12)

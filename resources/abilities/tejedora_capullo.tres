@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_que"]
+script = ExtResource("2")
+estado = 2
+prob = 1.0
+
+[resource]
+script = ExtResource("1")
+nombre = "Capullo de ceniza"
+descripcion = "Teje a toda prisa y te envuelve en seda ardiendo. Te quedas clavado y quemándote hasta que alguien lo rompa a golpes o se deshaga solo."
+coste_energia = 0.0
+dano_mult = 0.7
+es_magico = true
+elemento_golpe = 1
+efectos = [SubResource("SA_que")]
+fx_anim = &"capullo"
+fx_anim_carga = &"capullo_carga"
+fx_estilo = 226
+cooldown = 6
+carga = true
+carga_turnos = 1
+forma = 1
+forma_apunte = 3
+forma_radio = 14.0
+forma_rango = 120.0
+forma_solo_primero = true
+capullo = true

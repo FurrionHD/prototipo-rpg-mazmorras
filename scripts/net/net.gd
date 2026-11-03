@@ -179,7 +179,7 @@ const MAX_CONEXIONES := 32
 #     PICOR 49 y PRINGADO 50 (puerta PUERTA_PRINGADO), el campo 12 de la instantanea (costra, costra_max, hinchazon:
 #     la costra del Tocon, la capa de ambar del set Ambar y la garrapata), estilos TRENT_CHUPAR 221 y AMBAR_REVIENTA
 #     222 y suelos TRENT_RESINA/TRENT_SAVIA/TRENT_GEISER/AMBAR_BOLA 110-113 (con el charco_estilo 11, la savia negra).
-#   65 = (03/11) los mutantes de la araña: PARALISIS 51, las cargas en el campo 12 de la instantanea y los estilos ARANA_* 223-225.
+#   65 = (03/11) los mutantes de la araña: PARALISIS 51 y ENCAPULLADO 52, las cargas en el campo 12 de la instantanea y los estilos ARANA_* 223-226.
 const PROTOCOLO := 65
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.

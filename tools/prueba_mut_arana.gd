@@ -167,6 +167,34 @@ func _correr() -> void:
 		var perdio_u: float = h_u2 - uno.current_hp
 		_ver(perdio_o > 0.0 and perdio_u > 0.0 and perdio_o < perdio_u * 1.6 and perdio_u < perdio_o * 1.6, "tope 2 rebotes: uno a cada uno (%.1f y %.1f)" % [perdio_o, perdio_u])
 		e.rebote_mult = 0.0
+	print("8) EL CAPULLO")
+	_ver(e.es_inmune(StatusEffects.Id.QUEMADURA), "la Tejedora no se quema")
+	var presa: Combatant = combat._aliados[0]
+	var n0: int = combat._enemies.size()
+	en.poner_capullo(e, presa)
+	await _esperar(20)
+	var cap: Combatant = combat._enemies[combat._enemies.size() - 1]
+	_ver(combat._enemies.size() == n0 + 1 and cap.capullo_madre == e, "nace un enemigo de verdad, en la lista de enemigos")
+	_ver(is_equal_approx(cap.max_hp, e.max_hp * 0.35) and is_equal_approx(cap.current_hp, cap.max_hp), "con el 35 %% de la vida de la Tejedora (%.1f de %.1f)" % [cap.max_hp, e.max_hp])
+	_ver(presa.has_status(StatusEffects.Id.ENCAPULLADO) and presa.enraizado(), "y el atrapado se queda clavado")
+	_ver(not combat._bloque_de(cap).is_empty(), "tiene su bloque: su barra de vida, y se le puede elegir")
+	combat.figuras._seleccionar(combat._enemies.find(cap))
+	_ver(combat._objetivo() == cap, "se le puede elegir de objetivo")
+	cap.current_hp = 0.0
+	combat._morir_enemigo(cap)
+	_ver(not presa.has_status(StatusEffects.Id.ENCAPULLADO), "al romperse, suelta al atrapado")
+	en.poner_capullo(e, presa)
+	await _esperar(20)
+	var cap2: Combatant = combat._enemies[combat._enemies.size() - 1]
+	presa.quitar_estado(StatusEffects.Id.ENCAPULLADO)
+	en.revisar_capullos()
+	_ver(not cap2.is_alive(), "se le acaban los turnos al atrapado: el capullo se deshace")
+	var pre3 = presa
+	en.poner_capullo(e, pre3)
+	await _esperar(20)
+	var cap3: Combatant = combat._enemies[combat._enemies.size() - 1]
+	en.al_morir_capullo(e)
+	_ver(not cap3.is_alive() and not pre3.has_status(StatusEffects.Id.ENCAPULLADO), "si muere la Tejedora, se deshace y lo suelta")
 	print("7) LO QUE SE VE")
 	var rayos := AranaAire.rayos(self, Vector2.ZERO, 80.0, 3)
 	var fog := AranaAire.fogonazo(self, Vector2.ZERO, 60.0, 3)

@@ -1833,6 +1833,7 @@ func _begin_player_turn() -> void:
 	enemigos.costra_vuelve(_player)
 	# Estados alterados (KAN-58): tick al inicio del turno (DoT, expira, aturdido).
 	var ev: Dictionary = _player.tick_statuses()
+	enemigos.revisar_capullos()
 	_log_tick(_player, ev)
 	_update_hp()
 	if not _player.is_alive():
@@ -2784,6 +2785,7 @@ func _dps_resumen() -> void:
 func _morir_enemigo(e: Combatant) -> void:
 	if e == null:
 		return
+	enemigos.al_morir_capullo(e)   # el capullo suelta a su presa; la Tejedora se lleva sus capullos
 	_gauge.erase(e)   # fuera del orden de turnos: ya no acumula barra ni puede actuar
 	if _timeline != null:
 		_timeline.quitar(e)

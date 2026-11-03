@@ -453,6 +453,9 @@ enum Pieza { NINGUNA, PEDAZO, ESQUIRLA }
 # ENROSCA (solo en el mapa): si el golpe entra, el que la lanza se queda enroscado en su victima y los dos
 # clavados (CombatTactico.empezar_enrosque). El Enrosque del ciempies (29/09).
 @export var enrosca: bool = false
+# CAPULLO (03/11, la Tejedora de brasas): si el golpe entra, teje un Capullo de ceniza alrededor del golpeado (ver
+# CombatEnemigos.poner_capullo).
+@export var capullo: bool = false
 # PEGA (solo en el mapa): si el golpe entra, el que la lanza se queda PEGADO encima de su victima y va con ella a donde
 # vaya, chupandole cada turno suyo (CombatTactico.empezar_pegada). El Adherirse del chupasimas (30/09).
 @export var pega: bool = false

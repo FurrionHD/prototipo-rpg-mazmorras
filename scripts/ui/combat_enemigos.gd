@@ -81,6 +81,10 @@ func _enemy_turn(e: Combatant) -> void:
 		else:
 			_pantalla._pausa_lectura()
 		return
+	# EL CAPULLO no juega: es una cosa que se rompe.
+	if e.capullo_madre != null:
+		_pantalla._pausa_lectura()
+		return
 	_regenerar(e)
 	e.enfriar_amenaza()   # su tabla de amenaza se enfria un poco cada turno suyo
 	# LAS CARGAS: la de su turno, si no le han quitado el turno. Si llena, estalla ahora y juega su turno igual.
@@ -623,6 +627,55 @@ func costra_vuelve(e: Combatant) -> void:
 	_pantalla._update_hp()
 
 
+# EL CAPULLO DE CENIZA (03/11): si la habilidad entra, nace un enemigo de verdad sobre el golpeado, con su barra y
+# seleccionable, con esta parte de la vida maxima de quien lo teje. El atrapado queda clavado; al romperse, al acabarse
+# sus turnos o al morir la Tejedora, se suelta. Solo quien lleva la pelea.
+const CAPULLO_VIDA := 0.35
+const CAPULLO: EnemyData = preload("res://resources/enemigos_invocados/capullo_ceniza.tres")
+
+func poner_capullo(e: Combatant, presa: Combatant) -> void:
+	if _pantalla._espejo or not e.is_alive() or not presa.is_alive() or presa.has_status(StatusEffects.Id.ENCAPULLADO):
+		return
+	var c: Combatant = CAPULLO.crear_combatant(0.5, false, false, &"", _pantalla.altas._piso())
+	c.max_hp = e.max_hp * CAPULLO_VIDA
+	c.current_hp = c.max_hp
+	c.capullo_madre = e
+	c.capullo_presa = presa
+	if _pantalla.altas._meter_enemigo(c, true) < 0:
+		return   # no cabe
+	presa.apply_status(StatusEffects.Id.ENCAPULLADO)
+	if _pantalla.tactico:
+		var donde: Vector2 = _pantalla.turno_mapa.pos_de(presa)
+		_pantalla.turno_mapa.lanzar_cria(c, CAPULLO, donde, donde)
+	_pantalla._update_hp()
+	_pantalla._log_extra("🕸️ %s envuelve a %s en un capullo de seda ardiendo." % [_pantalla._etq(e), presa.nombre])
+
+
+# Lo que se revisa al morir un enemigo: si era un capullo, suelta a su presa; si era la que los teje, se deshacen.
+func al_morir_capullo(muerto: Combatant) -> void:
+	if _pantalla._espejo:
+		return
+	if muerto.capullo_presa != null:
+		muerto.capullo_presa.quitar_estado(StatusEffects.Id.ENCAPULLADO)
+		_pantalla._log_extra("🕸️ Se rompe el capullo: %s queda libre." % muerto.capullo_presa.nombre)
+		muerto.capullo_presa = null
+	for c in _pantalla._enemies.duplicate():
+		if c.capullo_madre == muerto and c.is_alive():
+			c.current_hp = 0.0
+			_pantalla._morir_enemigo(c)
+
+
+# Al empezar el turno de uno de los tuyos: el capullo cuya presa ya no esta encapullada (se le ha acabado) se deshace.
+func revisar_capullos() -> void:
+	if _pantalla._espejo:
+		return
+	for c in _pantalla._enemies.duplicate():
+		if c.capullo_presa != null and c.is_alive() and (not c.capullo_presa.has_status(StatusEffects.Id.ENCAPULLADO) \
+				or not c.capullo_presa.is_alive()):
+			c.current_hp = 0.0
+			_pantalla._morir_enemigo(c)
+
+
 # LAS CARGAS (03/11, las arañas mutantes, ver MutacionData). Una mas; en cuanto llega al tope, estalla. Solo quien lleva la pelea.
 func sumar_carga(e: Combatant) -> void:
 	if e == null or e.carga_elemento < 0 or _pantalla._espejo or not e.is_alive():
@@ -1066,6 +1119,9 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			mult_por_obj[obj] = float(sub["mult_elem"]); robado_total += float(sub["robado"])
 			tocados.append(obj)
 			if bool(sub["defendio"]): defendieron.append(obj)
+			# EL CAPULLO (la Tejedora de brasas): si ha entrado, nace sobre el golpeado.
+			if ab.capullo and int(sub["conecto"]) > 0:
+				poner_capullo(e, obj)
 			# EL ENROSQUE (el ciempies, en el mapa): si ha entrado, se queda enroscado en el.
 			if _pantalla.tactico and ab.enrosca and int(sub["conecto"]) > 0 and obj.is_alive() and e.is_alive() \
 					and _pantalla.turno_mapa.empezar_enrosque(e, obj):

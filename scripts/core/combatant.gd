@@ -525,6 +525,9 @@ var cargas: int = 0
 var carga_tope: int = 0
 var carga_elemento: int = -1
 var carga_estallido: AbilityData = null
+# EL CAPULLO DE CENIZA (03/11): a quien tiene dentro y quien lo ha tejido. Con madre = es un capullo: no juega turnos.
+var capullo_presa: Combatant = null
+var capullo_madre: Combatant = null
 var rebote_mult: float = 0.0   # el rebote de la Araña tormentosa (ver MutacionData)
 var rebote_radio: float = 0.0
 var costra: float = 0.0
@@ -759,6 +762,9 @@ func consumir_amplificadores(elem: int) -> Array:
 #  - un ESTADO que lleve encima: si estas Mojado no puedes arder.
 func es_inmune(id: int) -> bool:
 	if inmune_estados.has(id) or Elementos.inmunidades_de(elemento).has(id):
+		return true
+	# Las arañas mutantes: la Tejedora no se quema (y la Tormentosa, de rayo, ya lo tiene por su elemento).
+	if carga_elemento == Elementos.Elemento.FUEGO and id == StatusEffects.Id.QUEMADURA:
 		return true
 	for e in statuses:
 		if e.inmuniza_a(id):
