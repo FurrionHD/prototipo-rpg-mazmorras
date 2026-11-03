@@ -1579,6 +1579,7 @@ func tick_statuses() -> Dictionary:
 	var total_mana: float = 0.0
 	var picor: float = 0.0   # fraccion de la energia QUE QUEDA que se pierde (el Picor del mosquito del ambar)
 	var stunned: bool = false
+	var paralizado: bool = false   # stunned por fallar la tirada de la Paralisis (para contarlo bien)
 	var expired: Array = []
 	var dot_labels: Array = []
 	var heal_labels: Array = []
@@ -1603,11 +1604,16 @@ func tick_statuses() -> Dictionary:
 		var cura: float = e.heal_amount()
 		var mana: float = e.mana_amount()
 		# Buff/debuff de stat = ni DoT, ni cura, ni maná, ni stun (se salta el primer decremento).
-		var es_stat: bool = dmg <= 0.0 and cura <= 0.0 and mana <= 0.0 and not e.is_stun()
+		# La Paralisis tampoco: sus turnos son fijos, cuenta desde el primero.
+		var p_paraliza: float = float(e.d.get("paralisis", 0.0))
+		var es_stat: bool = dmg <= 0.0 and cura <= 0.0 and mana <= 0.0 and not e.is_stun() and p_paraliza <= 0.0
 		if arde.has(e.id()) and arde[e.id()] != e:
 			dmg = 0.0   # una brasa floja: no arde mientras haya una mas fuerte, pero se gasta igual
 		if e.is_stun():
 			stunned = true
+		if p_paraliza > 0.0 and randf() < p_paraliza:
+			stunned = true
+			paralizado = true
 		if dmg > 0.0:
 			total_dmg += dmg
 			dot_labels.append("%s %.1f" % [str(e.d.get("icono", "?")), dmg])
@@ -1680,7 +1686,7 @@ func tick_statuses() -> Dictionary:
 		print("[estado] %s: se le pasa el %s (se disipa) -> actua con normalidad" % [nombre, nom])
 	if stunned:
 		print("[estado] %s aturdido: pierde el turno" % nombre)
-	return {"damage": total_dmg, "heal": total_heal, "mana": total_mana, "energia": energia_perdida, "stunned": stunned,
+	return {"damage": total_dmg, "heal": total_heal, "mana": total_mana, "energia": energia_perdida, "stunned": stunned, "paralizado": paralizado,
 		"expired": expired, "dot": dot_labels, "heal_labels": heal_labels}
 
 

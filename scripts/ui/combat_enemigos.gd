@@ -110,9 +110,11 @@ func _enemy_turn(e: Combatant) -> void:
 			if _pantalla.tactico:
 				_pantalla.turno_mapa.olvidar_carga(e)   # su huella roja se va con ella
 			print("[habilidad enemigo] %s ATURDIDO: se le INTERRUMPE %s" % [e.nombre, interrumpida])
-			_pantalla._set_log("%s está aturdido: se le interrumpe %s. 💫" % [_pantalla._etq(e), interrumpida])
+			_pantalla._set_log("%s está %s: se le interrumpe %s. 💫" % [_pantalla._etq(e),
+				"paralizado" if ev.paralizado else "aturdido", interrumpida])
 		else:
-			_pantalla._set_log("%s está aturdido y pierde el turno. 💫" % _pantalla._etq(e))
+			_pantalla._set_log("%s está %s y pierde el turno. 💫" % [_pantalla._etq(e),
+				"paralizado" if ev.paralizado else "aturdido"])
 		_pantalla._pausa_lectura()   # ya se le resto la barra ATB en _process; pierde la accion
 		return
 

@@ -995,7 +995,7 @@ const FAMILIAS: Array = [
 	# Te quitan el turno o te lo capan: el corro de estrellitas girando SOBRE LA CABEZA, tal cual el
 	# gag de dibujos animados de toda la vida.
 	["control", "estrella", [
-		StatusEffects.Id.ATURDIDO, StatusEffects.Id.MIEDO, StatusEffects.Id.SILENCIO,
+		StatusEffects.Id.ATURDIDO, StatusEffects.Id.MIEDO, StatusEffects.Id.SILENCIO, StatusEffects.Id.PARALISIS,
 	]],
 	# No te hace nada por si mismo, esta ahi crepitando y sube lo siguiente que te caiga. Van
 	# RAYITOS (zigzags) y no chispas genericas: una X se lee como "algo brilla", un zigzag como

@@ -53,7 +53,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	DECRETO,
 	EN_SOMBRAS, FURIA_REY, COLMILLOS_ROTOS, MUSGO_QUEMADO,
 	RESINADO, SAVIA_NEGRA,
-	PICOR, PRINGADO }
+	PICOR, PRINGADO,
+	PARALISIS }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -182,7 +183,9 @@ static func prob_final(prob_base: float, atacante, objetivo, id: int,
 #
 # El Enraizado NO esta: deja pegar y lanzar hechizos, es control PARCIAL. Si algun dia se le sube a
 # control total, entra aqui.
-const CONTROL := [Id.ATURDIDO, Id.MIEDO]
+# La PARALISIS (03/11) tambien: resiste como un control y gasta su escalon, pero solo te quita el turno si falla la
+# tirada; por eso no lleva is_stun, y una carga solo se corta el turno que la falla (ver Combatant.tick_statuses).
+const CONTROL := [Id.ATURDIDO, Id.MIEDO, Id.PARALISIS]
 
 static func es_control(id: int) -> bool:
 	return CONTROL.has(id)
@@ -561,6 +564,13 @@ static var _defs: Dictionary = {
 	# LOS BICHOS DEL AMBAR (02/11, trent-mutante: los suelta la costra del Tocon ambarino). El PICOR (la Picadura del
 	# mosquito): al empezar cada turno tuyo pierdes una parte de tu energia ('picor': fraccion de la que te QUEDA, ver
 	# Combatant.tick_statuses). Y el PRINGADO (la Bola de caca del pelotero): no puedes usar objetos mientras te dure.
+	# LA PARALISIS (03/11, el Mordisco de la Araña tormentosa): dura sus turnos fijos, y en cada uno tiras: si sale, lo
+	# pierdes. Distinta de los otros controles a proposito: no sabes si vas a poder jugar. Volver a morderte la renueva.
+	Id.PARALISIS: {
+		"id": Id.PARALISIS, "nombre": "Parálisis", "icono": "🫨", "color": Color(0.36, 0.8, 0.92),
+		"turns": 3, "paralisis": 0.40, "debuff": true,
+		"descripcion": "Los músculos van por libre. A veces te hacen caso. A veces no.",
+	},
 	Id.PICOR: {
 		"id": Id.PICOR, "nombre": "Picor", "icono": "🦟", "color": Color(0.85, 0.5, 0.35),
 		"turns": 3, "picor": PICOR_ENERGIA, "debuff": true,
@@ -963,6 +973,8 @@ class Instance extends RefCounted:
 			lineas.append("No te mueves ni puedes hacer nada más que pasar.")
 		if bool(d.get("pega", false)):
 			lineas.append("Te chupa cada turno suyo hasta que se la quitan.")
+		if float(d.get("paralisis", 0.0)) > 0.0:
+			lineas.append("Al empezar cada turno tienes un %d %% de perderlo." % roundi(float(d["paralisis"]) * 100.0))
 		if float(d.get("picor", 0.0)) > 0.0:
 			lineas.append("Al empezar tu turno pierdes el %d %% de la energía que te quede." % roundi(float(d["picor"]) * 100.0))
 		if bool(d.get("sin_objetos", false)):
@@ -1128,6 +1140,8 @@ static func efecto_legible(id: int, mult: float = 0.0, escala: float = 1.0) -> S
 		return "le enrosca: no se mueve ni puede hacer nada más que pasar"
 	if bool(d.get("pega", false)):
 		return "se le pega encima y le chupa cada turno"
+	if float(d.get("paralisis", 0.0)) > 0.0:
+		return "puede hacerle perder cada turno suyo"
 	if float(d.get("picor", 0.0)) > 0.0:
 		return "le quita energía al empezar cada turno suyo"
 	if bool(d.get("sin_objetos", false)):

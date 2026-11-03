@@ -41,7 +41,7 @@ const DEV_ESTADOS_CATS: Array = [
 	]],
 	["Debuffs de movimiento", [
 		StatusEffects.Id.LENTO, StatusEffects.Id.PEGAJOSO, StatusEffects.Id.ATURDIDO,
-		StatusEffects.Id.MIEDO,
+		StatusEffects.Id.MIEDO, StatusEffects.Id.PARALISIS,
 	]],
 	["Debuffs amplificadores", [
 		StatusEffects.Id.MOJADO, StatusEffects.Id.RAYO,

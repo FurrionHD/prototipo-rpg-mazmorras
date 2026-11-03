@@ -1866,9 +1866,10 @@ func _begin_player_turn() -> void:
 			if tactico:
 				turno_mapa.olvidar_carga(_player)
 			print("[habilidad] %s ATURDIDO: se le INTERRUMPE %s" % [_player.nombre, interrumpida])
-			_set_log("%s está aturdido: se le interrumpe %s. 💫" % [_player.nombre, interrumpida])
+			_set_log("%s está %s: se le interrumpe %s. 💫" % [_player.nombre,
+				"paralizado" if ev.paralizado else "aturdido", interrumpida])
 		else:
-			_set_log("%s está aturdido y pierde el turno. 💫" % _player.nombre)
+			_set_log("%s está %s y pierde el turno. 💫" % [_player.nombre, "paralizado" if ev.paralizado else "aturdido"])
 		_pausa_lectura()
 		return
 
