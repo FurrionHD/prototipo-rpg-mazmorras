@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_par"]
+script = ExtResource("2")
+estado = 51
+prob = 0.6
+
+[resource]
+script = ExtResource("1")
+nombre = "Mordisco eléctrico"
+descripcion = "Clava los colmillos y suelta la corriente. A partir de ahí, tus músculos deciden por su cuenta si te hacen caso."
+coste_energia = 0.0
+dano_mult = 1.1
+es_magico = true
+elemento_golpe = 3
+efectos = [SubResource("SA_par")]
+fx_anim = &"mordisco"
+fx_estilo = 28
+fx_estilo_mapa = 145
+cooldown = 4

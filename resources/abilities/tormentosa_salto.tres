@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Salto de arco"
+descripcion = "Se lanza por un hilo hasta el que estaba más tranquilo, allá atrás, y le cae encima."
+coste_energia = 0.0
+dano_mult = 1.0
+fx_anim = &"salto"
+fx_estilo = 15
+fx_estilo_mapa = 170
+cooldown = 6
+forma = 1
+forma_apunte = 3
+forma_radio = 25.0
+forma_rango = 120.0
+salta = true

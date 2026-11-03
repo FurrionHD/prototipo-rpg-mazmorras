@@ -133,6 +133,47 @@ func _correr() -> void:
 		else:
 			_ver(quemaduras > venenos, "con 3 de calor, mas Quemadura (30 %%) que veneno (15 %%)")
 	e.cargas = 0
+
+	print("6) LOS RAYOS DE LA TORMENTOSA")
+	var tm = combat.turno_mapa
+	var efe = combat.efectos
+	var uno: Combatant = combat._aliados[0]
+	var otro: Combatant = combat._aliados[1] if combat._aliados.size() > 1 else null
+	_ver(otro != null, "hay dos personajes para rebotar")
+	if otro != null:
+		e.rebote_mult = 0.7
+		e.rebote_radio = 60.0
+		tm.cuerpo_de(uno).global_position = Vector2(500, 500)
+		tm.cuerpo_de(otro).global_position = Vector2(2000, 500)
+		var h1: float = otro.current_hp
+		efe._fx_golpe(e, uno, 5.0, false, false)
+		_ver(is_equal_approx(otro.current_hp, h1), "sin nadie a 60 px, el rebote se pierde")
+		tm.cuerpo_de(otro).global_position = Vector2(520, 500)
+		var h_u: float = uno.current_hp
+		efe._fx_golpe(e, uno, 5.0, false, false)
+		_ver(otro.current_hp < h1, "a tiro, el rebote le entra (%.1f de %.1f)" % [otro.current_hp, h1])
+		_ver(is_equal_approx(uno.current_hp, h_u), "y sin Electrizado no sigue la cadena")
+		otro.apply_status(StatusEffects.Id.RAYO)
+		var h_u2: float = uno.current_hp
+		var h_o2: float = otro.current_hp
+		efe._fx_golpe(e, uno, 5.0, false, false)
+		_ver(otro.current_hp < h_o2 and uno.current_hp < h_u2, "si el que lo recibe esta Electrizado, salta otra vez, y puede volver al primero")
+		# Cada rebote sale una vez aunque la cadena pase por Electrizados: el tope son 2 por golpe.
+		uno.apply_status(StatusEffects.Id.RAYO)
+		h_u2 = uno.current_hp
+		h_o2 = otro.current_hp
+		efe._fx_golpe(e, uno, 5.0, false, false)
+		var perdio_o: float = h_o2 - otro.current_hp
+		var perdio_u: float = h_u2 - uno.current_hp
+		_ver(perdio_o > 0.0 and perdio_u > 0.0 and perdio_o < perdio_u * 1.6 and perdio_u < perdio_o * 1.6, "tope 2 rebotes: uno a cada uno (%.1f y %.1f)" % [perdio_o, perdio_u])
+		e.rebote_mult = 0.0
+	var ed2: EnemyData = load("res://scenes/actors/enemy/arana.tres")
+	var m_tej: Array = ed2.mutacion_de(&"tejedora").habilidades.map(func(a): return a.nombre)
+	var m_tor: Array = ed2.mutacion_de(&"tormentosa").habilidades.map(func(a): return a.nombre)
+	_ver(not m_tej.has("Mordisco ponzoñoso") and m_tej.has("Hilo al rojo"), "la Tejedora no lleva el Mordisco (%s)" % str(m_tej))
+	_ver(m_tor.size() == 4 and m_tor.has("Mordisco eléctrico"), "la Tormentosa lleva sus cuatro (%s)" % str(m_tor))
+	var mor: AbilityData = ed2.mutacion_de(&"tormentosa").habilidades[1]
+	_ver(mor.efectos[0].estado == StatusEffects.Id.PARALISIS, "su Mordisco pone Paralisis")
 	_fin()
 
 

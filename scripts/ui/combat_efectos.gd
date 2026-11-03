@@ -179,6 +179,7 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 		mult_elem, guardia_red, mano)
 	if not solo_dibujo and not evadido and dmg > 0.0:
 		_rebote_hilo(atacante, victima, dmg)
+		_rebote_tormenta(atacante, victima)
 		_pantalla.enemigos.absorber_elemento(victima, elem, dmg)
 
 
@@ -216,6 +217,47 @@ func _rebote_hilo(atacante: Combatant, victima: Combatant, dmg: float) -> void:
 	_pantalla._caidos_de_rebote.append(v)
 	_pantalla._log_extra("⚡ El hilo de %s salta de %s a %s: %.2f" % [atacante.nombre, _pantalla._etq(victima),
 		_pantalla._etq(v), d])
+
+
+# EL REBOTE DE LA ARAÑA TORMENTOSA (03/11): UN golpe, UN rebote, siempre (basico, habilidades, areas: uno por cada golpeado).
+# A uno al azar a su radio del golpeado (sin nadie, se pierde); el rebote es magico de rayo y pone Electrizado. Si el que
+# lo RECIBE ya esta Electrizado, salta una vez mas, y ese segundo si puede volver al primero. Tope: 2 rebotes por golpe.
+const REBOTES_TOPE := 2
+
+func _rebote_tormenta(e: Combatant, golpeado: Combatant) -> void:
+	if _en_rebote or _pantalla._espejo or e == null or golpeado == null or e.rebote_mult <= 0.0 \
+			or not _pantalla._enemies.has(e) or not _pantalla._aliados.has(golpeado):
+		return
+	var suyo: int = e.elemento_ataque
+	e.elemento_ataque = Elementos.Elemento.RAYO
+	_en_rebote = true
+	var desde: Combatant = golpeado
+	for i in REBOTES_TOPE:
+		var a_tiro: Array = []
+		for al in _pantalla._aliados:
+			if al.is_alive() and al != desde and (not _pantalla.tactico \
+					or _pantalla.turno_mapa.hueco_entre(desde, al) <= e.rebote_radio):
+				a_tiro.append(al)
+		if a_tiro.is_empty():
+			break
+		var v: Combatant = a_tiro.pick_random()
+		# Se mira ANTES de ponerle el suyo: lo que alarga la cadena es que YA estuviera Electrizado.
+		var sigue: bool = v.has_status(StatusEffects.Id.RAYO)
+		var res: Dictionary = StatsMath.resolve_magico_enemigo(e, v, false)
+		var d: float = float(res.damage) * e.rebote_mult
+		v.take_damage(d)
+		_fx_golpe(desde, v, d, false, false, Elementos.Elemento.RAYO, CombatFX.Estilo.ARCO, 0.6, false, "",
+			AbilityData.Gesto.AUTO, null, 0, float(res.get("mult_elem", 1.0)))
+		if v.is_alive() and randf() < StatusEffects.prob_final(1.0, e, v, StatusEffects.Id.RAYO):
+			v.apply_status(StatusEffects.Id.RAYO)
+		if not v.is_alive():
+			_pantalla.altas._caer_aliado(v)
+		_pantalla._log_extra("⚡ El rayo de %s salta a %s: %.2f" % [_pantalla._etq(e), v.nombre, d])
+		desde = v
+		if not sigue:
+			break
+	_en_rebote = false
+	e.elemento_ataque = suyo
 
 
 func _dibujar_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,

@@ -12,6 +12,12 @@
 [ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="10_ab"]
 [ext_resource type="Resource" path="res://resources/abilities/arana_explosion.tres" id="11_exp"]
 [ext_resource type="Resource" path="res://resources/abilities/arana_descarga.tres" id="12_des"]
+[ext_resource type="Resource" path="res://resources/abilities/tejedora_telarana.tres" id="13_tt"]
+[ext_resource type="Resource" path="res://resources/abilities/tejedora_hilo.tres" id="14_th"]
+[ext_resource type="Resource" path="res://resources/abilities/tormentosa_red.tres" id="15_tr"]
+[ext_resource type="Resource" path="res://resources/abilities/tormentosa_mordisco.tres" id="16_tm"]
+[ext_resource type="Resource" path="res://resources/abilities/tormentosa_pisoton.tres" id="17_tp"]
+[ext_resource type="Resource" path="res://resources/abilities/tormentosa_salto.tres" id="18_ts"]
 
 [sub_resource type="Resource" id="SA_peg"]
 script = ExtResource("2_sa")
@@ -24,12 +30,17 @@ estado = 0
 prob = 0.45
 cap = 2
 
+[sub_resource type="Resource" id="SA_ele"]
+script = ExtResource("2_sa")
+estado = 8
+prob = 0.5
+
 [sub_resource type="Resource" id="MUT_tejedora"]
 script = ExtResource("9_mut")
 id = &"tejedora"
 nombre = "Tejedora de brasas"
 grado = 1
-habilidades = Array[ExtResource("10_ab")]([ExtResource("3_fre")])
+habilidades = Array[ExtResource("10_ab")]([ExtResource("13_tt"), ExtResource("14_th")])
 resist_elemental = {
 1: 0.01
 }
@@ -45,7 +56,11 @@ id = &"tormentosa"
 nombre = "Araña tormentosa"
 grado = 2
 desde = Array[StringName]([&"tejedora"])
-habilidades = Array[ExtResource("10_ab")]([ExtResource("3_fre"), ExtResource("4_yug")])
+habilidades = Array[ExtResource("10_ab")]([ExtResource("15_tr"), ExtResource("16_tm"), ExtResource("17_tp"), ExtResource("18_ts")])
+al_golpear_propio = true
+al_golpear = [SubResource("SA_ele")]
+rebote_mult = 0.7
+rebote_radio = 60.0
 elemento = 3
 resist_elemental = {
 1: 1.0,

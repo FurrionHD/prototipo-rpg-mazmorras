@@ -1,0 +1,40 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_peg"]
+script = ExtResource("2")
+estado = 9
+prob = 0.9
+stacks = 2
+
+[sub_resource type="Resource" id="SA_len"]
+script = ExtResource("2")
+estado = 3
+prob = 0.7
+
+[sub_resource type="Resource" id="SA_que"]
+script = ExtResource("2")
+estado = 2
+prob = 0.4
+
+[resource]
+script = ExtResource("1")
+nombre = "Telaraña de brasas"
+descripcion = "La red pega igual que siempre, pero esta arde. Forcejear con ella no es la mejor de las ideas."
+coste_energia = 0.0
+dano_mult = 0.6
+efectos = [SubResource("SA_peg"), SubResource("SA_len"), SubResource("SA_que")]
+fx_anim = &"telarana"
+fx_estilo = 29
+cooldown = 4
+forma = 1
+forma_apunte = 3
+forma_radio = 25.0
+forma_rango = 120.0
+charco_turnos = 3
+charco_texto = "la telaraña de brasas"
+suelo_roto = 78
+fx_estilo_mapa = 146
+charco_estilo = 1

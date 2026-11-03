@@ -155,6 +155,10 @@ class_name MutacionData
 # FUEGO (o una Quemadura) se lo quema el resto de la pelea (StatusEffects.Id.MUSGO_QUEMADO).
 @export var chepa_areas: float = 0.0
 # (02/11, los mutantes del TRENT: el Tocon ambarino; numeros del jefe)
+# EL REBOTE (03/11, la Araña tormentosa): cada golpe suyo salta en rayo a uno al azar a rebote_radio del golpeado, con
+# rebote_mult de su ataque, magico. Si el que lo recibe esta Electrizado salta otra vez (tope 2, y puede volver al primero).
+@export var rebote_mult: float = 0.0
+@export var rebote_radio: float = 0.0
 # LAS CARGAS (03/11, las arañas mutantes): gana una al empezar cada turno suyo y otra al darle con carga_elemento (que
 # ademas la cura). En cuanto llega a carga_tope, sea su turno o no, suelta carga_estallido sin gastar turno y vuelve a
 # 0. Aturdirla, asustarla o retrasarla le quita una; aturdida no gana la de su turno. -1 = no tiene cargas.

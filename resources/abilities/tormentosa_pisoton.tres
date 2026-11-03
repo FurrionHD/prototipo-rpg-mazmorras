@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_atu"]
+script = ExtResource("2")
+estado = 7
+prob = 0.3
+
+[resource]
+script = ExtResource("1")
+nombre = "Pisotón de trueno"
+descripcion = "Se alza sobre las patas de atrás y lo descarga todo contra el suelo. Si ya vas electrizado, a ver quién se mantiene en pie."
+coste_energia = 0.0
+dano_mult = 1.0
+efectos = [SubResource("SA_atu")]
+fx_anim = &"pisoton"
+fx_estilo = 22
+cooldown = 4
+forma = 1
+forma_apunte = 2
+forma_radio = 45.0
+suelo_roto = 74

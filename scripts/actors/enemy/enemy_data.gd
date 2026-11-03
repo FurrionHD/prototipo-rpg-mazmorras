@@ -942,6 +942,8 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		c.costra_bichos = mdat2.costra_bichos.duplicate()
 		c.chupa_enraizados = mdat2.chupa_enraizados
 		# (03/11, las arañas) las cargas y lo que suelta al llenarse.
+		c.rebote_mult = mdat2.rebote_mult
+		c.rebote_radio = mdat2.rebote_radio
 		c.carga_elemento = mdat2.carga_elemento
 		c.carga_tope = mdat2.carga_tope
 		c.carga_estallido = mdat2.carga_estallido

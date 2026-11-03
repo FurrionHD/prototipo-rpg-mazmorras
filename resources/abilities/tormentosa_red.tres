@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_peg"]
+script = ExtResource("2")
+estado = 9
+prob = 0.9
+stacks = 2
+
+[sub_resource type="Resource" id="SA_ray"]
+script = ExtResource("2")
+estado = 8
+prob = 0.7
+
+[resource]
+script = ExtResource("1")
+nombre = "Red electrificada"
+descripcion = "Una red tendida con corriente. Se te pega a los pies y te prepara para lo que venga detrás."
+coste_energia = 0.0
+dano_mult = 0.6
+efectos = [SubResource("SA_peg"), SubResource("SA_ray")]
+fx_anim = &"telarana"
+fx_estilo = 29
+cooldown = 4
+forma = 1
+forma_apunte = 3
+forma_radio = 25.0
+forma_rango = 120.0
+charco_turnos = 3
+charco_texto = "la red electrificada"
+suelo_roto = 78
+fx_estilo_mapa = 146
+charco_estilo = 1
