@@ -178,6 +178,14 @@ func _preparar_chispas() -> void:
 			"t": _rng.randf_range(0.4, 1.0), "g": _rng.randf_range(1.4, 2.8)})
 
 
+# Para las hojas de efectos: se coloca en el instante 't' sin esperar al reloj.
+func avanzar_a(t: float) -> void:
+	_t = t
+	if modo != Modo.FOGONAZO:
+		_rehacer_rayos()
+	queue_redraw()
+
+
 # ------------------------------------------------------------
 #  EL DIBUJO
 # ------------------------------------------------------------
