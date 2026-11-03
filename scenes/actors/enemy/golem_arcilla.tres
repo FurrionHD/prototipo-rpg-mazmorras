@@ -35,8 +35,8 @@ crystal_category_max = 8
 crystal_category_weights = PackedFloat32Array(0.5, 0.35, 0.15)
 drop_material = ExtResource("5_run")
 nucleo = ExtResource("6_nuc")
-drop_piso_debut = 7
-drop_piso_pleno = 10
+drop_piso_debut = 13
+drop_piso_pleno = 16
 al_golpear = [SubResource("SA_lento")]
 resist_elemental = {
 3: 0.5
