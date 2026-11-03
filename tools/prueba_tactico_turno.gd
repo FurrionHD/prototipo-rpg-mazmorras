@@ -286,6 +286,11 @@ func _probar_alcance() -> void:
 	pelea._target_idx = pelea._enemies.find(cerca)
 	pelea._refresh_actions()
 	_afirmar(not b.disabled, "con el objetivo a tiro, Atacar sigue apagado")
+	# AL EMPEZAR EL TURNO se apunta solo al mas cercano (03/11), aunque vinieras apuntando al de lejos.
+	pelea._target_idx = pelea._enemies.find(lejos)
+	t.apuntar_al_mas_cercano(yo)
+	_afirmar(pelea._objetivo() == cerca, "al empezar el turno tendria que apuntar al de cerca")
+	_afirmar(not b.disabled, "apuntando solo al de cerca, Atacar sigue apagado")
 	# Lejos de todos: Atacar se APAGA (ya no se vuelve "Esperar": se perdian turnos sin querer) y el
 	# sexto boton es Pasar, que cede el turno sin pegar y repone algo de energia.
 	t.cuerpos[yo].global_position = Vector2(-200, 0)

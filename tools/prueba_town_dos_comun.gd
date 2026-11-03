@@ -117,6 +117,7 @@ func pelear_hasta_el_final(plazo: float) -> bool:
 		# (12/10) Si el enemigo esta lejos, Atacar esta apagado y el guion no sabe andar: se pasa el turno (Huir es
 		# "Pasar" lejos del borde) para que el bicho venga. Antes se quedaba esperando y la pelea no acababa nunca.
 		var antes: String = _foto_turno(p)
+		apuntar_a_tiro(p)
 		if pulsar(0):
 			actue += 1
 			ataques += 1
@@ -183,6 +184,7 @@ func acercarme(p: Node) -> bool:
 		return false
 	cuerpo.global_position += hacia.normalized() * paso
 	p._refresh_actions()
+	apuntar_a_tiro(p)
 	return true
 
 
@@ -196,6 +198,25 @@ func acabar_pelea_suelta() -> void:
 
 
 # Quien juega el turno, donde esta y a cuanto tiene a cada enemigo vivo (con su vida). Solo para la traza.
+# ATACAR MIRA AL OBJETIVO ELEGIDO, NO AL MAS CERCANO (03/11, banco 8442cbe0): con varios enemigos el guion se pegaba al
+# mas cercano mientras seguia apuntando al primero, fuera de alcance, y pasaba turnos hasta agotar el plazo. Lo que haria
+# un jugador: si al elegido no llega y a otro si, cambiar de objetivo.
+func apuntar_a_tiro(p: Node) -> void:
+	if p == null or not p.tactico or int(p.get("_state")) != 1 or caja_abierta(p):
+		return
+	var tm = p.turno_mapa
+	var q = tm.get("_quien")
+	if q == null or tm.llega(q, p._objetivo()):
+		return
+	var enemigos: Array = p.get("_enemies")
+	for i in enemigos.size():
+		var e = enemigos[i]
+		if e != null and e.is_alive() and tm.llega(q, e):
+			p.set("_target_idx", i)
+			p._refresh_actions()
+			return
+
+
 func _foto_turno(p: Node) -> String:
 	if p == null or not is_instance_valid(p) or not p.tactico:
 		return ""

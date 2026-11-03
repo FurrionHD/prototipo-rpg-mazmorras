@@ -1352,9 +1352,34 @@ func empezar_turno(c: Combatant, radio: float = -1.0, seguir: bool = false) -> v
 	_andando = false
 	if _fase == Fase.MOVIENDO:
 		_animar(cuerpo, _mirada_de(cuerpo), false)
+		if not mismo:
+			apuntar_al_mas_cercano(c)
 	var arena: ArenaCombate = _arena()
 	if arena != null and _radio > 0.0:
 		arena.poner_circulo(_inicio, _radio)
+
+
+# AL EMPEZAR TU TURNO SE APUNTA AL MAS CERCANO (03/11, lo pidio el jefe): Atacar mira al objetivo elegido, asi que con
+# el de la ronda pasada lejos se quedaba apagado aunque tuvieras otro pegado. Primero los que YA alcanzas (el volando o
+# el tapado por una pared no sirven aunque esten cerca) y a los que estan en las sombras no se les elige. Si despues
+# eliges a otro, ese se queda hasta tu proximo turno; tras una preparacion el turno sigue y no se toca (ver 'mismo').
+func apuntar_al_mas_cercano(c: Combatant) -> void:
+	var mejor: int = -1
+	var mejor_llega: bool = false
+	var mejor_hueco: float = INF
+	for i in _pantalla._enemies.size():
+		var e: Combatant = _pantalla._enemies[i]
+		if e == null or not e.is_alive() or e.en_sombras():
+			continue
+		var a_tiro: bool = llega(c, e)
+		var hueco: float = hueco_entre(c, e)
+		if mejor < 0 or (a_tiro and not mejor_llega) or (a_tiro == mejor_llega and hueco < mejor_hueco):
+			mejor = i
+			mejor_llega = a_tiro
+			mejor_hueco = hueco
+	if mejor >= 0:
+		_pantalla.figuras._seleccionar(mejor)
+		_pantalla._refresh_actions()
 
 
 # LA CAMARA A ESTE (03/10): el turno de una frase o del disparo de un conjuro no pasa por empezar_turno en
