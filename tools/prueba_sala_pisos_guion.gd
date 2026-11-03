@@ -76,6 +76,9 @@ func _bajar() -> bool:
 
 
 func _subir() -> void:
+	# (03/11, banco b314dfb7: al volver a bajar le salto encima un bicho y subio con la pelea en pantalla; un piso con
+	# pelea viva no se congela, a proposito, y la prueba miraba el desmontaje) la pelea suelta, acabada antes de irse.
+	await acabar_pelea_suelta()
 	Net.pisos.viajar_al_pueblo()
 	_ok(await _hasta(func(): return Net._mi_lugar == "pueblo", 20.0), "subo al pueblo (lugar %s, pelea en pantalla %s, espejando %s)" % [
 		Net._mi_lugar, Game.hay_pelea_en_pantalla(), Net.peleas.espejando()])

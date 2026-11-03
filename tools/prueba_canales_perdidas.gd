@@ -218,6 +218,11 @@ func _rondas(cli_id: int, con_barrera: bool) -> int:
 	relleno.resize(1024)
 	var mal := 0
 	for ronda in RONDAS_BARRERA:
+		# (03/11, banco b314dfb7: con el PC cargado ENet dio por caida la conexion y cada ronda esperaba 12 s a una
+		# respuesta que no iba a llegar: COLGADA a los 240 s en vez de decir que paso) sin el cliente, se para y lo dice.
+		if not _sala.get_peers().has(cli_id):
+			ok(false, "la conexion sigue viva en la ronda %d (se cayo: ENet la dio por perdida)" % ronda)
+			return RONDAS_BARRERA
 		_hilo_c.cambios = 0
 		# Que no quede nada de la ronda anterior en camino.
 		await get_tree().create_timer(0.3).timeout
