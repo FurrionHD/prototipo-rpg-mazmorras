@@ -177,10 +177,10 @@ func _pelea() -> void:
 	bichos = combat._enemies.filter(func(c): return c.sprite_res.contains("enemigos_invocados/bicho_"))
 	_ver(bichos.size() == 2, "sin pasar de dos bichos vivos (%d)" % bichos.size())
 	# Vuelve ENTERA a los tres turnos suyos.
-	en._costra_vuelve(toc)
-	en._costra_vuelve(toc)
+	en.costra_vuelve(toc)
+	en.costra_vuelve(toc)
 	_ver(toc.costra <= 0.0, "a los dos turnos aun no")
-	en._costra_vuelve(toc)
+	en.costra_vuelve(toc)
 	_ver(is_equal_approx(toc.costra, toc.costra_max), "al tercero vuelve entera")
 	tm._tick_costra()
 	_ver(not bool(tm._costra_var.get(cu, true)), "y se le vuelve a ver con su ambar")
@@ -258,3 +258,41 @@ func _pelea() -> void:
 	_ver(yo.max_hp - yo.current_hp > 0.0, "muerta hinchada revienta y le da al de al lado (%.2f, esperado %.2f sin mitigar)" % [
 		yo.max_hp - yo.current_hp, esperado])
 	_ver(g.hinchazon == 0, "y revienta una sola vez")
+
+	print("9) LOS EFECTOS SE VEN (paso 5): lo que se queda sobre los cuerpos, por sus estados")
+	var arena: Node = tm._arena()
+	if tm._trent == null:
+		tm._trent = TacticoTrent.new(tm)
+	var tt: TacticoTrent = tm._trent
+	yo.current_hp = yo.max_hp
+	yo.apply_status(StatusEffects.Id.RESINADO, 2)
+	yo.apply_status(StatusEffects.Id.SAVIA_NEGRA, 3)
+	yo.apply_status(StatusEffects.Id.PRINGADO, 2)
+	yo.apply_status(StatusEffects.Id.PICOR, 3)
+	tt.tick()
+	_ver(tt._resina.has(yo) and tt._humo.has(yo) and tt._pringue.has(yo) and tt._picor.has(yo),
+		"resinado, savia negra, pringado y picor: cada uno con su dibujo encima")
+	tm._tick_raices()
+	_ver(not tm._raices.has(yo), "el resinado no lleva las raices del enraizado (lleva su cepo)")
+	yo.statuses.clear()
+	tt.tick()
+	_ver(not tt._resina.has(yo) and not tt._humo.has(yo), "sin los estados, se van")
+	# la capa de ambar del set Ambar: al romperse, el estallido
+	yo.costra_max = 10.0
+	yo.costra = 10.0
+	tt.tick()
+	var antes_n: int = arena.get_children().filter(func(n): return n is TrentAire).size()
+	yo.take_damage(20.0)
+	tt.tick()
+	var despues_n: int = arena.get_children().filter(func(n): return n is TrentAire).size()
+	_ver(despues_n > antes_n, "la capa de ambar de los tuyos revienta en grumos al romperse")
+	yo.costra_max = 0.0
+	# el Geiser y la Bola por su huella
+	var f := CombatFormas.circulo(tm.pies_de(yo), 45.0)
+	var gs: Node = SueloRoto.lanzar(arena, f, SueloRoto.Tipo.TRENT_GEISER, 3)
+	_ver(gs is TrentAire and (gs as TrentAire).modo == TrentAire.Modo.GEISER and (gs as TrentAire).version == 1,
+		"el Geiser sale por su huella, con la nube (la B)")
+	var fl := CombatFormas.linea(tm.pies_de(yo), Vector2.RIGHT, 100.0, 14.0)
+	_ver(SueloRoto.lanzar(arena, fl, SueloRoto.Tipo.AMBAR_BOLA, 4) is AmbarAire, "la Bola de caca rueda por su huella")
+	_ver(is_equal_approx(SueloRoto.retraso(fl, tm.pies_de(yo) + Vector2(50, 0), SueloRoto.Tipo.AMBAR_BOLA), AmbarAire.T_RUEDA * 0.5),
+		"y le da a cada uno cuando la bola llega")

@@ -314,6 +314,13 @@ func _pintar(capa: Node2D) -> void:
 static func _cinta(ci: CanvasItem, pts: PackedVector2Array, anchos: PackedFloat32Array, col: Color) -> void:
 	if pts.size() < 2 or col.a <= 0.01:
 		return
+	# (lo que apenas ha empezado a crecer, los hilos en su primer fotograma: un poligono de menos de 2 px no se puede
+	# triangular)
+	var largo: float = 0.0
+	for i in pts.size() - 1:
+		largo += pts[i].distance_to(pts[i + 1])
+	if largo < 2.0:
+		return
 	var izq := PackedVector2Array()
 	var der := PackedVector2Array()
 	for i in pts.size():

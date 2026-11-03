@@ -175,6 +175,10 @@ const MAX_CONEXIONES := 32
 # 64 (31/10): los mutantes del rey rata: estado FURIA_REY, estilos REY_LLAMADA 217 y REY_CAMPANAZO 218, y la cria que sale
 #     de la grieta (desliz CRIA con golpes 2); y los del jabali: estados COLMILLOS_ROTOS y MUSGO_QUEMADO, estilos
 #     JABALI_ESPORAS 219 y JABALI_REFLEJO 220. Un build del 63 no sabria pintarlos.
+#     (02-03/11, mismo protocolo: no salio ningun .exe con el 64) Y los del trent: estados RESINADO 47, SAVIA_NEGRA 48,
+#     PICOR 49 y PRINGADO 50 (puerta PUERTA_PRINGADO), el campo 12 de la instantanea (costra, costra_max, hinchazon:
+#     la costra del Tocon, la capa de ambar del set Ambar y la garrapata), estilos TRENT_CHUPAR 221 y AMBAR_REVIENTA
+#     222 y suelos TRENT_RESINA/TRENT_SAVIA/TRENT_GEISER/AMBAR_BOLA 110-113 (con el charco_estilo 11, la savia negra).
 const PROTOCOLO := 64
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
