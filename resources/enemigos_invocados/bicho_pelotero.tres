@@ -36,3 +36,6 @@ alcance = 15.0
 habilidades = [ExtResource("2_bol")]
 prob_habilidad = 0.5
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
+cuerpo = Rect2(-9.23, -13.46, 15.77, 30.77)
+centro_golpe = Vector2(-1.69, 9.23)
+alcance_marcado = 16.77

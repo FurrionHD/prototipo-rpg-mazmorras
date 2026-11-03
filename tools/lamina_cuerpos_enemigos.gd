@@ -6,6 +6,7 @@
 #
 # CON VENTANA.
 #   LAMINA_SALIDA=C:/Users/dasui/Desktop/ataques_mapa/cuerpos/pagina godot --path . res://tools/lamina_cuerpos_enemigos.tscn
+#   (y LAMINA_ENEMIGOS=res://a.tres,res://b.tres para sacar solo esos)
 extends Node
 
 const COLUMNAS := 3
@@ -102,15 +103,22 @@ func _correr() -> void:
 	Game.entrar_arena_de_pruebas()
 	await _esperar(15)
 	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
-	var nombres: Array = []
-	for f in DirAccess.get_files_at("res://scenes/actors/enemy/"):
-		if f.ends_with(".tres"):
-			nombres.append(f.get_basename())
-	nombres.sort()
+	# CUALES: todos los de scenes/actors/enemy, o los de LAMINA_ENEMIGOS (rutas separadas por comas: los invocados, los
+	# bichos del ambar del trent, viven en resources/enemigos_invocados).
+	var rutas: Array = []
+	var pedidas: String = OS.get_environment("LAMINA_ENEMIGOS")
+	if pedidas != "":
+		for r in pedidas.split(",", false):
+			rutas.append(r.strip_edges())
+	else:
+		for f in DirAccess.get_files_at("res://scenes/actors/enemy/"):
+			if f.ends_with(".tres"):
+				rutas.append("res://scenes/actors/enemy/" + f)
+	rutas.sort()
 	# Que ninguno se ponga a pelear mientras se hace la foto: el jugador lejos y cada uno CONGELADO al nacer.
 	var lejos: Vector2 = jug.global_position + Vector2(0, 900)
-	for n in nombres:
-		Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/%s.tres" % n, lejos, {})
+	for r in rutas:
+		Net.pisos.pedir_spawn_arena(r, lejos, {})
 		await _esperar(1)
 		_congelar_todos()
 	for _i in 20:

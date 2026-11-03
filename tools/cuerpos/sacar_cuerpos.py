@@ -34,8 +34,9 @@ def caja(comp):
 def main(carpeta):
     res = {}
     # Las 5 paginas y las que se rehagan sueltas (el miconido, 09/10, al crecer): 'miconido_nuevo.png' con su
-    # pagina_miconido.json y original_miconido.png. Un enemigo sin marcar en una pagina no pisa lo de otra.
-    for n in list(range(1, 10)) + ["miconido"]:
+    # pagina_miconido.json y original_miconido.png. Un enemigo sin marcar en una pagina no pisa lo de otra. Y (03/11) los
+    # bichos del ambar del trent: bichos_nuevo.png (tools/lamina_cuerpos_sueltos.gd).
+    for n in list(range(1, 10)) + ["miconido", "bichos"]:
         png = os.path.join(carpeta, ("pagina_%d.png" % n) if isinstance(n, int) else ("%s_nuevo.png" % n))
         js = os.path.join(os.path.dirname(__file__), "pagina_%s.json" % n)
         if not os.path.exists(png) or not os.path.exists(js):
@@ -82,6 +83,10 @@ def main(carpeta):
             if fuera:
                 raya = max(fuera, key=lambda a: a[4])
                 alcance = round((((raya[0] + raya[2]) / 2) - centro[0]) / z, 1)
+                # (03/11, los bichos del ambar) la raya CRUZANDO por debajo o por encima del bicho: su LARGO es lo que
+                # alcanza desde su centro (asi la dibujo el jefe). A un lado, como en las paginas de antes.
+                if raya[0] <= centro[0] <= raya[2]:
+                    alcance = round((raya[2] - raya[0]) / z, 1)
             e = d["escala"]
             rect = [round((x0 - nx) / z, 1), round((y0 - ny) / z, 1), round((x1 - x0) / z, 1), round((y1 - y0) / z, 1)]
             res[d["res"]] = {"nombre": d["nombre"], "escala": e, "cuerpo": rect,

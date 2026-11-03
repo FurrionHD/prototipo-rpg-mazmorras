@@ -41,3 +41,6 @@ revienta_radio = 30.0
 revienta_mult = 0.4
 revienta_veneno = 0.5
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
+cuerpo = Rect2(-8.17, -1, 15.67, 14)
+centro_golpe = Vector2(-0.33, 5.92)
+alcance_marcado = 20.17

@@ -1,0 +1,74 @@
+[
+  {
+    "dibujo": [
+      [
+        235.6,
+        404.6
+      ],
+      [
+        364.4,
+        487.4
+      ]
+    ],
+    "escala": 1.2,
+    "nodo": [
+      300.0,
+      400.0
+    ],
+    "nombre": "Garrapata del ámbar",
+    "pj": [
+      131.6,
+      423.1
+    ],
+    "res": "res://resources/enemigos_invocados/bicho_garrapata.tres",
+    "zoom": 4.0
+  },
+  {
+    "dibujo": [
+      [
+        575.6,
+        326.4
+      ],
+      [
+        709.0,
+        473.6
+      ]
+    ],
+    "escala": 1.2,
+    "nodo": [
+      640.0,
+      400.0
+    ],
+    "nombre": "Mosquito del ámbar",
+    "pj": [
+      471.6,
+      402.9
+    ],
+    "res": "res://resources/enemigos_invocados/bicho_mosquito.tres",
+    "zoom": 4.0
+  },
+  {
+    "dibujo": [
+      [
+        938.6,
+        331.0
+      ],
+      [
+        1026.0,
+        496.6
+      ]
+    ],
+    "escala": 1.3,
+    "nodo": [
+      980.0,
+      400.0
+    ],
+    "nombre": "Pelotero del ámbar",
+    "pj": [
+      834.6,
+      424.0
+    ],
+    "res": "res://resources/enemigos_invocados/bicho_pelotero.tres",
+    "zoom": 4.0
+  }
+]
