@@ -369,7 +369,8 @@ def _evo_tejedora(pose):
         L.extend(_escala(Lb, (ESC_ANTES / ESC) * (1.0 + 0.1 * _paso(evo, 0.1, 0.5))))
     if evo >= 0.5:
         e = _Esc(huesos(pose))
-        piezas_tejedora(e, dict(pose, carga=1.0 - _paso(evo, 0.8, 1.0)), costillas=_paso(evo, 0.5, 0.95))
+        # Las costillas salen enseguida, para que el nucleo no se vea un rato como una bola maciza.
+        piezas_tejedora(e, dict(pose, carga=0.5 * (1.0 - _paso(evo, 0.7, 1.0))), costillas=_paso(evo, 0.44, 0.72))
         L.extend(e.L)
     return L
 
