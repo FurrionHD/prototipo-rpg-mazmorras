@@ -656,7 +656,7 @@ func _estallar(e: Combatant) -> void:
 		return
 	if _pantalla._fx != null:
 		_pantalla.efectos._fx_tanda(_pantalla._fx.ultima_tanda() + 1)
-	_pantalla.efectos._fx_golpe(e, e, 0.0, false, false, e.carga_elemento, ab.fx_estilo, 1.0, true)
+	_pantalla.efectos._fx_golpe(e, e, 0.0, false, false, e.carga_elemento, ab.fx_estilo, 1.0, true, "", AbilityData.Gesto.AUTO, ab)
 	var suyo: int = e.elemento_ataque
 	e.elemento_ataque = e.carga_elemento
 	var nombres: Array = []
@@ -671,7 +671,7 @@ func _estallar(e: Combatant) -> void:
 		v.take_damage(d)
 		var puestos: Array = _enemy_tirar_efectos(e, ab, v, 1.0, "objetivo")
 		nombres.append(v.nombre + ((" (%s)" % ", ".join(puestos)) if not puestos.is_empty() else ""))
-		_pantalla.efectos._fx_golpe(e, v, d, bool(res.crit), false, e.carga_elemento, CombatFX.Estilo.EXPLOSION, 1.0, false)
+		_pantalla.efectos._fx_golpe(e, v, d, bool(res.crit), false, e.carga_elemento, CombatFX.Estilo.SLIME_GOLPE, 1.0, false)
 		if not v.is_alive():
 			_pantalla.altas._caer_aliado(v)
 	e.elemento_ataque = suyo

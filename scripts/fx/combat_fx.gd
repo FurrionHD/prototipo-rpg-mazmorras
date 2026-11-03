@@ -470,7 +470,10 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		# LOS MUTANTES DEL TRENT (03/11, TrentAire y AmbarAire): el Espantajo CHUPA a un enraizado (los hilos de el, a, a
 		# la victima, v) y la garrapata hinchada REVIENTA al morir (en ella). (Lo demas sale de sus huellas o de sus estados:
 		# SueloRoto.Tipo.TRENT_*, TacticoTrent.)
-		TRENT_CHUPAR = 221, AMBAR_REVIENTA = 222 }
+		TRENT_CHUPAR = 221, AMBAR_REVIENTA = 222,
+		# LAS ARAÑAS MUTANTES (03/11, AranaAire): el rebote de rayo en SU azul, de pecho a pecho (no el amarillo del ARCO), y
+		# lo que sueltan al llenarse las cargas, desde ellas.
+		ARANA_ARCO = 223, ARANA_DESCARGA = 224, ARANA_EXPLOSION = 225 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -516,6 +519,8 @@ const DIBUJO_MAPA := [Estilo.CRIA_LANZADA, Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA
 	Estilo.JABALI_ESPORAS, Estilo.JABALI_REFLEJO,
 	# los mutantes del trent (TrentAire, AmbarAire, 03/11).
 	Estilo.TRENT_CHUPAR, Estilo.AMBAR_REVIENTA,
+	# las arañas mutantes (AranaAire, 03/11).
+	Estilo.ARANA_ARCO, Estilo.ARANA_DESCARGA, Estilo.ARANA_EXPLOSION,
 	# los slimes (SlimeAire, 28/09): sobre el cuerpo que recibe.
 	Estilo.SLIME_GOLPE, Estilo.SLIME_ESCUPE, Estilo.SLIME_TROMBA, Estilo.SLIME_TROZO, Estilo.SLIME_IGNICION,
 	# las bestias (BestiaAire, 28/09): sobre el cuerpo que recibe.
@@ -698,6 +703,7 @@ const T_VUELO := {
 	Estilo.REY_CAMPANAZO: 0.04,
 	Estilo.JABALI_ESPORAS: 0.05, Estilo.JABALI_REFLEJO: 0.5,
 	Estilo.TRENT_CHUPAR: 0.05, Estilo.AMBAR_REVIENTA: 0.05,
+	Estilo.ARANA_ARCO: 0.14, Estilo.ARANA_DESCARGA: 0.05, Estilo.ARANA_EXPLOSION: 0.05,
 	Estilo.SLIME_GOLPE: 0.05, Estilo.SLIME_ESCUPE: 0.26, Estilo.SLIME_TROMBA: 0.16, Estilo.SLIME_TROZO: 0.22, Estilo.SLIME_IGNICION: 0.10,
 	# Las mandibulas se cierran en ese tiempo: se juntan justo en el golpe.
 	Estilo.BESTIA_MORDISCO: 0.14, Estilo.BESTIA_MORDISCO_SANGRA: 0.14, Estilo.BESTIA_FRENESI: 0.08,

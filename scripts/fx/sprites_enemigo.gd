@@ -242,6 +242,10 @@ static func poner_parpados(sprite: AnimatedSprite2D, ed: EnemyData, t: float, mu
 		mutacion: StringName = &"") -> void:
 	Parpadeo.poner(sprite, parpados_de(ed, t, mutante, mutacion))
 	Parpadeo.poner_extra(sprite, parpados_extra_de(ed, t, mutante, mutacion))
+	var g = _generador(ed)
+	if g != null and g.has_method("ritmo_parpados") and mutante:
+		var r: Array = g.ritmo_parpados()
+		Parpadeo.ritmo(sprite, float(r[0]), float(r[1]), float(r[2]))
 
 
 # ¿Tiene este enemigo SPRITE DE MUTANTE propio (dibujado ya a su tamaño)? Si lo tiene, NO se le estira el x1.2 del

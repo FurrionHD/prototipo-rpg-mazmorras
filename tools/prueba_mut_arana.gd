@@ -167,6 +167,16 @@ func _correr() -> void:
 		var perdio_u: float = h_u2 - uno.current_hp
 		_ver(perdio_o > 0.0 and perdio_u > 0.0 and perdio_o < perdio_u * 1.6 and perdio_u < perdio_o * 1.6, "tope 2 rebotes: uno a cada uno (%.1f y %.1f)" % [perdio_o, perdio_u])
 		e.rebote_mult = 0.0
+	print("7) LO QUE SE VE")
+	var rayos := AranaAire.rayos(self, Vector2.ZERO, 80.0, 3)
+	var fog := AranaAire.fogonazo(self, Vector2.ZERO, 60.0, 3)
+	await _esperar(3)
+	_ver(is_instance_valid(rayos) and is_instance_valid(fog), "los efectos nacen sin petar")
+	_ver(AranaAire.CIAN.b > AranaAire.CIAN.r, "los rayos, en azul y no en amarillo")
+	e.cargas = 2
+	combat.turno_mapa._arana.tick()
+	_ver(combat.turno_mapa._arana._cargas.has(e), "la cargada lleva su contador encima")
+	e.cargas = 0
 	var ed2: EnemyData = load("res://scenes/actors/enemy/arana.tres")
 	var m_tej: Array = ed2.mutacion_de(&"tejedora").habilidades.map(func(a): return a.nombre)
 	var m_tor: Array = ed2.mutacion_de(&"tormentosa").habilidades.map(func(a): return a.nombre)

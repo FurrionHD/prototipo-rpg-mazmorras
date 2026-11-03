@@ -17,5 +17,5 @@ dano_mult = 1.4
 es_magico = true
 efectos = [SubResource("SA_ray")]
 forma_radio = 60.0
-fx_estilo = 8
+fx_estilo = 224
 fx_anim = &"descarga"

@@ -435,6 +435,8 @@ func desmontar() -> void:
 	_furias_visibles(true)
 	if _trent != null:
 		_trent.quitar()
+	if _arana != null:
+		_arana.quitar()
 	pintar_imbuiciones(true)
 	pintar_escudos_agua(true)
 	for cu in _gestos_mapa.keys():   # un gesto a medias no puede dejar la marca puesta: no se volveria a animar
@@ -796,6 +798,7 @@ func radio_de(c: Combatant) -> float:
 
 # LO DE LOS MUTANTES DEL TRENT Y SUS BICHOS encima de los cuerpos (03/11): la resina, el humo, el pringue... aparte.
 var _trent: TacticoTrent = null
+var _arana: TacticoArana = null
 
 
 # LA FURIA DE REY A LA VISTA (31/10, el rey rata): quien lleve FURIA_REY lleva encima sus ojos rojos y su vaho
@@ -1411,6 +1414,9 @@ func tick(delta: float) -> bool:
 	if _trent == null:
 		_trent = TacticoTrent.new(self)
 	_trent.tick()
+	if _arana == null:
+		_arana = TacticoArana.new(self)
+	_arana.tick()
 	_tick_circulos()
 	_tick_alcances()
 	_tick_huellas(delta)
@@ -6220,6 +6226,18 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		var cu_t: Node2D = cuerpo_de(v)
 		var dib_t = cu_t.get("_muneco") if cu_t.get("_muneco") is Node2D else cu_t.get("_sprite")
 		BestiaAire.temblor(arena, dib_t as CanvasItem, bulto_de(v), semilla, vuelo, ritmo)
+		return
+	# LO DE LAS ARAÑAS MUTANTES (AranaAire): el rebote con el arco de siempre, en SU azul; y lo que sueltan al llenarse.
+	if estilo == CombatFX.Estilo.ARANA_ARCO:
+		var caja_ar: Rect2 = bulto_de(v)
+		var desde_ar: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null else caja_ar.get_center()
+		MagiaAire.arco(arena, desde_ar, caja_ar.get_center(), AranaAire.CIAN, semilla, vuelo, ritmo)
+		return
+	if estilo == CombatFX.Estilo.ARANA_DESCARGA:
+		AranaAire.rayos(arena, pies_de(v), 80.0, semilla)
+		return
+	if estilo == CombatFX.Estilo.ARANA_EXPLOSION:
+		AranaAire.fogonazo(arena, pies_de(v), 60.0, semilla)
 		return
 	# EL ARCO de una cadena (MagiaAire): del pecho del ultimo tocado (o de quien lo lanza) al pecho de este.
 	if estilo == CombatFX.Estilo.ARCO:

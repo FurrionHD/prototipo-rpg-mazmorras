@@ -534,6 +534,7 @@ static func gesto_transformacion(nodo: Node2D, spr: AnimatedSprite2D, mirada: Ve
 	var marca: int = ComerCristales.poner_marca_gesto(nodo)
 	spr.speed_scale = 1.0
 	spr.play(anim)
+	AranaAire.climax(nodo, spr)   # (03/11) las arañas mutantes: rayos a todos lados o el fogonazo, al llegar al climax
 	Particulas.esquirlas(nodo, ComerCristales.COLOR_CRISTAL, Vector2.UP, 8, 0.8)
 	var t := nodo.create_tween()
 	t.tween_interval(dur)

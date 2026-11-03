@@ -208,7 +208,7 @@ func _rebote_hilo(atacante: Combatant, victima: Combatant, dmg: float) -> void:
 	var d: float = maxf(0.1, dmg * atacante.runa_hilo_dano * mult)
 	v.take_damage(d)
 	_en_rebote = true
-	_fx_golpe(victima, v, d, false, false, elem, CombatFX.Estilo.ARCO, 0.6, false, "", AbilityData.Gesto.AUTO, null, 0, mult)
+	_fx_golpe(victima, v, d, false, false, elem, CombatFX.Estilo.ARANA_ARCO, 0.6, false, "", AbilityData.Gesto.AUTO, null, 0, mult)
 	_en_rebote = false
 	_pantalla._apuntar_dano(v, d, atacante)
 	_pantalla.magia._gastar_amplificadores(v, elem)
@@ -246,7 +246,7 @@ func _rebote_tormenta(e: Combatant, golpeado: Combatant) -> void:
 		var res: Dictionary = StatsMath.resolve_magico_enemigo(e, v, false)
 		var d: float = float(res.damage) * e.rebote_mult
 		v.take_damage(d)
-		_fx_golpe(desde, v, d, false, false, Elementos.Elemento.RAYO, CombatFX.Estilo.ARCO, 0.6, false, "",
+		_fx_golpe(desde, v, d, false, false, Elementos.Elemento.RAYO, CombatFX.Estilo.ARANA_ARCO, 0.6, false, "",
 			AbilityData.Gesto.AUTO, null, 0, float(res.get("mult_elem", 1.0)))
 		if v.is_alive() and randf() < StatusEffects.prob_final(1.0, e, v, StatusEffects.Id.RAYO):
 			v.apply_status(StatusEffects.Id.RAYO)

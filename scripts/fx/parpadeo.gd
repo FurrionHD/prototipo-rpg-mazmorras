@@ -15,6 +15,11 @@ const CERRADO := 0.13          # lo que dura con los ojos cerrados
 const ESPERA_MIN := 2.0        # entre parpadeo y parpadeo, al azar entre estos dos
 const ESPERA_MAX := 6.0
 
+# Su ritmo: el de los ojos, salvo que lo cambien (los hilos de la Araña tormentosa, con sus cargas: ver ritmo()).
+var _dura: float = CERRADO
+var _espera_min: float = ESPERA_MIN
+var _espera_max: float = ESPERA_MAX
+
 var _principal: AnimatedSprite2D = null
 var _espera: float = 0.0
 var _cerrado: float = -1.0
@@ -61,6 +66,16 @@ static func poner_extra(sprite: AnimatedSprite2D, lista: Array) -> void:
 		g += 1
 
 
+# LOS HILOS DE LA ARAÑA TORMENTOSA (03/11): usan estas capas, pero mucho rato encendidos y a menudo. A todos sus grupos.
+static func ritmo(sprite: AnimatedSprite2D, dura: float, espera_min: float, espera_max: float) -> void:
+	for h in sprite.get_children():
+		if h is Parpadeo:
+			h._dura = dura
+			h._espera_min = espera_min
+			h._espera_max = espera_max
+			h._espera = minf(h._espera, espera_max)
+
+
 func _ready() -> void:
 	visible = false
 	_espera = randf_range(0.3, ESPERA_MAX)   # que no empiecen todos a la vez
@@ -73,13 +88,13 @@ func _process(delta: float) -> void:
 		_cerrado -= delta
 		if _cerrado < 0.0:
 			visible = false
-			_espera = randf_range(ESPERA_MIN, ESPERA_MAX)
+			_espera = randf_range(_espera_min, _espera_max)
 		else:
 			_copiar()
 		return
 	_espera -= delta
 	if _espera <= 0.0 and _puede():
-		_cerrado = CERRADO
+		_cerrado = _dura
 		_copiar()
 
 

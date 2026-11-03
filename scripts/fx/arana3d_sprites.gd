@@ -140,3 +140,8 @@ static func parpados_extra_de(ed: EnemyData, _t: float, mutante: bool = false, m
 			if f != null:
 				out.append(f)
 	return out
+
+
+# Los hilos sin cargas (TacticoArana.HILOS, el primero): en la pelea el ritmo sube con ellas.
+static func ritmo_parpados() -> Array:
+	return [0.5, 1.2, 3.0]
