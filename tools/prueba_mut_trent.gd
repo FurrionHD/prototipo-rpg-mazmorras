@@ -82,9 +82,9 @@ func _correr() -> void:
 	_ver(_tiene(sav, StatusEffects.Id.VENENO, 0.6) and _tiene(sav, StatusEffects.Id.SAVIA_NEGRA, 1.0),
 		"Savia negra: Veneno 60 % y una carga de Savia negra")
 	var gei: AbilityData = c2.habilidades[3]
-	_ver(gei.carga and gei.carga_turnos == 1 and is_equal_approx(gei.dano_mult, 1.2) and is_equal_approx(gei.forma_radio, 45.0)
+	_ver(gei.carga and gei.carga_turnos == 1 and gei.es_magico and is_equal_approx(gei.dano_mult, 1.87) and is_equal_approx(gei.forma_radio, 45.0)
 		and _tiene(gei, StatusEffects.Id.SAVIA_NEGRA, 1.0, 2) and gei.cooldown == 4,
-		"Geiser: un turno cargando, circulo r45, x1,2, 2 cargas de Savia negra, recarga 4")
+		"Geiser: un turno cargando, circulo r45, magico x1,87, 2 cargas de Savia negra, recarga 4")
 
 	print("4) LOS ESTADOS")
 	var sn: Dictionary = StatusEffects.def(StatusEffects.Id.SAVIA_NEGRA)
