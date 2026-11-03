@@ -369,6 +369,13 @@ func primero_en_amenaza() -> Combatant:
 	return mejor
 
 # LE HA ENTRADO un golpe o un hechizo de 'elem' (StatsMath, en los dos caminos): lo que le hace a sus pasivas.
+# Le quita una carga (aturdirla, asustarla, retrasarla; y el agua a la de fuego). Sin tope: a cada una que le entre.
+func frenar_carga() -> void:
+	if cargas > 0:
+		cargas -= 1
+		print("[cargas] %s pierde una carga -> %d/%d" % [nombre, cargas, carga_tope])
+
+
 func recibe_elemento(elem: int) -> void:
 	marcar_regen_cortada(elem)
 	# BARRO COCIDO: el agua le deshace lo endurecido y le deja blando; el fuego lo cuece (se endurece solo).
@@ -513,6 +520,11 @@ var chepa_areas: float = 0.0
 # (02/11, el Tocon ambarino, ver MutacionData) LA COSTRA DE AMBAR: lo que le queda, con lo que empieza (0 = no tiene),
 # cuantos turnos suyos le faltan para volver a brotar rota, y la marca de que se acaba de romper (la recoge la pelea al
 # acabar la accion: combat._tras_accion_jugador_varios suelta el bicho).
+# LAS CARGAS (03/11, las arañas mutantes, ver MutacionData): quien lleva la pelea las suma y suelta el estallido.
+var cargas: int = 0
+var carga_tope: int = 0
+var carga_elemento: int = -1
+var carga_estallido: AbilityData = null
 var costra: float = 0.0
 var costra_max: float = 0.0
 var costra_turnos: int = 3
@@ -1376,6 +1388,9 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 	# aturdimiento te haria mas resistente al siguiente sin haberte costado nada.
 	if StatusEffects.es_control(id):
 		anotar_control()
+	# LAS CARGAS: un control que prende le quita una, y el agua a la de fuego.
+	if StatusEffects.es_control(id) or (id == StatusEffects.Id.MOJADO and carga_elemento == Elementos.Elemento.FUEGO):
+		frenar_carga()
 	# FAMILIAS EXCLUYENTES: solo un estado de cada familia a la vez (hoy, los platos de cocina: no
 	# puedes ir comido de dos cosas). Va aqui y no en quien da de comer porque por aqui pasan las dos
 	# vias —comer en el mapa y comer en combate— y ademas la vuelta del combate
@@ -2314,15 +2329,24 @@ func aturdido() -> bool:
 # Un golpe fallado NO debe meter estados, asi que todo call site nuevo tiene que gatearse el mismo.
 # Ya paso una vez: en las habilidades de area se aplicaban los efectos a los que habian esquivado.
 # Lo mismo vale para roll_imbue y para combat._aplicar_aturdir.
+# EL CALOR DE LA TEJEDORA (03/11): por cada carga, esta parte de su veneno sale como Quemadura. La probabilidad total del
+# golpe no cambia: lo sustituye, no se suma.
+const CALOR_QUEMA := 0.10
+
 func roll_on_hit(target: Combatant) -> Array:
 	var aplicados: Array = []
 	if target == null:
 		return aplicados
 	# MOJADO SE HIELA (07/10, la escarcha): mirado antes de tirar (ver combat_enemigos._enemy_tirar_efectos, la otra rama).
 	var hiela: bool = mojado_se_hiela and target.has_status(StatusEffects.Id.MOJADO)
-	for a in on_hit:
-		if a.estado < 0:
+	for a0 in on_hit:
+		if a0.estado < 0:
 			continue
+		var a = a0
+		if carga_elemento == Elementos.Elemento.FUEGO and a0.estado == StatusEffects.Id.VENENO and a0.prob > 0.0 \
+				and randf() < minf(CALOR_QUEMA * cargas, a0.prob) / a0.prob:
+			a = a0.duplicate()
+			a.estado = StatusEffects.Id.QUEMADURA
 		# Mi eficacia contra su resistencia, por la puerta comun (ver StatusEffects.prob_final).
 		var p: float = StatusEffects.prob_final(a.prob, self, target, a.estado)
 		if randf() >= p:

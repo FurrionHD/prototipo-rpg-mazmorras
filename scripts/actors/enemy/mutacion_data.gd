@@ -155,6 +155,12 @@ class_name MutacionData
 # FUEGO (o una Quemadura) se lo quema el resto de la pelea (StatusEffects.Id.MUSGO_QUEMADO).
 @export var chepa_areas: float = 0.0
 # (02/11, los mutantes del TRENT: el Tocon ambarino; numeros del jefe)
+# LAS CARGAS (03/11, las arañas mutantes): gana una al empezar cada turno suyo y otra al darle con carga_elemento (que
+# ademas la cura). En cuanto llega a carga_tope, sea su turno o no, suelta carga_estallido sin gastar turno y vuelve a
+# 0. Aturdirla, asustarla o retrasarla le quita una; aturdida no gana la de su turno. -1 = no tiene cargas.
+@export var carga_elemento: int = -1
+@export var carga_tope: int = 4
+@export var carga_estallido: AbilityData = null
 # LA COSTRA DE AMBAR: como el escudo de agua del set Marea, una capa de costra_frac de su vida POR ENCIMA de la vida (se
 # come los golpes antes; el veneno y las brasas no la tocan). Rota, vuelve ENTERA a los costra_turnos turnos suyos, y al
 # romperse suelta UNO al azar de costra_bichos (los bichos del ambar), sin pasar de costra_tope vivos.

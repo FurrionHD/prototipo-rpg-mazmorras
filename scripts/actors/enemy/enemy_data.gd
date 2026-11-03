@@ -941,6 +941,10 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		c.costra_tope = mdat2.costra_tope
 		c.costra_bichos = mdat2.costra_bichos.duplicate()
 		c.chupa_enraizados = mdat2.chupa_enraizados
+		# (03/11, las arañas) las cargas y lo que suelta al llenarse.
+		c.carga_elemento = mdat2.carga_elemento
+		c.carga_tope = mdat2.carga_tope
+		c.carga_estallido = mdat2.carga_estallido
 
 	# RESISTENCIA A EFECTOS Y EFICACIA: la curva del PISO por el ajuste de ESTE bicho. Los dos ejes
 	# hacen falta y hacen cosas distintas: la resistencia decide lo que TE aguanta, la eficacia lo

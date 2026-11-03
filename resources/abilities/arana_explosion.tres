@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_que"]
+script = ExtResource("2")
+estado = 2
+prob = 0.6
+
+[resource]
+script = ExtResource("1")
+nombre = "Explosión de brasas"
+descripcion = "La jaula se pone al rojo y revienta todo lo que llevaba dentro. No avisa: el aviso eran las cuatro cargas."
+coste_energia = 0.0
+dano_mult = 1.6
+es_magico = true
+efectos = [SubResource("SA_que")]
+forma_radio = 50.0
+fx_estilo = 8
+fx_anim = &"explosion"

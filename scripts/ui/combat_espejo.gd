@@ -433,7 +433,8 @@ func _valores(lista: Array, aliados: bool = false) -> Array:
 			# El campo 12, LA COSTRA DE AMBAR (el Tocon ambarino, 02/11): lo que le queda y con lo que empieza (su tramo en
 			# la barra y la hoja sin ambar mientras esta rota salen de aqui en el espejo); y lo hinchada que va la
 			# garrapata del ambar (su hoja).
-			[c.costra, c.costra_max, c.hinchazon]])
+			# Y las cargas de las arañas mutantes: lo que se ve de lo cargada que esta.
+			[c.costra, c.costra_max, c.hinchazon, c.cargas, c.carga_tope]])
 	return out
 
 
@@ -1668,6 +1669,9 @@ func _volcar(lista: Array, valores: Array) -> void:
 			lista[i].costra_max = float(v[12][1])
 			if (v[12] as Array).size() >= 3:
 				lista[i].hinchazon = int(v[12][2])   # la garrapata del ambar (su sprite)
+			if (v[12] as Array).size() >= 5:
+				lista[i].cargas = int(v[12][3])
+				lista[i].carga_tope = int(v[12][4])
 		if v.size() > 8:
 			lista[i].ability_cooldowns.clear()
 			for k in (v[8] as Dictionary):

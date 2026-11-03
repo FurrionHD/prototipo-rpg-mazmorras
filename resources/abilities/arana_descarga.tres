@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_ray"]
+script = ExtResource("2")
+estado = 8
+prob = 0.6
+
+[resource]
+script = ExtResource("1")
+nombre = "Descarga"
+descripcion = "Se le encienden todos los hilos a la vez y suelta de golpe lo que llevaba guardado. No avisa: el aviso eran las cuatro cargas."
+coste_energia = 0.0
+dano_mult = 1.4
+es_magico = true
+efectos = [SubResource("SA_ray")]
+forma_radio = 60.0
+fx_estilo = 8
+fx_anim = &"descarga"

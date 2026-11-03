@@ -179,6 +179,7 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 		mult_elem, guardia_red, mano)
 	if not solo_dibujo and not evadido and dmg > 0.0:
 		_rebote_hilo(atacante, victima, dmg)
+		_pantalla.enemigos.absorber_elemento(victima, elem, dmg)
 
 
 # EL SET HILO CONDUCTOR (03/11, las arañas mutantes): el golpe puede saltar en rayo a otro enemigo cercano. Va detras del

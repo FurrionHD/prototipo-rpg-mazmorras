@@ -83,6 +83,11 @@ func _enemy_turn(e: Combatant) -> void:
 		return
 	_regenerar(e)
 	e.enfriar_amenaza()   # su tabla de amenaza se enfria un poco cada turno suyo
+	# LAS CARGAS: la de su turno, si no le han quitado el turno. Si llena, estalla ahora y juega su turno igual.
+	if not ev.stunned:
+		sumar_carga(e)
+		if _pantalla._state == _pantalla.State.FINISHED:
+			return
 	# EL SIGILO DE VERDAD (30/10, la rata sombria): al empezar su turno, su probabilidad de fundirse con las sombras
 	# (si no esta ya; aturdida, no). Lo decide quien lleva la pelea; el estado viaja a los espejos como los demas.
 	if e.sigilo_prob > 0.0 and not ev.stunned and not e.en_sombras() and not _pantalla._espejo \
@@ -616,6 +621,65 @@ func costra_vuelve(e: Combatant) -> void:
 	else:
 		_pantalla._log_extra("🍯 A %s se le vuelve a formar la capa de ámbar." % _pantalla._etq(e))
 	_pantalla._update_hp()
+
+
+# LAS CARGAS (03/11, las arañas mutantes, ver MutacionData). Una mas; en cuanto llega al tope, estalla. Solo quien lleva la pelea.
+func sumar_carga(e: Combatant) -> void:
+	if e == null or e.carga_elemento < 0 or _pantalla._espejo or not e.is_alive():
+		return
+	e.cargas += 1
+	print("[cargas] %s gana una carga -> %d/%d" % [e.nombre, e.cargas, e.carga_tope])
+	if e.cargas >= e.carga_tope:
+		_estallar(e)
+
+
+# LE DAN CON SU ELEMENTO: en vez de hacerle daño (su resist_elemental casi lo anula) la cura la cuarta parte de lo que
+# habria hecho y le da una carga, aunque este aturdida. Si la llena, estalla en ese instante, en mitad del turno de otro.
+const CARGA_ABSORBE_CURA := 0.25
+
+func absorber_elemento(e: Combatant, elem: int, dmg: float) -> void:
+	if e == null or e.carga_elemento < 0 or elem != e.carga_elemento or _pantalla._espejo or not e.is_alive():
+		return
+	var habria: float = dmg / maxf(float(e.resist_elemental.get(elem, 1.0)), 0.01)
+	e.heal(habria * CARGA_ABSORBE_CURA)
+	_pantalla._log_extra("✨ %s absorbe %s y recupera %.1f." % [_pantalla._etq(e), Elementos.nombre(elem), habria * CARGA_ABSORBE_CURA])
+	_pantalla._update_hp()
+	sumar_carga(e)
+
+
+# EL ESTALLIDO: sale sin gastar turno ni avisar con una carga, a los tuyos que pille su circulo, y el contador vuelve a 0.
+# El daño es magico del elemento de sus cargas y lo que pone, lo de la habilidad.
+func _estallar(e: Combatant) -> void:
+	e.cargas = 0
+	var ab: AbilityData = e.carga_estallido
+	if ab == null:
+		return
+	if _pantalla._fx != null:
+		_pantalla.efectos._fx_tanda(_pantalla._fx.ultima_tanda() + 1)
+	_pantalla.efectos._fx_golpe(e, e, 0.0, false, false, e.carga_elemento, ab.fx_estilo, 1.0, true)
+	var suyo: int = e.elemento_ataque
+	e.elemento_ataque = e.carga_elemento
+	var nombres: Array = []
+	for v in _pantalla._aliados:
+		if not v.is_alive():
+			continue
+		if _pantalla.tactico and _pantalla.turno_mapa.pies_de(v).distance_to(_pantalla.turno_mapa.pies_de(e)) \
+				> ab.forma_radio + _pantalla.turno_mapa.radio_pisa(v):
+			continue
+		var res: Dictionary = StatsMath.resolve_magico_enemigo(e, v, false)
+		var d: float = float(res.damage) * ab.dano_mult
+		v.take_damage(d)
+		var puestos: Array = _enemy_tirar_efectos(e, ab, v, 1.0, "objetivo")
+		nombres.append(v.nombre + ((" (%s)" % ", ".join(puestos)) if not puestos.is_empty() else ""))
+		_pantalla.efectos._fx_golpe(e, v, d, bool(res.crit), false, e.carga_elemento, CombatFX.Estilo.EXPLOSION, 1.0, false)
+		if not v.is_alive():
+			_pantalla.altas._caer_aliado(v)
+	e.elemento_ataque = suyo
+	_pantalla._update_hp()
+	_pantalla._log_extra("💥 %s suelta %s%s" % [_pantalla._etq(e), ab.nombre,
+		(": %s." % ", ".join(nombres)) if not nombres.is_empty() else "."])
+	if _pantalla.altas.derrota():
+		_pantalla._end(false)
 
 
 # A MI ESPALDA (31/10, ver MutacionData): con menos de espalda_vida de su vida, sin nada cargando y con ratas suyas

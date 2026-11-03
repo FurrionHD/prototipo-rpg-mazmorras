@@ -3257,6 +3257,8 @@ func desplazado(c: Combatant, px: float, quien: Combatant = null) -> String:
 				efectos._fx_golpe(quien if quien != null else c, c, 0.0, false, false, Elementos.Elemento.NINGUNO,
 					CombatFX.Estilo.COLOSO_CLAVADO, 1.0, true)
 		return ""
+	if absf(px) > 0.5:
+		c.frenar_carga()   # moverla tambien la retrasa: una carga menos
 	if absf(px) >= DESPLAZA_CORTA:
 		return interrumpir(c, quien)
 	if _gauge.has(c) and absf(px) > 0.5:
@@ -3344,6 +3346,7 @@ func _aplicar_aturdir(objetivo: Combatant, es_crit: bool) -> String:
 	if es_crit:
 		objetivo.apply_status(StatusEffects.Id.ATURDIDO)
 		return "  ¡ATURDIDO! 💫 (pierde el turno)"
+	objetivo.frenar_carga()   # retrasada: una carga menos (la arañas mutantes; aturdida ya va por apply_status)
 	var f: float = randf_range(ATB_STUN_MIN, ATB_STUN_MAX)
 	# Sin recorte a 0: si la barra ya estaba baja, el retraso debe notarse igual
 	# (recortar a 0 lo dejaba igual que si no hubiera aturdido nada).
