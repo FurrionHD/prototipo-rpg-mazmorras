@@ -32,7 +32,17 @@ TRAMA = ep.BAYER[(YY // 2) % 4, (XX // 2) % 4]
 ep.TRAMA = TRAMA
 
 nuevo, poner, punto, disco = ep.nuevo, ep.poner, ep.punto, ep.disco
-estrella, cometa_dir, victima, componer = ep.estrella, ep.cometa_dir, ep.victima, ep.componer
+estrella, cometa_dir, componer = ep.estrella, ep.cometa_dir, ep.componer
+
+
+# EL QUE RECIBE va SIEMPRE por debajo de lo que ya hay pintado en su capa: en el juego los efectos sobre un cuerpo van en
+# Z_ENCIMA (por encima de todos los personajes) y se ven desde cualquier angulo; la lamina tiene que enseñar lo mismo
+# (lo vio el, 04/11: el mordisco hacia el norte salia tapado por el objetivo).
+def victima(a, x, y):
+    tmp = nuevo()
+    ep.victima(tmp, x, y)
+    m = (tmp[:, :, 3] > 0) & (a[:, :, 3] == 0)
+    a[m] = tmp[m]
 DIRS, NOM_DIR = ep.DIRS, ep.NOM_DIR
 SOMBRA = ep.SOMBRA
 
@@ -176,7 +186,7 @@ def basico(fila):
     toca = 3
     for f in range(12):
         s, a = nuevo(), nuevo()
-        delante = a if dy >= 0 else s
+        delante = a
         pecho = (V[0], V[1] - 10)
         if f >= toca:
             e = f - toca
@@ -237,7 +247,7 @@ def placaje(fila, largo_mundo=40.0, ancho_mundo=16.0, var='s100'):
         u = min(1.0, f / corre)
         x, y = A[0] + dx * largo * u, A[1] + dy * largo * u
         rastro(s, A, dx, dy, largo * u, min(ancho * 0.5, rad * 0.75), f, corre, largo, fila)
-        delante = a if dy >= -0.2 else s
+        delante = a
         if f >= corre:
             e = f - corre
             gx, gy = fin[0] + dx * (rad + 1), fin[1] + dy * (rad + 1)
