@@ -437,6 +437,8 @@ func desmontar() -> void:
 		_trent.quitar()
 	if _arana != null:
 		_arana.quitar()
+	if _pixel != null:
+		_pixel.quitar()
 	pintar_imbuiciones(true)
 	pintar_escudos_agua(true)
 	for cu in _gestos_mapa.keys():   # un gesto a medias no puede dejar la marca puesta: no se volveria a animar
@@ -799,6 +801,7 @@ func radio_de(c: Combatant) -> float:
 # LO DE LOS MUTANTES DEL TRENT Y SUS BICHOS encima de los cuerpos (03/11): la resina, el humo, el pringue... aparte.
 var _trent: TacticoTrent = null
 var _arana: TacticoArana = null
+var _pixel: TacticoPixel = null
 
 
 # LA FURIA DE REY A LA VISTA (31/10, el rey rata): quien lleve FURIA_REY lleva encima sus ojos rojos y su vaho
@@ -1417,6 +1420,9 @@ func tick(delta: float) -> bool:
 	if _arana == null:
 		_arana = TacticoArana.new(self)
 	_arana.tick()
+	if _pixel == null:
+		_pixel = TacticoPixel.new(self)
+	_pixel.tick()
 	_tick_circulos()
 	_tick_alcances()
 	_tick_huellas(delta)
@@ -5258,10 +5264,17 @@ const ALTO_SALTO_ESQUIVA := 9.0
 func pedir_retirada(c: Combatant, de: Combatant, px: float) -> void:
 	if _pantalla._espejo or not _pantalla.tactico or c == null or de == null or cuerpo_de(c) == null or cuerpo_de(de) == null:
 		return
-	var dir: Vector2 = pies_de(c) - pies_de(de)
+	# DESDE DONDE VA A ACABAR su golpe (el Picado salta antes de pegar: el desliz esta pedido pero aun no se ha hecho).
+	# Desde donde esta ahora, tras el Picado volvia volando casi a su sitio de salida (04/11).
+	var desde: Vector2 = pos_de(c)
+	for d in _deslices:
+		if d["c"] == c and d.has("hasta"):
+			desde = d["hasta"]
+	var pies: Vector2 = desde + _bajo_de(c)
+	var dir: Vector2 = pies - pies_de(de)
 	dir = dir.normalized() if dir.length_squared() > 0.01 else Vector2.RIGHT
-	var hasta: Vector2 = _sitio_libre_hacia(c, pies_de(c) + dir * px)
-	if hasta.distance_to(pos_de(c)) >= 2.0:
+	var hasta: Vector2 = _sitio_libre_desde(c, desde, pies + dir * px)
+	if hasta.distance_to(desde) >= 2.0:
 		pedir_desliz(c, hasta, Desliz.TRAS, 1, T_SALTO_ESQUIVA, ALTO_SALTO_ESQUIVA)
 
 
@@ -6677,9 +6690,13 @@ func _mas_cercano_al_alcance(c: Combatant, pies: Vector2) -> Combatant:
 # el NODO. Sin sitio, donde esta.
 # 'excluir' = los que no cuentan para no acabar encima (los que la embestida aparta de su raya al cruzarlos).
 func _sitio_libre_hacia(c: Combatant, pies_fin: Vector2, excluir: Array = []) -> Vector2:
+	return _sitio_libre_desde(c, pos_de(c), pies_fin, excluir)
+
+
+# Lo mismo saliendo de 'ini' (su nodo), no de donde esta ahora.
+func _sitio_libre_desde(c: Combatant, ini: Vector2, pies_fin: Vector2, excluir: Array = []) -> Vector2:
 	var cuerpo: Node2D = cuerpo_de(c)
 	var bajo: Vector2 = _bajo_de(c)
-	var ini: Vector2 = pos_de(c)
 	if cuerpo == null:
 		return ini
 	var fin: Vector2 = pies_fin - bajo
@@ -7106,6 +7123,8 @@ func gesto_bicho_en_mapa(c: Combatant, pide: StringName, dur: float, encaje: boo
 	cuerpo.set_meta("gesto_pelea", true)
 	_gestos_bicho[cuerpo] = {"t": 0.0, "dur": maxf(dur if dur > 0.0 else natural, 0.2), "encaje": encaje,
 		"cola": partes.slice(1) if not encaje else PackedStringArray(), "sostener": sostener}
+	if not encaje and _pixel != null:
+		_pixel.al_gesto(c, cuerpo, base, float(_gestos_bicho[cuerpo]["dur"]))
 
 
 # Su embestida pendiente o en curso (el desliz EMBISTE que acaba de pedir, aqui o leido por red), o {}.

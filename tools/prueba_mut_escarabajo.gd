@@ -257,9 +257,14 @@ func _pelea() -> void:
 	for a in al:
 		a.statuses.clear()
 		a.current_hp = a.max_hp
-	_poner(tm, sa, ps + Vector2(150, 0))
-	_poner(tm, im, ps + Vector2(0, 300))
-	_poner(tm, er, ps + Vector2(0, -300))
+	# (todos en medio de la arena: con el saeta pegado al borde, el salto no tiene suelo por donde ir y se queda en el sitio)
+	var medio: Vector2 = tm._dentro(tm._arena()).get_center()
+	print("     saeta en la arena antes: %s" % tm._en_arena(tm.pos_de(sa)))
+	for i in al.size():
+		_poner(tm, al[i], medio + Vector2(-40.0 + 40.0 * i, 30.0))
+	_poner(tm, sa, medio + Vector2(130, -20))
+	_poner(tm, im, medio + Vector2(-130, -90))
+	_poner(tm, er, medio + Vector2(-130, 90))
 	sa.statuses.clear()
 	en._enemy_begin_charge(sa, pic, yo)
 	_ver(tm._presas_carga.has(sa), "marca a su presa al subir")
@@ -269,12 +274,56 @@ func _pelea() -> void:
 	tm._deslices.clear()
 	en._enemy_use_ability(sa, pic, presa)
 	var hasta = null
+	var retirada = null
 	for d in tm._deslices:
 		if d["c"] == sa:
-			hasta = d["hasta"] if d.has("hasta") else null
+			if hasta == null:
+				hasta = d["hasta"]
+			else:
+				retirada = d["hasta"]
+	# PEGA Y SE VA, desde donde ha caido (antes salia de donde estaba y volvia volando a su sitio).
+	_ver(retirada != null and hasta != null and (retirada as Vector2).distance_to(hasta) <= 70.0,
+		"tras caer se aparta un poco, desde donde ha caido (%s)" % ["-" if retirada == null or hasta == null else "%d px" % int((retirada as Vector2).distance_to(hasta))])
 	_ver(hasta != null, "al soltar se mueve (no pega sin moverse)")
+	print("     presa %s en %s, cae en %s" % [presa.nombre, tm.cuerpo_de(presa).global_position, hasta])
+	var fu = tm.ultima_forma_enemigo
+	print("     forma: centro %s; libre hacia ella: %s; desde %s" % [fu.centro if fu != null else null,
+		tm._sitio_libre_hacia(sa, fu.centro) if fu != null else null, tm.pos_de(sa)])
+	var pf: Vector2 = tm.pies_de(presa)
+	var otros_ahi: Array = al.filter(func(o): return o != presa and tm.pies_de(o).distance_to(pf) < 30.0).map(func(o): return o.nombre)
+	print("     suelo en la presa: %s, arena: %s, otros a <30 px: %s" % [tm._sobre_suelo(pf - tm._bajo_de(sa), tm.cuerpo_de(sa)), tm._en_arena(pf - tm._bajo_de(sa)), otros_ahi])
 	if hasta != null:
 		_ver((hasta as Vector2).distance_to(tm.cuerpo_de(presa).global_position) <= 60.0, "y cae donde esta su presa AHORA, no donde estaba (a %d px)" % int((hasta as Vector2).distance_to(tm.cuerpo_de(presa).global_position)))
 	var pmag: AbilityData = load("res://resources/abilities/escarabajo_picado_magnetico.tres")
 	_ver(pic.salta and pmag.salta, "los dos Picados saltan")
 	_ver(pic.fx_anim_interrumpe == &"caer>recolocarse" and pmag.fx_anim_interrumpe == &"caer>recolocarse", "los dos caen al cortarlos")
+
+	print("13) LOS EFECTOS EN PIXEL ART")
+	var arena: Node = tm._arena()
+	var contar := func() -> int:
+		return arena.get_children().filter(func(n): return n is EfectoPixel).size()
+	for nombre in ["pulso_carga", "pulso_tiron", "mag_impacto", "picado_impacto", "emb_sale", "pasada", "coraza", "elitros", "caer"]:
+		var ef: EfectoPixel = EfectoPixel.lanzar(arena, "escarabajo", nombre, tm.pies_de(yo), 6)
+		_ver(ef != null and ef.num_capas() >= 1, "la hoja %s carga (%d capas)" % [nombre, ef.num_capas() if ef != null else 0])
+		if ef != null:
+			ef.queue_free()
+	await _esperar(2)
+	var antes: int = contar.call()
+	tm.gesto_bicho_en_mapa(im, &"caparazon", -1.0)
+	await _esperar(1)
+	_ver(contar.call() > antes, "la Coraza del iman saca su efecto")
+	antes = contar.call()
+	tm.gesto_bicho_en_mapa(sa, &"pasada", 0.4)
+	await _esperar(1)
+	_ver(contar.call() > antes, "la Pasada saca su estela")
+	# Lo de la carga se va con la carga.
+	sa.statuses.clear()
+	_poner(tm, sa, ps + Vector2(150, 0))
+	en._enemy_begin_charge(sa, pic, yo)
+	await _esperar(3)
+	_ver(tm._pixel._cargas.has(sa), "subido al Picado: su sombra persigue")
+	tm.olvidar_carga(sa)
+	sa.charging = null
+	tm._pixel.tick()   # (la pelea esta parada en esta prueba: el tick a mano)
+	_ver(not tm._pixel._cargas.has(sa), "y se va al soltar o cortarlo")
+	_ver(not tm._tiene_anim_bicho(tm.cuerpo_de(im), "volteado"), "(el normal y el iman no llevan los del vuelo)")
