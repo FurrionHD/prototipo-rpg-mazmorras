@@ -41,6 +41,7 @@ def presion(fila, var=ABISAL):
     L = 60.0 / UNIDAD
     A = (W * 0.5 - dx * L * 0.45, H * 0.55 - dy * L * 0.4)
     rad = marco(var, 'encogido', 0, fila).size[0] * 0.28
+    sl.ORIGEN = (A[0] + dx * rad * 0.6, A[1] + dy * rad * 0.6)   # donde empieza la huella: su borde, no sus pies
     V = (A[0] + dx * (rad + L * 0.5), A[1] + dy * (rad + L * 0.5) + 4)
     tinta = Gotas(8, 3 + fila, 4.0, 14.0, (math.atan2(dy, dx), 1.4), sube=(5.0, 10.0), tam=(1.2, 2.0), pal=NEGRO, borde=NEGRO_BORDE)
     m, t = [], []
@@ -55,7 +56,7 @@ def presion(fila, var=ABISAL):
             for k in range(3):
                 u = (e - k * 1.2) / 7.0
                 if 0.0 <= u <= 1.0:
-                    d = rad * 0.6 + (L + rad * 0.4) * u
+                    d = rad * 0.6 + L * u
                     lado = (-1, 1, 0)[k] * 3.5
                     x, y = A[0] + dx * d - dy * lado, A[1] + dy * d + dx * lado - 3
                     ep.media_luna(a if dy > -0.2 else s, x, y, dx, dy, 9 - k, NEGRO)
@@ -63,7 +64,7 @@ def presion(fila, var=ABISAL):
                     for q in range(-5, 6, 3):
                         punto(a, x + dx * (9 - k) - dy * q, y + dy * (9 - k) + dx * q, NEGRO[3])
             # detras: la sombra que deja y la tinta
-            hecho = min(1.0, e / 7.0) * (L + rad * 0.4)
+            hecho = min(1.0, e / 7.0) * L
             for k in range(int(hecho / 6.0)):
                 d = rad * 0.6 + k * 6.0
                 charco(s, A[0] + dx * d, A[1] + dy * d, 4.0, k * 1.7, seco(e - k, 8, 5) * 0.7, NEGRO, NEGRO_BORDE)
@@ -90,8 +91,28 @@ def aro(a, cx, cy, rx, ry, giro, grueso, abertura=4.4):
 def remolino_negro(a, cx, cy, r, giro, fuerza, pal=NEGRO, borde=NEGRO_BORDE):
     if fuerza <= 0:
         return
+    gordo = max(1.0, r / 23.0)   # (engordan con el remolino: si no, a su tamano de verdad son aros finos)
     for k in range(3):
-        coletazo(a, cx, cy, giro + k * math.tau / 3.0, r, 0.0, 2.2 * fuerza, 1.0, 4.0 * fuerza + 1.0, pal, borde)
+        coletazo(a, cx, cy, giro + k * math.tau / 3.0, r, 0.0, 2.2 * fuerza, 1.0, (4.0 * fuerza + 1.0) * gordo, pal, borde)   # (solo el grueso: 2,2 es el angulo)
+
+
+def tromba_en(s, a, vx, vy, e):
+    """La tromba sobre UN objetivo, con (vx, vy) = sus pies; e = marcos desde que empieza a caer."""
+    baja = min(1.0, (e + 1) / 4.0)
+    fuerza = seco(e, 8, 5)
+    if fuerza <= 0:
+        return
+    for k in range(6):
+        alto = (40 - k * 6) * baja + 8
+        r = 3.0 + k * 1.6
+        aro(a, vx, vy - alto, r, r * 0.45, e * 0.9 + k, 2.0 * fuerza + 0.5)
+    if e < 6:
+        disco(a, vx, vy - 48 * baja - 6, 3.0, NEGRO[0])
+        punto(a, vx - 1, vy - 48 * baja - 7, LUZ[2], 2)
+    if e >= 3:
+        remolino_negro(s, vx, vy + 1, 6.0 + (e - 3) * 1.2, -e * 0.8, fuerza)
+    if e == 3:
+        estrella(a, vx, vy - 9, 8, NEGRO)
 
 
 def tromba(var=ABISAL):
@@ -102,23 +123,8 @@ def tromba(var=ABISAL):
         s, a = nuevo(), nuevo()
         for i, (vx, vy) in enumerate(vict):
             e = f - 3 - i * 2
-            if e < 0:
-                continue
-            baja = min(1.0, (e + 1) / 4.0)
-            fuerza = seco(e, 8, 5)
-            if fuerza <= 0:
-                continue
-            for k in range(6):
-                alto = (40 - k * 6) * baja + 8
-                r = 3.0 + k * 1.6
-                aro(a, vx, vy - alto, r, r * 0.45, e * 0.9 + k, 2.0 * fuerza + 0.5)
-            if e < 6:
-                disco(a, vx, vy - 48 * baja - 6, 3.0, NEGRO[0])
-                punto(a, vx - 1, vy - 48 * baja - 7, LUZ[2], 2)
-            if e >= 3:
-                remolino_negro(s, vx, vy + 1, 6.0 + (e - 3) * 1.2, -e * 0.8, fuerza)
-            if e == 3:
-                estrella(a, vx, vy - 9, 8, NEGRO)
+            if e >= 0:
+                tromba_en(s, a, vx, vy, e)
         for v in vict:
             victima(s, *v)
         m.append(escena([s], [(marco(var, 'escupir', min(f, 7), 1), A[0], A[1], 0)], [a]))
@@ -186,6 +192,30 @@ def constelacion(var=CIELO, mirada=False):
 
 # --- LLUVIA DE ESTRELLAS: en cada punto del circulo primero se enciende su marca en el suelo y crece; una estrella fugaz
 # baja en diagonal con su cola y cae ahi, una tras otra: destello, luz que se abre por el suelo y motas que suben ---
+def fugaz(s, a, px, py, e, i=0):
+    """Una estrella fugaz que cae en (px, py); e = marcos desde que se enciende su marca (a los 6 toca el suelo)."""
+    if e < 6:
+        d = np.hypot(XX - px, YY - py)
+        poner(s, (d < 2 + e * 0.8) & (TRAMA < 0.45), LUZ[0])
+        poner(s, (d < 1 + e * 0.4) & (TRAMA < 0.6), LUZ[1])
+        u = (e + 1) / 6.0
+        sx, sy = px - 40 * (1 - u), py - 60 * (1 - u)
+        cometa_dir(a, sx, sy, 0.55, 0.83, 16, 1, LUZ)
+        estrella(a, sx, sy, 4, LUZ)
+    else:
+        g = e - 6
+        if g < 3:
+            estrella(a, px, py - 3, (12, 18, 9)[g], LUZ)
+        vivo = seco(g, 3, 5)
+        d = np.hypot(XX - px, YY - py)
+        poner(s, (d < 4 + g * 1.5) & (TRAMA < 0.5 * vivo * (1 - g / 9.0)), LUZ[1])
+        poner(s, (d < 2 + g * 0.6) & (TRAMA < 0.6 * vivo), LUZ[2])
+        for k in range(5):
+            ang = k / 5 * math.tau + i
+            if g < 8:
+                punto(a, px + math.cos(ang) * (3 + g * 1.5), py - g * 2.2 + math.sin(ang) * 2, LUZ[3 if g < 4 else 2], 2)
+
+
 def lluvia(var=CIELO, radio_mundo=70.0, n=5):
     A = (W * 0.25, H * 0.38)
     R = radio_mundo / UNIDAD * 0.55
@@ -198,28 +228,8 @@ def lluvia(var=CIELO, radio_mundo=70.0, n=5):
         s, a = nuevo(), nuevo()
         for i, (px, py) in enumerate(puntos):
             e = f - i * 3
-            if e < 0:
-                continue
-            if e < 6:
-                d = np.hypot(XX - px, YY - py)
-                poner(s, (d < 2 + e * 0.8) & (TRAMA < 0.45), LUZ[0])
-                poner(s, (d < 1 + e * 0.4) & (TRAMA < 0.6), LUZ[1])
-                u = (e + 1) / 6.0
-                sx, sy = px - 40 * (1 - u), py - 60 * (1 - u)
-                cometa_dir(a, sx, sy, 0.55, 0.83, 16, 1, LUZ)
-                estrella(a, sx, sy, 4, LUZ)
-            else:
-                g = e - 6
-                if g < 3:
-                    estrella(a, px, py - 3, (12, 18, 9)[g], LUZ)
-                vivo = seco(g, 3, 5)
-                d = np.hypot(XX - px, YY - py)
-                poner(s, (d < 4 + g * 1.5) & (TRAMA < 0.5 * vivo * (1 - g / 9.0)), LUZ[1])
-                poner(s, (d < 2 + g * 0.6) & (TRAMA < 0.6 * vivo), LUZ[2])
-                for k in range(5):
-                    ang = k / 5 * math.tau + i
-                    if g < 8:
-                        punto(a, px + math.cos(ang) * (3 + g * 1.5), py - g * 2.2 + math.sin(ang) * 2, LUZ[3 if g < 4 else 2], 2)
+            if e >= 0:
+                fugaz(s, a, px, py, e, i)
         for v in vict:
             victima(s, *v)
         m.append(escena([s], [(marco(var, 'estrellas' if f < 4 else 'lluvia', min(f, 7), 1), A[0], A[1], 0)], [a]))
@@ -232,6 +242,7 @@ def lluvia(var=CIELO, radio_mundo=70.0, n=5):
 # de medias lunas negras con la pincelada rota). Aguanta y se le recoge dentro ---
 def eclipse(var=CIELO, radio_mundo=80.0):
     A = (W * 0.5, H * 0.52)
+    sl.ORIGEN = A
     R = radio_mundo / UNIDAD * 0.85
     spr0 = marco(var, 'eclipse', 0, 0)
     cabeza = (A[0], A[1] - spr0.size[1] * 0.62)
@@ -253,7 +264,9 @@ def eclipse(var=CIELO, radio_mundo=80.0):
                     punto(s, A[0] + math.cos(ang) * uu * R, A[1] + math.sin(ang) * uu * R * 0.85, LUZ[2], 2)
             for k in range(9):
                 ang = k / 9 * math.tau + f * 0.15
-                coletazo(s, A[0] + math.cos(ang) * r, A[1] + math.sin(ang) * r, ang + 1.57, 5.0, 0.0, 1.6, 1.0, 3.0, NEGRO, NEGRO_BORDE)
+                # (crecen con su noche: en la grande, si no, se quedan en palitos)
+                g_ = max(1.0, r / 59.0)
+                coletazo(s, A[0] + math.cos(ang) * r, A[1] + math.sin(ang) * r, ang + 1.57, 5.0 * g_, 0.0, 1.6, 1.0, 3.0 * g_, NEGRO, NEGRO_BORDE)
         # la estrella y la luna negra
         if f < 19:
             luz = min(1.0, (f + 1) / 3.0)
@@ -276,6 +289,7 @@ def eclipse(var=CIELO, radio_mundo=80.0):
 def agujero(var=CIELO, radio_mundo=70.0):
     A = (W * 0.27, H * 0.42)
     C = (W * 0.64, H * 0.62)
+    sl.ORIGEN = C
     R = radio_mundo / UNIDAD * 0.55
     rnd = random.Random(6)
     motas = [(rnd.uniform(0, math.tau), rnd.uniform(0.5, 1.0)) for _ in range(12)]
@@ -297,11 +311,12 @@ def agujero(var=CIELO, radio_mundo=70.0):
             remolino_negro(s, C[0], C[1], R * 0.4 * abre * tiron, -e * 0.5 + 1.0, abre, NOCHE, NOCHE[0])
             if abre > 0.05:
                 d = np.hypot(XX - C[0], YY - C[1])
-                poner(s, d < 4.5 * abre + 0.5, LUZ[1])
-                poner(s, d < 3.5 * abre, NEGRO[0])
+                nucleo = max(1.0, R * 0.7 / 23.0)
+                poner(s, d < (4.5 * abre + 0.5) * nucleo, LUZ[1])
+                poner(s, d < 3.5 * abre * nucleo, NEGRO[0])
             for ang, uu in motas:
                 k = ((e / 10.0) + uu) % 1.0
-                rr = R * (1.0 - k) * abre
+                rr = R * 0.7 * (1.0 - k) * abre   # (dentro del remolino: no mas alla de su borde)
                 aa = ang + k * 4.0
                 if rr > 3:
                     punto(a, C[0] + math.cos(aa) * rr, C[1] + math.sin(aa) * rr * 0.8, LUZ[3 if k > 0.5 else 2], 2)
@@ -329,13 +344,15 @@ def abanico_luz(a, cx, cy, eje, R, apertura, e):
     poner(a, dentro & (u < 0.16) & (fuerza > 0.4), LUZ[3])
 
 
-def parpadeo(fila, var=OJOS):
+def parpadeo(fila, var=OJOS, motas_objetivos=True, escala=0.85, alto_ojo=None):
     dx, dy = DIRS[fila]
-    R = 70.0 / UNIDAD * 0.85
+    R = 70.0 / UNIDAD * escala
     A = (W * 0.5 - dx * R * 0.4, H * 0.52 - dy * R * 0.35)
     spr0 = marco(var, 'cegar', 0, fila)
     rad = spr0.size[0] * 0.28
-    ojo = (A[0] + dx * rad * 0.6, A[1] + dy * rad * 0.4 - rad * 0.8)
+    alto = rad * 0.8 if alto_ojo is None else alto_ojo
+    ojo = (A[0] + dx * rad * 0.6, A[1] + dy * rad * 0.4 - alto)
+    sl.ORIGEN = (ojo[0], ojo[1] + alto)   # el vertice de su huella, a ras de suelo
     eje = math.atan2(dy, dx)
     vict = [(A[0] + math.cos(eje + k) * (rad + 18), A[1] + math.sin(eje + k) * (rad + 18) + 3) for k in (-0.4, 0.35)]
     m, t = [], []
@@ -346,7 +363,7 @@ def parpadeo(fila, var=OJOS):
             abanico_luz(a if dy > -0.2 else s, ojo[0], ojo[1], eje, R, 120.0, e)
             if e < 3:
                 estrella(a, ojo[0], ojo[1], (12, 18, 10)[e], LUZ)
-            for v in vict:
+            for v in vict if motas_objetivos else []:
                 sl_v = e - 1
                 if 0 <= sl_v < 8:
                     for k in range(3):

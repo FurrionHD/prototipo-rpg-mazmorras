@@ -1502,11 +1502,9 @@ func _hoja_rayos(salida: String, carpeta_s: String, ed: EnemyData, ab: AbilityDa
 				rayos.append([p, meta])
 		var fijas: Array = []
 		for i in estrellas.size():
-			var st: AbisalAire = AbisalAire.estrella(self, CombatFormas.circulo(estrellas[i], 6.0), 300 + i)
+			var st: EfectoPixel = EfectoPixel.lanzar(self, "slime", "estrella_dura", estrellas[i])
 			st.set_process(false)
-			st.set("_t", 2.0 + 0.4 * float(i))
-			for hijo in ["_suelo", "_delante"]:
-				(st.get(hijo) as Node2D).queue_redraw()
+			st.avanzar_a(2.0 + 0.4 * float(i))
 			fijas.append(st)
 		await _viñeta(hoja, 0, fila, "%s · %s · %s · sus estrellas" % [ed.enemy_name, ab.nombre, dir_n])
 		var piezas: Array = []
@@ -1514,15 +1512,13 @@ func _hoja_rayos(salida: String, carpeta_s: String, ed: EnemyData, ab: AbilityDa
 			var a: Vector2 = r[0]
 			var b: Vector2 = r[1]
 			var fr := CombatFormas.linea(a, (b - a).normalized(), a.distance_to(b), ab.rayo_ancho)
-			var n: AbisalAire = AbisalAire.area(self, fr, AbisalAire.Modo.MIRADA if ab.mirada else AbisalAire.Modo.RAYO,
+			var n: Node2D = AbisalAire.area(self, fr, AbisalAire.Modo.MIRADA if ab.mirada else AbisalAire.Modo.RAYO,
 				400 + piezas.size(), 0.0)
 			n.set_process(false)
 			piezas.append(n)
 		for c in momentos.size():
 			for n in piezas:
 				n.set("_t", float(momentos[c]))
-				for hijo in ["_suelo", "_delante"]:
-					(n.get(hijo) as Node2D).queue_redraw()
 			await _viñeta(hoja, c + 1, fila, "%s · %s · %s · %.2f s" % [ed.enemy_name, ab.nombre, dir_n, momentos[c]])
 		for n in piezas + fijas:
 			(n as Node).queue_free()

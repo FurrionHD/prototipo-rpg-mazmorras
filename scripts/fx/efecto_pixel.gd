@@ -25,6 +25,8 @@ var _t: float = 0.0:
 		_poner_marco()
 var _capas: Array[Sprite2D] = []
 var _sigue: Node2D = null
+# Empieza este rato despues que los demas de su tanda (cada estrella de la Lluvia). Aparte de _t: las hojas de prueba mueven _t a mano.
+var retardo: float = 0.0
 var _corte: int = 0        # desde este marco va a _fps2 (lo que se seca, sin prisa)
 var _fps2: float = 0.0
 var _ritmo: float = 1.0     # SueloRoto lo escala en las embestidas, como en los demas efectos
@@ -174,7 +176,10 @@ func _process(delta: float) -> void:
 	_poner_marco()
 
 
-func _marco_de(t: float) -> int:
+func _marco_de(t_total: float) -> int:
+	var t: float = t_total - retardo
+	if t < 0.0:
+		return -1
 	if _corte > 0 and _fps2 > 0.0 and t * _fps >= float(_corte):
 		return _corte + int((t - float(_corte) / _fps) * _fps2)
 	return int(t * _fps)
@@ -184,7 +189,7 @@ func _poner_marco() -> void:
 	if _bola != null:
 		_poner_bola()
 	var bruto: int = _marco_de(_t)
-	var ver: bool = _t >= 0.0 and (_bucle or bruto < _n)
+	var ver: bool = bruto >= 0 and _t >= 0.0 and (_bucle or bruto < _n)
 	var m: int = posmod(bruto, _n) if ver else 0
 	for s in _capas:
 		s.visible = ver
@@ -206,5 +211,5 @@ func avanzar_a(t: float) -> void:
 
 func duracion() -> float:
 	if _corte > 0 and _fps2 > 0.0:
-		return float(_corte) / _fps + float(_n - _corte) / _fps2
-	return float(_n) / _fps
+		return retardo + float(_corte) / _fps + float(_n - _corte) / _fps2
+	return retardo + float(_n) / _fps

@@ -66,6 +66,7 @@ const CHAMUSCADO := Color(0.05, 0.03, 0.02)
 # clara ROTA en el borde, gotas de tinta, sombra en el suelo y el ojo blanco-azulado del eclipse. Sin llamas.
 const T_OSCURO := 0.45           # lo que tarda el frente de la Presion en recorrer su linea
 const T_IGNICION := 0.9
+const TOCA_TROMBA := 3.0 / 14.0
 const PIES_EN_DIBUJO := 1.12 / 1.52   # a que altura de su dibujo tiene los pies un slime (como slime_efectos_pixel.pies)
 
 var modo: int = Modo.SPLAT
@@ -170,6 +171,8 @@ static func _area_pixel(padre: Node, f: CombatFormas.Forma, m: int, col: Color, 
 			nombre = "combustion"
 		Modo.EMBATE:
 			nombre = "embate_3" if f.apertura > 110.0 else "embate_2"
+		Modo.PRESION:
+			nombre = "presion"
 		Modo.PUAS:
 			nombre = "puas_obs" if col.get_luminance() < 0.25 else "puas"
 		Modo.ROCIADA:
@@ -285,6 +288,10 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, col: 
 		# Sale de SUS PIES dentro del dibujo (la misma cuenta que la lamina), no del borde de abajo de la caja.
 		return EfectoPixel.lanzar(padre, "slime", "ignicion_brasas" if caja.size.x > 56.0 else "ignicion",
 			Vector2(caja.get_center().x, caja.position.y + caja.size.y * PIES_EN_DIBUJO), 0, null, 0.0, -1.0, maxf(ritmo, 0.05))
+	if m == Modo.TROMBA:
+		# EN PIXEL ART: la columna cae sobre sus pies; en el marco 3 de la hoja toca el suelo, y eso ha de ser el golpe.
+		var r_t: float = maxf(ritmo, 0.05)
+		return EfectoPixel.lanzar(padre, "slime", "tromba", Vector2(caja.get_center().x, caja.end.y), 0, null, maxf(espera - TOCA_TROMBA / r_t, 0.0), -1.0, r_t)
 	if m == Modo.ESCUPE:
 		# EN PIXEL ART: la bola viaja la distancia que toque (por codigo) y revienta en los pies del que lo recibe.
 		var pies_e := Vector2(caja.get_center().x, caja.end.y)

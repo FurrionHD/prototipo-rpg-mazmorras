@@ -82,6 +82,32 @@ func _correr() -> void:
 		_ver(esc._bola.global_position.y < 15.0 - 15.0, "y va en arco, por encima de la linea recta")
 		esc._t = 0.01
 		_ver(not esc._bola.visible, "al llegar, la bola se va y revienta")
+	print("3b) EL ABISAL Y SUS MUTANTES")
+	_ver(SlimeAire.area(self, CombatFormas.linea(Vector2.ZERO, Vector2.UP, 60.0, 20.0), SlimeAire.Modo.PRESION, semilla, 0.0) is EfectoPixel, "la Presion del abismo, en pixel")
+	var tr = SlimeAire.sobre_cuerpo(self, SlimeAire.Modo.TROMBA, Vector2.ZERO, Rect2(0, 0, 20, 30), col, semilla, 0.5, 1.0)
+	_ver(tr is EfectoPixel and is_equal_approx(tr._t, -(0.5 - SlimeAire.TOCA_TROMBA)), "la Tromba toca el suelo cuando le toca el golpe")
+	var circ := CombatFormas.circulo(Vector2.ZERO, 70.0)
+	var antes: int = get_child_count()
+	var ll = AbisalAire.area(self, circ, AbisalAire.Modo.LLUVIA, 1, 0.0, 4)
+	_ver(ll is EfectoPixel and get_child_count() == antes + 4, "la Lluvia: una estrella por punto")
+	var ultima: EfectoPixel = get_child(antes + 3)
+	_ver(is_equal_approx(ultima.retardo, AbisalAire.T_ENTRE * 3.0), "una tras otra")
+	ultima.set_process(false)
+	ultima._t = AbisalAire.T_ENTRE * 2.0
+	_ver(not (ultima.get_child(0) as Sprite2D).visible, "la ultima aun no ha salido cuando caen las otras")
+	ultima._t = AbisalAire.T_ENTRE * 3.0 + AbisalAire.T_MARCA + AbisalAire.T_CAE + 0.001
+	_ver(ultima.marco_actual() == 6, "y toca el suelo (marco 6) cuando dice el combate")
+	var rayo = AbisalAire.area(self, CombatFormas.linea(Vector2.ZERO, Vector2.RIGHT, 150.0, 12.0), AbisalAire.Modo.MIRADA, 1, 0.0)
+	_ver(rayo is RayoPixel and is_equal_approx(rayo.duracion(), AbisalAire.T_TRAZA + AbisalAire.T_RAYO + AbisalAire.T_APAGA_RAYO), "el rayo, por celdas y con sus tiempos")
+	var f_ag := CombatFormas.circulo(Vector2(100, 0), 85.0)
+	f_ag.dir = Vector2.RIGHT
+	f_ag.ancho = 100.0
+	var ag = AbisalAire.area(self, f_ag, AbisalAire.Modo.AGUJERO, 1, 0.0)
+	_ver(ag is EfectoPixel and ag._bola != null and is_equal_approx(ag._t, -AbisalAire.t_vuela(f_ag)), "el Agujero, con su bolita y su espera")
+	var es: PiezaPixel = AbisalAire.estrella(self, CombatFormas.circulo(Vector2.ZERO, 6.0), 1)
+	_ver(es != null and is_instance_valid(es._actual), "la estrella que se queda")
+	if es != null:
+		es.secar()
 	print("4) LO QUE SE QUEDA")
 	var nube: PiezaPixel = SlimeAire.nube_pixel(self, CombatFormas.circulo(Vector2.ZERO, 50.0), col, 0.0)
 	_ver(nube != null and nube.fase() == PiezaPixel.Fase.SALE, "la nube sale")
