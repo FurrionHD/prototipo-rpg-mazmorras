@@ -3,8 +3,8 @@
 #  jabali_efectos_pixel.py -- LOS EFECTOS DEL JABALI (y sus mutantes, Colmillo de cristal y Jabali ancestral) EN PIXEL
 #  ART (04/11/2026, memoria efectos-a-pixel-art). Los mismos que hoy pinta BestiaAire (COLMILLO, CORNADA, SURCO, CHOQUE,
 #  PISOTON) y lo que eligio el jefe el 31/10 para los mutantes: el SURCO de esquirlas cian y el ESTALLIDO de los colmillos
-#  en la Cornada de cristal, las ESPORAS del musgo, las DRUSAS (el reflejo) y la QUEMA de la chepa: arde poco a poco con
-#  llamas por fotogramas, no de golpe y nunca bolas (lo rechazo asi, memoria jabali-mutante).
+#  en la Cornada de cristal, las ESPORAS del musgo, las DRUSAS (el reflejo) y la QUEMA de la chepa: el fuego lo trae su
+#  sprite 'quemandose'; aqui solo el humo que sale de donde arde.
 #  Solo la lamina y el gif: todavia no van al juego.
 #    python tools/sprites_sdf/jabali_efectos_pixel.py
 # ============================================================
@@ -343,41 +343,35 @@ def drusas(fila=2, var=COLMILLO):
     return m, t
 
 
-# --- LA QUEMA de la chepa (ancestral): arde POCO A POCO: las llamas (siluetas por fotograma) le van prendiendo por el lomo
-# de atras a delante, humo negro arriba y ceniza y brasas por los flancos ---
+# --- LA QUEMA de la chepa (ancestral): EL FUEGO YA LO TRAE SU SPRITE ('quemandose'; lo dijo el, 04/11: mis llamas no tenian
+# nada que ver con por donde se quema). Aqui solo las NUBECITAS DE HUMO, que salen de donde su dibujo arde en ese fotograma ---
+def donde_arde(spr):
+    arr = np.array(spr).astype(int)
+    m = (arr[:, :, 3] > 0) & (arr[:, :, 0] > 190) & (arr[:, :, 1] > 70) & (arr[:, :, 2] < 120) & (arr[:, :, 0] - arr[:, :, 2] > 90)
+    ys, xs = np.nonzero(m)
+    return xs, ys
+
+
 def quema(fila=1, var=ANCESTRAL):
-    dx, dy = DIRS[fila]
-    A = (W * 0.5, H * 0.58)
-    spr = np.array(marco(var, 'quemandose', 0, fila))
-    ys, xs = np.nonzero(spr[:, :, 3] > 0)
-    h0, w0 = spr.shape[:2]
-    # el lomo medido: la franja alta de su dibujo, de atras a delante
-    arriba = ys.min() + (ys.max() - ys.min()) * 0.22
-    izq, der = xs.min() + 8, xs.max() - 8
-    orden = -1 if dx >= 0 else 1
-    puntos = [izq + (der - izq) * (i / 6.0 if orden < 0 else 1 - i / 6.0) for i in range(7)]
+    A = (W * 0.5, H * 0.6)
+    n_marcos = 30
+    bocanadas = []      # (x, y, f en que nace, deriva)
+    rnd = random.Random(12)
     m, t = [], []
-    for f in range(30):
+    for f in range(n_marcos):
         s, a = nuevo(), nuevo()
-        prende = f / 3.0
-        fuerza = 1.0 if f < 24 else max(0.0, 1.0 - (f - 24) / 6.0)
-        for i, px in enumerate(puntos):
-            e = prende - i
-            if e < 0:
-                continue
-            alto = min(1.0, e / 2.0) * (11 + 4 * math.sin(f * 0.9 + i * 1.7))
-            x = A[0] + px - w0 // 2
-            y = A[1] + arriba - h0 // 2 + abs(i - 3) * 1.5 + 8
-            fg.llama(a, x, y, alto, 3.6, f, fuerza, i * 1.3)
-            if f % 7 == i % 7 and e > 1:
-                vn.nube(a, x + 2, y - alto - 3, 4.0, 1.1 * fuerza, fg.CENIZA)
-        for k in range(4):
-            g = (f + k * 5) % 12
-            if prende > 2:
-                vn.nube(a, A[0] + (k - 1.5) * 12 + g * 0.4, A[1] + arriba - h0 // 2 - 12 - g * 2.2, 3.5 + g * 0.7, (1 - g / 12.0) * fuerza * 1.6, fg.CENIZA)
-        if prende > 3:
-            fg.chispas(a, A[0], A[1] - 6, 8, f, 9, 22.0, (der - izq) * 0.55)
-        m.append(escena([s], [(marco(var, 'quemandose', f, fila), A[0], A[1], 0)], [a]))
+        spr = marco(var, 'quemandose', f, fila)
+        xs, ys = donde_arde(spr)
+        w0, h0 = spr.size
+        if len(xs) and f % 2 == 0 and f < n_marcos - 8:
+            for _ in range(1 + (len(xs) > 60)):
+                i = rnd.randrange(len(xs))
+                bocanadas.append((A[0] + xs[i] - w0 // 2, A[1] + ys[i] - h0 // 2 - 3, f, rnd.uniform(-0.35, 0.45)))
+        for x, y, f0, deriva in bocanadas:
+            g = f - f0
+            if 0 <= g < 11:
+                vn.nube(a, x + g * deriva, y - g * 1.9, 2.0 + g * 0.65, (1.0 - g / 11.0) * 1.5, fg.CENIZA)
+        m.append(escena([s], [(spr, A[0], A[1], 0)], [a]))
         t.append(1000 // 12)
     return m, t
 
