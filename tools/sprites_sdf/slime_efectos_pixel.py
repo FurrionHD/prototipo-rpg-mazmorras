@@ -371,8 +371,9 @@ def reventon(fila, radio_mundo=35.0, var='s100'):
 
 # --- EXPANDIR PUAS: se eriza y le salen de la PIEL nueve cristales de dos puntas, grandes, hasta el borde; se clavan
 # un momento y se deshacen ---
-def cristal(a, x, y, dx, dy, largo, ancho, pal=CRISTAL):
+def cristal(a, x, y, dx, dy, largo, ancho, pal=None):
     """Pua de dos puntas: el centro en (x, y) mirando a (dx, dy). Luz por un lado, sombra por el otro, borde oscuro."""
+    pal = pal or CRISTAL
     px, py = -dy, dx
     for i in range(int(largo) + 1):
         u = i / max(largo, 1.0)
