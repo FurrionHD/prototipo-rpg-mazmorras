@@ -91,14 +91,16 @@ func _uno(arena: ArenaCombate, tabla: Dictionary, c: Combatant, quiere: bool, ca
 	var hay: bool = n != null and is_instance_valid(n)
 	if quiere:
 		if not hay:
+			var cu_g: Node2D = _t.cuerpo_de(c)
+			var spr_g = cu_g.get("_sprite") if cu_g != null else null
 			n = AmbarAire.pegado(arena, modo, caja, _t._cod(c)) if de_ambar \
-				else TrentAire.pegado(arena, modo, caja, nivel, _t._cod(c))
+				else TrentAire.pegado(arena, modo, caja, nivel, _t._cod(c), spr_g as AnimatedSprite2D if spr_g is AnimatedSprite2D else null)
 			if n == null:
 				return
 			tabla[c] = n
 		n.call("seguir", caja)
 		if not de_ambar:
-			(n as TrentAire).poner_nivel(nivel)
+			n.call("poner_nivel", nivel)
 	elif n != null:
 		tabla.erase(c)
 		if hay:

@@ -54,6 +54,10 @@ const K := 0.7071
 const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
 const TOCA_MORDISCO := 3.0 / 14.0 # en el marco 3 de su hoja se cierra: ese ha de ser el golpe
 const TOCA_COLMILLO := 2.0 / 14.0
+const TOCA_RAMALAZO := 2.0 / 14.0
+const CHARCOS := [6, 9, 13, 18]      # los tamanos de su hoja (radio en mundo)
+const PAL_SAVIA: PackedColorArray = [Color8(44, 78, 22), Color8(92, 142, 34), Color8(158, 200, 62), Color8(226, 244, 140), Color8(20, 38, 10)]
+const PAL_NEGRA: PackedColorArray = [Color8(14, 8, 22), Color8(34, 20, 54), Color8(84, 56, 138), Color8(190, 160, 250), Color8(6, 3, 10)]
 const TOCA_CORNADA := 3.0 / 12.0
 const T_POLVO := 0.28             # lo que tarda el anillo de polvo en llegar al borde
 const T_CERRADO := 0.22           # lo que se quedan las mandibulas cerradas antes de irse
@@ -144,6 +148,19 @@ static func area(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, esper
 			return EfectoPixel.lanzar(padre, "rey_rata", "chillido", SueloRoto.origen_de(f), SpriteLienzo.dir8(f.dir), null, espera, -1.0, r_p)
 		Modo.ESTELA:
 			return EfectoPixel.lanzar(padre, "rey_rata", "yugular_polvo", f.origen, SpriteLienzo.dir8(f.dir), null, espera, -1.0, r_p)
+		Modo.RAMAZO:
+			return EfectoPixel.lanzar(padre, "trent", "ramazo", SueloRoto.origen_de(f), SpriteLienzo.dir8(f.dir), null, espera, -1.0, r_p)
+		Modo.RAICES:
+			var rz: EfectoPixel = EfectoPixel.lanzar(padre, "trent", "raices", f.centro, 0, null, espera, -1.0, r_p)
+			if rz != null:
+				rz.set_meta("raices", f.radio)
+			return rz
+		Modo.SAVIA:
+			var dir_s: Vector2 = f.dir.normalized() if f.dir.length_squared() > 0.0001 else Vector2.RIGHT
+			var sv: EfectoPixel = EfectoPixel.lanzar(padre, "trent", "cae_savia", f.centro, 0, null, espera + T_SAVIA_CAE, -1.0, r_p)
+			if sv != null:
+				sv.poner_vuelo("trent", "gota_savia", f.centro - dir_s * 60.0 - Vector2(0.0, 18.0), f.centro, 34.0, T_SAVIA_CAE)
+			return sv
 		Modo.SURCO:
 			if f.largo <= 100.0:   # (el jabali; el del minotauro, cuando le llegue)
 				return EfectoPixel.lanzar(padre, "jabali", "surco", f.origen, SpriteLienzo.dir8(f.dir), null, espera, -1.0, r_p)
@@ -321,6 +338,12 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 		var toca: float = (TOCA_MORDISCO / r_p) if m != Modo.FRENESI else 0.0
 		return EfectoPixel.lanzar(padre, "rata", "frenesi" if m == Modo.FRENESI else "mordisco", Vector2(caja.get_center().x, caja.end.y),
 			SpriteLienzo.dir8(hacia) if hacia.length_squared() > 1.0 else 0, null, maxf(espera - toca, 0.0), -1.0, r_p)
+	# El ramalazo del trent y los pegotes de su Ramazo.
+	if m == Modo.RAMALAZO or m == Modo.PEGOTE:
+		var eje_t: Vector2 = caja.get_center() - desde
+		return EfectoPixel.lanzar(padre, "trent", "ramalazo" if m == Modo.RAMALAZO else "pegote", Vector2(caja.get_center().x, caja.end.y),
+			SpriteLienzo.dir8(eje_t) if eje_t.length_squared() > 1.0 else 0, null, maxf(espera - (TOCA_RAMALAZO / maxf(ritmo, 0.05) if m == Modo.RAMALAZO else 0.0), 0.0), -1.0,
+			maxf(ritmo, 0.05))
 	# El colmillazo y el choque del jabali. (La Cornada levanta al que engancha: esa la sigue llevando este nodo, ver _colmillo.)
 	if m == Modo.COLMILLO or m == Modo.CHOQUE:
 		var eje_j: Vector2 = caja.get_center() - desde
@@ -426,82 +449,47 @@ static func radio_charco(f: CombatFormas.Forma, que_queda: float) -> float:
 
 # EL CHARCO QUE SE QUEDA (la Savia): no se va solo; se va cuando CombatTactico lo seca (secar()). 'espera' = lo
 # que falta para que caiga el goteron que lo hace.
-static func charco(padre: Node, f: CombatFormas.Forma, semilla: int, espera: float) -> BestiaAire:
+static func charco(padre: Node, f: CombatFormas.Forma, _semilla: int, espera: float) -> PiezaPixel:
 	if padre == null or f == null:
 		return null
-	var e := BestiaAire.new()
-	e.modo = Modo.CHARCO
-	e.forma = f
-	e._rng.seed = hash(semilla)
-	e._t = -maxf(espera, 0.0)
-	e.z_as_relative = false
-	e.z_index = SueloRoto.Z_SUELO
-	e.process_mode = Node.PROCESS_MODE_ALWAYS
-	padre.add_child(e)
-	e._o = f.centro
-	e._r = maxf(f.radio, 6.0)
-	# El borde irregular (lobulos), y unas burbujas que suben y revientan cada una a su ritmo.
-	for i in 20:
-		e._piedras.append(e._rng.randf_range(0.88, 1.08))
-	for i in 4:
-		e._puffs.append({"x": e._rng.randf_range(-0.55, 0.55), "y": e._rng.randf_range(-0.5, 0.5),
-			"fase": e._rng.randf_range(0.0, 1.0), "per": e._rng.randf_range(0.8, 1.4), "r": e._rng.randf_range(1.2, 2.2)})
-	e._suelo = e._capa(SueloRoto.Z_SUELO, false)
-	e._delante = e._capa(SueloRoto.Z_SUELO + 1, false)
-	return e
+	# EN PIXEL ART (04/11/2026): la hoja del tamano mas parecido, tenida de savia (o de lo que le pongan con vestir_*).
+	var r: int = CHARCOS[0]
+	for c in CHARCOS:
+		if absf(float(c) - f.radio) < absf(float(r) - f.radio):
+			r = c
+	var base: String = "charco_%d_" % r
+	return PiezaPixel.crear(padre, "trent", base + "sale", base + "dura", base + "vete", f.centro, 0, PAL_SAVIA, maxf(espera, 0.0))
 
 
-# LA BABA de un slime (CombatTactico._vestir_charco): su color, y con 'pinchos' las puas de cristal.
-# EL CHARCO DE SAVIA NEGRA (03/11, el Espantajo: charco_estilo 11): el mismo charco de savia, negro con el filo violeta
-# y el vaho violeta (los colores de TrentAire).
-func vestir_savia_negra() -> void:
-	_col_charco = TrentAire.SAVIA
-	_col_charco_osc = TrentAire.NEGRO
-	_col_charco_cla = TrentAire.BORDE
-	_col_vaho = TrentAire.VIOLETA
+# Lo que le ponen al charco (CombatTactico._vestir_charco): la savia negra del Espantajo, con su vaho, y la baba de un slime.
+static func vestir_savia_negra(p: PiezaPixel) -> void:
+	if p == null:
+		return
+	p.tenir(PAL_NEGRA)
+	EfectoPixel.lanzar(p, "trent", "vaho", Vector2.ZERO, 0, null, 0.3, -1.0, 1.0).set_meta("vaho", true)
 
 
-func vestir_baba(col: Color, pinchos: bool) -> void:
-	_es_baba = true
-	_col_charco = col
-	_col_charco_osc = col.darkened(0.45)
-	_col_charco_cla = col.lightened(0.45)
-	_pinchos.clear()
-	if pinchos:
-		# Tantos como quepan (06/10: en el charco grande del Reventon salian dos o tres y no se leian).
-		var n: int = clampi(roundi(_r * _r / 70.0), 3, 22)
-		for i in n:
-			var a: float = TAU * (float(i) + _rng.randf_range(0.0, 0.8)) / float(n)
-			var u: float = sqrt(_rng.randf_range(0.04, 0.6))
-			_pinchos.append({"x": cos(a) * u, "y": sin(a) * u * 0.8, "a": _rng.randf_range(-0.5, 0.5),
-				"l": _rng.randf_range(6.0, 10.0)})
+static func vestir_baba(p: PiezaPixel, col: Color, _pinchos: bool) -> void:
+	if p != null:
+		p.tenir(SlimeAire.paleta_pixel(col))
 
 
 # LAS RAICES QUE ATAN a un Enraizado: se enroscan en sus piernas y se quedan hasta que CombatTactico las seca. Si
 # todavia estan saliendo las raices de la habilidad (RAICES) debajo de el, esperan a que salgan del todo: el estado
 # se pone al resolver, antes de que se vea el golpe.
-static func atado(padre: Node, caja: Rect2, pies: Vector2, semilla: int) -> BestiaAire:
+static func atado(padre: Node, caja: Rect2, pies: Vector2, _semilla: int) -> PiezaPixel:
 	if padre == null:
 		return null
-	var e := BestiaAire.new()
-	e.modo = Modo.ATADO
-	e._rng.seed = hash(semilla)
-	e._t = 0.0
+	# EN PIXEL ART (04/11/2026). Si aun estan saliendo las raices de la habilidad debajo de el, espera a que salgan del todo.
+	var espera: float = 0.0
 	for hijo in padre.get_children():
-		if hijo is BestiaAire and (hijo as BestiaAire).modo == Modo.RAICES and (hijo as BestiaAire)._t < T_RAICES \
-				and pies.distance_to((hijo as BestiaAire)._o) <= (hijo as BestiaAire)._r + 12.0:
-			e._t = minf(e._t, -(T_RAICES - (hijo as BestiaAire)._t) / maxf((hijo as BestiaAire)._ritmo, 0.05))
-	e.z_as_relative = false
-	e.z_index = Z_ENCIMA
-	e.process_mode = Node.PROCESS_MODE_ALWAYS
-	padre.add_child(e)
-	e.seguir(caja, pies)
-	for i in 4:
-		e._raices.append({"x": (float(i) - 1.5) / 1.5 * 0.4 + e._rng.randf_range(-0.08, 0.08),
-			"h": e._rng.randf_range(0.28, 0.42), "curva": (1.0 if i % 2 == 0 else -1.0) * e._rng.randf_range(0.6, 1.0),
-			"g": e._rng.randf_range(1.8, 2.6), "fase": e._rng.randf_range(0.0, TAU)})
-	e._delante = e._capa(Z_ENCIMA, false)
-	return e
+		if hijo is EfectoPixel and hijo.has_meta("raices") and pies.distance_to((hijo as Node2D).position) <= float(hijo.get_meta("raices")) + 12.0:
+			espera = maxf(espera, (T_RAICES - (hijo as EfectoPixel)._t) / maxf((hijo as EfectoPixel)._ritmo, 0.05))
+	var p: PiezaPixel = PiezaPixel.crear(padre, "trent", "atado_sale", "atado_dura", "atado_vete", pies, 0, PackedColorArray(), espera, maxf(BarridoAire.ritmo, 0.05))
+	if p != null:
+		p.z_as_relative = false
+		p.z_index = Z_ENCIMA
+	return p
 
 
 # Donde esta el atado (le siguen si se le mueve el dibujo: un tiron que no le mueve de sitio, el temblor).

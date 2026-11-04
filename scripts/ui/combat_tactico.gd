@@ -3892,7 +3892,7 @@ func _charco_visible(clave: String, f, queda: float, dueno: Combatant = null) ->
 			for i in pasos:
 				var fi := CombatFormas.circulo(f.origen + f.dir * f.largo * (float(i) + 0.5) / float(pasos), r)
 				fi.apertura = f.apertura
-				var b: BestiaAire = BestiaAire.charco(arena, fi, hash(clave) + i, BestiaAire.T_SAVIA_CAE * 0.3 * i / pasos)
+				var b: PiezaPixel = BestiaAire.charco(arena, fi, hash(clave) + i, BestiaAire.T_SAVIA_CAE * 0.3 * i / pasos)
 				_vestir_charco(b, estilo, dueno)
 				lista.append(b)
 			n = lista
@@ -3931,13 +3931,13 @@ func _charco_visible(clave: String, f, queda: float, dueno: Combatant = null) ->
 
 # LA BABA (06/10, el slime brotado y el brotado punzante): el charco de siempre, del color de SU slime y, el de pinchos,
 # sembrado de puas de cristal.
-func _vestir_charco(b: BestiaAire, estilo: int, dueno: Combatant) -> void:
+func _vestir_charco(b, estilo: int, dueno: Combatant) -> void:
 	if b != null and estilo == 11:
-		b.vestir_savia_negra()   # (03/11) la Savia negra del Espantajo
+		BestiaAire.vestir_savia_negra(b)   # (03/11) la Savia negra del Espantajo
 		return
 	if b == null or (estilo != 3 and estilo != 4):
 		return
-	b.vestir_baba(_color_de(dueno), estilo == 4)
+	BestiaAire.vestir_baba(b, _color_de(dueno), estilo == 4)
 
 
 # El color de SU slime (el del piso), para su baba.

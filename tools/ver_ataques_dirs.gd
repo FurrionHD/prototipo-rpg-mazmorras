@@ -1435,15 +1435,9 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 					else:
 						fs.append(CombatFormas.circulo(f.centro, f.radio))
 					for i in fs.size():
-						var b: BestiaAire = BestiaAire.charco(self, fs[i], 900 + fila * 17 + i, 0.0)
-						if ab.charco_estilo == 3 or ab.charco_estilo == 4:
-							b.vestir_baba(col, ab.charco_estilo == 4)
+						var b: EfectoPixel = EfectoPixel.lanzar(self, "trent", "charco_13_dura", fs[i].centro, 0, null, 0.0, -1.0, 1.0,
+							SlimeAire.paleta_pixel(col) if (ab.charco_estilo == 3 or ab.charco_estilo == 4) else BestiaAire.PAL_SAVIA)
 						b.set_process(false)
-						b.set("_t", 1.0)
-						for hijo in ["_suelo", "_delante"]:
-							var su2 = b.get(hijo)
-							if su2 is Node2D:
-								(su2 as Node2D).queue_redraw()
 						charcos.append(b)
 					await _viñeta(hoja, 1 + tiempos.size(), fila, "%s · %s · %s · lo que se queda (%d turnos)"
 						% [ed.enemy_name, ab.nombre, dir_n, ab.charco_turnos])

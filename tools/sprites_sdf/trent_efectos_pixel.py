@@ -178,11 +178,12 @@ def pegote(a, x, y, e, pal=SAVIA, borde=SAVIA_BORDE):
     gota(a, x - 3, y + 4 + min(e, 8) * 1.1, 1.8, pal, borde)
 
 
-def ramazo(fila, var=NORMAL):
+def ramazo(fila, var=NORMAL, con_victimas=True):
     dx, dy = DIRS[fila]
     R = 55.0 / UNIDAD
     al = alcance(var, fila)
     A = (W * 0.5 - dx * (R + al) * 0.35, H * 0.68 - dy * (R + al) * 0.3)
+    sl.ORIGEN = A
     eje = math.atan2(dy, dx)
     mitad = math.radians(140) * 0.5
     r = max(R, al + 10)
@@ -208,7 +209,7 @@ def ramazo(fila, var=NORMAL):
             px = A[0] + math.cos(eje + frente) * r
             py = A[1] - alto + math.sin(eje + frente) * r
             hojitas(a, px, py, e % pasa + 2, 11 + e, 3, 8.0)
-        for i, v in enumerate(vict):
+        for i, v in enumerate(vict if con_victimas else []):
             pegote(a, v[0], v[1] - 11, e - 2 - i)
             victima(s, *v)
         m.append(escena([s], [(spr, var, A[0], A[1], 0)], [a]))
@@ -248,11 +249,12 @@ def grietas(s, x, y, largo, sem, n=6):
             punto(s, px, py, (18, 14, 14), 2 if p < pasos * 0.6 else 1)
 
 
-def raices(fila=1, var=NORMAL):
+def raices(fila=1, var=NORMAL, con_atado=True):
     dx, dy = DIRS[fila]
     al = alcance(var, fila)
     A = (W * 0.3, H * 0.62)
     C = (W * 0.68, H * 0.72)
+    sl.ORIGEN = C
     R = 30.0 / UNIDAD
     rnd = random.Random(9)
     brotes = [(C[0] + math.cos(i * 1.3) * R * 0.75, C[1] + math.sin(i * 1.3) * R * 0.5, rnd.uniform(0, 6), i) for i in range(6)]
@@ -275,7 +277,7 @@ def raices(fila=1, var=NORMAL):
                 alto = min(22, (e - 6) * 6)
             raiz(a if y >= V[1] else s, x, y, alto * seco(f, 22, 5), sem)
         # lo enroscado en las piernas
-        if f >= 15:
+        if f >= 15 and con_atado:
             q = min(1.0, (f - 14) / 4.0) * seco(f, 22, 5)
             for k in range(3):
                 yy = V[1] - 2 - k * 3
@@ -361,8 +363,9 @@ def deja_cepo(s, a, V, g):
 
 
 # --- LA COSTRA ROTA (ambarino): los grumos de ambar revientan hacia fuera y caen alrededor; se queda el tocon sin costra ---
-def costra(fila=1, var=AMBARINO):
+def costra(fila=1, var=AMBARINO, solo_grumos=False):
     A = (W * 0.5, H * 0.68)
+    sl.ORIGEN = A
     xs, ys, _a = medida(var, 'idle', 0, fila)
     top = ys.min()
     C = (A[0], A[1] + top + (ys.max() - top) * 0.3)
@@ -436,9 +439,11 @@ def puntos_costra(fila=1):
 
 # --- EL GEISER (espantajo): carga (la grieta de SU dibujo late), sale el chorro por ella hacia arriba, forma una NUBE negra
 # encima del area, y la nube LLUEVE gotas de savia que revientan en el circulo ---
-def geiser(fila=2, var=ESPANTAJO):
+def geiser(fila=2, var=ESPANTAJO, solo_nube=False):
+    """solo_nube: la nube y su lluvia desde que empieza a formarse (el chorro lo pinta el juego: mide lo que toque)."""
     A = (W * 0.24, H * 0.82)
-    C = (W * 0.72, H * 0.8)
+    C = (W * 0.5, H * 0.8) if solo_nube else (W * 0.72, H * 0.8)
+    sl.ORIGEN = C
     R = 45.0 / UNIDAD
     alto_nube = 96
     rnd = random.Random(5)
@@ -447,7 +452,7 @@ def geiser(fila=2, var=ESPANTAJO):
     vict = [(C[0] - R * 0.5, C[1] + 2), (C[0] + R * 0.45, C[1] - R * 0.25)]
     m, t = [], []
     carga, chorro, nube_t = 8, 7, 16
-    for f in range(carga + chorro + nube_t + 8):
+    for f in range((carga + 4) if solo_nube else 0, carga + chorro + nube_t + 8):
         s, a = nuevo(), nuevo()
         if f < carga:
             spr = marco(var, 'geiser_carga', f, fila)
@@ -470,7 +475,7 @@ def geiser(fila=2, var=ESPANTAJO):
             if late:
                 estrella(a, G[0], G[1] + 10, 7, NEGRA)
         e = f - carga
-        if 0 <= e < chorro:
+        if 0 <= e < chorro and not solo_nube:
             # el chorro: sale de la grieta, SUBE en arco y baja hacia la nube. Primero todo el borde y luego el cuerpo: si no,
             # cada disco le pisa el relleno al anterior y sale un collar de cuentas.
             u = (e + 1) / chorro
@@ -603,10 +608,11 @@ def chupar(fila=2, var=ESPANTAJO):
 
 
 # --- LOS BICHOS DE LA COSTRA ---
-def bola(fila=2):
+def bola(fila=2, largo_mundo=None, con_victima=True):
     dx, dy = DIRS[fila]
-    A = (W * 0.25, H * 0.6)
-    L = 110
+    A = (W * 0.5 - dx * 60, H * 0.6 - dy * 50) if largo_mundo else (W * 0.25, H * 0.6)
+    sl.ORIGEN = A
+    L = largo_mundo / UNIDAD if largo_mundo else 110
     V = (A[0] + dx * L, A[1] + dy * L + 2)
     m, t = [], []
     corre = 10
@@ -634,7 +640,7 @@ def bola(fila=2):
                 if e < 6:
                     gota(a, V[0] + math.cos(ang) * (3 + e * 2), V[1] - 10 + math.sin(ang) * (3 + e) + e * e * 0.3, 2.4, CACA, CACA[0])
             # EL PRINGADO: pegotes en el cuerpo que gotean y dos moscas
-            if e >= 3:
+            if e >= 3 and con_victima:
                 for ox, oy in ((-3, -14), (3, -9), (-2, -5)):
                     gota(a, V[0] + ox, V[1] + oy, 2.2, CACA, CACA[0])
                 punto(a, V[0] + 3, V[1] - 4 + (e - 3) % 6, CACA[1], 2)
@@ -668,6 +674,7 @@ def picor():
 
 def revienta():
     A = (W * 0.5, H * 0.6)
+    sl.ORIGEN = A
     rnd = random.Random(6)
     salp = Gotas(16, 7, 8.0, 26.0, sube=(10.0, 20.0), tam=(1.4, 2.4), pal=AMBAR, borde=(90, 26, 14))
     veneno = Gotas(8, 8, 10.0, 22.0, sube=(8.0, 16.0), tam=(1.2, 1.8), pal=SAVIA, borde=SAVIA_BORDE)

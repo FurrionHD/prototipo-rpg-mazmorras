@@ -47,6 +47,49 @@ static func crear(padre: Node, enemigo: String, sale: String, dura: String, vete
 	return p
 
 
+# LO QUE VA PEGADO A ALGUIEN (el cepo, el humo, las ronchas...): a sus pies ('caja' = su cuerpo).
+func seguir(caja: Rect2, pies: Vector2 = Vector2.INF) -> void:
+	position = pies if pies != Vector2.INF else Vector2(caja.get_center().x, caja.end.y)
+
+
+# Una hoja de lo que dura por nivel (las cargas del humo): 'por_nivel' = sus nombres, del 1 en adelante.
+var _por_nivel: Array = []
+var _nivel: int = 1
+
+
+func con_niveles(nombres: Array, n: int) -> PiezaPixel:
+	_por_nivel = nombres
+	poner_nivel(n)
+	return self
+
+
+func poner_nivel(n: int) -> void:
+	if _por_nivel.is_empty():
+		return
+	var i: int = clampi(n, 1, _por_nivel.size())
+	if i == _nivel and _dura == _por_nivel[i - 1]:
+		return
+	_nivel = i
+	_dura = _por_nivel[i - 1]
+	if _fase == Fase.DURA:
+		if is_instance_valid(_actual):
+			_actual.queue_free()
+		_poner_dura()
+
+
+# Cambia el color despues de crearlo (el charco de savia que es de savia negra, o la baba de un slime).
+func tenir(paleta: PackedColorArray) -> void:
+	_paleta = paleta
+	if is_instance_valid(_actual):
+		var t_ahora: float = _actual._t
+		var hoja: String = _actual.get_meta("hoja", "")
+		if hoja != "":
+			_actual.queue_free()
+			_actual = EfectoPixel.lanzar(self, _enemigo, hoja, Vector2.ZERO, _dir, null, 0.0, -1.0, _ritmo, _paleta)
+			if _actual != null:
+				_actual._t = t_ahora
+
+
 func _poner_dura() -> void:
 	_fase = Fase.DURA
 	_actual = EfectoPixel.lanzar(self, _enemigo, _dura, Vector2.ZERO, _dir, null, 0.0, -1.0, _ritmo, _paleta)

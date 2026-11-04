@@ -292,18 +292,18 @@ func _pelea() -> void:
 	yo.costra_max = 10.0
 	yo.costra = 10.0
 	tt.tick()
-	var antes_n: int = arena.get_children().filter(func(n): return n is TrentAire).size()
+	var antes_n: int = arena.get_children().filter(func(n): return n.has_meta("trent")).size()
 	yo.take_damage(20.0)
 	tt.tick()
-	var despues_n: int = arena.get_children().filter(func(n): return n is TrentAire).size()
+	var despues_n: int = arena.get_children().filter(func(n): return n.has_meta("trent")).size()
 	_ver(despues_n > antes_n, "la capa de ambar de los tuyos revienta en grumos al romperse")
 	yo.costra_max = 0.0
 	# el Geiser y la Bola por su huella
 	var f := CombatFormas.circulo(tm.pies_de(yo), 45.0)
 	var gs: Node = SueloRoto.lanzar(arena, f, SueloRoto.Tipo.TRENT_GEISER, 3)
-	_ver(gs is TrentAire and (gs as TrentAire).modo == TrentAire.Modo.GEISER and (gs as TrentAire).version == 1,
+	_ver(gs != null and gs.get_meta("trent", -1) == TrentAire.Modo.GEISER,
 		"el Geiser sale por su huella, con la nube (la B)")
 	var fl := CombatFormas.linea(tm.pies_de(yo), Vector2.RIGHT, 100.0, 14.0)
-	_ver(SueloRoto.lanzar(arena, fl, SueloRoto.Tipo.AMBAR_BOLA, 4) is AmbarAire, "la Bola de caca rueda por su huella")
+	_ver(SueloRoto.lanzar(arena, fl, SueloRoto.Tipo.AMBAR_BOLA, 4).get_meta("ambar", -1) == AmbarAire.Modo.BOLA, "la Bola de caca rueda por su huella")
 	_ver(is_equal_approx(SueloRoto.retraso(fl, tm.pies_de(yo) + Vector2(50, 0), SueloRoto.Tipo.AMBAR_BOLA), AmbarAire.T_RUEDA * 0.5),
 		"y le da a cada uno cuando la bola llega")

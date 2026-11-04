@@ -73,6 +73,7 @@ static func lanzar(padre: Node, enemigo: String, nombre: String, pos: Vector2, d
 	e._capa(enemigo, nombre, "s", d.get("s"), filas, fila, espejo, SueloRoto.Z_SUELO)
 	e._capa(enemigo, nombre, "a", d.get("a"), filas, fila, espejo, Z_ENCIMA)
 	e._poner_marco()
+	e.set_meta("hoja", nombre)
 	return e
 
 
