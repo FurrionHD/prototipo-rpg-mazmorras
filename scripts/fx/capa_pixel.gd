@@ -41,6 +41,10 @@ static func meter(efecto: Node) -> void:
 	var capa: CapaPixel = de_vista(efecto.get_viewport())
 	if capa == null:
 		return
+	if not capa.is_inside_tree() or capa._raiz == null:
+		# recien creada (se añade en diferido, por si la escena aun se esta montando): al fotograma siguiente
+		CapaPixel.meter.call_deferred(efecto)
+		return
 	var hueco: Node2D = capa._hueco_de(padre as Node2D)
 	efecto.set_meta(&"pixel", true)
 	efecto.reparent(hueco, false)
@@ -96,7 +100,7 @@ static func de_vista(vista: Viewport) -> CapaPixel:
 		return null
 	var id: int = vista.get_instance_id()
 	var c = _por_vista.get(id)
-	if c != null and is_instance_valid(c) and (c as Node).is_inside_tree():
+	if c != null and is_instance_valid(c) and not (c as Node).is_queued_for_deletion():
 		return c
 	var donde: Node = vista
 	var tree := vista.get_tree()
@@ -104,9 +108,20 @@ static func de_vista(vista: Viewport) -> CapaPixel:
 		donde = tree.current_scene
 	var capa := CapaPixel.new()
 	capa.name = "CapaPixel"
-	donde.add_child(capa)
+	# en diferido: si la escena se esta montando (un _ready), añadirle un hijo ahora daria error
+	donde.add_child.call_deferred(capa)
 	_por_vista[id] = capa
 	return capa
+
+
+# Si un nodo ya metido cambia de z (la vara de la caña pasa de detras a delante del cuerpo), su lienzo se decide otra vez.
+static func remarcar(n: Node) -> void:
+	if n != null and n.has_meta(&"pixel"):
+		var bits: int = _marcar(n)
+		var p: Node = n.get_parent()
+		while p is CanvasItem:
+			(p as CanvasItem).visibility_layer |= bits
+			p = p.get_parent()
 
 
 static func _al_entrar(hijo: Node) -> void:
