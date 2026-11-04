@@ -53,6 +53,8 @@ enum Modo { POLVO, CHILLIDO, ESTELA, SURCO, PISOTON, SAVIA, RAICES, RAMAZO,
 const K := 0.7071
 const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
 const TOCA_MORDISCO := 3.0 / 14.0 # en el marco 3 de su hoja se cierra: ese ha de ser el golpe
+const TOCA_COLMILLO := 2.0 / 14.0
+const TOCA_CORNADA := 3.0 / 12.0
 const T_POLVO := 0.28             # lo que tarda el anillo de polvo en llegar al borde
 const T_CERRADO := 0.22           # lo que se quedan las mandibulas cerradas antes de irse
 const T_IRSE := 0.18
@@ -142,6 +144,12 @@ static func area(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, esper
 			return EfectoPixel.lanzar(padre, "rey_rata", "chillido", SueloRoto.origen_de(f), SpriteLienzo.dir8(f.dir), null, espera, -1.0, r_p)
 		Modo.ESTELA:
 			return EfectoPixel.lanzar(padre, "rey_rata", "yugular_polvo", f.origen, SpriteLienzo.dir8(f.dir), null, espera, -1.0, r_p)
+		Modo.SURCO:
+			if f.largo <= 100.0:   # (el jabali; el del minotauro, cuando le llegue)
+				return EfectoPixel.lanzar(padre, "jabali", "surco", f.origen, SpriteLienzo.dir8(f.dir), null, espera, -1.0, r_p)
+		Modo.PISOTON:
+			if f.radio <= 35.0:
+				return EfectoPixel.lanzar(padre, "jabali", "pisoton", SueloRoto.origen_de(f), 0, null, espera, -1.0, r_p)
 	var e := BestiaAire.new()
 	e.modo = m
 	e.forma = f
@@ -313,6 +321,11 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 		var toca: float = (TOCA_MORDISCO / r_p) if m != Modo.FRENESI else 0.0
 		return EfectoPixel.lanzar(padre, "rata", "frenesi" if m == Modo.FRENESI else "mordisco", Vector2(caja.get_center().x, caja.end.y),
 			SpriteLienzo.dir8(hacia) if hacia.length_squared() > 1.0 else 0, null, maxf(espera - toca, 0.0), -1.0, r_p)
+	# El colmillazo y el choque del jabali. (La Cornada levanta al que engancha: esa la sigue llevando este nodo, ver _colmillo.)
+	if m == Modo.COLMILLO or m == Modo.CHOQUE:
+		var eje_j: Vector2 = caja.get_center() - desde
+		return EfectoPixel.lanzar(padre, "jabali", "colmillo" if m == Modo.COLMILLO else "choque", Vector2(caja.get_center().x, caja.end.y),
+			SpriteLienzo.dir8(eje_j) if eje_j.length_squared() > 1.0 else 0, null, maxf(espera - (TOCA_COLMILLO / maxf(ritmo, 0.05) if m == Modo.COLMILLO else 0.0), 0.0), -1.0, maxf(ritmo, 0.05))
 	var e := BestiaAire.new()
 	e.modo = m
 	e._rng.seed = hash(semilla)
@@ -937,6 +950,12 @@ func _arco_sonido(ci: CanvasItem, c: Vector2, r: float, lado: float, grueso: flo
 # mandoble, BarridoAire._tajo: filo duro y claro por fuera que se difumina hacia dentro y hacia la cola). Mientras
 # viaja el golpe la cabeza sube; en el golpe llega arriba y la cola la alcanza mientras se apaga.
 func _colmillo(capa: Node2D) -> void:
+	# EN PIXEL ART (04/11/2026): la Cornada del jabali es una hoja; este nodo solo levanta al que engancha.
+	if modo == Modo.CORNADA:
+		if not _sonido_puesto and capa == _delante and _t >= -TOCA_CORNADA:
+			_sonido_puesto = true
+			EfectoPixel.lanzar(get_parent(), "jabali", "cornada", Vector2(_hasta.x, _hasta.y + _largo * 0.5), SpriteLienzo.dir8(_eje), null, 0.0, -1.0, _ritmo)
+		return
 	# EL RAMALAZO del trent va aparte: una RAIZ que brota del suelo delante de la victima, se alza y cae sobre ella
 	# como un latigo, y se vuelve a hundir (lo pidio el, 29/09: "que los ataques salgan del suelo, que asi ataca con
 	# raices y no quedan cosas volando"; la rama suelta salia de la nada, con la base cortada en seco).

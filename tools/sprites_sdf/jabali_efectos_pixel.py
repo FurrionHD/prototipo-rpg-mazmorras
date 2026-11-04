@@ -97,6 +97,7 @@ def cornada(fila, var=NORMAL):
     al = alcance(var, 'cornada', fila, dx, dy)
     A = (W * 0.5 - dx * al * 0.7, H * 0.55 - dy * al * 0.6)
     V = (A[0] + dx * (al + 8), A[1] + dy * (al + 8) + 6)
+    sl.ORIGEN = V
     terrones = Gotas(8, 5 + fila, 8.0, 22.0, (math.atan2(dy, dx), 1.0), sube=(8.0, 16.0), tam=(1.2, 2.0), pal=TIERRA, borde=TIERRA[0])
     sang = Gotas(5, 8 + fila, 6.0, 14.0, (-1.57, 0.8), sube=(5.0, 10.0), tam=(1.0, 1.6), pal=SANGRE, borde=SANGRE_BORDE)
     m, t = [], []
@@ -140,11 +141,12 @@ def rodadas(s, A, dx, dy, hecho, f, corre, largo, medio=6.5):
         poner(s, en & (d >= 2.2) & (d < 3.2), TIERRA[2])
 
 
-def embestida(fila, var=NORMAL):
+def embestida(fila, var=NORMAL, con_choque=True):
     dx, dy = DIRS[fila]
     L = 90.0 / UNIDAD
     al = alcance(var, 'arrollar', fila, dx, dy)
     A = (W * 0.5 - dx * L * 0.5, H * 0.55 - dy * L * 0.45)
+    sl.ORIGEN = A
     V = (A[0] + dx * (L * 0.45 + al) - dy * 2, A[1] + dy * (L * 0.45 + al) + 6 + dx * 2)
     rnd = random.Random(3 + fila)
     terrones = [(rnd.uniform(0.05, 1.0), rnd.choice((-1, 1)), rnd.uniform(8, 16)) for _ in range(14)]
@@ -169,7 +171,7 @@ def embestida(fila, var=NORMAL):
         dist = (V[0] - A[0]) * dx + (V[1] - A[1]) * dy
         e = (d + al - dist) / (L / corre)
         vx, vy = V
-        if e >= 0:
+        if e >= 0 and con_choque:
             lleva = min(1.0, e / 5.0) * 26
             # sale despedido A UN LADO de su linea, que el cuerpo no se lo coma
             lado = 24 * min(1.0, e / 3.0)
@@ -210,8 +212,9 @@ def anillo_polvo(s, a, x, y, e, r0, sem):
             ep.bolita(s if math.sin(ang) < 0 else a, x + math.cos(ang) * d, y + math.sin(ang) * d * 0.7 - e * 0.5, rr, POLVO)
 
 
-def pisoton(fila=1, var=NORMAL):
+def pisoton(fila=1, var=NORMAL, con_objetivos=True):
     A = (W * 0.5, H * 0.52)
+    sl.ORIGEN = A
     al = alcance(var, 'pisoton', fila, *DIRS[fila])
     R = max(30.0 / UNIDAD, al + 6)
     vict = [(A[0] + math.cos(0.8 + k * math.tau / 3) * (R + 8), A[1] + math.sin(0.8 + k * math.tau / 3) * (R + 8) * 0.8 + 4) for k in range(3)]
@@ -283,13 +286,14 @@ def cornada_cristal(fila, var=COLMILLO, largo_mundo=50.0):
 
 
 # --- LAS ESPORAS (del musgo): polvo ocre-verdoso que se expande y se posa, con motitas claras flotando ---
-def esporas(fila=1, var=ANCESTRAL):
+def esporas(fila=1, var=ANCESTRAL, radio_mundo=None):
     A = (W * 0.5, H * 0.54)
+    sl.ORIGEN = A
     al = alcance(var, 'idle', fila, *DIRS[fila])
     rnd = random.Random(21)
     puffs = [(rnd.uniform(0, math.tau), rnd.uniform(0.3, 1.0), rnd.uniform(7, 11), rnd.uniform(0, 0.3)) for _ in range(20)]
     motas = [(rnd.uniform(0, math.tau), rnd.uniform(0.2, 1.1), rnd.random()) for _ in range(14)]
-    R = al + 18
+    R = al + 18 if radio_mundo is None else radio_mundo / UNIDAD
     m, t = [], []
     for f in range(20):
         s, a = nuevo(), nuevo()
@@ -354,6 +358,10 @@ def donde_arde(spr):
 
 def quema(fila=1, var=ANCESTRAL):
     A = (W * 0.5, H * 0.6)
+    # (al hornear: el origen es el centro de su dibujo, lo que en el juego es el centro de su caja)
+    ys0, xs0 = np.nonzero(np.array(marco(var, 'idle', 0, fila))[:, :, 3] > 0)
+    w_i, h_i = marco(var, 'idle', 0, fila).size
+    sl.ORIGEN = (A[0] + (xs0.min() + xs0.max()) / 2.0 - w_i // 2, A[1] + (ys0.min() + ys0.max()) / 2.0 - h_i // 2)
     # 14 marcos a 10 fps y NO se repite (loop false): se quema UNA vez, se queda en su ultimo marco y el humo se va.
     n_anim, n_marcos = 14, 24
     bocanadas = []      # (x, y, f en que nace, deriva)

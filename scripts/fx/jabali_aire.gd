@@ -1,426 +1,52 @@
 # ============================================================
 #  jabali_aire.gd  (class_name JabaliAire)
-#  LOS EFECTOS DE LOS MUTANTES DEL JABALI en el mapa (31/10/2026: el Colmillo de cristal y el Jabali ancestral; ver la
-#  memoria jabali-mutante). El surco de esquirlas de la Cornada de cristal es el de la Embestida de cristal de la rata
-#  (RataAire.SURCO_CRISTAL, SueloRoto.Tipo.RATA_SURCO_CRISTAL). Lo suyo, lo que eligio el jefe:
-#    ESTALLIDO  al acabar la Cornada de cristal se le PARTEN los colmillos: una lluvia de esquirlas cian que sale de su
-#               morro, cae alrededor de la cabeza, rebota un poco y se apaga.
-#    ESPORAS    el Jabali ancestral, al recibir un golpe cuerpo a cuerpo: sus setas sueltan una BOCANADA de polvo
-#               ocre-verdoso que se abre en circulo y se posa despacio, con MOTITAS claras que suben y flotan.
-#    REFLEJO    las drusas del morro del ancestral le devuelven la magia que le entra por delante: un DESTELLO cian en
-#               el morro y una BOLA de luz cian que vuela de vuelta hasta quien lanzo el hechizo.
-#    QUEMA      le queman el musgo de la chepa: una LLAMARADA que le recorre el lomo de la cabeza a la grupa, HUMO
-#               negro que sube un rato y CENIZA y brasas que caen por los flancos.
-#  NADA DE LINEAS (efectos-sin-lineas): todo relleno. Coordenadas de MUNDO.
+#  LOS EFECTOS DE LOS MUTANTES DEL JABALI en el mapa (31/10/2026: el Colmillo de cristal y el Jabali ancestral; memoria jabali-mutante), EN PIXEL ART
+#  (04/11/2026, memoria efectos-a-pixel-art): sus hojas salen de tools/sprites_sdf/jabali_efectos_horno.py; aqui, que hoja sale y donde.
+#    ESTALLIDO  al acabar la Cornada de cristal se le PARTEN los colmillos: lluvia de esquirlas cian.
+#    ESPORAS    al recibir un golpe cuerpo a cuerpo sus setas sueltan una bocanada ocre-verdosa, con motitas claras.
+#    REFLEJO    sus drusas le devuelven la magia que le entra por delante: destello en el morro y una bola cian que vuelve.
+#    QUEMA      le queman el musgo: EL FUEGO LO TRAE SU SPRITE ('quemandose'); aqui solo el HUMO que sale de donde arde.
 # ============================================================
-extends Node2D
+extends RefCounted
 class_name JabaliAire
 
 enum Modo { ESTALLIDO, ESPORAS, REFLEJO, QUEMA }
 
-const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
-
-const CRISTAL := Color(0.45, 0.88, 1.0)
-const CRISTAL_CLARO := Color(0.85, 1.0, 1.0)
-const CRISTAL_HONDO := Color(0.22, 0.55, 0.72)
-const POLVO := Color(0.62, 0.58, 0.30)
-const POLVO_VERDE := Color(0.44, 0.52, 0.24)
-const MOTA := Color(0.92, 0.94, 0.78)
-const LLAMA := Color(1.0, 0.55, 0.15)
-const LLAMA_CLARA := Color(1.0, 0.88, 0.45)
-const HUMO := Color(0.12, 0.11, 0.11)
-const CENIZA := Color(0.35, 0.33, 0.31)
-const BRASA := Color(1.0, 0.42, 0.12)
-
-const T_ESTALLIDO := 1.0
-const T_ESPORAS := 1.6
 const T_DESTELLO := 0.18
 const T_VUELO := 0.32       # lo que tarda la bola del reflejo en llegar
-const T_QUEMA := 2.2
 const T_LLAMARADA := 1.4    # lo que tarda el fuego en recorrer el lomo (= su animacion 'quemandose': 14 a 10)
-
-var modo: int = Modo.ESTALLIDO
-var _t: float = 0.0
-var _ritmo: float = 1.0
-var _rng := RandomNumberGenerator.new()
-var _c: Vector2 = Vector2.ZERO        # el morro (estallido, destello) / el centro (esporas) / la cruz (quema)
-var _hasta: Vector2 = Vector2.ZERO    # a donde vuela la bola del reflejo
-var _dir: Vector2 = Vector2.RIGHT     # hacia donde mira
-var _r: float = 40.0
-var _largo: float = 30.0              # (la quema) lo largo del lomo
-var _piezas: Array = []
-var _suelo: Node2D = null
-var _delante: Node2D = null
-var _brillo: Node2D = null
+const ALTO_BOLA := 4.0
 
 
-# ------------------------------------------------------------
-#  CREARLOS
-# ------------------------------------------------------------
-# ESTALLIDO: 'morro' = donde estan los colmillos, 'dir' = hacia donde mira, 'suelo_y' = la Y de sus pies (donde caen).
-static func estallido(padre: Node, morro: Vector2, dir: Vector2, suelo_y: float, semilla: int) -> JabaliAire:
-	var e := _nuevo(Modo.ESTALLIDO, semilla)
-	e._c = morro
-	e._dir = _norm(dir)
-	e._largo = maxf(suelo_y - morro.y, 4.0)
-	e._preparar()
-	e._montar(padre)
+static func _ritmo() -> float:
+	return maxf(BarridoAire.ritmo, 0.05)
+
+
+static func _marcado(e: EfectoPixel, m: int) -> EfectoPixel:
+	if e != null:
+		e.set_meta("jabali", m)
 	return e
 
 
-# ESPORAS: en 'centro' (sus pies), con radio 'r' (el de la nube que envenena).
-static func esporas(padre: Node, centro: Vector2, r: float, semilla: int, espera: float = 0.0) -> JabaliAire:
-	var e := _nuevo(Modo.ESPORAS, semilla)
-	e._c = centro
-	e._r = maxf(r, 10.0)
-	e._t = -maxf(espera, 0.0) * e._ritmo
-	e._preparar()
-	e._montar(padre)
-	return e
+# ESTALLIDO: 'morro' = donde estan los colmillos.
+static func estallido(padre: Node, morro: Vector2, _dir: Vector2, _suelo_y: float, _semilla: int) -> EfectoPixel:
+	return _marcado(EfectoPixel.lanzar(padre, "jabali", "estallido", morro, 0, null, 0.0, -1.0, _ritmo()), Modo.ESTALLIDO)
+
+
+# ESPORAS: en 'centro' (sus pies).
+static func esporas(padre: Node, centro: Vector2, _r: float, _semilla: int, espera: float = 0.0) -> EfectoPixel:
+	return _marcado(EfectoPixel.lanzar(padre, "jabali", "esporas", centro, 0, null, espera, -1.0, _ritmo()), Modo.ESPORAS)
 
 
 # REFLEJO: de 'morro' (las drusas) a 'hasta' (quien lanzo el hechizo).
-static func reflejo(padre: Node, morro: Vector2, hasta: Vector2, semilla: int, espera: float = 0.0) -> JabaliAire:
-	var e := _nuevo(Modo.REFLEJO, semilla)
-	e._c = morro
-	e._hasta = hasta
-	e._dir = _norm(hasta - morro)
-	e._t = -maxf(espera, 0.0) * e._ritmo
-	e._preparar()
-	e._montar(padre)
-	return e
+static func reflejo(padre: Node, morro: Vector2, hasta: Vector2, _semilla: int, espera: float = 0.0) -> EfectoPixel:
+	EfectoPixel.lanzar(padre, "jabali", "reflejo_sale", morro, 0, null, espera, -1.0, _ritmo())
+	var e: EfectoPixel = EfectoPixel.lanzar(padre, "jabali", "reflejo_llega", hasta, 0, null, espera + T_DESTELLO + T_VUELO, -1.0, _ritmo())
+	if e != null:
+		e.poner_vuelo("jabali", "reflejo_bola", morro, hasta, ALTO_BOLA, T_VUELO)
+	return _marcado(e, Modo.REFLEJO)
 
 
-# QUEMA: 'cruz' = lo alto del lomo, 'dir' = hacia donde mira (la llamarada va de la cabeza a la grupa), 'largo' = el lomo.
-static func quema(padre: Node, cruz: Vector2, dir: Vector2, largo: float, semilla: int) -> JabaliAire:
-	var e := _nuevo(Modo.QUEMA, semilla)
-	e._c = cruz
-	e._dir = _norm(dir)
-	e._largo = maxf(largo, 10.0)
-	e._preparar()
-	e._montar(padre)
-	return e
-
-
-static func _nuevo(m: int, semilla: int) -> JabaliAire:
-	var e := JabaliAire.new()
-	e.modo = m
-	e._rng.seed = hash(semilla)
-	e._ritmo = maxf(BarridoAire.ritmo, 0.05)
-	return e
-
-
-static func _norm(v: Vector2) -> Vector2:
-	return v.normalized() if v.length_squared() > 0.0001 else Vector2.RIGHT
-
-
-func _montar(padre: Node) -> void:
-	z_as_relative = false
-	z_index = SueloRoto.Z_SUELO
-	process_mode = Node.PROCESS_MODE_ALWAYS   # la pelea tactica pausa el arbol
-	padre.add_child(self)
-	_suelo = _capa(SueloRoto.Z_SUELO, false)
-	_delante = _capa(Z_ENCIMA, false)
-	_brillo = _capa(Z_ENCIMA + 1, true)
-
-
-func _capa(z: int, aditiva: bool) -> Node2D:
-	var c := Node2D.new()
-	c.z_as_relative = false
-	c.z_index = z
-	if aditiva:
-		var mat := CanvasItemMaterial.new()
-		mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-		c.material = mat
-	c.draw.connect(_pintar.bind(c))
-	add_child(c)
-	return c
-
-
-func _preparar() -> void:
-	match modo:
-		Modo.ESTALLIDO:
-			for i in 12:
-				var lado: float = 1.0 if i % 2 == 0 else -1.0
-				var a: float = _dir.angle() + lado * _rng.randf_range(0.3, 1.9)
-				_piezas.append({"a": a, "v": _rng.randf_range(14.0, 30.0), "sube": _rng.randf_range(8.0, 18.0),
-					"tam": _rng.randf_range(2.2, 4.0), "giro": _rng.randf_range(6.0, 14.0), "g0": _rng.randf_range(0.0, TAU),
-					"vuelo": _rng.randf_range(0.28, 0.42)})
-		Modo.ESPORAS:
-			for i in 9:
-				_piezas.append({"a": TAU * (float(i) + _rng.randf_range(0.0, 0.7)) / 9.0, "d": _rng.randf_range(0.45, 1.0),
-					"tam": _rng.randf_range(0.7, 1.2), "fase": _rng.randf_range(0.0, TAU)})
-			for i in 14:
-				_piezas.append({"mota": true, "x": _rng.randf_range(-1.0, 1.0), "y": _rng.randf_range(-0.6, 0.6),
-					"sube": _rng.randf_range(10.0, 26.0), "fase": _rng.randf_range(0.0, TAU), "t0": _rng.randf_range(0.0, 0.5)})
-		Modo.QUEMA:
-			for i in 10:
-				_piezas.append({"u": _rng.randf_range(0.0, 1.0), "lado": -1.0 if i % 2 else 1.0,
-					"t0": _rng.randf_range(0.3, 1.2), "v": _rng.randf_range(6.0, 12.0), "brasa": i % 3 == 0})
-
-
-func duracion() -> float:
-	match modo:
-		Modo.ESTALLIDO: return T_ESTALLIDO
-		Modo.ESPORAS: return T_ESPORAS
-		Modo.REFLEJO: return T_DESTELLO + T_VUELO + 0.2
-		Modo.QUEMA: return T_QUEMA
-	return 1.0
-
-
-func _process(delta: float) -> void:
-	avanzar_a(_t + delta * _ritmo)
-	if _t >= duracion():
-		queue_free()
-
-
-# Lo pone en el momento 't' (lo usa _process y las hojas, que van fotograma a fotograma).
-func avanzar_a(t: float) -> void:
-	_t = t
-	if _suelo != null:
-		_suelo.queue_redraw()
-		_delante.queue_redraw()
-		_brillo.queue_redraw()
-
-
-func _pintar(capa: Node2D) -> void:
-	if _t < 0.0:
-		return
-	match modo:
-		Modo.ESTALLIDO: _estallido(capa)
-		Modo.ESPORAS: _esporas(capa)
-		Modo.REFLEJO: _reflejo(capa)
-		Modo.QUEMA: _quema(capa)
-
-
-# UNA ESQUIRLA de cristal: un rombo alargado, la cara de la luz clara y la otra honda.
-static func _esquirla(ci: CanvasItem, c: Vector2, tam: float, giro: float, alfa: float) -> void:
-	if alfa <= 0.01:
-		return
-	var d := Vector2(cos(giro), sin(giro))
-	var n := Vector2(-d.y, d.x)
-	ci.draw_colored_polygon(PackedVector2Array([c + d * tam, c + n * tam * 0.35, c - d * tam * 0.6, c - n * tam * 0.35]),
-		Color(CRISTAL, alfa))
-	ci.draw_colored_polygon(PackedVector2Array([c + d * tam, c + n * tam * 0.35, c]), Color(CRISTAL_CLARO, alfa))
-	ci.draw_colored_polygon(PackedVector2Array([c - d * tam * 0.6, c - n * tam * 0.35, c]), Color(CRISTAL_HONDO, alfa))
-
-
-# EL ESTALLIDO: las esquirlas salen del morro en arco hacia los lados, caen al suelo (a la altura de sus pies), rebotan
-# un poco y se apagan; un fogonazo cian en el morro al partirse.
-func _estallido(capa: Node2D) -> void:
-	if capa == _brillo:
-		var f: float = clampf(1.0 - _t / 0.2, 0.0, 1.0)
-		if f > 0.0:
-			capa.draw_circle(_c, 6.0 * (0.6 + _t * 3.0), Color(CRISTAL_CLARO, 0.6 * f))
-		return
-	for p in _piezas:
-		var vuelo: float = float(p["vuelo"])
-		var u: float = clampf(_t / vuelo, 0.0, 1.0)
-		var a: float = float(p["a"])
-		var horiz := Vector2(cos(a), sin(a) * 0.55) * float(p["v"]) * (1.0 - pow(1.0 - u, 2.0))
-		var cae: float = _largo * u * u
-		var alto: float = float(p["sube"]) * sin(PI * u)
-		var bote: float = 0.0
-		if u >= 1.0:
-			bote = float(p["sube"]) * 0.15 * sin(PI * clampf((_t - vuelo) / 0.15, 0.0, 1.0))
-		var pos: Vector2 = _c + horiz + Vector2(0.0, cae - alto - bote)
-		var alfa: float = 1.0 - clampf((_t - (T_ESTALLIDO - 0.35)) / 0.35, 0.0, 1.0)
-		var giro: float = float(p["g0"]) + float(p["giro"]) * minf(_t, vuelo + 0.15)
-		if capa == _suelo and u >= 1.0:
-			capa.draw_circle(pos + Vector2(0, 1.0), float(p["tam"]) * 0.5, Color(0, 0, 0, 0.3 * alfa))
-		elif capa == _delante:
-			_esquirla(capa, pos, float(p["tam"]), giro, alfa)
-
-
-# LAS ESPORAS: la bocanada (bultos de polvo que se abren desde el centro hasta el radio y se posan apagandose) y las
-# motitas claras que suben flotando a la deriva.
-func _esporas(capa: Node2D) -> void:
-	var k: float = clampf(_t / T_ESPORAS, 0.0, 1.0)
-	var abre: float = 1.0 - pow(1.0 - clampf(_t / 0.45, 0.0, 1.0), 3.0)
-	for p in _piezas:
-		if p.has("mota"):
-			if capa != _brillo:
-				continue
-			var tt: float = _t - float(p["t0"])
-			if tt < 0.0:
-				continue
-			var u: float = clampf(tt / (T_ESPORAS - float(p["t0"])), 0.0, 1.0)
-			var pos: Vector2 = _c + Vector2(float(p["x"]) * _r * (0.3 + 0.7 * abre) + sin(_t * 3.0 + float(p["fase"])) * 3.0,
-				float(p["y"]) * _r * 0.6 - float(p["sube"]) * u)
-			capa.draw_circle(pos, 1.1, Color(MOTA, 0.8 * sin(PI * u)))
-			continue
-		if capa != _delante and capa != _suelo:
-			continue
-		var a: float = float(p["a"])
-		var d: float = float(p["d"]) * _r * abre
-		var pos2: Vector2 = _c + Vector2(cos(a), sin(a) * 0.6) * d - Vector2(0.0, 6.0 * (1.0 - k))
-		var rr: float = _r * 0.17 * float(p["tam"]) * (0.5 + 0.5 * abre)
-		var alfa: float = 0.38 * (1.0 - k) * (0.6 + 0.4 * sin(float(p["fase"]) + _t * 2.0))
-		if capa == _suelo:
-			# lo que se posa: una mancha tenue en el suelo
-			capa.draw_circle(_c + Vector2(cos(a), sin(a) * 0.6) * d, rr * 0.8, Color(POLVO_VERDE, 0.25 * abre * (1.0 - k)))
-		else:
-			capa.draw_circle(pos2, rr, Color(POLVO, alfa))
-			capa.draw_circle(pos2 + Vector2(-rr * 0.25, -rr * 0.2), rr * 0.6, Color(POLVO_VERDE, alfa * 0.8))
-
-
-# EL REFLEJO: el destello cian en las drusas y la bola de luz que vuela hasta el lanzador (y revienta al llegar).
-func _reflejo(capa: Node2D) -> void:
-	if capa == _suelo:
-		return
-	var f: float = clampf(1.0 - _t / (T_DESTELLO * 1.5), 0.0, 1.0)
-	if capa == _brillo and f > 0.0:
-		capa.draw_circle(_c, 7.0 * (0.5 + _t / T_DESTELLO), Color(CRISTAL, 0.55 * f))
-		capa.draw_circle(_c, 3.0, Color(CRISTAL_CLARO, 0.9 * f))
-	var tv: float = _t - T_DESTELLO
-	if tv < 0.0:
-		return
-	var u: float = clampf(tv / T_VUELO, 0.0, 1.0)
-	var pos: Vector2 = _c.lerp(_hasta, u) - Vector2(0.0, 10.0 * sin(PI * u))
-	if u < 1.0:
-		if capa == _delante:
-			# la estela: bolas cada vez mas pequeñas detras
-			for j in 4:
-				var uj: float = maxf(u - float(j + 1) * 0.06, 0.0)
-				var pj: Vector2 = _c.lerp(_hasta, uj) - Vector2(0.0, 10.0 * sin(PI * uj))
-				capa.draw_circle(pj, 3.0 - float(j) * 0.6, Color(CRISTAL, 0.5 - float(j) * 0.1))
-			capa.draw_circle(pos, 3.6, Color(CRISTAL, 0.95))
-		else:
-			capa.draw_circle(pos, 6.0, Color(CRISTAL_CLARO, 0.45))
-	else:
-		# al llegar revienta en chispitas de luz que se abren (no un disco: se leia gris)
-		var g: float = clampf((tv - T_VUELO) / 0.2, 0.0, 1.0)
-		if capa == _delante:
-			for j in 6:
-				var aj: float = TAU * float(j) / 6.0 + 0.4
-				_esquirla(capa, _hasta + Vector2(cos(aj), sin(aj)) * (3.0 + 7.0 * g), 2.0, aj, 1.0 - g)
-		elif capa == _brillo:
-			capa.draw_circle(_hasta, 3.0 + 3.0 * g, Color(CRISTAL, 0.5 * (1.0 - g)))
-
-
-# LA QUEMA (rehecha el 31/10: la primera eran bolas encima y el musgo desaparecia de golpe, "lamentable"). El musgo
-# arde POCO A POCO en el propio sprite (su animacion 'quemandose': el frente del fuego va de la cabeza a la grupa en
-# T_LLAMARADA, ver jabali_sdf.py); aqui, encima de ese frente, LLAMAS de verdad: siluetas dibujadas por fotogramas
-# (como la llama del altar, LlamaAltar: una forma que cambia poco de un fotograma a otro, no particulas), tres a lo
-# ancho del lomo y las que se van apagando detras. Y el HUMO negro que sube de lo quemado y la CENIZA y las brasas por
-# los flancos (esas si, sueltas).
-const LLAMA_ANCHO := 10
-const LLAMA_ALTO := 16
-const LLAMA_FOTOGRAMAS := 8
-const LLAMA_FPS := 9.0
-const LLAMA_HONDA := Color(0.80, 0.22, 0.05)
-const LLAMA_CONTORNO := Color(0.45, 0.10, 0.04)
-static var _llamas: Array = []   # [ImageTexture] los fotogramas de la llama
-
-static func _llama(k: int) -> ImageTexture:
-	if _llamas.is_empty():
-		for i in LLAMA_FOTOGRAMAS:
-			_llamas.append(ImageTexture.create_from_image(_llama_fotograma(i)))
-	return _llamas[posmod(k, LLAMA_FOTOGRAMAS)]
-
-
-# UN FOTOGRAMA DE LLAMA: gota con la base redonda y la punta que se mece, el borde irregular por fotograma, el corazon
-# amarillo claro, naranja hacia fuera y el contorno rojo oscuro (la receta de LlamaAltar._fotograma, en fuego de verdad).
-static func _llama_fotograma(k: int) -> Image:
-	var W: int = LLAMA_ANCHO
-	var H: int = LLAMA_ALTO
-	var img := Image.create(W, H, false, Image.FORMAT_RGBA8)
-	var fase: float = float(k) / float(LLAMA_FOTOGRAMAS) * TAU
-	var cx: float = float(W) * 0.5
-	var alto_llama: float = float(H - 1) * (0.88 + 0.08 * sin(fase) + 0.04 * sin(fase * 2.0 + 1.0))
-	var base_y: float = float(H - 1)
-	var mascara := PackedByteArray()
-	mascara.resize(W * H)
-	var nucleo := PackedFloat32Array()
-	nucleo.resize(W * H)
-	for y in H:
-		var t: float = (float(y) + 0.5 - (base_y - alto_llama)) / alto_llama
-		if t < 0.0 or t > 1.0:
-			continue
-		var semi: float
-		if t < 0.7:
-			semi = 4.0 * pow(t / 0.7, 0.8)
-		else:
-			var u: float = (t - 0.7) / 0.3
-			semi = 4.0 * sqrt(maxf(0.0, 1.0 - u * u * 0.85))
-		var meneo: float = (sin(fase + t * 3.0) * 1.3 + sin(fase * 2.0 + t * 5.0 + 0.7) * 0.5) * pow(1.0 - t, 1.6)
-		var ruido: float = (PuebloSprites._rnd(y, k, 913) - 0.5) * 1.6 * (1.0 - t * 0.7)
-		for x in W:
-			var dx: float = float(x) + 0.5 - cx - meneo
-			var lim: float = maxf(0.0, semi + ruido)
-			if absf(dx) > lim:
-				continue
-			mascara[y * W + x] = 1
-			var sube: float = 1.3 + 0.3 * sin(fase + 1.3)
-			nucleo[y * W + x] = (1.0 - absf(dx) / maxf(lim, 0.5)) * clampf(t * sube, 0.0, 1.0)
-	for y in H:
-		for x in W:
-			var i: int = y * W + x
-			if mascara[i] == 0:
-				continue
-			var es_borde: bool = x == 0 or x == W - 1 or y == 0 or y == H - 1 \
-				or mascara[i - 1] == 0 or mascara[i + 1] == 0 or mascara[i - W] == 0 or mascara[i + W] == 0
-			var n: float = nucleo[i]
-			var c: Color = LLAMA_CONTORNO if es_borde else (LLAMA_CLARA if n > 0.6 else (LLAMA if n > 0.28 else LLAMA_HONDA))
-			img.set_pixel(x, y, c)
-	return img
-
-
-# EL LOMO A LA ALTURA DE 'u' (0 = la cabeza, 1 = la grupa): '_c' es lo alto de la chepa (a ~40 % del lomo desde la
-# cabeza); hacia la cabeza y la grupa baja (PERFIL_BAJA px). Las llamas, el humo y la ceniza salen de ahi.
-const PERFIL_BAJA := 10.0
-
-func _lomo_en(cabeza: Vector2, grupa: Vector2, u: float) -> Vector2:
-	var baja: float = PERFIL_BAJA * (1.0 - exp(-pow((u - 0.4) / 0.33, 2.0)))
-	return cabeza.lerp(grupa, u) + Vector2(0.0, baja)
-
-
-func _quema(capa: Node2D) -> void:
-	var adelante := Vector2(_dir.x, _dir.y * 0.6)
-	var cabeza: Vector2 = _c + adelante * _largo * 0.5
-	var grupa: Vector2 = _c - adelante * _largo * 0.5
-	var lado := Vector2(-adelante.y, adelante.x).normalized() * Vector2(1.0, 0.5)
-	var frente: float = clampf(_t / T_LLAMARADA, 0.0, 1.0)
-	var k0: int = int(_t * LLAMA_FPS)
-	if capa == _delante:
-		# LAS LLAMAS: en el frente, tres a lo ancho (la del medio mas alta); detras, las que se apagan encogiendo. Al
-		# acabar el recorrido se quedan un poco en la grupa y se apagan.
-		var apagado: float = clampf((_t - T_LLAMARADA) / 0.35, 0.0, 1.0)
-		for j in 4:
-			var u: float = frente - float(j) * 0.09
-			if u < 0.0:
-				continue
-			var vida: float = (1.0 - float(j) * 0.28) * (1.0 - apagado)
-			if vida <= 0.02:
-				continue
-			var base: Vector2 = _lomo_en(cabeza, grupa, u)
-			for w in 3:
-				var off: float = float(w - 1)
-				var esc: float = vida * (1.0 if w == 1 else 0.75)
-				var tam := Vector2(LLAMA_ANCHO, LLAMA_ALTO) * esc
-				var pie: Vector2 = base + lado * off * 5.0
-				capa.draw_texture_rect(_llama(k0 + j * 3 + w * 5), Rect2(pie - Vector2(tam.x * 0.5, tam.y), tam), false)
-	# EL HUMO: bocanadas negras que suben de lo ya quemado (por detras del frente) y se deshacen.
-	if capa == _delante:
-		for j in 8:
-			var tj: float = _t - 0.15 - float(j) * 0.18
-			if tj < 0.0 or tj > 1.2:
-				continue
-			var uj: float = tj / 1.2
-			var de: float = minf(float(j) * 0.14, frente)
-			var sitio: Vector2 = _lomo_en(cabeza, grupa, de)
-			capa.draw_circle(sitio - Vector2(sin(float(j) * 1.7 + _t * 2.0) * 3.0, 8.0 + 18.0 * uj), 1.5 + 3.5 * uj,
-				Color(HUMO, 0.5 * (1.0 - uj)))
-	# LA CENIZA Y LAS BRASAS que caen por los flancos desde donde va pasando el fuego.
-	for p in _piezas:
-		var tp: float = _t - float(p["u"]) * T_LLAMARADA
-		if tp < 0.0 or tp > 0.9:
-			continue
-		var up: float = tp / 0.9
-		var sale: Vector2 = _lomo_en(cabeza, grupa, float(p["u"])) + lado * float(p["lado"]) * 6.0
-		var pos: Vector2 = sale + Vector2(lado.x * float(p["lado"]) * float(p["v"]) * up * 0.4, float(p["v"]) * up * 1.6)
-		if bool(p["brasa"]):
-			if capa == _brillo:
-				capa.draw_circle(pos, 1.2, Color(BRASA, 0.9 * (1.0 - up)))
-		elif capa == _delante:
-			capa.draw_rect(Rect2(pos - Vector2(1, 1), Vector2(2, 2)), Color(CENIZA, 0.9 * (1.0 - up)))
+# QUEMA: 'centro' = el centro de su dibujo, 'dir' = hacia donde mira.
+static func quema(padre: Node, centro: Vector2, dir: Vector2, _semilla: int) -> EfectoPixel:
+	return _marcado(EfectoPixel.lanzar(padre, "jabali", "quema", centro, SpriteLienzo.dir8(dir) if dir.length_squared() > 0.0001 else 0, null, 0.0, -1.0, _ritmo()), Modo.QUEMA)

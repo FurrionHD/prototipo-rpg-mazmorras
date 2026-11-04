@@ -163,6 +163,29 @@ func _correr() -> void:
 	_ver(fu.nivel == 3, "que sube de nivel")
 	fu.parar()
 	pega.queue_free()
+	print("3g) EL JABALI Y SUS MUTANTES")
+	_ver(BestiaAire.sobre_cuerpo(self, BestiaAire.Modo.COLMILLO, Vector2.ZERO, Rect2(30, 0, 14, 26), 1, 0.14, 1.0, 40.0) is EfectoPixel, "el colmillazo")
+	_ver(BestiaAire.sobre_cuerpo(self, BestiaAire.Modo.CHOQUE, Vector2.ZERO, Rect2(30, 0, 14, 26), 1, 0.0, 1.0, 40.0) is EfectoPixel, "el choque")
+	_ver(BestiaAire.sobre_cuerpo(self, BestiaAire.Modo.CORNADA, Vector2.ZERO, Rect2(30, 0, 14, 26), 1, 0.14, 1.0, 40.0) is BestiaAire, "la Cornada sigue levantando (y su hoja sale al llegar)")
+	var ya: Array = get_children()
+	BestiaAire.sobre_cuerpo(self, BestiaAire.Modo.CORNADA, Vector2.ZERO, Rect2(30, 0, 14, 26), 1, 0.14, 1.0, 40.0)
+	await get_tree().create_timer(0.25).timeout
+	var hoja_c: EfectoPixel = null
+	for h in get_children():
+		if h is EfectoPixel and not ya.has(h):
+			hoja_c = h
+	_ver(hoja_c != null, "y al llegar sale su hoja")
+	await get_tree().create_timer(1.3).timeout
+	_ver(not is_instance_valid(hoja_c), "que se va sola")
+	_ver(BestiaAire.area(self, CombatFormas.linea(Vector2.ZERO, Vector2.RIGHT, 90.0, 22.0), BestiaAire.Modo.SURCO, 1, 0.0) is EfectoPixel, "el surco de la Embestida")
+	_ver(BestiaAire.area(self, CombatFormas.circulo(Vector2.ZERO, 30.0), BestiaAire.Modo.PISOTON, 1, 0.0) is EfectoPixel, "el Pisoton")
+	var surco50 = RataAire.area(self, CombatFormas.linea(Vector2.ZERO, Vector2.RIGHT, 50.0, 14.0), RataAire.Modo.SURCO_CRISTAL, 1, 0.0)
+	_ver(surco50 is EfectoPixel, "el surco de la Cornada de cristal, a su largo")
+	_ver(JabaliAire.estallido(self, Vector2.ZERO, Vector2.RIGHT, 10.0, 1) != null, "el estallido")
+	_ver(JabaliAire.esporas(self, Vector2.ZERO, 40.0, 1) != null, "las esporas")
+	var refl: EfectoPixel = JabaliAire.reflejo(self, Vector2.ZERO, Vector2(100, 0), 1)
+	_ver(refl != null and refl._bola != null, "el reflejo, con su bola")
+	_ver(JabaliAire.quema(self, Vector2.ZERO, Vector2.RIGHT, 1) != null, "el humo de la quema")
 	print("4) LO QUE SE QUEDA")
 	var nube: PiezaPixel = SlimeAire.nube_pixel(self, CombatFormas.circulo(Vector2.ZERO, 50.0), col, 0.0)
 	_ver(nube != null and nube.fase() == PiezaPixel.Fase.SALE, "la nube sale")

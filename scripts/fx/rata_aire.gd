@@ -60,6 +60,9 @@ static func area(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, esper
 		Modo.ANILLO_ESQUIRLAS:
 			return EfectoPixel.lanzar(padre, "rata", "anillo_a" if ahumado else "anillo_c", f.centro, 0, null, espera + T_SALTO, -1.0, r)
 		Modo.SURCO_CRISTAL:
+			# (la del jabali mide otro largo y lleva su hoja; la de cuarzo ahumado, su color)
+			if f.largo < 65.0:
+				return EfectoPixel.lanzar(padre, "jabali", "surco_60" if f.largo > 55.0 else "surco_50", f.origen, dir, null, espera, -1.0, r)
 			return EfectoPixel.lanzar(padre, "rata", "surco_a" if ahumado else "surco_c", f.origen, dir, null, espera, -1.0, r)
 		Modo.DESTELLO:
 			return EfectoPixel.lanzar(padre, "rata", "destello", f.origen, dir, null, espera, -1.0, r)

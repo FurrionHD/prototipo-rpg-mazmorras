@@ -5726,8 +5726,7 @@ func _tick_jabali() -> void:
 			var ritmo: float = maxf(BarridoAire.ritmo, 0.05)
 			_jabali_quema[cu] = Time.get_ticks_msec() + int(JabaliAire.T_LLAMARADA / ritmo * 1000.0)
 			gesto_bicho_en_mapa(e, &"quemandose", JabaliAire.T_LLAMARADA)
-			JabaliAire.quema(arena, Vector2(caja.get_center().x, caja.position.y + caja.size.y * 0.12), mira,
-				maxf(caja.size.x, caja.size.y) * 0.75, sem)
+			JabaliAire.quema(arena, caja.get_center(), mira, sem)
 			continue
 		if _jabali_quema.has(cu):
 			if Time.get_ticks_msec() < int(_jabali_quema[cu]):

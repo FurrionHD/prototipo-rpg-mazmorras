@@ -163,7 +163,7 @@ func _pelea() -> void:
 	_ver(String(tm._jabali_var.get(cu, "")) == "rotos", "su sprite pasa a la variante rota")
 	var est: int = 0
 	for n in tm._arena().get_children():
-		if n is JabaliAire and n.modo == JabaliAire.Modo.ESTALLIDO:
+		if n.get_meta("jabali", -1) == JabaliAire.Modo.ESTALLIDO:
 			est += 1
 	_ver(est == 1, "con el estallido de cristal")
 	var turnos: int = 0
@@ -225,7 +225,7 @@ func _pelea() -> void:
 	tm._tick_jabali()
 	var qu: int = 0
 	for n in tm._arena().get_children():
-		if n is JabaliAire and n.modo == JabaliAire.Modo.QUEMA:
+		if n.get_meta("jabali", -1) == JabaliAire.Modo.QUEMA:
 			qu += 1
 	_ver(qu == 1 and String((cu.get("_sprite") as AnimatedSprite2D).animation).begins_with("quemandose"),
 		"arde: su animacion de quemarse con las llamas")
