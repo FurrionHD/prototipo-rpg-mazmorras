@@ -68,11 +68,12 @@ static func poner(cuerpo: Node2D, c: Combatant, caja: Rect2, z_detras: int = -10
 	e._paradas = c.runa_agua_paradas
 	e._z = [z_detras, z_delante, absolutos]
 	cuerpo.add_child(e)
+	CapaPixel.meter(e)   # en pixel art (memoria efectos-pixel-personajes)
 	return e
 
 
 static func de(cuerpo: Node2D) -> EscudoAgua:
-	return cuerpo.get_node_or_null("EscudoAgua") as EscudoAgua if is_instance_valid(cuerpo) else null
+	return CapaPixel.hijo_de(cuerpo, "EscudoAgua") as EscudoAgua if is_instance_valid(cuerpo) else null
 
 
 static func quitar(cuerpo: Node2D) -> void:

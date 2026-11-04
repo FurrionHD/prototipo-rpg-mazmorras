@@ -60,6 +60,21 @@ static func padre_real(n: Node) -> Node:
 	return p
 
 
+# El hijo 'nombre' de 'padre', este donde este (si se metio en el pixel, vive en su hueco).
+static func hijo_de(padre: Node, nombre: String) -> Node:
+	if padre == null or not is_instance_valid(padre):
+		return null
+	var n: Node = padre.get_node_or_null(NodePath(nombre))
+	if n != null or not padre.is_inside_tree():
+		return n
+	var capa = _por_vista.get(padre.get_viewport().get_instance_id())
+	if capa != null and is_instance_valid(capa):
+		var h = (capa as CapaPixel)._huecos.get(padre.get_instance_id())
+		if h != null and is_instance_valid(h["hueco"]):
+			return (h["hueco"] as Node).get_node_or_null(NodePath(nombre))
+	return null
+
+
 # Los efectos que se le metieron a 'padre' (ya no cuelgan de el, sino de su hueco): para quien los busque (las pruebas).
 static func efectos_de(padre: Node, clase: String) -> Array:
 	if padre == null:
@@ -184,6 +199,9 @@ func _hueco_de(padre: Node2D) -> Node2D:
 	var hueco := Node2D.new()
 	hueco.visibility_layer = BIT_SUELO | BIT_AIRE
 	hueco.set_meta(&"padre_real", padre)
+	# la z del padre (un cuerpo): lo que va con z RELATIVA a el (detras/delante del muñeco) sigue en su sitio
+	hueco.z_as_relative = false
+	hueco.z_index = _z_real(padre) if padre is CanvasItem else 0
 	_raiz.add_child(hueco)
 	hueco.global_transform = padre.global_transform
 	_huecos[id] = {"padre": padre, "hueco": hueco}
@@ -206,6 +224,9 @@ func _seguir() -> void:
 			_huecos.erase(id)
 			continue
 		hueco.global_transform = (padre as Node2D).global_transform
+		hueco.z_index = _z_real(padre as CanvasItem)
+		# y si se ve: lo que cuelga de un cuerpo escondido (sigilo, muerto) se escondia con el
+		hueco.visible = (padre as CanvasItem).is_visible_in_tree()
 	# El lienzo cubre lo que se ve, empezando en una celda del mundo (los pixeles no reptan al moverse la camara).
 	var vista := get_viewport()
 	var inv: Transform2D = vista.get_canvas_transform().affine_inverse()

@@ -31,6 +31,17 @@ var _fotos: Array = []
 
 
 func _foto(nombre: String, centro_mundo: Vector2) -> void:
+	# (por la sala la camara no sigue a la pelea: se le pone delante de la burbuja)
+	var cam: Camera2D = get_tree().root.get_viewport().get_camera_2d()
+	if cam == null:
+		cam = Camera2D.new()
+		cam.zoom = Vector2(3, 3)
+		get_tree().root.add_child(cam)
+		cam.make_current()
+	cam.global_position = centro_mundo
+	cam.reset_smoothing()
+	print("[camara] ", cam.get_path(), " zoom ", cam.zoom, " en ", centro_mundo)
+	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	var img: Image = get_tree().root.get_viewport().get_texture().get_image()
 	var xf: Transform2D = get_tree().root.get_viewport().get_canvas_transform()
@@ -49,26 +60,22 @@ func _correr() -> void:
 	if _salida == "":
 		_salida = "user://escudo_agua"
 	DirAccess.make_dir_recursive_absolute(_salida)
-	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
-	if ref is SaveData:
-		Game.importar_partida(ref)
-	Game.semilla_mundo = 424242
-	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
-	await _esperar(5)
-	Game.entrar_arena_de_pruebas()
-	await _esperar(15)
-	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
-	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/slime.tres", jug.global_position + Vector2(160, 0), {})
+	# (04/11) Jugar solo va siempre por la SALA: la arena se abre como en las pruebas (prueba_sala_propia); el camino
+	# viejo (entrar_arena_de_pruebas + pedir_spawn_arena) se pedia la arena a si mismo por red y se quedaba en el pueblo.
+	var sala = preload("res://tools/prueba_sala_propia.gd").new()
+	add_child(sala)
+	if not await sala.arrancar("lamina_escudo_agua", Game.PISO_ARENA):
+		print("MAL: no arranca la sala")
+		get_tree().quit(1)
+		return
+	sala.poner("res://scenes/actors/enemy/slime.tres", Vector2(160, 0))
 	await _esperar(25)
-	var nodo = get_tree().get_nodes_in_group("enemy")[0]
-	preload("res://tools/pelea_local.gd").abrir([nodo])
+	var combat: Node = await sala.pelear()
+	if combat == null:
+		print("MAL: no se abre la pelea")
+		get_tree().quit(1)
+		return
 	await _esperar(40)
-	var combat: Node = null
-	for n in get_tree().root.get_children():
-		if n is CanvasLayer:
-			for h in n.get_children():
-				if h.get("tactico") != null:
-					combat = h
 	combat.set_process(false)
 	var tm = combat.turno_mapa
 	var al: Combatant = combat._aliados[0]

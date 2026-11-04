@@ -38,6 +38,7 @@ static func lanzar(cuerpo: Node2D, pj: PersonajeData, real: float, numero: float
 	c._numero = numero
 	c._semilla = randf() * 100.0
 	cuerpo.add_child(c)
+	CapaPixel.meter(c)   # en pixel art (memoria efectos-pixel-personajes)
 	return c
 
 
