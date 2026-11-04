@@ -8,7 +8,7 @@ extends Node2D
 
 # El combate tactico no tiene class_name: sus constantes (el salto de los enemigos) se leen de su script.
 const _TACTICO := preload("res://scripts/ui/combat_tactico.gd")
-const LADO := 420            # px de pantalla de cada viñeta
+var LADO: int = 420          # px de pantalla de cada viñeta (ATAQUES_LADO=640: mas grande, para ver los pixeles)
 const HABILIDADES := [
 	["martillo", "golpe_sismico"], ["martillo", "martillo_de_guerra"], ["martillo", "rompecorazas"],
 	["martillo", "onda_expansiva"], ["martillo", "temblor"],
@@ -192,6 +192,8 @@ var _figs: Array = []        # las figuras de alrededor (rojas; verdes en las de
 
 
 func _ready() -> void:
+	if OS.get_environment("ATAQUES_LADO") != "":
+		LADO = int(OS.get_environment("ATAQUES_LADO"))
 	_cam = Camera2D.new()
 	add_child(_cam)
 	_cam.make_current()

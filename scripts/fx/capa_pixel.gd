@@ -15,6 +15,9 @@ const CELDA: float = SpriteLienzo.UNIDADES_POR_CELDA
 const BIT_SUELO := 1 << 18
 const BIT_AIRE := 1 << 19
 const SHADER := preload("res://scripts/fx/pixelar.gdshader")
+# El lienzo se pinta al DOBLE y cada celda se queda con lo mas fuerte de sus 4 subpixeles: un rayo de menos de una
+# celda de grueso sale como linea continua de 1 celda, no en puntos sueltos (pixelar.gdshader).
+const SUB := 2
 
 var _hojas: Array = []   # [{vp, spr, bit}]
 
@@ -87,7 +90,7 @@ func _hoja(bit: int, z: int) -> Dictionary:
 	spr.texture = vp.get_texture()
 	spr.centered = false
 	spr.top_level = true
-	spr.scale = Vector2(CELDA, CELDA)
+	spr.scale = Vector2(CELDA, CELDA) / float(SUB)
 	spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	spr.z_as_relative = false
 	spr.z_index = z
@@ -111,8 +114,8 @@ func _seguir() -> void:
 	var lado := Vector2i(ceili(absf(b.x - a.x) / CELDA) + 3, ceili(absf(b.y - a.y) / CELDA) + 3)
 	for h in _hojas:
 		var vp: SubViewport = h["vp"]
-		if vp.size != lado:
-			vp.size = lado
-		vp.canvas_transform = Transform2D(0.0, Vector2(1.0 / CELDA, 1.0 / CELDA), 0.0, -c0)
+		if vp.size != lado * SUB:
+			vp.size = lado * SUB
+		vp.canvas_transform = Transform2D(0.0, Vector2.ONE * float(SUB) / CELDA, 0.0, -c0 * float(SUB))
 		(h["spr"] as Sprite2D).global_position = c0 * CELDA
 		(h["mat"] as ShaderMaterial).set_shader_parameter("celda0", c0)

@@ -1,5 +1,5 @@
 // ============================================================
-//  pixelar.gdshader -- lo que CapaPixel pinto a 1 celda = 1 pixel, cerrado a pixel art (04/11/2026):
+//  pixelar.gdshader -- lo que CapaPixel pinto a 2x2 subpixeles por celda (se queda el mas fuerte), cerrado a pixel art (04/11/2026):
 //  sin alfa a medias (lo flojo fuera, lo medio a trama Bayer de 2 celdas, lo fuerte macizo) y el color en escalones
 //  (tono, saturacion y brillo cuantizados): el degradado suave se vuelve bandas de pocos tonos, como los sprites.
 // ============================================================
@@ -39,8 +39,18 @@ vec3 a_rgb(vec3 c) {
 
 void fragment() {
 	vec2 tam = vec2(textureSize(TEXTURE, 0));
-	ivec2 ip = ivec2(floor(UV * tam));
-	vec4 m = texelFetch(TEXTURE, ip, 0);
+	ivec2 sp = ivec2(floor(UV * tam));
+	ivec2 ip = sp / 2;          // la celda (el lienzo va a 2 subpixeles por celda)
+	vec4 m = vec4(0.0);
+	for (int j = 0; j < 2; j++) {
+		for (int i = 0; i < 2; i++) {
+			vec4 v = texelFetch(TEXTURE, ip * 2 + ivec2(i, j), 0);
+			// lo que se pinto en mezcla ADITIVA (halos, brillos) suma color pero casi no deja alfa: su alfa es su brillo
+			// (solo lo que brilla de verdad: un resplandor tenue saldria como nube de puntos)
+			v.a = max(v.a, clamp((max(v.r, max(v.g, v.b)) - 0.3) / 0.4, 0.0, 1.0));
+			if (v.a > m.a) m = v;
+		}
+	}
 	float a = m.a;
 	float u = bayer2(ip + ivec2(celda0));
 	bool queda = a >= corte_alto || (a >= corte_bajo && (a - corte_bajo) / (corte_alto - corte_bajo) > u);
