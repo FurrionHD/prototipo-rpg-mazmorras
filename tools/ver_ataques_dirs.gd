@@ -292,6 +292,9 @@ func _correr() -> void:
 		var nom: String = h[1]
 		if pedidas != "" and not (nom in pedidas.split(",")):
 			continue
+		# ATAQUES_SIN_MAGIA=1 -> solo las armas
+		if arma == "magia" and OS.get_environment("ATAQUES_SIN_MAGIA") != "":
+			continue
 		var ab: AbilityData
 		var hechizo: SpellData = null
 		if arma == "magia":
