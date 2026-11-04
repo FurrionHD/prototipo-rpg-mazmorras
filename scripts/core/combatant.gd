@@ -1180,6 +1180,23 @@ func take_damage(amount: float, es_dot: bool = false) -> void:
 	current_hp = maxf(0.0, current_hp - amount)
 
 
+# LO QUE SE VE (04/11, playtest: "la capa de ambar se rompe al pulsar el boton"). El daño se resuelve al pulsar y el golpe
+# se ve despues; la barra de vida ya lo esperaba, pero la capa no. Solo para pintar: lo escribe cada fotograma
+# CombatEfectos.tick_capas. -1 = nadie lo pinta (sin pantalla): vale lo de verdad.
+var vis_hp: float = -1.0
+var vis_costra: float = -1.0
+var vis_agua: float = -1.0
+
+func vida_vista() -> float:
+	return vis_hp if vis_hp >= 0.0 else current_hp
+
+func costra_vista() -> float:
+	return vis_costra if vis_costra >= 0.0 else costra
+
+func agua_vista() -> float:
+	return vis_agua if vis_agua >= 0.0 else runa_escudo_agua
+
+
 # EN LAS SOMBRAS (30/10): ni se le ve ni se le puede elegir de objetivo; las areas si le dan.
 func en_sombras() -> bool:
 	return has_status(StatusEffects.Id.EN_SOMBRAS)

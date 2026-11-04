@@ -192,7 +192,7 @@ func pintar_escudos_agua(soltar: bool = false) -> void:
 			continue
 		if soltar:
 			EscudoAgua.quitar(cu)
-		elif c.runa_escudo_max > 0.0 and c.runa_escudo_agua > 0.0 and c.is_alive():
+		elif c.runa_escudo_max > 0.0 and c.agua_vista() > 0.0 and c.is_alive():
 			# EL DIBUJO ENTERO del muñeco (no su caja de choque, que es solo la parte de abajo: la primera lamina salio
 			# con la burbuja en los pies). Ya esta donde esta el nodo, que es lo que sigue la burbuja.
 			var m = cu.get("_muneco")
@@ -5729,6 +5729,7 @@ func _tick_jabali() -> void:
 var _costra_var: Dictionary = {}   # cuerpo -> true si lleva puesta la hoja sin costra
 
 func _tick_costra() -> void:
+	_pantalla.efectos.tick_capas()
 	for e in _pantalla._enemies:
 		if e.costra_max <= 0.0 or not e.is_alive():
 			continue
@@ -5738,7 +5739,7 @@ func _tick_costra() -> void:
 		var ed = cu.get("data")
 		if not (ed is EnemyData):
 			continue
-		var rota: bool = e.costra <= 0.0
+		var rota: bool = e.costra_vista() <= 0.0   # cuando toca el golpe, no al pulsar
 		if rota == bool(_costra_var.get(cu, false)):
 			_costra_var[cu] = rota
 			continue

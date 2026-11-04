@@ -945,7 +945,9 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		c.rebote_mult = mdat2.rebote_mult
 		c.rebote_radio = mdat2.rebote_radio
 		c.carga_elemento = mdat2.carga_elemento
-		c.carga_tope = mdat2.carga_tope
+		# Solo quien tiene cargas (carga_elemento >= 0). MutacionData.carga_tope vale 4 de serie: copiado a ciegas, TODOS los
+		# mutantes salian con el contador de las arañas sin llenarse nunca (playtest del .exe, 04/11).
+		c.carga_tope = mdat2.carga_tope if mdat2.carga_elemento >= 0 else 0
 		c.carga_estallido = mdat2.carga_estallido
 
 	# RESISTENCIA A EFECTOS Y EFICACIA: la curva del PISO por el ajuste de ESTE bicho. Los dos ejes

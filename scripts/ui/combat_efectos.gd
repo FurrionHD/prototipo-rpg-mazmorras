@@ -537,6 +537,78 @@ func _refrescar_chips(c: Combatant, bloque: Dictionary, idx: int, forzar: bool =
 	box.visible = box.get_child_count() > 0
 
 
+# LAS CAPAS SE ROMPEN CUANDO TOCA EL GOLPE (04/11, playtest del .exe; tanto la costra del Tocon como la capa de ambar y el
+# escudo de agua de los tuyos). Mismo principio que la barra de vida (CombatFX.encolar): lo resuelto se queda sin verse
+# hasta que aterriza su golpe; con varios, baja a tramos y se rompe con el ultimo. En el espejo la instantanea puede
+# llegar antes que el paquete de los golpes, asi que lo que baja sin golpe a la vista se espera un rato a que llegue.
+const ESPERA_CAPA_MS := 1500
+var _capas: Dictionary = {}   # Combatant -> {n: golpes pendientes del fotograma anterior, pend: si habia, desde: ms}
+
+func tick_capas() -> void:
+	if _pantalla._fx == null:
+		return
+	var de_los_mios := false
+	for c in _pantalla._aliados:
+		if _tick_capa(c):
+			de_los_mios = true
+	for e in _pantalla._enemies:
+		if _tick_capa(e):
+			var b: Dictionary = _pantalla._bloque_de(e)
+			if b.get("hp") is ProgressBar:
+				TramoEscudo.poner_costra(b["hp"] as ProgressBar, e.current_hp, e.max_hp, e.costra_vista())
+	if de_los_mios and _pantalla.tactico:
+		_pantalla.turno_mapa.refrescar_barras_grupo()
+
+
+# Devuelve true si ha cambiado algo de lo que se ve de 'c'.
+func _tick_capa(c: Combatant) -> bool:
+	var b: Dictionary = _pantalla._bloque_de(c)
+	if b.is_empty():
+		return false
+	var cambia := false
+	var bar = b.get("hp")
+	if bar is ProgressBar and is_instance_valid(bar) and b.has("hp_meta") and c.vis_hp != (bar as ProgressBar).value:
+		c.vis_hp = (bar as ProgressBar).value
+		cambia = true
+	if c.costra_max <= 0.0 and c.runa_escudo_max <= 0.0:
+		return cambia
+	var st: Dictionary = _capas.get(c, {})
+	if st.is_empty():
+		st = {"n": 0, "pend": false, "desde": -1}
+		_capas[c] = st
+		c.vis_costra = c.costra
+		c.vis_agua = c.runa_escudo_agua
+		return true
+	var pend: bool = _golpe_por_ver(b)
+	var n: int = _pantalla._fx.impactos_pendientes(b)
+	var nc: float = _capa_paso(st, c.vis_costra, c.costra, pend, n)
+	var na: float = _capa_paso(st, c.vis_agua, c.runa_escudo_agua, pend, n)
+	if pend or (c.costra >= nc and c.runa_escudo_agua >= na):
+		st["desde"] = -1
+	st["n"] = n
+	st["pend"] = pend
+	if nc != c.vis_costra or na != c.vis_agua:
+		c.vis_costra = nc
+		c.vis_agua = na
+		cambia = true
+	return cambia
+
+
+# Lo que se ve de una capa este fotograma, de lo que se veia ('visto') y lo que hay de verdad ('real').
+func _capa_paso(st: Dictionary, visto: float, real: float, pend: bool, n: int) -> float:
+	if pend:
+		var antes: int = int(st["n"])
+		if n > 0 and n < antes and visto > real:
+			return real + (visto - real) * float(n) / float(antes)   # ha caido uno de varios: su tramo
+		return visto
+	if bool(st["pend"]) or real >= visto or not _pantalla._espejo:
+		return real
+	var ahora: int = Time.get_ticks_msec()
+	if int(st["desde"]) < 0:
+		st["desde"] = ahora
+	return real if ahora - int(st["desde"]) >= ESPERA_CAPA_MS else visto
+
+
 # ¿Le queda a 'bloque' un golpe por ver? El suyo en la cola, o (en el espejo) golpes que aun esperan turno.
 func _golpe_por_ver(bloque: Dictionary) -> bool:
 	if _pantalla._fx == null:

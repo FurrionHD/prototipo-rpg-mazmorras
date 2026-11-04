@@ -1631,6 +1631,15 @@ func impacto_pendiente(bloque: Dictionary) -> bool:
 	return false
 
 
+# Cuantos golpes le quedan a 'bloque' por aterrizar (la capa de ambar o de agua baja a tramos con ellos: CombatEfectos).
+func impactos_pendientes(bloque: Dictionary) -> int:
+	var n: int = 0
+	for ev in _cola:
+		if is_same(ev["bv"], bloque) and not bool(ev.get("solo_dibujo", false)) and not bool(ev["lanzado"]):
+			n += 1
+	return n
+
+
 func golpes_pendientes(bloque: Dictionary) -> bool:
 	return float(bloque.get("hp_pend", 0.0)) > 0.0
 
@@ -1657,9 +1666,15 @@ func barras_quietas() -> bool:
 				continue
 			var bar: ProgressBar = b[clave]
 			if bar != null and is_instance_valid(bar) and bar.is_visible_in_tree() \
-					and not is_equal_approx(bar.value, float(b[clave + "_meta"])):
+					and not _barra_llego(bar, float(b[clave + "_meta"])):
 				return false
 	return true
+
+
+# ¿Ha llegado? La barra se redondea a su 'step' (0,01) y la meta no: 18,72 contra 18,722193 no era "igual" NUNCA, y con un
+# enemigo herido el boton de Continuar esperaba hasta su tope, 6 s con todo parado (playtest del .exe, 04/11: al huir).
+func _barra_llego(bar: ProgressBar, meta: float) -> bool:
+	return absf(bar.value - meta) <= maxf(bar.step, 0.0001)
 
 
 func _mover_barras(delta: float) -> void:
@@ -1671,7 +1686,7 @@ func _mover_barras(delta: float) -> void:
 			if bar == null or not is_instance_valid(bar):
 				continue
 			var meta: float = b[clave + "_meta"]
-			if not is_equal_approx(bar.value, meta):
+			if not _barra_llego(bar, meta):
 				var paso: float = maxf(bar.max_value, 1.0) * VEL_BARRA * delta
 				# SUBIENDO POR UNA CURA: a su paso, lo que dura la espiral (ver _aterrizar_cura).
 				if bar.value < meta and b.has(clave + "_vel_subida"):

@@ -434,7 +434,20 @@ func _valores(lista: Array, aliados: bool = false) -> Array:
 			# la barra y la hoja sin ambar mientras esta rota salen de aqui en el espejo); y lo hinchada que va la
 			# garrapata del ambar (su hoja).
 			# Y las cargas de las arañas mutantes: lo que se ve de lo cargada que esta.
-			[c.costra, c.costra_max, c.hinchazon, c.cargas, c.carga_tope]])
+			# Y lo que le falta a la capa para volver (los puntos de encima: TacticoTrent).
+			[c.costra, c.costra_max, c.hinchazon, c.cargas, c.carga_tope, c.costra_espera, c.costra_turnos],
+			# El campo 13, LOS ESTADOS (04/11, playtest: la rata 'en las sombras' se veia entera). El maniqui no tenia ninguno, y
+			# todo lo que se pinta preguntandole a su estado (las sombras, el sigilo, la resina, la savia, la furia del rey...)
+			# decia que no en el espejo, que es donde se juega de verdad: la pelea la lleva la sala.
+			_estados_red(c)])
+	return out
+
+
+# Los estados de 'c' tal como viajan en la instantanea: [id, turnos, cargas].
+func _estados_red(c: Combatant) -> Array:
+	var out: Array = []
+	for e in c.statuses:
+		out.append([e.id(), e.turns, e.stacks])
 	return out
 
 
@@ -1672,12 +1685,32 @@ func _volcar(lista: Array, valores: Array) -> void:
 			if (v[12] as Array).size() >= 5:
 				lista[i].cargas = int(v[12][3])
 				lista[i].carga_tope = int(v[12][4])
+			if (v[12] as Array).size() >= 7:
+				lista[i].costra_espera = int(v[12][5])
+				lista[i].costra_turnos = int(v[12][6])
+		if v.size() > 13:
+			_volcar_estados(lista[i], v[13])
 		if v.size() > 8:
 			lista[i].ability_cooldowns.clear()
 			for k in (v[8] as Dictionary):
 				var ab = IdsRed.cargar(int(k)) if k is int else load(String(k))
 				if ab != null:
 					lista[i].ability_cooldowns[ab] = int((v[8] as Dictionary)[k])
+
+
+# ESPEJO: el maniqui lleva los mismos estados que el de verdad. Solo para que se PINTEN (has_status/get_status): aqui no
+# corren ni se resuelven. Se rehacen solo si cambian, que esto llega en cada instantanea.
+var _estados_vistos: Dictionary = {}
+
+func _volcar_estados(c: Combatant, estados: Array) -> void:
+	if _estados_vistos.get(c, []) == estados:
+		return
+	_estados_vistos[c] = estados
+	c.statuses.clear()
+	for e in estados:
+		var def: Dictionary = StatusEffects.def(int(e[0]))
+		if not def.is_empty():
+			c.statuses.append(StatusEffects.Instance.new(def, int(e[1]), int(e[2])))
 
 
 # ESPEJO: los que han caido en la instantanea se apagan aqui igual que en la pantalla que ejecuta.

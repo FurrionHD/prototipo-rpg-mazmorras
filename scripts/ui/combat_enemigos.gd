@@ -617,6 +617,7 @@ func costra_vuelve(e: Combatant) -> void:
 		return
 	e.costra_espera -= 1
 	if e.costra_espera > 0:
+		_pantalla._update_hp()   # (el contador de puntos, tambien en el espejo)
 		return
 	e.costra = e.costra_max
 	e.costra_rota = false

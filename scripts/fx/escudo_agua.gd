@@ -108,7 +108,7 @@ func _process(delta: float) -> void:
 	if _c == null:
 		queue_free()
 		return
-	var v: float = _c.runa_escudo_agua
+	var v: float = _c.agua_vista()   # lo que se ve: revienta cuando toca el golpe, no al resolverlo
 	if _rota >= 0.0:
 		_rota += delta
 		if _rota >= T_REVIENTA:
@@ -155,7 +155,7 @@ func _mitad(capa: Node2D, y: float) -> bool:
 
 # Lo que le queda (0..1).
 func _frac() -> float:
-	return clampf(_c.runa_escudo_agua / maxf(_c.runa_escudo_max, 0.001), 0.0, 1.0) if _c != null else 0.0
+	return clampf(_c.agua_vista() / maxf(_c.runa_escudo_max, 0.001), 0.0, 1.0) if _c != null else 0.0
 
 
 func _centro() -> Vector2:

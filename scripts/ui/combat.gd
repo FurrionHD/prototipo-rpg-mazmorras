@@ -1474,7 +1474,7 @@ func _update_hp() -> void:
 		# pintaba llena como si fuera 75.
 		# La barra se DESLIZA hasta la vida nueva (lo mueve CombatFX) y EL NUMERO VIAJA CON ELLA.
 		efectos._fijar_barra_num(b, "hp", e.current_hp, e.max_hp, "%.2f / %.2f")
-		TramoEscudo.poner_costra(b["hp"] as ProgressBar, e.current_hp, e.max_hp, e.costra)   # el Tocon ambarino
+		TramoEscudo.poner_costra(b["hp"] as ProgressBar, e.current_hp, e.max_hp, e.costra_vista())   # el Tocon ambarino
 		# La etiqueta se queda SOLO con el nombre; los estados van en su fila de chips, porque ahi
 		# cada uno se puede señalar y explicarse solo. El nivel se cayo de aqui: en una tarjeta que
 		# al tope se aprieta a 130 px se comia el sitio del nombre, que es lo unico que hay que
@@ -1650,6 +1650,7 @@ func _process(delta: float) -> void:
 	if _espejo:
 		espejo._interpolar_atb_espejo(delta)
 	_update_timeline()  # refleja el orden de turnos siempre
+	efectos.tick_capas()   # lo que se ve de las capas y de la vida va con el golpe, no con el boton
 	# EN EL MAPA las fichas van pegadas a su cuerpo: hay que recolocarlas cada fotograma. Va aqui
 	# arriba, antes del return del espejo, porque en el espejo los cuerpos tambien se mueven.
 	if tactico:

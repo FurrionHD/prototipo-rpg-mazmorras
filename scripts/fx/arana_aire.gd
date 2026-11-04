@@ -43,6 +43,7 @@ var _chispas: Array = []
 var _cambio: float = 0.0
 var _caja: Rect2 = Rect2()
 var _secando: float = -1.0
+var solo_puntos: bool = false   # el contador sin chispas ni ascuas, en ambar (la capa de ambar: TacticoTrent)
 
 
 # ------------------------------------------------------------
@@ -73,6 +74,13 @@ static func pegado(padre: Node, caja: Rect2, fuego_: bool, semilla: int) -> Aran
 	e.fuego = fuego_
 	e._caja = caja
 	e._montar(padre)
+	return e
+
+
+# EL CONTADOR SOLO, en ambar (04/11, la capa de ambar: lo que le falta para volver).
+static func puntos(padre: Node, caja: Rect2, semilla: int) -> AranaAire:
+	var e := pegado(padre, caja, true, semilla)
+	e.solo_puntos = true
 	return e
 
 
@@ -259,7 +267,9 @@ func _chispa(c: Dictionary, k: float) -> Vector2:
 
 
 func _pinta_carga() -> void:
-	if fuego:
+	if solo_puntos:
+		pass
+	elif fuego:
 		# Ascuas que suben del cuerpo, mas cuantas mas cargas.
 		var c: Vector2 = _caja.get_center()
 		var ancho: float = _caja.size.x * 0.4
@@ -271,7 +281,7 @@ func _pinta_carga() -> void:
 	else:
 		_pinta_rayos(0.95)
 	# EL CONTADOR: un punto por carga, encima del cuerpo, encendidos los que lleva.
-	var col: Color = NARANJA if fuego else CIAN
+	var col: Color = TrentAire.AMBAR_CLARO if solo_puntos else (NARANJA if fuego else CIAN)
 	var y: float = _caja.position.y - 7.0
 	var x0: float = _caja.get_center().x - (float(tope) - 1.0) * 4.0
 	for i in tope:
