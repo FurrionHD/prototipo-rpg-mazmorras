@@ -2268,7 +2268,7 @@ func _hojas_aura_fria(salida: String) -> void:
 			_yo_fig.position = pegado - Vector2(7, 26)
 			var caja: Rect2 = Rect2(pegado - Vector2(7, 26), Vector2(14, 26))
 			await _viñeta(hoja, 0, fila, "%s · %s · %s" % ["Slime de arrecife" if cual == "anemona" else "Slime de escarcha", nombre, dir_n])
-			var nodo: ProfundoAire = null
+			var nodo: Node2D = null
 			if cual == "destello":
 				nodo = ProfundoAire.sobre_cuerpo(self, ProfundoAire.Modo.HELADA, bulto, caja, pegado, 700 + fila * 31, 0.0, 1.0)
 			elif cual == "anemona":
@@ -2276,15 +2276,10 @@ func _hojas_aura_fria(salida: String) -> void:
 					ProfundoAire.T_ESTIRA, 1.0)
 			if nodo != null:
 				nodo.set_process(false)
-			var neb: NeblinaFria = spr.get_node_or_null(NeblinaFria.NOMBRE) as NeblinaFria
 			for c in tiempos.size():
 				var t: float = float(tiempos[c])
-				if neb != null:
-					neb._t = 7.0 + t + float(fila) * 0.37
 				if nodo != null:
-					nodo._t = t
-					for su in [nodo._suelo, nodo._delante]:
-						(su as Node2D).queue_redraw()
+					nodo.set("_t", t)
 				await _viñeta(hoja, c + 1, fila, "%s · %s · %.2f s" % [nombre, dir_n, t])
 			if nodo != null:
 				nodo.queue_free()

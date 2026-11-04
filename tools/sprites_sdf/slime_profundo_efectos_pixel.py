@@ -46,6 +46,7 @@ def salto(fila, var, al_caer, vict_r, n_caer=16):
     rango = 70.0 / UNIDAD
     A = (W * 0.5 - dx * rango * 0.5, H * 0.58 - dy * rango * 0.45)
     B = (A[0] + dx * rango, A[1] + dy * rango)
+    sl.ORIGEN = B
     vict = [(B[0] + vict_r * 0.8, B[1] - vict_r * 0.3), (B[0] - vict_r * 0.75, B[1] + vict_r * 0.45)]
     m, t = [], []
     carga, vuelo = 6, 6
@@ -93,12 +94,13 @@ def marea(fila=1):
 
 # --- CHORRO A PRESION: un chorro de agua desde su frente a la altura de la boca que cruza la linea (nucleo claro, agua
 # alrededor, el suelo mojado debajo); al llegar rompe en salpicaduras ---
-def chorro(fila, var=ARRECIFE):
+def chorro(fila, var=ARRECIFE, escala=0.85):
     dx, dy = DIRS[fila]
-    L = 110.0 / UNIDAD * 0.85
+    L = 110.0 / UNIDAD * escala
     A = (W * 0.5 - dx * L * 0.5, H * 0.58 - dy * L * 0.42)
     rad = marco(var, 'escupir', 0, fila).size[0] * 0.3
     bx, by = vn.boca(A, dx, dy, rad)
+    sl.ORIGEN = (bx, by + vn.BOCA)   # donde empieza su huella, a ras de suelo
     V = (bx + dx * L * 0.75, by + dy * L * 0.75 + 9)
     fin = (bx + dx * L, by + dy * L)
     salpica = Gotas(10, 4 + fila, 4.0, 14.0, (math.atan2(dy, dx), 1.5), sube=(8.0, 16.0), tam=(1.2, 2.0), pal=AGUA, borde=AGUA_BORDE)
@@ -146,10 +148,12 @@ def trozo_coral(a, x, y, giro, pal, r=2.6):
     punto(a, x - 1, y - 1, pal[3])
 
 
-def coral(fila, var=ARRECIFE):
+def coral(fila, var=ARRECIFE, desde_borde=False):
+    """desde_borde: el origen es ya el vertice de su huella (en el juego), no el centro de su cuerpo."""
     dx, dy = DIRS[fila]
     R = 60.0 / UNIDAD
     A = (W * 0.5 - dx * R * 0.4, H * 0.58 - dy * R * 0.35)
+    sl.ORIGEN = A
     eje = math.atan2(dy, dx)
     rnd = random.Random(2 + fila)
     trozos = [(eje + rnd.uniform(-1, 1) * math.radians(80) * 0.45, rnd.uniform(0.45, 1.0), rnd.randrange(3), rnd.uniform(0, 6), rnd.uniform(8, 16)) for _ in range(10)]
@@ -162,7 +166,8 @@ def coral(fila, var=ARRECIFE):
         if e >= 0:
             k = min(1.0, (e + 1) / 6.0)
             for ang, uu, c, gi, sube in trozos:
-                d = rad * 0.6 + (R * uu - rad * 0.6) * k
+                r0 = 0.0 if desde_borde else rad * 0.6
+                d = r0 + (R * uu - r0) * k
                 x = A[0] + math.cos(ang) * d
                 y = A[1] + math.sin(ang) * d - 6 - sube * 4 * k * (1 - k)
                 if k < 1.0:
@@ -181,6 +186,19 @@ def coral(fila, var=ARRECIFE):
 
 # --- LA ANEMONA (pasiva del arrecife): de su cuerpo salen tres tentaculos verdes con la punta rosa que se estiran
 # ondulando hasta quien le ha pegado, PICAN (destello rosa) y se recogen; quedan motas urticantes ---
+def pinchazo(a, V, f):
+    """Donde pica, con f los marcos de la lamina (pica en el 5): el destello rosa y las motas urticantes."""
+    if f in (5, 6):
+        estrella(a, V[0], V[1] - 10, (10, 6)[f - 5], [(140, 40, 90), (230, 90, 160), (255, 160, 210), (255, 235, 245)])
+    if f >= 6:
+        e = f - 6
+        rnd = random.Random(3)
+        for _ in range(6):
+            x, y = V[0] + rnd.uniform(-7, 7) + e * rnd.uniform(-0.5, 0.5), V[1] - 12 + rnd.uniform(-6, 6) - e * 0.6
+            if e < 9:
+                punto(a, x, y, ANEMONA[3] if e < 5 else (200, 100, 150), 2)
+
+
 def anemona(var=ARRECIFE):
     A = (W * 0.42, H * 0.56)
     rad = marco(var, 'idle', 0, 1).size[0] * 0.3
@@ -205,15 +223,7 @@ def anemona(var=ARRECIFE):
                 punto(a, x - 0.5, y - 0.8, ANEMONA[2])
                 if i == int(n * sale):
                     disco(a, x, y, 1.6, ANEMONA[3])
-        if f in (5, 6):
-            estrella(a, V[0], V[1] - 10, (10, 6)[f - 5], [(140, 40, 90), (230, 90, 160), (255, 160, 210), (255, 235, 245)])
-        if f >= 6:
-            e = f - 6
-            rnd = random.Random(3)
-            for _ in range(6):
-                x, y = V[0] + rnd.uniform(-7, 7) + e * rnd.uniform(-0.5, 0.5), V[1] - 12 + rnd.uniform(-6, 6) - e * 0.6
-                if e < 9:
-                    punto(a, x, y, ANEMONA[3] if e < 5 else (200, 100, 150), 2)
+        pinchazo(a, V, f)
         victima(s, *V)
         m.append(escena([s], [(marco(var, 'idle', f % 8, 2), A[0], A[1], 0)], [a]))
         t.append(1000 // 14)
@@ -256,12 +266,13 @@ def estallido(fila=1):
     return salto(fila, ESCARCHA, al_caer, R)
 
 
-def aliento(fila, var=ESCARCHA):
+def aliento(fila, var=ESCARCHA, escala=0.85):
     dx, dy = DIRS[fila]
-    R = 70.0 / UNIDAD * 0.85
+    R = 70.0 / UNIDAD * escala
     A = (W * 0.5 - dx * R * 0.42, H * 0.56 - dy * R * 0.38)
     rad = marco(var, 'soplar', 0, fila).size[0] * 0.3
     bx, by = vn.boca(A, dx, dy, rad)
+    sl.ORIGEN = (bx, by + vn.BOCA)   # el vertice de su huella, a ras de suelo
     eje = math.atan2(dy, dx)
     rnd = random.Random(7 + fila)
     bocanadas = [(eje + rnd.uniform(-1, 1) * math.radians(70) * 0.42, rnd.uniform(0.25, 1.0), rnd.uniform(6, 10), rnd.uniform(0, 0.35)) for _ in range(14)]
@@ -294,6 +305,24 @@ def aliento(fila, var=ESCARCHA):
 
 # Carambanos: en cada circulo de la fila, uno tras otro: su sombra crece en el suelo, el carambano cae del aire y se rompe
 # en esquirlas con un destello y una mancha de escarcha.
+def carambano(s, a, px, py, e, i=0, r_escarcha=6.0):
+    """Un carambano que cae en (px, py); e = marcos desde que crece su sombra (a los 5 rompe)."""
+    if e < 5:
+        u = (e + 1) / 5.0
+        poner(s, ((((XX - px) / (2 + 5 * u)) ** 2 + ((YY - py) / (1 + 2.5 * u)) ** 2) <= 1) & (TRAMA < 0.7), ep.SOMBRA)
+        cristal(a, px, py - 50 * (1 - u) - 8, 0.0, 1.0, 14, 2.4, HIELO)
+    else:
+        g = e - 5
+        vivo = seco(g, 5, 6)
+        escarcha_suelo(s, px, py, r_escarcha * min(1.0, (g + 1) / 2.0), vivo, i)
+        if g < 2:
+            estrella(a, px, py - 5, (12, 8)[g], HIELO)
+        if g < 6:
+            for q in range(5):
+                ang = q / 5 * math.tau + i
+                cristal(a, px + math.cos(ang) * (3 + g * 2.2), py - 4 + math.sin(ang) * (2 + g) - g * (3 - g * 0.6), math.cos(ang), math.sin(ang), 4, 1.2, HIELO)
+
+
 def carambanos(fila, var=ESCARCHA):
     dx, dy = DIRS[fila]
     L = 140.0 / UNIDAD * 0.8
@@ -307,23 +336,8 @@ def carambanos(fila, var=ESCARCHA):
         s, a = nuevo(), nuevo()
         for i, (px, py) in enumerate(puntos):
             e = f - 2 - i * 3
-            if e < 0:
-                continue
-            if e < 5:
-                u = (e + 1) / 5.0
-                d = np.hypot(XX - px, YY - py)
-                poner(s, ((((XX - px) / (2 + 5 * u)) ** 2 + ((YY - py) / (1 + 2.5 * u)) ** 2) <= 1) & (TRAMA < 0.7), ep.SOMBRA)
-                cristal(a, px, py - 50 * (1 - u) - 8, 0.0, 1.0, 14, 2.4, HIELO)
-            else:
-                g = e - 5
-                vivo = seco(g, 5, 6)
-                escarcha_suelo(s, px, py, 6.0 * min(1.0, (g + 1) / 2.0), vivo, i)
-                if g < 2:
-                    estrella(a, px, py - 5, (12, 8)[g], HIELO)
-                if g < 6:
-                    for q in range(5):
-                        ang = q / 5 * math.tau + i
-                        cristal(a, px + math.cos(ang) * (3 + g * 2.2), py - 4 + math.sin(ang) * (2 + g) - g * (3 - g * 0.6), math.cos(ang), math.sin(ang), 4, 1.2, HIELO)
+            if e >= 0:
+                carambano(s, a, px, py, e, i)
         for v in vict:
             victima(s, *v)
         m.append(escena([s], [(marco(var, 'carambanos', min(f, 7), fila), A[0], A[1], 0)], [a]))
@@ -358,6 +372,7 @@ def neblina(var=ESCARCHA):
 # piernas, un destello blanco le cruza el cuerpo y suben copos; luego se funde.
 def helada():
     V = (W * 0.5, H * 0.62)
+    sl.ORIGEN = V
     rnd = random.Random(8)
     picos = [(rnd.uniform(0, math.tau), rnd.uniform(5, 8)) for _ in range(7)]
     m, t = [], []

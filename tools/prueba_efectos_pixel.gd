@@ -108,6 +108,15 @@ func _correr() -> void:
 	_ver(es != null and is_instance_valid(es._actual), "la estrella que se queda")
 	if es != null:
 		es.secar()
+	print("3c) EL PROFUNDO Y SUS MUTANTES")
+	for m_p in [ProfundoAire.Modo.MAREA, ProfundoAire.Modo.ESTALLIDO]:
+		_ver(ProfundoAire.area(self, CombatFormas.circulo(Vector2.ZERO, 40.0), m_p, 1, 0.0) is EfectoPixel, "por el suelo %d, en pixel" % m_p)
+	_ver(ProfundoAire.area(self, CombatFormas.linea(Vector2.ZERO, Vector2.RIGHT, 110.0, 20.0), ProfundoAire.Modo.CHORRO, 1, 0.0) is EfectoPixel, "el Chorro, en pixel")
+	_ver(ProfundoAire.area(self, CombatFormas.cono(Vector2.ZERO, Vector2.RIGHT, 60.0, 80.0), ProfundoAire.Modo.CORAL, 1, 0.0) is EfectoPixel, "el Coral, en pixel")
+	_ver(ProfundoAire.area(self, CombatFormas.cono(Vector2.ZERO, Vector2.RIGHT, 70.0, 70.0), ProfundoAire.Modo.ALIENTO, 1, 0.0) is EfectoPixel, "el Aliento, en pixel")
+	var ten = ProfundoAire.sobre_cuerpo(self, ProfundoAire.Modo.ANEMONA, Rect2(0, 0, 50, 50), Rect2(100, 0, 20, 30), Vector2(110, 30), 1, 0.12, 1.0)
+	_ver(ten is TentaculosPixel, "los tentaculos, por celdas")
+	_ver(ProfundoAire.sobre_cuerpo(self, ProfundoAire.Modo.HELADA, Rect2(), Rect2(100, 0, 20, 30), Vector2(110, 30), 1, 0.0, 1.0) is EfectoPixel, "el destello helado, en pixel")
 	print("4) LO QUE SE QUEDA")
 	var nube: PiezaPixel = SlimeAire.nube_pixel(self, CombatFormas.circulo(Vector2.ZERO, 50.0), col, 0.0)
 	_ver(nube != null and nube.fase() == PiezaPixel.Fase.SALE, "la nube sale")
