@@ -46,6 +46,7 @@ def victima(a, x, y):
 DIRS, NOM_DIR = ep.DIRS, ep.NOM_DIR
 SOMBRA = ep.SOMBRA
 _PEND = []
+ORIGEN = (0.0, 0.0)   # donde queda el origen del efecto en el lienzo (para hornear: de donde sale en el juego)
 
 
 def volcar(img, c, es_suelo):
@@ -205,6 +206,8 @@ def basico(fila, var='s100', dist=36.0):
     dx, dy = DIRS[fila]
     A = (W * 0.5 - dx * dist * 0.6, H * 0.62 - dy * dist * 0.5)
     V = (A[0] + dx * dist, A[1] + dy * dist * 0.95)
+    global ORIGEN
+    ORIGEN = V
     gotas = Gotas(8, 11 + fila, 10.0, 24.0, (math.atan2(dy, dx), 0.75), sube=(6.0, 14.0), tam=(1.4, 2.4))
     m, t = [], []
     toca = 3
@@ -262,6 +265,8 @@ def placaje(fila, largo_mundo=40.0, ancho_mundo=16.0, var='s100'):
     # el cuerpo se para con su borde en el que recibe (radio del slime: su lienzo)
     rad = marco(var, 'embestida', 0, fila).size[0] * 0.3
     fin = (A[0] + dx * largo, A[1] + dy * largo)
+    global ORIGEN
+    ORIGEN = A
     V = (fin[0] + dx * (rad + 4), fin[1] + dy * (rad + 4))
     choque = Gotas(9, 21 + fila, 8.0, 20.0, (math.atan2(dy, dx), 1.1), sube=(8.0, 16.0))
     m, t = [], []
@@ -311,6 +316,8 @@ def coletazo(a, cx, cy, eje, radio, frente, tras, sentido, grueso, pal=None, bor
 def embate(fila, golpes=2, apertura=100.0, var='s100'):
     dx, dy = DIRS[fila]
     A = (W * 0.5 - dx * 10, H * 0.6 - dy * 8)
+    global ORIGEN
+    ORIGEN = A
     eje = math.atan2(dy, dx)
     mitad = math.radians(apertura) * 0.5
     R = 35.0 / UNIDAD * 0.85
@@ -352,6 +359,8 @@ def reventon(fila, radio_mundo=35.0, var='s100'):
     rango = 70.0 / UNIDAD
     A = (W * 0.5 - dx * rango * 0.5, H * 0.58 - dy * rango * 0.45)
     B = (A[0] + dx * rango, A[1] + dy * rango)
+    global ORIGEN
+    ORIGEN = B
     R = radio_mundo / UNIDAD
     corona = Gotas(18, 3 + fila, R * 0.55, R * 1.02, sube=(10.0, 20.0), tam=(1.2, 2.1))
     rnd = random.Random(17)
@@ -411,6 +420,8 @@ def cristal(a, x, y, dx, dy, largo, ancho, pal=None):
 
 def puas(var='pun120', radio_mundo=56.0):
     A = (W * 0.5, H * 0.56)
+    global ORIGEN
+    ORIGEN = A
     R = radio_mundo / UNIDAD
     rnd = random.Random(8)
     giro = rnd.uniform(0, math.tau)

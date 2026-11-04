@@ -115,6 +115,9 @@ static func area(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, esper
 	if padre == null or f == null:
 		return null
 	var col: Color = color_de_semilla(semilla)
+	var px: EfectoPixel = _area_pixel(padre, f, m, col, espera)
+	if px != null:
+		return px
 	# LOS PRESTADOS: lo que ya te gusto en las armas y las magias, con el color o el tinte del slime.
 	match m:
 		Modo.LLAMARADA:
@@ -141,6 +144,33 @@ static func area(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, esper
 	padre.add_child(e)
 	e._preparar_area()
 	return e
+
+
+# LOS EFECTOS EN PIXEL ART (04/11/2026, memoria efectos-a-pixel-art): lo que ya esta horneado, con el color de quien lo lanza. Lo
+# que no, sigue por lo de abajo. La forma manda que hoja le toca: el mismo numero en todas las maquinas.
+static func _area_pixel(padre: Node, f: CombatFormas.Forma, m: int, col: Color, espera: float) -> EfectoPixel:
+	var nombre: String = ""
+	match m:
+		Modo.SPLAT:
+			if f.radio <= 47.0:
+				nombre = "splat_46" if f.radio > 40.0 else "splat_35"
+		Modo.PLACAJE:
+			if f.ancho <= 50.0:
+				nombre = "placaje_g" if f.largo > 55.0 else "placaje_c"
+		Modo.EMBATE:
+			nombre = "embate_3" if f.apertura > 110.0 else "embate_2"
+		Modo.PUAS:
+			nombre = "puas_obs" if col.get_luminance() < 0.25 else "puas"
+	if nombre == "":
+		return null
+	var dir: int = SpriteLienzo.dir8(f.dir) if f.dir.length_squared() > 0.0001 else 0
+	return EfectoPixel.lanzar(padre, "slime", nombre, SueloRoto.origen_de(f), dir, null, espera, -1.0,
+		maxf(BarridoAire.ritmo, 0.05), paleta_pixel(col))
+
+
+# Los cinco colores de sus hojas (ver EfectoPixel): los cuatro tonos del gel y el borde, sacados de SU color.
+static func paleta_pixel(col: Color) -> PackedColorArray:
+	return PackedColorArray([col.darkened(0.62), col.darkened(0.2), col.lightened(0.32), col.lightened(0.78), col.darkened(0.82)])
 
 
 # La LLAMARADA es una linea en la ficha (su huella) y el aliento es un cono: el mismo largo, abierto lo justo.
@@ -197,9 +227,15 @@ static func t_salir(m: int) -> float:
 # 'desde' = de donde viene (el pecho o la boca de quien lo lanza), 'caja' = el cuerpo que lo recibe, 'espera' =
 # lo que falta para el golpe (lo que viaja ocupa ese tiempo).
 static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, col: Color, semilla: int,
-		espera: float, ritmo: float) -> SlimeAire:
+		espera: float, ritmo: float) -> Node2D:
 	if padre == null:
 		return null
+	if m == Modo.GOLPE:
+		# EN PIXEL ART (04/11): el salpicon, a los pies del que lo recibe, hacia atras de donde viene el golpe.
+		var hacia: Vector2 = caja.get_center() - desde
+		var d8: int = SpriteLienzo.dir8(hacia) if hacia.length_squared() > 1.0 else 0
+		return EfectoPixel.lanzar(padre, "slime", "golpe", Vector2(caja.get_center().x, caja.end.y), d8, null, maxf(espera, 0.08), -1.0,
+			maxf(ritmo, 0.05), paleta_pixel(col))
 	var e := SlimeAire.new()
 	e.modo = m
 	e.color = col

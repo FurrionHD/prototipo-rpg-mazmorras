@@ -863,11 +863,8 @@ def hornear_todo():
         datos[nombre] = {'n': len(filas[0]), 'filas': len(filas), 'fps': fps, 'bucle': bucle,
                          's': _guardar_capa(nombre, 's', filas, 0), 'a': _guardar_capa(nombre, 'a', filas, 1)}
         print(nombre, datos[nombre])
-    texto = ('# GENERADO por tools/sprites_sdf/escarabajo_efectos_pixel.py --hornear: no tocar a mano. Las hojas de assets/sprites/efectos/:\n'
-             '# n marcos x filas (1 o las 5 direcciones S, SE, E, NE, N); s = capa del suelo, a = capa de encima; [ancho, alto, origen x, origen y].\n'
-             'extends RefCounted\n\nconst HOJAS := {\n\t"escarabajo": ' + json.dumps(datos) + ',\n}\n')
-    with open(DATOS, 'w', encoding='utf-8', newline='\n') as f:
-        f.write(texto)
+    import horno_efectos
+    horno_efectos.apuntar('escarabajo', datos)
 
 
 if __name__ == '__main__':

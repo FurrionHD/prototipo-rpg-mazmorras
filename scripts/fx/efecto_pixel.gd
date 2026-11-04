@@ -4,6 +4,8 @@
 #  y nada de draw_*. Lleva hasta dos capas: 's' por el suelo, debajo de los cuerpos, y 'a' encima de ellos. Las hojas las saca
 #  tools/sprites_sdf/<enemigo>_efectos_pixel.py --hornear y sus medidas estan en EfectosPixelDatos.
 #  'seguir' = va pegado a ese nodo (la estela del que vuela); sin el, se queda donde se puso (lo que cae en el suelo).
+#  'paleta' = tine la hoja: lo pintado en rojo puro 40/80/120/160/200 (los cuatro tonos y el borde) sale de esos cinco colores, lo
+#  demas tal cual. Asi la misma hoja vale para el color de cada slime (ver SlimeAire.paleta_pixel).
 # ============================================================
 extends Node2D
 class_name EfectoPixel
@@ -11,19 +13,28 @@ class_name EfectoPixel
 const _DATOS := preload("res://scripts/fx/efectos_pixel_datos.gd")
 const CARPETA := "res://assets/sprites/efectos/%s/%s_%s.png"
 const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
+const _TINTE := preload("res://scripts/fx/efecto_pixel_tinte.gdshader")
 
 var _fps: float = 12.0
 var _n: int = 1
 var _bucle: bool = false
-var _t: float = 0.0
+# (con setter: las hojas de ataques mueven el tiempo a mano, con _process parado, como en los demas efectos)
+var _t: float = 0.0:
+	set(v):
+		_t = v
+		_poner_marco()
 var _capas: Array[Sprite2D] = []
 var _sigue: Node2D = null
+var _corte: int = 0        # desde este marco va a _fps2 (lo que se seca, sin prisa)
+var _fps2: float = 0.0
+var _ritmo: float = 1.0     # SueloRoto lo escala en las embestidas, como en los demas efectos
+var _paleta: PackedColorArray = PackedColorArray()
 
 
 # 'dir' = hacia donde va, de 0 a 7 como SpriteLienzo.dir8 (0 = S, 1 = SE, 2 = E...). 'dura' > 0 la estira a ese tiempo.
 # 'espera' = segundos hasta que empieza a verse. Null si no existe la hoja.
 static func lanzar(padre: Node, enemigo: String, nombre: String, pos: Vector2, dir: int = 0, seguir: Node2D = null,
-		espera: float = 0.0, dura: float = -1.0, ritmo: float = 1.0) -> EfectoPixel:
+		espera: float = 0.0, dura: float = -1.0, ritmo: float = 1.0, paleta: PackedColorArray = PackedColorArray()) -> EfectoPixel:
 	var d: Dictionary = (_DATOS.HOJAS.get(enemigo, {}) as Dictionary).get(nombre, {})
 	if padre == null or d.is_empty():
 		return null
@@ -33,6 +44,9 @@ static func lanzar(padre: Node, enemigo: String, nombre: String, pos: Vector2, d
 	e._fps = float(d["fps"]) * maxf(ritmo, 0.05)
 	if dura > 0.0:
 		e._fps = float(e._n) / dura
+	e._corte = int(d.get("corte", 0))
+	e._fps2 = float(d.get("fps2", 0.0)) * maxf(ritmo, 0.05)
+	e._paleta = paleta
 	e._t = -maxf(espera, 0.0)
 	e._sigue = seguir
 	e.position = seguir.global_position if seguir != null else pos
@@ -68,26 +82,39 @@ func _capa(enemigo: String, nombre: String, suf: String, medida, filas: int, fil
 	s.offset = -Vector2(ox, float(medida[3]))
 	s.z_as_relative = false
 	s.z_index = z
+	if _paleta.size() >= 5:
+		var m := ShaderMaterial.new()
+		m.shader = _TINTE
+		for i in 5:
+			m.set_shader_parameter("p%d" % i, _paleta[i])
+		s.material = m
 	add_child(s)
 	_capas.append(s)
 
 
 func _process(delta: float) -> void:
-	_t += delta
+	_t += delta * _ritmo
 	if _sigue != null:
 		if not is_instance_valid(_sigue):
 			queue_free()
 			return
 		global_position = _sigue.global_position
-	if not _bucle and _t * _fps >= float(_n):
+	if not _bucle and _marco_de(_t) >= _n:
 		queue_free()
 		return
 	_poner_marco()
 
 
+func _marco_de(t: float) -> int:
+	if _corte > 0 and _fps2 > 0.0 and t * _fps >= float(_corte):
+		return _corte + int((t - float(_corte) / _fps) * _fps2)
+	return int(t * _fps)
+
+
 func _poner_marco() -> void:
-	var ver: bool = _t >= 0.0
-	var m: int = posmod(int(_t * _fps), _n) if ver else 0
+	var bruto: int = _marco_de(_t)
+	var ver: bool = _t >= 0.0 and (_bucle or bruto < _n)
+	var m: int = posmod(bruto, _n) if ver else 0
 	for s in _capas:
 		s.visible = ver
 		s.frame_coords = Vector2i(m, s.frame_coords.y)
@@ -104,4 +131,9 @@ func num_capas() -> int:
 
 func avanzar_a(t: float) -> void:
 	_t = t
-	_poner_marco()
+
+
+func duracion() -> float:
+	if _corte > 0 and _fps2 > 0.0:
+		return float(_corte) / _fps + float(_n - _corte) / _fps2
+	return float(_n) / _fps
