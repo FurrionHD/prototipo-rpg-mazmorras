@@ -2379,34 +2379,31 @@ func _hojas_rey(salida: String) -> void:
 				cad.position = alla - Vector2(0, 10)
 			await _viñeta(hoja, 0, fila, "%s · %s · %s" % ["Rey tirano" if mut == &"tirano" else "Rey destronado", nombre, dir_n])
 			var nodos: Array = []
+			var antes_rey: int = get_child_count()
 			match cual:
 				"decreto":
-					nodos.append(ReyAire.sobre_cuerpo(self, ReyAire.Modo.DECRETO, bulto, caja_yo, 700 + fila * 31, 0.0, 1.0))
+					ReyAire.sobre_cuerpo(self, ReyAire.Modo.DECRETO, bulto, caja_yo, 700 + fila * 31, 0.0, 1.0)
 				"tributo":
 					var caja_cad: Rect2 = Rect2(alla - Vector2(10, 20), Vector2(20, 16))
-					nodos.append(ReyAire.sobre_cuerpo(self, ReyAire.Modo.TRIBUTO, caja_cad, bulto, 700 + fila * 31, 0.0, 1.0))
+					ReyAire.sobre_cuerpo(self, ReyAire.Modo.TRIBUTO, caja_cad, bulto, 700 + fila * 31, 0.0, 1.0)
 				_:
 					var col: Color = ed.color_visual(0.5)
 					for k in 3:
 						var p: Vector2 = yo + dvec.rotated(deg_to_rad(-22.0 + 22.0 * k)) * (60.0 + 15.0 * (k % 2))
 						var f := CombatFormas.circulo(p, 11.0 if cual == "clavadas" else 12.0)
 						f.origen = yo
-						nodos.append(ReyAire.pieza(self, f, ReyAire.Modo.CLAVADA if cual == "clavadas" else ReyAire.Modo.PEDAZO,
-							col, 900 + fila * 17 + k))
+						# (en pixel art: la hoja de lo que dura; PiezaPixel no se mueve a mano)
+						EfectoPixel.lanzar(self, "slime", "clavada_dura" if cual == "clavadas" else "pedazo_dura", p, 0, null, 0.0, -1.0, 1.0,
+							PackedColorArray() if cual == "clavadas" else SlimeAire.paleta_pixel(col))
+			for i_rey in range(antes_rey, get_child_count()):
+				nodos.append(get_child(i_rey))
 			for n in nodos:
 				(n as Node).set_process(false)
 			for c in cols.size():
 				for n in nodos:
-					var ra: ReyAire = n
-					ra._t = float(cols[c][1])
-					ra._secando = float(cols[c][2])
-					if float(cols[c][3]) >= 0.0:
-						ra._vuelve_a = yo
-						ra._vuelve_t = float(cols[c][3])
-					else:
-						ra._vuelve_t = -1.0
-					for su in [ra._suelo, ra._delante]:
-						(su as Node2D).queue_redraw()
+					# (lo que llega despues de volar lleva ese tiempo de espera)
+					var vuela_rey: bool = n.get("_bola") != null
+					n.set("_t", float(cols[c][1]) - (ReyAire.T_SUBE + ReyAire.T_ARCO if vuela_rey else 0.0))
 				await _viñeta(hoja, c + 1, fila, "%s · %s · %s" % [nombre, dir_n, cols[c][0]])
 			for n in nodos:
 				(n as Node).queue_free()

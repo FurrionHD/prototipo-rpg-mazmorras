@@ -6110,8 +6110,9 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	# LOS SLIMES (SlimeAire, 28/09): del cuerpo del slime (un poco por encima de su centro: la boca) al que recibe.
 	if estilo in _MODO_SLIME:
 		var desde_s: Vector2 = bulto_de(a).get_center() - Vector2(0.0, bulto_de(a).size.y * 0.15) 			if a != null and cuerpo_de(a) != null else bulto_de(v).get_center() - Vector2(30.0, 0.0)
+		# (al Rey destronado no le vuelve el trozo: se queda en el suelo, es su pedazo)
 		SlimeAire.sobre_cuerpo(arena, int(_MODO_SLIME[estilo]), desde_s, bulto_de(v), ev.get("color", Color.WHITE),
-			semilla, vuelo, ritmo)
+			semilla, vuelo, ritmo, a == null or a.mutacion != &"destronado")
 		return
 	# LOS MUTANTES DE LA RATA (30/10): las mandibulas de la rata (BestiaAire) y, encima, lo suyo (RataAire): jirones de
 	# sombra, esquirlas de cristal (ahumado si es la de cuarzo: lo dice su color), el corte de cristal y el velo.

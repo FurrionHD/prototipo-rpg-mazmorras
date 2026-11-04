@@ -80,6 +80,7 @@ def aplastamiento(var=REY):
     R = 70.0 / UNIDAD
     A = (W * 0.32, H * 0.38)
     B = (W * 0.6, H * 0.6)
+    sl.ORIGEN = B
     corona = Gotas(26, 3, R * 0.55, R * 1.0, sube=(12.0, 24.0), tam=(1.6, 2.6))
     rnd = random.Random(17)
     manchas = [(rnd.uniform(0, math.tau), rnd.uniform(0.5, 1.0), rnd.uniform(0.1, 0.16) * R) for _ in range(9)]
@@ -102,7 +103,10 @@ def aplastamiento(var=REY):
             anim, fr = ('aplaston', min(e, 7)) if e < 8 else ('deshincharse', min(e - 8, 7))
             abre = 1.0 - (1.0 - min(1.0, (e + 1) / 4.0)) ** 2
             vivo = seco(e, 10, 8)
-            grietas(s, B[0], B[1], R, min(1.0, (e + 1) / 3.0), 5)
+            tmp_g = nuevo()
+            grietas(tmp_g, B[0], B[1], R, min(1.0, (e + 1) / 3.0), 5)
+            mascara_g = (tmp_g[:, :, 3] > 0) & (TRAMA < seco(e, 10, 8))   # (se deshacen a trama, no de golpe)
+            s[mascara_g] = tmp_g[mascara_g]
             charco(s, B[0], B[1], R * 0.55 * abre, 1.0, vivo)
             for ang, uu, r in manchas:
                 charco(s, B[0] + math.cos(ang) * uu * R * 0.85 * abre, B[1] + math.sin(ang) * uu * R * 0.85 * abre, r * abre, ang, vivo * 0.95)
@@ -161,9 +165,10 @@ def escision(var=REY, pedazos=False):
 
 
 # --- MAREA CORROSIVA: tres anillos de baba que se abren desde el Rey, uno por tramo, con sus gotas; el suelo queda mojado ---
-def marea(var=REY):
+def marea(var=REY, escala=0.85):
     A = (W * 0.5, H * 0.5)
-    R = 120.0 / UNIDAD * 0.85
+    sl.ORIGEN = A
+    R = 120.0 / UNIDAD * escala
     rad = rad_de(var)
     vict = [(A[0] + R * 0.45, A[1] - R * 0.1), (A[0] - R * 0.7, A[1] + R * 0.2), (A[0] + R * 0.15, A[1] + R * 0.7), (A[0] - R * 0.2, A[1] - R * 0.6)]
     gotas = [Gotas(14, 30 + k, 0.0, 0.0, sube=(6.0, 12.0), tam=(1.2, 2.0)) for k in range(3)]
@@ -246,6 +251,7 @@ def decreto(var=TIRANO):
     A = (W * 0.38, H * 0.5)
     rad = rad_de(var)
     V = (A[0] + rad + 46, A[1] + 18)
+    sl.ORIGEN = (V[0], V[1] - 24)   # la coronita, sobre su cabeza
     rnd = random.Random(5)
     motas = [(rnd.uniform(0, math.tau), rnd.uniform(14, 26)) for _ in range(10)]
     m, t = [], []
@@ -298,12 +304,14 @@ def tributo(var=TIRANO):
 
 # --- DESTRONADO: ESQUIRLAS DE LA CORONA (trozos de cristal que salen de lo alto en abanico, girando con su estela; al caer
 # estallan en un destello y motas), las CLAVADAS (una vuela en arco y se queda clavada de punta, brillando a ratos) ---
-def esquirlas_corona(fila, var=DESTRONADO):
+def esquirlas_corona(fila, var=DESTRONADO, escala=0.9, al_borde=False):
+    """al_borde: el origen es el vertice de su huella (el borde de su cuerpo): la corona queda detras, sobre su centro."""
     dx, dy = DIRS[fila]
-    R = 90.0 / UNIDAD * 0.9
+    R = 90.0 / UNIDAD * escala
     A = (W * 0.5 - dx * R * 0.4, H * 0.52 - dy * R * 0.35)
     rad = rad_de(var)
-    corona = (A[0], A[1] - rad * 1.25)
+    sl.ORIGEN = A
+    corona = (A[0] - dx * rad * 0.8 if al_borde else A[0], A[1] - rad * 1.25 - (dy * rad * 0.8 if al_borde else 0.0))
     eje = math.atan2(dy, dx)
     rnd = random.Random(3 + fila)
     lista = [(eje + rnd.uniform(-1, 1) * math.radians(60) * 0.45, rnd.uniform(0.55, 1.0), rnd.uniform(0, 6)) for _ in range(9)]

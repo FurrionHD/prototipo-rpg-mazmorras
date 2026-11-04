@@ -20,6 +20,10 @@ var _ritmo: float = 1.0
 var _fase: int = Fase.SALE
 var _actual: EfectoPixel = null
 var _reloj: float = 0.0
+var _vuelve_de: Vector2 = Vector2.ZERO
+var _vuelve_a: Vector2 = Vector2.ZERO
+var _vuelve_t: float = -1.0
+var _vuelve_dur: float = 0.4
 
 
 static func crear(padre: Node, enemigo: String, sale: String, dura: String, vete: String, pos: Vector2, dir: int = 0,
@@ -61,8 +65,20 @@ func _process(delta: float) -> void:
 				var fuerte: bool = queda < 0.5
 				_actual.position.x = (SpriteLienzo.UNIDADES_POR_CELDA if fuerte and int(_reloj * 16.0) % 2 == 0 else 0.0)
 		Fase.SE_VA:
-			if not hay:
+			if _vuelve_t >= 0.0:
+				_vuelve_t = minf(_vuelve_t + delta * _ritmo, _vuelve_dur)
+				position = _vuelve_de.lerp(_vuelve_a, _vuelve_t / _vuelve_dur)
+			if not hay and (_vuelve_t < 0.0 or _vuelve_t >= _vuelve_dur):
 				queue_free()
+
+
+# El que vuelve a quien lo solto (el pedazo del Rey destronado): se desliza hasta 'p' mientras se va.
+func volver_a(p: Vector2, dur: float = 0.4) -> void:
+	secar()
+	_vuelve_de = position
+	_vuelve_a = p
+	_vuelve_t = 0.0
+	_vuelve_dur = maxf(dur, 0.01)
 
 
 func secar() -> void:
