@@ -5,8 +5,8 @@
 #   CIRCULOS_SALIDA=/carpeta [CIRCULOS_LISTA=brasa,eclipse] godot --path . res://tools/ver_circulos.tscn
 extends Node2D
 
-const LADO := 320
-const ZOOM := 2.2
+const LADO := 360
+const ZOOM := 3.0 / SpriteLienzo.UNIDADES_POR_CELDA   # 3 px de pantalla por celda: se ven los pixeles
 const PASO := 1.0 / 60.0
 const ENTRE_FRASES := 1.2
 
