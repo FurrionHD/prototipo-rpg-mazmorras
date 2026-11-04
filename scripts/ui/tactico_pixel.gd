@@ -23,6 +23,9 @@ func _init(t) -> void:
 
 # LLAMADO POR gesto_bicho_en_mapa cuando un cuerpo empieza 'base'.
 func al_gesto(c: Combatant, cuerpo: Node2D, base: String, dur: float) -> void:
+	if base == "afilar":   # Afilarse, de la obsidiana: sus destellos, sobre el
+		EfectoPixel.lanzar(_t._arena(), "slime", "afilar", _t.pies_de(c), 0, null, 0.0, dur)
+		return
 	# (los mutantes del escarabajo se reconocen por lo que trae su hoja: el Pulso o la Pasada)
 	if not _t._tiene_anim_bicho(cuerpo, "pulso") and not _t._tiene_anim_bicho(cuerpo, "pasada"):
 		return

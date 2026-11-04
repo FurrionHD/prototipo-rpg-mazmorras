@@ -98,6 +98,7 @@ def llamarada(fila, var=LAVA_SPR):
     dx, dy = DIRS[fila]
     L = 70.0 / UNIDAD
     A = (W * 0.5 - dx * L * 0.45, H * 0.58 - dy * L * 0.4)
+    sl.ORIGEN = A
     rad = marco(var, 'escupir', 0, fila).size[0] * 0.3
     bx, by = vn.boca(A, dx, dy, rad)
     V = (A[0] + dx * L * 0.7, A[1] + dy * L * 0.7 + 3)
@@ -133,6 +134,7 @@ def alrededor(A, var, R, n=2, giro=0.4):
 
 def salpicadura(var=LAVA_SPR, radio_mundo=35.0, pal=LAVA, borde=LAVA_BORDE, chisporrotea=True, ascuas=False):
     A = (W * 0.5, H * 0.56)
+    sl.ORIGEN = A
     R = radio_mundo / UNIDAD
     gotas = Gotas(16, 31, R * 0.45, R, sube=(12.0, 22.0), tam=(1.5, 2.4), pal=pal, borde=borde)
     vict = alrededor(A, var, R)
@@ -165,6 +167,7 @@ def salpicadura(var=LAVA_SPR, radio_mundo=35.0, pal=LAVA, borde=LAVA_BORDE, chis
 # dejando el suelo chamuscado y humo ---
 def combustion(var=LAVA_SPR, radio_mundo=45.0):
     A = (W * 0.5, H * 0.56)
+    sl.ORIGEN = A
     R = radio_mundo / UNIDAD
     rnd = random.Random(2)
     anillo = [(i / 18.0 * math.tau + rnd.uniform(-0.1, 0.1), rnd.uniform(0.85, 1.0), rnd.uniform(0, 6)) for i in range(18)]
@@ -206,6 +209,7 @@ def combustion(var=LAVA_SPR, radio_mundo=45.0):
 # ascuas que suben ---
 def ignicion(var=LAVA_SPR, brasas=False):
     A = (W * 0.5, H * 0.58)
+    sl.ORIGEN = A
     rad = marco(var, 'ignicion', 0, 0).size[0] * 0.26
     m, t = [], []
     for f in range(16):
@@ -246,6 +250,7 @@ def bocanada_ceniza(a, x, y, r, fuerza):
 # --- NUBE DE CENIZA: revienta en una nube de ceniza gris con ascuas que se abre hasta el borde y se va posando ---
 def nube_ceniza(var=CENIZA_SPR, radio_mundo=50.0):
     A = (W * 0.5, H * 0.56)
+    sl.ORIGEN = A
     R = radio_mundo / UNIDAD
     rnd = random.Random(12)
     puffs = [(rnd.uniform(0, math.tau), rnd.uniform(0.15, 1.0), rnd.uniform(9.0, 13.0), rnd.uniform(0.0, 0.25)) for _ in range(28)]
@@ -285,6 +290,7 @@ def embestida_cortante(fila, var=OBS_SPR):
     dx, dy = DIRS[fila]
     largo = 70.0 / UNIDAD
     A = (W * 0.5 - dx * largo * 0.5, H * 0.56 - dy * largo * 0.5)
+    sl.ORIGEN = A
     V = (A[0] + dx * largo * 0.38, A[1] + dy * largo * 0.38 + 4)
     rnd = random.Random(7 + fila)
     clavadas = [(rnd.uniform(0.05, 0.9), rnd.uniform(-10.0, 10.0), rnd.uniform(5.0, 8.0), rnd.uniform(-0.5, 0.5)) for _ in range(12)]
@@ -321,6 +327,7 @@ def esquirlas_obs(fila, var=OBS_SPR, radio_mundo=60.0, apertura=70.0):
     dx, dy = DIRS[fila]
     R = radio_mundo / UNIDAD
     A = (W * 0.5 - dx * R * 0.4, H * 0.58 - dy * R * 0.35)
+    sl.ORIGEN = A
     eje = math.atan2(dy, dx)
     rnd = random.Random(5 + fila)
     lista = [(eje + rnd.uniform(-1, 1) * math.radians(apertura) * 0.45, rnd.uniform(0.4, 1.0), rnd.uniform(6.0, 8.0)) for _ in range(12)]

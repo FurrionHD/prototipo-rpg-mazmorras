@@ -55,6 +55,18 @@ def guardar_efecto(enemigo, nombre, filas, origenes, fps, bucle=False, corte=0, 
     return d
 
 
+# Suma estas hojas a las que ya tiene 'enemigo' (cada familia de slimes se hornea por su lado).
+def sumar(enemigo, datos):
+    previo = {}
+    if os.path.exists(DATOS):
+        with open(DATOS, encoding='utf-8') as f:
+            m = re.search(r'^\t"%s": (\{.*\}),$' % enemigo, f.read(), re.M)
+            if m:
+                previo = json.loads(m.group(1))
+    previo.update(datos)
+    apuntar(enemigo, previo)
+
+
 # Pone o cambia la linea de 'enemigo' en el .gd; las de los demas se quedan como estan.
 def apuntar(enemigo, datos):
     lineas = {}

@@ -154,15 +154,26 @@ static func _area_pixel(padre: Node, f: CombatFormas.Forma, m: int, col: Color, 
 		Modo.SPLAT:
 			if f.radio <= 47.0:
 				nombre = "splat_46" if f.radio > 40.0 else "splat_35"
+			else:
+				nombre = "nube_ceniza"
 		Modo.PLACAJE:
 			if f.ancho <= 50.0:
 				nombre = "placaje_g" if f.largo > 55.0 else "placaje_c"
+			else:
+				nombre = "emb_cortante"
+		Modo.LLAMARADA:
+			nombre = "llamarada"
+		Modo.SALPICA:
+			nombre = "salpica_ceniza" if f.radio > 37.0 else "salpica"
+		Modo.COMBUSTION:
+			nombre = "combustion"
 		Modo.EMBATE:
 			nombre = "embate_3" if f.apertura > 110.0 else "embate_2"
 		Modo.PUAS:
 			nombre = "puas_obs" if col.get_luminance() < 0.25 else "puas"
 		Modo.ROCIADA:
-			nombre = "rociada_55" if f.radio > 50.0 else "rociada_45"
+			# (las Esquirlas de la obsidiana van por aqui: la ficha las hace una Rociada oscura)
+			nombre = "esquirlas_obs" if f.radio >= 58.0 else ("rociada_55" if f.radio > 50.0 else "rociada_45")
 	if nombre == "":
 		return null
 	var dir: int = SpriteLienzo.dir8(f.dir) if f.dir.length_squared() > 0.0001 else 0
@@ -177,6 +188,11 @@ static func baba_pixel(padre: Node, f: CombatFormas.Forma, col: Color, pinchos: 
 	var pos: Vector2 = f.origen if linea else f.centro   # (la hoja del rastro tiene su origen donde empieza)
 	var dir: int = SpriteLienzo.dir8(f.dir) if linea and f.dir.length_squared() > 0.0001 else 0
 	return PiezaPixel.crear(padre, "slime", base + "_sale", base + "_dura", base + "_vete", pos, dir, paleta_pixel(col), 0.0, BarridoAire.ritmo)
+
+
+# La nube que deja la Nube de ceniza (estilo 7).
+static func nube_ceniza_pixel(padre: Node, f: CombatFormas.Forma, espera: float) -> PiezaPixel:
+	return PiezaPixel.crear(padre, "slime", "nubec_50_sale", "nubec_50_dura", "nubec_50_vete", f.centro, 0, PackedColorArray(), espera, BarridoAire.ritmo)
 
 
 static func nube_pixel(padre: Node, f: CombatFormas.Forma, col: Color, espera: float) -> PiezaPixel:
@@ -263,6 +279,10 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, col: 
 		var d8: int = SpriteLienzo.dir8(hacia) if hacia.length_squared() > 1.0 else 0
 		return EfectoPixel.lanzar(padre, "slime", "golpe", Vector2(caja.get_center().x, caja.end.y), d8, null, maxf(espera, 0.08), -1.0,
 			maxf(ritmo, 0.05), paleta_pixel(col))
+	if m == Modo.IGNICION:
+		# EN PIXEL ART: el fuego le sube del cuerpo. (El de Ceniza y brasa, mas grande: sus brasas, mas ascuas que llama.)
+		return EfectoPixel.lanzar(padre, "slime", "ignicion_brasas" if caja.size.x > 56.0 else "ignicion",
+			Vector2(caja.get_center().x, caja.end.y), 0, null, 0.0, -1.0, maxf(ritmo, 0.05))
 	if m == Modo.ESCUPE:
 		# EN PIXEL ART: la bola viaja la distancia que toque (por codigo) y revienta en los pies del que lo recibe.
 		var pies_e := Vector2(caja.get_center().x, caja.end.y)

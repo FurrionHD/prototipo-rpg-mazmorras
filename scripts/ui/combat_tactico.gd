@@ -3906,7 +3906,7 @@ func _charco_visible(clave: String, f, queda: float, dueno: Combatant = null) ->
 			n = SlimeAire.nube_pixel(arena, f, _color_de(dueno), SimaAire.T_NUBE_SALE)
 		elif estilo == 7:
 			# LA NUBE DE CENIZA (06/10, la ceniza y brasa): la misma nube, gris ceniza.
-			n = SimaAire.nube(arena, f, hash(clave), SimaAire.T_NUBE_SALE, NUBE_CENIZA)
+			n = SlimeAire.nube_ceniza_pixel(arena, f, SimaAire.T_NUBE_SALE)
 		elif estilo == 6:
 			# LA BURBUJA FLOTANTE (06/10, el pestilente): sale volando de sus pies (f.origen) y flota hasta que revienta.
 			n = SlimeAire.burbuja_pixel(arena, f, _color_de(dueno))
