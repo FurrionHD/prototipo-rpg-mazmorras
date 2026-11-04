@@ -55,14 +55,15 @@ def marco(var, anim, f, fila=0):
 def escena(suelo, cuerpos, aire):
     img = ep.fondo()
     for c in suelo:
-        img.alpha_composite(Image.fromarray(c, 'RGBA'))
+        sl.volcar(img, c, True)
     for spr, x, y, alto in sorted(cuerpos, key=lambda c: c[2]):
         if spr is None:
             continue
         w, h = spr.size
         img.paste(spr, (int(round(x)) - w // 2, int(round(y - alto)) - h // 2), spr)
     for c in aire:
-        img.alpha_composite(Image.fromarray(c, 'RGBA'))
+        sl.volcar(img, c, False)
+    sl._PEND.clear()
     return img
 
 

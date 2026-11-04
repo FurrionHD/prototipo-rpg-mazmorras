@@ -39,12 +39,31 @@ estrella, cometa_dir, componer = ep.estrella, ep.cometa_dir, ep.componer
 # Z_ENCIMA (por encima de todos los personajes) y se ven desde cualquier angulo; la lamina tiene que enseñar lo mismo
 # (lo vio el, 04/11: el mordisco hacia el norte salia tapado por el objetivo).
 def victima(a, x, y):
-    tmp = nuevo()
-    ep.victima(tmp, x, y)
-    m = (tmp[:, :, 3] > 0) & (a[:, :, 3] == 0)
-    a[m] = tmp[m]
+    """Se apunta y se pinta al montar la escena: ENCIMA de su capa si es de suelo, DEBAJO si es de aire."""
+    _PEND.append((id(a), x, y))
+
+
 DIRS, NOM_DIR = ep.DIRS, ep.NOM_DIR
 SOMBRA = ep.SOMBRA
+_PEND = []
+
+
+def volcar(img, c, es_suelo):
+    """Pega la capa 'c' y a sus objetivos apuntados: el objetivo va sobre lo del suelo y bajo lo que le cae encima."""
+    mios = [(x, y) for i, x, y in _PEND if i == id(c)]
+    capa_v = None
+    if mios:
+        capa_v = nuevo()
+        for x, y in mios:
+            ep.victima(capa_v, x, y)
+    if es_suelo:
+        img.alpha_composite(Image.fromarray(c, 'RGBA'))
+        if capa_v is not None:
+            img.alpha_composite(Image.fromarray(capa_v, 'RGBA'))
+    else:
+        if capa_v is not None:
+            img.alpha_composite(Image.fromarray(capa_v, 'RGBA'))
+        img.alpha_composite(Image.fromarray(c, 'RGBA'))
 
 # EL GEL, del rojo en que estan pintadas sus hojas (ff2b2b); en el juego saldra del color de cada slime.
 GEL = [(96, 12, 22), (200, 34, 44), (255, 104, 96), (255, 216, 200)]
@@ -84,11 +103,12 @@ def escena(suelo, cuerpos, aire):
     """cuerpos = [(spr, x, y, alto)]; sus sombras van al suelo cuando estan en el aire."""
     img = ep.fondo()
     for c in suelo:
-        img.alpha_composite(Image.fromarray(c, 'RGBA'))
+        volcar(img, c, True)
     for spr, x, y, alto in sorted(cuerpos, key=lambda c: c[2]):
         pegar(img, spr, x, y, alto)
     for c in aire:
-        img.alpha_composite(Image.fromarray(c, 'RGBA'))
+        volcar(img, c, False)
+    _PEND.clear()
     return img
 
 
