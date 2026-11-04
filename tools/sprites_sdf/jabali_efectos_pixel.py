@@ -354,16 +354,17 @@ def donde_arde(spr):
 
 def quema(fila=1, var=ANCESTRAL):
     A = (W * 0.5, H * 0.6)
-    n_marcos = 30
+    # 14 marcos a 10 fps y NO se repite (loop false): se quema UNA vez, se queda en su ultimo marco y el humo se va.
+    n_anim, n_marcos = 14, 24
     bocanadas = []      # (x, y, f en que nace, deriva)
     rnd = random.Random(12)
     m, t = [], []
     for f in range(n_marcos):
         s, a = nuevo(), nuevo()
-        spr = marco(var, 'quemandose', f, fila)
+        spr = marco(var, 'quemandose', min(f, n_anim - 1), fila)
         xs, ys = donde_arde(spr)
         w0, h0 = spr.size
-        if len(xs) and f % 2 == 0 and f < n_marcos - 8:
+        if len(xs) and f % 2 == 0 and f < n_anim:
             for _ in range(1 + (len(xs) > 60)):
                 i = rnd.randrange(len(xs))
                 bocanadas.append((A[0] + xs[i] - w0 // 2, A[1] + ys[i] - h0 // 2 - 3, f, rnd.uniform(-0.35, 0.45)))
@@ -372,7 +373,7 @@ def quema(fila=1, var=ANCESTRAL):
             if 0 <= g < 11:
                 vn.nube(a, x + g * deriva, y - g * 1.9, 2.0 + g * 0.65, (1.0 - g / 11.0) * 1.5, fg.CENIZA)
         m.append(escena([s], [(spr, A[0], A[1], 0)], [a]))
-        t.append(1000 // 12)
+        t.append(1000 // 10)
     return m, t
 
 
@@ -397,7 +398,7 @@ def principal():
         ('ANCESTRAL\nCornada de cristal', elegir(ca[0], (2, 5, 6, 8, 11, 16))),
         ('COLMILLO Y ANCESTRAL\nlas Drusas (reflejo)', elegir(dr[0], (1, 3, 6, 9, 11, 14))),
         ('ANCESTRAL\nlas Esporas', elegir(es[0], (1, 4, 7, 10, 14, 18))),
-        ('ANCESTRAL\nla chepa se quema\n(poco a poco)', elegir(qu[0], (1, 5, 10, 16, 22, 28))),
+        ('ANCESTRAL\nla chepa se quema\n(poco a poco)', elegir(qu[0], (1, 4, 7, 10, 13, 19))),
     ]
     lamina(filas, os.path.join(SALIDA, 'jabali.png'), z)
     todos, tiempos = [], []
