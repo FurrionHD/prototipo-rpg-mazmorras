@@ -183,6 +183,7 @@ static func disparo(padre: Node, m: int, desde: Vector2, caja: Rect2, cuerpo: No
 		_cadena_activa = false
 	d.add_to_group(GRUPO_VUELO)
 	padre.add_child(d)
+	CapaPixel.meter(d)   # en pixel art (memoria efectos-pixel-personajes)
 	return d
 
 
@@ -275,10 +276,10 @@ func _al_llegar() -> void:
 		gr.add_to_group(GRUPO_CLAVADAS)
 		gr.z_as_relative = false
 		gr.z_index = SueloRoto.Z_SUELO + 1
-		get_parent().add_child(gr)
+		CapaPixel.padre_real(self).add_child(gr)
 		gr.global_position = _punto
 		if modo == Modo.VIROTE_PIES:
-			SangreMapa.salpicar(get_parent(), _punto - Vector2(0.0, 6.0), _punto, _dir, 0.8, _rng.randi())
+			SangreMapa.salpicar(CapaPixel.padre_real(self), _punto - Vector2(0.0, 6.0), _punto, _dir, 0.8, _rng.randi())
 	# LA LLUVIA: de vez en cuando otra se clava en el suelo alrededor (el resto de la rociada; pocas, que no sea un erizo).
 	if modo == Modo.LLUVIA and _rng.randf() < 0.35:
 		var p_pies2: Vector2 = Vector2(_punto.x, _caja.end.y) if _caja.has_area() else _punto
@@ -308,7 +309,7 @@ func _clavar(donde: Vector2, en_suelo: bool) -> void:
 	else:
 		cl.z_as_relative = false
 		cl.z_index = SueloRoto.Z_SUELO + 2
-		get_parent().add_child(cl)
+		CapaPixel.padre_real(self).add_child(cl)
 		cl.global_position = donde
 
 

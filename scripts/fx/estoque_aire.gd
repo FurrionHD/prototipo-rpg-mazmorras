@@ -166,6 +166,7 @@ static func _nuevo(padre: Node, m: int, semilla: int, ritmo: float) -> EstoqueAi
 	e.z_index = Z_ENCIMA
 	e.process_mode = Node.PROCESS_MODE_ALWAYS   # la pelea tactica pausa el arbol
 	padre.add_child(e)
+	CapaPixel.meter(e)   # en pixel art (memoria efectos-pixel-personajes)
 	return e
 
 

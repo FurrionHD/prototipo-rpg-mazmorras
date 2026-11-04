@@ -79,6 +79,7 @@ static func onda(padre: Node, f: CombatFormas.Forma, semilla: int, espera: float
 	e.z_index = SueloRoto.Z_SUELO
 	e.process_mode = Node.PROCESS_MODE_ALWAYS
 	padre.add_child(e)
+	CapaPixel.meter(e)   # en pixel art (memoria efectos-pixel-personajes)
 	return e
 
 
@@ -117,6 +118,7 @@ static func golpe(padre: Node, m: int, desde: Vector2, caja: Rect2, fallo: bool,
 	e.z_index = Z_ENCIMA
 	e.process_mode = Node.PROCESS_MODE_ALWAYS   # la pelea tactica pausa el arbol
 	padre.add_child(e)
+	CapaPixel.meter(e)   # en pixel art (memoria efectos-pixel-personajes)
 	e._caja = caja
 	e._fallo = fallo
 	e._crit = crit

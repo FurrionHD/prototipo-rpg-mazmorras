@@ -149,6 +149,7 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Rect2, caja: Rect2, pies_v:
 	e._delante = e._capa(Z_ENCIMA, false)
 	e._brillo = e._capa(Z_ENCIMA + 1, true)
 	padre.add_child(e)
+	CapaPixel.meter(e)   # en pixel art (memoria efectos-pixel-personajes)
 	return e
 
 
@@ -170,6 +171,7 @@ static func arrastre(padre: Node, pies0: Vector2, pies1: Vector2, ancho: float, 
 	e._suelo = e._capa(SueloRoto.Z_SUELO + 2, false)
 	e._delante = e._capa(Z_ENCIMA, false)
 	padre.add_child(e)
+	CapaPixel.meter(e)   # en pixel art (memoria efectos-pixel-personajes)
 	return e
 
 

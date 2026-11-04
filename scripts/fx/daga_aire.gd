@@ -157,6 +157,7 @@ static func _nuevo(padre: Node, m: int, semilla: int, ritmo: float, z: int) -> D
 	d.z_index = z
 	d.process_mode = Node.PROCESS_MODE_ALWAYS   # la pelea tactica pausa el arbol
 	padre.add_child(d)
+	CapaPixel.meter(d)   # en pixel art (memoria efectos-pixel-personajes)
 	return d
 
 

@@ -69,6 +69,7 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, esp
 	b.z_index = SueloRoto.Z_SUELO
 	b.process_mode = Node.PROCESS_MODE_ALWAYS
 	padre.add_child(b)
+	CapaPixel.meter(b)   # en pixel art (memoria efectos-pixel-personajes)
 	return b
 
 

@@ -49,6 +49,17 @@ static func meter(efecto: Node) -> void:
 		efecto.child_entered_tree.connect(_al_entrar)
 
 
+# El padre DE VERDAD de un efecto ya metido (no su hueco): para lo que el efecto deja en el mundo (la flecha clavada, la
+# sangre del mapa), que tiene que quedarse en el mundo normal.
+static func padre_real(n: Node) -> Node:
+	var p: Node = n.get_parent() if n != null else null
+	if p != null and p.has_meta(&"padre_real"):
+		var r = p.get_meta(&"padre_real")
+		if r != null and is_instance_valid(r):
+			return r
+	return p
+
+
 # Los efectos que se le metieron a 'padre' (ya no cuelgan de el, sino de su hueco): para quien los busque (las pruebas).
 static func efectos_de(padre: Node, clase: String) -> Array:
 	if padre == null:
@@ -172,6 +183,7 @@ func _hueco_de(padre: Node2D) -> Node2D:
 		return h["hueco"]
 	var hueco := Node2D.new()
 	hueco.visibility_layer = BIT_SUELO | BIT_AIRE
+	hueco.set_meta(&"padre_real", padre)
 	_raiz.add_child(hueco)
 	hueco.global_transform = padre.global_transform
 	_huecos[id] = {"padre": padre, "hueco": hueco}
