@@ -99,7 +99,8 @@ def sombra(a, x, y, r):
 
 # --- LAS PIEZAS DEL GEL ---
 # Una gota en el aire: borde oscuro, cuerpo, luz arriba a la izquierda y un brillo de una celda. Nunca una canica lisa.
-def gota(a, x, y, r, pal=GEL, borde=GEL_BORDE):
+def gota(a, x, y, r, pal=None, borde=None):
+    pal, borde = pal or GEL, borde or GEL_BORDE
     r *= 0.75
     if r < 1.2:
         punto(a, x - 1, y - 1, borde, 2)
@@ -113,9 +114,12 @@ def gota(a, x, y, r, pal=GEL, borde=GEL_BORDE):
 
 # EL CHARCO de gel en el suelo: contorno blando (no un circulo), labio oscuro, cuerpo, el brillo como una media luna
 # arriba a la izquierda y un par de destellos. 'vivo' 1 = recien caido; al secarse se deshace a trama desde dentro.
-def charco(a, cx, cy, r, sem, vivo=1.0, pal=GEL, borde_col=GEL_BORDE):
+def charco(a, cx, cy, r, sem, vivo=1.0, pal=None, borde_col=None):
+    pal, borde_col = pal or GEL, borde_col or GEL_BORDE
     if r < 1.0:
         return
+    if r < 3.0:
+        borde_col = pal[0]   # las manchitas: sin el labio negro (salian puntos negros)
     d = np.hypot(XX - cx, YY - cy)
     ang = np.arctan2(YY - cy, XX - cx)
     rr = r * (1.0 + 0.13 * np.sin(ang * 5.0 + sem) + 0.07 * np.sin(ang * 9.0 + sem * 2.3))
@@ -141,8 +145,8 @@ def seco(edad, queda=6, dura=6):
 
 # Una gota que vuela de p0 a p1 con su salto: la cabeza (gota) y la cola en cometa; al caer queda su manchita.
 class Gotas:
-    def __init__(self, n, semilla, r_min, r_max, abanico=None, sube=(10.0, 22.0), tam=(1.6, 2.6), pal=GEL, borde=GEL_BORDE):
-        self.pal, self.borde = pal, borde
+    def __init__(self, n, semilla, r_min, r_max, abanico=None, sube=(10.0, 22.0), tam=(1.6, 2.6), pal=None, borde=None):
+        self.pal, self.borde = pal or GEL, borde or GEL_BORDE
         rnd = random.Random(semilla)
         self.g = []
         for i in range(n):
@@ -177,7 +181,7 @@ class Gotas:
 
 
 # --- EL BASICO: salpicon de gel en el pecho del que recibe, hacia atras de donde viene el golpe ---
-def basico(fila):
+def basico(fila, var='s100'):
     dx, dy = DIRS[fila]
     A = (W * 0.5 - dx * 22, H * 0.62 - dy * 18)
     V = (A[0] + dx * 36, A[1] + dy * 34)
@@ -198,7 +202,7 @@ def basico(fila):
                 estrella(a, pecho[0], pecho[1], 6, GEL)
             gotas.pintar(s, a, pecho[0], V[1], min(1.0, e / 5.0), 2.0, 1.0, e - 5)
         victima(s if dy >= 0 else a, *V)
-        cuerpos = [(marco('s100', 'embestida', min(f, 7), fila), A[0], A[1], 0)]
+        cuerpos = [(marco(var, 'embestida', min(f, 7), fila), A[0], A[1], 0)]
         m.append(escena([s], cuerpos, [a]))
         t.append(1000 // 12)
     return m, t
@@ -265,7 +269,8 @@ def placaje(fila, largo_mundo=40.0, ancho_mundo=16.0, var='s100'):
 
 # --- EL EMBATE: coletazos de gel, la ida y vuelta del Segar: una MEDIA LUNA RELLENA que barre el cono a la altura de
 # su cuerpo, con el filo vivo delante y detras el gel que se oscurece y se deshace; de la punta salen gotas ---
-def coletazo(a, cx, cy, eje, radio, frente, tras, sentido, grueso, pal=GEL, borde_col=GEL_BORDE):
+def coletazo(a, cx, cy, eje, radio, frente, tras, sentido, grueso, pal=None, borde_col=None):
+    pal, borde_col = pal or GEL, borde_col or GEL_BORDE
     ang = np.arctan2(YY - cy, XX - cx)
     rel = (ang - eje + np.pi) % (2 * np.pi) - np.pi
     b = (frente - rel) * sentido                       # cuanto va por detras del filo
