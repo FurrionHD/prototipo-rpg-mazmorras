@@ -78,7 +78,16 @@ static func tam_cuerpo(escala: float = 1.0) -> Vector2:
 
 
 static func generar(color: Color = BASE) -> SpriteFrames:
-	return Sprites3D.montar(CARPETA, ANIMS, LIENZO, BASE, SpriteLienzo.cuantizar_hsv(color, TrentSprites.COLOR_PASOS))
+	return Sprites3D.montar(CARPETA, ANIMS, LIENZO, BASE, tinte_madera(SpriteLienzo.cuantizar_hsv(color, TrentSprites.COLOR_PASOS)))
+
+
+# LA MADERA NO SE VUELVE ROSA (04/11, el jefe: "el trent normal es como muy rojo/rosa"). Montar tiñe canal a canal (color / BASE):
+# su BASE es un verde casi sin azul, y al aclararlo para los fuertes el azul se multiplicaba x2,2 y la corteza salia rosa
+# (medido: 132,73,58 -> 227,97,128). Aqui solo cambia LO CLARO que es, igual en los tres canales: mas claro o mas oscuro, pero
+# siempre marron. Solo el trent: en los demas el tinte se ve bien.
+static func tinte_madera(color: Color) -> Color:
+	var luz: float = color.get_luminance() / maxf(BASE.get_luminance(), 0.01)
+	return Color(BASE.r * luz, BASE.g * luz, BASE.b * luz)
 
 
 static func _anims_de(lista: Array, carpeta: String) -> Dictionary:
