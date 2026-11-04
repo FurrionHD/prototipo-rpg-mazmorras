@@ -197,7 +197,7 @@ func _rebote_hilo(atacante: Combatant, victima: Combatant, dmg: float) -> void:
 		return
 	var a_tiro: Array = []
 	for e in _pantalla._vivos():
-		if e != victima and not e.en_sombras() and (not _pantalla.tactico \
+		if e != victima and not e.no_elegible() and (not _pantalla.tactico \
 				or _pantalla.turno_mapa.hueco_entre(victima, e) <= atacante.runa_hilo_radio):
 			a_tiro.append(e)
 	if a_tiro.is_empty():

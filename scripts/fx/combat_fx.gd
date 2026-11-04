@@ -2142,6 +2142,9 @@ const IMPACTO_ANIM_MAPA := {
 	# primer marco, a la vez que sale el rastro y que la pelea lo mueve por la linea. El Caparazon se aplasta del todo
 	# a 0,571x7/9.
 	"rodar": 0.0, "caparazon": 0.44,
+	# Sus mutantes (04/11): el Pulso da el golpe seco a 0,33x6/14 y el Picado toca a 0,6x8/14; la Embestida imantada y la
+	# Pasada ya vienen lanzadas desde el primer marco, como la bola.
+	"pulso": 0.14, "picado": 0.34, "embestir": 0.0, "pasada": 0.0,
 	# El ciempies (29/09): cada sacudida de la Oleada pica a 0,5x5/18.
 	"oleada": 0.14,
 	# La segadora (29/09): las dos guadañas caen a 0,5x7/13.

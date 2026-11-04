@@ -949,6 +949,11 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		# mutantes salian con el contador de las arañas sin llenarse nunca (playtest del .exe, 04/11).
 		c.carga_tope = mdat2.carga_tope if mdat2.carga_elemento >= 0 else 0
 		c.carga_estallido = mdat2.carga_estallido
+		# (04/11, el escarabajo) sus pasivas.
+		c.adherencia_radio = mdat2.adherencia_radio
+		c.limaduras_tope = mdat2.limaduras_tope
+		c.pega_y_se_va = mdat2.pega_y_se_va
+		c.orbita = mdat2.orbita
 
 	# RESISTENCIA A EFECTOS Y EFICACIA: la curva del PISO por el ajuste de ESTE bicho. Los dos ejes
 	# hacen falta y hacen cosas distintas: la resistencia decide lo que TE aguanta, la eficacia lo

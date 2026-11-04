@@ -165,6 +165,15 @@ class_name MutacionData
 @export var carga_elemento: int = -1
 @export var carga_tope: int = 4
 @export var carga_estallido: AbilityData = null
+# (04/11, los mutantes del ESCARABAJO; numeros provisionales)
+# ADHERENCIA: si tu turno empieza a adherencia_radio px o menos de el, ese turno mueves la mitad (Id.ADHERIDO).
+@export var adherencia_radio: float = 0.0
+# LIMADURAS: cada golpe que encaja, +defensa (Id.LIMADURAS, hasta limaduras_tope); la habilidad con gasta_limaduras pega mas y las gasta.
+@export var limaduras_tope: int = 0
+# PEGA Y SE VA: acabados sus golpes se aleja estos px. Con orbita y alguien Imantado, no: se queda encima.
+@export var pega_y_se_va: float = 0.0
+# ORBITA: con alguien Imantado (el Pulso), +velocidad y sus golpes a ese no se esquivan.
+@export var orbita: bool = false
 # LA COSTRA DE AMBAR: como el escudo de agua del set Marea, una capa de costra_frac de su vida POR ENCIMA de la vida (se
 # come los golpes antes; el veneno y las brasas no la tocan). Rota, vuelve ENTERA a los costra_turnos turnos suyos, y al
 # romperse suelta UNO al azar de costra_bichos (los bichos del ambar), sin pasar de costra_tope vivos.

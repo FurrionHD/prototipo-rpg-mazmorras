@@ -1171,6 +1171,13 @@ func take_damage(amount: float, es_dot: bool = false) -> void:
 	else:
 		amount *= 1.0 - clampf(runa_menos_dot, 0.0, 0.9)
 	if not es_dot:
+		# LO QUE LE PASA AL ENCAJAR UN GOLPE DE VERDAD (04/11, el escarabajo): se le pegan limaduras; en el aire, lo bajan.
+		if amount > 0.0 and limaduras_tope > 0:
+			apply_status(StatusEffects.Id.LIMADURAS)
+		if amount > 0.0 and has_status(StatusEffects.Id.EN_VUELO):
+			_quitar_status(StatusEffects.Id.EN_VUELO)
+			derribado = true
+			print("[vuelo] %s: el golpe le baja del aire" % nombre)
 		_golpe_recibido = maxf(amount, 0.0)
 		_golpe_frame = Engine.get_process_frames()
 		# EL QUE ESTA EN LAS SOMBRAS sale al encajar un golpe de verdad (30/10, la rata sombria). El veneno no le saca.
@@ -1195,6 +1202,26 @@ func costra_vista() -> float:
 
 func agua_vista() -> float:
 	return vis_agua if vis_agua >= 0.0 else runa_escudo_agua
+
+
+# (04/11, los mutantes del escarabajo: MutacionData)
+var adherencia_radio: float = 0.0
+var limaduras_tope: int = 0
+var pega_y_se_va: float = 0.0
+var orbita: bool = false
+var derribado: bool = false          # un area le ha dado en el aire: la pelea le corta el Picado
+var limaduras_gastadas: bool = false # su Embestida ya las ha usado: la pelea se las quita al acabar el fotograma
+var imparable_coraza: bool = false   # el imparable se lo ha puesto la Coraza (no es suyo de siempre)
+# Y el set Campo magnetico.
+var runa_campo_cada: int = 0
+var runa_campo_radio: float = 0.0
+var runa_campo_barra: float = 0.0
+var runa_campo_cuenta: int = 0
+
+
+# ¿No se le puede elegir de objetivo? En las sombras o en el aire: las areas si le dan.
+func no_elegible() -> bool:
+	return en_sombras() or has_status(StatusEffects.Id.EN_VUELO)
 
 
 # EN LAS SOMBRAS (30/10): ni se le ve ni se le puede elegir de objetivo; las areas si le dan.

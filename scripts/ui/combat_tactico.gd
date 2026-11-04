@@ -1106,7 +1106,7 @@ func llega(a: Combatant, b: Combatant) -> bool:
 	if b.volando() and _pantalla._enemies.has(b) and not _pantalla._enemies.has(a) and not a.a_distancia:
 		return false
 	# EN LAS SOMBRAS (30/10, la rata sombria): a quien no se ve no se le pega a el; solo le dan las areas.
-	if b.en_sombras() and _pantalla._enemies.has(b) and not _pantalla._enemies.has(a):
+	if b.no_elegible() and _pantalla._enemies.has(b) and not _pantalla._enemies.has(a):
 		return false
 	var tope: float = alcance_de(a)
 	if not _pantalla._espejo and _pantalla._aliados.has(a) and not _es_mio(a):
@@ -1372,7 +1372,7 @@ func apuntar_al_mas_cercano(c: Combatant) -> void:
 	var mejor_hueco: float = INF
 	for i in _pantalla._enemies.size():
 		var e: Combatant = _pantalla._enemies[i]
-		if e == null or not e.is_alive() or e.en_sombras():
+		if e == null or not e.is_alive() or e.no_elegible():
 			continue
 		var a_tiro: bool = llega(c, e)
 		var hueco: float = hueco_entre(c, e)
@@ -1795,7 +1795,7 @@ func punto_con_iman(spell: SpellData, c: Combatant, punto: Vector2) -> Vector2:
 		return punto
 	var ab: AbilityData = huella_apunte_hechizo(spell)
 	# (30/10) El iman no engancha a quien esta en las sombras (le delataria); el area, si le cae, le da igual.
-	var rep: Array = _reparto_en(ab, c, forma_de(ab, c, punto)).filter(func(r): return not (r["c"] as Combatant).en_sombras())
+	var rep: Array = _reparto_en(ab, c, forma_de(ab, c, punto)).filter(func(r): return not (r["c"] as Combatant).no_elegible())
 	if rep.is_empty():
 		return punto
 	return bulto_de(rep[0]["c"]).get_center()
@@ -1900,7 +1900,7 @@ func siguiente_en_cadena(desde: Combatant, ya: Array, maximo: float) -> Combatan
 	var mejor: Combatant = null
 	var d_mejor: float = INF
 	for e in _pantalla._vivos():
-		if ya.has(e) or e.en_sombras():
+		if ya.has(e) or e.no_elegible():
 			continue   # (30/10) la cadena salta a quien se ve
 		var d: float = hueco_entre(desde, e)
 		if d <= maximo and d < d_mejor - 0.001:
@@ -3969,7 +3969,7 @@ func _tick_raices() -> void:
 	for c in todos:
 		# (el Resinado tambien enraiza, pero lo suyo es el cepo de ambar: TacticoTrent)
 		var atado: bool = (c as Combatant).is_alive() and (c as Combatant).enraizado() and cuerpo_de(c) != null \
-			and not (c as Combatant).has_status(StatusEffects.Id.RESINADO)
+			and not (c as Combatant).has_status(StatusEffects.Id.RESINADO) and not (c as Combatant).has_status(StatusEffects.Id.IMANTADO)
 		var n = _raices.get(c)
 		# EL DEL MICELIO (30/09): lo marca el Latigazo al pegar (_on_dibujo_mapa), con el color del miconido.
 		var micelio = cuerpo_de(c).get_meta("atado_micelio") if cuerpo_de(c) != null and cuerpo_de(c).has_meta("atado_micelio") else null
@@ -5254,6 +5254,17 @@ func _on_impacto(ev: Dictionary) -> void:
 const T_SALTO_ESQUIVA := 0.22
 const ALTO_SALTO_ESQUIVA := 9.0
 
+# PEGA Y SE VA (04/11, el escarabajo saeta): acabados sus golpes se aleja 'px' de 'de', de un salto (el Picado del chillon: Desliz.TRAS).
+func pedir_retirada(c: Combatant, de: Combatant, px: float) -> void:
+	if _pantalla._espejo or not _pantalla.tactico or c == null or de == null or cuerpo_de(c) == null or cuerpo_de(de) == null:
+		return
+	var dir: Vector2 = pies_de(c) - pies_de(de)
+	dir = dir.normalized() if dir.length_squared() > 0.01 else Vector2.RIGHT
+	var hasta: Vector2 = _sitio_libre_hacia(c, pies_de(c) + dir * px)
+	if hasta.distance_to(pos_de(c)) >= 2.0:
+		pedir_desliz(c, hasta, Desliz.TRAS, 1, T_SALTO_ESQUIVA, ALTO_SALTO_ESQUIVA)
+
+
 func pedir_salto_atras(c: Combatant, de: Combatant, px: float) -> void:
 	if _pantalla._espejo or not _pantalla.tactico or c == null or de == null or cuerpo_de(c) == null \
 			or cuerpo_de(de) == null or c.imparable:
@@ -5473,6 +5484,10 @@ func _dibujo_pasiva(ev: Dictionary, vuelo: float) -> void:
 			if caja_a.has_area():
 				PasivaAire.sobre_cuerpo(arena, PasivaAire.Modo.DESTELLO, bulto_de(v), caja_a, pies_de(a), semilla, vuelo, ritmo)
 		CombatFX.Estilo.AVISO_INTERRUMPIDO:
+			# (04/11) Ya se sabe que no va a soltarla: su 'interrumpe' sale ahora, sin esperar a T_CARGA_SUELTA (bajado del aire
+			# se quedaba 1,5 s flotando). El aviso llega a todas las pantallas.
+			if _poses_carga.has(v):
+				_poses_carga[v]["t"] = T_CARGA_SUELTA
 			# El peso dice que era: 1 la carga de un arma, 0,5 un conjuro (su circulo se rompe aparte, circulo_acaba).
 			PasivaAire.sobre_cuerpo(arena, PasivaAire.Modo.ESQUIRLAS, Rect2(), bulto_de(v), pies_de(v), semilla, vuelo, ritmo,
 				1.0 if float(ev.get("peso", 1.0)) > 0.75 else 0.0)
@@ -6291,7 +6306,7 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		var mas_cerca: Combatant = null
 		var d_min: float = INF
 		for e in _pantalla._vivos():
-			if e.en_sombras():
+			if e.no_elegible():
 				continue
 			var d_e: float = pies_de(e).distance_squared_to(pies_de(v))
 			if d_e < d_min:
@@ -6646,7 +6661,7 @@ func _mas_cercano_al_alcance(c: Combatant, pies: Vector2) -> Combatant:
 	var mejor: Combatant = null
 	var d_mejor: float = INF
 	for e in _pantalla._vivos():
-		if e.en_sombras():
+		if e.no_elegible():
 			continue   # (30/10) en las sombras no se le apunta
 		var r: Rect2 = bulto_de(e)
 		var cerca := Vector2(clampf(pies.x, r.position.x, r.end.x), clampf(pies.y, r.position.y, r.end.y))
@@ -6734,7 +6749,7 @@ func pedir_ponerse_delante(c: Combatant, aliado: Combatant) -> void:
 	var enemigo: Combatant = null
 	var d_mejor: float = INF
 	for e in _pantalla._vivos():
-		if e.en_sombras():
+		if e.no_elegible():
 			continue
 		var d: float = hueco_entre(aliado, e)
 		if d < d_mejor:
@@ -7047,7 +7062,7 @@ var _gestos_bicho: Dictionary = {}   # cuerpo -> {t, dur, encaje, cola, sostener
 # LAS QUE NO SE AJUSTAN AL GOLPE: el gesto dura lo que va del arranque al ultimo golpe mas un pelin, y estas tienen su
 # propio reloj. La rodada del escarabajo cruza la linea en InsectoAire.T_RODADA (los golpes le van llegando por el
 # camino) y luego se desenrosca; el Caparazon se aplasta a 0,44 s, que es cuando sale el reflejo.
-const _GESTO_A_SU_RITMO := ["rodar", "caparazon", "arremeter"]
+const _GESTO_A_SU_RITMO := ["rodar", "caparazon", "arremeter", "embestir", "pasada"]
 # LAS EMBESTIDAS CON SU HOJA EN TRES TRAMOS (10/10, el jefe: "primero se agacha que de tiempo a verlo... y luego embiste
 # y cuando termina ya se levanta"): hasta que pega, quieto en el primer marco; mientras cruza su linea (Desliz.EMBISTE),
 # los marcos de 'bucle' en bucle; al llegar, de 'levanta' al final a su ritmo. La hoja de la Cornada ya los trae: 0-1
@@ -7673,7 +7688,8 @@ var _poses_carga: Dictionary = {}   # Combatant -> {ab, t}
 func _tick_cargas_bicho(delta: float) -> void:
 	for e in _pantalla._enemies:
 		var ab: AbilityData = e.charging if e.is_alive() else null
-		if ab != null and ab.fx_anim_carga != &"" and not _poses_carga.has(e) and cuerpo_de(e) != null:
+		# (tumbado, la carga que aun no se le ha cortado no le vuelve a poner en pose: se la corta la pelea en este fotograma)
+		if ab != null and ab.fx_anim_carga != &"" and not _poses_carga.has(e) and not _volcadas.has(e) and cuerpo_de(e) != null:
 			_poses_carga[e] = {"ab": ab, "t": 0.0}
 			gesto_bicho_en_mapa(e, ab.fx_anim_carga, -1.0, false, true)
 	for e in _poses_carga.keys():
@@ -7702,24 +7718,29 @@ func _tick_cargas_bicho(delta: float) -> void:
 # ('volcar>volcada', sostenida) mientras le dure; al pasarsele, 'enderezarse'. Se mira el estado cada fotograma (viaja al
 # espejo con los estados), asi que la ven igual todas las pantallas. Si estaba cargando, la pose de carga se va: el
 # volteo es la interrupcion.
+# (04/11) LOS QUE VUELAN (el saeta y el iman errante, los que tienen hoja 'volteado'): lo mismo, 'caer>volteado' y 'recolocarse'.
+# Bajado del aire SIN aturdir no se queda tumbado: su fx_anim_interrumpe es 'caer>recolocarse'.
 var _volcadas: Dictionary = {}   # Combatant -> true
 
 func _tick_volcadas() -> void:
 	for e in _pantalla._enemies:
-		if (e as Combatant).volteo_mult == 1.0:
+		var tumbada: bool = (e as Combatant).is_alive() and (e as Combatant).aturdido()
+		if tumbada == _volcadas.has(e):
 			continue
 		var cu: Node2D = cuerpo_de(e)
 		if cu == null:
 			continue
-		var tumbada: bool = (e as Combatant).is_alive() and (e as Combatant).aturdido()
-		if tumbada and not _volcadas.has(e):
+		var vuela: bool = _tiene_anim_bicho(cu, "volteado")
+		if (e as Combatant).volteo_mult == 1.0 and not vuela:
+			continue
+		if tumbada:
 			_volcadas[e] = true
 			_poses_carga.erase(e)
-			gesto_bicho_en_mapa(e, &"volcar>volcada", -1.0, false, true)
-		elif not tumbada and _volcadas.has(e):
+			gesto_bicho_en_mapa(e, &"caer>volteado" if vuela else &"volcar>volcada", -1.0, false, true)
+		else:
 			_volcadas.erase(e)
 			if (e as Combatant).is_alive():
-				gesto_bicho_en_mapa(e, &"enderezarse", -1.0)
+				gesto_bicho_en_mapa(e, &"recolocarse" if vuela else &"enderezarse", -1.0)
 
 
 func _soltar_gesto_bicho(cuerpo: Node2D) -> void:

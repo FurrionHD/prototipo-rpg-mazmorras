@@ -1080,10 +1080,10 @@ func setup(player_cs: Array, enemy_cs: Array, enemy_initiated: bool,
 func _objetivo() -> Combatant:
 	# EN LAS SOMBRAS (30/10, la rata sombria): no se le puede elegir. Si no queda otro, el primero vivo igual (para
 	# que nada se quede sin objetivo), pero llega() no le alcanza: solo le dan las areas.
-	if _target_idx >= 0 and _target_idx < _enemies.size() and _enemies[_target_idx].is_alive() 			and not _enemies[_target_idx].en_sombras():
+	if _target_idx >= 0 and _target_idx < _enemies.size() and _enemies[_target_idx].is_alive() 			and not _enemies[_target_idx].no_elegible():
 		return _enemies[_target_idx]
 	for e in _enemies:
-		if e.is_alive() and not e.en_sombras():
+		if e.is_alive() and not e.no_elegible():
 			return e
 	for e in _enemies:
 		if e.is_alive():
@@ -1836,6 +1836,8 @@ func _begin_player_turn() -> void:
 	var ev: Dictionary = _player.tick_statuses()
 	enemigos.revisar_capullos()
 	_log_tick(_player, ev)
+	enemigos.turno_junto_al_iman(_player)
+	enemigos.campo_magnetico(_player)
 	_update_hp()
 	if not _player.is_alive():
 		_set_log("%s cae por el daño de sus estados. ☠" % _player.nombre)
@@ -3301,6 +3303,7 @@ func aviso_inmune(objetivo: Combatant, lanzador: Combatant) -> void:
 # aturdido, miedo), lo pierde. Para los dos lados, enemigos y los tuyos. Se mira aqui y no en cada sitio que pone
 # estados: por apply_status entran por muchas vias (golpes, habilidades, hechizos, contraataques, pasivas).
 func _cortar_por_control() -> void:
+	enemigos.tick_escarabajo()
 	for c in _enemies + _aliados:
 		if c == null or not c.is_alive() or (c.charging == null and not _casteos.has(c)) or not c.aturdido():
 			continue

@@ -251,6 +251,13 @@ def anim_encaje(t):
                 agacha=tramos(t, [(0.0, 0.85), (0.34, 0.22), (0.67, 0.06), (1.0, 0.0)]))
 
 
+def anim_comer(t):
+    # COMER UN CRISTAL (04/11, para sus mutantes): baja el cuerno al suelo y mastica.
+    masca = 0.5 * math.sin(2 * math.pi * t * 4.0) * (0.25 < t < 0.85)
+    return POSE(agacha=tramos(t, [(0.0, 0.0), (0.15, 0.6), (0.85, 0.6), (1.0, 0.0)]),
+                cuerno=tramos(t, [(0.0, 0.0), (0.15, -0.9), (0.85, -0.8), (1.0, 0.0)]) + masca)
+
+
 # nombre: (fotogramas, fps, loop, direcciones, funcion) -- los del viejo.
 ANIMS = {
     'idle': (8, 3.0, True, 8, anim_idle),
@@ -264,6 +271,7 @@ ANIMS = {
     'desenroscarse': (5, 12.0, False, 8, anim_desenroscarse),
     'encaje': (4, 18.0, False, 8, anim_encaje),
     'muerte': (8, 10.0, False, 8, anim_muerte),
+    'comer': (10, 10.0, False, 8, anim_comer),
 }
 
 

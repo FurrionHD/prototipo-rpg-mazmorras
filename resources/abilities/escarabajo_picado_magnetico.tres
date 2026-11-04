@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_i"]
+script = ExtResource("2")
+estado = 53
+prob = 1.0
+
+[resource]
+script = ExtResource("1")
+coste_energia = 0.0
+fx_estilo = 0
+nombre = "Picado magnético"
+descripcion = "Sube, y lo que tiene debajo empieza a resbalar hacia un mismo punto. Cuando cae, ahí estás tú."
+dano_mult = 2.0
+cooldown = 5
+carga_turnos = 1
+en_vuelo = true
+salta = true
+forma = 1
+forma_apunte = 3
+forma_radio = 70.0
+forma_rango = 160.0
+atrae = 70.0
+es_magico = true
+efectos = [SubResource("SA_i")]
+fx_anim_carga = &"subir>aire"
+fx_anim = &"picado"
+fx_anim_interrumpe = &"caer>recolocarse"

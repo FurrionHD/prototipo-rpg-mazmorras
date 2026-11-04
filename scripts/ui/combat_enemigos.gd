@@ -247,7 +247,8 @@ func _enemy_turn(e: Combatant) -> void:
 	# medio, asi que el estilo sale entero del Combatant (EnemyData.fx_basico). Hay que ponerlo en
 	# las dos ramas de aqui abajo -la que falla y la que acierta- igual que hace la de habilidades.
 	var estilo_bas: int = _pantalla.efectos._estilo_de_habilidad(null, e)
-	var result := StatsMath.resolve_attack(e, obj, defendiendo)
+	var result := StatsMath.resolve_attack(e, obj, defendiendo, -1.0, 0.0, 0.0,
+		not (e.orbita and obj.has_status(StatusEffects.Id.IMANTADO)))
 	_pantalla._aplicar_pasivas(result, e, obj)
 	_pantalla._debug_ataque(e, obj, result, defendiendo)
 	if result.evaded:
@@ -290,6 +291,7 @@ func _enemy_turn(e: Combatant) -> void:
 	_runas_al_encajar(e, obj, true)
 	# LO QUE PARA le sube en la tabla de este enemigo (el tanque sube aguantando).
 	_pantalla.objetivos.amenaza_por_parar(obj, e, dmg_bruto - dmg)
+	_pega_y_se_va(e, obj)
 	_pantalla.efectos._fx_golpe(e, obj, dmg, result.crit, false, e.elemento_ataque, estilo_bas,
 		1.0, false, "", AbilityData.Gesto.AUTO, e.anim_basico, 0, float(result.get("mult_elem", 1.0)))
 	# El MANTO ha recortado el golpe por su elemento: se le cobra la carga (tope de una por accion).
@@ -677,6 +679,91 @@ func revisar_capullos() -> void:
 			_pantalla._morir_enemigo(c)
 
 
+# LOS MUTANTES DEL ESCARABAJO (04/11, memoria escarabajo-mutante). Cada fotograma, en quien lleva la pelea: lo que depende
+# de como esten las cosas ahora mismo (baja del aire, Orbita, Coraza), para no tener que tocar cada salida.
+const LIMADURAS_MULT := 0.06   # + daño por limadura en la habilidad que las gasta
+
+func tick_escarabajo() -> void:
+	var imantado: bool = _pantalla._aliados.any(func(a): return a.is_alive() and a.has_status(StatusEffects.Id.IMANTADO))
+	for e in _pantalla._enemies:
+		if not e.is_alive():
+			continue
+		if e.limaduras_gastadas:
+			e.limaduras_gastadas = false
+			e._quitar_status(StatusEffects.Id.LIMADURAS)
+		var vuela: bool = e.charging != null and e.charging.en_vuelo
+		if e.has_status(StatusEffects.Id.EN_VUELO) and not vuela:
+			e._quitar_status(StatusEffects.Id.EN_VUELO)
+		if e.derribado:
+			e.derribado = false
+			if vuela:
+				var linea: String = _pantalla.interrumpir(e, null, true)
+				if linea != "":
+					_pantalla._log_extra("🪽 ¡%s cae del aire y pierde el ataque!" % _pantalla._etq(e))
+				_pantalla._update_hp()
+		if e.orbita and imantado != e.has_status(StatusEffects.Id.ORBITA):
+			if imantado:
+				e.apply_status(StatusEffects.Id.ORBITA)
+			else:
+				e._quitar_status(StatusEffects.Id.ORBITA)
+		var coraza: bool = e.has_status(StatusEffects.Id.CORAZA_IMAN)
+		if coraza and not e.imparable:
+			e.imparable = true
+			e.imparable_coraza = true
+		elif not coraza and e.imparable_coraza:
+			e.imparable = false
+			e.imparable_coraza = false
+
+
+func _limaduras_mult(e: Combatant, ab: AbilityData) -> float:
+	if ab == null or not ab.gasta_limaduras:
+		return 1.0
+	var lim = e.get_status(StatusEffects.Id.LIMADURAS)
+	if lim == null:
+		return 1.0
+	e.limaduras_gastadas = true
+	return 1.0 + LIMADURAS_MULT * float(lim.stacks)
+
+
+# PEGA Y SE VA: acabados sus golpes, se aleja de 't'. El Iman errante, con alguien Imantado, se queda encima (Orbita).
+func _pega_y_se_va(e: Combatant, t: Combatant) -> void:
+	if e.pega_y_se_va <= 0.0 or not _pantalla.tactico or _pantalla._espejo:
+		return
+	if e.orbita and _pantalla._aliados.any(func(a): return a.is_alive() and a.has_status(StatusEffects.Id.IMANTADO)):
+		return
+	_pantalla.turno_mapa.pedir_retirada(e, t, e.pega_y_se_va)
+
+
+# ADHERENCIA: si el turno de 'c' empieza a su lado, mueve la mitad (Id.ADHERIDO se va al empezar el siguiente).
+func turno_junto_al_iman(c: Combatant) -> void:
+	if not _pantalla.tactico or _pantalla._espejo or c == null or not c.is_alive():
+		return
+	for e in _pantalla._enemies:
+		if e.is_alive() and e.adherencia_radio > 0.0 \
+				and _pantalla.turno_mapa.pies_de(e).distance_to(_pantalla.turno_mapa.pies_de(c)) <= e.adherencia_radio:
+			c.apply_status(StatusEffects.Id.ADHERIDO)
+			_pantalla._log_extra("🧲 %s está tan cerca de %s que le cuesta moverse." % [c.nombre, _pantalla._etq(e)])
+			_pantalla._update_hp()
+			return
+
+
+# EL SET CAMPO MAGNETICO: cada tantos turnos de 'c', los enemigos pegados a el pierden parte de su barra.
+func campo_magnetico(c: Combatant) -> void:
+	if c == null or c.runa_campo_cada <= 0 or not _pantalla.tactico or _pantalla._espejo:
+		return
+	c.runa_campo_cuenta += 1
+	if c.runa_campo_cuenta < c.runa_campo_cada:
+		return
+	c.runa_campo_cuenta = 0
+	var n: int = 0
+	for e in _pantalla._enemies:
+		if e.is_alive() and _pantalla.turno_mapa.pies_de(e).distance_to(_pantalla.turno_mapa.pies_de(c)) <= c.runa_campo_radio:
+			_pantalla._gauge[e] = maxf(0.0, float(_pantalla._gauge.get(e, 0.0)) - _pantalla.UMBRAL * c.runa_campo_barra)
+			n += 1
+	if n > 0:
+		_pantalla._log_extra("🧲 El campo magnético de %s frena a %d enemigo%s." % [c.nombre, n, "" if n == 1 else "s"])
+
+
 # LAS CARGAS (03/11, las arañas mutantes, ver MutacionData). Una mas; en cuanto llega al tope, estalla. Solo quien lleva la pelea.
 func sumar_carga(e: Combatant) -> void:
 	if e == null or e.carga_elemento < 0 or _pantalla._espejo or not e.is_alive():
@@ -820,6 +907,8 @@ var _victima_retraso: Dictionary = {}   # Combatant -> Combatant
 
 func _enemy_begin_retraso(e: Combatant, ab: AbilityData, obj: Combatant = null) -> void:
 	e.charging = ab
+	if ab.en_vuelo:
+		e.apply_status(StatusEffects.Id.EN_VUELO)
 	e.charge_left = 0
 	e.retrasando = true
 	e.start_cooldown(ab)
@@ -852,6 +941,8 @@ func _llega_retrasada(e: Combatant) -> void:
 
 func _enemy_begin_charge(e: Combatant, ab: AbilityData, obj: Combatant = null, tras_retraso: bool = false) -> void:
 	e.charging = ab
+	if ab.en_vuelo:
+		e.apply_status(StatusEffects.Id.EN_VUELO)
 	e.charge_left = ab.carga_turnos
 	if not tras_retraso:
 		e.start_cooldown(ab)   # tras el retraso ya lo arranco al elegirla
@@ -1032,6 +1123,11 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 					sub = _enemy_resolver_golpes(e, ab, t, int(o.get("golpes", golpes)), esc, contra_txt == "",
 						es_princ or ab.area_efectos_secundarios, esc_prob)
 				# EL AGUJERO NEGRO (06/10, el abisal): al que le entra, se lo traga hacia su centro.
+				# LA EMBESTIDA IMANTADA (04/11): al primero que pilla se lo lleva hasta el final de su linea.
+				if lista_mapa != null and ab.arrastra_primero and es_princ and int(sub["conecto"]) > 0 and t.is_alive() \
+						and _pantalla.turno_mapa.ultima_forma_enemigo != null:
+					var fl = _pantalla.turno_mapa.ultima_forma_enemigo
+					_pantalla.turno_mapa.pedir_atraccion(t, e, fl.centro + fl.dir * fl.radio, fl.radio)
 				if lista_mapa != null and ab.atrae > 0.0 and int(sub["conecto"]) > 0 and t.is_alive() \
 						and _pantalla.turno_mapa.ultima_forma_enemigo != null:
 					_pantalla.turno_mapa.pedir_atraccion(t, e, _pantalla.turno_mapa.ultima_forma_enemigo.centro, ab.atrae)
@@ -1318,7 +1414,8 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 	for i in n_golpes:
 		_pantalla.efectos._fx_tanda(tanda_base + i)
 		# (la Mirada estelar NO FALLA: AbilityData.infalible)
-		var esquivable: bool = (ab == null or not ab.infalible) and not (desde_sombras and i == 0)
+		var esquivable: bool = (ab == null or not ab.infalible) and not (desde_sombras and i == 0) \
+			and not (e.orbita and t.has_status(StatusEffects.Id.IMANTADO))
 		var result := StatsMath.resolve_magico_enemigo(e, t, esquivable) if magico \
 			else StatsMath.resolve_attack(e, t, defendiendo, -1.0, 0.0, 0.0, esquivable)
 		_pantalla._aplicar_pasivas(result, e, t)
@@ -1341,6 +1438,7 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 				* ab.dano_mult * escala * e.dummy_dmg_out_mult
 			dmg *= _runa_corona_mult(t)
 			dmg *= _runa_musgo_mult(t, ab)
+			dmg *= _limaduras_mult(e, ab)
 			t.take_damage(dmg)
 			_runas_al_encajar(e, t, false)
 			_pantalla.objetivos.amenaza_por_parar(t, e, dmg_bruto - dmg)
@@ -1392,6 +1490,8 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 	if aplicar_efectos and not ab.efectos_por_golpe and conecto > 0 and t.is_alive() and e.is_alive():
 		estados += _enemy_tirar_efectos(e, ab, t, escala, "objetivo", escala_prob)
 	# REY DE LA CAMADA: tras su habilidad, sus ratas saltan detras de el (una vez por accion).
+	if conecto > 0:
+		_pega_y_se_va(e, t)
 	if conecto > 0 and e.camada_salto > 0.0 and t.is_alive():
 		var camada: String = _pantalla._camada_salta(e, t)
 		if camada != "":

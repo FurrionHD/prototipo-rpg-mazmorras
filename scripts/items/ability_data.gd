@@ -417,6 +417,12 @@ enum Pieza { NINGUNA, PEDAZO, ESQUIRLA }
 @export var rayo_otros: float = 0.5
 # ATRAE hacia el centro de su huella estos px a quien le entre (el Agujero negro; como la Voragine).
 @export var atrae: float = 0.0
+# (04/11, el escarabajo) EN EL AIRE: mientras la carga no se le puede elegir (Id.EN_VUELO); un area lo baja y la pierde.
+@export var en_vuelo: bool = false
+# ARRASTRA AL PRIMERO hasta el final de su linea (la Embestida imantada).
+@export var arrastra_primero: bool = false
+# GASTA LAS LIMADURAS: +limaduras_mult de daño por cada una que lleve, y se quedan a cero (la Embestida imantada).
+@export var gasta_limaduras: bool = false
 # NO FALLA: sus golpes no se esquivan (la Mirada estelar).
 @export var infalible: bool = false
 # DESDE LAS SOMBRAS (30/10, el Mordisco sombrio): si quien la lanza esta EN LAS SOMBRAS, su PRIMER golpe no se esquiva.

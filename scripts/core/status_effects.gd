@@ -54,7 +54,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	EN_SOMBRAS, FURIA_REY, COLMILLOS_ROTOS, MUSGO_QUEMADO,
 	RESINADO, SAVIA_NEGRA,
 	PICOR, PRINGADO,
-	PARALISIS, ENCAPULLADO }
+	PARALISIS, ENCAPULLADO,
+	IMANTADO, ADHERIDO, LIMADURAS, EN_VUELO, ORBITA, CORAZA_IMAN, ELITROS }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -586,6 +587,42 @@ static var _defs: Dictionary = {
 		"id": Id.PRINGADO, "nombre": "Pringado", "icono": "💩", "color": Color(0.5, 0.36, 0.2),
 		"turns": 2, "sin_objetos": true, "debuff": true,
 		"descripcion": "Llevas las manos llenas de algo que no es barro. No vas a meterlas en la mochila.",
+	},
+	# LOS MUTANTES DEL ESCARABAJO (04/11; numeros provisionales).
+	Id.IMANTADO: {   # lo deja el Pulso: pegado a el, sin poder andar (dos porque se le tira en el turno del bicho: es tu turno entero)
+		"id": Id.IMANTADO, "nombre": "Imantado", "icono": "🧲", "color": Color(0.8, 0.19, 0.13),
+		"turns": 2, "enraiza": true, "debuff": true,
+		"descripcion": "Te has quedado pegado a la herradura. Los brazos los tienes libres; los pies, no.",
+	},
+	Id.ADHERIDO: {   # Adherencia: tu turno empieza a su lado: mueves la mitad, como el hielo
+		"id": Id.ADHERIDO, "nombre": "Adherido", "icono": "🧲", "color": Color(0.6, 0.62, 0.68),
+		"turns": 1, "mov_mult": CONGELACION_MOV, "debuff": true,
+		"descripcion": "Tan cerca del imán, cada paso cuesta el doble.",
+	},
+	Id.LIMADURAS: {   # cada golpe que encaja se le pegan; la Embestida imantada las gasta
+		"id": Id.LIMADURAS, "nombre": "Limaduras", "icono": "⚙", "color": Color(0.58, 0.61, 0.67),
+		"turns": 999, "stack_mode": "merge", "max_stacks": 5, "def_mult": 1.03,
+		"descripcion": "Cada golpe le deja más hierro encima. Las suelta todas de golpe en su Embestida.",
+	},
+	Id.EN_VUELO: {   # subido para el Picado: no se le puede elegir; un area lo baja
+		"id": Id.EN_VUELO, "nombre": "En el aire", "icono": "🪽", "color": Color(0.3, 0.66, 0.52),
+		"turns": 999,
+		"descripcion": "Demasiado alto para alcanzarlo. Solo un golpe de área lo baja de ahí.",
+	},
+	Id.ORBITA: {   # el Iman errante, con alguien Imantado
+		"id": Id.ORBITA, "nombre": "Órbita", "icono": "🌀", "color": Color(0.8, 0.19, 0.13),
+		"turns": 999, "spd_mult": 1.25,
+		"descripcion": "Tiene a alguien pegado al imán y no piensa dejarlo: va más rápido y sus golpes a ese no se esquivan.",
+	},
+	Id.CORAZA_IMAN: {   # la Coraza imantada: no le mueven
+		"id": Id.CORAZA_IMAN, "nombre": "Coraza imantada", "icono": "🛡", "color": Color(0.34, 0.37, 0.43),
+		"turns": 3,
+		"descripcion": "Clavado al suelo por su propio imán: no hay empujón que lo mueva.",
+	},
+	Id.ELITROS: {   # los Elitros cerrados del Saeta
+		"id": Id.ELITROS, "nombre": "Élitros cerrados", "icono": "💨", "color": Color(0.3, 0.66, 0.52),
+		"turns": 3, "evade_flat": 0.25,
+		"descripcion": "Cerrado como una bala: acertarle es cosa de suerte.",
 	},
 	Id.CONGELACION: {
 		"id": Id.CONGELACION, "nombre": "Congelación", "icono": "❄", "color": Color(0.6, 0.85, 1.0),

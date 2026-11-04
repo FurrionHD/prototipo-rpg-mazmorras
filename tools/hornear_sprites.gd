@@ -72,7 +72,8 @@ func _ready() -> void:
 		PropSprites.CARPETA, PezSprites.CARPETA]
 	if OS.get_environment("HORNO_CAPAS").is_empty():
 		carpetas.append(CapaJugador.CARPETA)
-	var fuera: int = SpriteLienzo.limpiar_huerfanos(carpetas)
+	# (HORNO_FICHAS: solo se han escrito esas fichas, asi que todas las demas parecerian huerfanas: no se limpia.)
+	var fuera: int = 0 if not OS.get_environment("HORNO_FICHAS").is_empty() else SpriteLienzo.limpiar_huerfanos(carpetas)
 	if fuera > 0:
 		print("")
 		print("  Se han borrado %d ficheros que ya no genera nadie." % fuera)
@@ -95,6 +96,17 @@ func _hornear_enemigos() -> void:
 			if f.ends_with(".tres"):
 				rutas.append(FICHAS_INVOCADOS + f)
 	rutas.sort()
+	# HORNO_FICHAS=escarabajo,arana (04/11): solo esas fichas. El horno entero reescribe los ~165 atlas SIN compactar y hay
+	# que deshacer los ajenos a mano (memoria horno-godot-descompacta-atlas), y se come la RAM con el banco en marcha.
+	var solo_fichas: PackedStringArray = OS.get_environment("HORNO_FICHAS").replace(" ", "").split(",", false)
+	if not solo_fichas.is_empty():
+		var elegidas: PackedStringArray = []
+		for ruta in rutas:
+			if solo_fichas.has(ruta.get_file().get_basename()):
+				elegidas.append(ruta)
+		rutas = elegidas
+		if rutas.size() != solo_fichas.size():
+			push_error("[horno] HORNO_FICHAS: de %s solo encuentro %s" % [solo_fichas, rutas])
 
 	var total: int = 0
 	var bytes: int = 0

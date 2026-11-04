@@ -488,6 +488,7 @@ const GLIFO_SET := {
 	&"rey_rata": ["#.#.#.#", "#######", "#######", ".#.#.#.", ".#...#.", ".....#.", "......."], # corona de colmillos
 	&"jabali": ["...#...", ".#.#.#.", "..###..", "#.###.#", ".#####.", "...#...", "...#..."],   # helecho (Musgo viejo)
 	# (03/11, el set Ambar del trent) la gota de ambar con un bichito dentro (el hueco con su cuerpo en medio).
+	&"escarabajo": ["##...##", "##...##", "##...##", "##...##", "##...##", ".##.##.", "..###.."],    # la herradura del iman (Campo magnetico)
 	&"trent": ["...#...", "..###..", ".##.##.", "##...##", "##.#.##", ".##.##.", "..###.."],    # gota con bicho (Ambar)
 	# (03/11, eligio el jefe de tools/glifos_runas_versiones.py) el rayo, del set Hilo conductor de la araña.
 	&"arana": ["....##.", "...##..", "..####.", "...#...", ".####..", "..##...", ".##...."],   # rayo, centrado
