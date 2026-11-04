@@ -52,7 +52,6 @@ enum Modo { POLVO, CHILLIDO, ESTELA, SURCO, PISOTON, SAVIA, RAICES, RAMAZO,
 
 const K := 0.7071
 const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
-const BOCA_RATA := 46.0           # hasta este ancho de quien muerde, las mandibulas de la hoja de la rata
 const TOCA_MORDISCO := 3.0 / 14.0 # en el marco 3 de su hoja se cierra: ese ha de ser el golpe
 const T_POLVO := 0.28             # lo que tarda el anillo de polvo en llegar al borde
 const T_CERRADO := 0.22           # lo que se quedan las mandibulas cerradas antes de irse
@@ -132,9 +131,17 @@ var _suelo: Node2D = null
 static func area(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, espera: float) -> Node2D:
 	if padre == null or f == null:
 		return null
-	# EN PIXEL ART (04/11/2026, memoria efectos-a-pixel-art): el polvo del Frenesi de la rata. Lo demas, cuando le llegue a cada enemigo.
-	if m == Modo.POLVO and f.radio <= 30.0:
-		return EfectoPixel.lanzar(padre, "rata", "polvo", SueloRoto.origen_de(f), 0, null, espera, -1.0, maxf(BarridoAire.ritmo, 0.05))
+	# EN PIXEL ART (04/11/2026, memoria efectos-a-pixel-art): el polvo del Frenesi de la rata, el Chillido y el polvo de la Yugular del
+	# Rey Rata. Lo demas, cuando le llegue a cada enemigo.
+	var r_p: float = maxf(BarridoAire.ritmo, 0.05)
+	match m:
+		Modo.POLVO:
+			if f.radio <= 30.0:
+				return EfectoPixel.lanzar(padre, "rata", "polvo", SueloRoto.origen_de(f), 0, null, espera, -1.0, r_p)
+		Modo.CHILLIDO:
+			return EfectoPixel.lanzar(padre, "rey_rata", "chillido", SueloRoto.origen_de(f), SpriteLienzo.dir8(f.dir), null, espera, -1.0, r_p)
+		Modo.ESTELA:
+			return EfectoPixel.lanzar(padre, "rey_rata", "yugular_polvo", f.origen, SpriteLienzo.dir8(f.dir), null, espera, -1.0, r_p)
 	var e := BestiaAire.new()
 	e.modo = m
 	e.forma = f
@@ -299,8 +306,8 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 		ritmo: float, boca: float = -1.0, dibujo: CanvasItem = null) -> Node2D:
 	if padre == null:
 		return null
-	# EN PIXEL ART (04/11/2026): las mandibulas a la medida de la rata; las de bocas mas grandes (el Rey Rata...) van con su hoja.
-	if (m == Modo.MORDISCO or m == Modo.MORDISCO_SANGRA or m == Modo.FRENESI) and (boca > 0.0 and boca <= BOCA_RATA):
+	# EN PIXEL ART (04/11/2026): las mandibulas de la rata; las del Rey Rata son las mismas (su lamina).
+	if m in [Modo.MORDISCO, Modo.MORDISCO_SANGRA, Modo.FRENESI, Modo.DENTELLADA, Modo.YUGULAR]:
 		var hacia: Vector2 = caja.get_center() - desde
 		var r_p: float = maxf(ritmo, 0.05)
 		var toca: float = (TOCA_MORDISCO / r_p) if m != Modo.FRENESI else 0.0
@@ -375,6 +382,9 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 
 # EL TEMBLOR DEL CHILLIDO sobre quien lo recibe: su DIBUJO tiembla (como la esquiva, solo el dibujo y vuelve) y a
 # los lados de la cabeza le vibran dos medias lunas de sonido. 'dibujo' puede ser null (en las hojas: solo el sonido).
+var _sonido_puesto: bool = false
+
+
 static func temblor(padre: Node, dibujo: CanvasItem, caja: Rect2, semilla: int, espera: float,
 		ritmo: float) -> BestiaAire:
 	if padre == null:
@@ -888,17 +898,12 @@ func _estela(capa: Node2D) -> void:
 #  EL TEMBLOR (al que le pasa el Chillido)
 # ------------------------------------------------------------
 # Dos medias lunas de sonido a cada lado de la cabeza, ")" y "(", que vibran y se van abriendo mientras se apagan.
+# EN PIXEL ART (04/11/2026): el sonido que le vibra a los lados de la cabeza es una hoja; este nodo solo mueve su dibujo.
 func _temblor(capa: Node2D) -> void:
-	if capa != _delante or _t < 0.0 or mudo:
+	if capa != _delante or _t < 0.0 or mudo or _sonido_puesto:
 		return
-	var k: float = _t / T_TIEMBLA
-	var alfa: float = (1.0 - k) * clampf(_t / 0.05, 0.0, 1.0)
-	for s in [-1.0, 1.0]:
-		for j in 2:
-			var r: float = _ancho * (0.55 + 0.28 * float(j) + 0.15 * k)
-			var vib: float = sin(_t * 90.0 + float(j) * 2.0 + s) * 0.8
-			_arco_sonido(capa, _hasta + Vector2(vib, 0.0), r, s, maxf(1.2, _ancho * 0.1) * (1.0 - 0.3 * float(j)),
-				Color(SONIDO, alfa * (0.9 - 0.35 * float(j))))
+	_sonido_puesto = true
+	EfectoPixel.lanzar(get_parent(), "rey_rata", "temblor", _hasta, 0, null, 0.0, -1.0, _ritmo)
 
 
 # Una media luna de sonido: arco de ±40 grados hacia 'lado' (1 = derecha, -1 = izquierda), gruesa en medio y

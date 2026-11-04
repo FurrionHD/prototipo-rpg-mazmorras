@@ -69,13 +69,14 @@ def dentellada(fila, var=REY):
 
 # --- CHILLIDO: ondas de sonido en el cono, en dos tramos: bandas gruesas que se abren y se deshacen (nada de rayas), y
 # a quien le llega, el sonido le vibra alrededor ---
-def chillido(fila, var=REY):
+def chillido(fila, var=REY, escala=0.8, con_temblor=True):
     dx, dy = DIRS[fila]
-    R = 100.0 / UNIDAD * 0.8
+    R = 100.0 / UNIDAD * escala
     rad = rad_de(var)
     A = (W * 0.5 - dx * R * 0.45, H * 0.52 - dy * R * 0.4)
     eje = math.atan2(dy, dx)
     boca = (A[0] + dx * rad * 0.9, A[1] + dy * rad * 0.6 - 4)
+    sl.ORIGEN = (boca[0], boca[1] + 4)   # el vertice de su huella, a ras de suelo
     vict = [(A[0] + math.cos(eje + k) * R * u, A[1] + math.sin(eje + k) * R * u + 4) for k, u in ((-0.5, 0.45), (0.3, 0.55), (0.0, 0.9))]
     mitad = math.radians(120) * 0.5
     m, t = [], []
@@ -97,7 +98,7 @@ def chillido(fila, var=REY):
             poner(a, en & (TRAMA < fuerza * 1.4), SONIDO[1])
             poner(a, en & (borde < 1.0) & (TRAMA < fuerza * 1.6), SONIDO[2])
             poner(a, en & (borde < 0.6) & (rel < mitad * 0.3) & (fuerza > 0.5), SONIDO[3])
-        for i, v in enumerate(vict):
+        for i, v in enumerate(vict if con_temblor else []):
             llega = f - 1 - int(math.hypot(v[0] - boca[0], v[1] - boca[1]) / 6.0)
             if 0 <= llega < 7:
                 tiembla = (llega % 2) * 2 - 1
@@ -294,6 +295,7 @@ def frente(fila=1, var=DESGUACE):
 def furia(nivel, fila=1, var=CLOACAS):
     dx, dy = DIRS[fila]
     A = (W * 0.5, H * 0.55)
+    sl.ORIGEN = A
     # el HOCICO medido en su dibujo: el pixel mas adelantado hacia donde mira (no una cuenta a ojo: salia fuera de la cara)
     spr0 = np.array(marco(var, 'idle', 0, fila))
     ys, xs = np.nonzero(spr0[:, :, 3] > 0)

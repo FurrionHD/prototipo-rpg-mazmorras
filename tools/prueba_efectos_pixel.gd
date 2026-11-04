@@ -139,7 +139,7 @@ func _correr() -> void:
 	print("3e) LA RATA Y SUS MUTANTES")
 	_ver(BestiaAire.sobre_cuerpo(self, BestiaAire.Modo.MORDISCO, Vector2.ZERO, Rect2(30, 0, 14, 26), 1, 0.14, 1.0, 30.0) is EfectoPixel, "el mordisco, en pixel")
 	_ver(BestiaAire.sobre_cuerpo(self, BestiaAire.Modo.FRENESI, Vector2.ZERO, Rect2(30, 0, 14, 26), 1, 0.08, 1.0, 30.0) is EfectoPixel, "el frenesi, en pixel")
-	_ver(BestiaAire.sobre_cuerpo(self, BestiaAire.Modo.MORDISCO, Vector2.ZERO, Rect2(30, 0, 14, 26), 1, 0.14, 1.0, 90.0) is BestiaAire, "una boca grande, aun no")
+	_ver(BestiaAire.sobre_cuerpo(self, BestiaAire.Modo.MORDISCO, Vector2.ZERO, Rect2(30, 0, 14, 26), 1, 0.14, 1.0, 90.0) is EfectoPixel, "la del Rey Rata, igual")
 	var f_salto := CombatFormas.circulo(Vector2(100, 0), 25.0)
 	f_salto.dir = Vector2.RIGHT
 	f_salto.ancho = 60.0
@@ -150,6 +150,19 @@ func _correr() -> void:
 	_ver(RataAire.area(self, CombatFormas.cono(Vector2.ZERO, Vector2.RIGHT, 70.0, 70.0), RataAire.Modo.DESTELLO, 1, 0.0) is EfectoPixel, "el Destello")
 	for m_r in [RataAire.Modo.JIRONES, RataAire.Modo.ESQUIRLAS, RataAire.Modo.CORTE, RataAire.Modo.VELO]:
 		_ver(RataAire.sobre_cuerpo(self, m_r, Vector2.ZERO, Rect2(30, 0, 14, 26), Color.BLACK, 1, 0.0, 1.0) is EfectoPixel, "sobre el cuerpo %d" % m_r)
+	print("3f) EL REY RATA Y SUS MUTANTES")
+	_ver(BestiaAire.area(self, CombatFormas.cono(Vector2.ZERO, Vector2.RIGHT, 100.0, 120.0), BestiaAire.Modo.CHILLIDO, 1, 0.0) is EfectoPixel, "el Chillido")
+	_ver(BestiaAire.area(self, CombatFormas.linea(Vector2.ZERO, Vector2.RIGHT, 55.0, 12.0), BestiaAire.Modo.ESTELA, 1, 0.0) is EfectoPixel, "el polvo de la Yugular")
+	_ver(ReyRataAire.agujero(self, Vector2.ZERO, ReyRataAire.Version.GRIETA, 1).has_meta("grieta"), "la grieta de la Llamada")
+	_ver(ReyRataAire.golpe(self, ReyRataAire.Modo.CAMPANAZO, Vector2.ZERO, Vector2.RIGHT, 12.0, 1) is EfectoPixel, "el campanazo")
+	var pega := Node2D.new()
+	add_child(pega)
+	var fu: ReyRataAire = ReyRataAire.furia(self, pega, 2, Vector2.DOWN, 1)
+	_ver(fu != null and is_instance_valid(fu._hoja), "la Furia de Rey")
+	fu.poner_nivel(3, Vector2.RIGHT)
+	_ver(fu.nivel == 3, "que sube de nivel")
+	fu.parar()
+	pega.queue_free()
 	print("4) LO QUE SE QUEDA")
 	var nube: PiezaPixel = SlimeAire.nube_pixel(self, CombatFormas.circulo(Vector2.ZERO, 50.0), col, 0.0)
 	_ver(nube != null and nube.fase() == PiezaPixel.Fase.SALE, "la nube sale")

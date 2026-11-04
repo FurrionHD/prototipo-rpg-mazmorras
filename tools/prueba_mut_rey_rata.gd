@@ -181,13 +181,13 @@ func _pelea() -> void:
 			tm._salir_de_grieta(nuevas[1], 9)
 	var grietas: int = 0
 	for n in tm._arena().get_children():
-		if n is ReyRataAire and n.modo == ReyRataAire.Modo.AGUJERO:
+		if n.has_meta("grieta"):
 			grietas += 1
 	_ver(grietas == 1, "se abre UNA grieta junto al rey aunque salgan dos (%d)" % grietas)
 	var hoyo_lejos: float = 0.0
 	for n in tm._arena().get_children():
-		if n is ReyRataAire and n.modo == ReyRataAire.Modo.AGUJERO:
-			hoyo_lejos = (n._c as Vector2).distance_to(tm.pies_de(rey))
+		if n.has_meta("grieta"):
+			hoyo_lejos = (n as Node2D).position.distance_to(tm.pies_de(rey))
 	_ver(hoyo_lejos < 45.0, "junto a el (%.0f px de sus pies)" % hoyo_lejos)
 	var salto: bool = false
 	for _i in 120:
@@ -302,7 +302,7 @@ func _pelea() -> void:
 	tm._chispas_si_para({"bv": combat._bloque_de(rey), "ba": combat._bloque_de(yo), "dmg": 5.0,
 		"elem": Elementos.Elemento.NINGUNO})
 	for n in tm._arena().get_children():
-		if n is ReyRataAire and n.modo == ReyRataAire.Modo.CHISPAS:
+		if n.get_meta("golpe_rey", -1) == ReyRataAire.Modo.CHISPAS:
 			n_ch += 1
 	_ver(n_ch == 1, "y saltan chispas de la tapa")
 	var ev_n := {"bv": combat._bloque_de(rey), "ba": combat._bloque_de(yo), "dmg": 5.0, "elem": Elementos.Elemento.NINGUNO}
