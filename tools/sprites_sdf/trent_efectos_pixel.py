@@ -394,6 +394,46 @@ def costra(fila=1, var=AMBARINO):
     return m, t
 
 
+# --- LOS PUNTOS DE LA COSTRA (04/11, su peticion: como las cargas de las aranas, en ambar; TacticoTrent._tick_puntos): en el
+# Tocon y en el personaje con el set Ambar activo. Enteros con la capa; rota, se apagan y se encienden uno por turno hasta
+# que vuelve. Un circulo por turno, encima del cuerpo ---
+def contador(a, x, y, nivel, tope, pal=AMBAR):
+    for i in range(tope):
+        px = x + (i - (tope - 1) / 2.0) * 7
+        disco(a, px, y, 3.0, (20, 14, 12))
+        disco(a, px, y, 2.1, pal[2] if i < nivel else (58, 50, 50))
+        if i < nivel:
+            punto(a, px - 1, y - 1, pal[3])
+
+
+def puntos_costra(fila=1):
+    A = (W * 0.36, H * 0.66)
+    V = (W * 0.72, H * 0.66)
+    arr = np.array(marco(AMBARINO, 'idle', 0, fila))
+    ys, _x = np.nonzero(arr[:, :, 3] > 40)
+    arriba = ys.min() - pies(AMBARINO)[1]
+    tope = 3
+    # (marcos, puntos encendidos, costra entera): entera -> se rompe -> un turno, dos turnos -> vuelve
+    tramos = [(6, 3, True), (8, 0, False), (8, 1, False), (8, 2, False), (8, 3, True)]
+    m, t = [], []
+    f = 0
+    for n, nivel, entera in tramos:
+        for q in range(n):
+            s, a = nuevo(), nuevo()
+            var = AMBARINO if entera else SIN_COSTRA
+            if not entera and nivel == 0 and q < 4:
+                estrella(a, A[0], A[1] + arriba * 0.5, (20, 28, 14, 8)[q], AMBAR)
+            if entera and f > 6 and q < 3:
+                estrella(a, A[0], A[1] + arriba * 0.5, (10, 16, 8)[q], AMBAR)
+            contador(a, A[0], A[1] + arriba - 8, nivel, tope)
+            contador(a, V[0], V[1] - 28, nivel, tope)   # el personaje con el set Ambar activo
+            victima(s, *V)
+            m.append(escena([s], [(marco(var, 'idle', f, fila), var, A[0], A[1], 0)], [a]))
+            t.append(1000 // 8)
+            f += 1
+    return m, t
+
+
 # --- EL GEISER (espantajo): carga (la grieta de SU dibujo late), sale el chorro por ella hacia arriba, forma una NUBE negra
 # encima del area, y la nube LLUEVE gotas de savia que revientan en el circulo ---
 def geiser(fila=2, var=ESPANTAJO):
@@ -658,6 +698,7 @@ def principal():
     sv = {d: goteron(d, NORMAL, SAVIA, SAVIA_BORDE, deja_charco(SAVIA, SAVIA_BORDE)) for d in (1, 4)}
     re = {d: goteron(d, AMBARINO, AMBAR, AMBAR_BORDE, deja_cepo) for d in (1, 2)}
     co = costra()
+    pc = puntos_costra()
     sn = {d: goteron(d, ESPANTAJO, NEGRA, NEGRA_BORDE, deja_charco(NEGRA, NEGRA_BORDE, True)) for d in (2, 4)}
     ge = geiser()
     sh = {n: seco_humo(n, n * 2 - 1 if n else 0) for n in (1, 3)}
@@ -672,6 +713,7 @@ def principal():
         *[('TRENT\nSavia corrosiva\nhacia el ' + NOM_DIR[d], elegir(sv[d][0], (5, 8, 10, 12, 19, 28))) for d in (1, 4)],
         *[('TOCON AMBARINO\nResina (el cepo)\nhacia el ' + NOM_DIR[d], elegir(re[d][0], (5, 8, 10, 14, 24, 28))) for d in (1, 2)],
         ('TOCON AMBARINO\nse le rompe la costra', elegir(co[0], (0, 2, 4, 7, 10, 17))),
+        ('TOCON AMBARINO y set Ambar' + chr(10) + 'los puntos: enteros,' + chr(10) + 'rota, 1, 2 y vuelve', elegir(pc[0], (2, 8, 16, 24, 31, 36))),
         *[('ESPANTAJO\nSavia negra\nhacia el ' + NOM_DIR[d], elegir(sn[d][0], (5, 8, 10, 13, 20, 28))) for d in (2, 4)],
         ('ESPANTAJO\nGeiser\ncarga, chorro, nube, lluvia', elegir(ge[0], (3, 10, 14, 19, 25, 32))),
         ('ESPANTAJO\nSeco 1 tramo\ny 1 carga de humo', elegir(sh[1][0], (0, 2, 4, 7, 10, 13))),
@@ -683,7 +725,7 @@ def principal():
     ]
     lamina(filas, os.path.join(SALIDA, 'trent.png'), 2)
     todos, tiempos = [], []
-    for marcos, ts in [ba[1], ra[1], rc, sv[1], re[1], co, sn[2], ge, sh[3], ch, bo, pi, rv]:
+    for marcos, ts in [ba[1], ra[1], rc, sv[1], re[1], co, pc, sn[2], ge, sh[3], ch, bo, pi, rv]:
         todos += list(marcos) + [marcos[-1]]
         tiempos += list(ts) + [450]
     ep.gif(todos, tiempos, os.path.join(SALIDA, 'trent.gif'), 2)

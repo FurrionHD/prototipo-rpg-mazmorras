@@ -526,15 +526,15 @@ def cargas(var, nivel, tope=4, fuego=False):
                 ang = r2.uniform(0, math.tau)
                 x0, y0 = A[0] + math.cos(ang) * r * 0.6, A[1] + cy + math.sin(ang) * r * 0.6
                 arco(a, x0, y0, x0 + math.cos(ang) * 14, y0 + math.sin(ang) * 11, salto_ + k, 1.2)
-        # el contador: rombitos encima, llenos los que lleva
+        # el contador: un CIRCULO por carga encima, encendidos los que lleva (como en el juego, AranaAire._pinta_carga)
         pal = BRASA if fuego else RAYO
         for k in range(tope):
-            x = A[0] + (k - (tope - 1) / 2) * 9
-            y = A[1] + arriba - 7
-            for j in range(-3, 4):
-                ancho = 3 - abs(j)
-                for q in range(-ancho, ancho + 1):
-                    punto(a, x + q, y + j, pal[3 if abs(q) + abs(j) < 2 else 2] if k < nivel else CARBON[1])
+            x = A[0] + (k - (tope - 1) / 2) * 7
+            y = A[1] + arriba - 8
+            disco(a, x, y, 3.0, (14, 12, 16))
+            disco(a, x, y, 2.1, pal[2] if k < nivel else CARBON[1])
+            if k < nivel:
+                punto(a, x - 1, y - 1, pal[3])
         m.append(escena([s], [(marco(var, 'idle', f, 1), var, A[0], A[1], 0)], [a]))
         t.append(1000 // 10)
     return m, t
