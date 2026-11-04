@@ -1377,7 +1377,8 @@ func _nivel_enemigo_nodo(e: Node) -> int:
 # TODO lo que hace el boton de atacar, que ya no es una sola cosa:
 #
 #   TOQUE CORTO  -> el ataque de siempre (entrar en combate cuerpo a cuerpo).
-#   MANTENER 1 s -> si llevas baston o varita, sacas tus hechizos y recitas AHI MISMO (casteo_mapa).
+#   MANTENER 1 s -> si llevas baston o varita, sacas tus hechizos y recitas AHI MISMO (casteo_mapa). Con uno ya
+#                   cargado, mantener lo deshace (ver conjuro_cargado.gd).
 #
 # TOQUE O MANTENIDO (decision del usuario, 14/09/2026): con enemigo en la zona de golpe, o sin arma
 # magica, el espadazo sale en el instante en que pulsas — esperar se sentiria con retraso, y contra una
@@ -1478,6 +1479,7 @@ func _estilo_del_golpe() -> int:
 
 func _tick_ataque(delta: float) -> void:
 	var atk: bool = Input.is_action_pressed(&"atacar")
+	_tick_conjuro_cargado()
 	# Mientras recitas, el boton no hace nada mas: las frases se tocan en la banda de abajo.
 	if is_instance_valid(_casteo):
 		_attack_was = atk
@@ -1508,10 +1510,10 @@ func _tick_ataque(delta: float) -> void:
 			var diferido: bool = _golpe_diferido
 			_golpe_diferido = false
 			_atk_buffer = 0.0   # recitar no deja un espadazo esperando
+			var deshace: bool = Game.conjuro_cargado() != null
 			_abrir_casteo()
-			# No se ha podido abrir (nada a tiro): el golpe que se guardaba sale ahora, al aire, para
-			# que el boton no parezca muerto.
-			if diferido and not is_instance_valid(_casteo):
+			# No se ha podido abrir: el golpe que se guardaba sale ahora, al aire, para que el boton no parezca muerto.
+			if diferido and not deshace and not is_instance_valid(_casteo):
 				_arrancar_golpe()
 	if not atk:
 		if _golpe_diferido:
@@ -1525,7 +1527,7 @@ func _tick_ataque(delta: float) -> void:
 				_atk_buffer = ATK_BUFFER
 				# Toque corto a distancia de CONJURO: no ha llegado el espadazo, pero algo se puede
 				# hacer. Se dice, que si no el boton esta encendido y parece que no responde.
-				if hay_conjuro_a_tiro():
+				if Game.lleva_arma_magica(Game.lider()) and not _enemigos_a_tiro(RANGO_CASTEO).is_empty():
 					_toast("Está lejos: MANTÉN para recitar un hechizo.")
 		_atk_hold = 0.0
 	# El ESPACIO que no encontro a nadie se RECUERDA y se reintenta (ver ATK_BUFFER). Ojo: esto corre
@@ -1705,17 +1707,14 @@ func quiere_atacarme(bicho: Node) -> bool:
 # ============================================================
 #  RECITAR UN HECHIZO EN EL MAPA (mantener el boton de atacar)
 # ------------------------------------------------------------
-# Es la forma que tiene un mago de ABRIR la pelea: recitas aqui fuera y, si lo cantas entero, el
-# conjuro sale disparado. Al impactar se abre el combate con ese bicho como objetivo principal y el
-# hechizo se resuelve DENTRO, tal cual. Toda la maquina del recitado vive en casteo_mapa.gd; aqui
-# solo estan el "puedo o no" y lo que pasa cuando el conjuro llega.
+# Es la forma que tiene un mago de ABRIR la pelea: recitas aqui fuera, el conjuro se queda CARGADO, andas con el y
+# eliges donde cae (conjuro_cargado.gd). Toda la maquina del recitado vive en casteo_mapa.gd; aqui solo esta el
+# "puedo o no" y a donde va lo recitado.
 const CASTEO_MAPA = preload("res://scripts/ui/casteo_mapa.gd")
 const PROYECTIL_HECHIZO = preload("res://scripts/actors/player/proyectil_hechizo.gd")
+const CONJURO_CARGADO = preload("res://scripts/ui/conjuro_cargado.gd")
 
-# Hasta donde llega el conjuro. Mucho mas que el espadazo (44): es justo la gracia de ser mago.
-# Bajado de 300 tras el playtest — a media pantalla cantabas sin que nada te molestara nunca. Este
-# numero manda tambien sobre cuando se enciende el boton en azul (ver hay_conjuro_a_tiro): las dos
-# cosas son la misma pregunta y se ajustan de un solo sitio.
+# A esta distancia un toque corto avisa de que puedes recitar en vez de dar un espadazo al aire.
 const RANGO_CASTEO := 200.0
 
 
@@ -1728,20 +1727,14 @@ func _abrir_casteo() -> void:
 	if Game.hechizos_equipados(pj).is_empty():
 		_toast("No llevas hechizos equipados.")
 		return
-	# El objetivo de SALIDA es el mas cercano dentro del cono, sin pared. Al soltar el conjuro se vuelve a
-	# mirar (casteo_mapa._reapuntar): si te has girado hacia otro mientras cantabas, va a ese. Antes se
-	# fijaba aqui y ya no cambiaba, y el conjuro podia salir por tu espalda hacia uno que ya no mirabas.
-	var candidatos: Array = _enemigos_a_tiro(RANGO_CASTEO)
-	# SIN BICHO A TIRO EL PANEL SE ABRE IGUAL si llevas alguna IMBUICION. Esas no se disparan contra
-	# nadie: le tiñen el arma a uno de los tuyos, asi que exigir un enemigo delante era lo que hacia
-	# imposible prepararse ANTES de la pelea, que es justo cuando tiene sentido. Las de ataque salen
-	# apagadas dentro del panel, con su motivo (ver casteo_mapa._menu_hechizos).
-	if candidatos.is_empty() and not _lleva_imbuicion(pj):
-		_toast("No hay nada a tiro a lo que lanzarle un conjuro.")
+	# YA LLEVAS UNO CARGADO: mantener lo deshace (el maná recitado no vuelve), y ya podras recitar otro.
+	if Game.conjuro_cargado() != null:
+		_toast("Deshaces %s." % Game.conjuro_cargado().nombre)
+		Game.olvidar_conjuro_cargado()
 		return
-	var objetivo = candidatos[0][1] if not candidatos.is_empty() else null
+	# Sin bicho a tiro se abre igual: lo de ataque se queda cargado y lo sueltas cuando encuentres a quien.
 	var c: Node = CASTEO_MAPA.new()
-	c.setup(pj, self, objetivo)
+	c.setup(pj, self)
 	c.lanzado.connect(_soltar_conjuro)
 	c.fallado.connect(func(_sp, _dano, _muerto) -> void: _casteo = null)
 	c.cancelado.connect(func() -> void: _casteo = null)
@@ -1758,21 +1751,15 @@ func _mantener_recita() -> bool:
 	return Game.lleva_arma_magica(pj) and not Game.hechizos_equipados(pj).is_empty()
 
 
-# ¿Lleva equipada alguna imbuicion? Es lo que decide si el panel de recitado se abre sin bichos
-# delante. Se pregunta por el hechizo y no por el arma: una de CUERPO vale aunque vayas a puños.
-func _lleva_imbuicion(pj: PersonajeData) -> bool:
-	for sp in pj.equipped_spells:
-		if sp != null and sp.es_apoyo() and not sp.frases.is_empty():
-			return true
-	return false
-
-
 # Cantado entero. El mana ya lo cobro el panel.
 #
-# 'destino' solo viene en las IMBUICIONES: entonces no sale proyectil ni se abre pelea, se le pone al
-# personaje elegido y ya. Es la diferencia entera entre las dos ramas -- una imbuicion no vuela.
-func _soltar_conjuro(spell: SpellData, objetivo: Node, destino: Variant = null) -> void:
+# 'destino' solo viene en las de APOYO: entonces no se abre pelea, se le pone al personaje elegido y ya.
+# Lo demas se queda CARGADO (04/11, el jefe): andas con el y eliges donde cae (conjuro_cargado.gd).
+func _soltar_conjuro(spell: SpellData, destino: Variant = null) -> void:
 	_casteo = null
+	if destino == null:
+		Game.cargar_conjuro(spell, Game.lider())
+		return
 	# EL GESTO va aqui y no al empezar a mantener: el baston se mueve cuando el conjuro sale. Solo la
 	# animacion (y su sonido y la red), sin _golpe_pendiente: no pega a nadie cuerpo a cuerpo.
 	_arrancar_golpe()
@@ -1781,21 +1768,18 @@ func _soltar_conjuro(spell: SpellData, objetivo: Node, destino: Variant = null) 
 		return
 	if destino is PersonajeData:
 		_apoyo_a_los_mios(spell, [destino])
+
+
+# LO CARGADO SE VE Y SE APUNTA con su pieza: se monta aqui porque la nota puede volver sola (la sala no te dejo entrar en
+# esa pelea), y se quita ella sola cuando la nota se va o entras en una pelea.
+var _conjuro_cargado: Node = null
+
+func _tick_conjuro_cargado() -> void:
+	if is_instance_valid(_conjuro_cargado) or Game.conjuro_cargado() == null or Game.combate_activo():
 		return
-	if not is_instance_valid(objetivo):
-		return
-	var color: Color = Elementos.color(spell.elemento) if Elementos.tiene_color(spell.elemento) \
-		else Color(0.75, 0.75, 0.95)
-	var p: Node2D = PROYECTIL_HECHIZO.new()
-	p.setup(objetivo, color, spell)   # el hechizo decide su FORMA (elemento) y su TAMAÑO (potencia)
-	p.global_position = global_position
-	# Cuelga del PADRE (el piso), no de mi: si colgara de mi, me seguiria a mi en vez de volar.
-	var mundo: Node = get_parent()
-	if mundo == null:
-		return
-	mundo.add_child(p)
-	p.impacto.connect(_impacto_conjuro.bind(spell))
-	Net.jugadores.anunciar_conjuro(objetivo, color, spell)   # que se vea volar EL MISMO en las otras pantallas
+	_conjuro_cargado = CONJURO_CARGADO.new()
+	_conjuro_cargado.setup(self)
+	add_child(_conjuro_cargado)
 
 
 # Un destino que no es un personaje mio suelto: mi grupo entero, o alguien de OTRO jugador.
@@ -1918,20 +1902,6 @@ func _apoyo_a_los_mios(spell: SpellData, quienes: Array) -> void:
 			partes.append("%s: %s" % ["tú" if pj == Game.lider() else pj.nombre, hecho])
 	if not partes.is_empty():
 		_toast("✨ %s.  %s" % [spell.nombre, "  ·  ".join(partes)])
-
-
-# El conjuro ha llegado: se abre la pelea a mi nombre (con la iniciativa de siempre) y el hechizo
-# queda APUNTADO para que el combate lo resuelva en cuanto se monte, como si lo hubiera lanzado
-# dentro. Lo recoge Game._abrir_pelea / unir_aliado_al_combate: los DOS caminos de entrada.
-func _impacto_conjuro(objetivo: Node, spell: SpellData) -> void:
-	if not is_instance_valid(objetivo) or not objetivo.has_method("atacado_por_jugador"):
-		return
-	Game.apuntar_hechizo_de_entrada(spell, objetivo, Game.lider())
-	if not bool(objetivo.atacado_por_jugador()):
-		# No ha admitido la pelea (ya la tiene otro, un espejo que se niega...): el hechizo apuntado
-		# se tira, que si no se quedaria esperando a la siguiente pelea que se abriera por lo que
-		# fuera y saldria solo de la nada.
-		Game.olvidar_hechizo_de_entrada()
 
 
 # EL DISPARO EN EL MAPA (arco y ballesta, 02/10). De centro a centro: el alcance del arma (que es HUECO, como en la
@@ -2101,20 +2071,12 @@ func hay_enemigo_a_tiro() -> bool:
 	return not _enemigos_a_tiro().is_empty()
 
 
-# ¿Hay alguien a quien pueda CANTARLE un hechizo desde aqui? Es el alcance LARGO, y solo cuenta si
-# llevas baston o varita y tienes hechizos equipados: es lo que hace que a un mago el boton se le
-# encienda mucho antes que a un espadachin, que es justo la gracia.
+# ¿Puedo recitar algo? Con baston o varita y hechizos equipados, siempre: lo de apoyo se lo pones a los tuyos y lo de
+# ataque se queda cargado. Va aqui porque un boton APAGADO no acepta el mantenido (ver
+# touch_controls._conectar_mantener): sin esto, en el movil seria imposible recitar sin un enemigo delante.
 func hay_conjuro_a_tiro() -> bool:
 	var pj: PersonajeData = Game.lider()
-	if not Game.lleva_arma_magica(pj) or Game.hechizos_equipados(pj).is_empty():
-		return false
-	# Con una IMBUICION equipada siempre hay algo que recitar, haya bichos o no: se la pones a los
-	# tuyos. Va aqui y no solo en _abrir_casteo porque un boton APAGADO no acepta el mantenido (ver
-	# touch_controls._conectar_mantener), asi que sin esto en el movil era imposible imbuirse sin un
-	# enemigo delante -- justo el momento en que quieres hacerlo.
-	if _lleva_imbuicion(pj):
-		return true
-	return not _enemigos_a_tiro(RANGO_CASTEO).is_empty()
+	return Game.lleva_arma_magica(pj) and not Game.hechizos_equipados(pj).is_empty()
 
 
 # LO QUE DECIDE SI EL BOTON DE ATACAR ESTA ENCENDIDO. No es lo mismo que "puedo dar un espadazo":

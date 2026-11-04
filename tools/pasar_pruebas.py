@@ -112,7 +112,7 @@ def es_de_red(nombre: str) -> bool:
             or nombre in {"prueba_tunel", "prueba_solo_por_sala", "prueba_menu_por_sala", "prueba_lan_por_sala", "prueba_baul_sala", "prueba_zona_otra_sala",
                           "prueba_vinculo_steam", "prueba_bd_nube",
                           # (etapa 4, 26/10) el JUGADOR con su sala: dos Godot cada una (tools/prueba_con_jugador.gd)
-                          "prueba_orden_dibujo", "prueba_barras_registro", "prueba_lista_enemigos", "prueba_huida_lider", "prueba_playtest_exe_04_11", "prueba_carga_piso",
+                          "prueba_magia_cargada_red", "prueba_orden_dibujo", "prueba_barras_registro", "prueba_lista_enemigos", "prueba_huida_lider", "prueba_playtest_exe_04_11", "prueba_carga_piso",
                           "prueba_jugador_no_monta", "prueba_niebla_quieto", "prueba_zona_ajena",
                           "prueba_arena", "prueba_bd_altf4",
                           # (29/10) los canales y la barrera con un rele que pierde paquetes (puertos fijos)
@@ -152,6 +152,7 @@ COMO_SE_LANZA = {
     "prueba_bd_altf4": NUBE_LOCAL,
     "prueba_town_pelea_sala": NUBE_LOCAL,
     "prueba_town_pelea_guardada": NUBE_LOCAL,
+    "prueba_magia_cargada_red": NUBE_LOCAL,
     "prueba_orden_dibujo": NUBE_LOCAL,
     "prueba_barras_registro": NUBE_LOCAL,
     "prueba_lista_enemigos": NUBE_LOCAL,

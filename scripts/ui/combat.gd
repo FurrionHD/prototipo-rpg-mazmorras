@@ -3502,11 +3502,11 @@ func aplicar_casteo_entrante(idx_aliado: int, d: Dictionary) -> void:
 func hechizo_de_entrada(spell: SpellData, idx_enemigo: int, idx_lanzador: int) -> void:
 	magia.hechizo_de_entrada(spell, idx_enemigo, idx_lanzador)
 
-func lanzar_conjuro(nombre: String, seq: int = 0, reelegir: bool = false) -> void:
-	magia.lanzar_conjuro(nombre, seq, reelegir)
+func lanzar_conjuro(nombre: String, seq: int = 0, reelegir: bool = false, apuntar: String = "") -> void:
+	magia.lanzar_conjuro(nombre, seq, reelegir, apuntar)
 
-func recitar_frase(idx: int, opciones: Array, nombre: String, largo: int, seq: int = 0) -> void:
-	magia.recitar_frase(idx, opciones, nombre, largo, seq)
+func recitar_frase(idx: int, opciones: Array, nombre: String, largo: int, seq: int = 0, apuntar: String = "") -> void:
+	magia.recitar_frase(idx, opciones, nombre, largo, seq, apuntar)
 
 func retomar_canto(spell: SpellData, idx_frase: int, idx_lanzador: int) -> void:
 	magia.retomar_canto(spell, idx_frase, idx_lanzador)

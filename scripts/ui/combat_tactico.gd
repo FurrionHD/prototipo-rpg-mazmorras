@@ -1604,8 +1604,13 @@ func usa_huella_hechizo(spell: SpellData) -> bool:
 
 
 func huella_hechizo(spell: SpellData) -> AbilityData:
-	if _huellas_hechizo.has(spell):
-		return _huellas_hechizo[spell]
+	if not _huellas_hechizo.has(spell):
+		_huellas_hechizo[spell] = crear_huella_hechizo(spell)
+	return _huellas_hechizo[spell]
+
+
+# La huella de un hechizo, sin pelea por medio: la pelea y el conjuro cargado del mapa (conjuro_cargado.gd).
+static func crear_huella_hechizo(spell: SpellData) -> AbilityData:
 	var ab := AbilityData.new()
 	ab.nombre = spell.nombre
 	ab.forma = spell.forma
@@ -1623,7 +1628,6 @@ func huella_hechizo(spell: SpellData) -> AbilityData:
 	# (ver punto_con_iman). Lo que se apunta sigue con su alcance de siempre (huella_apunte_hechizo).
 	if spell.forma_iman > 0.0 and int(spell.forma_apunte) == CombatFormas.Apunte.LIBRE:
 		ab.forma_rango = spell.forma_rango + spell.forma_iman
-	_huellas_hechizo[spell] = ab
 	return ab
 
 
@@ -1634,9 +1638,16 @@ var _huellas_iman: Dictionary = {}   # SpellData -> AbilityData
 func huella_apunte_hechizo(spell: SpellData) -> AbilityData:
 	if spell == null or (spell.forma_iman <= 0.0 and not a_un_aliado(spell)):
 		return huella_hechizo(spell)
-	if _huellas_iman.has(spell):
-		return _huellas_iman[spell]
-	var ab: AbilityData = huella_hechizo(spell).duplicate()
+	if not _huellas_iman.has(spell):
+		_huellas_iman[spell] = crear_huella_apunte(spell)
+	return _huellas_iman[spell]
+
+
+static func crear_huella_apunte(spell: SpellData) -> AbilityData:
+	var ab: AbilityData = crear_huella_hechizo(spell)
+	if spell.forma_iman <= 0.0 and not a_un_aliado(spell):
+		return ab
+	ab = ab.duplicate()
 	ab.forma_rango = spell.forma_rango
 	# A UNO DE LOS TUYOS (Filos, Mantos, Vendaje; 30/10, el jefe: "seleccionas un aliado y se le lanza independientemente
 	# de donde este"): un circulo con iman para elegirle (el mas cercano a su centro, aliados_de_huella), en toda la zona.
@@ -1644,7 +1655,6 @@ func huella_apunte_hechizo(spell: SpellData) -> AbilityData:
 		ab.forma = CombatFormas.Tipo.CIRCULO
 		ab.forma_radio = spell.forma_iman if spell.forma_iman > 0.0 else RADIO_ELEGIR_ALIADO
 		ab.forma_rango = ALCANCE_ELEGIR_ALIADO
-		_huellas_iman[spell] = ab
 		return ab
 	if int(spell.forma) == CombatFormas.Tipo.LINEA:
 		ab.forma_ancho = spell.forma_iman
@@ -1653,7 +1663,6 @@ func huella_apunte_hechizo(spell: SpellData) -> AbilityData:
 		ab.forma_radio = spell.forma_iman
 	ab.forma_solo_primero = true
 	ab.set_meta(&"iman", true)
-	_huellas_iman[spell] = ab
 	return ab
 
 
@@ -1791,6 +1800,31 @@ func reelegir_aliado(spell: SpellData, c: Combatant) -> void:
 	apuntar(huella_apunte_hechizo(spell))
 	if _apuntando == null:
 		_reeligiendo = null
+
+
+# ELEGIR EL SITIO de un conjuro que entro en la pelea sin el (cargado sin apuntar, o interrumpido a media frase; 04/11,
+# el jefe: "al entrar te deja apuntarla cuando llegue tu turno"). Se apunta como siempre y 'al_elegir' recibe el punto.
+var _al_elegir_sitio: Callable = Callable()
+
+func apuntar_sitio(spell: SpellData, c: Combatant, al_elegir: Callable) -> void:
+	if c != null and _quien != c:
+		var cuerpo: Node2D = cuerpo_de(c)
+		if cuerpo != null:
+			_quien = c
+			_cuerpo = cuerpo
+	_al_elegir_sitio = al_elegir
+	apuntar(huella_apunte_hechizo(spell))
+	if _apuntando == null:
+		_al_elegir_sitio = Callable()
+	elif is_instance_valid(_boton_volver):
+		_boton_volver.visible = false   # el conjuro ya esta en marcha: no hay menu al que volver
+
+
+func confirmar_sitio(punto: Vector2) -> void:
+	var al_elegir: Callable = _al_elegir_sitio
+	_al_elegir_sitio = Callable()
+	_dejar_de_apuntar()
+	al_elegir.call(punto)
 
 
 # EL IMAN AL SOLTARLA: si alguien esta en la zona de enganche apuntada en 'punto', el punto pasa a SU cuerpo (el mas
@@ -2181,6 +2215,7 @@ func _refrescar_apunte(raton: Vector2) -> void:
 			Desliz.ANTES: pilla = "te acercas y estocada"
 			Desliz.YA: pilla = "solo el paso"
 		_letrero.text = ("%s: párate para lanzarla" % _apuntando.nombre) if _andando \
+			else ("%s: %s.  Clic para elegir el sitio" % [_apuntando.nombre, pilla]) if _al_elegir_sitio.is_valid() \
 			else "%s: %s.  Clic para lanzarla · clic derecho para volver" % [_apuntando.nombre, pilla]
 
 
@@ -2188,6 +2223,9 @@ func _confirmar_apunte() -> void:
 	# HAY QUE ESTAR QUIETO para lanzarla (lo pidio el usuario): asi el personaje ya se ha girado hacia
 	# donde golpea. Andando, el clic no hace nada (el letrero lo avisa).
 	if _andando:
+		return
+	if _al_elegir_sitio.is_valid():
+		confirmar_sitio(_raton_en_mundo())
 		return
 	var ab: AbilityData = _apuntando
 	# LAS DE UNO DE LOS TUYOS (Escolta, Muro) no se lanzan al aire: sin nadie debajo, el clic no hace nada.
@@ -2224,8 +2262,8 @@ func _confirmar_apunte() -> void:
 
 
 func _cancelar_apunte() -> void:
-	if _reeligiendo != null:
-		return   # el conjuro ya esta recitado: hay que elegir a alguien (no hay menu al que volver)
+	if _reeligiendo != null or _al_elegir_sitio.is_valid():
+		return   # el conjuro ya esta en marcha: hay que elegir (no hay menu al que volver)
 	var era_hechizo: bool = not _hechizo_apuntado.is_empty()
 	_hechizo_apuntado = []
 	_dejar_de_apuntar()

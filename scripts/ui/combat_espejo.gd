@@ -847,10 +847,10 @@ func _enviar_peticion() -> void:
 				float(pet.get("radio", 0.0)), pet.get("preps", []) as Array, _pantalla.pelea)
 		"frase":
 			Net.peleas.pedir_frase(_pantalla._esperando_a, int(pet.get("idx", 0)), pet.get("opciones", []),
-				String(pet.get("nombre", "")), int(pet.get("largo", 1)), seq, _pantalla.pelea)
+				String(pet.get("nombre", "")), int(pet.get("largo", 1)), seq, _pantalla.pelea, String(pet.get("apuntar", "")))
 		"disparo":
 			Net.peleas.pedir_disparo(_pantalla._esperando_a, String(pet.get("nombre", "")), seq, _pantalla.pelea,
-				bool(pet.get("reelegir", false)))
+				bool(pet.get("reelegir", false)), String(pet.get("apuntar", "")))
 		"soltar":
 			Net.peleas.pedir_soltar(_pantalla._esperando_a, String(pet.get("nombre", "")), seq, _pantalla.pelea)
 
@@ -1043,6 +1043,10 @@ func aplicar_accion_remota(accion: Dictionary, emisor: int = 0) -> void:
 			# nunca sale de aqui, solo vuelve el texto que eligio.
 			if _pantalla._cast_spell == null or _pantalla._cast_index >= _pantalla._cast_spell.longitud():
 				return
+			# El sitio de un conjuro que entro sin el: lo eligio antes de esta frase.
+			var pt_f: Array = accion.get("punto", [])
+			if pt_f.size() >= 2:
+				_pantalla.magia.aplicar_reapunte(Vector2(float(pt_f[0]), float(pt_f[1])), null)
 			_pantalla.magia._responder_frase(String(accion.get("texto", "")), _pantalla._cast_spell.frases[_pantalla._cast_index])
 		"cancelar":
 			# Se ha echado atras ANTES de recitar nada: el conjuro se cae sin coste y le devuelvo el
