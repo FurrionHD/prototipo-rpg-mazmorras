@@ -201,10 +201,10 @@ class Gotas:
 
 
 # --- EL BASICO: salpicon de gel en el pecho del que recibe, hacia atras de donde viene el golpe ---
-def basico(fila, var='s100'):
+def basico(fila, var='s100', dist=36.0):
     dx, dy = DIRS[fila]
-    A = (W * 0.5 - dx * 22, H * 0.62 - dy * 18)
-    V = (A[0] + dx * 36, A[1] + dy * 34)
+    A = (W * 0.5 - dx * dist * 0.6, H * 0.62 - dy * dist * 0.5)
+    V = (A[0] + dx * dist, A[1] + dy * dist * 0.95)
     gotas = Gotas(8, 11 + fila, 10.0, 24.0, (math.atan2(dy, dx), 0.75), sube=(6.0, 14.0), tam=(1.4, 2.4))
     m, t = [], []
     toca = 3
