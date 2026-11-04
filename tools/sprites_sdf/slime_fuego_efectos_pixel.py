@@ -98,9 +98,10 @@ def llamarada(fila, var=LAVA_SPR):
     dx, dy = DIRS[fila]
     L = 70.0 / UNIDAD
     A = (W * 0.5 - dx * L * 0.45, H * 0.58 - dy * L * 0.4)
-    sl.ORIGEN = A
     rad = marco(var, 'escupir', 0, fila).size[0] * 0.3
     bx, by = vn.boca(A, dx, dy, rad)
+    # La huella empieza en la boca, a ras de suelo: el origen va ahi, no en sus pies (si no, sale corrida hacia delante).
+    sl.ORIGEN = (bx, by + vn.BOCA)
     V = (A[0] + dx * L * 0.7, A[1] + dy * L * 0.7 + 3)
     m, t = [], []
     for f in range(16):
@@ -293,7 +294,9 @@ def embestida_cortante(fila, var=OBS_SPR):
     sl.ORIGEN = A
     V = (A[0] + dx * largo * 0.38, A[1] + dy * largo * 0.38 + 4)
     rnd = random.Random(7 + fila)
-    clavadas = [(rnd.uniform(0.05, 0.9), rnd.uniform(-10.0, 10.0), rnd.uniform(5.0, 8.0), rnd.uniform(-0.5, 0.5)) for _ in range(12)]
+    # (las esquirlas cubren el ancho de su huella, 70 de mundo: con +-10 celdas se quedaban en un tercio)
+    media = 28.0 / UNIDAD
+    clavadas = [(rnd.uniform(0.05, 0.9), rnd.uniform(-media, media), rnd.uniform(5.0, 8.0), rnd.uniform(-0.5, 0.5)) for _ in range(20)]
     m, t = [], []
     corre = 6
     for f in range(corre + 12):

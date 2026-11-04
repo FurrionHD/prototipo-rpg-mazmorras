@@ -58,7 +58,7 @@ def rociada(fila, var=NORMAL, radio_mundo=45.0, apertura=70.0):
     bx, by = boca(A, dx, dy, rad)
     eje = math.atan2(dy, dx)
     gotas = Gotas(20, 13 + fila, R * 0.35, R, (eje, math.radians(apertura) * 0.45), sube=(4.0, 11.0), tam=(1.3, 2.2))
-    sl.ORIGEN = A
+    sl.ORIGEN = (bx, by + BOCA)   # el vertice del cono de su huella es la boca, a ras de suelo
     vict = [(A[0] + math.cos(eje + k) * R * 0.8, A[1] + math.sin(eje + k) * R * 0.8 + 3) for k in (-0.35, 0.3)]
     m, t = [], []
     sale = 3

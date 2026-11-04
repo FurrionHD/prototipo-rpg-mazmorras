@@ -66,6 +66,7 @@ const CHAMUSCADO := Color(0.05, 0.03, 0.02)
 # clara ROTA en el borde, gotas de tinta, sombra en el suelo y el ojo blanco-azulado del eclipse. Sin llamas.
 const T_OSCURO := 0.45           # lo que tarda el frente de la Presion en recorrer su linea
 const T_IGNICION := 0.9
+const PIES_EN_DIBUJO := 1.12 / 1.52   # a que altura de su dibujo tiene los pies un slime (como slime_efectos_pixel.pies)
 
 var modo: int = Modo.SPLAT
 var forma: CombatFormas.Forma = null
@@ -281,8 +282,9 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, col: 
 			maxf(ritmo, 0.05), paleta_pixel(col))
 	if m == Modo.IGNICION:
 		# EN PIXEL ART: el fuego le sube del cuerpo. (El de Ceniza y brasa, mas grande: sus brasas, mas ascuas que llama.)
+		# Sale de SUS PIES dentro del dibujo (la misma cuenta que la lamina), no del borde de abajo de la caja.
 		return EfectoPixel.lanzar(padre, "slime", "ignicion_brasas" if caja.size.x > 56.0 else "ignicion",
-			Vector2(caja.get_center().x, caja.end.y), 0, null, 0.0, -1.0, maxf(ritmo, 0.05))
+			Vector2(caja.get_center().x, caja.position.y + caja.size.y * PIES_EN_DIBUJO), 0, null, 0.0, -1.0, maxf(ritmo, 0.05))
 	if m == Modo.ESCUPE:
 		# EN PIXEL ART: la bola viaja la distancia que toque (por codigo) y revienta en los pies del que lo recibe.
 		var pies_e := Vector2(caja.get_center().x, caja.end.y)

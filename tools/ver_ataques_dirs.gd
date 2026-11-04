@@ -1371,9 +1371,9 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 				# es eso: el gas que le sale de golpe); aqui tambien, en las columnas de tiempo.
 				if (ab.charco_estilo == 5 or ab.charco_estilo == 7) and f != null:
 					var fn2 = CombatFormas.circulo(f.centro, ab.charco_radio if ab.charco_radio > 0.0 else f.radio)
-					piezas.append({"n": SimaAire.nube(self, fn2, 800 + fila * 13, 0.0,
-						Color(0.52, 0.49, 0.47) if ab.charco_estilo == 7 else col),
-						"t0": 0.0})
+					# (en pixel art, como en el juego: la hoja de cuando sale; lo que dura se ve en su columna)
+					piezas.append({"n": EfectoPixel.lanzar(self, "slime", _base_nube(ab.charco_estilo, fn2.radio) + "_sale", fn2.centro, 0, null, 0.0, -1.0, 1.0,
+						PackedColorArray() if ab.charco_estilo == 7 else SlimeAire.paleta_pixel(col)), "t0": 0.0})
 				# EL EMPUJON de la Marea: los que pilla se apartan cuando les llega.
 				var pasos: Array = []
 				if not is_zero_approx(ab.tiron) and f != null and ab.suelo_roto >= 0:
@@ -1415,23 +1415,17 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 					if ab.charco_estilo == 5 or ab.charco_estilo == 7:
 						# LA NUBE DE MIASMA (06/10), de su color y con su radio (el del Escupitajo, mas grande que su golpe).
 						var fn = CombatFormas.circulo(f.centro, ab.charco_radio if ab.charco_radio > 0.0 else f.radio)
-						var nb: SimaAire = SimaAire.nube(self, fn, 900 + fila * 17, 0.0,
-							Color(0.52, 0.49, 0.47) if ab.charco_estilo == 7 else col)
+						var nb: EfectoPixel = EfectoPixel.lanzar(self, "slime", _base_nube(ab.charco_estilo, fn.radio) + "_dura", fn.centro, 0, null, 0.0, -1.0, 1.0,
+							PackedColorArray() if ab.charco_estilo == 7 else SlimeAire.paleta_pixel(col))
 						nb.set_process(false)
-						nb.set("_t", 1.2)
-						for hijo in ["_suelo", "_delante"]:
-							var su3 = nb.get(hijo)
-							if su3 is Node2D:
-								(su3 as Node2D).queue_redraw()
 						charcos.append(nb)
 					elif ab.charco_estilo == 3 or ab.charco_estilo == 4:
 						# La BABA del slime: una sola mancha (BabaSuelo), como en el juego.
 						var fb = CombatFormas.linea(f.origen, f.dir, f.largo, f.ancho) if (ab.rastro and f.tipo == CombatFormas.Tipo.LINEA) 							else CombatFormas.circulo(f.centro, f.radio)
-						var bs: BabaSuelo = BabaSuelo.crear(self, fb, col, ab.charco_estilo == 4, 900 + fila * 17)
+						var es_l: bool = fb.tipo == CombatFormas.Tipo.LINEA
+						var bs: EfectoPixel = EfectoPixel.lanzar(self, "slime", ("baba_l" if es_l else "baba_c") + ("_p" if ab.charco_estilo == 4 else "") + "_dura",
+							fb.origen if es_l else fb.centro, SpriteLienzo.dir8(fb.dir) if es_l else 0, null, 0.0, -1.0, 1.0, SlimeAire.paleta_pixel(col))
 						bs.set_process(false)
-						bs.set("_t", 1.0)
-						for hijo in ["_suelo", "_encima"]:
-							(bs.get(hijo) as Node2D).queue_redraw()
 						charcos.append(bs)
 					elif ab.rastro and f.tipo == CombatFormas.Tipo.LINEA:
 						var r_c: float = maxf(f.ancho * 0.45, 6.0)
@@ -1463,6 +1457,13 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 			print("[hoja] ", ruta)
 		cuerpo.queue_free()
 		await get_tree().process_frame
+
+
+# Las hojas de la nube que se queda (como SlimeAire.nube_pixel y nube_ceniza_pixel).
+func _base_nube(estilo: int, radio: float) -> String:
+	if estilo == 7:
+		return "nubec_50"
+	return "nube_65" if radio > 57.0 else "nube_50"
 
 
 # LAS BURBUJAS PESTILENTES (06/10, el slime pestilente): no tienen huella; se ven salir volando de el a sus sitios al
