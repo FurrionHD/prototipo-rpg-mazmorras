@@ -210,17 +210,34 @@ func _ready() -> void:
 	_rotulo.add_theme_color_override("font_outline_color", Color.BLACK)
 	_rotulo.add_theme_constant_override("outline_size", 6)
 	capa.add_child(_rotulo)
+	# ATAQUES_PIXEL=1 -> los efectos pasados a pixel art por CapaPixel (04/11): el mismo dibujo en la rejilla de los sprites.
+	if OS.get_environment("ATAQUES_PIXEL") != "":
+		# el suelo lo pinta un hijo: este nodo pasa a las capas del pixel (es padre de los efectos) y no puede pintar nada
+		var losetas := Node2D.new()
+		losetas.z_index = -10
+		losetas.draw.connect(_losetas.bind(losetas))
+		add_child(losetas)
+		add_child(CapaPixel.new())
+		child_entered_tree.connect(func(n: Node):
+			var sc = n.get_script()
+			if n is Node2D and not (n is CapaPixel) and sc != null and str(sc.resource_path).begins_with("res://scripts/fx/"):
+				CapaPixel.meter(n))
 	call_deferred("_correr")
 
 
 func _draw() -> void:
+	if OS.get_environment("ATAQUES_PIXEL") == "":
+		_losetas(self)
+
+
+func _losetas(ci: CanvasItem) -> void:
 	# Un suelo de losetas oscuro, como el de la mazmorra (el de ver_suelo_roto).
 	var r: int = 400
 	for x in range(-r, r, 16):
 		for y in range(-r, r, 16):
 			var v: float = 0.17 + 0.015 * float((x / 16 + y / 16) % 2)
-			draw_rect(Rect2(x, y, 16, 16), Color(v, v + 0.02, v + 0.035))
-			draw_rect(Rect2(x, y, 16, 16), Color(0.11, 0.12, 0.14), false, 1.0)
+			ci.draw_rect(Rect2(x, y, 16, 16), Color(v, v + 0.02, v + 0.035))
+			ci.draw_rect(Rect2(x, y, 16, 16), Color(0.11, 0.12, 0.14), false, 1.0)
 
 
 func _figura(p: Vector2, col: Color) -> ColorRect:
@@ -1138,9 +1155,11 @@ func _efecto_magia(sp: SpellData, f, fila: int, hoja: Image, tiempos: Array, dir
 	for col in tiempos.size():
 		var t: float = float(tiempos[col])
 		s.set("_t", t)
+		s.queue_redraw()
 		for hijo in ["_suelo", "_delante", "_brillo", "_lluvia"]:
-			if s.get(hijo) != null:
-				(s.get(hijo) as Node2D).queue_redraw()
+			var hn = s.get(hijo)
+			if hn is Node2D:
+				(hn as Node2D).queue_redraw()
 		for ar in arcos:
 			(ar["n"] as Node2D).set("_t", t - float(ar["t0"]))
 			((ar["n"] as Node2D).get("_brillo") as Node2D).queue_redraw()
