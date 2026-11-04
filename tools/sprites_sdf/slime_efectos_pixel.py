@@ -103,7 +103,7 @@ def gota(a, x, y, r, pal=GEL, borde=GEL_BORDE):
 
 # EL CHARCO de gel en el suelo: contorno blando (no un circulo), labio oscuro, cuerpo, el brillo como una media luna
 # arriba a la izquierda y un par de destellos. 'vivo' 1 = recien caido; al secarse se deshace a trama desde dentro.
-def charco(a, cx, cy, r, sem, vivo=1.0, pal=GEL):
+def charco(a, cx, cy, r, sem, vivo=1.0, pal=GEL, borde_col=GEL_BORDE):
     if r < 1.0:
         return
     d = np.hypot(XX - cx, YY - cy)
@@ -112,7 +112,7 @@ def charco(a, cx, cy, r, sem, vivo=1.0, pal=GEL):
     dentro = d < rr
     borde = rr - d
     queda = TRAMA < vivo * 1.15 - (1.0 - np.clip(borde / max(r, 1.0), 0, 1)) * 0.25 * (1.0 - vivo)
-    poner(a, dentro & queda, GEL_BORDE)
+    poner(a, dentro & queda, borde_col)
     poner(a, dentro & (borde > 1.2) & queda, pal[0])
     poner(a, dentro & (borde > 2.2) & queda & (TRAMA < 0.25 + vivo * 0.75), pal[1])
     # el brillo: media luna clara en el borde de arriba a la izquierda
@@ -131,7 +131,8 @@ def seco(edad, queda=6, dura=6):
 
 # Una gota que vuela de p0 a p1 con su salto: la cabeza (gota) y la cola en cometa; al caer queda su manchita.
 class Gotas:
-    def __init__(self, n, semilla, r_min, r_max, abanico=None, sube=(10.0, 22.0), tam=(1.6, 2.6)):
+    def __init__(self, n, semilla, r_min, r_max, abanico=None, sube=(10.0, 22.0), tam=(1.6, 2.6), pal=GEL, borde=GEL_BORDE):
+        self.pal, self.borde = pal, borde
         rnd = random.Random(semilla)
         self.g = []
         for i in range(n):
@@ -151,7 +152,7 @@ class Gotas:
             if k >= 1.0:
                 vivo = seco(edad_suelo, 3, 5)
                 if vivo > 0:
-                    charco(s, cx + dx * d, cy + dy * d, tam * 1.3, ang * 7, vivo)
+                    charco(s, cx + dx * d, cy + dy * d, tam * 1.3, ang * 7, vivo, self.pal, self.borde)
                 continue
             dist = r0 + (d - r0) * k
             alto = sube * 4.0 * k * (1.0 - k)
@@ -161,8 +162,8 @@ class Gotas:
             vx, vy = x - xa, y - ya
             n = math.hypot(vx, vy)
             if n > 1.5:
-                cometa_dir(a, x, y, vx / n, vy / n, min(n * 1.3, 10.0), 0, GEL)
-            gota(a, x, y, tam)
+                cometa_dir(a, x, y, vx / n, vy / n, min(n * 1.3, 10.0), 0, self.pal)
+            gota(a, x, y, tam, self.pal, self.borde)
 
 
 # --- EL BASICO: salpicon de gel en el pecho del que recibe, hacia atras de donde viene el golpe ---
@@ -254,7 +255,7 @@ def placaje(fila, largo_mundo=40.0, ancho_mundo=16.0, var='s100'):
 
 # --- EL EMBATE: coletazos de gel, la ida y vuelta del Segar: una MEDIA LUNA RELLENA que barre el cono a la altura de
 # su cuerpo, con el filo vivo delante y detras el gel que se oscurece y se deshace; de la punta salen gotas ---
-def coletazo(a, cx, cy, eje, radio, frente, tras, sentido, grueso, pal=GEL):
+def coletazo(a, cx, cy, eje, radio, frente, tras, sentido, grueso, pal=GEL, borde_col=GEL_BORDE):
     ang = np.arctan2(YY - cy, XX - cx)
     rel = (ang - eje + np.pi) % (2 * np.pi) - np.pi
     b = (frente - rel) * sentido                       # cuanto va por detras del filo
@@ -269,7 +270,7 @@ def coletazo(a, cx, cy, eje, radio, frente, tras, sentido, grueso, pal=GEL):
     poner(a, dentro & (u >= 0.25) & (u < 0.55) & exterior, pal[2])
     poner(a, dentro & (u < 0.25), pal[2])
     poner(a, dentro & (u < 0.1), pal[3])
-    poner(a, dentro & (np.abs(d - radio) >= w * 0.5 - 0.6) & (u >= 0.1) & (u < 0.55) & ~exterior, GEL_BORDE)
+    poner(a, dentro & (np.abs(d - radio) >= w * 0.5 - 0.6) & (u >= 0.1) & (u < 0.55) & ~exterior, borde_col)
 
 
 def embate(fila, golpes=2, apertura=100.0, var='s100'):
@@ -355,7 +356,7 @@ def reventon(fila, radio_mundo=35.0, var='s100'):
 
 # --- EXPANDIR PUAS: se eriza y le salen de la PIEL nueve cristales de dos puntas, grandes, hasta el borde; se clavan
 # un momento y se deshacen ---
-def cristal(a, x, y, dx, dy, largo, ancho):
+def cristal(a, x, y, dx, dy, largo, ancho, pal=CRISTAL):
     """Pua de dos puntas: el centro en (x, y) mirando a (dx, dy). Luz por un lado, sombra por el otro, borde oscuro."""
     px, py = -dy, dx
     for i in range(int(largo) + 1):
@@ -365,11 +366,11 @@ def cristal(a, x, y, dx, dy, largo, ancho):
         for j in range(-int(round(media + 1)), int(round(media + 1)) + 1):
             qx, qy = cx + px * j * 0.9, cy + py * j * 0.9
             if abs(j) > media:
-                punto(a, qx, qy, CRISTAL[0])
+                punto(a, qx, qy, pal[0])
             elif j <= 0:
-                punto(a, qx, qy, CRISTAL[3] if (abs(j) < 0.7 and 0.2 < u < 0.7) else CRISTAL[2])
+                punto(a, qx, qy, pal[3] if (abs(j) < 0.7 and 0.2 < u < 0.7) else pal[2])
             else:
-                punto(a, qx, qy, CRISTAL[1])
+                punto(a, qx, qy, pal[1])
 
 
 def puas(var='pun120', radio_mundo=56.0):
@@ -436,7 +437,7 @@ def lamina(filas, ruta, zoom=3):
     img.save(ruta)
 
 
-if __name__ == '__main__':
+def principal():
     os.makedirs(SALIDA, exist_ok=True)
     ba = {d: basico(d) for d in (1, 4)}
     pv = {d: placaje(d) for d in range(5)}
@@ -463,3 +464,7 @@ if __name__ == '__main__':
         tiempos += list(ts) + [450]
     ep.gif(todos, tiempos, os.path.join(SALIDA, 'slime.gif'), 3)
     print('hecho en', SALIDA)
+
+
+if __name__ == '__main__':
+    principal()
