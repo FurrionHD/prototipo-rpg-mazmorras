@@ -125,6 +125,15 @@ var _peso: float = 1.0                # ARROLLA: el primero que atraviesa, enter
 static func area(padre: Node, f: CombatFormas.Forma, s: int, semilla: int, espera: float) -> Node2D:
 	if padre == null or f == null or s < 0 or s >= _MODO_DE_SUELO.size():
 		return null
+	# EN PIXEL ART (04/11/2026): el ovillo de la telarana vuela hasta el sitio y alli revienta (la red que se queda la pone red()).
+	if int(_MODO_DE_SUELO[s]) == Modo.TELARANA:
+		var dir_t: Vector2 = f.dir.normalized() if f.dir.length_squared() > 0.0001 else Vector2.RIGHT
+		var lejos: float = f.ancho if f.ancho > 8.0 else 60.0
+		var r_t: float = maxf(BarridoAire.ritmo, 0.05)
+		var cae: EfectoPixel = EfectoPixel.lanzar(padre, "arana", "red_sale", f.centro, 0, null, espera + T_TELA_CAE, -1.0, r_t)
+		if cae != null:
+			cae.poner_vuelo("arana", "ovillo", f.centro - dir_t * lejos - Vector2(0.0, 14.0), f.centro, 30.0, T_TELA_CAE)
+		return cae
 	var e := InsectoAire.new()
 	e.modo = int(_MODO_DE_SUELO[s])
 	e.forma = f
@@ -196,7 +205,14 @@ static func t_salir(s: int) -> float:
 # 'peso' (ARROLLA): la fraccion del golpe que se lleva (CombatFX: 1 el primero, menos los de detras).
 # 'de_lado' (TAJO, GUADANA): de que lado de quien corta viene la hoja (-1 su izquierda, +1 su derecha).
 static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semilla: int, espera: float,
-		ritmo: float, boca: float = -1.0, peso: float = 1.0, de_lado: float = 1.0) -> InsectoAire:
+		ritmo: float, boca: float = -1.0, peso: float = 1.0, de_lado: float = 1.0) -> Node2D:
+	# EN PIXEL ART (04/11/2026): los queliceros de la arana (se cierran en el marco 3: ese es el golpe) y el veneno que gotea.
+	if padre != null and (m == Modo.QUELICEROS or m == Modo.PONZONA or m == Modo.VENENO):
+		var hacia_q: Vector2 = caja.get_center() - desde
+		var r_q: float = maxf(ritmo, 0.05)
+		var es_q: bool = m != Modo.VENENO
+		return EfectoPixel.lanzar(padre, "arana", "queliceros" if es_q else "veneno", Vector2(caja.get_center().x, caja.end.y),
+			SpriteLienzo.dir8(hacia_q) if hacia_q.length_squared() > 1.0 else 0, null, maxf(espera - (3.0 / 14.0 / r_q if es_q else 0.0), 0.0), -1.0, r_q)
 	if padre == null:
 		return null
 	var e := InsectoAire.new()
@@ -333,9 +349,12 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 
 # LA RED QUE SE QUEDA (la Telaraña): no se va sola; se va cuando CombatTactico la seca (secar()). 'espera' = lo que
 # falta para que caiga el ovillo que la tiende.
-static func red(padre: Node, f: CombatFormas.Forma, semilla: int, espera: float) -> InsectoAire:
+static func red(padre: Node, f: CombatFormas.Forma, semilla: int, espera: float) -> Node2D:
 	if padre == null or f == null:
 		return null
+	# EN PIXEL ART (04/11/2026): la red tendida, que se rasga al irse.
+	if f.radio <= 32.0:
+		return PiezaPixel.crear(padre, "arana", "", "red_dura", "red_vete", f.centro, 0, PackedColorArray(), maxf(espera, 0.0))
 	var e := InsectoAire.new()
 	e.modo = Modo.RED
 	e.forma = f

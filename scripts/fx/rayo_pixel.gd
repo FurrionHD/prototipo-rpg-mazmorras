@@ -21,6 +21,9 @@ var _t_traza: float = 0.14
 var _t_vive: float = 0.35
 var _t_apaga: float = 0.3
 var _ritmo: float = 1.0
+var quiebros: int = 0          # > 0: en zigzag, y cada T_SALTA vuelve a quebrarse (un rayo no se mueve, salta)
+const T_SALTA := 0.07
+const DESVIO := 5.5            # (celdas) lo que se aparta cada quiebro
 # (con setter: las hojas de ataques mueven el tiempo a mano, como en los demas efectos)
 var _t: float = 0.0:
 	set(v):
@@ -71,7 +74,24 @@ func _draw() -> void:
 	var g: float = _grueso * (0.45 + 0.55 * traza) * (1.0 - apaga)
 	if g < 0.4:
 		return
-	_tira(traza, g)
+	if quiebros <= 0:
+		_tira(_a, _b, traza, g)
+	else:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = int(_t / T_SALTA) * 7919 + int(_a.x) * 31 + int(_b.y)
+		var lado: Vector2 = (_b - _a).orthogonal().normalized()
+		var nodos: Array = [_a]
+		for i in range(1, quiebros):
+			nodos.append(_a.lerp(_b, float(i) / float(quiebros)) + lado * rng.randf_range(-DESVIO, DESVIO) * CELDA)
+		nodos.append(_b)
+		for i in quiebros:
+			var u0: float = float(i) / float(quiebros)
+			if u0 >= traza:
+				break
+			var u1: float = minf(traza, float(i + 1) / float(quiebros))
+			# gordo en medio y afilado en las puntas
+			var gm: float = g * pow(sin(PI * clampf((u0 + u1) * 0.5, 0.05, 0.95)), 0.6)
+			_tira(nodos[i], (nodos[i] as Vector2).lerp(nodos[i + 1], (u1 - u0) * float(quiebros)), 1.0, gm)
 	var d: float = (_grueso + 3.0) * (1.0 - apaga)
 	_destello(_a, d)
 	if traza >= 1.0:
@@ -79,9 +99,9 @@ func _draw() -> void:
 
 
 # El rayo, celda a celda por su eje mayor: en cada paso, una columna (o fila) con sus tonos de fuera a dentro.
-func _tira(traza: float, g: float) -> void:
-	var de: Vector2 = _celda_de(_a)
-	var a: Vector2 = _celda_de(_a.lerp(_b, traza))
+func _tira(desde_p: Vector2, hasta_p: Vector2, traza: float, g: float) -> void:
+	var de: Vector2 = _celda_de(desde_p)
+	var a: Vector2 = _celda_de(desde_p.lerp(hasta_p, traza))
 	var v: Vector2 = a - de
 	var pasos: int = maxi(1, roundi(maxf(absf(v.x), absf(v.y))))
 	var eje_x: bool = absf(v.x) >= absf(v.y)

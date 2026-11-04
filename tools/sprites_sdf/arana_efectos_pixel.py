@@ -350,6 +350,7 @@ def capullo(fila=2, var=TEJEDORA):
 # deshaciendose detras, y chispas que suben y caen ---
 def explosion(var=TEJEDORA, radio_mundo=50.0):
     A = (W * 0.5, H * 0.58)
+    sl.ORIGEN = A
     R = radio_mundo / UNIDAD
     rnd = random.Random(3)
     chispas = [(rnd.uniform(0, math.tau), rnd.uniform(0.5, 1.2), rnd.uniform(16, 34)) for _ in range(22)]
@@ -386,6 +387,7 @@ def explosion(var=TEJEDORA, radio_mundo=50.0):
 # --- LA DESCARGA y su climax (tormentosa): rayos a todos lados que saltan por el suelo, con destellos donde caen ---
 def descarga(var=TORMENTOSA, radio_mundo=60.0):
     A = (W * 0.5, H * 0.6)
+    sl.ORIGEN = A
     R = radio_mundo / UNIDAD
     vict = [(A[0] + R * 0.9, A[1] + 6), (A[0] - R * 0.85, A[1] - 10), (A[0] + 5, A[1] + R * 0.8)]
     m, t = [], []
@@ -433,6 +435,7 @@ def grietas(s, x, y, largo, sem, n=8):
 
 def pisoton(var=TORMENTOSA, radio_mundo=45.0):
     A = (W * 0.5, H * 0.6)
+    sl.ORIGEN = A
     R = radio_mundo / UNIDAD
     rnd = random.Random(6)
     polvo = [(i / 14 * math.tau + rnd.uniform(-0.15, 0.15), rnd.uniform(3.2, 4.8)) for i in range(14)]

@@ -6260,12 +6260,12 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	if estilo == CombatFX.Estilo.ARANA_ARCO:
 		var caja_ar: Rect2 = bulto_de(v)
 		var desde_ar: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null else caja_ar.get_center()
-		MagiaAire.arco(arena, desde_ar, caja_ar.get_center(), AranaAire.CIAN, semilla, vuelo, ritmo)
+		AranaAire.arco(arena, desde_ar, caja_ar.get_center(), false, vuelo, ritmo)
 		return
 	if estilo == CombatFX.Estilo.ARANA_HILO:
 		var caja_hi: Rect2 = bulto_de(v)
 		var desde_hi: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null else caja_hi.get_center()
-		MagiaAire.arco(arena, desde_hi, caja_hi.get_center(), AranaAire.NARANJA, semilla, vuelo, ritmo)
+		AranaAire.arco(arena, desde_hi, caja_hi.get_center(), true, vuelo, ritmo)
 		return
 	if estilo == CombatFX.Estilo.ARANA_DESCARGA:
 		AranaAire.rayos(arena, pies_de(v), 80.0, semilla)

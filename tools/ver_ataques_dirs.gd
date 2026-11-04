@@ -2173,16 +2173,10 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 			var textos: Array = ["recien tendida", "le quedan 2 turnos", "le queda 1 turno", "se deshace"]
 			var quedas: Array = [1.0, 2.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0]
 			for c2 in 4:
-				var red_n: InsectoAire = InsectoAire.red(self, f_r, 4242, 0.0)
+				# (en pixel art: la red tendida; el ultimo, ya rasgandose)
+				var red_n: EfectoPixel = EfectoPixel.lanzar(self, "arana", "red_vete" if c2 == 3 else "red_dura", f_r.centro)
 				red_n.set_process(false)
-				red_n.queda = quedas[c2]
-				red_n._t = 1.0
-				if c2 == 3:
-					red_n._secando = 0.75
-				for hijo in ["_suelo", "_delante", "_brillo"]:
-					var su = red_n.get(hijo)
-					if su is Node2D:
-						(su as Node2D).queue_redraw()
+				red_n.avanzar_a(0.35 if c2 == 3 else 0.0)
 				await _viñeta(hoja_r, c2, 0, "%s · %s · %s" % [ed.enemy_name, ab.nombre, textos[c2]])
 				red_n.queue_free()
 			cuerpo.visible = true

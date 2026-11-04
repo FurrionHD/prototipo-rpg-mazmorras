@@ -167,6 +167,8 @@ static func area(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, esper
 		Modo.PISOTON:
 			if f.radio <= 35.0:
 				return EfectoPixel.lanzar(padre, "jabali", "pisoton", SueloRoto.origen_de(f), 0, null, espera, -1.0, r_p)
+			if f.radio <= 50.0:   # (el pisoton de trueno de la Tormentosa)
+				return EfectoPixel.lanzar(padre, "arana", "pisoton", SueloRoto.origen_de(f), 0, null, espera, -1.0, r_p)
 	var e := BestiaAire.new()
 	e.modo = m
 	e.forma = f
