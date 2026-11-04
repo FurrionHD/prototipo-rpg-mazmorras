@@ -136,6 +136,20 @@ func _correr() -> void:
 	_ver(ped.fase() == PiezaPixel.Fase.SE_VA, "el pedazo que le vuelve se va")
 	await get_tree().create_timer(0.7).timeout
 	_ver(not is_instance_valid(ped), "y desaparece al llegar")
+	print("3e) LA RATA Y SUS MUTANTES")
+	_ver(BestiaAire.sobre_cuerpo(self, BestiaAire.Modo.MORDISCO, Vector2.ZERO, Rect2(30, 0, 14, 26), 1, 0.14, 1.0, 30.0) is EfectoPixel, "el mordisco, en pixel")
+	_ver(BestiaAire.sobre_cuerpo(self, BestiaAire.Modo.FRENESI, Vector2.ZERO, Rect2(30, 0, 14, 26), 1, 0.08, 1.0, 30.0) is EfectoPixel, "el frenesi, en pixel")
+	_ver(BestiaAire.sobre_cuerpo(self, BestiaAire.Modo.MORDISCO, Vector2.ZERO, Rect2(30, 0, 14, 26), 1, 0.14, 1.0, 90.0) is BestiaAire, "una boca grande, aun no")
+	var f_salto := CombatFormas.circulo(Vector2(100, 0), 25.0)
+	f_salto.dir = Vector2.RIGHT
+	f_salto.ancho = 60.0
+	_ver(RataAire.area(self, f_salto, RataAire.Modo.ESTELA_SOMBRA, 1, 0.0) is EfectoPixel, "el salto en la sombra")
+	_ver(RataAire.area(self, f_salto, RataAire.Modo.TRAICION, 1, 0.0) is EfectoPixel, "la Traicion")
+	_ver(RataAire.area(self, CombatFormas.circulo(Vector2.ZERO, 40.0), RataAire.Modo.ANILLO_ESQUIRLAS, 1, 0.0) is EfectoPixel, "el anillo de esquirlas")
+	_ver(RataAire.area(self, CombatFormas.linea(Vector2.ZERO, Vector2.RIGHT, 70.0, 18.0), RataAire.Modo.SURCO_CRISTAL, 1, 0.0) is EfectoPixel, "el surco")
+	_ver(RataAire.area(self, CombatFormas.cono(Vector2.ZERO, Vector2.RIGHT, 70.0, 70.0), RataAire.Modo.DESTELLO, 1, 0.0) is EfectoPixel, "el Destello")
+	for m_r in [RataAire.Modo.JIRONES, RataAire.Modo.ESQUIRLAS, RataAire.Modo.CORTE, RataAire.Modo.VELO]:
+		_ver(RataAire.sobre_cuerpo(self, m_r, Vector2.ZERO, Rect2(30, 0, 14, 26), Color.BLACK, 1, 0.0, 1.0) is EfectoPixel, "sobre el cuerpo %d" % m_r)
 	print("4) LO QUE SE QUEDA")
 	var nube: PiezaPixel = SlimeAire.nube_pixel(self, CombatFormas.circulo(Vector2.ZERO, 50.0), col, 0.0)
 	_ver(nube != null and nube.fase() == PiezaPixel.Fase.SALE, "la nube sale")

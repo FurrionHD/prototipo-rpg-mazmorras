@@ -52,6 +52,8 @@ enum Modo { POLVO, CHILLIDO, ESTELA, SURCO, PISOTON, SAVIA, RAICES, RAMAZO,
 
 const K := 0.7071
 const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
+const BOCA_RATA := 46.0           # hasta este ancho de quien muerde, las mandibulas de la hoja de la rata
+const TOCA_MORDISCO := 3.0 / 14.0 # en el marco 3 de su hoja se cierra: ese ha de ser el golpe
 const T_POLVO := 0.28             # lo que tarda el anillo de polvo en llegar al borde
 const T_CERRADO := 0.22           # lo que se quedan las mandibulas cerradas antes de irse
 const T_IRSE := 0.18
@@ -130,6 +132,9 @@ var _suelo: Node2D = null
 static func area(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, espera: float) -> Node2D:
 	if padre == null or f == null:
 		return null
+	# EN PIXEL ART (04/11/2026, memoria efectos-a-pixel-art): el polvo del Frenesi de la rata. Lo demas, cuando le llegue a cada enemigo.
+	if m == Modo.POLVO and f.radio <= 30.0:
+		return EfectoPixel.lanzar(padre, "rata", "polvo", SueloRoto.origen_de(f), 0, null, espera, -1.0, maxf(BarridoAire.ritmo, 0.05))
 	var e := BestiaAire.new()
 	e.modo = m
 	e.forma = f
@@ -291,9 +296,16 @@ func _quebrada(ang: float, r0: float, r1: float, desde: Vector2 = Vector2.INF) -
 # 'desde' = de donde viene (quien muerde), 'caja' = el cuerpo que lo recibe, 'espera' = lo que falta para el
 # golpe: las mandibulas se van cerrando en ese tiempo y se juntan justo en el golpe.
 static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semilla: int, espera: float,
-		ritmo: float, boca: float = -1.0, dibujo: CanvasItem = null) -> BestiaAire:
+		ritmo: float, boca: float = -1.0, dibujo: CanvasItem = null) -> Node2D:
 	if padre == null:
 		return null
+	# EN PIXEL ART (04/11/2026): las mandibulas a la medida de la rata; las de bocas mas grandes (el Rey Rata...) van con su hoja.
+	if (m == Modo.MORDISCO or m == Modo.MORDISCO_SANGRA or m == Modo.FRENESI) and (boca > 0.0 and boca <= BOCA_RATA):
+		var hacia: Vector2 = caja.get_center() - desde
+		var r_p: float = maxf(ritmo, 0.05)
+		var toca: float = (TOCA_MORDISCO / r_p) if m != Modo.FRENESI else 0.0
+		return EfectoPixel.lanzar(padre, "rata", "frenesi" if m == Modo.FRENESI else "mordisco", Vector2(caja.get_center().x, caja.end.y),
+			SpriteLienzo.dir8(hacia) if hacia.length_squared() > 1.0 else 0, null, maxf(espera - toca, 0.0), -1.0, r_p)
 	var e := BestiaAire.new()
 	e.modo = m
 	e._rng.seed = hash(semilla)

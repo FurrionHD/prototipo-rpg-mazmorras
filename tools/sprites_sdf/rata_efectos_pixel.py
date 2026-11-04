@@ -165,6 +165,43 @@ def esquirlas(pal):
     return f
 
 
+# Lo que se abre donde cae: la mancha de sombra, el anillo de esquirlas o el polvo de la pelea (e = marcos desde que cae).
+def mancha_sombra(s, V, R, e):
+    abre = min(1.0, (e + 1) / 3.0)
+    charco(s, V[0], V[1], R * 0.55 * abre, 2.0, seco(e, 7, 6) * 0.75, NEGRO, NEGRO_BORDE)
+
+
+_rnd_anillo = random.Random(11)
+for _ in range(36):
+    _rnd_anillo.random()
+_ANILLO = [(i / 14.0 * math.tau + _rnd_anillo.uniform(-0.15, 0.15), _rnd_anillo.uniform(0.85, 1.0), _rnd_anillo.uniform(6.0, 8.0)) for i in range(14)]
+_rnd_nubes = random.Random(11)
+_NUBES = [(_rnd_nubes.uniform(0, math.tau), _rnd_nubes.uniform(0.5, 1.0), _rnd_nubes.uniform(3.0, 5.0)) for _ in range(12)]
+
+
+def anillo_esquirlas(s, a, V, R, e, pal):
+    if e < 2:
+        estrella(a, V[0], V[1] - 8, (10, 14)[e], pal)
+    k = min(1.0, (e + 1) / 4.0)
+    queda = seco(e, 6, 5)
+    for ang, uu, largo in _ANILLO:
+        d = 6.0 + (R * uu - 6.0) * (1 - (1 - k) ** 2)
+        xx, yy = V[0] + math.cos(ang) * d, V[1] + math.sin(ang) * d - 3.0 * (1 - k)
+        tmp = nuevo()
+        cristal(tmp, xx, yy, math.cos(ang), math.sin(ang), largo, 1.8, pal)
+        mascara = (tmp[:, :, 3] > 0) & (TRAMA < queda)
+        (a if math.sin(ang) > -0.3 else s)[mascara] = tmp[mascara]
+
+
+def polvo_frenesi(s, a, V, R, e):
+    # el polvo de la pelea, que gira alrededor y se deshace
+    for ang, uu, rad in _NUBES:
+        r2 = rad * max(0.0, 1.0 - e / 12.0)
+        ang2 = ang + e * 0.25
+        if r2 > 0.7:
+            ep.bolita(s if math.sin(ang2) < 0 else a, V[0] + math.cos(ang2) * R * uu, V[1] + math.sin(ang2) * R * uu * 0.7 - 2, r2, ep.POLVO)
+
+
 # --- EL FRENESI: se agazapa, salta encima y muerde sin parar entre una nube de polvo (y lo de cada mutante) ---
 def frenesi(fila, var=RATA, radio_mundo=25.0, modo=None, dist=46):
     dx, dy = DIRS[fila]
@@ -172,11 +209,8 @@ def frenesi(fila, var=RATA, radio_mundo=25.0, modo=None, dist=46):
     V = (A[0] + dx * dist, A[1] + dy * dist + 4)
     B = (V[0] - dx * 7, V[1] - dy * 7 - 2)
     R = radio_mundo / UNIDAD
-    rnd = random.Random(11)
-    nubes = [(rnd.uniform(0, math.tau), rnd.uniform(0.5, 1.0), rnd.uniform(3.0, 5.0)) for _ in range(12)]
     sangre_g = Gotas(10, 9, 6.0, R * 0.9, sube=(5.0, 12.0), tam=(1.2, 2.0), pal=SANGRE, borde=SANGRE_BORDE)
     pal_cristal = AHUMADO if var == CUARZO else CIAN
-    anillo = [(i / 14.0 * math.tau + rnd.uniform(-0.15, 0.15), rnd.uniform(0.85, 1.0), rnd.uniform(6.0, 8.0)) for i in range(14)]
     m, t = [], []
     carga, vuelo = 5, 5
     for f in range(carga + vuelo + 14):
@@ -201,29 +235,11 @@ def frenesi(fila, var=RATA, radio_mundo=25.0, modo=None, dist=46):
             e = f - carga - vuelo
             spr, x, y, alto = marco(var, 'frenesi', e, fila), B[0], B[1], 0
             if modo == 'sombra':
-                # la mancha de sombra que se abre donde cae
-                abre = min(1.0, (e + 1) / 3.0)
-                charco(s, V[0], V[1], R * 0.55 * abre, 2.0, seco(e, 7, 6) * 0.75, NEGRO, NEGRO_BORDE)
+                mancha_sombra(s, V, R, e)
             elif modo == 'esquirlas':
-                if e < 2:
-                    estrella(a, V[0], V[1] - 8, (10, 14)[e], pal_cristal)
-                k = min(1.0, (e + 1) / 4.0)
-                queda = seco(e, 6, 5)
-                for ang, uu, largo in anillo:
-                    d = 6.0 + (R * uu - 6.0) * (1 - (1 - k) ** 2)
-                    xx, yy = V[0] + math.cos(ang) * d, V[1] + math.sin(ang) * d - 3.0 * (1 - k)
-                    tmp = nuevo()
-                    cristal(tmp, xx, yy, math.cos(ang), math.sin(ang), largo, 1.8, pal_cristal)
-                    mascara = (tmp[:, :, 3] > 0) & (TRAMA < queda)
-                    (a if math.sin(ang) > -0.3 else s)[mascara] = tmp[mascara]
+                anillo_esquirlas(s, a, V, R, e, pal_cristal)
             else:
-                # el polvo de la pelea, que gira alrededor y se deshace
-                for ang, uu, rad in nubes:
-                    r2 = rad * max(0.0, 1.0 - e / 12.0)
-                    ang2 = ang + e * 0.25
-                    if r2 > 0.7:
-                        ep.bolita(s if math.sin(ang2) < 0 else a, V[0] + math.cos(ang2) * R * uu,
-                                  V[1] + math.sin(ang2) * R * uu * 0.7 - 2, r2, ep.POLVO)
+                polvo_frenesi(s, a, V, R, e)
             # los bocados, uno tras otro
             if e < 10:
                 q = e % 3
@@ -289,11 +305,12 @@ def traicion(fila):
 
 # --- LA EMBESTIDA DE CRISTAL: atraviesa su linea; por donde pasa quedan esquirlas clavadas que brillan y se apagan,
 # y al que atraviesa le deja un corte de cristal ---
-def embestida(fila, var=DRUSA):
+def embestida(fila, var=DRUSA, con_corte=True):
     dx, dy = DIRS[fila]
     pal = AHUMADO if var == CUARZO else CIAN
     largo = 70.0 / UNIDAD
     A = (W * 0.5 - dx * largo * 0.5, H * 0.56 - dy * largo * 0.5)
+    sl.ORIGEN = A
     V = (A[0] + dx * largo * 0.55, A[1] + dy * largo * 0.55 + 4)
     rnd = random.Random(7 + fila)
     clavadas = [(rnd.uniform(0.05, 1.0), rnd.uniform(-6.0, 6.0), rnd.uniform(5.0, 8.0), rnd.uniform(-0.5, 0.5)) for _ in range(11)]
@@ -317,7 +334,7 @@ def embestida(fila, var=DRUSA):
             mascara = (tmp[:, :, 3] > 0) & (TRAMA < queda)
             s[mascara] = tmp[mascara]
         pasa = (largo * u) - largo * 0.55
-        if pasa >= 0:
+        if pasa >= 0 and con_corte:
             e = int(pasa / (largo / corre))
             if e < 6:
                 coletazo(a, V[0] - dy * 3, V[1] - 9 + dx * 3, math.atan2(dy, dx) + math.pi / 2, 7.0, 0.6, 2.0 * (1 - e / 6.0),
@@ -361,10 +378,11 @@ def velo(a, V, e):
         punto(a, x + rnd.randint(-6, 6), y - rnd.randint(2, 6) - e, AHUMADO[3])
 
 
-def destello(fila):
+def destello(fila, con_velo=True):
     dx, dy = DIRS[fila]
     R = 70.0 / UNIDAD
     A = (W * 0.5 - dx * R * 0.45, H * 0.56 - dy * R * 0.4)
+    sl.ORIGEN = (A[0] + dx * 6, A[1] + dy * 6)   # el vertice de su huella, a ras de suelo
     vict = [(A[0] + dx * 36 - dy * 8, A[1] + dy * 36 + dx * 8 + 4), (A[0] + dx * 50 + dy * 12, A[1] + dy * 50 - dx * 12 + 4)]
     rnd = random.Random(3)
     motas = [(rnd.uniform(-0.55, 0.55), rnd.uniform(0.2, 1.0)) for _ in range(9)]
@@ -388,7 +406,7 @@ def destello(fila):
                     d = R * uu * k
                     punto(a, pecho[0] + math.cos(math.atan2(dy, dx) + ang) * d, pecho[1] + math.sin(math.atan2(dy, dx) + ang) * d,
                           AHUMADO[3] if e < 4 else AHUMADO[2], 2)
-            for v in vict:
+            for v in vict if con_velo else []:
                 velo(a, v, e - 2)
         for v in vict:
             victima(s if v[1] < A[1] else a, *v)
