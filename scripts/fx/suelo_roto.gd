@@ -242,6 +242,10 @@ static func _lanzar_tipo(padre: Node, f: CombatFormas.Forma, t: int, semilla: in
 	s.z_index = Z_SUELO
 	s.process_mode = Node.PROCESS_MODE_ALWAYS   # la pelea tactica pausa el arbol
 	padre.add_child(s)
+	# Las grietas del martillo (GRIETAS..TAJO) en pixel art (memoria efectos-pixel-personajes). Son el mismo dibujo que
+	# usan la gargola, el golem y el minotauro: esos tambien salen en pixel (la red no dice quien golpea).
+	if t <= Tipo.TAJO:
+		CapaPixel.meter(s)
 	return s
 
 
