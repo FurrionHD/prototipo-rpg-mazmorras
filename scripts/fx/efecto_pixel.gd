@@ -29,6 +29,17 @@ var _corte: int = 0        # desde este marco va a _fps2 (lo que se seca, sin pr
 var _fps2: float = 0.0
 var _ritmo: float = 1.0     # SueloRoto lo escala en las embestidas, como en los demas efectos
 var _paleta: PackedColorArray = PackedColorArray()
+# LO QUE VIAJA ANTES DE LLEGAR (el escupitajo): mientras _t < 0, una bola que va en parabola de _v_desde a la posicion del efecto,
+# con la fila de la hoja segun hacia donde va en cada momento. La distancia cambia en cada pelea: por eso la mueve el codigo.
+var _bola: Sprite2D = null
+var _bola_medida: Array = []
+var _bola_n: int = 1
+var _bola_filas: int = 1
+var _bola_fps: float = 12.0
+var _v_desde: Vector2 = Vector2.ZERO
+var _v_hasta: Vector2 = Vector2.ZERO
+var _v_alto: float = 0.0
+var _v_dur: float = 0.0
 
 
 # 'dir' = hacia donde va, de 0 a 7 como SpriteLienzo.dir8 (0 = S, 1 = SE, 2 = E...). 'dura' > 0 la estira a ese tiempo.
@@ -61,6 +72,64 @@ static func lanzar(padre: Node, enemigo: String, nombre: String, pos: Vector2, d
 	e._capa(enemigo, nombre, "a", d.get("a"), filas, fila, espejo, Z_ENCIMA)
 	e._poner_marco()
 	return e
+
+
+# 'desde' y 'hasta' en coordenadas de mundo: 'dur' = lo que tarda (el efecto tiene que llevar esa misma espera).
+func poner_vuelo(enemigo: String, nombre: String, desde: Vector2, hasta: Vector2, alto: float, dur: float) -> void:
+	var d: Dictionary = (_DATOS.HOJAS.get(enemigo, {}) as Dictionary).get(nombre, {})
+	var medida = d.get("a")
+	if d.is_empty() or medida == null:
+		return
+	var tex: Texture2D = load(CARPETA % [enemigo, nombre, "a"])
+	if tex == null:
+		return
+	_bola_medida = medida
+	_bola_n = int(d["n"])
+	_bola_filas = int(d["filas"])
+	_bola_fps = float(d["fps"])
+	_v_desde = desde
+	_v_hasta = hasta
+	_v_alto = alto
+	_v_dur = maxf(dur, 0.01)
+	_bola = Sprite2D.new()
+	_bola.texture = tex
+	_bola.centered = false
+	_bola.hframes = _bola_n
+	_bola.vframes = _bola_filas
+	_bola.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_bola.scale = Vector2.ONE * SpriteLienzo.UNIDADES_POR_CELDA
+	_bola.top_level = true
+	_bola.z_as_relative = false
+	_bola.z_index = Z_ENCIMA
+	if _capas.size() > 0 and _capas[0].material != null:
+		_bola.material = _capas[0].material
+	elif _paleta.size() >= 5:
+		var m := ShaderMaterial.new()
+		m.shader = _TINTE
+		for i in 5:
+			m.set_shader_parameter("p%d" % i, _paleta[i])
+		_bola.material = m
+	add_child(_bola)
+	_poner_marco()
+
+
+func _poner_bola() -> void:
+	var u: float = (_t + _v_dur) / _v_dur
+	_bola.visible = u >= 0.0 and u < 1.0
+	if not _bola.visible:
+		return
+	var p: Vector2 = _v_desde.lerp(_v_hasta, u) + Vector2(0.0, -_v_alto * 4.0 * u * (1.0 - u))
+	var vel: Vector2 = (_v_hasta - _v_desde) + Vector2(0.0, -_v_alto * 4.0 * (1.0 - 2.0 * u))
+	var dir: int = SpriteLienzo.dir8(vel) if vel.length_squared() > 0.01 else 0
+	var espejo: bool = _bola_filas > 1 and dir > 4
+	var fila: int = 0
+	if _bola_filas > 1:
+		fila = 8 - dir if espejo else dir
+	_bola.flip_h = espejo
+	_bola.frame_coords = Vector2i(posmod(int((_t + _v_dur) * _bola_fps), _bola_n), fila)
+	var ox: float = float(_bola_medida[0]) - float(_bola_medida[2]) if espejo else float(_bola_medida[2])
+	_bola.offset = -Vector2(ox, float(_bola_medida[3]))
+	_bola.global_position = p
 
 
 func _capa(enemigo: String, nombre: String, suf: String, medida, filas: int, fila: int, espejo: bool, z: int) -> void:
@@ -112,6 +181,8 @@ func _marco_de(t: float) -> int:
 
 
 func _poner_marco() -> void:
+	if _bola != null:
+		_poner_bola()
 	var bruto: int = _marco_de(_t)
 	var ver: bool = _t >= 0.0 and (_bucle or bruto < _n)
 	var m: int = posmod(bruto, _n) if ver else 0

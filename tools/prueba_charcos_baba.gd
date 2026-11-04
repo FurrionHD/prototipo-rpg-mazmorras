@@ -75,8 +75,8 @@ func _correr() -> void:
 	await _esperar(2)
 	_ver(tm._charcos.size() == 2, "el rastro y el charco a la vez (%d)" % tm._charcos.size())
 	var vis = tm._charco_vis.get("rastro_%d" % tm._cod(e))
-	_ver(vis is BabaSuelo and vis._linea, "el rastro es UNA sola mancha de baba (BabaSuelo)")
-	_ver(not (vis as BabaSuelo)._pinchos.is_empty(), "con pinchos (%d)" % (vis as BabaSuelo)._pinchos.size())
+	_ver(vis is PiezaPixel, "el rastro es UNA sola mancha de baba (en pixel art: PiezaPixel)")
+	_ver(vis is PiezaPixel and (vis as PiezaPixel)._dura == "baba_l_p_dura", "en linea y con pinchos")
 	print("1) cruza el rastro andando")
 	# El personaje del mundo de referencia resiste el 64 % de los estados: sin esto el Lento entra solo a veces.
 	al.status_resist = 0.0

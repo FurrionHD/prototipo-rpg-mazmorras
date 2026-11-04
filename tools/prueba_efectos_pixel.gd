@@ -70,7 +70,30 @@ func _correr() -> void:
 	_ver(SlimeAire.area(self, CombatFormas.circulo(Vector2.ZERO, 35.0), SlimeAire.Modo.SPLAT, semilla, 0.0) is EfectoPixel, "el Reventon, en pixel")
 	_ver(SlimeAire.area(self, CombatFormas.circulo(Vector2.ZERO, 50.0), SlimeAire.Modo.SPLAT, semilla, 0.0) is SlimeAire, "la Nube de ceniza (aun sin hornear), como antes")
 	_ver(SlimeAire.sobre_cuerpo(self, SlimeAire.Modo.GOLPE, Vector2.ZERO, Rect2(30, 0, 20, 30), col, semilla, 0.05, 1.0) is EfectoPixel, "el basico, en pixel")
-	_ver(SlimeAire.sobre_cuerpo(self, SlimeAire.Modo.ESCUPE, Vector2.ZERO, Rect2(30, 0, 20, 30), col, semilla, 0.05, 1.0) is SlimeAire, "el Escupitajo (aun sin hornear), como antes")
+	var esc = SlimeAire.sobre_cuerpo(self, SlimeAire.Modo.ESCUPE, Vector2.ZERO, Rect2(90, 0, 20, 30), col, semilla, 0.26, 1.0)
+	_ver(esc is EfectoPixel and esc._bola != null, "el Escupitajo, en pixel y con su bola")
+	if esc is EfectoPixel:
+		esc.set_process(false)
+		esc._t = -0.13
+		_ver(esc._bola.visible and esc._bola.global_position.x > 40.0 and esc._bola.global_position.x < 60.0, "a mitad de viaje, la bola va por la mitad")
+		_ver(esc._bola.global_position.y < 15.0 - 15.0, "y va en arco, por encima de la linea recta")
+		esc._t = 0.01
+		_ver(not esc._bola.visible, "al llegar, la bola se va y revienta")
+	print("4) LO QUE SE QUEDA")
+	var nube: PiezaPixel = SlimeAire.nube_pixel(self, CombatFormas.circulo(Vector2.ZERO, 50.0), col, 0.0)
+	_ver(nube != null and nube.fase() == PiezaPixel.Fase.SALE, "la nube sale")
+	await get_tree().create_timer(0.8).timeout
+	_ver(nube.fase() == PiezaPixel.Fase.DURA, "y se queda")
+	await get_tree().create_timer(1.5).timeout
+	_ver(nube.fase() == PiezaPixel.Fase.DURA and is_instance_valid(nube._actual), "mientras no la sequen, sigue")
+	nube.secar()
+	_ver(nube.fase() == PiezaPixel.Fase.SE_VA, "al secarse, se va")
+	await get_tree().create_timer(1.2).timeout
+	_ver(not is_instance_valid(nube), "y desaparece")
+	var bu: PiezaPixel = SlimeAire.burbuja_pixel(self, CombatFormas.circulo(Vector2(50, 0), 22.0), col)
+	_ver(bu != null and bu.tiembla, "la burbuja, que tiembla")
+	var ba: PiezaPixel = SlimeAire.baba_pixel(self, CombatFormas.linea(Vector2.ZERO, Vector2.LEFT, 70.0, 41.0), col, true)
+	_ver(ba != null and is_instance_valid(ba._actual), "la baba con pinchos, en una linea hacia el oeste")
 	# La embestida estira el efecto a lo que tarda el cuerpo en cruzar, como a los demas (SueloRoto lo busca por nombre).
 	var n: Node2D = SueloRoto.lanzar(self, linea, SueloRoto.Tipo.SLIME_PLACAJE, semilla)
 	_ver(n != null and float(n.get("_ritmo")) != 1.0 or SueloRoto.t_salir_de(SueloRoto.Tipo.SLIME_PLACAJE) == SueloRoto.t_embestida(linea), "la embestida le ajusta el ritmo")

@@ -58,6 +58,7 @@ def rociada(fila, var=NORMAL, radio_mundo=45.0, apertura=70.0):
     bx, by = boca(A, dx, dy, rad)
     eje = math.atan2(dy, dx)
     gotas = Gotas(20, 13 + fila, R * 0.35, R, (eje, math.radians(apertura) * 0.45), sube=(4.0, 11.0), tam=(1.3, 2.2))
+    sl.ORIGEN = A
     vict = [(A[0] + math.cos(eje + k) * R * 0.8, A[1] + math.sin(eje + k) * R * 0.8 + 3) for k in (-0.35, 0.3)]
     m, t = [], []
     sale = 3
@@ -81,6 +82,7 @@ def escupitajo(fila, var=NORMAL):
     dist = 64.0
     A = (W * 0.5 - dx * dist * 0.5, H * 0.58 - dy * dist * 0.45)
     V = (A[0] + dx * dist, A[1] + dy * dist + 4)
+    sl.ORIGEN = V
     rad = marco(var, 'escupir', 0, fila).size[0] * 0.3
     bx, by = boca(A, dx, dy, rad)
     pecho = (V[0], V[1] - 10)

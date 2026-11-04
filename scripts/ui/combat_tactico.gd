@@ -3882,7 +3882,7 @@ func _charco_visible(clave: String, f, queda: float, dueno: Combatant = null) ->
 		if estilo == 3 or estilo == 4:
 			# LA BABA de las mutaciones del slime (06/10: "tendria que ser un charco UNICO y que sea god"): una sola
 			# mancha, el rastro alargado o el charco redondo, con sus pinchos si los lleva (BabaSuelo).
-			n = BabaSuelo.crear(arena, f, _color_de(dueno), estilo == 4, hash(clave))
+			n = SlimeAire.baba_pixel(arena, f, _color_de(dueno), estilo == 4)
 		elif f.tipo == CombatFormas.Tipo.LINEA:
 			# EL RASTRO: una fila de charquitos a lo largo de lo que recorrio.
 			var lista: Array = []
@@ -3903,13 +3903,13 @@ func _charco_visible(clave: String, f, queda: float, dueno: Combatant = null) ->
 			n = SimaAire.nube(arena, f, hash(clave), SimaAire.T_NUBE_SALE)
 		elif estilo == 5:
 			# LA NUBE DE MIASMA (06/10, el miasma y el pestilente): la misma nube, del color de su slime.
-			n = SimaAire.nube(arena, f, hash(clave), SimaAire.T_NUBE_SALE, _color_de(dueno))
+			n = SlimeAire.nube_pixel(arena, f, _color_de(dueno), SimaAire.T_NUBE_SALE)
 		elif estilo == 7:
 			# LA NUBE DE CENIZA (06/10, la ceniza y brasa): la misma nube, gris ceniza.
 			n = SimaAire.nube(arena, f, hash(clave), SimaAire.T_NUBE_SALE, NUBE_CENIZA)
 		elif estilo == 6:
 			# LA BURBUJA FLOTANTE (06/10, el pestilente): sale volando de sus pies (f.origen) y flota hasta que revienta.
-			n = SlimeBurbuja.crear(arena, f, _color_de(dueno), hash(clave))
+			n = SlimeAire.burbuja_pixel(arena, f, _color_de(dueno))
 		elif estilo == 8:
 			# LA ESTRELLA del cielo nocturno y el de mil ojos (06/10): la que deja al moverse.
 			n = AbisalAire.estrella(arena, f, hash(clave))

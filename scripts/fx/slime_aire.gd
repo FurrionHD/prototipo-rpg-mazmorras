@@ -161,11 +161,38 @@ static func _area_pixel(padre: Node, f: CombatFormas.Forma, m: int, col: Color, 
 			nombre = "embate_3" if f.apertura > 110.0 else "embate_2"
 		Modo.PUAS:
 			nombre = "puas_obs" if col.get_luminance() < 0.25 else "puas"
+		Modo.ROCIADA:
+			nombre = "rociada_55" if f.radio > 50.0 else "rociada_45"
 	if nombre == "":
 		return null
 	var dir: int = SpriteLienzo.dir8(f.dir) if f.dir.length_squared() > 0.0001 else 0
 	return EfectoPixel.lanzar(padre, "slime", nombre, SueloRoto.origen_de(f), dir, null, espera, -1.0,
 		maxf(BarridoAire.ritmo, 0.05), paleta_pixel(col))
+
+
+# LO QUE SE QUEDA de los slimes, en pixel art (PiezaPixel): la baba de los mutantes (3 y 4), la nube de miasma (5) y la burbuja (6).
+static func baba_pixel(padre: Node, f: CombatFormas.Forma, col: Color, pinchos: bool) -> PiezaPixel:
+	var linea: bool = f.tipo == CombatFormas.Tipo.LINEA
+	var base: String = ("baba_l" if linea else "baba_c") + ("_p" if pinchos else "")
+	var pos: Vector2 = f.origen if linea else f.centro   # (la hoja del rastro tiene su origen donde empieza)
+	var dir: int = SpriteLienzo.dir8(f.dir) if linea and f.dir.length_squared() > 0.0001 else 0
+	return PiezaPixel.crear(padre, "slime", base + "_sale", base + "_dura", base + "_vete", pos, dir, paleta_pixel(col), 0.0, BarridoAire.ritmo)
+
+
+static func nube_pixel(padre: Node, f: CombatFormas.Forma, col: Color, espera: float) -> PiezaPixel:
+	var base: String = "nube_65" if f.radio > 57.0 else "nube_50"
+	return PiezaPixel.crear(padre, "slime", base + "_sale", base + "_dura", base + "_vete", f.centro, 0, paleta_pixel(col), espera, BarridoAire.ritmo)
+
+
+const T_VUELO_BURBUJA := 0.4
+
+
+static func burbuja_pixel(padre: Node, f: CombatFormas.Forma, col: Color) -> PiezaPixel:
+	var p: PiezaPixel = PiezaPixel.crear(padre, "slime", "burbuja_sale", "burbuja_dura", "burbuja_vete", f.centro, 0, paleta_pixel(col), T_VUELO_BURBUJA, BarridoAire.ritmo)
+	if p != null:
+		p.tiembla = true
+		p.poner_vuelo("burbuja_vuela", f.origen if f.origen != Vector2.ZERO else f.centro, 22.0, T_VUELO_BURBUJA)
+	return p
 
 
 # Los cinco colores de sus hojas (ver EfectoPixel): los cuatro tonos del gel y el borde, sacados de SU color.
@@ -236,6 +263,14 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, col: 
 		var d8: int = SpriteLienzo.dir8(hacia) if hacia.length_squared() > 1.0 else 0
 		return EfectoPixel.lanzar(padre, "slime", "golpe", Vector2(caja.get_center().x, caja.end.y), d8, null, maxf(espera, 0.08), -1.0,
 			maxf(ritmo, 0.05), paleta_pixel(col))
+	if m == Modo.ESCUPE:
+		# EN PIXEL ART: la bola viaja la distancia que toque (por codigo) y revienta en los pies del que lo recibe.
+		var pies_e := Vector2(caja.get_center().x, caja.end.y)
+		var viaje: float = maxf(espera, 0.08)
+		var ep: EfectoPixel = EfectoPixel.lanzar(padre, "slime", "escupe", pies_e, 0, null, viaje, -1.0, maxf(ritmo, 0.05), paleta_pixel(col))
+		if ep != null:
+			ep.poner_vuelo("slime", "bola", desde, caja.get_center(), 18.0, viaje)
+		return ep
 	var e := SlimeAire.new()
 	e.modo = m
 	e.color = col
