@@ -200,10 +200,14 @@ def rastro(a, A, dx, dy, hecho, media, f, corre, largo, sem):
         return
     s_ = (XX - A[0]) * dx + (YY - A[1]) * dy
     l_ = (XX - A[0]) * (-dy) + (YY - A[1]) * dx
-    u = np.clip(s_ / max(largo, 1.0), 0.0, 1.0)
-    ancho = media * (0.45 + 0.55 * np.clip(s_ / 10.0, 0, 1)) * (1.0 + 0.12 * np.sin(s_ * 0.2 + sem) + 0.07 * np.sin(s_ * 0.47 + sem * 2))
-    dentro = (s_ >= 0.0) & (s_ <= hecho) & (np.abs(l_) < ancho)
-    borde = ancho - np.abs(l_)
+    # Las dos PUNTAS redondas (lo vio el, 04/11: el final se cortaba recto y al recular el cuerpo se veia el corte):
+    # cada celda mira al punto mas cercano del eje ya pintado, asi la franja acaba en media gota.
+    sc = np.clip(s_, 0.0, hecho)
+    u = np.clip(sc / max(largo, 1.0), 0.0, 1.0)
+    ancho = media * (0.45 + 0.55 * np.clip(sc / 10.0, 0, 1)) * (1.0 + 0.12 * np.sin(sc * 0.2 + sem) + 0.07 * np.sin(sc * 0.47 + sem * 2))
+    d = np.hypot(s_ - sc, l_)
+    dentro = d < ancho
+    borde = ancho - d
     edad = f - u * corre
     vivo = np.clip(1.0 - (edad - 8.0) / 6.0, 0.0, 1.0)
     queda = TRAMA < vivo * 1.15
