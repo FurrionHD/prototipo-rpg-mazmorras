@@ -214,22 +214,15 @@ func _ready() -> void:
 	capa.add_child(_rotulo)
 	# ATAQUES_PIXEL=1 -> los efectos pasados a pixel art por CapaPixel (04/11): el mismo dibujo en la rejilla de los sprites.
 	if OS.get_environment("ATAQUES_PIXEL") != "":
-		# el suelo lo pinta un hijo: este nodo pasa a las capas del pixel (es padre de los efectos) y no puede pintar nada
-		var losetas := Node2D.new()
-		losetas.z_index = -10
-		losetas.draw.connect(_losetas.bind(losetas))
-		add_child(losetas)
-		add_child(CapaPixel.new())
 		child_entered_tree.connect(func(n: Node):
 			var sc = n.get_script()
 			if n is Node2D and not (n is CapaPixel) and sc != null and str(sc.resource_path).begins_with("res://scripts/fx/"):
-				CapaPixel.meter(n))
+				CapaPixel.meter.call_deferred(n))
 	call_deferred("_correr")
 
 
 func _draw() -> void:
-	if OS.get_environment("ATAQUES_PIXEL") == "":
-		_losetas(self)
+	_losetas(self)
 
 
 func _losetas(ci: CanvasItem) -> void:

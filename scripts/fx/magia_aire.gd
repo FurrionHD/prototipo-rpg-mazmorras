@@ -239,6 +239,7 @@ static func area(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, esper
 	e.z_index = SueloRoto.Z_SUELO
 	e.process_mode = Node.PROCESS_MODE_ALWAYS
 	padre.add_child(e)
+	CapaPixel.meter(e)   # en pixel art (memoria efectos-pixel-personajes)
 	e._preparar_area()
 	return e
 
@@ -448,6 +449,7 @@ static func arco(padre: Node, desde: Vector2, hasta: Vector2, col: Color, semill
 	e.z_index = Z_ENCIMA
 	e.process_mode = Node.PROCESS_MODE_ALWAYS
 	padre.add_child(e)
+	CapaPixel.meter(e)   # en pixel art (memoria efectos-pixel-personajes)
 	e._brillo = e._capa(Z_ENCIMA + 1, true)
 	return e
 
@@ -471,6 +473,7 @@ static func sobre_cuerpo(padre: Node, m: int, caja: Rect2, col: Color, semilla: 
 	e.z_index = Z_ENCIMA
 	e.process_mode = Node.PROCESS_MODE_ALWAYS
 	padre.add_child(e)
+	CapaPixel.meter(e)   # en pixel art (memoria efectos-pixel-personajes)
 	for i in 8:
 		e._motas.append({"x": e._rng.randf_range(-0.55, 0.55), "t0": e._rng.randf_range(0.0, 0.45),
 			"tam": e._rng.randf_range(2.5, 4.0)})
@@ -506,6 +509,7 @@ static func filo(padre: Node, desde: Vector2, caja: Rect2, col: Color, semilla: 
 	e.z_index = Z_ENCIMA
 	e.process_mode = Node.PROCESS_MODE_ALWAYS
 	padre.add_child(e)
+	CapaPixel.meter(e)   # en pixel art (memoria efectos-pixel-personajes)
 	for i in 14:
 		var a: float = e._rng.randf_range(0.0, TAU)
 		e._motas.append({"d": Vector2(cos(a), sin(a) * K), "v": e._rng.randf_range(30.0, 70.0), "tam": e._rng.randf_range(1.4, 2.6),
@@ -533,6 +537,7 @@ static func cura(padre: Node, caja: Rect2, semilla: int, espera: float, ritmo: f
 	e.z_index = Z_ENCIMA
 	e.process_mode = Node.PROCESS_MODE_ALWAYS
 	padre.add_child(e)
+	CapaPixel.meter(e)   # en pixel art (memoria efectos-pixel-personajes)
 	for i in 9:
 		e._motas.append({"x": e._rng.randf_range(-0.6, 0.6), "t0": e._rng.randf_range(0.1, 0.55),
 			"sube": e._rng.randf_range(18.0, 30.0), "tam": e._rng.randf_range(3.0, 5.5)})
