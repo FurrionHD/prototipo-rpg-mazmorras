@@ -125,6 +125,10 @@ var _peso: float = 1.0                # ARROLLA: el primero que atraviesa, enter
 static func area(padre: Node, f: CombatFormas.Forma, s: int, semilla: int, espera: float) -> Node2D:
 	if padre == null or f == null or s < 0 or s >= _MODO_DE_SUELO.size():
 		return null
+	# EN PIXEL ART (04/11/2026): la banda de la Embestida rodante del escarabajo (la de su linea; las mas largas, cuando les llegue).
+	if int(_MODO_DE_SUELO[s]) == Modo.RODADA and f.largo <= 105.0:
+		return EfectoPixel.lanzar(padre, "escarabajo", "rodada", SueloRoto.origen_de(f), SpriteLienzo.dir8(f.dir), null, espera, -1.0,
+			maxf(BarridoAire.ritmo, 0.05))
 	# EN PIXEL ART (04/11/2026): el ovillo de la telarana vuela hasta el sitio y alli revienta (la red que se queda la pone red()).
 	if int(_MODO_DE_SUELO[s]) == Modo.TELARANA:
 		var dir_t: Vector2 = f.dir.normalized() if f.dir.length_squared() > 0.0001 else Vector2.RIGHT
@@ -207,6 +211,15 @@ static func t_salir(s: int) -> float:
 static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semilla: int, espera: float,
 		ritmo: float, boca: float = -1.0, peso: float = 1.0, de_lado: float = 1.0) -> Node2D:
 	# EN PIXEL ART (04/11/2026): los queliceros de la arana (se cierran en el marco 3: ese es el golpe) y el veneno que gotea.
+	# Y la pala del escarabajo (se hunde en el marco 2), el cruce de la bola y el polvo de su Caparazon (el reflejo, sobre su sprite).
+	if padre != null and (m == Modo.PALA or m == Modo.ARROLLA):
+		var hacia_p: Vector2 = caja.get_center() - desde
+		var r_pl: float = maxf(ritmo, 0.05)
+		return EfectoPixel.lanzar(padre, "escarabajo", "pala" if m == Modo.PALA else "arrolla", Vector2(caja.get_center().x, caja.end.y),
+			SpriteLienzo.dir8(hacia_p) if hacia_p.length_squared() > 1.0 else 0, null, maxf(espera - (2.0 / 14.0 / r_pl if m == Modo.PALA else 0.0), 0.0), -1.0, r_pl)
+	if padre != null and m == Modo.CAPARAZON:
+		# (a sus pies de verdad: su caja es el dibujo entero, y el anillo ya va 6 celdas por debajo de su origen)
+		return EfectoPixel.lanzar(padre, "escarabajo", "capa_polvo", Vector2(caja.get_center().x, caja.position.y + caja.size.y * 0.55), 0, null, maxf(espera, 0.0), -1.0, maxf(ritmo, 0.05))
 	if padre != null and (m == Modo.QUELICEROS or m == Modo.PONZONA or m == Modo.VENENO):
 		var hacia_q: Vector2 = caja.get_center() - desde
 		var r_q: float = maxf(ritmo, 0.05)

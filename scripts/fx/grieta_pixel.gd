@@ -34,6 +34,24 @@ const LUZ := Color8(190, 160, 250)
 const MEDIO := Color8(84, 56, 138)
 
 static var _shader: Shader = null
+static var _shader_reflejo: Shader = null
+
+# EL REFLEJO (el Caparazon del escarabajo): una franja diagonal clara que le cruza lo claro de su dibujo, de punta a punta.
+const _CODIGO_REFLEJO := """shader_type canvas_item;
+uniform vec4 luz : source_color;
+uniform vec4 medio : source_color;
+uniform float pasa = 0.0;
+void fragment() {
+	vec4 t = texture(TEXTURE, UV);
+	vec2 p = UV / TEXTURE_PIXEL_SIZE;
+	vec2 tam = 1.0 / TEXTURE_PIXEL_SIZE;
+	float d = abs((p.x + p.y * 0.6) - pasa * (tam.x + tam.y * 0.6));
+	bool claro = t.a > 0.5 && (t.r + t.g + t.b) > 0.35;
+	COLOR = (claro && d < 3.0) ? luz : ((claro && d < 5.0) ? medio : vec4(0.0));
+}
+"""
+var _reflejo: float = -1.0
+var _t_reflejo: float = 0.4
 
 var nivel: int = 1
 var carga: bool = false
@@ -77,9 +95,39 @@ func secar() -> void:
 	queue_free()
 
 
+static func reflejo(spr: AnimatedSprite2D, espera: float, dur: float = 0.4) -> GrietaPixel:
+	if spr == null:
+		return null
+	if _shader_reflejo == null:
+		_shader_reflejo = Shader.new()
+		_shader_reflejo.code = _CODIGO_REFLEJO
+	var g := GrietaPixel.new()
+	g._spr = spr
+	g._reflejo = -maxf(espera, 0.0)
+	g._t_reflejo = maxf(dur, 0.05)
+	g._mat = ShaderMaterial.new()
+	g._mat.shader = _shader_reflejo
+	g._mat.set_shader_parameter("luz", Color8(220, 226, 236))
+	g._mat.set_shader_parameter("medio", Color8(150, 156, 170))
+	g.material = g._mat
+	g.z_index = 1
+	g.process_mode = Node.PROCESS_MODE_ALWAYS
+	spr.add_child(g)
+	return g
+
+
 func _process(delta: float) -> void:
 	if not is_instance_valid(_spr):
 		queue_free()
+		return
+	if _reflejo > -INF and _mat.shader == _shader_reflejo:
+		_reflejo += delta
+		if _reflejo >= _t_reflejo:
+			queue_free()
+			return
+		visible = _reflejo >= 0.0
+		_mat.set_shader_parameter("pasa", clampf(_reflejo / _t_reflejo, 0.0, 1.0))
+		queue_redraw()
 		return
 	_t += delta
 	# Late: la carga, cada vez mas deprisa; lo seco, mas deprisa cuantos mas tramos.

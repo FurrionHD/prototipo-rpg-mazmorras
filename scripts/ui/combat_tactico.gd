@@ -6151,6 +6151,11 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 			lado_i = float(cuerpo_de(a).get_meta("lado_basico", -1.0)) if a != null and cuerpo_de(a) != null else -1.0
 		elif estilo == CombatFX.Estilo.INSECTO_GUADANA:
 			lado_i = -1.0 if int(ev.get("tanda", 0)) % 2 == 0 else 1.0
+		if estilo == CombatFX.Estilo.INSECTO_CAPARAZON:
+			for quien in [v, a]:
+				if quien != null and cuerpo_de(quien) != null and cuerpo_de(quien).get("_sprite") is AnimatedSprite2D:
+					GrietaPixel.reflejo(cuerpo_de(quien).get("_sprite"), vuelo, 0.4 / maxf(ritmo, 0.05))
+					break
 		InsectoAire.sobre_cuerpo(arena, int(_MODO_INSECTO[estilo]), desde_i, bulto_de(v), semilla, vuelo, ritmo,
 			boca_i, float(ev.get("peso", 1.0)), lado_i)
 		# EL APRETON del Enrosque: el sprite enroscado aprieta y la presa tiembla.
