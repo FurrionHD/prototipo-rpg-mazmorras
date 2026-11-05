@@ -1753,6 +1753,13 @@ func pedir_suelo(padre: Node, forma: RefCounted, tipo: int, semilla: int, nucleo
 	_suelo = {"padre": padre, "forma": forma, "tipo": tipo, "semilla": semilla, "nucleo": nucleo}
 
 
+# EL FILO DE AIRE (05/11): al suelo pedido se le pega su COPIA DE VIENTO, el mismo efecto con la forma alargada, tenido y
+# detras del de verdad. Sale a la vez que el (en _lanzar_suelo).
+func pedir_suelo_viento(forma: RefCounted) -> void:
+	if not _suelo.is_empty() and forma != null:
+		_suelo["viento"] = forma
+
+
 func _lanzar_suelo(espera: float) -> void:
 	var s: Dictionary = _suelo
 	_suelo = {}
@@ -1760,6 +1767,12 @@ func _lanzar_suelo(espera: float) -> void:
 		return
 	# Los del aire (estelas del mandoble) van al ritmo de la pelea, como sus golpes y el muñeco.
 	BarridoAire.ritmo = escala_tiempo
+	if s.has("viento"):
+		CapaPixel.tinte = CapaPixel.TINTE_VIENTO
+		var sv: Node2D = SueloRoto.lanzar(s["padre"], s["viento"], int(s["tipo"]), int(s["semilla"]) + 7, 0.0, espera)
+		CapaPixel.tinte = Color.WHITE
+		if sv != null:
+			sv.z_index -= 1
 	SueloRoto.lanzar(s["padre"], s["forma"], int(s["tipo"]), int(s["semilla"]), float(s["nucleo"]), espera)
 	suelo_lanzado.emit(int(s["tipo"]), espera)
 

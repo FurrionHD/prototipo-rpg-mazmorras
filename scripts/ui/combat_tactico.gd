@@ -6295,7 +6295,18 @@ const _MODO_FIERA := {CombatFX.Estilo.FIERA_TESTARAZO: FieraAire.Modo.TESTARAZO,
 	CombatFX.Estilo.FIERA_DENTELLADA: FieraAire.Modo.DENTELLADA,
 	CombatFX.Estilo.FIERA_TENTACULO: FieraAire.Modo.TENTACULO, CombatFX.Estilo.FIERA_MIRADA: FieraAire.Modo.MIRADA}
 
+# EL FILO DE AIRE (05/11): un golpe de VIENTO de los tuyos con el estilo de su arma es el corte del set; se pinta el mismo
+# golpe del arma, tenido de viento (CapaPixel.tinte). Llega igual al espejo: el elemento viaja con el golpe.
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
+	var a_t: Combatant = _de_bloque(ev["ba"]) if ev.has("ba") else null
+	var de_viento: bool = int(ev.get("elem", -1)) == Elementos.Elemento.VIENTO and a_t != null 		and _pantalla._aliados.has(a_t) and int(ev.get("estilo", 0)) != CombatFX.Estilo.INSECTO_VIENTO
+	if de_viento:
+		CapaPixel.tinte = CapaPixel.TINTE_VIENTO
+	_dibujo_mapa(ev, vuelo)
+	CapaPixel.tinte = Color.WHITE
+
+
+func _dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	if int(ev.get("estilo", 0)) >= CombatFX.Estilo.PASIVA_LLAMADA and int(ev.get("estilo", 0)) <= CombatFX.Estilo.AVISO_INMUNE:
 		_dibujo_pasiva(ev, vuelo)
 		return

@@ -120,8 +120,21 @@ var _suelo_tipo: int = 0
 # su propia distancia sino a lo que tardo el PRIMER golpe. Es una regla (no viaja): el espejo llama igual.
 var _rs_primero: float = -1.0
 
+# (05/11) LA COPIA DE VIENTO del Filo de aire viaja como otro suelo con el tipo + SUELO_VIENTO, detras del de verdad.
+const SUELO_VIENTO := 10000
+
+func fijar_suelo_viento(tipo: int, forma: CombatFormas.Forma, semilla: int) -> void:
+	if forma == null or _pantalla._fx == null or not _pantalla.tactico:
+		return
+	_pantalla._fx.pedir_suelo_viento(forma)
+	_pantalla.espejo._apuntar_suelo_red(tipo + SUELO_VIENTO, forma, semilla, 0.0)
+
+
 func fijar_suelo(tipo: int, forma: CombatFormas.Forma, semilla: int, nucleo: float) -> void:
 	if forma == null or _pantalla._fx == null or not _pantalla.tactico:
+		return
+	if tipo >= SUELO_VIENTO:
+		_pantalla._fx.pedir_suelo_viento(forma)   # (en el espejo: la copia de viento que llega por red)
 		return
 	_suelo_forma = forma
 	_suelo_tipo = tipo

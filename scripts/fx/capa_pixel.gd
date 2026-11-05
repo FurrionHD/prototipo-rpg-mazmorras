@@ -32,7 +32,14 @@ var _huecos: Dictionary = {}  # id del padre de verdad -> {padre, hueco}
 
 
 # Muda 'efecto' (recien añadido a su padre) a los lienzos de pixel de su visor.
+# EL TINTE DE VIENTO (05/11, el set Filo de aire): mientras CombatTactico pinta un golpe de viento de los tuyos, lo que se
+# meta aqui sale tenido (el MISMO golpe del arma, hecho de viento). Blanco = sin tinte.
+const TINTE_VIENTO := Color(0.62, 1.0, 0.8, 0.8)
+static var tinte: Color = Color.WHITE
+
 static func meter(efecto: Node) -> void:
+	if tinte != Color.WHITE and efecto is CanvasItem and is_instance_valid(efecto):
+		(efecto as CanvasItem).modulate *= tinte
 	if efecto == null or not is_instance_valid(efecto) or not efecto.is_inside_tree() or efecto.has_meta(&"pixel"):
 		return
 	var padre: Node = efecto.get_parent()

@@ -748,8 +748,14 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 				var pies: Vector2 = _pantalla.turno_mapa.pies_de(_pantalla._player)
 				f_suelo = CombatFormas.cono(pies, f_suelo.centro - pies, EstelaGolpe.RADIO, 0.0)
 			# Con dos armas, su variante de dos manos si la tiene (la maza: SueloRoto.con_manos).
-			_pantalla.efectos.fijar_suelo(SueloRoto.con_manos(ab.suelo_roto, manos), f_suelo,
-				(randi() & 0x3FFFFFFF) | 1, ab.forma_nucleo)
+			var sem_suelo: int = (randi() & 0x3FFFFFFF) | 1
+			_pantalla.efectos.fijar_suelo(SueloRoto.con_manos(ab.suelo_roto, manos), f_suelo, sem_suelo, ab.forma_nucleo)
+			# EL FILO DE AIRE (05/11): el mismo efecto, alargado y de viento, detras (lo aprobo el jefe en la lamina).
+			var p_f: Combatant = _pantalla._player
+			if p_f.runa_filo_dano > 0.0 and ab.dano_mult > 0.0 and not ab.es_magico:
+				var f_v = forma_alargada(f_suelo, p_f)
+				if f_v != null:
+					_pantalla.efectos.fijar_suelo_viento(SueloRoto.con_manos(ab.suelo_roto, manos), f_v, sem_suelo)
 	var mana_ganado: float = ab.mana_gain
 	if es_conversion and not soltando:
 		mana_ganado += coste / ab.energia_a_mana
@@ -1179,6 +1185,28 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 # de 'obj'. Una vez por habilidad. Solo en el mapa y quien lleva la pelea. Devuelve a quien le ha dado (para rematarlos).
 const FILO_ANCHO := 18.0
 
+
+# LA FORMA ALARGADA del Filo de aire: cono y circulo +runa_filo_mas de radio, linea +runa_filo_linea de largo, con la misma
+# direccion y lo demas de la normal (de ahi arrancan los giros y los barridos). null si no es una de esas.
+static func forma_alargada(f, p: Combatant):
+	if f == null or p == null:
+		return null
+	var f2 = null
+	match f.tipo:
+		CombatFormas.Tipo.CONO:
+			f2 = CombatFormas.cono(f.origen, f.dir, f.radio * (1.0 + p.runa_filo_mas), f.apertura)
+		CombatFormas.Tipo.CIRCULO:
+			f2 = CombatFormas.circulo(f.centro, f.radio * (1.0 + p.runa_filo_mas))
+		CombatFormas.Tipo.LINEA:
+			f2 = CombatFormas.linea(f.origen, f.dir, f.largo * (1.0 + p.runa_filo_linea), f.ancho)
+	if f2 != null:
+		f2.dir = f.dir
+		f2.origen = f.origen
+		f2.dentro = f.dentro
+		f2.tramos = f.tramos
+		f2.cunas = f.cunas
+	return f2
+
 func filo_de_aire(p: Combatant, ab: AbilityData, ya: Array, obj: Combatant) -> Array:
 	var out: Array = []
 	if p == null or p.runa_filo_dano <= 0.0 or not _pantalla.tactico or _pantalla._espejo \
@@ -1189,16 +1217,8 @@ func filo_de_aire(p: Combatant, ab: AbilityData, ya: Array, obj: Combatant) -> A
 	var t = _pantalla.turno_mapa
 	var nuevos: Array = []
 	var f = t.forma_de(ab, p, t.apunte) if ab != null and int(ab.forma) >= 0 else null
-	if f != null and f.tipo in [CombatFormas.Tipo.CONO, CombatFormas.Tipo.CIRCULO, CombatFormas.Tipo.LINEA]:
-		var f2
-		match f.tipo:
-			CombatFormas.Tipo.CONO:
-				f2 = CombatFormas.cono(f.origen, f.dir, f.radio * (1.0 + p.runa_filo_mas), f.apertura)
-			CombatFormas.Tipo.CIRCULO:
-				f2 = CombatFormas.circulo(f.centro, f.radio * (1.0 + p.runa_filo_mas))
-			_:
-				f2 = CombatFormas.linea(f.origen, f.dir, f.largo * (1.0 + p.runa_filo_linea), f.ancho)
-		f2.dir = f.dir   # (la misma direccion: de ahi arrancan los giros y los barridos)
+	var f2 = forma_alargada(f, p) if f != null else null
+	if f2 != null:
 		for e in _pantalla._vivos():
 			if not ya.has(e) and not (e as Combatant).no_elegible() and t.cuerpo_de(e) != null and f2.toca(t.bulto_de(e)):
 				nuevos.append(e)
@@ -1207,17 +1227,19 @@ func filo_de_aire(p: Combatant, ab: AbilityData, ya: Array, obj: Combatant) -> A
 			if not ya.has(e) and not (e as Combatant).no_elegible():
 				nuevos.append(e)
 	var partes: Array = []
+	# SE PINTA CON EL GOLPE DE SU ARMA, tenido de viento (CombatTactico._on_dibujo_mapa lo reconoce por el elemento).
+	var est: int = _pantalla.efectos._estilo_de_habilidad(ab, p)
 	for e in nuevos:
 		var v: Combatant = e
 		var r: Dictionary = StatsMath.resolve_attack(p, v, false)
 		if r.get("evaded", false):
-			_pantalla.efectos._fx_golpe(p, v, 0.0, false, true, Elementos.Elemento.VIENTO, CombatFX.Estilo.INSECTO_VIENTO, 0.7, false)
+			_pantalla.efectos._fx_golpe(p, v, 0.0, false, true, Elementos.Elemento.VIENTO, est, 0.7, false)
 			partes.append("%s lo esquiva" % _pantalla._etq(v))
 			continue
 		var mult: float = Elementos.mult_recibido(Elementos.Elemento.VIENTO, v)
 		var d: float = maxf(0.1, float(r["damage"]) * p.runa_filo_dano * mult)
 		v.take_damage(d)
-		_pantalla.efectos._fx_golpe(p, v, d, false, false, Elementos.Elemento.VIENTO, CombatFX.Estilo.INSECTO_VIENTO, 0.7, false,
+		_pantalla.efectos._fx_golpe(p, v, d, false, false, Elementos.Elemento.VIENTO, est, 0.7, false,
 			"", AbilityData.Gesto.AUTO, null, 0, mult)
 		_pantalla._apuntar_dano(v, d, p)
 		out.append(v)
