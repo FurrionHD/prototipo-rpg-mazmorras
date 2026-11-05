@@ -8,7 +8,7 @@
 #  1,15 unidades del mundo (SpriteLienzo.UNIDADES_POR_CELDA), asi que PPU = escala_visual / 1,15 celdas por unidad.
 # ============================================================
 import math, json, os, importlib
-from multiprocessing import Pool
+from concurrent.futures import ProcessPoolExecutor
 import numpy as np
 from PIL import Image
 
@@ -21,11 +21,22 @@ F_ = np.array([0.0, -S, -C])         # hacia dentro de la pantalla
 DIR_VECS = [(0, 1), (0.7, 0.7), (1, 0), (0.7, -0.7), (0, -1), (-0.7, -0.7), (-1, 0), (-0.7, 0.7)]
 
 
+# LA SONDA (05/11, el horno en la GPU): una pieza es una lambda y la GPU necesita sus numeros. Si se la llama con SONDA en vez
+# de con puntos, cada primitiva devuelve QUE ES y con que parametros, sin calcular nada. Lo que hace otra cosa con P (restarle,
+# indexarlo...) revienta con TypeError al usar la sonda, y esa pieza se evalua con numpy tal cual (ver sdf_gpu.leer_pieza).
+class _Sonda:
+    __array_ufunc__ = None
+
+SONDA = _Sonda()
+
+
 # --- PRIMITIVAS (P: N x 3) ---
 def sd_esfera(P, c, r):
+    if P is SONDA: return ('esfera', c, r)
     return np.linalg.norm(P - c, axis=1) - r
 
 def sd_elipsoide(P, c, rad):
+    if P is SONDA: return ('elipsoide', c, rad)
     q = (P - c) / rad
     k0 = np.linalg.norm(q, axis=1)
     k1 = np.linalg.norm(q / rad, axis=1)
@@ -33,12 +44,14 @@ def sd_elipsoide(P, c, rad):
 
 def sd_cono(P, a, b, ra, rb):
     """Capsula con radio que va de ra (en a) a rb (en b)."""
+    if P is SONDA: return ('cono', a, b, ra, rb)
     pa = P - a; ba = b - a
     h = np.clip((pa @ ba) / max(ba @ ba, 1e-6), 0.0, 1.0)
     return np.linalg.norm(pa - np.outer(h, ba), axis=1) - (ra + (rb - ra) * h)
 
 def sd_caja(P, c, ejes, medio, redondeo=0.2):
     """Caja orientada: 'ejes' = 3 vectores unitarios (filas), 'medio' = semilados."""
+    if P is SONDA: return ('caja', c, ejes, medio, redondeo)
     q = (P - c) @ np.array(ejes).T
     d = np.abs(q) - (np.array(medio) - redondeo)
     return np.linalg.norm(np.maximum(d, 0.0), axis=1) + np.minimum(d.max(axis=1), 0.0) - redondeo
@@ -46,6 +59,7 @@ def sd_caja(P, c, ejes, medio, redondeo=0.2):
 def sd_triangulo(P, a, b, c, grosor):
     """Una lamina triangular de 'grosor' (05/10, las membranas del chillon: un ala de murcielago es ancha en dos ejes
     y finisima en el tercero, y con bolas sale un churro)."""
+    if P is SONDA: return ('triangulo', a, b, c, grosor)
     ba = b - a; pa = P - a; cb = c - b; pb = P - b; ac = a - c; pc = P - c
     nor = np.cross(ba, ac)
     lado = (np.sign(pa @ np.cross(ba, nor)) + np.sign(pb @ np.cross(cb, nor)) + np.sign(pc @ np.cross(ac, nor)))
@@ -179,19 +193,30 @@ def evalua(mo, P, L, con_grupo=False):
     return dist, mats
 
 
-def render(mo, L, dir_i):
-    """Pinta la escena 'L' mirando hacia la direccion 'dir_i' (0 = S, a camara)."""
-    W, H, PPU = mo.W, mo.H, mo.ppu
+def giro_de(dir_i):
     v = DIR_VECS[dir_i]
     ang = math.atan2(v[1], v[0]) - math.atan2(1, 0)
-    ca, sa = math.cos(-ang), math.sin(-ang)
-    jj, ii = np.mgrid[0:H, 0:W]
-    u = (ii.ravel() + 0.5 - mo.OX) / PPU
-    vv = (mo.OY - (jj.ravel() + 0.5)) / PPU
-    O = np.outer(u, R_) + np.outer(vv, U_) - F_ * mo.lejos
-    def a_local(P):
-        x = P[:, 0] * ca - P[:, 1] * sa; y = P[:, 0] * sa + P[:, 1] * ca
-        return np.stack([x, y, P[:, 2]], axis=1)
+    return math.cos(-ang), math.sin(-ang)
+
+
+def origenes(mo):
+    """De donde sale el rayo de cada pixel (en filas). Igual para todas las direcciones: lo que gira es el bicho."""
+    jj, ii = np.mgrid[0:mo.H, 0:mo.W]
+    u = (ii.ravel() + 0.5 - mo.OX) / mo.ppu
+    vv = (mo.OY - (jj.ravel() + 0.5)) / mo.ppu
+    return np.outer(u, R_) + np.outer(vv, U_) - F_ * mo.lejos
+
+
+def _a_local(P, ca, sa):
+    x = P[:, 0] * ca - P[:, 1] * sa; y = P[:, 0] * sa + P[:, 1] * ca
+    return np.stack([x, y, P[:, 2]], axis=1)
+
+
+def render(mo, L, dir_i):
+    """Pinta la escena 'L' mirando hacia la direccion 'dir_i' (0 = S, a camara)."""
+    ca, sa = giro_de(dir_i)
+    O = origenes(mo)
+    a_local = lambda P: _a_local(P, ca, sa)
     t = np.zeros(len(O)); vivo = np.ones(len(O), dtype=bool); toca = np.zeros(len(O), dtype=bool)
     for _ in range(160):
         idx = np.where(vivo)[0]
@@ -203,16 +228,8 @@ def render(mo, L, dir_i):
         t[idx[~hit]] += np.maximum(d[~hit] * 0.8, 0.02)
         vivo &= ~(t > mo.lejos * 2.1)
     hi = np.where(toca)[0]
-    img = np.zeros((H * W, 4))
-    # LA SOMBRA DEL SUELO: donde el rayo corta z = 0, si cae dentro de alguna mancha (y no hay cuerpo delante).
-    sombra = np.zeros(H * W)
-    for (sx, sy, srx, sry, sa_) in getattr(L, 'sombras', ()):
-        Ps = a_local(O + np.outer(-O[:, 2] / F_[2], F_))
-        dentro = ((Ps[:, 0] - sx) / srx) ** 2 + ((Ps[:, 1] - sy) / sry) ** 2 <= 1.0
-        sombra = np.where(dentro, np.maximum(sombra, sa_), sombra)
     if len(hi) == 0:
-        img[:, 3] = sombra
-        return Image.fromarray((img.reshape(H, W, 4) * 255).astype(np.uint8), 'RGBA')
+        return pintar(mo, L, dir_i, t, hi, None, None, None, None)
     P = a_local(O[hi] + np.outer(t[hi], F_))
     _d, mats, grupos = evalua(mo, P, L, True)
     e = 0.05
@@ -221,11 +238,32 @@ def render(mo, L, dir_i):
         dv = np.zeros(3); dv[a] = e
         n[:, a] = evalua(mo, P + dv, L)[0] - evalua(mo, P - dv, L)[0]
     n /= np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-6)
+    ao = np.clip(evalua(mo, P + n * 1.2, L)[0] / 1.2, 0, 1)
+    return pintar(mo, L, dir_i, t, hi, mats, grupos, n, ao)
+
+
+def pintar(mo, L, dir_i, t, hi, mats, grupos, n, ao, sub=None):
+    """De lo que han dado los rayos (t = recorrido de cada uno; hi = los que tocan, y de esos su material, grupo, normal y
+    oclusion) a la imagen. Lo usan el motor en CPU y el de la GPU: el dibujo sale de AQUI en los dos. 'sub' es quien pinta
+    la escena de detras del gel (por defecto render; la GPU la trae ya calculada)."""
+    W, H = mo.W, mo.H
+    ca, sa = giro_de(dir_i)
+    sub = sub or render
+    img = np.zeros((H * W, 4))
+    # LA SOMBRA DEL SUELO: donde el rayo corta z = 0, si cae dentro de alguna mancha (y no hay cuerpo delante).
+    sombra = np.zeros(H * W)
+    for (sx, sy, srx, sry, sa_) in getattr(L, 'sombras', ()):
+        O = origenes(mo)
+        Ps = _a_local(O + np.outer(-O[:, 2] / F_[2], F_), ca, sa)
+        dentro = ((Ps[:, 0] - sx) / srx) ** 2 + ((Ps[:, 1] - sy) / sry) ** 2 <= 1.0
+        sombra = np.where(dentro, np.maximum(sombra, sa_), sombra)
+    if len(hi) == 0:
+        img[:, 3] = sombra
+        return Image.fromarray((img.reshape(H, W, 4) * 255).astype(np.uint8), 'RGBA')
     # La luz, FIJA EN PANTALLA (arriba a la izquierda y algo de delante): se gira con el bicho al reves.
     luz_mundo = np.array([-0.75, 0.35, 0.6]); luz_mundo /= np.linalg.norm(luz_mundo)
     lx = luz_mundo[0] * ca - luz_mundo[1] * sa; ly = luz_mundo[0] * sa + luz_mundo[1] * ca
     ndl = n @ np.array([lx, ly, luz_mundo[2]])
-    ao = np.clip(evalua(mo, P + n * 1.2, L)[0] / 1.2, 0, 1)
     # PLANO, como los demas enemigos: casi todo en el tono BASE; la LUZ solo en lo que mira hacia arriba y la SOMBRA en
     # lo que da la espalda a la luz y en los huecos hondos.
     arriba = n[:, 2]
@@ -271,7 +309,7 @@ def render(mo, L, dir_i):
         if L_op:
             import copy
             mo2 = copy.copy(mo); mo2.translucidos = (); mo2.sin_lineas = True
-            detras = np.asarray(render(mo2, L_op, dir_i)).astype(float) / 255.0
+            detras = np.asarray(sub(mo2, L_op, dir_i)).astype(float) / 255.0
         else:
             detras = np.zeros((H, W, 4))
         ad = detras[:, :, 3]
@@ -283,7 +321,7 @@ def render(mo, L, dir_i):
         claros = getattr(mo, 'claros_dentro', ())
         L_cl = [x for x in L_op if x[1] in claros] if L_op else []
         if L_cl:
-            solo = np.asarray(render(mo2, L_cl, dir_i)).astype(float) / 255.0
+            solo = np.asarray(sub(mo2, L_cl, dir_i)).astype(float) / 255.0
             es_claro = (solo[:, :, 3] > 0) & (np.abs(solo[:, :, :3] - detras[:, :, :3]).sum(axis=2) < 0.02)
             a = np.where(es_claro, getattr(mo, 'alfa_claro', 0.15), a)
         fuera = a + (1.0 - a) * ad
@@ -345,14 +383,48 @@ def _trabajo(args):
     return (nombre, d, i, im, par)
 
 
+def _prioridad_baja():
+    if os.name == 'nt':
+        import ctypes
+        BELOW_NORMAL_PRIORITY_CLASS = 0x4000
+        # (con sus tipos: sin ellos, en 64 bits el identificador del proceso se corta y no hace nada, sin dar error)
+        k32 = ctypes.WinDLL('kernel32')
+        k32.GetCurrentProcess.restype = ctypes.c_void_p
+        k32.SetPriorityClass.argtypes = (ctypes.c_void_p, ctypes.c_uint32)
+        k32.SetPriorityClass(k32.GetCurrentProcess(), BELOW_NORMAL_PRIORITY_CLASS)
+    else:
+        os.nice(10)
+
+
 def hornear(modname, nombres, salida, vistas):
     mod = importlib.import_module(modname)
     W, H = mod.MODELO.W, mod.MODELO.H
     os.makedirs(salida, exist_ok=True); os.makedirs(vistas, exist_ok=True)
     trabajos = [(modname, nm, d, i) for nm in nombres for d in range(mod.ANIMS[nm][3]) for i in range(mod.ANIMS[nm][0])]
     # PROCESOS=n: menos a la vez cuando va justa la RAM (cada uno carga el modelo entero).
-    with Pool(int(os.environ.get('PROCESOS', 0)) or None) as pool:
-        hechos = pool.map(_trabajo, trabajos)
+    # (04/11, el jefe: "al tener la cpu completa no podia ni usar google") Por defecto deja 4 nucleos libres, y todos con la
+    # prioridad baja: lo que este usando el pasa siempre por delante.
+    # (05/11, el jefe: "todo siempre con grafica") EN LA GRAFICA si hay NVIDIA (sdf_gpu.py): la segadora, 195 s -> 17 s. La CPU solo hace
+    # los fotogramas con piezas que la grafica no sabe leer. HORNO=hibrido: la CPU le ayuda con todo; HORNO=cpu: solo procesos, como antes.
+    modo = os.environ.get('HORNO', '')
+    procesos = int(os.environ.get('PROCESOS', 0)) or max(1, (os.cpu_count() or 2) - 4)
+    gpu = False
+    if modo != 'cpu':
+        try:
+            import torch
+            gpu = torch.cuda.is_available()
+        except ImportError:
+            pass
+    if gpu:
+        import sdf_gpu
+        print('horno: %s%s' % (torch.cuda.get_device_name(0), ' + %d procesos' % procesos if modo == 'hibrido' else ''))
+        with ProcessPoolExecutor(procesos, initializer=_prioridad_baja) as pool:
+            hechos = sdf_gpu.hechos_de(modname, mod, nombres, pool, procesos, modo == 'hibrido')
+    else:
+        print('horno: cpu, %d procesos' % procesos)
+        # (05/11: con multiprocessing.Pool, si moria un proceso se quedaba esperando para siempre sin decir nada; asi da error.)
+        with ProcessPoolExecutor(procesos, initializer=_prioridad_baja) as pool:
+            hechos = list(pool.map(_trabajo, trabajos))
     meta_path = salida + 'hojas.json'
     meta = json.load(open(meta_path)) if os.path.exists(meta_path) else {}
     meta['lienzo'] = [W, H]
