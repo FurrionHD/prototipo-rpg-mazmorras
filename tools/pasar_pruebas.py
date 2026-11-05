@@ -284,6 +284,11 @@ def pasar(godot: str, nombre: str) -> dict:
 
 
 def main() -> int:
+    # (05/11) La consola de Windows (cp1252) no sabe imprimir los emojis de las lineas de fallo y el resumen petaba.
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
     ap = argparse.ArgumentParser(description="Pasa las pruebas sin ventana de tools/.")
     ap.add_argument("filtros", nargs="*", help="solo las que contengan alguna de estas palabras")
     ap.add_argument("--rapidas", action="store_true",

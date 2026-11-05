@@ -272,7 +272,11 @@ func _pelea() -> void:
 	var nuevo: Vector2 = tm.pies_de(presa) + Vector2(-60, 40)
 	_poner(tm, presa, nuevo)
 	tm._deslices.clear()
+	# (05/11, banco) Solo PEGA Y SE VA si acierta: que no lo esquive por azar (salia MAL una vez de cada tantas).
+	var prec_antes: float = sa.precision
+	sa.precision += 10.0
 	en._enemy_use_ability(sa, pic, presa)
+	sa.precision = prec_antes
 	var hasta = null
 	var retirada = null
 	for d in tm._deslices:

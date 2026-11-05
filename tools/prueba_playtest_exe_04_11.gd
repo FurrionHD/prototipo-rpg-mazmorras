@@ -163,11 +163,11 @@ func _capas(p: Node) -> void:
 	al.costra_turnos = 3
 	await _esperar(3)
 	var n = p.turno_mapa._trent._puntos.get(al)
-	_ver(n != null and int(n.nivel) == 3 and int(n.tope) == 3, "con la capa, enteros (3 de 3)")
+	_ver(n != null and int(n._nivel) == 3 and int(n._tope) == 3, "con la capa, enteros (3 de 3)")   # (el contador en pixel: _nivel/_tope)
 	al.costra = 0.0
 	al.costra_espera = 2
 	await _ms(1700)
-	_ver(n != null and int(n.nivel) == 1, "rota y a 2 turnos de volver: 1 de 3 (%d)" % int(n.nivel if n != null else -1))
+	_ver(n != null and int(n._nivel) == 1, "rota y a 2 turnos de volver: 1 de 3 (%d)" % int(n._nivel if n != null else -1))
 	al.costra_max = 0.0
 	await _esperar(3)
 	_ver(not p.turno_mapa._trent._puntos.has(al), "sin el set no hay puntos")
@@ -199,7 +199,9 @@ func _huir(p: Node) -> void:
 				j.pulsar(5)
 		await get_tree().process_frame
 	# Queda animacion del ultimo golpe, pero no el tope de 6 s de la barra que no llega.
-	_ver(espera >= 0 and espera < 5000, "Continuar sale sin agotar el tope (%d ms, tope 6000)" % espera)
+	# (05/11) < 5800 y no < 5000: lo que se mira es que NO agote el tope; con el banco cargado (3 a la vez) la animacion del
+	# ultimo golpe llego a 5121 ms.
+	_ver(espera >= 0 and espera < 5800, "Continuar sale sin agotar el tope (%d ms, tope 6000)" % espera)
 	var q: bool = true
 	for bl in p._bloques:
 		var bar = bl.get("hp")

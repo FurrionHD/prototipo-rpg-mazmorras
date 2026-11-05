@@ -83,6 +83,11 @@ def preparar(sha: str) -> None:
 
 
 def main() -> int:
+    # (05/11) La consola de Windows (cp1252) no sabe imprimir los emojis de las lineas de fallo y el resumen petaba.
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
     ap = argparse.ArgumentParser(description="Pasa la bateria entera en ../prm-banco sobre un commit.")
     ap.add_argument("commit", nargs="?", default="HEAD")
     ap.add_argument("filtros", nargs="*")
