@@ -77,7 +77,7 @@ const CHIP_NEUTRO := Color(0.78, 0.80, 0.86)
 const PREFIJOS := [
 	["⚡!", "carga_lista"], ["⏳", "cargando"], ["🔮x", "foco"], ["🔮", "recitando"], ["🎯", "provocando"],
 	["💢", "provocado"], ["🛡→", "cubriendo"], ["🛡←", "cubierto"], ["🛡", "defendiendo"], ["🤺", "en_guardia"],
-	["😮‍💨", "sin_fuelle"], ["✚", "pocion_vida"], ["🔷", "pocion_mana"],
+	["😮", "sin_fuelle"], ["✚", "pocion_vida"], ["🔷", "pocion_mana"],
 ]
 
 static var _texturas: Dictionary = {}

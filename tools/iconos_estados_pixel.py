@@ -413,6 +413,45 @@ ICONOS_UI = [
         "...olllmo...", "...ollmo....", "...olmo.....", "...omo......", "...oo.......", "............"), {}),
 ]
 
+def girar(filas):
+    """90 grados a la derecha."""
+    return tuple(''.join(f[i] for f in reversed(filas)) for i in range(N))
+
+
+def reflejar(filas):
+    return tuple(f[::-1] for f in filas)
+
+
+# Los SIGNOS sueltos que salen entre el texto (flechas, puntos): en gris claro, como la letra. Antes los ponia la fuente
+# del sistema, que ya no se usa (ver scripts/ui/fuente_iconos.gd).
+GRIS = (0.85, 0.86, 0.9)
+FLECHA_DER = ("............", "............", "............", "......o.....", "......olo...", ".ooooooollo.",
+              ".olllllllllo", ".ooooooollo.", "......olo...", "......o.....", "............", "............")
+TRIANGULO_DER = ICONOS_UI[-1][3]
+VUELTA = ("............", "...oooooo...", "..ollllllo..", ".olloooollo.", ".olo....olo.", ".olo....olo.",
+          "ooloo...olo.", "olllo...olo.", ".olo....olo.", "..o.....oo..", "............", "............")
+ICONOS_UI += [
+    ("flecha_der", "Flecha →", GRIS, FLECHA_DER, {}),
+    ("flecha_izq", "Flecha ←", GRIS, reflejar(FLECHA_DER), {}),
+    ("flecha_abajo", "Flecha ↓", GRIS, girar(FLECHA_DER), {}),
+    ("flecha_arriba", "Flecha ↑", GRIS, voltear(girar(FLECHA_DER)), {}),
+    ("volver", "Volver ↩", GRIS, VUELTA, {}),
+    ("seguir", "Seguir ↪", GRIS, reflejar(VUELTA), {}),
+    ("rebote", "Rebote ↯", GRIS, next(i[3] for i in ICONOS if i[0] == "rayo"), {}),
+    ("atras", "Atrás ◀", GRIS, reflejar(TRIANGULO_DER), {}),
+    ("punto", "Punto ●", GRIS, ("............", "............", "....oooo....", "...ollllo...", "..olwllllo..",
+        "..olllllmo..", "..ollllmmo..", "..olllmmmo..", "...ommmmo...", "....oooo....", "............",
+        "............"), {}),
+    ("hueco", "Hueco ○", GRIS, ("............", "............", "....oooo....", "...ollllo...", "..ol....lo..",
+        "..ol....mo..", "..ol....mo..", "..ol....mo..", "...ommmmo...", "....oooo....", "............",
+        "............"), {}),
+    ("rombo", "Rombo ◆", GRIS, ("............", "............", ".....oo.....", "....olwo....", "...ollllo...",
+        "..ollllllo..", "..ommmmmmo..", "...ommmmo...", "....ommo....", ".....oo.....", "............",
+        "............"), {}),
+    ("info", "Info ⓘ", (0.4, 0.65, 1.0), espejo(("...ooo", ".oolll", ".ollll", "olllaa", "olllll", "olllaa",
+        "olllaa", "olllaa", "olllaa", ".ollll", ".oolll", "...ooo")), {'a': (255, 255, 255)}),
+]
+
 # QUE EMOJI PINTA CADA DIBUJO (la fuente de iconos). Los de los estados, por su emoji del catalogo; si dos estados
 # comparten emoji, aqui gana el que va primero (en el registro un 🔥 es fuego, sin mas).
 EMOJI = {
@@ -422,6 +461,8 @@ EMOJI = {
     "🪞": "reflejo", "🫧": "burbujas", "🐀": "rata", "🪲": "escarabajo", "🟢": "slime", "🏹": "arco",
     "🗣": "recitar", "🌈": "prisma", "💎": "gema", "🌩": "tormenta", "✱": "emboscada", "🎣": "cana", "⬆": "subir",
     "📜": "registro", "🔧": "ajustes", "▲": "arriba", "▼": "abajo", "▶": "listo", "♻": "regeneracion",
+    "→": "flecha_der", "←": "flecha_izq", "↓": "flecha_abajo", "↑": "flecha_arriba", "↩": "volver", "↪": "seguir",
+    "↯": "rebote", "◀": "atras", "◄": "atras", "●": "punto", "○": "hueco", "◆": "rombo", "ⓘ": "info",
     "☠": "veneno", "🩸": "sangrado", "🔥": "quemadura", "🐌": "lento", "🕸": "pegajoso", "💢": "provocado",
     "🔻": "vulnerable", "💪": "fortaleza", "💫": "aturdido", "⚡": "rayo", "✚": "regeneracion", "🔷": "regen_mana",
     "💧": "mojado", "🌀": "presteza", "🛡": "defendiendo", "🎯": "marca", "🩹": "herida_profunda", "⚗": "corrosion",

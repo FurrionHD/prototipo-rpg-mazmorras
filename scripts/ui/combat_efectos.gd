@@ -769,10 +769,10 @@ Solo tiene ojos para él: todo lo que haga va a por él, si le alcanza." % [
 	# linea de intro del log, que a los tres turnos ya nadie recuerda.
 	var lentas: int = int(_pantalla._lentas.get(c, 0))
 	if lentas > 0:
-		out.append(["😮‍💨x%d" % lentas,
+		out.append(["😮x%d" % lentas,
 			"Sin fuelle\nEntraste agotado: tus próximas %d acción%s van a medio ritmo." % [
 				lentas, "" if lentas == 1 else "es"],
-			"😮‍💨", Color(0.8, 0.6, 0.45)])
+			"😮", Color(0.8, 0.6, 0.45)])
 	if c.foco_cargas > 0:
 		out.append(["🔮x%d" % c.foco_cargas,
 			"Foco arcano: %d carga%s\nCada hechizo OFENSIVO gasta una y pega un %d%% más.\nNo caduca con los turnos." % [
