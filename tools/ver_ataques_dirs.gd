@@ -182,6 +182,19 @@ const ROJO := Color(0.8, 0.35, 0.35)
 
 var _cam: Camera2D
 var _enemigos: Array = []    # donde estan los pies de cada figura roja
+# ATAQUES_FILO=1 (05/11, el jefe: el corte del set Filo de aire "en conjunto con el efecto de un ataque de verdad"): en cada
+# viñeta del efecto sale tambien el corte de viento a los que estan en la franja ALARGADA (y no en la normal); si no hay
+# nadie, un bicho de muestra en ella. Mismos numeros que el set (set_segadora.tres).
+const FILO_MAS := 0.3
+const FILO_LINEA := 0.4
+const FILO_DETRAS := 50.0
+const FILO_IMPACTO := 0.32   # cuando llega el corte (aprox.: justo tras el golpe del arma)
+var _filo_on: bool = false
+var _filo_ab: AbilityData = null
+var _filo_f = null
+var _filo_yo: Vector2 = Vector2.ZERO
+var _filo_cortes: Array = []
+var _filo_figs: Array = []
 var _huella: Node2D
 var _forma_huella = null
 var _forma_huella2 = null   # la segunda huella de la misma habilidad (el pisoton de la Carga acorazada)
@@ -218,7 +231,64 @@ func _ready() -> void:
 			var sc = n.get_script()
 			if n is Node2D and not (n is CapaPixel) and sc != null and str(sc.resource_path).begins_with("res://scripts/fx/"):
 				CapaPixel.meter.call_deferred(n))
+	_filo_on = OS.get_environment("ATAQUES_FILO") != ""
 	call_deferred("_correr")
+
+
+func _filo_limpiar() -> void:
+	for c in _filo_cortes:
+		if is_instance_valid(c):
+			(c as Node).queue_free()
+	_filo_cortes.clear()
+	for fg in _filo_figs:
+		if is_instance_valid(fg):
+			(fg as Node).queue_free()
+	_filo_figs.clear()
+
+
+func _filo_alargada(f):
+	match f.tipo:
+		CombatFormas.Tipo.CONO:
+			return CombatFormas.cono(f.origen, f.dir, f.radio * (1.0 + FILO_MAS), f.apertura)
+		CombatFormas.Tipo.CIRCULO:
+			return CombatFormas.circulo(f.centro, f.radio * (1.0 + FILO_MAS))
+		CombatFormas.Tipo.LINEA:
+			return CombatFormas.linea(f.origen, f.dir, f.largo * (1.0 + FILO_LINEA), f.ancho)
+	return null
+
+
+func _filo_en(t: float) -> void:
+	if not _filo_on or _filo_f == null:
+		return
+	if _filo_cortes.is_empty():
+		var f = _filo_f
+		var f2 = null if _filo_ab != null and _filo_ab.nombre.begins_with("Tajo (basico") else _filo_alargada(f)
+		var desde: Vector2 = f.centro if f.tipo == CombatFormas.Tipo.CIRCULO else _filo_yo
+		var blancos: Array = []
+		if f2 != null:
+			for p in _enemigos:
+				var r := Rect2(p - Vector2(7, 26), Vector2(14, 26))
+				if f2.toca(r) and not f.toca(r):
+					blancos.append(p)
+			if blancos.is_empty():
+				var dir: Vector2 = f.dir.normalized() if f.dir.length_squared() > 0.01 else Vector2.RIGHT
+				var hasta: float = (f.radio * (1.0 + FILO_MAS * 0.6)) if f.tipo != CombatFormas.Tipo.LINEA 					else f.largo * (1.0 + FILO_LINEA * 0.6)
+				blancos.append(desde + dir * hasta + Vector2(0, 13))
+		else:
+			# a uno: por detras del mas cercano hacia donde pega
+			var dir2: Vector2 = (f.centro - _filo_yo).normalized() if f.centro.distance_squared_to(_filo_yo) > 1.0 else Vector2.RIGHT
+			desde = _filo_yo + dir2 * 30.0
+			blancos.append(desde + dir2 * FILO_DETRAS * 0.8 + Vector2(0, 13))
+		for p in blancos:
+			if not (p in _enemigos):
+				_filo_figs.append(_figura(p, Color(1.0, 0.55, 0.3)))
+			var c: CorteVientoAire = CorteVientoAire.lanzar(self, desde, Rect2(p - Vector2(7, 26), Vector2(14, 26)), FILO_IMPACTO, 1.0)
+			c.set_process(false)
+			_filo_cortes.append(c)
+	for c in _filo_cortes:
+		if is_instance_valid(c):
+			c._t = t
+			c.queue_redraw()
 
 
 func _draw() -> void:
@@ -351,6 +421,9 @@ func _correr() -> void:
 						mejor = dd
 						hacia = p + Vector2(0, -13)
 			var f = CombatFormas.de_habilidad_mapa(ab, yo, PISA, ALCANCE[arma], hacia)
+			_filo_ab = ab
+			_filo_f = f if hechizo == null else null   # (la magia no lo activa)
+			_filo_yo = yo
 			if hechizo != null:
 				f.cunas = hechizo.forma_cunas
 				# De donde sale lo que se lanza a un circulo (ver CombatTactico.forma_hechizo).
@@ -997,6 +1070,12 @@ func _pies_caja(r: Rect2) -> Vector2:
 
 
 func _viñeta(hoja: Image, col: int, fila: int, texto: String) -> void:
+	if _filo_on:
+		var m := RegEx.create_from_string("([0-9]+[.][0-9]+) s$").search(texto)
+		if col == 0:
+			_filo_limpiar()
+		elif m != null:
+			_filo_en(float(m.get_string(1)))
 	var tam: Vector2 = get_viewport().get_visible_rect().size
 	_rotulo.text = texto
 	_rotulo.position = tam * 0.5 - Vector2(LADO, LADO) * 0.5 + Vector2(8, 4)

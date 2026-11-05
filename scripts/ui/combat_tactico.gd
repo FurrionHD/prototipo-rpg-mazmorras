@@ -6410,6 +6410,9 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 			else bulto_de(v).get_center() - Vector2(30.0, 0.0)
 		# LA EMBOSCADA (la araña, 30/09): al que esta en su tela, la tela late bajo el y el mordisco sale mas grande.
 		var boca_i: float = bulto_de(a).size.x if a != null and cuerpo_de(a) != null else -1.0
+		# EL CORTE DE VIENTO (05/11, Filo de aire y la Segadora): la media luna vuela hasta el y llega con su impacto.
+		if estilo == CombatFX.Estilo.INSECTO_VIENTO:
+			CorteVientoAire.lanzar(arena, desde_i, bulto_de(v), vuelo, ritmo)
 		if estilo in [CombatFX.Estilo.INSECTO_QUELICEROS, CombatFX.Estilo.INSECTO_PONZONA] and emboscada(a, v):
 			boca_i *= EMBOSCADA_BOCA
 			PasivaAire.sobre_cuerpo(arena, PasivaAire.Modo.LATIDO, bulto_de(a), bulto_de(v), pies_de(v), semilla, vuelo, ritmo)
