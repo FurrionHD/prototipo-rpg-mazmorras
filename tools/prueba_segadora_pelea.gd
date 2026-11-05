@@ -125,6 +125,36 @@ func _correr() -> void:
 	_ver(f.abanico == 3, "su huella son tres lineas")
 	_ver(not mio.is_empty() and float(mio["escala"]) >= 1.0, "le pilla, con %s linea(s)" % (str(mio.get("escala", 0))))
 
+	print("5) EL SET FILO DE AIRE")
+	await _esperar(60)   # que acabe el salto del Vuelo corto
+	var set_seg: RunaSetData = Runas.set_por_id(&"segadora")
+	_ver(set_seg != null and set_seg.tipo == RunaSetData.Tipo.ARMA and set_seg.efecto == &"filo_aire", "el set existe y es de arma")
+	_ver(Runas.descripcion_set(set_seg).contains("Solo con golpes de arma"), "su texto dice que solo va con armas")
+	yo.runa_filo_dano = 0.3
+	yo.runa_filo_mas = 0.3
+	yo.runa_filo_linea = 0.4
+	yo.runa_filo_detras = 50.0
+	# En fila hacia la derecha: yo, A pegado y B justo detras de A.
+	var py: Vector2 = t.pies_de(yo)
+	var a_e: Combatant = sierra
+	var b_e: Combatant = vendaval
+	var off: Vector2 = t.pies_de(a_e) - t.pos_de(a_e)
+	t._colocar(a_e, t.cuerpo_de(a_e), py + Vector2(40, 0) - off)
+	var off_b: Vector2 = t.pies_de(b_e) - t.pos_de(b_e)
+	t._colocar(b_e, t.cuerpo_de(b_e), py + Vector2(40 + t.bulto_de(a_e).size.x * 0.5 + t.bulto_de(b_e).size.x * 0.5 + 12, 0) - off_b)
+	await _esperar(2)
+	var log0: int = combat.log_entero().size()
+	combat.habilidades.filo_de_aire(yo, null, [a_e], a_e)
+	_ver(combat.log_entero().size() > log0 and _log(combat).contains("Filo de aire"),
+		"un golpe a uno: el corte sigue por detras y pilla al de detras")
+	var log1: int = combat.log_entero().size()
+	combat.habilidades.filo_de_aire(yo, null, [a_e, b_e], a_e)
+	_ver(combat.log_entero().size() == log1, "a quien ya toco la forma normal, nada")
+	var ven2: AbilityData = load("res://resources/abilities/vendaval_cortes.tres")
+	_ver(combat.habilidades.filo_de_aire(yo, ven2, [], a_e).is_empty(), "la magia no lo activa")
+	yo.runa_filo_dano = 0.0
+	_ver(combat.habilidades.filo_de_aire(yo, null, [a_e], a_e).is_empty(), "sin el set, nada")
+
 	print("")
 	print("[segadora-pelea] FIN: %s" % ("TODO BIEN" if _mal == 0 else "%d MAL" % _mal))
 	get_tree().quit(1 if _mal > 0 else 0)

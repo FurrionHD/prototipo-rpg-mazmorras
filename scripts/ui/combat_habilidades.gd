@@ -1138,6 +1138,12 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# martillo gigante en alto del Martillo de guerra salia al soltarlo y tapaba al personaje.)
 	if not (en_mapa and ab.suelo_roto >= 0):
 		_pantalla.enemigos._fx_sobre_mi(ab)
+	# EL SET FILO DE AIRE: la forma alargada, a quien la normal no ha tocado.
+	if en_mapa:
+		var ya: Array = reparto_mapa.map(func(d): return d["c"])
+		for v in filo_de_aire(_pantalla._player, ab, ya, obj):
+			if not tocados.has(v):
+				tocados.append(v)
 	_pantalla._update_hp()
 	_pantalla._fin_de_eleccion()
 	# A TODOS los alcanzados, no solo al objetivo principal (misma regla que la magia de area).
@@ -1164,6 +1170,63 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 #   escala_prob / escala_mag: < 1.0 en los SECUNDARIOS de un area. Salen de la FRACCION DE DAÑO que
 #           ha encajado ese objetivo, no de un numero a mano: si encaja el 40% del golpe, tiene el
 #           40% de la probabilidad. Asi al tocar area_secundario esto se ajusta solo.
+# ============================================================
+#  EL SET FILO DE AIRE (05/11, la segadora; plan elegant-popping-firefly)
+# ============================================================
+# Tras un golpe DE ARMA de 'p' (una habilidad 'ab', o el basico con ab = null): la misma forma, ALARGADA, y un corte de
+# VIENTO de runa_filo_dano x su golpe a cada enemigo que la alargada toca y la normal NO ('ya'). Cono y circulo: radio
+# +runa_filo_mas; linea: +runa_filo_linea de largo; un golpe a uno (o sin forma): una linea de runa_filo_detras px detras
+# de 'obj'. Una vez por habilidad. Solo en el mapa y quien lleva la pelea. Devuelve a quien le ha dado (para rematarlos).
+const FILO_ANCHO := 18.0
+
+func filo_de_aire(p: Combatant, ab: AbilityData, ya: Array, obj: Combatant) -> Array:
+	var out: Array = []
+	if p == null or p.runa_filo_dano <= 0.0 or not _pantalla.tactico or _pantalla._espejo \
+			or not _pantalla._aliados.has(p) or not p.is_alive():
+		return out
+	if ab != null and (ab.dano_mult <= 0.0 or ab.forma_a_aliados or ab.es_magico):
+		return out
+	var t = _pantalla.turno_mapa
+	var nuevos: Array = []
+	var f = t.forma_de(ab, p, t.apunte) if ab != null and int(ab.forma) >= 0 else null
+	if f != null and f.tipo in [CombatFormas.Tipo.CONO, CombatFormas.Tipo.CIRCULO, CombatFormas.Tipo.LINEA]:
+		var f2
+		match f.tipo:
+			CombatFormas.Tipo.CONO:
+				f2 = CombatFormas.cono(f.origen, f.dir, f.radio * (1.0 + p.runa_filo_mas), f.apertura)
+			CombatFormas.Tipo.CIRCULO:
+				f2 = CombatFormas.circulo(f.centro, f.radio * (1.0 + p.runa_filo_mas))
+			_:
+				f2 = CombatFormas.linea(f.origen, f.dir, f.largo * (1.0 + p.runa_filo_linea), f.ancho)
+		for e in _pantalla._vivos():
+			if not ya.has(e) and not (e as Combatant).no_elegible() and t.cuerpo_de(e) != null and f2.toca(t.bulto_de(e)):
+				nuevos.append(e)
+	elif obj != null and t.cuerpo_de(obj) != null:
+		for e in t.en_linea_detras(p, obj, p.runa_filo_detras, FILO_ANCHO):
+			if not ya.has(e) and not (e as Combatant).no_elegible():
+				nuevos.append(e)
+	var partes: Array = []
+	for e in nuevos:
+		var v: Combatant = e
+		var r: Dictionary = StatsMath.resolve_attack(p, v, false)
+		if r.get("evaded", false):
+			_pantalla.efectos._fx_golpe(p, v, 0.0, false, true, Elementos.Elemento.VIENTO, CombatFX.Estilo.GUADANA, 0.7, false)
+			partes.append("%s lo esquiva" % _pantalla._etq(v))
+			continue
+		var mult: float = Elementos.mult_recibido(Elementos.Elemento.VIENTO, v)
+		var d: float = maxf(0.1, float(r["damage"]) * p.runa_filo_dano * mult)
+		v.take_damage(d)
+		_pantalla.efectos._fx_golpe(p, v, d, false, false, Elementos.Elemento.VIENTO, CombatFX.Estilo.GUADANA, 0.7, false,
+			"", AbilityData.Gesto.AUTO, null, 0, mult)
+		_pantalla._apuntar_dano(v, d, p)
+		out.append(v)
+		partes.append("%s %.2f" % [_pantalla._etq(v), d])
+	if not partes.is_empty():
+		_pantalla._update_hp()
+		_pantalla._log_extra("💨 Filo de aire: el corte de %s sigue de largo (%s)" % [p.nombre, ", ".join(partes)])
+	return out
+
+
 func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico: bool = false,
 		filtro: String = "todos", escala_prob: float = 1.0, escala_mag: float = 1.0) -> Array:
 	var out: Array = []

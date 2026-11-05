@@ -493,7 +493,13 @@ const GLIFO_SET := {
 	&"trent": ["...#...", "..###..", ".##.##.", "##...##", "##.#.##", ".##.##.", "..###.."],    # gota con bicho (Ambar)
 	# (03/11, eligio el jefe de tools/glifos_runas_versiones.py) el rayo, del set Hilo conductor de la araña.
 	&"arana": ["....##.", "...##..", "..####.", "...#...", ".####..", "..##...", ".##...."],   # rayo, centrado
+	# (05/11, eligio el jefe de tools/glifos_guadana.py: "esta el peak") la guadaña del set Filo de aire, la I HOJA GRUESA.
+	# 9 x 9 y A TRES TONOS: '#' el filo (blanco), '+' la hoja (clara), '=' el mango (madera). Pidio rehacer los demas asi.
+	&"segadora": ["...+++++=", ".++++++=.", "++####.=.", "##....=..", "#.....=..", "......=..", ".....=...", ".....=...",
+		"....=...."],
 }
+# Los TONOS de los glifos a varios colores ('#' es la tinta de siempre).
+const GLIFO_TONOS := {"+": Color(0.70, 0.77, 0.75), "=": Color(0.59, 0.46, 0.33)}
 
 
 func _pintar_sello() -> void:
@@ -526,14 +532,18 @@ func _marca_runas(ci: CanvasItem, w: float, h: float, y_banda: float) -> void:
 
 
 func _glifo(ci: CanvasItem, c: Vector2, lado: float, filas: Array, tinta: Color) -> void:
-	var px: float = lado / 7.0
+	# 7 x 7 los de un color; 9 x 9 los de varios tonos (la guadaña): el mismo lado, pixeles mas finos.
+	var px: float = lado / float(maxi(7, filas.size()))
 	var x0: float = c.x - lado * 0.5
 	var y0: float = c.y - lado * 0.5
 	for j in filas.size():
 		var f: String = filas[j]
 		for i in f.length():
-			if f[i] == "#":
+			var ch: String = f[i]
+			if ch == "#":
 				ci.draw_rect(Rect2(x0 + float(i) * px, y0 + float(j) * px, px, px), tinta)
+			elif GLIFO_TONOS.has(ch):
+				ci.draw_rect(Rect2(x0 + float(i) * px, y0 + float(j) * px, px, px), GLIFO_TONOS[ch])
 
 
 # LA MUESCA DEL +N: el triangulo de la esquina de arriba a la DERECHA, del color de su nivel y con

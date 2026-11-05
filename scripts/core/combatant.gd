@@ -634,6 +634,12 @@ var runa_alcantarilla_dano: float = 0.0  # ...y + este % del golpe que lo abre
 var runa_hilo_prob: float = 0.0         # set Hilo conductor (03/11): prob. de que el golpe rebote en rayo...
 var runa_hilo_dano: float = 0.0         # ...con este % del golpe...
 var runa_hilo_radio: float = 0.0        # ...a un enemigo a esta distancia del golpeado
+# set FILO DE AIRE (05/11, la segadora): tus golpes de arma se alargan con un corte de VIENTO de runa_filo_dano x el golpe a
+# quien la forma normal no toco: conos y circulos +runa_filo_mas de radio, lineas +runa_filo_linea, a uno runa_filo_detras px.
+var runa_filo_dano: float = 0.0
+var runa_filo_mas: float = 0.0
+var runa_filo_linea: float = 0.0
+var runa_filo_detras: float = 0.0
 var runa_musgo_reduce: float = 0.0     # set Musgo viejo (31/10): -% de los golpes de AREA (no quemado)
 var runa_ambar: float = 0.0            # set Ambar (03/11): capa de ambar (fraccion de tu vida) = la COSTRA de arriba...
 var runa_ambar_turnos: int = 3         # ...que, rota, vuelve a los tantos turnos tuyos

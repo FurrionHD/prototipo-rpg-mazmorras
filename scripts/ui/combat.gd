@@ -2365,6 +2365,11 @@ func _accion_atacar() -> void:
 	for v in golpeados_en_la_accion:
 		if not tocados.has(v):
 			tocados.append(v)
+	# EL SET FILO DE AIRE: el golpe a uno sigue por detras con un corte de viento.
+	if tactico:
+		for v in habilidades.filo_de_aire(_player, null, tocados, obj):
+			if not tocados.has(v):
+				tocados.append(v)
 	_tras_accion_jugador_varios(tocados)
 
 
@@ -3236,6 +3241,10 @@ func _set_log(texto: String) -> void:
 
 
 func _pintar_linea_log(texto: String) -> void:
+	# Sin la caja del registro (una pelea montada a mano en las pruebas) se apunta y ya.
+	if _log == null:
+		_log_lines.append(texto)
+		return
 	if not _log_lines.is_empty():
 		_log.newline()
 	_log_lines.append(texto)

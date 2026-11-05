@@ -11,6 +11,7 @@
 [ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="21_ab"]
 [ext_resource type="Resource" path="res://resources/abilities/segadora_siega.tres" id="22_sie"]
 [ext_resource type="Resource" path="res://resources/abilities/vendaval_cortes.tres" id="23_ven"]
+[ext_resource type="Resource" path="res://resources/materials/runa_segadora.tres" id="24_runa"]
 
 ; LOS MUTANTES DE LA SEGADORA (05/11, memoria segadora-mutante; numeros provisionales). En linea:
 ;     Segadora --> Segadora de sierra (garras x1,4, Zona de siega, Siega) --come mas--> Vendaval rojo (maga de viento: cortes, Vendaval, Vuelo corto)
@@ -97,3 +98,4 @@ anim_basico = &"golpe_4_6"
 cuerpo = Rect2(-9.68, -18.41, 20, 27.59)
 centro_golpe = Vector2(0.91, -5.41)
 alcance_marcado = 28.95
+drop_runa = ExtResource("24_runa")

@@ -133,7 +133,8 @@ const RUTAS_SETS := ["res://resources/runas/set_slime.tres", "res://resources/ru
 	"res://resources/runas/set_venenoso.tres", "res://resources/runas/set_abisal.tres",
 	"res://resources/runas/set_rata.tres", "res://resources/runas/set_rey_rata.tres", "res://resources/runas/set_jabali.tres",
 	"res://resources/runas/set_trent.tres", "res://resources/runas/set_arana.tres",
-	"res://resources/runas/set_escarabajo.tres", "res://resources/runas/set_ciempies.tres"]
+	"res://resources/runas/set_escarabajo.tres", "res://resources/runas/set_ciempies.tres",
+	"res://resources/runas/set_segadora.tres"]
 static var _sets: Array = []
 
 static func sets() -> Array:
@@ -363,6 +364,10 @@ static func efecto_txt(s: RunaSetData) -> String:
 		&"miasma":
 			return "+%d %% de daño por cada carga de veneno del objetivo (hasta %d), y tu veneno dura %d turno más." % [
 				roundi(float(p.get("por_carga", 0.04)) * 100.0), int(p.get("max", 5)), int(p.get("turnos", 1))]
+		&"filo_aire":
+			return "Solo con golpes de arma: cada habilidad o golpe se alarga con un corte de viento que hace el %d %% del golpe a quien la forma normal no ha tocado (los conos y los círculos llegan un %d %% más lejos, las líneas un %d %% más largas, y un golpe a uno sigue %d px por detrás). Una vez por habilidad; la magia no." % [
+				roundi(float(p.get("dano", 0.3)) * 100.0), roundi(float(p.get("mas", 0.3)) * 100.0),
+				roundi(float(p.get("linea", 0.4)) * 100.0), roundi(float(p.get("detras", 50.0)))]
 		&"cielo":
 			return "+%d %% de daño de luz y oscuridad, y tus críticos tienen un %d %% de dejar Ceguera." % [
 				roundi(float(p.get("dano", 0.20)) * 100.0), roundi(float(p.get("ciego", 0.20)) * 100.0)]
@@ -516,6 +521,11 @@ static func aplicar(c: Combatant, p: PersonajeData) -> void:
 	var alc: Dictionary = efecto_activo(p, &"alcantarilla")
 	c.runa_alcantarilla_prob = float(alc.get("prob", 0.0))
 	c.runa_alcantarilla_dano = float(alc.get("dano", 0.0))
+	var filo: Dictionary = efecto_activo(p, &"filo_aire")
+	c.runa_filo_dano = float(filo.get("dano", 0.0))
+	c.runa_filo_mas = float(filo.get("mas", 0.0))
+	c.runa_filo_linea = float(filo.get("linea", 0.0))
+	c.runa_filo_detras = float(filo.get("detras", 0.0))
 	var hilo: Dictionary = efecto_activo(p, &"hilo_conductor")
 	c.runa_hilo_prob = float(hilo.get("prob", 0.0))
 	c.runa_hilo_dano = float(hilo.get("dano", 0.0))
