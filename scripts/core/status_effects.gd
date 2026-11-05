@@ -1028,6 +1028,9 @@ class Instance extends RefCounted:
 			lineas.append("Al empezar tu turno pierdes el %d %% de la energía que te quede." % roundi(float(d["picor"]) * 100.0))
 		if bool(d.get("sin_objetos", false)):
 			lineas.append("Impide usar objetos.")
+		# LO QUE ANDAS en tu turno (el Congelado: 05/11, el jefe, "no tiene descripcion": salia mudo en la ficha).
+		if d.has("mov_mult") and float(d["mov_mult"]) < 1.0:
+			lineas.append("En tu turno solo andas el %d%% del camino." % roundi(float(d["mov_mult"]) * 100.0))
 		# ESCOLTA, igual: era un chip mudo.
 		if float(d.get("seguimiento_pct", 0.0)) > 0.0:
 			lineas.append("Atacas detrás de un compañero.")
@@ -1044,6 +1047,11 @@ class Instance extends RefCounted:
 		# La frase de SABOR ('descripcion' del catalogo) NO se pinta aqui: en mitad de un turno lo
 		# que hace falta es saber que te esta pasando, no leerse un parrafo. Se queda en el catalogo
 		# para donde tenga sentido (ficha/bestiario), que es donde se lee con calma.
+		# SALVO si no ha salido NADA que diga que hace: un estado mudo es peor que un parrafo (05/11, el Congelado). Un
+		# estado nuevo con una mecanica que aqui no se traduce dice al menos su frase del catalogo.
+		var dice_algo: bool = lineas.size() > (2 if maxs > 1 else 1)
+		if not dice_algo and str(d.get("descripcion", "")) != "":
+			lineas.insert(1, str(d["descripcion"]))
 		return "\n".join(lineas)
 
 
