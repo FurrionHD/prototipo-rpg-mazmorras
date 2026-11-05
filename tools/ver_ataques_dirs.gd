@@ -189,6 +189,7 @@ const FILO_MAS := 0.3
 const FILO_LINEA := 0.4
 const FILO_DETRAS := 50.0
 const FILO_IMPACTO := 0.32   # cuando llega el corte (aprox.: justo tras el golpe del arma)
+const FILO_TINTE := Color(0.62, 1.0, 0.8, 0.8)   # el viento: el mismo efecto tenido de verde palido
 var _filo_on: bool = false
 var _filo_ab: AbilityData = null
 var _filo_f = null
@@ -462,6 +463,16 @@ func _correr() -> void:
 			var f_suelo = f
 			if ab.suelo_roto == SueloRoto.Tipo.ESTELA:
 				f_suelo = CombatFormas.cono(yo, f.centro - yo, EstelaGolpe.RADIO, 0.0)
+			# EL FILO DE AIRE (05/11, el jefe: "tiene que unirse visualmente al efecto, hacerlo mas grande pero con viento"): el
+			# MISMO efecto del arma con la forma alargada, tenido de viento y detras del de verdad.
+			var s_viento: Node2D = null
+			if _filo_on and _filo_alargada(f_suelo) != null:
+				s_viento = SueloRoto.lanzar(self, _filo_alargada(f_suelo), ab.suelo_roto, 1234 + fila, 0.0)
+				if s_viento != null:
+					s_viento.set_process(false)
+					s_viento.modulate = FILO_TINTE
+					s_viento.z_index -= 1
+				_filo_f = null   # (con el efecto alargado no hace falta la media luna suelta)
 			var s: Node2D = SueloRoto.lanzar(self, f_suelo, ab.suelo_roto, 1234 + fila, ab.forma_nucleo)
 			s.set_process(false)
 			# LA SANGRE DEL HACHA: sale en el juego cuando el golpe entra (CombatTactico._on_impacto); aqui se
@@ -486,6 +497,12 @@ func _correr() -> void:
 					sangres.append({"n": n, "t0": antes + SueloRoto.retraso(f_suelo, p, ab.suelo_roto), "hecho": 0.0})
 			for col in tiempos.size():
 				s.set("_t", float(tiempos[col]))
+				if is_instance_valid(s_viento):
+					s_viento.set("_t", float(tiempos[col]))
+					for hijo_v in ["_geiser", "_aire", "_atras", "_delante"]:
+						if s_viento.get(hijo_v) != null:
+							(s_viento.get(hijo_v) as Node2D).queue_redraw()
+					s_viento.queue_redraw()
 				for sg in sangres:
 					var quiere: float = float(tiempos[col]) - float(sg["t0"])
 					while float(sg["hecho"]) + 0.01 <= quiere:
@@ -498,6 +515,8 @@ func _correr() -> void:
 				s.queue_redraw()
 				await _viñeta(hoja, col + 1, fila, "%s · %s · %.2f s" % [ab.nombre, dir_n, float(tiempos[col])])
 			s.queue_free()
+			if is_instance_valid(s_viento):
+				s_viento.queue_free()
 			for sg in sangres:
 				if is_instance_valid(sg["n"]):
 					(sg["n"] as Node).queue_free()
