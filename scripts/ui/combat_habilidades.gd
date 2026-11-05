@@ -1210,13 +1210,13 @@ func filo_de_aire(p: Combatant, ab: AbilityData, ya: Array, obj: Combatant) -> A
 		var v: Combatant = e
 		var r: Dictionary = StatsMath.resolve_attack(p, v, false)
 		if r.get("evaded", false):
-			_pantalla.efectos._fx_golpe(p, v, 0.0, false, true, Elementos.Elemento.VIENTO, CombatFX.Estilo.GUADANA, 0.7, false)
+			_pantalla.efectos._fx_golpe(p, v, 0.0, false, true, Elementos.Elemento.VIENTO, CombatFX.Estilo.INSECTO_VIENTO, 0.7, false)
 			partes.append("%s lo esquiva" % _pantalla._etq(v))
 			continue
 		var mult: float = Elementos.mult_recibido(Elementos.Elemento.VIENTO, v)
 		var d: float = maxf(0.1, float(r["damage"]) * p.runa_filo_dano * mult)
 		v.take_damage(d)
-		_pantalla.efectos._fx_golpe(p, v, d, false, false, Elementos.Elemento.VIENTO, CombatFX.Estilo.GUADANA, 0.7, false,
+		_pantalla.efectos._fx_golpe(p, v, d, false, false, Elementos.Elemento.VIENTO, CombatFX.Estilo.INSECTO_VIENTO, 0.7, false,
 			"", AbilityData.Gesto.AUTO, null, 0, mult)
 		_pantalla._apuntar_dano(v, d, p)
 		out.append(v)

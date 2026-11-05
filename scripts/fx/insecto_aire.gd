@@ -50,7 +50,7 @@ extends Node2D
 class_name InsectoAire
 
 enum Modo { TELARANA, QUELICEROS, PONZONA, VENENO, HEBRAS, RED, PALA, ARROLLA, CAPARAZON, RODADA,
-	FORCIPULAS, PATITAS, APRETON, OLEADA, TAJO, GUADANA, ESTOCADA }
+	FORCIPULAS, PATITAS, APRETON, OLEADA, TAJO, GUADANA, ESTOCADA, VIENTO }
 # Los del suelo, en el orden de SueloRoto.Tipo.INSECTO_*: no reordenar (el Modo si se puede).
 enum Suelo { TELARANA, RODADA, OLEADA }
 const _MODO_DE_SUELO := [Modo.TELARANA, Modo.RODADA, Modo.OLEADA]
@@ -223,6 +223,10 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 	# LA SEGADORA EN PIXEL (05/11): el corte lo pinta la ESTELA de su garra (TacticoPixel, al empezar su gesto); sobre quien
 	# recibe solo el impacto: destello y sangre, y en el Ensarte las esquirlas por detras y el agujero. 'boca' > 0 = hoja de
 	# metal (sus mutantes).
+	# EL CORTE DE VIENTO (05/11): su impacto verde palido, el de la lamina aprobada (segadora_efectos_horno.py).
+	if padre != null and m == Modo.VIENTO:
+		return EfectoPixel.lanzar(padre, "segadora", "impacto_viento", Vector2(caja.get_center().x, caja.end.y), 0, null,
+			maxf(espera, 0.0), -1.0, maxf(ritmo, 0.05))
 	if padre != null and (m == Modo.TAJO or m == Modo.GUADANA or m == Modo.ESTOCADA):
 		var pies_s := Vector2(caja.get_center().x, caja.end.y)
 		var hacia_s: Vector2 = caja.get_center() - desde

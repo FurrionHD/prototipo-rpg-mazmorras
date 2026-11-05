@@ -1567,7 +1567,7 @@ func corte_viento(e: Combatant, t: Combatant, frac: float) -> float:
 	return dano
 
 # Como se ve el corte (el de la Segadora; sus cortes en pixel van con los efectos, paso 6 del plan).
-const CORTE_ESTILO := CombatFX.Estilo.GUADANA
+const CORTE_ESTILO := CombatFX.Estilo.INSECTO_VIENTO
 # Lo que SIGUE el corte por detras del cuerpo de quien lo encaja (px): pilla a quien este justo detras.
 const CORTE_SIGUE := 70.0
 const CORTE_ANCHO := 18.0
@@ -1583,14 +1583,14 @@ func tajo_zona_siega(e: Combatant, t: Combatant) -> void:
 	var r: Dictionary = StatsMath.resolve_attack(e, t, defendiendo)
 	_pantalla._aplicar_pasivas(r, e, t)
 	if r.get("evaded", false):
-		_pantalla.efectos._fx_golpe(e, t, 0.0, false, true, e.elemento_ataque, CORTE_ESTILO, 1.0, false)
+		_pantalla.efectos._fx_golpe(e, t, 0.0, false, true, e.elemento_ataque, CombatFX.Estilo.INSECTO_TAJO, 1.0, false)
 		_pantalla._log_extra("✱ %s se mete en la Zona de siega de %s y esquiva el tajo" % [t.nombre, _pantalla._etq(e)])
 		return
 	var dmg: float = float(r["damage"]) * e.zona_siega * e.dummy_dmg_out_mult
 	if e.cortes_viento > 0.0:
 		dmg *= e.cortes_melee_mult
 	t.take_damage(dmg)
-	_pantalla.efectos._fx_golpe(e, t, dmg, bool(r.get("crit", false)), false, e.elemento_ataque, CORTE_ESTILO, 1.0, false,
+	_pantalla.efectos._fx_golpe(e, t, dmg, bool(r.get("crit", false)), false, e.elemento_ataque, CombatFX.Estilo.INSECTO_TAJO, 1.0, false,
 		"", AbilityData.Gesto.AUTO, null, 0, float(r.get("mult_elem", 1.0)))
 	var puestos: Array = []
 	if not e.on_hit.is_empty():

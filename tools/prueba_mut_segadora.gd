@@ -62,11 +62,11 @@ func _ready() -> void:
 			if not hojas.has("%s_%s" % [quien, g]):
 				faltan.append("%s_%s" % [quien, g])
 	_ver(faltan.is_empty(), "las estelas de las garras de las tres (faltan: %s)" % [faltan])
-	_ver(hojas.has("impacto_hueso") and hojas.has("impacto_metal") and hojas.has("estocada_hueso") and hojas.has("estocada_metal"), "los impactos")
+	_ver(hojas.has("impacto_hueso") and hojas.has("impacto_metal") and hojas.has("estocada_hueso") and hojas.has("estocada_metal") and hojas.has("impacto_viento"), "los impactos (y el del corte de viento)")
 	var padre := Node2D.new()
 	add_child(padre)
 	var caja := Rect2(100, 100, 20, 30)
-	for m in [InsectoAire.Modo.TAJO, InsectoAire.Modo.GUADANA, InsectoAire.Modo.ESTOCADA]:
+	for m in [InsectoAire.Modo.TAJO, InsectoAire.Modo.GUADANA, InsectoAire.Modo.ESTOCADA, InsectoAire.Modo.VIENTO]:
 		var e = InsectoAire.sobre_cuerpo(padre, m, Vector2(60, 110), caja, 1, 0.0, 1.0, 1.0)
 		_ver(e is EfectoPixel, "golpe %d: el impacto es el de pixel" % m)
 	padre.queue_free()

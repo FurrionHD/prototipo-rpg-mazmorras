@@ -5712,7 +5712,7 @@ const _MODO_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.QUE
 	CombatFX.Estilo.INSECTO_FORCIPULAS: InsectoAire.Modo.FORCIPULAS, CombatFX.Estilo.INSECTO_PATITAS: InsectoAire.Modo.PATITAS,
 	CombatFX.Estilo.INSECTO_APRETON: InsectoAire.Modo.APRETON,
 	CombatFX.Estilo.INSECTO_TAJO: InsectoAire.Modo.TAJO, CombatFX.Estilo.INSECTO_GUADANA: InsectoAire.Modo.GUADANA,
-	CombatFX.Estilo.INSECTO_ESTOCADA: InsectoAire.Modo.ESTOCADA}
+	CombatFX.Estilo.INSECTO_ESTOCADA: InsectoAire.Modo.ESTOCADA, CombatFX.Estilo.INSECTO_VIENTO: InsectoAire.Modo.VIENTO}
 
 const _MODO_SIMA := {CombatFX.Estilo.SIMA_PORRAZO: SimaAire.Modo.PORRAZO, CombatFX.Estilo.SIMA_TOS: SimaAire.Modo.TOS,
 	CombatFX.Estilo.SIMA_LATIGO: SimaAire.Modo.LATIGO, CombatFX.Estilo.SIMA_VENTOSA: SimaAire.Modo.VENTOSA,

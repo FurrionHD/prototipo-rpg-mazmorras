@@ -475,7 +475,10 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		# lo que sueltan al llenarse las cargas, desde ellas.
 		ARANA_ARCO = 223, ARANA_DESCARGA = 224, ARANA_EXPLOSION = 225,
 		# el Hilo al rojo y el Capullo: el hilo de ascuas, de ella al golpeado.
-		ARANA_HILO = 226 }
+		ARANA_HILO = 226,
+		# LOS CORTES DE VIENTO (05/11, la Segadora mutante y el set Filo de aire): el impacto verde palido sobre quien lo
+		# encaja (InsectoAire.Modo.VIENTO). No es cuerpo a cuerpo: el corte vuela, no embiste nadie.
+		INSECTO_VIENTO = 227 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -533,7 +536,7 @@ const DIBUJO_MAPA := [Estilo.CRIA_LANZADA, Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA
 	# los insectoides (InsectoAire, 29/09): sobre el cuerpo que recibe.
 	Estilo.INSECTO_QUELICEROS, Estilo.INSECTO_PONZONA, Estilo.INSECTO_HEBRAS,
 	Estilo.INSECTO_PALA, Estilo.INSECTO_ARROLLA, Estilo.INSECTO_CAPARAZON, Estilo.INSECTO_FORCIPULAS, Estilo.INSECTO_PATITAS,
-	Estilo.INSECTO_TAJO, Estilo.INSECTO_GUADANA, Estilo.INSECTO_ESTOCADA,
+	Estilo.INSECTO_TAJO, Estilo.INSECTO_GUADANA, Estilo.INSECTO_ESTOCADA, Estilo.INSECTO_VIENTO,
 	# las simas (SimaAire, 30/09).
 	Estilo.SIMA_PORRAZO, Estilo.SIMA_TOS, Estilo.SIMA_LATIGO, Estilo.SIMA_VENTOSA, Estilo.SIMA_CHUPADA,
 	Estilo.SIMA_OIDOS, Estilo.SIMA_PALETOS, Estilo.SIMA_ALA, Estilo.SIMA_POLVO, Estilo.SIMA_VELO,
@@ -723,7 +726,7 @@ const T_VUELO := {
 	# Las forcipulas llegan abiertas y se cruzan en el golpe; las patitas empiezan a clavarse justo antes.
 	Estilo.INSECTO_FORCIPULAS: 0.14, Estilo.INSECTO_PATITAS: 0.06,
 	# La hoja de la segadora cruza el cuerpo en el viaje y corta en el golpe.
-	Estilo.INSECTO_TAJO: 0.12, Estilo.INSECTO_GUADANA: 0.12, Estilo.INSECTO_ESTOCADA: 0.1,
+	Estilo.INSECTO_TAJO: 0.12, Estilo.INSECTO_GUADANA: 0.12, Estilo.INSECTO_ESTOCADA: 0.1, Estilo.INSECTO_VIENTO: 0.02,
 	# El porrazo y la tos salen EN el golpe; el latigo sale de la mano y tarda en llegar (SimaAire.T_LATIGO_VA).
 	Estilo.SIMA_PORRAZO: 0.02, Estilo.SIMA_TOS: 0.02, Estilo.SIMA_LATIGO: 0.2,
 	# La boca llega abierta y se cierra en el golpe; las gotas suben EN el golpe.
