@@ -332,6 +332,48 @@ def pintar(mo, L, dir_i, t, hi, mats, grupos, n, ao, sub=None):
     return Image.fromarray((np.clip(sal, 0, 1) * 255).astype(np.uint8), 'RGBA')
 
 
+def a_pantalla(mo, p, dir_i):
+    """Donde cae en el lienzo del sprite (pixel x, y) un punto del modelo, mirando hacia 'dir_i'. Lo inverso del render."""
+    ca, sa = giro_de(dir_i)
+    w = np.array([p[0] * ca + p[1] * sa, -p[0] * sa + p[1] * ca, p[2]])
+    return (float(w @ R_) * mo.ppu + mo.OX - 0.5, mo.OY - float(w @ U_) * mo.ppu - 0.5)
+
+
+def punta_de(mo, L, dir_i, grupo, mat):
+    """LA PUNTA DE UN ARMA (05/11, el jefe: "de donde cojones has puesto el efecto del corte"): de las piezas de 'grupo' y
+    'mat', el extremo mas lejano de donde empieza; en pixeles del lienzo. Los efectos siguen ESTO, no un sitio inventado."""
+    pts = []
+    for fn, m, g, k, X, nh in L:
+        if g != grupo or m.split('>')[0] != mat:
+            continue
+        r = fn(SONDA)
+        if not isinstance(r, tuple) or r[0] not in ('cono', 'esfera', 'elipsoide'):
+            continue
+        for q in ((r[1], r[2]) if r[0] == 'cono' else (r[1],)):
+            pts.append(X[0] @ np.asarray(q, dtype=float) + X[1])
+    if not pts:
+        return None
+    lejos = max(pts, key=lambda q: float(np.linalg.norm(q - pts[0])))
+    return a_pantalla(mo, lejos, dir_i)
+
+
+def puntas_armas(escena_fn, modelo, anims, grupos, mat, sub=4):
+    """La punta de cada arma en cada direccion, cada 1/sub de fotograma (la estela de un corte sale CURVA, no a tramos):
+    {'anim|dir|fotograma|grupo': (x, y)} en pixeles del lienzo; 'fotograma' con dos decimales (2.25 = entre el 2 y el 3)."""
+    sal = {}
+    for nm, (n, _fps, loop, dirs, fn) in anims.items():
+        for d in range(min(dirs, 5)):
+            for k in range((n - 1) * sub + 1 if not loop else n * sub):
+                fr = k / sub
+                t = fr / n if loop else (fr / (n - 1) if n > 1 else 0.0)
+                L = escena_fn(fn(t))
+                for g in grupos:
+                    q = punta_de(modelo, L, d, g, mat)
+                    if q:
+                        sal['%s|%d|%.2f|%s' % (nm, d, fr, g)] = q
+    return sal
+
+
 def vistas_lado_a_lado(fotos_nuevas, nombre_viejo, salida, escala=4, anim='idle'):
     """Arriba el horneado VIEJO (assets/sprites/enemigos/<nombre_viejo>.json), abajo el NUEVO, las 5 direcciones."""
     d = json.load(open('assets/sprites/enemigos/%s.json' % nombre_viejo))

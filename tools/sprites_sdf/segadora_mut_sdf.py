@@ -389,5 +389,12 @@ if __name__ == '__main__':
     args = sys.argv[1:]
     if args[:1] == ['hoja']:
         _hoja_ver(args[1:])
+    elif args[:1] == ['puntas']:
+        import json
+        if len(args) > 2 and args[2] == 'normal':
+            raise SystemExit('la normal: python segadora_sdf.py puntas <salida>')
+        else:
+            json.dump(puntas_armas(escena, MODELO, ANIMS, ('guadana_-1', 'guadana_1'), 'hoja'), open(args[1], 'w'))
     else:
         hornear('segadora_mut_sdf', args or list(ANIMS.keys()), SALIDA, VISTAS)
+
