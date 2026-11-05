@@ -84,6 +84,53 @@ def _cabeza(add, h, mat, tam, forc=1.0):
         _elip(add, (1.1 * s * tam, 1.7 * tam, 0.95 * tam), (0.5 * tam, 0.45 * tam, 0.4 * tam), 'ojo', 0, 'ojo', h)
 
 
+ESTILO_CABEZA = None   # None = la cabeza de la primera lamina; 'escudo', 'cuna', 'fauces' = las de la lamina de cabezas
+
+
+def _ojos_cab(add, h, y, x, z, r):
+    for s in (-1, 1):
+        _elip(add, (x * s, y, z), (r, r * 0.9, r * 0.8), 'ojo', 0, 'ojo', h)
+
+
+def _antenas(add, h, y, t):
+    for s in (-1, 1):
+        _cono(add, (0.8 * s * t, y, 0.8 * t), (2.6 * s * t, y + 2.4 * t, 2.0 * t), 0.5, 0.36, 'pata', 0, 'antena', h)
+        _cono(add, (2.6 * s * t, y + 2.4 * t, 2.0 * t), (3.8 * s * t, y + 4.4 * t, 1.4 * t), 0.36, 0.26, 'pata', 0, 'antena', h)
+
+
+def _hoz(add, h, s, base, codo, punta, r0):
+    """Una forcipula: hueso claro con la punta oscura, curvada hacia dentro."""
+    _cono(add, (base[0] * s, base[1], base[2]), (codo[0] * s, codo[1], codo[2]), r0, r0 * 0.72, 'pata', 0, 'forc', h)
+    _cono(add, (codo[0] * s, codo[1], codo[2]), (punta[0] * s, punta[1], punta[2]), r0 * 0.72, 0.2, 'garra', 0, 'forc', h)
+
+
+def _cabeza_estilo(add, h, mat, t, estilo):
+    if estilo == 'escudo':
+        # ANCHA Y PLANA, como la de una escolopendra de verdad, con su placa encima y hoces cortas.
+        _elip(add, (0, 1.5 * t, 0.0), (2.5 * t, 2.8 * t, 1.25 * t), mat, 0, 'cabeza', h)
+        _elip(add, (0, 1.0 * t, 0.75 * t), (1.5 * t, 1.7 * t, 0.65 * t), 'placa', 0, 'cabplaca', h)
+        _ojos_cab(add, h, 3.1 * t, 1.25 * t, 0.65 * t, 0.46 * t)
+        _antenas(add, h, 3.4 * t, t)
+        for s in (-1, 1):
+            _hoz(add, h, s, (1.6 * t, 3.4 * t, -0.2), (2.6 * t, 5.0 * t, -0.2), (0.7 * t, 6.2 * t, -0.2), 0.8 * t)
+    elif estilo == 'cuna':
+        # EN PUNTA: se estrecha hacia delante, mas de serpiente; hoces largas y finas pegadas al morro.
+        _cono(add, (0, 0.4 * t, 0.2), (0, 4.4 * t, 0.0), 2.3 * t, 0.85 * t, mat, 0, 'cabeza', h)
+        _cono(add, (0, 0.4 * t, 1.25 * t), (0, 3.2 * t, 0.55 * t), 1.0 * t, 0.35 * t, 'placa', 0, 'cabplaca', h)
+        _ojos_cab(add, h, 2.3 * t, 1.25 * t, 0.75 * t, 0.42 * t)
+        _antenas(add, h, 2.8 * t, t)
+        for s in (-1, 1):
+            _hoz(add, h, s, (1.2 * t, 2.8 * t, -0.3), (2.5 * t, 5.0 * t, -0.3), (0.5 * t, 7.0 * t, -0.3), 0.6 * t)
+    else:
+        # FAUCES: cabeza corta y unas hoces ENORMES abiertas en arco: lo que se ve primero es la tenaza.
+        _elip(add, (0, 1.0 * t, 0.1), (2.2 * t, 2.1 * t, 1.35 * t), mat, 0, 'cabeza', h)
+        _elip(add, (0, 0.8 * t, 0.85 * t), (1.2 * t, 1.2 * t, 0.55 * t), 'placa', 0, 'cabplaca', h)
+        _ojos_cab(add, h, 2.3 * t, 0.95 * t, 0.8 * t, 0.42 * t)
+        _antenas(add, h, 2.2 * t, t * 0.8)
+        for s in (-1, 1):
+            _hoz(add, h, s, (1.5 * t, 2.0 * t, -0.2), (4.4 * t, 4.4 * t, -0.2), (1.0 * t, 7.6 * t, -0.2), 1.0 * t)
+
+
 def cadena(ctrl, radio, paso, tam_cab=1.35, bandas=0, largo_pata=2.7, grosor_pata=1.0, fino=None):
     """Toda la cadena: 'ctrl' = puntos (x, y, z), de la cabeza A a la cabeza B. 'fino': radio en las puntas (cuello)."""
     pts = _repartir(ctrl, paso)
@@ -104,9 +151,11 @@ def cadena(ctrl, radio, paso, tam_cab=1.35, bandas=0, largo_pata=2.7, grosor_pat
             r = fino + (radio - fino) * punta / 4.0
         _elip(add, (0, 0, 0), (r * 1.15, paso * 0.66, r * 0.85), 'cuerpo', 0.6, hueso=h)
         mat = 'banda' if bandas and i % bandas == 0 else 'placa'
-        if i <= 1:
+        # (Con las cabezas nuevas el color se queda en el anillo pegado a la cabeza: dos anillos hacian un bloque.)
+        cuello = 1 if ESTILO_CABEZA is None else 0
+        if i <= cuello:
             mat = 'cabA'
-        elif i >= n - 2:
+        elif i >= n - 1 - cuello:
             mat = 'cabB'
         ancho_placa = 0.3 if mat == 'banda' else 0.5
         _elip(add, (0, 0, r * 0.45), (r * 1.2, paso * ancho_placa, r * 0.45), mat, 0, 'placa%d' % (i % 2), h)
@@ -119,8 +168,12 @@ def cadena(ctrl, radio, paso, tam_cab=1.35, bandas=0, largo_pata=2.7, grosor_pat
                 pie = V((s * (r + lp), 0, -1.5 if en_suelo else -0.5))
                 _cono(add, V((s * r * 0.8, 0, 0)), rod, 0.78 * grosor_pata, 0.66 * grosor_pata, 'pata', 0, 'pata', h)
                 _cono(add, rod, pie, 0.66 * grosor_pata, 0.35, 'pata', 0, 'pata', h)
-    _cabeza(add, 'cabA', 'cabA', tam_cab)
-    _cabeza(add, 'cabB', 'cabB', tam_cab)
+    if ESTILO_CABEZA is None:
+        _cabeza(add, 'cabA', 'cabA', tam_cab)
+        _cabeza(add, 'cabB', 'cabB', tam_cab)
+    else:
+        _cabeza_estilo(add, 'cabA', 'cabA', tam_cab * 0.85, ESTILO_CABEZA)
+        _cabeza_estilo(add, 'cabB', 'cabB', tam_cab * 0.85, ESTILO_CABEZA)
     return e.L
 
 
@@ -176,6 +229,7 @@ def constrictor_c():
 if __name__ == '__main__':
     getattr(sdf_comun, '_prioridad_baja', lambda: None)()   # (si esta: lo que use el jefe pasa por delante)
     mo = modelo()
+    cabezas = sys.argv[1:] == ['cabezas']
     filas = [
         ('NORMAL (hoy)', None),
         ('BICEFALO A herradura', bicefalo_a()),
@@ -185,6 +239,15 @@ if __name__ == '__main__':
         ('CONSTRICTOR B piton', constrictor_b()),
         ('CONSTRICTOR C aro', constrictor_c()),
     ]
+    salida_nombre = 'ciempies_mutantes_versiones.png'
+    if cabezas:
+        # python ... cabezas -> ciempies_mutantes_cabezas.png: las tres formas de cabeza sobre los cuerpos ELEGIDOS.
+        salida_nombre = 'ciempies_mutantes_cabezas.png'
+        filas = []
+        for est in ('escudo', 'cuna', 'fauces'):
+            ESTILO_CABEZA = est
+            filas.append(('BICEFALO cabeza ' + est, bicefalo_a()))
+            filas.append(('CONSTRICTOR cabeza ' + est, constrictor_a()))
     W = H = 150
     ESC = 4
     MARGEN = 190
@@ -218,8 +281,8 @@ if __name__ == '__main__':
             hoja.paste(c, (MARGEN + d * ancho * ESC, y), c)
         y += (y1 - y0) * ESC
     os.makedirs('tools/salida/sdf', exist_ok=True)
-    hoja.save('tools/salida/sdf/ciempies_mutantes_versiones.png')
+    hoja.save('tools/salida/sdf/' + salida_nombre)
     esc = os.path.join(os.path.expanduser('~'), 'Desktop', 'ataques_mapa', 'enemigos', 'prueba_3d', 'mutantes')
     os.makedirs(esc, exist_ok=True)
-    hoja.save(os.path.join(esc, 'ciempies_mutantes_versiones.png'))
+    hoja.save(os.path.join(esc, salida_nombre))
     print('ok', hoja.size)
