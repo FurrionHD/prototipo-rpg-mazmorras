@@ -9,6 +9,8 @@ class_name TacticoPixel
 
 const T_TOCA_PICADO := 0.34   # como CombatFX.IMPACTO_ANIM_MAPA "picado"
 const T_TOCA_CAER := 4.0 / 14.0
+const T_TOCA_PINZA := 0.07     # la Pinza cierra a 0,21 y su hoja llega al frente en su marco 2 (a 14 fps)
+const T_TOCA_DERRUMBE := 0.145 # como CombatFX.IMPACTO_ANIM_MAPA "derrumbe"
 const PASO_POLVO := 16.0      # cada cuanto levanta polvo el que embiste, en px
 
 var _t = null   # CombatTactico (sin tipo: se nombran el uno al otro)
@@ -25,6 +27,20 @@ func _init(t) -> void:
 func al_gesto(c: Combatant, cuerpo: Node2D, base: String, dur: float) -> void:
 	if base == "afilar":   # Afilarse, de la obsidiana: sus destellos, sobre el
 		EfectoPixel.lanzar(_t._arena(), "slime", "afilar", _t.pies_de(c), 0, null, 0.0, dur)
+		return
+	# (los mutantes del ciempies, por su cabeza libre: la Pinza y el Derrumbe)
+	if _t._tiene_anim_bicho(cuerpo, "libre_idle"):
+		var ritmo_c: float = _t._pantalla._fx.escala_tiempo if _t._pantalla._fx != null else 1.0
+		var pies_c: Vector2 = _t.pies_de(c)
+		match base:
+			"pinza":
+				EfectoPixel.lanzar(_t._arena(), "ciempies", "pinza", pies_c, SpriteLienzo.dir8(_t._mirada_de(cuerpo)), null, T_TOCA_PINZA / maxf(ritmo_c, 0.05), -1.0, ritmo_c)
+			"derrumbe_carga":
+				var ab_c: AbilityData = (_t._poses_carga.get(c, {}) as Dictionary).get("ab")
+				_mientras_carga(c, ab_c, [EfectoPixel.lanzar(_t._arena(), "ciempies", "derrumbe_carga", pies_c, 0, cuerpo, 0.0, -1.0, ritmo_c)])
+			"derrumbe":
+				_quitar_carga(c)
+				EfectoPixel.lanzar(_t._arena(), "ciempies", "derrumbe", pies_c, 0, null, T_TOCA_DERRUMBE / maxf(ritmo_c, 0.05), -1.0, ritmo_c)
 		return
 	# (los mutantes del escarabajo se reconocen por lo que trae su hoja: el Pulso o la Pasada)
 	if not _t._tiene_anim_bicho(cuerpo, "pulso") and not _t._tiene_anim_bicho(cuerpo, "pasada"):

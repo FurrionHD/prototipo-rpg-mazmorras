@@ -182,7 +182,7 @@ const MAX_CONEXIONES := 32
 #   65 = (03/11) los mutantes de la araña: PARALISIS 51 y ENCAPULLADO 52, las cargas en el campo 12 de la instantanea y los estilos ARANA_* 223-226.
 #   66 = (04/11) estados IMANTADO..ELITROS 53-59 (el escarabajo); el campo 13 de la instantanea (los estados: el maniqui del espejo los pinta) y la espera de la costra en el 12.
 #   67 = (04/11) el conjuro cargado en el mapa: "punto" en el casteo de la ficha, en la respuesta a la frase, y 'apuntar' en _tu_frase y _tu_disparo.
-const PROTOCOLO := 67
+const PROTOCOLO := 68
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

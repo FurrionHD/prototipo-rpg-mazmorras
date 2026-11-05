@@ -148,7 +148,7 @@ func _enemy_turn(e: Combatant) -> void:
 	if _pantalla.tactico:
 		var enroscada: Combatant = _pantalla.turno_mapa.enrosque_de(e)
 		if enroscada != null:
-			_enemy_apretar(e, enroscada)
+			_enemy_apretar_turno(e)
 			return
 		# PEGADA (el Adherirse del chupasimas, 30/09): mientras lleve a alguien pegado, cada turno suyo le chupa (su
 		# habilidad que roba vida, el Drenaje, este o no en espera) sin andar ni cambiar de presa. Cuenta sus turnos.
@@ -189,7 +189,8 @@ func _enemy_turn(e: Combatant) -> void:
 	# SILENCIADO: se queda sin habilidades, igual que tu te quedas sin el boton. Le queda pegar.
 	if not _pantalla._dps_on and not e.silenciado():
 		for ab in e.habilidades:
-			if e.ability_ready(ab) and ab.invoca_cantidad <= 0:   # la invocacion ya se decidio arriba
+			if e.ability_ready(ab) and ab.invoca_cantidad <= 0 \
+					and not (ab.pide_dos_cabezas and e.una_cabeza_este_turno()):   # la invocacion ya se decidio arriba
 				listas.append(ab)
 	# A QUIEN va: uno de los tuyos que siga en pie (ver _elegir_objetivo_enemigo). Se decide AQUI,
 	# en el momento de pegar, y no al empezar el turno: entre medias puede haber caido alguien.
@@ -236,6 +237,12 @@ func _enemy_turn(e: Combatant) -> void:
 	if atado:
 		_pantalla._set_log("🌱 %s está enraizado y no llega a atacar." % e.nombre)
 		_pantalla._pausa_lectura()
+		return
+
+	# SU BASICO ES UNA HABILIDAD (05/11, el Bicefalo: las dos cabezas al mismo). Con una dormida, muerde solo con la otra.
+	if e.basico_propio != null and not _pantalla._dps_on:
+		_enemy_use_ability(e, e.basico_una_cabeza if e.una_cabeza_este_turno() and e.basico_una_cabeza != null \
+			else e.basico_propio, obj)
 		return
 
 	var pj_obj: PersonajeData = Game.pj_de_combatant(obj)   # a quien se le apunta la excelia
@@ -1555,9 +1562,10 @@ func _enemy_resolver_mitades(e: Combatant, ab: AbilityData, t: Combatant, escala
 
 # EL APRETON del Enrosque (29/09): el turno del ciempies que tiene a alguien enroscado. El daño de un basico que
 # no se esquiva (le tiene rodeado) ni se para con la guardia (no hay por donde).
-func _enemy_apretar(e: Combatant, presa: Combatant) -> void:
+func _enemy_apretar(e: Combatant, presa: Combatant, cerrar: bool = true) -> void:
 	var result := StatsMath.resolve_attack(e, presa, false, -1.0, 0.0, 0.0, false)
-	var dmg: float = result.damage * e.dummy_dmg_out_mult
+	# APRIETA MAS (el Nudo carmesi): cuantos mas turnos lleva, mas fuerte.
+	var dmg: float = result.damage * e.dummy_dmg_out_mult * _pantalla.turno_mapa.mult_apreton(e)
 	presa.take_damage(dmg)
 	# EL APRETON (29/09): su dibujo propio en el mapa; el sprite enroscado aprieta a la vez (CombatTactico).
 	var estilo_ap: int = CombatFX.Estilo.INSECTO_APRETON if _pantalla.tactico else _pantalla.efectos._estilo_de_habilidad(null, e)
@@ -1574,7 +1582,52 @@ func _enemy_apretar(e: Combatant, presa: Combatant) -> void:
 		if _pantalla.altas.derrota():
 			_pantalla._end(false)
 			return
+	if cerrar:
+		_pantalla._pausa_lectura()
+
+
+# EL TURNO DEL QUE ENROSCA (05/11): aprieta a todas sus presas (el Nudo puede tener dos) y, si le queda una cabeza
+# libre y despierta, esa muerde a otro que tenga a tiro. El ciempies normal solo aprieta, como siempre.
+func _enemy_apretar_turno(e: Combatant) -> void:
+	_pantalla.turno_mapa.contar_apreton(e)
+	for presa in _pantalla.turno_mapa.presas_de(e):
+		_enemy_apretar(e, presa, false)
+		if _pantalla._state == _pantalla.State.FINISHED:
+			return
+	_morder_con_la_libre(e)
+	if _pantalla._state == _pantalla.State.FINISHED:
+		return
 	_pantalla._pausa_lectura()
+
+
+# LA CABEZA QUE NO ENROSCA (el Bicefalo): su mordisco a otro. A nadie a tiro, nada: no anda, esta atado a la presa.
+func _morder_con_la_libre(e: Combatant) -> void:
+	if e.cabeza_libre_mult <= 0.0 or bool(e.cabezas_este_turno[1]) or _pantalla.turno_mapa.presas_de(e).size() != 1:
+		return
+	var obj: Combatant = _pantalla.turno_mapa.a_tiro_de_la_libre(e)
+	if obj == null:
+		return
+	var defendiendo: bool = (bool(_pantalla._defendiendo.get(obj, false)) or obj.en_guardia) \
+		and _pantalla.turno_mapa.cubre_de_frente(obj, e)
+	var result := StatsMath.resolve_attack(e, obj, defendiendo)
+	var estilo: int = _pantalla.efectos._estilo_de_habilidad(null, e)
+	if result.evaded:
+		_pantalla.efectos._fx_golpe(e, obj, 0.0, false, true, e.elemento_ataque, estilo, 1.0, false, "", AbilityData.Gesto.EN_SITIO)
+		_pantalla._set_log("%s esquiva la otra cabeza de %s. 💨" % [obj.nombre, _pantalla._etq(e)])
+		return
+	var dmg: float = result.damage * e.cabeza_libre_mult * e.dummy_dmg_out_mult
+	obj.take_damage(dmg)
+	_pantalla.efectos._fx_golpe(e, obj, dmg, result.crit, false, e.elemento_ataque, estilo, 1.0, false, "",
+		AbilityData.Gesto.EN_SITIO, null, 0, float(result.get("mult_elem", 1.0)))
+	var pj: PersonajeData = Game.pj_de_combatant(obj)
+	Game.desgastar_armadura(pj)
+	Game.contar_dano_recibido(dmg, pj)
+	_pantalla._set_log("🐛 La otra cabeza de %s muerde a %s: %.2f de daño." % [_pantalla._etq(e), obj.nombre, dmg])
+	_pantalla._update_hp()
+	if not obj.is_alive():
+		_pantalla.altas._caer_aliado(obj)
+		if _pantalla.altas.derrota():
+			_pantalla._end(false)
 
 
 # Tira los estados (StatusApplication) de una habilidad del enemigo 'e'. Respeta 'en_objetivo':

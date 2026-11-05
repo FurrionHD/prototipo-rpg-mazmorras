@@ -220,6 +220,21 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 	if padre != null and m == Modo.CAPARAZON:
 		# (a sus pies de verdad: su caja es el dibujo entero, y el anillo ya va 6 celdas por debajo de su origen)
 		return EfectoPixel.lanzar(padre, "escarabajo", "capa_polvo", Vector2(caja.get_center().x, caja.position.y + caja.size.y * 0.55), 0, null, maxf(espera, 0.0), -1.0, maxf(ritmo, 0.05))
+	# EL CIEMPIES Y SUS MUTANTES EN PIXEL (05/11): 'de_lado' = que cabeza es: 0 el normal; -1 la A (naranja), +1 la B (turquesa).
+	if padre != null and (m == Modo.FORCIPULAS or m == Modo.PATITAS or m == Modo.APRETON):
+		var pies_c := Vector2(caja.get_center().x, caja.end.y)
+		var hacia_c: Vector2 = caja.get_center() - desde
+		var dir_c: int = SpriteLienzo.dir8(hacia_c) if hacia_c.length_squared() > 1.0 else 0
+		var r_c: float = maxf(ritmo, 0.05)
+		var cabeza: String = "" if is_zero_approx(de_lado) else ("_a" if de_lado < 0.0 else "_b")
+		match m:
+			Modo.FORCIPULAS:
+				var hoja_c: String = "tijera" if cabeza == "" else "gancho%s" % cabeza
+				return EfectoPixel.lanzar(padre, "ciempies", hoja_c, pies_c, dir_c, null, maxf(espera - (3.0 if cabeza == "" else 2.0) / 14.0 / r_c, 0.0), -1.0, r_c)
+			Modo.PATITAS:
+				return EfectoPixel.lanzar(padre, "ciempies", "patitas", pies_c, 0, null, maxf(espera, 0.0), -1.0, r_c)
+			_:
+				return EfectoPixel.lanzar(padre, "ciempies", "apreton%s" % cabeza, pies_c, 0, null, maxf(espera, 0.0), -1.0, r_c)
 	if padre != null and (m == Modo.QUELICEROS or m == Modo.PONZONA or m == Modo.VENENO):
 		var hacia_q: Vector2 = caja.get_center() - desde
 		var r_q: float = maxf(ritmo, 0.05)

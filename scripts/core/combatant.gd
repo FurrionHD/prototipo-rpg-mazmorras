@@ -1212,6 +1212,28 @@ var orbita: bool = false
 var derribado: bool = false          # un area le ha dado en el aire: la pelea le corta el Picado
 var limaduras_gastadas: bool = false # su Embestida ya las ha usado: la pelea se las quita al acabar el fotograma
 var imparable_coraza: bool = false   # el imparable se lo ha puesto la Coraza (no es suyo de siempre)
+# (05/11, los mutantes del ciempies: MutacionData)
+var dos_mentes: bool = false
+var basico_propio: AbilityData = null
+var basico_una_cabeza: AbilityData = null
+var cabeza_libre_mult: float = 0.0
+var cabeza_libre_radio: float = 70.0
+var enrosque_pegados_radio: float = 0.0
+var aprieta_por_turno: float = 0.0
+var aprieta_max: float = 0.0
+# LAS DOS CABEZAS: 0 = la A, la que enrosca; 1 = la B, la que queda libre. Un aturdimiento suelto va primero a la B.
+var cabezas_dormidas: Array = [false, false]
+var cabezas_este_turno: Array = [false, false]   # las que no actuan este turno suyo (tick_statuses las despierta)
+var _cabeza_control: Array = [0, 0]              # el decaimiento de cada cabeza por su cuenta
+var _cabeza_frio: Array = [0, 0]
+# El aturdimiento que viene ahora es de AREA: pilla a las dos cabezas. Lo pone quien lo lanza y se gasta al usarlo.
+var aturdir_en_area: bool = false
+# Y el set Dos mentes: el primer aturdimiento que te entra no te para; se recarga a los runa_mentes_turnos turnos tuyos.
+var runa_mentes_turnos: int = 0
+var runa_mentes_espera: int = 0
+# Lo que hay que avisar en pantalla (lo recoge la pelea, CombatTactico._tick_avisos_mentes): 1 = el set ha parado un
+# aturdimiento, 2 = una cabeza se ha dormido.
+var aviso_mentes: int = 0
 # Y el set Campo magnetico.
 var runa_campo_cada: int = 0
 var runa_campo_radio: float = 0.0
@@ -1435,10 +1457,19 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 		print("[runas] %s: el escudo de agua para el %s" % [nombre, String(d.get("nombre", "?"))])
 		runa_agua_paradas += 1
 		return
+	# EL SET DOS MENTES: lo aguanta tu otra cabeza. No gasta escalon: no te ha llegado a parar.
+	if id == StatusEffects.Id.ATURDIDO and runa_mentes_turnos > 0 and runa_mentes_espera <= 0:
+		runa_mentes_espera = runa_mentes_turnos
+		aviso_mentes = 1
+		print("[runas] %s: Dos mentes aguanta el aturdimiento" % nombre)
+		return
+	# DOS MENTES (el ciempies): este aturdimiento se queda en una cabeza; solo con las dos dormidas pasa a ser de verdad.
+	if id == StatusEffects.Id.ATURDIDO and dos_mentes and not _dormir_cabezas():
+		return
 	# UN CONTROL QUE PRENDE gasta escalon del decaimiento (el siguiente costara el doble). Va aqui,
 	# en el choke point, y no en cada tirada: fallar NO gasta escalon -- si lo gastara, resistir un
 	# aturdimiento te haria mas resistente al siguiente sin haberte costado nada.
-	if StatusEffects.es_control(id):
+	if StatusEffects.es_control(id) and not (dos_mentes and id == StatusEffects.Id.ATURDIDO):
 		anotar_control()
 	# LAS CARGAS: un control que prende le quita una, y el agua a la de fuego.
 	if StatusEffects.es_control(id) or (id == StatusEffects.Id.MOJADO and carga_elemento == Elementos.Elemento.FUEGO):
@@ -1640,6 +1671,14 @@ func _min_turns_status(id: int):
 # activo durante la accion de los 3 turnos (si no, se "gasta" uno antes de poder usarlo).
 func tick_statuses() -> Dictionary:
 	enfriar_control()   # un turno mas sin que le prenda un control: el decaimiento se va soltando
+	# DOS MENTES: las cabezas dormidas pierden ESTE turno y luego se despiertan.
+	cabezas_este_turno = cabezas_dormidas.duplicate()
+	cabezas_dormidas = [false, false]
+	# (a mano: los estados sin efecto se saltan su primer descuento, y el aviso duraba un turno de mas)
+	if dos_mentes:
+		quitar_estado(StatusEffects.Id.UNA_CABEZA)
+	if runa_mentes_espera > 0:
+		runa_mentes_espera -= 1
 	var antes_de_tick: int = statuses.size()
 	var total_dmg: float = 0.0
 	var total_heal: float = 0.0
@@ -2086,6 +2125,9 @@ var _control_frio: int = 0     # turnos que lleva sin que le prenda ninguno
 func decaimiento_control(id: int) -> float:
 	if not StatusEffects.es_control(id):
 		return 1.0
+	# (DOS MENTES: el aturdir mira el escalon de la cabeza a la que le tocaria.)
+	if dos_mentes and id == StatusEffects.Id.ATURDIDO:
+		return CONTROL_ESCALERA[mini(int(_cabeza_control[_cabeza_siguiente()]), CONTROL_ESCALERA.size() - 1)]
 	return CONTROL_ESCALERA[mini(_control_n, CONTROL_ESCALERA.size() - 1)]
 
 
@@ -2096,8 +2138,46 @@ func anotar_control() -> void:
 	_control_frio = 0
 
 
+# LA CABEZA A LA QUE LE TOCA EL PROXIMO: primero la que queda libre (la B), luego la que enrosca.
+func _cabeza_siguiente() -> int:
+	return 0 if bool(cabezas_dormidas[1]) else 1
+
+
+# DOS MENTES (05/11, sus palabras): "se estunee dos veces, o con un ataque de area que golpee a las dos cabezas, y que cada
+# cabeza lleve su contador". Duerme una cabeza (o las dos, si es de area). Devuelve true si ya no queda ninguna despierta:
+# entonces SI es un Aturdido de los de siempre, y apply_status sigue.
+func _dormir_cabezas() -> bool:
+	var area: bool = aturdir_en_area
+	aturdir_en_area = false
+	for _k in (2 if area else 1):
+		var c: int = _cabeza_siguiente()
+		if bool(cabezas_dormidas[c]):
+			break
+		cabezas_dormidas[c] = true
+		_cabeza_control[c] = mini(int(_cabeza_control[c]) + 1, CONTROL_ESCALERA.size() - 1)
+		_cabeza_frio[c] = 0
+	if bool(cabezas_dormidas[0]) and bool(cabezas_dormidas[1]):
+		quitar_estado(StatusEffects.Id.UNA_CABEZA)
+		return true
+	apply_status(StatusEffects.Id.UNA_CABEZA)
+	aviso_mentes = 2
+	frenar_carga()
+	return false
+
+
+# ¿Le falta una cabeza este turno suyo?
+func una_cabeza_este_turno() -> bool:
+	return dos_mentes and (bool(cabezas_este_turno[0]) or bool(cabezas_este_turno[1]))
+
+
 # Un turno mas sin que le prenda ningun control. Lo llama tick_statuses.
 func enfriar_control() -> void:
+	if dos_mentes:
+		for k in 2:
+			_cabeza_frio[k] = int(_cabeza_frio[k]) + 1
+			if int(_cabeza_frio[k]) >= CONTROL_RESET:
+				_cabeza_control[k] = 0
+				_cabeza_frio[k] = 0
 	if _control_n <= 0:
 		return
 	_control_frio += 1

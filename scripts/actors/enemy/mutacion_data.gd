@@ -184,3 +184,18 @@ class_name MutacionData
 # CHUPAR A LOS ENRAIZADOS (el Espantajo): al empezar su turno, a cada uno de los tuyos que este clavado al suelo
 # (Enraizado o Resinado) le quita chupa_enraizados de su vida MAXIMA y se cura exactamente lo que le ha quitado.
 @export var chupa_enraizados: float = 0.0
+# (05/11, los mutantes del CIEMPIES; numeros provisionales)
+# DOS MENTES: un aturdimiento solo duerme una cabeza y la otra sigue; hacen falta dos, o uno de AREA que pille a las dos.
+# Cada cabeza lleva su propio decaimiento de control. Ver Combatant._dormir_cabezas.
+@export var dos_mentes: bool = false
+# SU BASICO, si es una habilidad (el mordisco en U: las dos cabezas al mismo). Con una cabeza dormida, basico_una_cabeza.
+@export var basico_propio: AbilityData = null
+@export var basico_una_cabeza: AbilityData = null
+# LA CABEZA LIBRE: enroscando con una, la otra muerde con cabeza_libre_mult de su ataque a otro a cabeza_libre_radio px.
+@export var cabeza_libre_mult: float = 0.0
+@export var cabeza_libre_radio: float = 70.0
+# EL ENROSQUE DOBLE: si otro de los tuyos esta a esta distancia de su presa, lo atrapa tambien (una presa por cabeza).
+@export var enrosque_pegados_radio: float = 0.0
+# APRIETA MAS: +aprieta_por_turno de daño por cada turno que lleva apretando, hasta +aprieta_max.
+@export var aprieta_por_turno: float = 0.0
+@export var aprieta_max: float = 0.0

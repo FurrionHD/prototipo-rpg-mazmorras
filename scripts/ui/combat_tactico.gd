@@ -1440,6 +1440,7 @@ func tick(delta: float) -> bool:
 	_tick_carne()
 	_tick_presas_carga()
 	_tick_enroscados()
+	_tick_avisos_mentes()
 	_tick_pegadas(delta)
 	_tick_vis_pegadas()
 	_tick_tirones(delta)
@@ -2744,33 +2745,97 @@ func _tick_presas_carga() -> void:
 # Todo en quien lleva la pelea; el estado viaja a los espejos como puerta (Combatant.PUERTA_ENROSCADO).
 const PROB_SOLTARSE := 0.3
 const SUELTA_POR_DANO := 0.35
-var _enroscados: Dictionary = {}   # Combatant (el que enrosca) -> {"presa": Combatant, "hp": vida al enroscar}
+var _enroscados: Dictionary = {}   # Combatant (el que enrosca) -> {"presas": [{"c", "cabeza"}], "hp": vida al enroscar, "turnos"}
 
+# (05/11, los mutantes) Cada presa va con UNA cabeza: 0 la A, 1 la B. El ciempies normal y el Bicefalo tienen una sola
+# presa (con la A); el Nudo carmesi, si hay otro pegado a la primera (enrosque_pegados_radio), tambien con la B.
 func empezar_enrosque(e: Combatant, presa: Combatant) -> bool:
 	if _pantalla._espejo or e == null or presa == null or not e.is_alive() or not presa.is_alive() \
 			or _enroscados.has(e) or presa.enroscado():
 		return false
-	_enroscados[e] = {"presa": presa, "hp": e.current_hp}
+	_enroscados[e] = {"presas": [{"c": presa, "cabeza": 0}], "hp": e.current_hp, "turnos": 0}
 	e.apply_status(StatusEffects.Id.ENROSCADO)
 	presa.apply_status(StatusEffects.Id.ENROSCADO)
+	if e.enrosque_pegados_radio > 0.0:
+		var otro: Combatant = _pegado_a(presa, e.enrosque_pegados_radio)
+		if otro != null:
+			_enroscados[e]["presas"].append({"c": otro, "cabeza": 1})
+			otro.apply_status(StatusEffects.Id.ENROSCADO)
 	return true
 
 
-# A quien tiene enroscado 'e' (null = a nadie).
+# El de los tuyos mas cercano a 'presa', a 'radio' px como mucho y sin enroscar.
+func _pegado_a(presa: Combatant, radio: float) -> Combatant:
+	var mejor: Combatant = null
+	var mejor_d: float = radio * radio
+	for c in _pantalla._aliados:
+		if c == presa or not (c as Combatant).is_alive() or (c as Combatant).enroscado() or cuerpo_de(c) == null:
+			continue
+		var d: float = pos_de(c).distance_squared_to(pos_de(presa))
+		if d <= mejor_d:
+			mejor_d = d
+			mejor = c
+	return mejor
+
+
+# A quien tiene enroscado 'e' (null = a nadie). Con dos, la primera.
 func enrosque_de(e: Combatant) -> Combatant:
 	var d = _enroscados.get(e)
-	return d["presa"] if d != null else null
+	return d["presas"][0]["c"] if d != null and not (d["presas"] as Array).is_empty() else null
 
 
-# Lo suelta: los dos pierden el estado y se dice por que.
-func soltar_enrosque(e: Combatant, motivo: String) -> void:
+# Todas sus presas.
+func presas_de(e: Combatant) -> Array:
+	var d = _enroscados.get(e)
+	return [] if d == null else (d["presas"] as Array).map(func(p): return p["c"])
+
+
+# APRIETA MAS (el Nudo carmesi): un turno mas apretando.
+func contar_apreton(e: Combatant) -> void:
+	var d = _enroscados.get(e)
+	if d != null:
+		d["turnos"] = int(d["turnos"]) + 1
+
+
+func mult_apreton(e: Combatant) -> float:
+	var d = _enroscados.get(e)
+	if d == null or e.aprieta_por_turno <= 0.0:
+		return 1.0
+	return 1.0 + minf(e.aprieta_por_turno * maxi(int(d["turnos"]) - 1, 0), e.aprieta_max)
+
+
+# A QUIEN LLEGA LA CABEZA LIBRE: el mas cercano de los tuyos que no sea su presa (desde su presa: de ahi sale lo libre).
+func a_tiro_de_la_libre(e: Combatant) -> Combatant:
+	var presa: Combatant = enrosque_de(e)
+	if presa == null:
+		return null
+	var mejor: Combatant = null
+	var mejor_d: float = e.cabeza_libre_radio * e.cabeza_libre_radio
+	for c in _pantalla._aliados:
+		if c == presa or not (c as Combatant).is_alive() or cuerpo_de(c) == null:
+			continue
+		var d: float = pos_de(c).distance_squared_to(pos_de(presa))
+		if d <= mejor_d:
+			mejor_d = d
+			mejor = c
+	return mejor
+
+
+# Lo suelta: 'solo' = solo a esa presa (el Nudo con dos); si no le queda ninguna, tambien pierde el estado el.
+func soltar_enrosque(e: Combatant, motivo: String, solo: Combatant = null) -> void:
 	var d = _enroscados.get(e)
 	if d == null:
 		return
-	_enroscados.erase(e)
-	var presa: Combatant = d["presa"]
-	e.quitar_estado(StatusEffects.Id.ENROSCADO)
-	presa.quitar_estado(StatusEffects.Id.ENROSCADO)
+	var quedan: Array = []
+	for p in d["presas"]:
+		if solo != null and p["c"] != solo:
+			quedan.append(p)
+		else:
+			(p["c"] as Combatant).quitar_estado(StatusEffects.Id.ENROSCADO)
+	d["presas"] = quedan
+	if quedan.is_empty():
+		_enroscados.erase(e)
+		e.quitar_estado(StatusEffects.Id.ENROSCADO)
 	if motivo != "":
 		_pantalla._set_log(motivo)
 	_pantalla._update_hp()
@@ -2779,14 +2844,35 @@ func soltar_enrosque(e: Combatant, motivo: String) -> void:
 # LA PRESA PASA: forcejea, y con PROB_SOLTARSE se suelta. Devuelve la linea del log.
 func forcejear(c: Combatant) -> String:
 	for e in _enroscados.keys():
-		if _enroscados[e]["presa"] != c:
+		if not presas_de(e).has(c):
 			continue
 		_temblar_presa(c)   # forcejea
 		if randf() < PROB_SOLTARSE:
-			soltar_enrosque(e, "")
+			soltar_enrosque(e, "", c)
 			return "💪 %s forcejea y se suelta de %s." % [c.nombre, _pantalla._etq(e)]
 		return "%s forcejea, pero %s no le suelta. 🐛" % [c.nombre, _pantalla._etq(e)]
 	return "%s pasa el turno. ⏳" % c.nombre
+
+
+# DOS MENTES SE VE (05/11): el aviso viaja como el de INMUNE y su peso dice cual es, asi sale en todas las pantallas sin
+# gastar un estilo nuevo: 1 INMUNE, 0,5 el set que para el aturdimiento, 0,25 una cabeza dormida.
+func _tick_avisos_mentes() -> void:
+	if _pantalla._espejo:
+		return
+	for c in _pantalla._aliados + _pantalla._enemies:
+		if (c as Combatant).aviso_mentes == 0:
+			continue
+		var peso: float = 0.5 if (c as Combatant).aviso_mentes == 1 else 0.25
+		(c as Combatant).aviso_mentes = 0
+		if (c as Combatant).is_alive():
+			_pantalla.efectos._fx_golpe(c, c, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.AVISO_INMUNE, peso, true)
+
+
+func _texto_aviso_inmune(ev: Dictionary) -> String:
+	var peso: float = float(ev.get("peso", 1.0))
+	if peso < 0.4:
+		return "¡UNA CABEZA!"
+	return "¡DOS MENTES!" if peso < 0.75 else "INMUNE"
 
 
 # Cada fotograma en quien lleva la pelea: lo que suelta al ciempies sin que sea su turno.
@@ -2795,20 +2881,29 @@ func _tick_enroscados() -> void:
 		return
 	for e in _enroscados.keys():
 		var d: Dictionary = _enroscados[e]
-		var presa: Combatant = d["presa"]
-		if not (e as Combatant).is_alive() or not presa.is_alive():
+		if not (e as Combatant).is_alive():
 			soltar_enrosque(e, "")
-		elif (e as Combatant).aturdido():
-			soltar_enrosque(e, "💫 %s, aturdido, suelta a %s." % [_pantalla._etq(e), presa.nombre])
-		elif float(d["hp"]) - (e as Combatant).current_hp >= SUELTA_POR_DANO * float((e as Combatant).max_hp):
-			soltar_enrosque(e, "🐛 %s no aguanta más golpes y suelta a %s." % [_pantalla._etq(e), presa.nombre])
+			continue
+		if (e as Combatant).aturdido():
+			soltar_enrosque(e, "💫 %s, aturdido, suelta a su presa." % _pantalla._etq(e))
+			continue
+		if float(d["hp"]) - (e as Combatant).current_hp >= SUELTA_POR_DANO * float((e as Combatant).max_hp):
+			soltar_enrosque(e, "🐛 %s no aguanta más golpes y suelta a su presa." % _pantalla._etq(e))
+			continue
+		for p in (d["presas"] as Array).duplicate():
+			var presa: Combatant = p["c"]
+			if not presa.is_alive():
+				soltar_enrosque(e, "", presa)
+			# DOS MENTES: la cabeza que aprieta, dormida, suelta a SU presa.
+			elif (e as Combatant).dos_mentes and bool((e as Combatant).cabezas_dormidas[int(p["cabeza"])]):
+				soltar_enrosque(e, "💫 La cabeza aturdida de %s suelta a %s." % [_pantalla._etq(e), presa.nombre], presa)
 	# Un Enroscado sin nadie que lo sujete (no deberia pasar) no se queda para siempre.
 	for c in _pantalla._aliados + _pantalla._enemies:
 		if not (c as Combatant).has_status(StatusEffects.Id.ENROSCADO) or _enroscados.has(c):
 			continue
 		var sujeto: bool = false
 		for e2 in _enroscados:
-			if _enroscados[e2]["presa"] == c:
+			if presas_de(e2).has(c):
 				sujeto = true
 		if not sujeto:
 			(c as Combatant).quitar_estado(StatusEffects.Id.ENROSCADO)
@@ -2817,7 +2912,8 @@ func _tick_enroscados() -> void:
 func olvidar_enroscados() -> void:
 	for e in _enroscados.keys():
 		(e as Combatant).quitar_estado(StatusEffects.Id.ENROSCADO)
-		(_enroscados[e]["presa"] as Combatant).quitar_estado(StatusEffects.Id.ENROSCADO)
+		for presa in presas_de(e):
+			(presa as Combatant).quitar_estado(StatusEffects.Id.ENROSCADO)
 	_enroscados.clear()
 	_presas_carga.clear()
 	for e in _vis_enrosque.keys():
@@ -2832,32 +2928,64 @@ func olvidar_enroscados() -> void:
 # la abraza en vez de quedarse pegado delante (CiempiesSprites._montar_enroscado). Trepa al empezar, respira en bucle,
 # aprieta en cada turno suyo (_on_dibujo_mapa, INSECTO_APRETON) y al soltarla se desenrosca y vuelve a verse su
 # cuerpo, que nunca se movio de su lado. En TODAS las maquinas: en el espejo la pareja se deduce (ver _pares_enrosque).
-var _vis_enrosque: Dictionary = {}   # Combatant (el ciempies) -> {presa, det, del, sp (su sprite de siempre), sale}
+# (05/11, los mutantes) Una pieza por presa: la segunda del Nudo con las hojas '_b' (la cabeza B). Con una sola presa, lo
+# que no enrosca va en un tercer sprite (libre_idle/libre_muerde), con la cabeza B, hacia su sitio de siempre.
+var _vis_enrosque: Dictionary = {}   # Combatant (el ciempies) -> {"sp", "piezas": [{presa, det, del, suf, sale}], "libre"}
 
-# Quien tiene enroscado a quien. Quien lleva la pelea lo sabe (_enroscados); al espejo solo le llega el ESTADO de los
-# dos (Combatant.PUERTA_ENROSCADO), asi que cada ciempies enroscado va con el de los tuyos enroscado mas cercano.
+# Quien tiene enroscado a quien (una lista por ciempies). Quien lleva la pelea lo sabe (_enroscados); al espejo solo le
+# llega el ESTADO (Combatant.PUERTA_ENROSCADO), asi que cada uno va con el de los tuyos enroscado mas cercano; el que tiene
+# hojas '_b' puede llevarse dos, los que esten pegados a la primera.
 func _pares_enrosque() -> Dictionary:
 	var out: Dictionary = {}
 	if not _pantalla._espejo:
 		for e in _enroscados:
-			out[e] = _enroscados[e]["presa"]
+			out[e] = presas_de(e)
 		return out
+	var cogidos: Array = []
 	for e in _pantalla._enemies:
 		if not (e as Combatant).is_alive() or not (e as Combatant).has_status(StatusEffects.Id.ENROSCADO):
 			continue
-		var mejor: Combatant = null
-		var mejor_d: float = INF
-		for c in _pantalla._aliados:
-			if not (c as Combatant).is_alive() or not (c as Combatant).has_status(StatusEffects.Id.ENROSCADO) \
-					or out.values().has(c) or cuerpo_de(c) == null:
-				continue
-			var d: float = pos_de(c).distance_squared_to(pos_de(e))
-			if d < mejor_d:
-				mejor_d = d
-				mejor = c
-		if mejor != null:
-			out[e] = mejor
+		var mejor: Combatant = _enroscado_cerca(pos_de(e), INF, cogidos)
+		if mejor == null:
+			continue
+		cogidos.append(mejor)
+		out[e] = [mejor]
+		var cu: Node2D = cuerpo_de(e)
+		var sp = cu.get("_sprite") if cu != null else null
+		if sp is AnimatedSprite2D and (sp as AnimatedSprite2D).sprite_frames.has_animation(&"enroscado_b_detras_0"):
+			var otro: Combatant = _enroscado_cerca(pos_de(mejor), RADIO_DOS_PRESAS_ESPEJO, cogidos)
+			if otro != null:
+				cogidos.append(otro)
+				out[e].append(otro)
 	return out
+
+
+const RADIO_DOS_PRESAS_ESPEJO := 60.0
+
+func _enroscado_cerca(desde: Vector2, radio: float, fuera: Array) -> Combatant:
+	var mejor: Combatant = null
+	var mejor_d: float = radio * radio if radio < INF else INF
+	for c in _pantalla._aliados:
+		if not (c as Combatant).is_alive() or not (c as Combatant).has_status(StatusEffects.Id.ENROSCADO) \
+				or fuera.has(c) or cuerpo_de(c) == null:
+			continue
+		var d: float = pos_de(c).distance_squared_to(desde)
+		if d < mejor_d:
+			mejor_d = d
+			mejor = c
+	return mejor
+
+
+func _sprite_enrosque(sp: AnimatedSprite2D, z: int, anim: StringName) -> AnimatedSprite2D:
+	var m := AnimatedSprite2D.new()
+	m.sprite_frames = sp.sprite_frames
+	m.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	m.z_as_relative = false
+	m.z_index = z
+	_arena().add_child(m)
+	m.global_scale = sp.global_scale
+	m.play(anim)
+	return m
 
 
 func _tick_vis_enrosque() -> void:
@@ -2867,55 +2995,90 @@ func _tick_vis_enrosque() -> void:
 	var pares: Dictionary = _pares_enrosque() if arena != null else {}
 	for e in pares:
 		var v = _vis_enrosque.get(e)
-		if v != null and not bool(v["sale"]) and v["presa"] == pares[e]:
-			continue
-		if v != null:
-			_quitar_vis_enrosque(e)
-		var cu: Node2D = cuerpo_de(e)
-		var sp = cu.get("_sprite") if cu != null else null
-		if not (sp is AnimatedSprite2D) or not (sp as AnimatedSprite2D).sprite_frames.has_animation(&"enroscado_detras_0"):
-			continue   # sin sus mitades (un horneado viejo): se queda como estaba
-		var mitades: Array = []
-		for suf in ["_detras", "_delante"]:
-			var m := AnimatedSprite2D.new()
-			m.sprite_frames = (sp as AnimatedSprite2D).sprite_frames
-			m.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-			m.z_as_relative = false
-			m.z_index = Game.Z_PERSONAJES + (-1 if suf == "_detras" else 1)
-			arena.add_child(m)
-			m.global_scale = (sp as AnimatedSprite2D).global_scale
-			m.play(StringName("enroscarse%s_0" % suf))
-			mitades.append(m)
-		(sp as AnimatedSprite2D).visible = false
-		_vis_enrosque[e] = {"presa": pares[e], "det": mitades[0], "del": mitades[1], "sp": sp, "sale": false}
+		if v == null:
+			var cu: Node2D = cuerpo_de(e)
+			var sp0 = cu.get("_sprite") if cu != null else null
+			if not (sp0 is AnimatedSprite2D) or not (sp0 as AnimatedSprite2D).sprite_frames.has_animation(&"enroscado_detras_0"):
+				continue   # sin sus mitades (un horneado viejo): se queda como estaba
+			(sp0 as AnimatedSprite2D).visible = false
+			v = {"sp": sp0, "piezas": [], "libre": null}
+			_vis_enrosque[e] = v
+		var sp: AnimatedSprite2D = v["sp"]
+		for presa in pares[e]:
+			if (v["piezas"] as Array).any(func(p): return p["presa"] == presa and not bool(p["sale"])):
+				continue
+			# La primera con su cabeza A; la segunda, con la B.
+			var usado: bool = (v["piezas"] as Array).any(func(p): return String(p["suf"]) == "" and not bool(p["sale"]))
+			var suf: String = "_b" if usado and sp.sprite_frames.has_animation(&"enroscado_b_detras_0") else ""
+			(v["piezas"] as Array).append({"presa": presa, "suf": suf, "sale": false,
+				"det": _sprite_enrosque(sp, Game.Z_PERSONAJES - 1, StringName("enroscarse%s_detras_0" % suf)),
+				"del": _sprite_enrosque(sp, Game.Z_PERSONAJES + 1, StringName("enroscarse%s_delante_0" % suf))})
 	for e in _vis_enrosque.keys():
 		var v: Dictionary = _vis_enrosque[e]
-		var det: AnimatedSprite2D = v["det"]
-		var dl: AnimatedSprite2D = v["del"]
-		if not is_instance_valid(det) or not is_instance_valid(dl):
+		var deseadas: Array = pares.get(e, [])
+		for p in (v["piezas"] as Array).duplicate():
+			var det: AnimatedSprite2D = p["det"]
+			var dl: AnimatedSprite2D = p["del"]
+			if not is_instance_valid(det) or not is_instance_valid(dl):
+				(v["piezas"] as Array).erase(p)
+				continue
+			# El origen del dibujo (el centro del lienzo) a los pies de la presa.
+			if cuerpo_de(p["presa"]) != null:
+				det.global_position = pies_de(p["presa"])
+				dl.global_position = det.global_position
+			var suf: String = p["suf"]
+			if deseadas.has(p["presa"]) and not bool(p["sale"]):
+				# Trepar y apretar no son bucle: al acabar, vuelve a respirar.
+				if not det.is_playing():
+					det.play(StringName("enroscado%s_detras_0" % suf))
+					dl.play(StringName("enroscado%s_delante_0" % suf))
+				continue
+			# Muerto: fuera ya (su muerte la hace su cuerpo). Soltado: se desenrosca y luego se le vuelve a ver.
+			if not bool(p["sale"]) and (e as Combatant).is_alive():
+				p["sale"] = true
+				det.play(StringName("desenroscarse%s_detras_0" % suf))
+				dl.play(StringName("desenroscarse%s_delante_0" % suf))
+			elif not (e as Combatant).is_alive() or not det.is_playing():
+				det.queue_free()
+				dl.queue_free()
+				(v["piezas"] as Array).erase(p)
+		_tick_vis_libre(e, v, deseadas)
+		if (v["piezas"] as Array).is_empty():
 			_quitar_vis_enrosque(e)
-			continue
-		# El origen del dibujo (el centro del lienzo) a los pies de la presa.
-		var presa: Combatant = v["presa"]
-		if cuerpo_de(presa) != null:
-			det.global_position = pies_de(presa)
-			dl.global_position = det.global_position
-		var sigue: bool = pares.has(e) and pares[e] == presa
-		if sigue:
-			# Trepar y apretar no son bucle: al acabar, vuelve a respirar.
-			if not det.is_playing():
-				det.play(&"enroscado_detras_0")
-				dl.play(&"enroscado_delante_0")
-			continue
-		# Muerto: fuera ya (su muerte la hace su cuerpo). Soltado: se desenrosca y luego se le vuelve a ver.
-		if not (e as Combatant).is_alive():
-			_quitar_vis_enrosque(e)
-		elif not bool(v["sale"]):
-			v["sale"] = true
-			det.play(&"desenroscarse_detras_0")
-			dl.play(&"desenroscarse_delante_0")
-		elif not det.is_playing():
-			_quitar_vis_enrosque(e)
+
+
+# LO QUE NO ENROSCA (el Bicefalo y el Nudo con una presa): sale de los pies de la presa hacia donde esta su cuerpo.
+func _tick_vis_libre(e: Combatant, v: Dictionary, deseadas: Array) -> void:
+	var sp: AnimatedSprite2D = v["sp"]
+	var libre = v["libre"]
+	if deseadas.size() != 1 or not sp.sprite_frames.has_animation(&"libre_idle_0"):
+		if is_instance_valid(libre):
+			(libre as Node).queue_free()
+		v["libre"] = null
+		return
+	var presa: Combatant = deseadas[0]
+	if cuerpo_de(presa) == null:
+		return
+	if not is_instance_valid(libre):
+		libre = _sprite_enrosque(sp, Game.Z_PERSONAJES - 1, &"libre_idle_0")
+		v["libre"] = libre
+	(libre as AnimatedSprite2D).global_position = pies_de(presa)
+	if not (libre as AnimatedSprite2D).is_playing() or String((libre as AnimatedSprite2D).animation).begins_with("libre_idle"):
+		var hacia: Vector2 = pos_de(e) - pos_de(presa)
+		var nom := StringName("libre_idle_%d" % SpritesEnemigo.dir8(hacia if hacia.length() > 1.0 else Vector2.DOWN))
+		if (libre as AnimatedSprite2D).animation != nom or not (libre as AnimatedSprite2D).is_playing():
+			(libre as AnimatedSprite2D).play(nom)
+
+
+# LA CABEZA LIBRE MUERDE: hacia su victima; al acabar vuelve a su sitio (_tick_vis_libre).
+func morder_vis_libre(e: Combatant, obj: Combatant) -> void:
+	var v = _vis_enrosque.get(e)
+	if v == null or not is_instance_valid(v["libre"]):
+		return
+	if (v["piezas"] as Array).is_empty() or obj == null or cuerpo_de(obj) == null:
+		return
+	var presa: Combatant = v["piezas"][0]["presa"]
+	(v["libre"] as AnimatedSprite2D).play(StringName("libre_muerde_%d" % SpritesEnemigo.dir8(pos_de(obj) - pos_de(presa))))
 
 
 func _quitar_vis_enrosque(e: Combatant) -> void:
@@ -2923,9 +3086,12 @@ func _quitar_vis_enrosque(e: Combatant) -> void:
 	_vis_enrosque.erase(e)
 	if v == null:
 		return
-	for k in ["det", "del"]:
-		if is_instance_valid(v[k]):
-			(v[k] as Node).queue_free()
+	for p in v["piezas"]:
+		for k in ["det", "del"]:
+			if is_instance_valid(p[k]):
+				(p[k] as Node).queue_free()
+	if is_instance_valid(v["libre"]):
+		(v["libre"] as Node).queue_free()
 	if is_instance_valid(v["sp"]):
 		(v["sp"] as CanvasItem).visible = true
 
@@ -2933,12 +3099,15 @@ func _quitar_vis_enrosque(e: Combatant) -> void:
 # EL APRETON en el sprite enroscado (y en el golpe con el que se enrosca, si ya esta respirando).
 func _apretar_vis_enrosque(e: Combatant) -> void:
 	var v = _vis_enrosque.get(e)
-	if v == null or bool(v["sale"]) or not is_instance_valid(v["det"]):
+	if v == null:
 		return
-	if not String((v["det"] as AnimatedSprite2D).animation).begins_with("enroscado"):
-		return   # aun trepando: que acabe
-	(v["det"] as AnimatedSprite2D).play(&"apreton_detras_0")
-	(v["del"] as AnimatedSprite2D).play(&"apreton_delante_0")
+	for p in v["piezas"]:
+		if bool(p["sale"]) or not is_instance_valid(p["det"]):
+			continue
+		if not String((p["det"] as AnimatedSprite2D).animation).begins_with("enroscado"):
+			continue   # aun trepando: que acabe
+		(p["det"] as AnimatedSprite2D).play(StringName("apreton%s_detras_0" % String(p["suf"])))
+		(p["del"] as AnimatedSprite2D).play(StringName("apreton%s_delante_0" % String(p["suf"])))
 
 
 # ------------------------------------------------------------
@@ -5560,7 +5729,7 @@ func _dibujo_pasiva(ev: Dictionary, vuelo: float) -> void:
 				_pantalla._timeline.retrasar(v, _pantalla.ratio_de(v) + perdida)
 		CombatFX.Estilo.AVISO_INMUNE:
 			if _pantalla._fx != null:
-				_pantalla._fx.texto_sobre(ev["bv"], "INMUNE", AVISO_INMUNE_C, 14)
+				_pantalla._fx.texto_sobre(ev["bv"], _texto_aviso_inmune(ev), AVISO_INMUNE_C, 14)
 
 
 # POSADA, ES PIEDRA (la gargola, 30/09): esta posada si no se ha movido desde que empezo su ultimo turno (antes del
@@ -6196,6 +6365,21 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 					break
 		InsectoAire.sobre_cuerpo(arena, int(_MODO_INSECTO[estilo]), desde_i, bulto_de(v), semilla, vuelo, ritmo,
 			boca_i, float(ev.get("peso", 1.0)), lado_i)
+		if estilo == CombatFX.Estilo.INSECTO_FORCIPULAS or estilo == CombatFX.Estilo.INSECTO_APRETON:
+			lado_i = 0.0
+		# EL COLOR DE CADA CABEZA (05/11): el basico en U y la Pinza, un golpe de cada una; la libre es la B.
+		if estilo == CombatFX.Estilo.INSECTO_FORCIPULAS and a != null and _tiene_anim_bicho(cuerpo_de(a), "libre_idle"):
+			lado_i = 1.0 if _vis_enrosque.has(a) or int(ev.get("tanda", 0)) % 2 == 1 else -1.0
+		elif estilo == CombatFX.Estilo.INSECTO_APRETON and a != null and _tiene_anim_bicho(cuerpo_de(a), "libre_idle"):
+			lado_i = -1.0
+			if _vis_enrosque.has(a):
+				for p_e in _vis_enrosque[a]["piezas"]:
+					if p_e["presa"] == v and String(p_e["suf"]) == "_b":
+						lado_i = 1.0
+		# LA CABEZA LIBRE (el Bicefalo): el que esta enroscado y muerde a otro, lo muerde con ella. Por aqui para que se vea
+		# igual en todas las pantallas.
+		if estilo == CombatFX.Estilo.INSECTO_FORCIPULAS and a != null and _vis_enrosque.has(a):
+			morder_vis_libre(a, v)
 		# EL APRETON del Enrosque: el sprite enroscado aprieta y la presa tiembla.
 		if estilo == CombatFX.Estilo.INSECTO_APRETON:
 			if a != null:
@@ -6234,7 +6418,7 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		ConstructoAire.sobre_cuerpo(arena, ConstructoAire.Modo.CLAVADO, Vector2.ZERO, bulto_de(v), pies_de(v), v.color_visual,
 			semilla, vuelo, ritmo)
 		if _pantalla._fx != null:
-			_pantalla._fx.texto_sobre(ev["bv"], "INMUNE", AVISO_INMUNE_C, 14)
+			_pantalla._fx.texto_sobre(ev["bv"], _texto_aviso_inmune(ev), AVISO_INMUNE_C, 14)
 		return
 	# EL MINOTAURO (MinotauroAire, 02/10): el hachazo que cae (o se clava en el suelo si lo esquiva), el enganche de la
 	# Cornada y el polvo del Pisoton; a los dos ultimos les tiembla la figura. Lo del Barrido va por el suelo (el filo) y la

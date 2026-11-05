@@ -1227,6 +1227,8 @@ func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico:
 				_pantalla._player.atk() * (ab.dano_mult if ab != null and ab.dano_mult > 0.0 else 1.0)) * escala_mag
 			# N stacks por tirada, igual que la rama enemiga. Antes se aplicaba siempre 1 e
 			# ignoraba a.stacks: la primera habilidad que lo use tiene que funcionar sin acordarse.
+			# DOS MENTES: un aturdir que pilla un area le da a las dos cabezas.
+			d.aturdir_en_area = ab != null and (ab.es_area() or (ab.forma >= 0 and not ab.forma_solo_primero))
 			for _s in maxi(1, a.stacks):
 				d.apply_status(a.estado, _pantalla._player.runa_turnos(a.estado, a.turns), _pantalla._player.runa_mag(a.estado, mag, d), 1, false, a.cap, a.mult)
 			out.append(nom if al_enemigo else "%s (%s)" % [nom, d.nombre])

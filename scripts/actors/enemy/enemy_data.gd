@@ -954,6 +954,15 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		c.limaduras_tope = mdat2.limaduras_tope
 		c.pega_y_se_va = mdat2.pega_y_se_va
 		c.orbita = mdat2.orbita
+		# (05/11, el ciempies) las dos cabezas.
+		c.dos_mentes = mdat2.dos_mentes
+		c.basico_propio = mdat2.basico_propio
+		c.basico_una_cabeza = mdat2.basico_una_cabeza
+		c.cabeza_libre_mult = mdat2.cabeza_libre_mult
+		c.cabeza_libre_radio = mdat2.cabeza_libre_radio
+		c.enrosque_pegados_radio = mdat2.enrosque_pegados_radio
+		c.aprieta_por_turno = mdat2.aprieta_por_turno
+		c.aprieta_max = mdat2.aprieta_max
 
 	# RESISTENCIA A EFECTOS Y EFICACIA: la curva del PISO por el ajuste de ESTE bicho. Los dos ejes
 	# hacen falta y hacen cosas distintas: la resistencia decide lo que TE aguanta, la eficacia lo

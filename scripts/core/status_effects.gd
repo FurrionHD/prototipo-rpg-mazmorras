@@ -55,7 +55,7 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	RESINADO, SAVIA_NEGRA,
 	PICOR, PRINGADO,
 	PARALISIS, ENCAPULLADO,
-	IMANTADO, ADHERIDO, LIMADURAS, EN_VUELO, ORBITA, CORAZA_IMAN, ELITROS }
+	IMANTADO, ADHERIDO, LIMADURAS, EN_VUELO, ORBITA, CORAZA_IMAN, ELITROS, UNA_CABEZA }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -608,6 +608,12 @@ static var _defs: Dictionary = {
 		"id": Id.EN_VUELO, "nombre": "En el aire", "icono": "🪽", "color": Color(0.3, 0.66, 0.52),
 		"turns": 999,
 		"descripcion": "Demasiado alto para alcanzarlo. Solo un golpe de área lo baja de ahí.",
+	},
+	# LOS MUTANTES DEL CIEMPIES (05/11; numeros provisionales).
+	Id.UNA_CABEZA: {   # Dos mentes: un aturdimiento solo duerme una cabeza; la otra sigue (Combatant._dormir_cabezas)
+		"id": Id.UNA_CABEZA, "nombre": "Una cabeza aturdida", "icono": "💤", "color": Color(1.0, 0.9, 0.3),
+		"turns": 1,
+		"descripcion": "Una de sus cabezas no se entera de nada. La otra, sí. Hace falta aturdir las dos.",
 	},
 	Id.ORBITA: {   # el Iman errante, con alguien Imantado
 		"id": Id.ORBITA, "nombre": "Órbita", "icono": "🌀", "color": Color(0.8, 0.19, 0.13),

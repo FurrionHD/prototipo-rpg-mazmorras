@@ -220,6 +220,8 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # habilidades de golpe: la idea es ir rellenando esto UNA A UNA, que es donde se decide de verdad
 # como se siente cada habilidad.
 @export var forma: int = -1
+# HACEN FALTA LAS DOS CABEZAS (05/11, la Pinza del Bicefalo): con una dormida (Dos mentes) no la puede usar.
+@export var pide_dos_cabezas: bool = false
 # El tamaño de la forma en px (0 = el de por defecto). Radio en CIRCULO y CONO, largo en LINEA,
 # lado en RECTANGULO.
 @export var forma_radio: float = 0.0

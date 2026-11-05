@@ -427,7 +427,8 @@ def a_libre_idle(t):
 def a_libre_muerde(t):
     # La cabeza que queda libre sigue a lo suyo: se echa atras y muerde (toca en 0,4).
     return POSE(pieza='libre', fase=t * 0.3, onda=0.3, paso=0.3,
-                avB=tramos(t, [(0.0, 0.0), (0.2, -2.0), (0.4, 6.0), (0.7, 2.0), (1.0, 0.0)]) * K,
+                # (el Nudo es largo: con su K se salia del lienzo, y ya llega de sobra)
+                avB=tramos(t, [(0.0, 0.0), (0.2, -2.0), (0.4, 6.0), (0.7, 2.0), (1.0, 0.0)]) * (1.0 if VAR == 'bicefalo' else 0.6),
                 altoB=tramos(t, [(0.0, 0.0), (0.2, 3.0), (0.4, 0.0), (1.0, 0.0)]))
 
 

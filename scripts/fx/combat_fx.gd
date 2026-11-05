@@ -2147,6 +2147,8 @@ const IMPACTO_ANIM_MAPA := {
 	"pulso": 0.14, "picado": 0.34, "embestir": 0.0, "pasada": 0.0,
 	# El ciempies (29/09): cada sacudida de la Oleada pica a 0,5x5/18.
 	"oleada": 0.14,
+	# Sus mutantes (05/11): el basico en U muerde a 0,31x7/14, la Pinza cierra a 0,5x6/14 y el Derrumbe cae a 0,29x6/12.
+	"basico_u": 0.155, "pinza": 0.21, "derrumbe": 0.145,
 	# La segadora (29/09): las dos guadañas caen a 0,5x7/13.
 	"guadanas": 0.27,
 	# y el Ensarte, que ya esta dentro a 3/13 (despues de sus tres marcos clavada).

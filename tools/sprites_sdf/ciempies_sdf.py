@@ -250,6 +250,12 @@ def anim_encaje(t):
                 fase=0.35 * t, onda=tramos(t, [(0.0, 2.1), (0.34, 1.5), (0.67, 1.1), (1.0, 1.0)]), paso=0.3)
 
 
+def anim_comer(t):
+    # (05/11, sus mutantes) Baja la cabeza y mastica: la mitad delantera empuja al suelo.
+    baja = tramos(t, [(0.0, 0.0), (0.15, 1.0), (0.85, 1.0), (1.0, 0.0)])
+    return POSE(avance=baja * (1.6 + 0.7 * math.sin(2 * math.pi * t * 4.0)) * K_VIEJO, fase=t * 0.3, onda=0.25, paso=0.1)
+
+
 # nombre: (fotogramas, fps, loop, direcciones, funcion) -- los del viejo.
 ANIMS = {
     'idle': (8, 4.0, True, 8, anim_idle),
@@ -260,6 +266,7 @@ ANIMS = {
     'oleada': (6, 18.0, False, 8, anim_oleada),
     'encaje': (4, 18.0, False, 8, anim_encaje),
     'muerte': (8, 10.0, False, 8, anim_muerte),
+    'comer': (10, 10.0, False, 8, anim_comer),
 }
 for _m, _suf in ((1, '_detras'), (2, '_delante')):
     _e = _enroscado(_m)

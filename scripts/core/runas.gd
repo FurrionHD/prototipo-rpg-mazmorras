@@ -133,7 +133,7 @@ const RUTAS_SETS := ["res://resources/runas/set_slime.tres", "res://resources/ru
 	"res://resources/runas/set_venenoso.tres", "res://resources/runas/set_abisal.tres",
 	"res://resources/runas/set_rata.tres", "res://resources/runas/set_rey_rata.tres", "res://resources/runas/set_jabali.tres",
 	"res://resources/runas/set_trent.tres", "res://resources/runas/set_arana.tres",
-	"res://resources/runas/set_escarabajo.tres"]
+	"res://resources/runas/set_escarabajo.tres", "res://resources/runas/set_ciempies.tres"]
 static var _sets: Array = []
 
 static func sets() -> Array:
@@ -348,6 +348,9 @@ static func efecto_txt(s: RunaSetData) -> String:
 		&"musgo_viejo":
 			return "Los golpes de área te hacen un %d %% menos, salvo mientras estás Quemado (el musgo arde)." % [
 				roundi(float(p.get("reduce", 0.2)) * 100.0)]
+		&"dos_mentes":
+			return "El primer aturdimiento que te entra no te para: lo aguanta tu otra cabeza. Se recarga a los %d turnos tuyos." % [
+				int(p.get("turnos", 4))]
 		&"campo_magnetico":
 			return "Cada %d turnos tuyos, los enemigos pegados a ti pierden un %d %% de su barra de turno." % [
 				int(p.get("cada", 3)), roundi(float(p.get("barra", 0.25)) * 100.0)]
@@ -521,6 +524,7 @@ static func aplicar(c: Combatant, p: PersonajeData) -> void:
 	var amb: Dictionary = efecto_activo(p, &"ambar")
 	c.runa_ambar = float(amb.get("capa", 0.0))
 	c.runa_ambar_turnos = int(amb.get("turnos", 3))
+	c.runa_mentes_turnos = int(efecto_activo(p, &"dos_mentes").get("turnos", 0))
 	var cam: Dictionary = efecto_activo(p, &"campo_magnetico")
 	c.runa_campo_cada = int(cam.get("cada", 0))
 	c.runa_campo_radio = float(cam.get("radio", 0.0))
