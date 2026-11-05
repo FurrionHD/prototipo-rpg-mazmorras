@@ -220,6 +220,18 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 	if padre != null and m == Modo.CAPARAZON:
 		# (a sus pies de verdad: su caja es el dibujo entero, y el anillo ya va 6 celdas por debajo de su origen)
 		return EfectoPixel.lanzar(padre, "escarabajo", "capa_polvo", Vector2(caja.get_center().x, caja.position.y + caja.size.y * 0.55), 0, null, maxf(espera, 0.0), -1.0, maxf(ritmo, 0.05))
+	# LA SEGADORA EN PIXEL (05/11): el corte lo pinta la ESTELA de su garra (TacticoPixel, al empezar su gesto); sobre quien
+	# recibe solo el impacto: destello y sangre, y en el Ensarte las esquirlas por detras y el agujero. 'boca' > 0 = hoja de
+	# metal (sus mutantes).
+	if padre != null and (m == Modo.TAJO or m == Modo.GUADANA or m == Modo.ESTOCADA):
+		var pies_s := Vector2(caja.get_center().x, caja.end.y)
+		var hacia_s: Vector2 = caja.get_center() - desde
+		var r_s: float = maxf(ritmo, 0.05)
+		var metal: bool = boca > 0.0
+		if m == Modo.ESTOCADA:
+			return EfectoPixel.lanzar(padre, "segadora", "estocada_metal" if metal else "estocada_hueso", pies_s,
+				SpriteLienzo.dir8(hacia_s) if hacia_s.length_squared() > 1.0 else 0, null, maxf(espera, 0.0), -1.0, r_s)
+		return EfectoPixel.lanzar(padre, "segadora", "impacto_metal" if metal else "impacto_hueso", pies_s, 0, null, maxf(espera, 0.0), -1.0, r_s)
 	# EL CIEMPIES Y SUS MUTANTES EN PIXEL (05/11): 'de_lado' = que cabeza es: 0 el normal; -1 la A (naranja), +1 la B (turquesa).
 	if padre != null and (m == Modo.FORCIPULAS or m == Modo.PATITAS or m == Modo.APRETON):
 		var pies_c := Vector2(caja.get_center().x, caja.end.y)

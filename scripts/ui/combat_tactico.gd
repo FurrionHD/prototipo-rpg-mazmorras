@@ -6363,6 +6363,9 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 				if quien != null and cuerpo_de(quien) != null and cuerpo_de(quien).get("_sprite") is AnimatedSprite2D:
 					GrietaPixel.reflejo(cuerpo_de(quien).get("_sprite"), vuelo, 0.4 / maxf(ritmo, 0.05))
 					break
+		# LA SEGADORA (05/11): ahi 'boca' dice si su hoja es de METAL (sus mutantes: los que tienen Siega).
+		if estilo in [CombatFX.Estilo.INSECTO_TAJO, CombatFX.Estilo.INSECTO_GUADANA, CombatFX.Estilo.INSECTO_ESTOCADA]:
+			boca_i = 1.0 if a != null and cuerpo_de(a) != null and _tiene_anim_bicho(cuerpo_de(a), "siega") else -1.0
 		InsectoAire.sobre_cuerpo(arena, int(_MODO_INSECTO[estilo]), desde_i, bulto_de(v), semilla, vuelo, ritmo,
 			boca_i, float(ev.get("peso", 1.0)), lado_i)
 		if estilo == CombatFX.Estilo.INSECTO_FORCIPULAS or estilo == CombatFX.Estilo.INSECTO_APRETON:

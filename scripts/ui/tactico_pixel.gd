@@ -12,6 +12,8 @@ const T_TOCA_CAER := 4.0 / 14.0
 const T_TOCA_PINZA := 0.07     # la Pinza cierra a 0,21 y su hoja llega al frente en su marco 2 (a 14 fps)
 const T_TOCA_DERRUMBE := 0.145 # como CombatFX.IMPACTO_ANIM_MAPA "derrumbe"
 const PASO_POLVO := 16.0      # cada cuanto levanta polvo el que embiste, en px
+# Los gestos de la Segadora que llevan estela de garra (tools/sprites_sdf/segadora_efectos_horno.py).
+const _HOJAS_SEGADORA := ["basico", "basico_der", "guadanas", "ensarte", "siega", "vendaval", "salto_atras"]
 
 var _t = null   # CombatTactico (sin tipo: se nombran el uno al otro)
 var _cargas: Dictionary = {}    # Combatant -> {ab, nodos, marca}: lo que dura mientras carga
@@ -27,6 +29,15 @@ func _init(t) -> void:
 func al_gesto(c: Combatant, cuerpo: Node2D, base: String, dur: float) -> void:
 	if base == "afilar":   # Afilarse, de la obsidiana: sus destellos, sobre el
 		EfectoPixel.lanzar(_t._arena(), "slime", "afilar", _t.pies_de(c), 0, null, 0.0, dur)
+		return
+	# LA SEGADORA Y SUS MUTANTES (05/11): la ESTELA DE SUS GARRAS, pegada a la hoja (sale de sus pies, la sigue y dura lo que
+	# su gesto). Se reconoce por el Ensarte; la de sierra por la Siega y el Vendaval rojo por su Vendaval.
+	if base in _HOJAS_SEGADORA and _t._tiene_anim_bicho(cuerpo, "ensarte"):
+		var quien: String = "vendaval" if _t._tiene_anim_bicho(cuerpo, "vendaval") \
+			else ("sierra" if _t._tiene_anim_bicho(cuerpo, "siega") else "normal")
+		var ritmo_s: float = _t._pantalla._fx.escala_tiempo if _t._pantalla._fx != null else 1.0
+		EfectoPixel.lanzar(_t._arena(), "segadora", "%s_%s" % [quien, base], _t.pies_de(c),
+			SpriteLienzo.dir8(_t._mirada_de(cuerpo)), cuerpo, 0.0, dur, ritmo_s)
 		return
 	# (los mutantes del ciempies, por su cabeza libre: la Pinza y el Derrumbe)
 	if _t._tiene_anim_bicho(cuerpo, "libre_idle"):

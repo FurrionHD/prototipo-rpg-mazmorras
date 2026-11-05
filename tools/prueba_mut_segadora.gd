@@ -53,6 +53,24 @@ func _ready() -> void:
 	var sfv: SpriteFrames = Segadora3DSprites.generar_mutante_de(ed, 0.5, &"vendaval")
 	_ver(sfv != null and sfv.has_animation("vendaval_0") and sfv.has_animation("salto_atras_4"), "el vendaval lleva las suyas")
 
+	print("5) LOS EFECTOS EN PIXEL")
+	var hojas: Dictionary = preload("res://scripts/fx/efectos_pixel_datos.gd").HOJAS.get("segadora", {})
+	var faltan: Array = []
+	for quien in ["normal", "sierra", "vendaval"]:
+		for g in ["basico", "basico_der", "guadanas", "ensarte"] + (["siega"] if quien != "normal" else []) \
+				+ (["vendaval", "salto_atras"] if quien == "vendaval" else []):
+			if not hojas.has("%s_%s" % [quien, g]):
+				faltan.append("%s_%s" % [quien, g])
+	_ver(faltan.is_empty(), "las estelas de las garras de las tres (faltan: %s)" % [faltan])
+	_ver(hojas.has("impacto_hueso") and hojas.has("impacto_metal") and hojas.has("estocada_hueso") and hojas.has("estocada_metal"), "los impactos")
+	var padre := Node2D.new()
+	add_child(padre)
+	var caja := Rect2(100, 100, 20, 30)
+	for m in [InsectoAire.Modo.TAJO, InsectoAire.Modo.GUADANA, InsectoAire.Modo.ESTOCADA]:
+		var e = InsectoAire.sobre_cuerpo(padre, m, Vector2(60, 110), caja, 1, 0.0, 1.0, 1.0)
+		_ver(e is EfectoPixel, "golpe %d: el impacto es el de pixel" % m)
+	padre.queue_free()
+
 	print("")
 	print("FIN: TODO BIEN" if _mal == 0 else "FIN: %d MAL" % _mal)
 	get_tree().quit(1 if _mal > 0 else 0)
