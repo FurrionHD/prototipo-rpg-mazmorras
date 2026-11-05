@@ -153,10 +153,7 @@ func refrescar() -> void:
 		for hijo in _chips.get_children():
 			hijo.queue_free()
 		for par in pares:
-			var col: Color = (par[3] as Color) if par.size() > 3 else _pantalla.efectos.CHIP_NEUTRO
-			var txt: String = String(par[2]) if par.size() > 2 and String(par[2]) != "" \
-				else String(par[0])
-			_chips.add_child(StatusChip.crear(txt, col, String(par[1])))
+			_chips.add_child(StatusChip.de_par(par))
 	_refrescar_lista(c, y)
 
 

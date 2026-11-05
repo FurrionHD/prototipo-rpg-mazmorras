@@ -72,6 +72,27 @@ func _make_custom_tooltip(for_text: String) -> Object:
 	l.add_theme_color_override("font_color", Color(0.88, 0.90, 0.94))
 	l.add_theme_font_size_override("font_size", TAM_LETRA)
 	l.add_theme_constant_override("line_spacing", 4)
-	panel.add_child(l)
 
+	# EL CHIP DE UN ESTADO (StatusChip.de_par) trae su icono en pixel: va delante, al doble, y se quita el emoji con el
+	# que empieza el texto ("☠  Veneno  ·  3 turnos").
+	var tex = get_meta(&"icono_px", null)
+	if tex is Texture2D:
+		var emoji: String = String(get_meta(&"emoji_px", ""))
+		if emoji != "" and for_text.begins_with(emoji):
+			l.text = for_text.substr(emoji.length()).strip_edges(true, false)
+		var fila := HBoxContainer.new()
+		fila.add_theme_constant_override("separation", 10)
+		var ic := TextureRect.new()
+		ic.texture = tex
+		ic.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ic.custom_minimum_size = Vector2(24, 24)
+		ic.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		fila.add_child(ic)
+		l.custom_minimum_size = Vector2(ANCHO - 34.0, 0.0)
+		fila.add_child(l)
+		panel.add_child(fila)
+		return panel
+
+	panel.add_child(l)
 	return panel

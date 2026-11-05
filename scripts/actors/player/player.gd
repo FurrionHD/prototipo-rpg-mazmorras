@@ -2410,7 +2410,7 @@ func _refrescar_barras() -> void:
 			for viejo in caja.get_children():
 				viejo.queue_free()
 			for chip in Game.chips_estados(pj):
-				caja.add_child(StatusChip.crear(String(chip[0]), chip[3] as Color, String(chip[1])))
+				caja.add_child(StatusChip.de_par(chip))
 	Net.jugadores.mis_barras(para_red)
 	if _barras_otros != null:
 		_barras_otros.refrescar()
@@ -2419,8 +2419,6 @@ func _refrescar_barras() -> void:
 # Los chips de la PELEA bajo la barra de uno de los tuyos. Mismo formato que los pinta la pantalla de combate
 # (combat_efectos._refrescar_chips): los de estado traen [texto, tooltip, icono, color, ultimo turno]; los de mecanica
 # (cargando, recitando...) solo [texto, tooltip] y van en gris. Misma firma que los de fuera: solo se rehacen si cambian.
-const _CHIP_NEUTRO := Color(0.78, 0.80, 0.86)
-
 func _pintar_chips_pelea(fila: Dictionary, caja: HBoxContainer, pares: Array) -> void:
 	var firma: String = "pelea|" + str(pares)
 	if firma == String(fila["estados_firma"]):
@@ -2429,10 +2427,7 @@ func _pintar_chips_pelea(fila: Dictionary, caja: HBoxContainer, pares: Array) ->
 	for viejo in caja.get_children():
 		viejo.queue_free()
 	for par in pares:
-		var txt: String = String(par[2]) if par.size() > 2 and String(par[2]) != "" else String(par[0])
-		var col: Color = (par[3] as Color) if par.size() > 3 else _CHIP_NEUTRO
-		caja.add_child(StatusChip.crear(txt, col, String(par[1]) if par.size() > 1 else "",
-				Callable(), par.size() > 4 and bool(par[4])))
+		caja.add_child(StatusChip.de_par(par))
 
 
 # Bebe la PRIMERA poción del inventario (tecla Q, fuera de combate). Arranca la

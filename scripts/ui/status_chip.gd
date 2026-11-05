@@ -64,6 +64,72 @@ static func crear(etiqueta: String, color: Color, tooltip: String,
 	return b
 
 
+# ============================================================
+#  LOS ICONOS EN PIXEL ART (05/11, el jefe: los emojis "estan graciosos pero no es para un juego serio como el nuestro").
+#  Dibujos de 12 x 12 en assets/ui/estados, hechos por tools/iconos_estados_pixel.py. El emoji NO desaparece de los
+#  datos: el registro, la red y CombatFX lo siguen usando; aqui solo se cambia lo que se VE.
+# ============================================================
+const CARPETA_ICONOS := "res://assets/ui/estados/"
+const CHIP_NEUTRO := Color(0.78, 0.80, 0.86)
+
+# Los chips que NO salen del catalogo (no traen clave): se reconocen por como empieza su etiqueta. El orden importa:
+# los prefijos largos antes que los cortos ("🛡→" antes que "🛡", "🔮x" antes que "🔮").
+const PREFIJOS := [
+	["⚡!", "carga_lista"], ["⏳", "cargando"], ["🔮x", "foco"], ["🔮", "recitando"], ["🎯", "provocando"],
+	["💢", "provocado"], ["🛡→", "cubriendo"], ["🛡←", "cubierto"], ["🛡", "defendiendo"], ["🤺", "en_guardia"],
+	["😮‍💨", "sin_fuelle"], ["✚", "pocion_vida"], ["🔷", "pocion_mana"],
+]
+
+static var _texturas: Dictionary = {}
+
+
+static func textura(clave: String) -> Texture2D:
+	if clave == "":
+		return null
+	if not _texturas.has(clave):
+		var ruta: String = CARPETA_ICONOS + clave + ".png"
+		_texturas[clave] = load(ruta) if ResourceLoader.exists(ruta) else null
+	return _texturas[clave]
+
+
+# [clave, emoji que tapa el icono] de un chip: la que trae (los del catalogo, en par[5]) o la de su prefijo.
+static func clave_de(par: Array) -> Array:
+	if par.size() > 5 and String(par[5]) != "":
+		return [String(par[5]), String(par[2]) if par.size() > 2 else ""]
+	var etq: String = String(par[0]) if not par.is_empty() else ""
+	for p in PREFIJOS:
+		if etq.begins_with(String(p[0])):
+			return [String(p[1]), String(p[0])]
+	return ["", ""]
+
+
+# EL CHIP A PARTIR DE SUS DATOS, el mismo en todas partes (la pelea, el HUD de arriba, la ficha del objetivo):
+#   par = [etiqueta, tooltip, icono, color, ultimo turno, clave] (los de mecanica traen solo los dos primeros).
+# Con dibujo: el icono pixel y, detras, lo que la etiqueta dice ademas del emoji ("3t", "2/3"); los del catalogo, como
+# antes, solo el icono (lo demas esta en su ficha). Sin dibujo (un espejo con una version vieja), el texto de siempre.
+static func de_par(par: Array, clic: Callable = Callable()) -> Button:
+	var col: Color = (par[3] as Color) if par.size() > 3 and par[3] is Color else CHIP_NEUTRO
+	var tip: String = String(par[1]) if par.size() > 1 else ""
+	var ultimo: bool = par.size() > 4 and bool(par[4])
+	var con_icono: bool = par.size() > 2 and String(par[2]) != ""
+	var txt: String = String(par[2]) if con_icono else (String(par[0]) if not par.is_empty() else "")
+	var cl: Array = clave_de(par)
+	var tex: Texture2D = textura(String(cl[0]))
+	if tex == null:
+		return crear(txt, col, tip, clic, ultimo)
+	var resto: String = ""
+	if not con_icono and String(par[0]).begins_with(String(cl[1])):
+		resto = String(par[0]).substr(String(cl[1]).length()).strip_edges()
+	var b: Button = crear(resto, col, tip, clic, ultimo)
+	b.icon = tex
+	b.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	b.add_theme_constant_override("h_separation", 2)
+	# Para su ficha (TooltipButton): el mismo dibujo en la cabecera, en vez del emoji con el que empieza el texto.
+	b.set_meta(&"icono_px", tex)
+	b.set_meta(&"emoji_px", String(cl[1]))
+	return b
+
+
 static func _fondo(color: Color, alpha: float) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(color.r * 0.55, color.g * 0.55, color.b * 0.55, alpha)

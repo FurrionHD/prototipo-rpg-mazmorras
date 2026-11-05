@@ -572,14 +572,10 @@ func _refrescar_chips(c: Combatant, bloque: Dictionary, idx: int, forzar: bool =
 		# (cargando, recitando, provocacion, imbuicion) siguen siendo pares y se pintan en gris claro.
 		# Se mira el tamaño y no el tipo para que un espejo con la instantanea vieja (pares de 2) no
 		# reviente al llegar: la red manda estos mismos arrays.
-		var col: Color = (par[3] as Color) if par.size() > 3 else CHIP_NEUTRO
-		# SOLO EL ICONO cuando lo hay (par[2], que lo separa chip_de_grupo). Los chips de mecanica
-		# vienen como pares de 2 y se quedan con su texto, que ya es corto y dice algo que no cabe
-		# en un icono ("frase 2 de 3"). Lo demas -magnitud, turnos, que hace- esta en el tooltip.
-		var visible_txt: String = String(par[2]) if par.size() > 2 and String(par[2]) != "" \
-			else String(par[0])
-		var ultimo: bool = par.size() > 4 and bool(par[4])
-		_chip(box, visible_txt, String(par[1]), idx, col, ultimo)
+		# SOLO EL ICONO cuando lo hay (los del catalogo); los de mecanica, su icono y lo que dicen ademas ("2/3"). Lo
+		# demas -magnitud, turnos, que hace- esta en el tooltip. Todo eso lo decide StatusChip.de_par (iconos en pixel).
+		var clic: Callable = _pantalla.figuras._seleccionar.bind(idx) if idx >= 0 else Callable()
+		box.add_child(StatusChip.de_par(par, clic))
 	box.visible = box.get_child_count() > 0
 
 
@@ -797,21 +793,6 @@ Solo tiene ojos para él: todo lo que haga va a por él, si le alcanza." % [
 	return out
 
 
-# Un chip: el icono+numeros de siempre (etiqueta()), y al pasar el raton por encima, la ficha
-# entera (resumen()). TooltipButton porque el tooltip por defecto de Godot no parte lineas.
-# 'idx' = enemigo al que pertenece (-1 = jugador).
-#
-# El chip SI se come el clic (un tooltip necesita recibir el raton, asi que no puede ir en
-# IGNORE como los demas hijos del bloque). En vez de pelearse con eso, se le hace bueno: el
-# chip tambien selecciona. Asi el bloque no tiene zonas muertas -> pinches donde pinches
-# dentro del borde, apuntas a ese bicho.
-# Color de los chips que NO son un estado del catalogo (cargando, recitando, provocacion, imbuicion):
-# no tienen color propio porque no salen de StatusEffects.
-const CHIP_NEUTRO := Color(0.78, 0.80, 0.86)
-
-# El chip se monta en StatusChip, el mismo sitio que usa el HUD del mapa: asi un veneno se ve igual
-# en la pelea y andando por el pasillo. Clicar el de un enemigo lo SELECCIONA, como antes.
-func _chip(box: Container, texto: String, tooltip: String, idx: int = -1,
-		color: Color = CHIP_NEUTRO, parpadea: bool = false) -> void:
-	var clic: Callable = _pantalla.figuras._seleccionar.bind(idx) if idx >= 0 else Callable()
-	box.add_child(StatusChip.crear(texto, color, tooltip, clic, parpadea))
+# EL CHIP lo monta StatusChip.de_par, el mismo sitio que usa el HUD del mapa: asi un veneno se ve igual en la pelea y
+# andando por el pasillo. Un chip SI se come el clic (un tooltip necesita recibir el raton), asi que se le hace bueno:
+# clicar el de un enemigo lo SELECCIONA, y el bloque no tiene zonas muertas.

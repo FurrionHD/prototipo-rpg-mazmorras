@@ -1217,9 +1217,17 @@ static func efecto_legible(id: int, mult: float = 0.0, escala: float = 1.0) -> S
 #
 # Los tres ultimos van al final para que quien solo queria [etiqueta, tooltip] siga funcionando
 # sin tocar nada (los espejos leen estos mismos arrays y comprueban el size()).
+# El chip va como [etiqueta, tooltip, icono (emoji), color, ultimo turno, CLAVE del icono pixel]. El emoji se queda: lo
+# usan el registro, la red y CombatFX (que busca el estado por el). La clave es el nombre del Id en minusculas, el
+# PNG de assets/ui/estados (05/11: los iconos en pixel art; StatusChip.de_par).
+static func clave_icono(id: int) -> String:
+	var k = Id.find_key(id)
+	return String(k).to_lower() if k != null else ""
+
+
 static func chip_de_grupo(insts: Array) -> Array:
 	if insts.is_empty():
-		return ["", "", "", Color.WHITE, false]
+		return ["", "", "", Color.WHITE, false, ""]
 	var larga: Instance = insts[0]
 	var stacks_tot: int = 0
 	var dot_tot: float = 0.0
@@ -1238,18 +1246,18 @@ static func chip_de_grupo(insts: Array) -> Array:
 				fuerte = e
 		return [fuerte.etiqueta(), fuerte.resumen() + "\n\n%d quemaduras a la vez (arde la más fuerte): %s" % [
 			insts.size(), ", ".join(turnos)], str(fuerte.d.get("icono", "?")), fuerte.d.get("color", Color.WHITE),
-			larga.turns == 1]
+			larga.turns == 1, clave_icono(fuerte.id())]
 	var ic: String = str(larga.d.get("icono", "?"))
 	var col: Color = larga.d.get("color", Color.WHITE)
 	# Se mira el que MAS le queda, igual que la etiqueta: mientras siga vivo uno, el estado sigue
 	# puesto. Los permanentes (turns < 0) no parpadean nunca: no se van solos.
 	var ultimo: bool = larga.turns == 1
 	if insts.size() == 1:
-		return [larga.etiqueta(), larga.resumen(), ic, col, ultimo]
+		return [larga.etiqueta(), larga.resumen(), ic, col, ultimo, clave_icono(larga.id())]
 
 	# Mismo formato corto que etiqueta(): icono, stacks y lo que le queda. El daño total de todas
 	# las instancias juntas y el desglose por aplicacion van al tooltip, aqui debajo.
 	var etq: String = "%sx%d %s" % [ic, stacks_tot, larga.duracion_texto()]
 	var tip: String = larga.resumen() + "\n\n%d aplicaciones: %s" % [
 		insts.size(), ", ".join(turnos)]
-	return [etq, tip, ic, col, ultimo]
+	return [etq, tip, ic, col, ultimo, clave_icono(larga.id())]
