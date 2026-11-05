@@ -91,6 +91,10 @@ func _ready() -> void:
 	_ver(f.veces(r_pegado) == 3, "pegado a ella, donde se cruzan, las tres (%d)" % f.veces(r_pegado))
 	_ver(f.veces(Rect2(r_ala - Vector2(6, 6), Vector2(12, 12))) == 1, "en un ala del abanico, una")
 	_ver(f.veces(r_lado) == 0 and not f.toca(r_lado), "de lado, ninguna")
+	var tac = load("res://scripts/ui/combat_tactico.gd")
+	var viaje = tac._desempaquetar(tac._empaquetar(3, 1, f, 0.0), 0)[2]
+	_ver(viaje.abanico == 3 and is_equal_approx(viaje.abanico_angulo, f.abanico_angulo) and viaje.veces(r_pegado) == 3,
+		"la huella viaja por red con su abanico (el espejo ve las tres lineas)")
 
 	print("")
 	print("FIN: TODO BIEN" if _mal == 0 else "FIN: %d MAL" % _mal)

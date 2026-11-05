@@ -3379,7 +3379,7 @@ func sacar_decidida(e: Combatant) -> AbilityData:
 # UNA HUELLA = 15 floats: [cod, clase, tipo, cx, cy, ox, oy, dx, dy, radio, apertura, nucleo, tramos,
 # ancho, ancho_fin]. cod = el codigo de siempre del combatiente (espejo._cod_combatiente). clase 0 =
 # apuntando, 1 = carga. En la LINEA el radio es su largo; ancho y ancho_fin solo los mira ella.
-const FLOATS_HUELLA := 15
+const FLOATS_HUELLA := 17   # (05/11, protocolo 69) + el abanico de la linea y su angulo
 const CLASE_APUNTANDO := 0
 const CLASE_CARGA := 1
 const CLASE_ESCUDAZO := 2   # la linea del escudazo de la Guardia rota, que va con la de apuntar
@@ -3412,7 +3412,7 @@ var _claves_red: Array = []                # las que pinte llegadas por red, par
 static func _empaquetar(cod: int, clase: int, f, nucleo: float) -> PackedFloat32Array:
 	return PackedFloat32Array([float(cod), float(clase), float(f.tipo), f.centro.x, f.centro.y,
 		f.origen.x, f.origen.y, f.dir.x, f.dir.y, f.radio, f.apertura, nucleo, float(f.tramos),
-		f.ancho, f.ancho_fin])
+		f.ancho, f.ancho_fin, float(f.abanico), f.abanico_angulo])
 
 
 static func _desempaquetar(d: PackedFloat32Array, i: int) -> Array:
@@ -3426,6 +3426,8 @@ static func _desempaquetar(d: PackedFloat32Array, i: int) -> Array:
 	f.tramos = int(d[i + 12])
 	f.ancho = d[i + 13]
 	f.ancho_fin = d[i + 14]
+	f.abanico = int(d[i + 15])
+	f.abanico_angulo = d[i + 16]
 	if f.tipo == CombatFormas.Tipo.LINEA:
 		f.largo = f.radio
 	return [int(d[i]), int(d[i + 1]), f, d[i + 11]]
