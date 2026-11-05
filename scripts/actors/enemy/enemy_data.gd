@@ -406,6 +406,8 @@ func drop_factor_piso(piso: int) -> float:
 # POSADA, ES PIEDRA (gargola): si desde que empezo su ultimo turno no se ha movido, recibe x'posada_mult'. Al volar
 # (moverse, el Picado, que la muevan) lo pierde hasta su siguiente turno. 1 = no la tiene.
 @export var posada_mult: float = 1.0
+# VUELA SIEMPRE (05/11, polilla y chillon): para el viento va en el aire. No cambia a quien le llega el cuerpo a cuerpo.
+@export var vuela: bool = false
 # IMPARABLE (coloso): tirones, empujones y atracciones no le mueven ni le cortan la carga.
 @export var imparable: bool = false
 # Lo que se dice en el log cuando salta 'al_ser_golpeado' ("" = lo de siempre segun su dibujo).
@@ -833,6 +835,7 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	c.cuece_elem = cuece_elem
 	c.cuece_mult = cuece_mult
 	c.posada_mult = posada_mult
+	c.vuela = vuela
 	c.imparable = imparable
 	c.al_ser_golpeado_texto = al_ser_golpeado_texto
 	c.regen_turno = regen_turno

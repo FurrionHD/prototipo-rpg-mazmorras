@@ -335,6 +335,12 @@ var anim_basico: StringName = &""   # ver EnemyData.anim_basico
 # las armas a distancia, cuando las haya) si. Lo marca la habilidad que carga (AbilityData.eleva).
 func volando() -> bool:
 	return charging != null and charging.eleva
+
+# VUELA SIEMPRE (05/11, polilla y chillon): el cuerpo a cuerpo les llega igual (eso es volando()), pero el viento les da de lleno.
+var vuela: bool = false
+
+func en_el_aire() -> bool:
+	return vuela or volando()
 var al_ser_golpeado_texto: String = ""
 
 # LA TABLA DE AMENAZA de este enemigo (30/09, como en el WoW): cuanta le ha generado cada uno de los tuyos
@@ -827,7 +833,7 @@ func aplicar_imbue(elem: int, pct: float, usos: int, cuerpo: bool,
 func rodar_prisma() -> void:
 	if not imbue_prisma or imbue_usos <= 0:
 		return
-	var e: int = Elementos.TODOS[randi() % Elementos.TODOS.size()]
+	var e: int = Elementos.AZAR_MAGIA[randi() % Elementos.AZAR_MAGIA.size()]
 	imbue_elemento = e
 	# Y deja el ESTADO de ese elemento (03/10, su decision), como los mantos de uno solo.
 	imbue_estado = int(Elementos.ESTADO_DE_IMBUIR.get(e, -1))

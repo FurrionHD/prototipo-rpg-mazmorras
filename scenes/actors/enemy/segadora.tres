@@ -7,6 +7,31 @@
 [ext_resource type="Resource" path="res://resources/materials/quitina_segada.tres" id="5_mat"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_segadora.tres" id="6_nuc"]
 [ext_resource type="Resource" path="res://resources/materials/carne_insecto.tres" id="7_carne"]
+[ext_resource type="Script" path="res://scripts/actors/enemy/mutacion_data.gd" id="20_mut"]
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="21_ab"]
+[ext_resource type="Resource" path="res://resources/abilities/segadora_siega.tres" id="22_sie"]
+[ext_resource type="Resource" path="res://resources/abilities/vendaval_cortes.tres" id="23_ven"]
+
+; LOS MUTANTES DE LA SEGADORA (05/11, memoria segadora-mutante; numeros provisionales). En linea:
+;     Segadora --> Segadora de sierra (garras x1,4, Zona de siega, Siega) --come mas--> Vendaval rojo (maga de viento: cortes, Vendaval, Vuelo corto)
+[sub_resource type="Resource" id="MUT_sierra"]
+script = ExtResource("20_mut")
+id = &"sierra"
+nombre = "Segadora de sierra"
+grado = 1
+habilidades = Array[ExtResource("21_ab")]([ExtResource("3_gua"), ExtResource("4_ens"), ExtResource("22_sie")])
+sprite = &"sierra"
+pesos = {"agilidad": 30, "destreza": 58, "fuerza": 66, "magia": 7, "resistencia": 28, "voluntad": 11}
+
+[sub_resource type="Resource" id="MUT_vendaval"]
+script = ExtResource("20_mut")
+id = &"vendaval"
+nombre = "Vendaval rojo"
+grado = 2
+desde = Array[StringName]([&"sierra"])
+habilidades = Array[ExtResource("21_ab")]([ExtResource("3_gua"), ExtResource("4_ens"), ExtResource("22_sie"), ExtResource("23_ven")])
+sprite = &"vendaval"
+pesos = {"agilidad": 20, "destreza": 36, "fuerza": 34, "magia": 58, "resistencia": 18, "voluntad": 34}
 
 [sub_resource type="Resource" id="SA_san"]
 script = ExtResource("2")
@@ -27,6 +52,9 @@ resistencia = 30
 fuerza = 55
 destreza = 55
 agilidad = 40
+; LAS SEIS (05/11, al hacer sus mutantes): estrena Voluntad y baja la Magia (suma 200, como sus mutantes).
+magia = 8
+voluntad = 12
 base_hp = 74.0
 base_attack = 5.8
 base_defense = 3.8
@@ -48,6 +76,7 @@ resist_estado = {
 fx_basico = 117
 habilidades = [ExtResource("3_gua"), ExtResource("4_ens")]
 prob_habilidad = 0.55
+mutaciones = Array[ExtResource("20_mut")]([SubResource("MUT_sierra"), SubResource("MUT_vendaval")])
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
 ; ALCANCE del basico en el mapa (29/09): llega lejos con las guadañas.
 alcance = 35.0

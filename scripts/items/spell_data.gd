@@ -678,7 +678,7 @@ func _texto_estados(a_quien: String) -> String:
 func elemento_imbuido() -> int:
 	if not imbue_elemento_aleatorio:
 		return elemento
-	return Elementos.TODOS[randi() % Elementos.TODOS.size()]
+	return Elementos.AZAR_MAGIA[randi() % Elementos.AZAR_MAGIA.size()]
 
 
 # Los FILOS y MANTOS no pegan: tiñen tus golpes. Frase propia.

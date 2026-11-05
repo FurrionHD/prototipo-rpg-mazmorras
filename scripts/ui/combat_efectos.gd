@@ -180,7 +180,53 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 	if not solo_dibujo and not evadido and dmg > 0.0:
 		_rebote_hilo(atacante, victima, dmg)
 		_rebote_tormenta(atacante, victima)
+		_al_entrar_viento(atacante, victima, dmg, elem)
 		_pantalla.enemigos.absorber_elemento(victima, elem, dmg)
+
+
+# LO QUE HACE EL VIENTO AL ENTRAR (05/11, el jefe). Es ley del elemento, venga de quien venga (tambien contra los tuyos):
+# - al que esta elevado cargando (la gargola en su Picado) le corta lo que preparaba y le quita una carga;
+# - AVIVA EL FUEGO: el x1,5 va en Elementos; aqui las llamas de un Quemado saltan a los suyos que tenga pegados.
+# Va una vez por resolucion (si un area pilla a tres quemados, salta solo la primera) y lo que salta no vuelve a saltar.
+const AVIVA_RADIO := 30.0
+const AVIVA_DANO := 0.3
+const AVIVA_PROB_QUEMAR := 0.4
+var _aviva_fotograma: int = -1
+
+func _al_entrar_viento(atacante: Combatant, victima: Combatant, dmg: float, elem: int) -> void:
+	if elem != Elementos.Elemento.VIENTO or _en_rebote or _pantalla._espejo or victima == null:
+		return
+	if victima.en_el_aire():
+		victima.frenar_carga()
+		if victima.volando():
+			var linea: String = _pantalla.interrumpir(victima, atacante)
+			if linea != "":
+				_pantalla._log_extra(linea)
+	if not victima.has_status(StatusEffects.Id.QUEMADURA) or not _pantalla.tactico \
+			or _aviva_fotograma == Engine.get_process_frames():
+		return
+	_aviva_fotograma = Engine.get_process_frames()
+	var es_enemigo: bool = _pantalla._enemies.has(victima)
+	var suyos: Array = _pantalla._vivos() if es_enemigo else _pantalla._aliados
+	var fuego: int = Elementos.Elemento.FUEGO
+	for v in suyos:
+		if v == victima or not v.is_alive() or v.no_elegible() \
+				or _pantalla.turno_mapa.hueco_entre(victima, v) > AVIVA_RADIO:
+			continue
+		var mult: float = Elementos.mult_recibido(fuego, v)
+		var d: float = maxf(0.1, dmg * AVIVA_DANO * mult)
+		v.take_damage(d)
+		_en_rebote = true
+		_fx_golpe(victima, v, d, false, false, fuego, CombatFX.Estilo.PASIVA_ARDE, 0.6, false, "", AbilityData.Gesto.AUTO, null, 0, mult)
+		_en_rebote = false
+		if v.is_alive() and randf() < StatusEffects.prob_final(AVIVA_PROB_QUEMAR, atacante, v, StatusEffects.Id.QUEMADURA):
+			v.apply_status(StatusEffects.Id.QUEMADURA)
+		if es_enemigo:
+			_pantalla._apuntar_dano(v, d, atacante)
+			_pantalla._caidos_de_rebote.append(v)
+		elif not v.is_alive():
+			_pantalla.altas._caer_aliado(v)
+		_pantalla._log_extra("🔥 El viento aviva las llamas de %s y saltan a %s: %.2f" % [_pantalla._etq(victima), _pantalla._etq(v), d])
 
 
 # EL SET HILO CONDUCTOR (03/11, las arañas mutantes): el golpe puede saltar en rayo a otro enemigo cercano. Va detras del

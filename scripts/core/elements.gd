@@ -16,7 +16,10 @@ class_name Elementos
 # LUZ y OSCURIDAD van AL FINAL y no se reordena nada. El elemento viaja por red COMO NUMERO y esta
 # escrito en los .tres de resistencias: meter uno en medio le cambiaria el elemento a todo lo que
 # hay detras, en las partidas guardadas y entre un cliente y otro. Al final no rompe nada.
-enum Elemento { NINGUNO, FUEGO, AGUA, RAYO, LUZ, OSCURIDAD }
+#
+# VIENTO (05/11, la Segadora mutante y el set Filo de aire): corta. De momento NO tiene magias ni imbucion: por eso NO entra
+# en AZAR_MAGIA.
+enum Elemento { NINGUNO, FUEGO, AGUA, RAYO, LUZ, OSCURIDAD, VIENTO }
 
 const NOMBRE := {
 	Elemento.NINGUNO: "Físico",
@@ -25,6 +28,7 @@ const NOMBRE := {
 	Elemento.RAYO: "Rayo",
 	Elemento.LUZ: "Luz",
 	Elemento.OSCURIDAD: "Oscuridad",
+	Elemento.VIENTO: "Viento",
 }
 
 # LOS ELEMENTOS DE VERDAD, sin el NINGUNO (que es "físico", o sea la ausencia de elemento).
@@ -33,7 +37,11 @@ const NOMBRE := {
 # escrita con los tres de entonces, asi que al añadir Luz y Oscuridad habria seguido enseñando tres
 # — y una ficha que se calla una debilidad es peor que una que no dice nada.
 const TODOS: Array[int] = [Elemento.FUEGO, Elemento.AGUA, Elemento.RAYO, Elemento.LUZ,
-	Elemento.OSCURIDAD]
+	Elemento.OSCURIDAD, Elemento.VIENTO]
+
+# LOS QUE PUEDEN SALIR AL AZAR de una imbucion (Manto prismatico, el grimorio que sortea). El viento aun no: no tiene manto
+# ni colores de imbucion, y saldria un golpe sin dibujo. Cuando los tenga, se añade aqui y ya.
+const AZAR_MAGIA: Array[int] = [Elemento.FUEGO, Elemento.AGUA, Elemento.RAYO, Elemento.LUZ, Elemento.OSCURIDAD]
 
 # El ESTADO que deja un golpe imbuido de cada elemento: los mismos que llevan los mantos de uno solo
 # (brasas, marea, centellas, aureo, umbrio). Lo usa el Manto prismatico al sortear su elemento.
@@ -43,6 +51,7 @@ const ESTADO_DE_IMBUIR := {
 	Elemento.RAYO: StatusEffects.Id.RAYO,
 	Elemento.LUZ: StatusEffects.Id.VULNERABLE,
 	Elemento.OSCURIDAD: StatusEffects.Id.CEGUERA,
+	Elemento.VIENTO: StatusEffects.Id.SANGRADO,   # el viento corta (05/11)
 }
 
 # Icono de cada elemento (para el log: el rastro de golpes de un hechizo multi-elemento).
@@ -53,6 +62,7 @@ const ICONO := {
 	Elemento.RAYO: "⚡",
 	Elemento.LUZ: "☀",
 	Elemento.OSCURIDAD: "🌑",
+	Elemento.VIENTO: "💨",
 }
 
 # Color de cada elemento, para las PARTICULAS del cuerpo imbuido y del bicho elemental
@@ -74,6 +84,8 @@ const COLOR := {
 	# fondo del combate, que ya es casi negro, un efecto negro no se ve.
 	Elemento.LUZ: Color(1.0, 0.97, 0.85),
 	Elemento.OSCURIDAD: Color(0.42, 0.24, 0.55),
+	# Verde palido: el blanco ya es de la luz y el azul, del agua.
+	Elemento.VIENTO: Color(0.72, 0.95, 0.82),
 }
 
 # TABLA DE TIPOS por defecto: perfil de resistencia segun la AFINIDAD del defensor
@@ -95,6 +107,7 @@ const PERFIL_DEFECTO := {
 	# fuera fuerte contra todo, seria simplemente el elemento bueno.
 	Elemento.LUZ: { Elemento.LUZ: 0.5, Elemento.OSCURIDAD: 1.5 },
 	Elemento.OSCURIDAD: { Elemento.OSCURIDAD: 0.5, Elemento.LUZ: 1.5 },
+	Elemento.VIENTO: { Elemento.VIENTO: 0.5 },
 }
 
 # FRANJAS DE INTENSIDAD de la afinidad. El perfil de arriba es el del elemento PURO; esta
@@ -142,8 +155,15 @@ const AMPLIFICA_POR_ESTADO := {
 	# Es una regla GENERAL, no del hechizo que la estrena: cualquier golpe de agua sobre algo que
 	# arde pega mas, venga de quien venga. Por eso vive aqui y no en un campo del Shock termico —
 	# ahi seria un truco de un hechizo, y asi es una ley del mundo que el hechizo aprovecha.
-	StatusEffects.Id.QUEMADURA: { Elemento.AGUA: 1.5 },
+	# Y EL VIENTO AVIVA EL FUEGO (05/11, el jefe): tambien x1,5 (las llamas que saltan a los de al lado: CombatEfectos._aviva).
+	StatusEffects.Id.QUEMADURA: { Elemento.AGUA: 1.5, Elemento.VIENTO: 1.5 },
 }
+
+# EL VIENTO A QUIEN ESTA EN EL AIRE (05/11, su idea): SUMA esto a lo que ya recibia, antes de los estados. Asi hasta la gargola,
+# que resiste (x0,5), lo nota cuando se eleva: x1,0.
+const VIENTO_EN_EL_AIRE := 0.5
+# Y UN TOPE, por lo que se junta: polilla (1,5) + en el aire (0,5) + quemada (x1,5) serian x3. "me da miedo pasarme de daño".
+const VIENTO_TOPE := 2.0
 
 
 # Nombre legible de un elemento (para logs / UI).
@@ -213,4 +233,7 @@ static func mult_recibido(elem: int, defender) -> float:
 		base = escalar_intensidad(float(perfil.get(elem, 1.0)), defender.elemento_intensidad)
 	# RUNAS (08/10): la resistencia a un elemento de las sub-stats de armadura.
 	var runa: float = float(defender.runa_resist_elem.get(elem, 0.0)) if defender is Combatant else 0.0
-	return base * mult_por_estados(elem, defender) * (1.0 - clampf(runa, 0.0, 0.9))
+	if elem == Elemento.VIENTO and defender is Combatant and defender.en_el_aire():
+		base += VIENTO_EN_EL_AIRE
+	var m: float = base * mult_por_estados(elem, defender) * (1.0 - clampf(runa, 0.0, 0.9))
+	return minf(m, VIENTO_TOPE) if elem == Elemento.VIENTO else m

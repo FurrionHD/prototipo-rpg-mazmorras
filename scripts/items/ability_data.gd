@@ -437,6 +437,10 @@ enum Pieza { NINGUNA, PEDAZO, ESQUIRLA }
 # MAGICA (08/10/2026, de momento solo las de los slimes): pega con la MAGIA del que la lanza contra tu DEFENSA MAGICA y
 # la reduccion magica de tu armadura; ni la guardia ni el escudo la paran. Ver StatsMath.resolve_magico_enemigo.
 @export var es_magico: bool = false
+# EN ABANICO (05/11, el Vendaval de cortes del Vendaval rojo): una LINEA se lanza 'lineas_abanico' veces, repartidas en
+# 'lineas_angulo' grados (el abanico ENTERO). Quien quede donde se cruzan se come varias. 0/1 = una sola.
+@export var lineas_abanico: int = 0
+@export var lineas_angulo: float = 40.0
 # ATRAVIESA (solo en el mapa, con LINEA y 'carga'): no se para en el primero, rueda hasta el final de la linea
 # arrollando a todos por el camino; el primero se lleva el golpe entero y los demas area_secundario, hasta
 # area_max. La Embestida rodante del escarabajo (29/09).

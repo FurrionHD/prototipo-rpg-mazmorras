@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_san"]
+script = ExtResource("2")
+estado = 1
+prob = 0.4
+
+; VENDAVAL DE CORTES (05/11, el Vendaval rojo; numeros provisionales): carga un turno con las garras extendidas y las alas
+; abiertas, y suelta tres cortes de VIENTO en abanico. Magicos: salen de su Magia y van contra tu defensa magica.
+[resource]
+script = ExtResource("1")
+nombre = "Vendaval de cortes"
+descripcion = "Extiende las garras, abre las alas y se queda quieta, llenándose de aire. Luego las deja caer y salen tres cortes que no tocan el suelo. Ponerse en medio es mala idea por partida triple."
+coste_energia = 0.0
+dano_mult = 0.8
+efectos = [SubResource("SA_san")]
+cooldown = 5
+carga_turnos = 1
+forma = 3
+forma_apunte = 1
+forma_radio = 140.0
+forma_ancho = 16.0
+lineas_abanico = 3
+lineas_angulo = 40.0
+elemento_golpe = 6
+es_magico = true
+fx_estilo = 117
+fx_anim_carga = &"vendaval_carga"
+fx_anim = &"vendaval"
+fx_anim_interrumpe = &"idle"
