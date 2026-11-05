@@ -208,7 +208,9 @@ def _construir(pts, radios, p, cab_a=1.0, cab_b=1.0, delante=None):
         if mitad and delante is not None and delante[i] != (mitad == 2):
             continue
         h = 'a%d' % i
-        r = radios[i] * (0.75 if enrollado else 1.0 - 0.18 * p['enrosca'])
+        # (05/11, el jefe: "al enroscarse se encojen, no mantienen su tamaño": medido, -25 % y -40 % de grosor.) El mismo
+        # grosor enroscado que suelto; lo que cambia es la helice, mas ancha.
+        r = radios[i] * (1.0 - 0.18 * p['enrosca'])
         ly = max(1.75, np.linalg.norm(pts[max(i - 1, 0)] - pts[min(i + 1, n - 1)]) * 0.5)
         _elip(add, (0, 0, 0), (r * 1.15, ly * 0.66, r * 0.85), _m('cuerpo', p), 0.6, hueso=h)
         mat = 'banda' if C['bandas'] and i % C['bandas'] == 0 and p['desde'] != 'normal' else 'placa'
@@ -238,11 +240,12 @@ def _construir(pts, radios, p, cab_a=1.0, cab_b=1.0, delante=None):
 
 
 # LO QUE ENROSCA: la mitad del cuerpo en helice, con UNA cabeza arriba y delante.
-N_HELICE = 11 if VAR == 'bicefalo' else int(N * 0.62)
-HELICE_R = 4.1 if VAR == 'bicefalo' else 5.4
-HELICE_ALTO = 14.3 if VAR == 'bicefalo' else 18.0
+# Helice + lo libre = el cuerpo entero. En el Nudo, justo la mitad: al atrapar a dos, las dos helices son TODO su cuerpo.
+N_HELICE = 11 if VAR == 'bicefalo' else N // 2
+HELICE_R = 5.0 if VAR == 'bicefalo' else 7.0
+HELICE_ALTO = 14.3 if VAR == 'bicefalo' else 20.0
 # Mas de UNA vuelta entera: con menos, casi todo el cuerpo se queda por detras de la presa y no se ve que la abraza.
-HELICE_PASO = 0.82 if VAR == 'bicefalo' else 0.48
+HELICE_PASO = 0.82 if VAR == 'bicefalo' else 0.42
 
 
 def _pieza_helice(p):
@@ -255,7 +258,7 @@ def _pieza_helice(p):
                       1.5 + HELICE_ALTO * p['sube_h'] * (1.0 - f))))
         del_.append(math.sin(a) > 0.0)
     pts = np.array(pts)
-    r = np.full(N_HELICE, C['r'] if VAR == 'bicefalo' else C['r'] * 0.8)
+    r = np.full(N_HELICE, C['r'])
     # La helice de la cabeza B es la segunda presa: la misma pieza con la otra cabeza.
     if p['cab'] == 'A':
         return _construir(pts, r, p, 1.0, 0.0, del_)
@@ -267,7 +270,10 @@ N_LIBRE = N - N_HELICE
 
 
 def _pieza_libre(p):
-    ctrl = [(0.0, 1.5, 1.5), (-1.6, 5.0, 1.5), (0.8, 9.0, 1.5), (0.0, 13.0, 1.5)]
+    # Lo que mide esa parte del cuerpo: en el Nudo son la mitad de sus anillos, y en poco sitio salian apelotonados.
+    k = 1.0 if VAR == 'bicefalo' else 2.1
+    z = 1.5 if VAR == 'bicefalo' else C['r'] * 0.8
+    ctrl = [(0.0, 1.5, z), (-1.6 * k, 5.0 * k, z), (0.8 * k, 9.0 * k, z), (0.0, 13.0 * k, z)]
     pts = _muestras(ctrl, N_LIBRE)
     r = np.full(N_LIBRE, C['r'])
     t = np.gradient(pts, axis=0)
@@ -497,6 +503,10 @@ def _hoja(var, nombres):
                 dib.rounded_rectangle((cx - 11, cy - 38, cx + 11, cy + 2), 9, fill=(90, 140, 230, 255), outline=(20, 30, 70, 255))
                 b = fotos[(otro, 0, i)]
                 im.paste(b, (0, 0), b)
+                # Lo que no enrosca tambien esta ahi: si no, en la hoja parece que el bicho ha encogido.
+                if nm.startswith('enroscado') and '_b' not in nm and ('libre_idle', 1, 0) in fotos:
+                    li = fotos[('libre_idle', 1, i % ANIMS['libre_idle'][0])]
+                    im.paste(li, (0, 0), li)
                 tira.append(im)
             filas.append((nm.replace('_detras', ''), tira))
         else:
