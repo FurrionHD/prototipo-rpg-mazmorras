@@ -475,6 +475,242 @@ EMOJI = {
 }
 
 
+# ------------------------------------------------------------------ LOS ICONOS DE LOS MENUS (05/11, "todo pixel"): los 76
+# de scripts/ui/iconos.gd, que iban a trazos de un color. La clave es el NOMBRE DE SU FUNCION alli (Iconos.persona...):
+# cada funcion pinta su dibujo si existe (assets/ui/iconos/<clave>.png) y la pantalla lo tiñe con el color que ya le
+# pasaba (blanco = tal cual; gris = apagado). Por eso van en color y con contorno: el tinte solo los oscurece.
+def de(clave):
+    for i in ICONOS + ICONOS_UI:
+        if i[0] == clave:
+            return i
+    raise KeyError(clave)
+
+
+def como(clave_nueva, nombre, clave_vieja):
+    _c, _n, color, filas, acentos = de(clave_vieja)
+    return (clave_nueva, nombre, color, filas, acentos)
+
+
+DIGITOS = {"1": (".x.", "xx.", ".x.", ".x.", "xxx"), "2": ("xx.", "..x", ".x.", "x..", "xxx"),
+           "3": ("xx.", "..x", ".x.", "..x", "xx."), "4": ("x.x", "x.x", "xxx", "..x", "..x"),
+           "5": ("xxx", "x..", "xx.", "..x", "xx.")}
+ROMBO = (".....oo.....", "....ollo....", "...ollllo...", "..ollllllo..", ".ollllllllo.", "ollllllllllo",
+         "ollllllllllo", ".ollllllllo.", "..ollllllo..", "...ollllo...", "....ollo....", ".....oo.....")
+
+
+def tier(n):
+    extra = {}
+    for j, f in enumerate(DIGITOS[n]):
+        for i, ch in enumerate(f):
+            if ch == 'x':
+                extra[(5 + i - 1, 4 + j)] = 'b'
+    return pon(ROMBO, extra)
+
+
+CORAZA = espejo((".oo...", "ollooo", "olllll", "olllll", ".ollll", ".ollll", ".ollll", ".ollll", ".ollll", ".ollll",
+                 "..olll", "..oooo"))
+
+
+def lamas(n):
+    extra = {}
+    for k in range(n):
+        for x in range(2, 10):
+            extra[(x, 4 + 2 * k)] = 'a'
+    return pon(CORAZA, extra)
+
+
+PIEDRA = ("............", "....oooo....", "..oollllooo.", ".olllllllllo", "ollllllllllo", "ollllllllllo",
+          "ollllllllllo", "ollllllllllo", ".ommmmmmmmo.", "..oooooooo..", "............", "............")
+
+
+def vetas(n):
+    extra = {}
+    for k in range(n):
+        y = 4 + 2 * k
+        for x in range(3, 9):
+            extra[(x + (1 if (x + k) % 3 == 0 else 0), y)] = 'a'
+    return pon(PIEDRA, extra)
+
+
+ESPADA = espejo((".....o", "....ow", "....ol", "....ol", "....ol", "....ol", "....ol", "..oooo", "..oaaa", "....ob",
+                 "....ob", ".....o"))
+ACERO = (0.8, 0.82, 0.88)
+MADERA = (0.62, 0.44, 0.28)
+EMPUÑADURA = {'a': (210, 170, 70), 'b': (110, 70, 40)}
+FLECHA_TIRO = (".........aaa", "..........aa", ".........b.a", "........b...", ".......b....", "......b.....",
+               ".....b......", "....b.......", "...b........", "ccb.........", "c.c.........", ".cc.........")
+
+ICONOS_MENU = [
+    ("persona", "Personaje", (0.45, 0.6, 0.9), espejo(("......", "....oo", "...oaa", "..oaaa", "..oaaa", "...oaa",
+        "....oo", "..oooo", ".ollll", "olllll", "olllll", "oooooo")), {'a': (240, 200, 160)}),
+    ("mochila", "Mochila", (0.65, 0.45, 0.28), espejo(("......", "...ooo", "..o...", ".ooooo", "olllll", "oooooo",
+        "ollllb", "olllll", "olllll", "olllll", "oddddd", "oooooo")), {'b': (230, 190, 80)}),
+    como("pergamino", "Pergamino (misiones)", "registro"),
+    ("libro", "Libro", (0.55, 0.35, 0.7), (
+        "............", ".oooooooooo.", ".oalllllllo.", ".oallwllllo.", ".oalllllllo.", ".oallbbbllo.",
+        ".oalllllllo.", ".oalllllllo.", ".oalllllllo.", ".oaccccccco.", ".oooooooooo.", "............"),
+        {'a': (100, 60, 130), 'b': (230, 190, 80), 'c': (235, 225, 200)}),
+    ("vela", "Vela", (0.95, 0.9, 0.75), espejo(("......", ".....a", "....ab", "....ab", ".....c", "...ooo", "...olw",
+        "...oll", "...oll", "...oll", ".odddd", "..oooo")),
+        {'a': (255, 150, 40), 'b': (255, 230, 120), 'c': (40, 30, 20), 'd': (180, 140, 60)}),
+    como("engranaje", "Engranaje (ajustes)", "ajustes"),
+    ("mano", "Mano (actuar)", (0.95, 0.78, 0.62), espejo(("...o.o", "..olol", "..olol", "..olol", ".oolll", "ololll",
+        ".ollll", ".ollll", "..olll", "...oll", "...oll", "...ooo")), {}),
+    ("espada", "Espada (atacar)", ACERO, ESPADA, EMPUÑADURA),
+    como("pocion", "Poción (curar)", "pocion_vida"),
+    ("cofre", "Cofre", MADERA, (
+        "............", "............", ".oooooooooo.", "olllllllllmo", "omlllllllmmo", "oaaaabbaaaao",
+        "ollllbbllllo", "olllllllllmo", "olllllllllmo", "oaaaaaaaaaao", "oooooooooooo", "............"),
+        {'a': (120, 120, 130), 'b': (230, 190, 80)}),
+    ("flecha_abajo", "Bajar", GRIS, girar(FLECHA_DER), {}),
+    ("flecha_arriba", "Subir", GRIS, voltear(girar(FLECHA_DER)), {}),
+    ("flecha_doble_arriba", "Subir del todo", GRIS, voltear(girar(CHEVRONES)), {}),
+    ("moneda", "Moneda", (0.95, 0.78, 0.25), espejo(("...ooo", ".oolll", ".olwll", "olwlaa", "ollall", "ollall",
+        "ollall", "ollall", "ollaaa", ".ollll", ".oolll", "...ooo")), {'a': (190, 140, 40)}),
+    ("bolsa", "Bolsa", (0.62, 0.46, 0.3), espejo(("....oo", "...oaa", "....oo", "...oll", "..olll", ".ollll",
+        "olllll", "ollllb", "ollllb", "olllll", ".ollll", "..oooo")), {'a': (200, 60, 50), 'b': (230, 190, 80)}),
+    ("mineral", "Mineral", (0.55, 0.7, 0.85), DIAMANTE, {}),
+    ("coraza", "Coraza", ACERO, CORAZA, {}),
+    ("pico", "Pico", ACERO, (
+        "...oooooo...", ".ooaaaaaaoo.", "oaaooooooaao", "oo..obbo..oo", "....obbo....", "....obbo....",
+        "....obbo....", "....obbo....", "....obbo....", "....obbo....", "....obbo....", "....oooo...."),
+        {'a': (200, 205, 215), 'b': (150, 105, 65)}),
+    ("hoz", "Hoz", ACERO, (
+        "....oooo....", "..ooaaaao...", ".oaaoooaao..", ".oao....oo..", "oao.........", "oao.........",
+        "oaao........", ".oaaooo.....", "..ooobbo....", ".....obbo...", "......obbo..", ".......ooo.."),
+        {'a': (200, 205, 215), 'b': (150, 105, 65)}),
+    como("cana", "Caña", "cana"),
+    ("cuchillo", "Cuchillo", ACERO, (
+        "..........oo", ".........olo", "........ollo", ".......olwo.", "......olwo..", ".....olwo...",
+        "....olmo....", "...oooo.....", "..obbo......", ".obbo.......", "obbo........", "oo.........."),
+        {'b': (150, 105, 65)}),
+    ("farol", "Farol", (0.35, 0.33, 0.3), espejo(("....oo", "...o..", "..oooo", ".oaaaa", ".oabbb", ".oabcb",
+        ".oabcc", ".oabbb", ".oaaaa", "..oooo", "......", "......")),
+        {'a': (90, 86, 80), 'b': (255, 220, 120), 'c': (255, 150, 40)}),
+    ("correr", "Correr", (0.6, 0.9, 0.95), CHEVRONES, {}),
+    ("sigilo", "Sigilo (pisada)", (0.6, 0.62, 0.7), (
+        "............", "...o.o.o.o..", "..olololol..", "...o.o.o.o..", "...oooooo...", "..ollllllo..",
+        "..ollllllo..", "..olllllo...", "...ollllo...", "...ollllo...", "....oooo....", "............"), {}),
+    como("info", "Información", "info"),
+    ("consola", "Consola", (0.62, 0.64, 0.7), (
+        "............", "oooooooooooo", "oaaaaaaaaaao", "oooooooooooo", "obbbbbbbbbbo", "obgbbbbbbbbo",
+        "obbgbbbbbbbo", "obgbbbbbbbbo", "obbbbbggbbbo", "obbbbbbbbbbo", "oooooooooooo", "............"),
+        {'a': (150, 155, 165), 'b': (20, 24, 28), 'g': (110, 230, 110)}),
+    como("equis", "Cerrar", "no"),
+    ("tier_1", "Tier 1", (0.85, 0.75, 0.45), tier("1"), {'b': (40, 30, 10)}),
+    ("tier_2", "Tier 2", (0.85, 0.75, 0.45), tier("2"), {'b': (40, 30, 10)}),
+    ("tier_3", "Tier 3", (0.85, 0.75, 0.45), tier("3"), {'b': (40, 30, 10)}),
+    ("tier_4", "Tier 4", (0.85, 0.75, 0.45), tier("4"), {'b': (40, 30, 10)}),
+    ("tier_5", "Tier 5", (0.85, 0.75, 0.45), tier("5"), {'b': (40, 30, 10)}),
+    ("todo", "Todo", (0.82, 0.84, 0.9), (
+        "............", ".oooo..oooo.", ".ollo..ollo.", ".ollo..ollo.", ".oooo..oooo.", "............",
+        "............", ".oooo..oooo.", ".ollo..ollo.", ".ollo..ollo.", ".oooo..oooo.", "............"), {}),
+    ("casco", "Casco", ACERO, espejo(("......", "...ooo", ".oolll", ".olwll", "olllll", "olllll", "olbbbb", "olllll",
+        "olllo.", "ollo..", "ooo...", "......")), {'b': (20, 20, 24)}),
+    ("pantalon", "Pantalón", (0.45, 0.5, 0.65), espejo(("......", "oooooo", "olllll", "oaaaaa", "olllll", "olllll",
+        "ollllo", "ollllo", "olllo.", "olllo.", "olllo.", "ooooo.")), {'a': (110, 80, 50)}),
+    ("botas", "Botas", (0.55, 0.38, 0.24), (
+        "............", "...oooo.....", "...ollo.....", "...ollo.....", "...ollo.....", "...ollo.....",
+        "...olloo....", "...ollllo...", "...olllllo..", "...oooooooo.", "............", "............"), {}),
+    ("daga", "Daga", ACERO, junta(daga(3, 1)), EMPUÑADURA),
+    ("espada_corta", "Espada corta", ACERO, ("......", ) * 0 + espejo(("......", "......", "......", ".....o",
+        "....ow", "....ol", "....ol", "..oooo", "..oaaa", "....ob", "....ob", ".....o")), EMPUÑADURA),
+    ("espada_larga", "Espada larga", ACERO, ESPADA, EMPUÑADURA),
+    ("mandoble", "Mandoble", ACERO, espejo(("....oo", "...owl", "...owl", "...owl", "...owl", "...owl", "...owl",
+        "oooooo", "oaaaaa", "....ob", "....ob", ".....o")), EMPUÑADURA),
+    ("estoque", "Estoque", ACERO, (
+        "......o.....", "......l.....", "......l.....", "......l.....", "......l.....", "......l.....",
+        "......l.....", "....ooloo...", "...oaaaaao..", "....oobo....", "......b.....", "......o....."), EMPUÑADURA),
+    ("hacha", "Hacha", ACERO, (
+        ".......oo...", "..ooo.obbo..", ".oaaaoobbo..", "oaaaaaobbo..", "oaaaaaobbo..", ".oaaaoobbo..",
+        "..ooo.obbo..", "......obbo..", "......obbo..", "......obbo..", "......obbo..", "......oooo.."),
+        {'a': (200, 205, 215), 'b': (150, 105, 65)}),
+    ("maza", "Maza", ACERO, espejo((".....o", "..o.oo", "...ooo", "..oaaa", "ooaaaa", "..oaaa", "...ooo", "....ob",
+        "....ob", "....ob", "....ob", ".....o")), {'a': (170, 175, 185), 'b': (150, 105, 65)}),
+    ("martillo", "Martillo", ACERO, (
+        "............", ".oooooooooo.", ".oaaaaaaaao.", ".oaaaaaaaao.", ".oooooooooo.", "....obbo....",
+        "....obbo....", "....obbo....", "....obbo....", "....obbo....", "....obbo....", "....oooo...."),
+        {'a': (170, 175, 185), 'b': (150, 105, 65)}),
+    ("baston", "Bastón", MADERA, (
+        "....ooo.....", "...occco....", "...occco....", "....ooo.....", "....obo.....", "....obo.....",
+        "....obo.....", "....obo.....", "....obo.....", "....obo.....", "....obo.....", "....ooo....."),
+        {'b': (150, 105, 65), 'c': (120, 220, 255)}),
+    ("escudo_peq", "Escudo pequeño", (0.6, 0.75, 0.95), espejo(("......", "......", "...ooo", ".oolll", ".olwll",
+        "olllla", "olllla", ".ollll", ".oolll", "...ooo", "......", "......")), ORO),
+    como("escudo_med", "Escudo mediano", "baluarte"),
+    ("escudo_gra", "Escudo grande", (0.6, 0.75, 0.95), espejo(("oooooo", "owllll", "olllll", "olllll", "olllll",
+        "olllla", "olllla", "olllll", "olllll", "olllll", "olllll", "oooooo")), ORO),
+    ("varita", "Varita", MADERA, (
+        "........o...", ".......oao..", "......oaaao.", ".......oao..", "......obo...", ".....obo....",
+        "....obo.....", "...obo......", "..obo.......", ".obo........", "obo.........", "oo.........."),
+        {'a': (255, 240, 150), 'b': (150, 105, 65)}),
+    ("habilidades", "Habilidades", (0.75, 0.6, 1.0), (
+        "....llll....", "....l..l....", "....llll....", "......l.....", "....llll....", "...laaaal...",
+        "...laaaal...", "....llll....", "...l....l...", ".llll..llll.", ".l..l..l..l.", ".llll..llll."),
+        {'a': (255, 230, 120)}),
+    ("flor", "Flor (desarrollos)", (0.95, 0.55, 0.7), espejo(("....oo", "...olw", "...oll", ".ooooo", "ollloa",
+        "olllaa", "olllaa", "ollloa", ".ooooo", "...oll", "...oll", "....oo")), {'a': (255, 220, 80)}),
+    ("cuero", "Cuero", (0.68, 0.48, 0.3), espejo((".oo...", "ollooo", ".ollll", "..olll", "..olll", ".ollll",
+        "olllll", "olllll", ".ollll", "..olll", ".ollll", ".oo.oo")), {}),
+    ("huso", "Huso", MADERA, (
+        ".....oo.....", ".....ob.....", "..aaaob.....", ".a...ob.....", ".a...ob.....", "..aaaob.....",
+        ".....ob.....", "..oooooooo..", ".obbbbbbbbo.", "..oooooooo..", ".....ob.....", ".....oo....."),
+        {'a': (240, 236, 220), 'b': (150, 105, 65)}),
+    ("rollo", "Rollo de tela", (0.75, 0.7, 0.9), (
+        "............", "............", ".oooooooooo.", "oaollllllllo", "oaollllllllo", "oaollllllllo",
+        "oaollllllllo", ".oooooooooo.", ".......olo..", "......ollo..", "......oo....", "............"),
+        {'a': (150, 140, 180)}),
+    ("correa", "Correa", MADERA, (
+        "............", "............", "............", "aaaa........", "a..aoooooooo", "a.aallllllll",
+        "a..aoooooooo", "aaaa........", "............", "............", "............", "............"),
+        {'a': (230, 190, 80)}),
+    ("hebilla", "Hebilla", (0.9, 0.75, 0.3), (
+        "............", "............", "..aaaaaaaa..", "..a......a..", "..a......a..", "..aaaaaa.a..",
+        "..a......a..", "..a......a..", "..aaaaaaaa..", "............", "............", "............"),
+        {'a': (230, 190, 80)}),
+    ("flecha_tiro", "Flecha", MADERA, FLECHA_TIRO,
+        {'a': (200, 205, 215), 'b': (190, 150, 100), 'c': (220, 70, 60)}),
+    ("virote", "Virote", MADERA, (
+        "............", "........aaaa", ".........aaa", "........bbaa", ".......bbb.a", "......bbb...",
+        ".....bbb....", "....bbb.....", "..ccbb......", "..cccb......", "...cc.......", "............"),
+        {'a': (200, 205, 215), 'b': (170, 125, 80), 'c': (220, 70, 60)}),
+    ("cuerda", "Cuerda", (0.8, 0.68, 0.45), (
+        "............", "...llllll...", "..lmmmmmml..", ".lml....lml.", ".lm..ll..ml.", ".lm.lmml.ml.",
+        ".lm.lm...ml.", ".lm..llllml.", "..lmmmmmml..", "...llllll...", ".........ll.", "..........l."), {}),
+    como("vida", "Poción de vida", "pocion_vida"),
+    como("mana", "Poción de maná", "pocion_mana"),
+    como("antidoto", "Antídoto", "resguardo"),
+    ("untura", "Untura", MADERA, pon(FLECHA_TIRO, {(11, 3): 'g', (10, 4): 'g', (11, 4): 'g', (11, 5): 'g'}),
+        {'a': (200, 205, 215), 'b': (190, 150, 100), 'c': (220, 70, 60), 'g': (120, 220, 80)}),
+    ("cuenco", "Cuenco", MADERA, (
+        "............", "....w..w....", "...w..w.....", "............", "oooooooooooo", "oaaaaaaaaaao",
+        "ollllllllllo", ".ollllllllo.", "..ollllllo..", "...oooooo...", "............", "............"),
+        {'a': (230, 150, 70), 'w': (220, 225, 235)}),
+    ("chapa", "Chapa", ACERO, (
+        "............", "............", "............", ".....ooooooo", "....owllllmo", "...olllllmo.",
+        "..olllllmo..", ".olllllmo...", "ooooooooo...", "oddddddo....", "oooooooo....", "............"), {}),
+    como("deshacer", "Deshacer", "volver"),
+    ("tablon", "Tablón", MADERA, (
+        "............", "............", "............", "oooooooooooo", "ollllllllllo", "olaaallllllo",
+        "olllllaaaalo", "olaallllllmo", "oooooooooooo", "............", "............", "............"),
+        {'a': (120, 80, 45)}),
+    ("carbon", "Carbón", (0.3, 0.3, 0.33), (
+        ".....a......", "....aba.....", "....aba.....", ".....a......", "...oooooo...", "..oddmddoo..",
+        ".odmdddmddo.", "oddddmddddo.", "odmdddddmdo.", ".oddddddoo..", "..oooooo....", "............"),
+        {'a': (255, 140, 40), 'b': (255, 230, 120)}),
+    ("coraza_1", "Coraza ligera", ACERO, lamas(1), {'a': (120, 125, 135)}),
+    ("coraza_2", "Coraza pesada", ACERO, lamas(2), {'a': (120, 125, 135)}),
+    ("coraza_3", "Placas", ACERO, lamas(3), {'a': (120, 125, 135)}),
+    ("veta_1", "Veta (en bruto)", (0.55, 0.55, 0.58), vetas(1), {'a': (230, 160, 80)}),
+    ("veta_2", "Veta (veteado)", (0.55, 0.55, 0.58), vetas(2), {'a': (230, 160, 80)}),
+    ("veta_3", "Veta (profundo)", (0.55, 0.55, 0.58), vetas(3), {'a': (230, 160, 80)}),
+    ("pelo", "Pelo", (0.95, 0.78, 0.62), espejo(("...ooo", ".ooaaa", ".oaaaa", "oaaaaa", "oaolll", "oaolll",
+        "oaolll", "oaolll", "oaaoll", ".oa.ol", ".oo..o", "......")), {'a': (120, 80, 45)}),
+    ("ropa", "Ropa", (0.45, 0.6, 0.85), espejo(("......", "..oo..", ".olloo", "olllll", "olllll", "ooolll",
+        "..olll", "..olll", "..olll", "..olll", "..olll", "..oooo")), {}),
+]
+
+
 def paleta(color, acentos):
     p = tonos(color)
     p.update(acentos)
@@ -486,6 +722,11 @@ def comprobar():
     for clave, nombre, color, filas, acentos in ICONOS + ICONOS_UI:
         assert clave not in vistas, "clave repetida: " + clave
         vistas.add(clave)
+    menu = set()
+    for clave, nombre, color, filas, acentos in ICONOS_MENU:
+        assert clave not in menu, "clave de menu repetida: " + clave
+        menu.add(clave)
+    for clave, nombre, color, filas, acentos in ICONOS + ICONOS_UI + ICONOS_MENU:
         pal = paleta(color, acentos)
         assert len(filas) == N, "%s: %d filas" % (nombre, len(filas))
         for j, f in enumerate(filas):
@@ -550,6 +791,10 @@ def hornear():
     os.makedirs(carpeta, exist_ok=True)
     for clave, _n, color, filas, acentos in ICONOS + ICONOS_UI:
         icono(filas, paleta(color, acentos)).save(os.path.join(carpeta, clave + '.png'))
+    menus = os.path.join(RAIZ, 'assets', 'ui', 'iconos')
+    os.makedirs(menus, exist_ok=True)
+    for clave, _n, color, filas, acentos in ICONOS_MENU:
+        icono(filas, paleta(color, acentos)).save(os.path.join(menus, clave + '.png'))
     # La tabla para el juego: que dibujo pinta cada emoji (scripts/ui/fuente_iconos.gd la lee).
     lineas = ["# GENERADO por tools/iconos_estados_pixel.py --hornear: no tocar a mano.",
               "# Que dibujo de assets/ui/estados pinta cada emoji en la FUENTE DE ICONOS.",
@@ -566,7 +811,10 @@ if __name__ == '__main__':
     if '--hornear' in sys.argv:
         print(hornear())
     else:
-        r = lamina(ICONOS_UI, 'lamina_interfaz.png') if '--ui' in sys.argv else lamina(ICONOS, 'lamina.png')
+        if '--menus' in sys.argv:
+            r = lamina(ICONOS_MENU, 'lamina_menus.png')
+        else:
+            r = lamina(ICONOS_UI, 'lamina_interfaz.png') if '--ui' in sys.argv else lamina(ICONOS, 'lamina.png')
         print(r)
         if '--abrir' in sys.argv:
             subprocess.Popen(['mspaint', r])
