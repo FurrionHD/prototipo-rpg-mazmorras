@@ -267,6 +267,80 @@ func _filo_alargada(f):
 	return f2
 
 
+# EL FILO DE AIRE EN CUALQUIER ARMA (05/11, el jefe: "necesito verlo en todos los efectos que sean muy especificos de
+# armas"): sus GOLPES sobre un cuerpo (XAire.golpe: daga, espada, estoque, maza, baston, escudo; todos con la misma firma)
+# se repiten, tenidos de viento y a la vez, sobre los de la franja alargada (en el basico, sobre el que queda detras); y
+# su AREA (SueloRoto) se repite con la forma alargada, detras de la de verdad.
+func _filo_piezas(piezas: Array, f, ab: AbilityData, semilla: int, yo: Vector2) -> void:
+	if not _filo_on or f == null or ab == null or piezas.is_empty():
+		return
+	_filo_f = null   # (con esto no hace falta la media luna suelta)
+	var golpes: Array = []
+	var areas: Array = []
+	for pz in piezas:
+		var n: Node = pz["n"]
+		if n == null:
+			continue
+		# (un golpe sobre un cuerpo: con su caja y SIN forma; la onda del escudo lleva forma y es un area)
+		if n.get("_caja") is Rect2 and (n.get("_caja") as Rect2).has_area() and n.get("forma") == null 				and n.get("modo") != null and n.get_script() != null and n.get_script().has_method("golpe"):
+			golpes.append(pz)
+		else:
+			areas.append(pz)   # (el barrido, el giro, la grieta: lo que no es un golpe sobre un cuerpo)
+	var basico: bool = ab.nombre.begins_with("Tajo (basico")
+	var cajas_v: Array = []
+	if basico and not golpes.is_empty():
+		var r0: Rect2 = golpes[0]["n"].get("_caja")
+		var dir0: Vector2 = (r0.get_center() - yo).normalized()
+		var p_v: Vector2 = Vector2(r0.get_center().x, r0.end.y) + dir0 * FILO_DETRAS * 0.8
+		for p in _enemigos:
+			if (p as Vector2).distance_to(p_v) < 14.0:
+				cajas_v.append(Rect2(p - Vector2(7, 26), Vector2(14, 26)))
+		if cajas_v.is_empty():
+			_filo_figs.append(_figura(p_v, Color(1.0, 0.55, 0.3)))
+			cajas_v.append(Rect2(p_v - Vector2(7, 26), Vector2(14, 26)))
+	elif not golpes.is_empty() or (not areas.is_empty() and int(ab.suelo_roto) >= 0):
+		cajas_v = _filo_cajas_franja(f)
+	if not golpes.is_empty():
+		for k in cajas_v.size():
+			var tpl: Dictionary = golpes[k % golpes.size()]
+			var tn: Node = tpl["n"]
+			var r_v: Rect2 = cajas_v[k]
+			var hacia_v: Vector2 = (r_v.get_center() - yo).normalized()
+			var n_v: Node2D = tn.get_script().golpe(self, int(tn.get("modo")), r_v.get_center() - hacia_v * 16.0, r_v,
+				false, true, k, semilla + 50 + k, 0.0, 1.0)
+			if n_v != null:
+				n_v.modulate = FILO_TINTE
+				piezas.append({"n": n_v, "t0": float(tpl["t0"])})
+	if not areas.is_empty() and int(ab.suelo_roto) >= 0 and not basico:
+		var f2 = _filo_alargada(f)
+		if f2 != null:
+			var s_v: Node2D = SueloRoto.lanzar(self, f2, ab.suelo_roto, semilla + 7)
+			if s_v != null:
+				s_v.modulate = FILO_TINTE
+				s_v.z_index -= 1
+				piezas.append({"n": s_v, "t0": float(areas[0]["t0"])})
+
+
+# Los cuerpos de la franja alargada (que la normal no toca); si no hay ninguno, uno de muestra en medio de ella.
+func _filo_cajas_franja(f) -> Array:
+	var out: Array = []
+	var f2 = _filo_alargada(f)
+	if f2 == null:
+		return out
+	for p in _enemigos:
+		var r := Rect2(p - Vector2(7, 26), Vector2(14, 26))
+		if f2.toca(r) and not f.toca(r):
+			out.append(r)
+	if out.is_empty():
+		var dir: Vector2 = f.dir.normalized() if f.dir.length_squared() > 0.01 else Vector2.RIGHT
+		var desde: Vector2 = f.centro if f.tipo == CombatFormas.Tipo.CIRCULO else f.origen
+		var hasta: float = f.radio * (1.0 + FILO_MAS * 0.6) if f.tipo != CombatFormas.Tipo.LINEA else f.largo * (1.0 + FILO_LINEA * 0.6)
+		var p2: Vector2 = desde + dir * hasta + Vector2(0, 13)
+		_filo_figs.append(_figura(p2, Color(1.0, 0.55, 0.3)))
+		out.append(Rect2(p2 - Vector2(7, 26), Vector2(14, 26)))
+	return out
+
+
 func _filo_en(t: float) -> void:
 	if not _filo_on or _filo_f == null:
 		return
@@ -582,6 +656,7 @@ func _efecto_daga(ab: AbilityData, nom: String, f, fila: int, hoja: Image, tiemp
 					r0, false, true, 0, semilla, 0.0, 1.0), "t0": 0.2})
 		"filo_emponzonado":
 			piezas.append({"n": DagaAire.ponzona(self, null, semilla, 0.0, 1.0, mano + Vector2(6.0, 0.0)), "t0": 0.0})
+	_filo_piezas(piezas, f, ab, semilla, yo)
 	for pz in piezas:
 		(pz["n"] as Node).set_process(false)
 	for col in tiempos.size():
@@ -681,6 +756,7 @@ func _efecto_estoque(ab: AbilityData, nom: String, f, fila: int, hoja: Image, ti
 				var ahi: Vector2 = yo.lerp(fin, clampf(t0 / maxf(dur, 0.01), 0.0, 1.0))
 				piezas.append({"n": EstoqueAire.golpe(self, EstoqueAire.Modo.DANZA, ahi + alto - f.dir * 12.0, r3, false,
 					i == 0, i, semilla + i, 0.0, 1.0), "t0": t0})
+	_filo_piezas(piezas, f, ab, semilla, yo)
 	for pz in piezas:
 		if pz["n"] != null:
 			(pz["n"] as Node).set_process(false)
@@ -858,6 +934,7 @@ func _efecto_espada(ab: AbilityData, nom: String, f, fila: int, hoja: Image, tie
 				var ahi: Vector2 = yo.lerp(fin, clampf(t0 / maxf(dur, 0.01), 0.0, 1.0))
 				piezas.append({"n": EspadaAire.golpe(self, EspadaAire.Modo.RITMO, ahi + alto - f.dir * 12.0, r3, false,
 					i == 0, i, semilla + i, 0.0, 1.0), "t0": t0})
+	_filo_piezas(piezas, f, ab, semilla, yo)
 	for pz in piezas:
 		if pz["n"] != null:
 			(pz["n"] as Node).set_process(false)
@@ -967,6 +1044,7 @@ func _efecto_maza(ab: AbilityData, nom: String, dual: bool, f, fila: int, hoja: 
 					var largo: float = minf(ab.junta_aliados, de.distance_to(yo) - 24.0)
 					if largo > 2.0:
 						pasos.append({"fig": _figs[int(cajas[i][1])], "de": de, "a": de + (yo - de).normalized() * largo})
+	_filo_piezas(piezas, f, ab, semilla, yo)
 	for pz in piezas:
 		if pz["n"] != null:
 			(pz["n"] as Node).set_process(false)
@@ -1058,6 +1136,7 @@ func _efecto_baston(ab: AbilityData, nom: String, f, fila: int, hoja: Image, tie
 				var mano: Vector2 = yo + alto + (hacia_fila as Vector2).normalized().orthogonal() * 5.0
 				piezas.append({"n": BastonAire.golpe(self, m_v, mano, r3, false, false, 0, semilla, 0.0, 1.0,
 					r3.get_center() - yo), "t0": 0.0})
+	_filo_piezas(piezas, f, ab, semilla, yo)
 	for pz in piezas:
 		if pz["n"] != null:
 			(pz["n"] as Node).set_process(false)
