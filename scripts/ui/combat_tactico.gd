@@ -421,6 +421,11 @@ func desmontar() -> void:
 			(par[0] as Node).process_mode = par[1]
 	_modos_guardados.clear()
 	_tirones.clear()
+	# Fuera de la pelea las piernas vuelven a su ritmo (a x2 se las habia puesto _animar).
+	for a in _pantalla._aliados:
+		var cu: Node2D = cuerpo_de(a)
+		if is_instance_valid(cu) and cu.get("_muneco") is MunecoJugador:
+			(cu.get("_muneco") as MunecoJugador).velocidad = 1.0
 	_quitar_circulo()
 	_apagar_circulos()
 	olvidar_charcos()
@@ -4343,7 +4348,9 @@ func _tick_moviendo(delta: float) -> void:
 				_animar(_cuerpo, _mirada_de(_cuerpo), false)
 		return
 	var antes: Vector2 = _cuerpo.global_position
-	var nueva: Vector2 = paso(antes, dir.limit_length(1.0) * VEL_PASEO * delta, _inicio, _radio,
+	# A x2 TAMBIEN TU (05/11, el jefe: "todo va a x2 menos el personaje cuando anda"): el paso va con el
+	# reloj de la pelea, como el enemigo que se acerca (_tick_acercarse). El circulo no cambia: solo llegas antes.
+	var nueva: Vector2 = paso(antes, dir.limit_length(1.0) * VEL_PASEO * delta * _pantalla._vel_pelea, _inicio, _radio,
 		_dentro(arena), _puede_estar.bind(_cuerpo))
 	_colocar(_quien, _cuerpo, nueva)
 	_andando = true
@@ -8083,6 +8090,9 @@ func _animar(cuerpo: Node2D, dir: Vector2, moviendose: bool, vel: Vector2 = Vect
 		# caido se queda en el suelo (ver caer_en_mapa).
 		if _gestos_mapa.has(cuerpo) or cuerpo.has_meta(MARCA_CAIDO):
 			return
+		# Andar y estar quieto, al ritmo de la pelea (a x2, las piernas tambien): fuera de un gesto el muñeco
+		# iba siempre a 1. El gesto pone el suyo (gesto_en_mapa) y al acabar vuelve por aqui.
+		(muneco as MunecoJugador).velocidad = _pantalla._vel_pelea
 		# CARGANDO, quieto: el arma en alto hasta soltarla (lo pidio el jefe: "que mantenga el martillo en
 		# alto hasta que golpea el suelo").
 		var c: Combatant = _aliado_de_cuerpo(cuerpo)

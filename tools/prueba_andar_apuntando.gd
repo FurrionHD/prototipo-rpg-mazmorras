@@ -100,6 +100,25 @@ func _correr() -> void:
 	var mira: Vector2 = t._cuerpo.get("_facing")
 	print("parado: %s | mira %s | raton %s" % [muneco._anim, str(mira), str(al_raton.normalized())])
 	_afirmar(not t._andando and mira.dot(al_raton.normalized()) > 0.99, "al pararse mira hacia el raton")
+	# A x2 TAMBIEN ANDA A x2 (05/11): el mismo empujon en un fotograma mueve el doble y las piernas van al doble.
+	var t_atras = t   # el paso de un fotograma, a mano, para no depender de cuanto dura cada uno
+	var vel_antes: float = combat._vel_pelea
+	var dt_fijo: float = 1.0 / 60.0
+	var medir := func(v: float) -> float:
+		combat._aplicar_velocidad(v)
+		var p0: Vector2 = t_atras._cuerpo.global_position
+		Input.action_press("move_up")
+		t_atras._tick_moviendo(dt_fijo)
+		Input.action_release("move_up")
+		return t_atras._cuerpo.global_position.distance_to(p0)
+	var d1: float = medir.call(1.0)
+	var d2: float = medir.call(2.0)
+	print("paso a x1 %.2f px, a x2 %.2f px | piernas a x2: %.2f" % [d1, d2, muneco.velocidad])
+	_afirmar(d1 > 0.5 and absf(d2 - 2.0 * d1) < 0.3, "a x2 el personaje anda el doble por fotograma")
+	_afirmar(is_equal_approx(muneco.velocidad, 2.0), "a x2 la animacion de andar va al doble")
+	combat._aplicar_velocidad(vel_antes)
+	Input.action_release("move_up")
+	await _esperar(3)
 	t._confirmar_apunte()
 	await _esperar(3)
 	_afirmar(not t.esta_apuntando(), "quieto, el clic la suelta")
