@@ -1,0 +1,391 @@
+# ============================================================
+#  iconos_estados_pixel.py -- LOS ICONOS DE LOS ESTADOS EN PIXEL ART (05/11/2026). El jefe: los emojis "estan graciosos
+#  pero no es para un juego serio como el nuestro". Cada estado, un dibujo de 12 x 12 a varios tonos (contorno oscuro,
+#  sombra, medio, luz y brillo), como el glifo de la guadaña. ESTILO APROBADO con la primera muestra ("han quedado god").
+#
+#  Las letras de cada dibujo:  o contorno, d sombra, m medio, l luz, w brillo  (salen del COLOR del estado en el
+#  catalogo, asi el icono va a juego con su chip) y a/b/c acentos propios de ese dibujo.
+#  Un dibujo de filas de 6 se ESPEJA: la mitad derecha es la izquierda al reves y en sombra (l->m, w->l).
+#
+#  Uso: python tools/iconos_estados_pixel.py [--abrir]    -> Desktop/iconos_estados/lamina.png
+#       python tools/iconos_estados_pixel.py --hornear    -> assets/ui/estados/<clave>.png (12 x 12, lo que usa el juego)
+# ============================================================
+import os
+import subprocess
+import sys
+from PIL import Image, ImageDraw, ImageFont
+
+N = 12
+RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def tonos(c):
+    """Los cinco tonos de un color del catalogo (0..1)."""
+    def mez(a, b, t):
+        return tuple(int(round((a[i] * (1 - t) + b[i] * t) * 255)) for i in range(3))
+    negro, blanco = (0.03, 0.03, 0.05), (1.0, 1.0, 1.0)
+    return {'o': mez(c, negro, 0.72), 'd': mez(c, negro, 0.42), 'm': mez(c, negro, 0.12),
+            'l': mez(c, blanco, 0.38), 'w': mez(c, blanco, 0.82)}
+
+
+def espejo(mitad):
+    cambia = {'l': 'm', 'w': 'l'}
+    return tuple(f + ''.join(cambia.get(ch, ch) for ch in reversed(f)) for f in mitad)
+
+
+def voltear(filas):
+    return tuple(reversed(filas))
+
+
+def plato(filas):
+    """La marca de COMIDA: un cuenco en la esquina de abajo a la derecha (los buffs de plato llevan el mismo dibujo
+    que su estado hermano, y el cuenco dice que viene de la cocina)."""
+    f = [list(r) for r in filas]
+    for j, fila in enumerate(("oooooo", "obbbbo", ".oooo.")):
+        for i, ch in enumerate(fila):
+            if ch != '.':
+                f[9 + j][6 + i] = ch
+    return tuple(''.join(r) for r in f)
+
+
+# ------------------------------------------------------------------ dibujos que se reutilizan
+GOTA = (".....o......", "....olo.....", "....omlo....", "...ommlo....", "..ommmllo...", ".ommmmmlwo..",
+        ".ommmmmmlo..", ".odmmmmmmo..", ".oddmmmmmo..", "..oddddmo.o.", "...ooooo.olo", ".........odo")
+FLECHA_ARRIBA = (".....oo.....", "....owlo....", "...owllmo...", "..owlllmmo..", ".ooollmmooo.", "...ollmmo...",
+                 "...ollmmo...", "...ollmmo...", "...ollmmo...", "...ollmmo...", "...oooooo...", "............")
+ESCUDO = espejo(("oooooo", "owllll", "olllla", "ollaaa", "olllla", "olllll", ".ollll", ".ollll", "..olll", "...oll",
+                 "....ol", ".....o"))
+CRUZ = ("....oooo....", "....olwo....", "....ollo....", "....ollo....", "ooooollooooo", "olwlllllllmo",
+        "olllllllllmo", "ooooollmoooo", "....ollmo...", "....ollmo...", "....ommmo...", "....ooooo...")
+DIAMANTE = espejo((".....o", "....ol", "...olw", "..olwl", ".ollll", "olllll", "odllll", ".oddll", "..oddl", "...odd",
+                   "....od", ".....o"))
+CHEVRONES = ("............", "oo....oo....", "olo...olo...", "ollo..ollo..", ".ollo..ollo.", "..ollo..ollo",
+             "..ommo..ommo", ".ommo..ommo.", "ommo..ommo..", "omo...omo...", "oo....oo....", "............")
+CORONA = espejo(("......", "......", ".o...o", ".oo.ol", ".olool", ".ollll", ".ollll", ".olala", ".ollll", ".ooooo",
+                 "......", "......"))
+BRASA = ("..o.....o...", ".obo...obo..", "..o..o..o...", ".....bo.....", "...oooooo...", "..oddaddoo..",
+         ".oddabadddo.", "odaabbbadddo", "odddabaaddo.", ".oddddaddo..", "..oooooooo..", "............")
+IMAN = espejo(("..oooo", ".ollll", "olwooo", "olo...", "olo...", "olo...", "olo...", "olo...", "oaao..", "oaao..",
+               "oooo..", "......"))
+DESTELLO = (".....o......", ".....o......", "....olo.....", "....olo.....", "..oolwloo...", "oollwwwlloo.",
+            "..oolwloo...", "....olo.....", "....olo..o..", ".....o..olo.", ".....o...o..", "............")
+ORBE = espejo(("...ooo", ".oolll", ".olwwl", "olwlll", "olllll", "olllll", "olllll", "odllll", "odllll", ".oddll",
+               ".ooddd", "...ooo"))
+RELOJ = espejo(("oooooo", "oaaaaa", ".ollll", ".olwll", "..olll", "...olw", "...olm", "..olbb", ".olbbb", ".obbbb",
+                "oaaaaa", "oooooo"))
+
+
+def daga(dx, dy):
+    """Una daga de 4 de ancho y 10 de alto, colocada en (dx, dy) de un lienzo vacio."""
+    d = ("..oo..", ".olwo.", ".olmo.", ".olmo.", ".olmo.", ".olmo.", "oaaaao", "..ob..", "..ob..", "..oo..")
+    f = [['.'] * N for _ in range(N)]
+    for j, fila in enumerate(d):
+        for i, ch in enumerate(fila):
+            x, y = dx + i, dy + j
+            if ch != '.' and 0 <= x < N and 0 <= y < N:
+                f[y][x] = ch
+    return f
+
+
+def junta(*capas):
+    f = [['.'] * N for _ in range(N)]
+    for c in capas:
+        for j in range(N):
+            for i in range(N):
+                if c[j][i] != '.':
+                    f[j][i] = c[j][i]
+    return tuple(''.join(r) for r in f)
+
+
+def pon(filas, extra):
+    """Dibuja encima: extra = {(x, y): letra}."""
+    f = [list(r) for r in filas]
+    for (x, y), ch in extra.items():
+        f[y][x] = ch
+    return tuple(''.join(r) for r in f)
+
+
+HUESO = {'o': (24, 40, 16), 'm': (150, 172, 128), 'l': (214, 228, 190), 'w': (250, 255, 240)}
+FUEGO = {'o': (90, 22, 8), 'm': (236, 104, 28), 'a': (255, 204, 64), 'w': (255, 250, 220)}
+ORO = {'a': (255, 214, 80)}
+CUENCO = {'b': (196, 120, 60)}
+PLATA = {'a': (230, 232, 240)}
+
+# (clave, nombre, color del catalogo, filas, acentos). La clave es el nombre del Id en minusculas (lo que busca el juego);
+# los chips sueltos (cargando, recitando...) llevan clave propia.
+ICONOS = [
+    # --- daño por turno
+    ("veneno", "Veneno", (0.45, 0.85, 0.2), (
+        "...oooooo...", "..olwllllo..", ".olwllllllo.", ".ollllllllo.", ".olaaollaao.", ".olaaollaao.",
+        ".ollllollmo.", "..omllllmo..", "...olmlmo...", "...omomom...", "....ooooo...", "............"),
+        dict(HUESO, a=(120, 255, 60))),
+    ("sangrado", "Sangrado", (0.85, 0.15, 0.15), GOTA,
+        {'o': (60, 6, 10), 'd': (130, 14, 22), 'm': (196, 30, 36), 'l': (240, 90, 90), 'w': (255, 210, 210)}),
+    ("quemadura", "Quemadura", (1.0, 0.5, 0.1), (
+        ".....o......", ".....oo.....", "....omo.....", "....ommo....", "...ommmo.o..", "...omamo.oo.",
+        "..ommaamomo.", ".ommaawamo..", ".omaawwamo..", ".omaawwamo..", "..ommaamo...", "...ooooo...."), FUEGO),
+    ("rescoldo", "Rescoldo", (0.85, 0.45, 0.25), voltear(voltear(BRASA[3:] + ("............",) * 3)),
+        {'a': (255, 150, 60), 'b': (255, 220, 140)}),
+    ("avivado", "Brasas avivadas", (1.0, 0.45, 0.2), BRASA, {'a': (255, 140, 40), 'b': (255, 236, 160)}),
+    ("encendido", "Encendido", (1.0, 0.55, 0.15), espejo((".....o", "....oa", "...oab", "...oab", "..oawl", "..oawl",
+        "...owl", "...owl", ".ooooo", "....oc", "....oc", ".....o")),
+        {'a': (255, 140, 30), 'b': (255, 230, 120), 'c': (120, 80, 50), 'w': (240, 244, 250), 'l': (180, 190, 205)}),
+    ("musgo_quemado", "Musgo quemado", (0.6, 0.35, 0.2), (
+        ".......o....", "......oao...", "......oao...", "...o...o....", "..olo.o.o...", ".olmlolmlo..",
+        "olmmmlmmmlo.", "ommdmmmdmmmo", "odddddddddmo", ".oooooooooo.", "............", "............"),
+        {'a': (255, 150, 40)}),
+    ("corrosion", "Corrosión", (0.55, 0.7, 0.35), (
+        "....oooo....", "....owlo....", "....olmo....", "...oolmoo...", "..olllmmmo..", ".olaaaaaamo.",
+        ".oawaaaaado.", "oaaaaabaaado", "oaabaaaaaddo", "oaaaaaaadddo", ".oaadddddo..", "..ooooooo..."),
+        {'o': (26, 34, 20), 'l': (190, 205, 215), 'm': (120, 140, 150), 'w': (245, 250, 255), 'a': (170, 220, 60),
+         'd': (100, 150, 30), 'b': (230, 255, 170)}),
+    # --- control
+    ("aturdido", "Aturdido", (1.0, 0.9, 0.3), (
+        "....o.......", "...olo......", "..oolooo....", ".olllwllo...", "..ollllo....", "..olooloo.o.",
+        "..oo..oooao.", "........oao.", "...o...oaaao", "..oao...oao.", "...o.....o..", "............"),
+        {'o': (96, 70, 10), 'l': (255, 222, 80), 'w': (255, 255, 230), 'a': (255, 240, 170)}),
+    ("una_cabeza", "Una cabeza aturdida", (1.0, 0.9, 0.3), (
+        "....oooooooo", "....ollllllo", "....ooooollo", ".......ollo.", "......ollo..", ".....olloooo",
+        "....ollllllo", "....oooooooo", "llll........", "..l.........", ".l..........", "llll........"), {}),
+    ("rayo", "Electrizado", (0.6, 0.8, 1.0), (
+        "......oooo..", ".....ollo...", "....ollo....", "...ollo.....", "..ollooooo..", ".olwwwwllo..",
+        ".oooollo....", "....ollo....", "...olo......", "..olo.......", ".oo.........", "............"),
+        {'o': (34, 46, 110), 'l': (140, 196, 255), 'w': (240, 250, 255)}),
+    ("paralisis", "Parálisis", (0.36, 0.8, 0.92), espejo(("a....o", ".a..ol", "a...ol", ".a..oo", "...ool", "..olll",
+        "..olll", "...oll", "...ol.", "...ol.", "...oo.", "......")), {'a': (200, 250, 255)}),
+    ("congelacion", "Congelación", (0.6, 0.85, 1.0), (
+        ".....o......", "..o.olo.o...", ".olooloolo..", "..ololwlo...", "...ollwo....", "oooolwlloooo",
+        "ollllwwllllo", "oooollwoooo.", "...owllo....", "..olollolo..", ".oloolooolo.", "..o.olo.o..."),
+        {'o': (40, 70, 110), 'l': (170, 220, 255), 'w': (250, 255, 255)}),
+    ("miedo", "Miedo", (0.55, 0.35, 0.7), espejo(("...ooo", ".oolll", ".olwll", "olllll", "olaoll", "olaoll",
+        "olllll", "olllll", "ollloo", "ollloo", ".ollll", "..oooo")), {'a': (250, 250, 255)}),
+    ("silencio", "Silencio", (0.65, 0.5, 0.8), (
+        "..oooooooo..", ".ollllllllmo", "ollallllalmo", "olllallalmmo", "ollllaalmmmo", "ollllaalmmmo",
+        "olllallalmmo", "ollallllammo", ".ommmmmmmmo.", "..ooommooo..", "....omo.....", "....oo......"),
+        {'a': (140, 20, 40)}),
+    ("ceguera", "Ceguera", (0.72, 0.68, 0.5), (
+        "............", "...oooooo...", "..owllllmo..", ".olloooolmo.", "ollobbbbolmo", "aaaaaaaaaaaa",
+        "aaaaaaaaaaaa", "ollobbbbolmo", ".ollooooomo.", "..ommmmmmo..", "...oooooo...", "............"),
+        {'a': (205, 205, 196), 'b': (40, 36, 30)}),
+    ("enraizado", "Enraizado", (0.45, 0.62, 0.3), (
+        "...oo..oo...", "..oaaooaao..", "...oaaaao...", ".....oo.....", "....omlo....", "..ooomloo...",
+        ".omoommooo..", "omo.omlo.omo", "oo.omoomo.oo", "..omo..omo..", ".omo....omo.", ".oo......oo."),
+        {'o': (36, 24, 12), 'm': (110, 76, 40), 'l': (160, 120, 70), 'a': (110, 190, 70)}),
+    ("enroscado", "Enroscado", (0.62, 0.45, 0.3), (
+        "..oooooooo..", ".ollllllllo.", "olloooooollo", "olo......olo", "olo.oooo.olo", "olo.olao.olo",
+        "olo.olao.olo", "olo..olo.olo", "olloooloollo", ".olllllllmo.", "..oooooooo..", "............"),
+        {'a': (255, 200, 80)}),
+    ("encapullado", "Encapullado", (1.0, 0.42, 0.08), espejo(("....oo", "...oll", "..olaa", "..olll", ".oaaal",
+        ".ollll", ".olaaa", ".ollll", "..oaaa", "..olll", "...oll", "....oo")), {'a': (240, 236, 220)}),
+    ("imantado", "Imantado", (0.8, 0.19, 0.13), IMAN, PLATA),
+    ("adherido", "Adherido", (0.6, 0.62, 0.68), pon(IMAN, {(5, 9): 'b', (6, 9): 'b', (5, 10): 'b', (6, 10): 'b'}),
+        dict(PLATA, b=(200, 60, 50))),
+    ("orbita", "Órbita", (0.8, 0.19, 0.13), (
+        "............", "............", "...llllll...", ".ll......ll.", "l....oo....l", "l...oaao...l",
+        "l...oaao...l", "l....oo....l", ".ll......ll.", "...llllll...", "............", "............"),
+        {'a': (230, 232, 240)}),
+    ("limaduras", "Limaduras", (0.58, 0.61, 0.67), (
+        ".l.....m....", "..m...l...l.", "......m..m..", "l..l........", ".m.....l..m.", "....m.......",
+        "..l....m..l.", "m......l....", "...m.l....m.", ".l.......l..", "....l.m.....", ".m........l."), {}),
+    ("pegajoso", "Pegajoso", (0.4, 0.8, 0.4), (
+        "oooooooooooo", "ollllwllllmo", "ommmmmmmmmmo", ".ommo.ommmo.", ".omo..ommo..", ".omo...omo..",
+        "..o....omo..", "..o.....o...", ".olo....o...", ".omo...olo..", "..o....omo..", ".......oo..."), {}),
+    ("resinado", "Resinado", (0.95, 0.6, 0.15), espejo(("...ooo", "..olww", ".olwll", ".ollll", "olllll", "ollllb",
+        "ollllb", "olllll", ".ollll", ".odlll", "..oddl", "...ooo")), {'b': (70, 36, 10)}),
+    ("pringado", "Pringado", (0.5, 0.36, 0.2), (
+        "..oo....o...", ".olmo..olo..", ".ommo..omo..", "..oo....o...", "......oo....", ".....olmo...",
+        "..ooooommooo", ".ommlllmmmmo", "ommllmmmmddo", "odmmmmmdddo.", ".oddddddoo..", "..oooooo...."),
+        {'o': (40, 26, 12), 'd': (88, 60, 30), 'm': (128, 92, 50), 'l': (178, 140, 90)}),
+    ("pegado", "Sanguijuela", (0.55, 0.2, 0.28), (
+        "............", "............", "..oooo......", ".ollllo.....", "olwlllloo...", "ollmmmlllo..",
+        ".oommmmmllo.", "...oommmmmlo", ".....oommmao", ".......oooo.", "............", "............"),
+        {'a': (255, 120, 130)}),
+    ("picor", "Picor", (0.85, 0.5, 0.35), (
+        "............", ".oo....oo...", "oaao..oaao..", "oaaao.oaaao.", ".oaaoooaao..", "...oollo....",
+        "..o.omlo.o..", ".o..omlo..o.", "...o.oo.o...", "..o..oo..o..", "......o.....", "......o....."),
+        {'a': (210, 225, 235)}),
+    ("savia_negra", "Savia negra", (0.55, 0.4, 0.8), GOTA,
+        {'o': (8, 6, 12), 'd': (16, 12, 24), 'm': (34, 26, 48), 'l': (120, 90, 180), 'w': (210, 190, 255)}),
+    ("lento", "Lento", (0.3, 0.6, 0.9), (
+        "............", ".o.o..oooo..", ".olo.ommmmo.", "..ol.omllmmo", "..olomlmmlmo", "..olomlolmmo",
+        "..olommllmmo", "..ollommmmo.", ".olllloooooo", "ollllllllllo", "oddddddddddo", ".oooooooooo."), {}),
+    # --- debilidades y fortalezas
+    ("debil", "Débil", (0.7, 0.4, 0.9), voltear(FLECHA_ARRIBA), {}),
+    ("fortaleza", "Fortaleza", (0.95, 0.8, 0.2), FLECHA_ARRIBA,
+        {'o': (90, 64, 6), 'm': (210, 160, 30), 'l': (255, 214, 80), 'w': (255, 248, 210)}),
+    ("vulnerable", "Vulnerable", (0.9, 0.3, 0.5), (
+        ".oooooooooo.", ".ollllolllo.", ".olwlloolmo.", ".ollllolmmo.", ".olllooommo.", ".ollloommmo.",
+        "..ollolmmo..", "..olloommo..", "...oloomo...", "....oloo....", ".....oo.....", "............"),
+        {'o': (70, 16, 34), 'm': (176, 60, 96), 'l': (236, 120, 156), 'w': (255, 220, 232)}),
+    ("baluarte", "Baluarte", (0.6, 0.75, 0.95), ESCUDO, ORO),
+    ("coraza_iman", "Coraza imantada", (0.34, 0.37, 0.43), pon(ESCUDO, {(4, 2): 'b', (7, 2): 'b', (4, 3): 'b',
+        (7, 3): 'b', (4, 4): 'b', (5, 4): 'b', (6, 4): 'b', (7, 4): 'b', (5, 3): 'l', (6, 3): 'm', (5, 2): 'l',
+        (6, 2): 'm'}), {'a': (160, 165, 175), 'b': (210, 60, 45)}),
+    ("presteza", "Presteza", (0.5, 0.9, 0.95), CHEVRONES, {}),
+    ("marca", "Marca", (0.95, 0.45, 0.3), espejo(("....ol", "..oool", ".olloo", ".olo..", "olo...", "oll..a",
+        "oll..a", "olo...", ".olo..", ".olloo", "..oool", "....ol")), {'a': (255, 240, 200)}),
+    ("herida_profunda", "Herida profunda", (0.8, 0.25, 0.35), (
+        "........ooo.", ".......owllo", "......owlllo", ".....owllmo.", "....owlaao..", "...ollaao...",
+        "..ollmao....", ".ollmmo.....", "ollmmo......", "olmmo.......", ".ooo........", "............"),
+        {'o': (60, 40, 30), 'l': (236, 222, 196), 'w': (255, 250, 240), 'm': (190, 170, 140), 'a': (200, 30, 40)}),
+    ("guardia_carne", "Guardia de carne", (0.85, 0.35, 0.4), espejo(("......", ".ooo..", "owllo.", "olllll",
+        "ollall", "ollall", ".ollll", "..olll", "...oll", "....ol", ".....o", "......")), {'a': (120, 20, 40)}),
+    ("sigilo", "Sigilo", (0.45, 0.5, 0.6), espejo(("....oo", "...oll", "..olll", "..olaa", ".olaaa", ".olaab",
+        ".ollaa", "ollllo", "olllll", "olllll", "olllll", "oooooo")), {'a': (14, 14, 20), 'b': (200, 230, 255)}),
+    ("en_sombras", "En las sombras", (0.3, 0.3, 0.42), (
+        "....oooo....", "..oolllo....", ".olllo......", ".ollo.......", "ollo........", "ollo........",
+        "ollo........", "olllo.......", ".ollloo....o", ".ommmlloooo.", "..oommmmoo..", "....oooo...."), {}),
+    ("escolta", "Escolta", (0.9, 0.8, 0.55), junta(daga(1, 0), daga(6, 2)), {'a': (200, 160, 60), 'b': (110, 70, 40)}),
+    ("oportunista", "Oportunista", (0.62, 0.55, 0.85), pon(junta(daga(2, 1)),
+        {(9, 1): 'c', (8, 2): 'c', (9, 2): 'c', (10, 2): 'c', (9, 3): 'c'}),
+        {'a': (150, 120, 200), 'b': (70, 50, 90), 'c': (255, 255, 230)}),
+    ("afilado", "Afilado", (0.55, 0.5, 0.7), pon(junta(daga(4, 1)),
+        {(1, 3): 'c', (0, 4): 'c', (1, 4): 'c', (2, 4): 'c', (1, 5): 'c', (9, 6): 'c', (10, 5): 'c', (10, 7): 'c',
+         (11, 6): 'c'}), {'a': (150, 140, 180), 'b': (70, 50, 40), 'c': (255, 255, 255)}),
+    ("decreto", "Decreto", (0.55, 0.9, 1.0), CORONA, {'a': (255, 255, 255)}),
+    ("furia_rey", "Furia de rey", (0.9, 0.22, 0.15), ("..o.o..o.o..", "...o....o...", "..o.o..o.o..") + CORONA[2:11],
+        {'a': (255, 220, 80)}),
+    ("colmillos_rotos", "Colmillos rotos", (0.45, 0.88, 1.0), (
+        "..ooo..ooo..", ".owlloolllo.", ".olllllllmo.", ".olllllllmo.", ".olllllllmo.", "..ollllllo..",
+        "..olllllmo..", "...olllmo...", "...ollo.....", "....oo..o...", "........oo..", ".......omo.."), {}),
+    ("en_vuelo", "En el aire", (0.3, 0.66, 0.52), (
+        "..........oo", "........oolo", "......oollmo", "....oollllmo", "..oolllllmo.", ".olllllmmo..",
+        "olllmmmoo...", "ollmoomo....", "omoolmo.....", "oolmoo......", "omo.........", "oo.........."), {}),
+    ("elitros", "Élitros cerrados", (0.3, 0.66, 0.52), espejo(("....oo", "...oll", "..oooo", ".ollwo", "ollllo",
+        "ollllo", "ollllo", "ollllo", "ollllo", ".olllo", "..ollo", "...ooo")), {}),
+    # --- curas
+    ("regeneracion", "Regeneración", (0.4, 0.9, 0.55), CRUZ,
+        {'o': (16, 70, 34), 'm': (60, 170, 90), 'l': (120, 230, 150), 'w': (230, 255, 236)}),
+    ("regen_mana", "Regen. maná", (0.4, 0.6, 1.0), DIAMANTE, {}),
+    ("resguardo", "Resguardo", (0.55, 0.85, 0.45), espejo(("....oo", "...oaa", "....ow", "...oow", "..olll", ".ollgg",
+        "olgggg", "oggggg", "oggggg", "odgggg", ".oddgg", "..oooo")),
+        {'a': (150, 100, 60), 'g': (120, 210, 90), 'l': (210, 225, 235), 'w': (250, 255, 255)}),
+    ("mojado", "Mojado", (0.4, 0.7, 1.0), (
+        "...o........", "..olo.......", "..olo...o...", ".omllo.olo..", ".ommlo.olo..", ".ommmoomllo.",
+        "..ooo.ommlo.", "......ommmo.", "..o....ooo..", ".olo........", ".omo........", "..o........."), {}),
+    # --- platos de cocina (el dibujo de su estado hermano + el cuenco)
+    ("plato_guardia", "Aguante (plato)", (0.55, 0.7, 0.95), plato(ESCUDO), dict(ORO, **CUENCO)),
+    ("plato_brio", "Reflejos (plato)", (0.5, 0.9, 0.8), plato(CHEVRONES), CUENCO),
+    ("plato_furia", "Fuerza (plato)", (0.95, 0.5, 0.3), plato(FLECHA_ARRIBA), CUENCO),
+    ("plato_arcano", "Magia (plato)", (0.7, 0.55, 0.95), plato(DESTELLO), CUENCO),
+    ("plato_nucleo", "Maná (plato)", (0.45, 0.6, 0.95), plato(DIAMANTE), CUENCO),
+    ("plato_remedio", "Remedios (plato)", (0.5, 0.9, 0.5), plato(CRUZ), CUENCO),
+    ("plato_estomago", "Estómago (plato)", (0.85, 0.8, 0.5), plato(espejo((".....o", ".....o", "....ol", "...oll",
+        "..olll", ".ollal", "olllal", "olllal", "olllal", ".ollal", "..oooo", "..o.o."))),
+        dict(CUENCO, a=(170, 150, 100))),
+    ("plato_fortuna", "Fortuna (plato)", (0.45, 0.85, 0.5), plato(espejo(("..oo..", ".ollo.", "olwlo.", "olllo.", ".ollo.", "..oooo",
+        ".ollo.", "olllo.", "olllo.", ".ollo.", "..oo.o", "....o."))), CUENCO),
+    # --- los chips sueltos del combate (no son del catalogo)
+    ("cargando", "Preparando", (0.95, 0.75, 0.35), RELOJ, {'a': (120, 80, 40), 'b': (255, 214, 120)}),
+    ("carga_lista", "Lista para soltar", (1.0, 0.85, 0.3), pon(RELOJ, {(5, 6): 'w', (6, 6): 'w', (5, 7): 'w'}),
+        {'a': (120, 80, 40), 'b': (255, 240, 160)}),
+    ("recitando", "Recitando", (0.6, 0.55, 1.0), pon(ORBE, {(4, 4): 'b', (4, 5): 'b', (4, 6): 'b', (4, 7): 'b',
+        (5, 5): 'b', (5, 6): 'b', (6, 5): 'b', (6, 6): 'b', (7, 6): 'b', (5, 4): 'b', (5, 7): 'b', (6, 4): 'b',
+        (6, 7): 'b'}), {'b': (255, 255, 255)}),
+    ("foco", "Foco arcano", (0.55, 0.7, 1.0), ORBE, {}),
+    ("provocando", "Provocando", (0.95, 0.45, 0.3), espejo(("....oo", "...owl", "...oll", "...oll", "...oll",
+        "...oll", "....ol", "....ol", "....oo", "....oo", "...oll", "....oo")), {}),
+    ("provocado", "Provocado", (0.9, 0.3, 0.3), (
+        "............", "..oo....oo..", ".olo....olo.", ".ollo..ollo.", "..ollooollo.", "....ollo....",
+        "....ollo....", "..ollooollo.", ".ollo..ollo.", ".olo....olo.", "..oo....oo..", "............"), {}),
+    ("cubriendo", "Cubriendo", (0.6, 0.75, 0.95), pon(ESCUDO, {(9, 3): 'a', (10, 4): 'a', (9, 5): 'a'}), ORO),
+    ("cubierto", "Cubierto", (0.6, 0.75, 0.95), pon(ESCUDO, {(2, 3): 'a', (1, 4): 'a', (2, 5): 'a'}), ORO),
+    ("en_guardia", "En guardia", (0.85, 0.8, 0.5), junta(daga(3, 1)), {'a': (200, 170, 80), 'b': (90, 60, 40)}),
+    ("defendiendo", "Defendiendo", (0.6, 0.75, 0.95), ESCUDO, {'a': (255, 255, 255)}),
+    ("sin_fuelle", "Sin fuelle", (0.8, 0.6, 0.45), (
+        "............", "..ooo.......", ".olllo.ooo..", "olwlllolllo.", "ollllllllmo.", ".ommmmmmmo..",
+        "..ooooooo...", "............", ".aa..aaa....", "...aa...aa..", "............", "............"),
+        {'a': (230, 230, 240)}),
+    ("pocion_vida", "Poción en el cuerpo", (0.9, 0.3, 0.35), espejo(("....oo", "...oaa", "....ow", "...oow", "..olll",
+        ".ollgg", "olgggg", "oggggg", "oggggg", "odgggg", ".oddgg", "..oooo")),
+        {'a': (150, 100, 60), 'g': (230, 60, 70), 'l': (210, 225, 235), 'w': (250, 255, 255)}),
+    ("pocion_mana", "Poción de maná", (0.4, 0.7, 1.0), espejo(("....oo", "...oaa", "....ow", "...oow", "..olll",
+        ".ollgg", "olgggg", "oggggg", "oggggg", "odgggg", ".oddgg", "..oooo")),
+        {'a': (150, 100, 60), 'g': (70, 130, 240), 'l': (210, 225, 235), 'w': (250, 255, 255)}),
+]
+
+
+def paleta(color, acentos):
+    p = tonos(color)
+    p.update(acentos)
+    return p
+
+
+def comprobar():
+    vistas = set()
+    for clave, nombre, color, filas, acentos in ICONOS:
+        assert clave not in vistas, "clave repetida: " + clave
+        vistas.add(clave)
+        pal = paleta(color, acentos)
+        assert len(filas) == N, "%s: %d filas" % (nombre, len(filas))
+        for j, f in enumerate(filas):
+            assert len(f) == N, "%s fila %d mide %d: '%s'" % (nombre, j, len(f), f)
+            for ch in f:
+                assert ch == '.' or ch in pal, "%s fila %d: '%s' sin color" % (nombre, j, ch)
+
+
+def icono(filas, pal):
+    im = Image.new('RGBA', (N, N), (0, 0, 0, 0))
+    for j, f in enumerate(filas):
+        for i, ch in enumerate(f):
+            if ch != '.':
+                im.putpixel((i, j), tuple(pal[ch]) + (255,))
+    return im
+
+
+def chip(ic, color, escala):
+    # El chip de verdad (StatusChip): fondo del color al 30 % y borde, con el icono dentro.
+    w, h = (N + 10) * escala, (N + 4) * escala
+    im = Image.new('RGBA', (w, h), (22, 24, 30, 255))
+    d = ImageDraw.Draw(im)
+    c = tuple(int(v * 255) for v in color)
+    fondo = tuple(int(v * 0.55 * 0.30 + 22 * 0.70) for v in c)
+    d.rounded_rectangle([0, 0, w - 1, h - 1], radius=3 * escala, fill=fondo,
+                        outline=tuple(int(v * 0.55 + 22 * 0.45) for v in c), width=escala)
+    im.alpha_composite(ic.resize((N * escala, N * escala), Image.NEAREST), (5 * escala, 2 * escala))
+    return im
+
+
+def lamina():
+    comprobar()
+    por_fila, col, alto = 11, 128, 196
+    filas_lam = (len(ICONOS) + por_fila - 1) // por_fila
+    lam = Image.new('RGB', (20 + col * por_fila, 20 + alto * filas_lam), (40, 42, 50))
+    d = ImageDraw.Draw(lam)
+    try:
+        fuente = ImageFont.truetype("arial.ttf", 12)
+    except OSError:
+        fuente = None
+    for k, (clave, nombre, color, filas, acentos) in enumerate(ICONOS):
+        x = 20 + (k % por_fila) * col
+        y = 14 + (k // por_fila) * alto
+        ic = icono(filas, paleta(color, acentos))
+        g = ic.resize((N * 8, N * 8), Image.NEAREST)
+        lam.paste(g, (x, y), g)
+        lam.paste(chip(ic, color, 1), (x, y + 108))
+        lam.paste(chip(ic, color, 2), (x + 30, y + 104))
+        d.text((x, y + 146), nombre, fill=(225, 225, 225), font=fuente)
+    carpeta = os.path.join(os.path.expanduser('~'), 'Desktop', 'iconos_estados')
+    os.makedirs(carpeta, exist_ok=True)
+    ruta = os.path.join(carpeta, 'lamina.png')
+    lam.save(ruta)
+    return ruta
+
+
+def hornear():
+    comprobar()
+    carpeta = os.path.join(RAIZ, 'assets', 'ui', 'estados')
+    os.makedirs(carpeta, exist_ok=True)
+    for clave, _n, color, filas, acentos in ICONOS:
+        icono(filas, paleta(color, acentos)).save(os.path.join(carpeta, clave + '.png'))
+    return carpeta
+
+
+if __name__ == '__main__':
+    if '--hornear' in sys.argv:
+        print(hornear())
+    else:
+        r = lamina()
+        print(r, len(ICONOS), "iconos")
+        if '--abrir' in sys.argv:
+            subprocess.Popen(['mspaint', r])
