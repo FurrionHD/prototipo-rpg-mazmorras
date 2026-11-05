@@ -36,7 +36,9 @@ func _lleva(b: Dictionary, icono: String) -> bool:
 	if box == null:
 		return false
 	for h in box.get_children():
-		if not h.is_queued_for_deletion() and h is Button and String((h as Button).text).contains(icono):
+		# (05/11) Con los iconos en pixel el chip pinta el dibujo y su texto va vacio: el emoji va en su meta (StatusChip.de_par).
+		if not h.is_queued_for_deletion() and h is Button and (String((h as Button).text).contains(icono) \
+				or String(h.get_meta(&"emoji_px", "")) == icono):
 			return true
 	return false
 
