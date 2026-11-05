@@ -499,6 +499,11 @@ var devuelve_corte_frac: float = 0.0
 var resiste_magia: float = 1.0
 var sigilo_prob: float = 0.0
 var salto_esquiva: float = 0.0
+# (05/11, los de la Segadora, ver MutacionData) ZONA DE SIEGA, CORTES DE VIENTO y VUELO CORTO.
+var zona_siega: float = 0.0
+var cortes_viento: float = 0.0
+var cortes_melee_mult: float = 1.0
+var vuelo_corto_prob: float = 0.0
 # (31/10, los mutantes del rey rata, ver MutacionData) LLAMADA, ESCUDO DE CARNE, FURIA DE REY, A MI ESPALDA, FRENTE
 # BLINDADO y ARMA A LA CAMADA.
 var llamada_min: int = 0

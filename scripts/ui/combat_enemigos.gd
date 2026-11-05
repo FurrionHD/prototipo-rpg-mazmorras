@@ -1446,6 +1446,9 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 			dmg *= _runa_corona_mult(t)
 			dmg *= _runa_musgo_mult(t, ab)
 			dmg *= _limaduras_mult(e, ab)
+			# CORTES DE VIENTO (05/11, el Vendaval rojo): su cuerpo a cuerpo pega menos, porque te llega ademas el corte.
+			if e.cortes_viento > 0.0 and not magico:
+				dmg *= e.cortes_melee_mult
 			t.take_damage(dmg)
 			_runas_al_encajar(e, t, false)
 			_pantalla.objetivos.amenaza_por_parar(t, e, dmg_bruto - dmg)
@@ -1496,6 +1499,9 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 	# haber matado al enemigo a mitad de su propia habilidad: un muerto no te envenena).
 	if aplicar_efectos and not ab.efectos_por_golpe and conecto > 0 and t.is_alive() and e.is_alive():
 		estados += _enemy_tirar_efectos(e, ab, t, escala, "objetivo", escala_prob)
+	# CORTES DE VIENTO (05/11, el Vendaval rojo): tras su golpe de arma, el corte sale de la garra y sigue de largo.
+	if e.cortes_viento > 0.0 and not magico and e.is_alive():
+		cortes_tras_golpe(e, t)
 	# REY DE LA CAMADA: tras su habilidad, sus ratas saltan detras de el (una vez por accion).
 	if conecto > 0:
 		_pega_y_se_va(e, t)
@@ -1535,6 +1541,82 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 	return {"total": total, "conecto": conecto, "estados": estados, "contra": contra,
 		"defendio": defendiendo, "rastro": rastro, "robado": robado,
 		"mult_elem": Elementos.mult_recibido(e.elemento_ataque, t)}
+
+
+# ============================================================
+#  LOS CORTES DE VIENTO (05/11, los mutantes de la Segadora; plan elegant-popping-firefly)
+# ============================================================
+# UN CORTE DE VIENTO de 'e' a 't': MAGICO (de su Magia, contra la defensa magica, StatsMath.resolve_magico_enemigo), de
+# elemento VIENTO (su multiplicador por material, el aire y lo quemado, Elementos.mult_recibido) y de 'frac' x ese golpe.
+# Se esquiva como un hechizo. Devuelve el daño hecho.
+func corte_viento(e: Combatant, t: Combatant, frac: float) -> float:
+	if e == null or t == null or frac <= 0.0 or not t.is_alive() or not e.is_alive():
+		return 0.0
+	var suyo: int = e.elemento_ataque
+	e.elemento_ataque = Elementos.Elemento.VIENTO
+	var r: Dictionary = StatsMath.resolve_magico_enemigo(e, t, true)
+	var dano: float = 0.0
+	if r.get("evaded", false):
+		_pantalla.efectos._fx_golpe(e, t, 0.0, false, true, Elementos.Elemento.VIENTO, CORTE_ESTILO, 0.8, true)
+	else:
+		dano = float(r["damage"]) * frac * e.dummy_dmg_out_mult
+		t.take_damage(dano)
+		_pantalla.efectos._fx_golpe(e, t, dano, bool(r.get("crit", false)), false, Elementos.Elemento.VIENTO, CORTE_ESTILO,
+			0.8, false, "", AbilityData.Gesto.AUTO, null, 0, float(r.get("mult_elem", 1.0)))
+	e.elemento_ataque = suyo
+	return dano
+
+# Como se ve el corte (el de la Segadora; sus cortes en pixel van con los efectos, paso 6 del plan).
+const CORTE_ESTILO := CombatFX.Estilo.GUADANA
+# Lo que SIGUE el corte por detras del cuerpo de quien lo encaja (px): pilla a quien este justo detras.
+const CORTE_SIGUE := 70.0
+const CORTE_ANCHO := 18.0
+
+# EL TAJO DE LA ZONA DE SIEGA (la de sierra, CombatTactico._zona_siega): un golpe de arma suyo de zona_siega x lo normal,
+# fuera de turno, a quien se ha metido en su alcance. Se esquiva y se para como cualquier golpe; con sus efectos (el
+# sangrado de su basico) por la puerta comun. Si es el Vendaval, tambien suelta su corte.
+func tajo_zona_siega(e: Combatant, t: Combatant) -> void:
+	if e == null or t == null or not e.is_alive() or not t.is_alive():
+		return
+	var defendiendo: bool = (bool(_pantalla._defendiendo.get(t, false)) or t.en_guardia) \
+		and _pantalla.turno_mapa.cubre_de_frente(t, e)
+	var r: Dictionary = StatsMath.resolve_attack(e, t, defendiendo)
+	_pantalla._aplicar_pasivas(r, e, t)
+	if r.get("evaded", false):
+		_pantalla.efectos._fx_golpe(e, t, 0.0, false, true, e.elemento_ataque, CORTE_ESTILO, 1.0, false)
+		_pantalla._log_extra("✱ %s se mete en la Zona de siega de %s y esquiva el tajo" % [t.nombre, _pantalla._etq(e)])
+		return
+	var dmg: float = float(r["damage"]) * e.zona_siega * e.dummy_dmg_out_mult
+	if e.cortes_viento > 0.0:
+		dmg *= e.cortes_melee_mult
+	t.take_damage(dmg)
+	_pantalla.efectos._fx_golpe(e, t, dmg, bool(r.get("crit", false)), false, e.elemento_ataque, CORTE_ESTILO, 1.0, false,
+		"", AbilityData.Gesto.AUTO, null, 0, float(r.get("mult_elem", 1.0)))
+	var puestos: Array = []
+	if not e.on_hit.is_empty():
+		var ab := AbilityData.new()
+		ab.efectos = e.on_hit
+		puestos = _enemy_tirar_efectos(e, ab, t, 1.0, "objetivo")
+	_pantalla._update_hp()
+	_pantalla._log_extra("✱ %s se mete en la Zona de siega de %s: tajo de %.2f%s" % [t.nombre, _pantalla._etq(e), dmg,
+		(" (" + ", ".join(puestos) + ")") if not puestos.is_empty() else ""])
+	if e.cortes_viento > 0.0 and e.is_alive():
+		cortes_tras_golpe(e, t)
+
+
+# Tras un golpe de arma del Vendaval rojo a 't': su corte a 't' y a quien este en la linea que sigue detras de el.
+func cortes_tras_golpe(e: Combatant, t: Combatant) -> void:
+	var a_quien: Array = [t]
+	if _pantalla.tactico:
+		for o in _pantalla.turno_mapa.en_linea_detras(e, t, CORTE_SIGUE, CORTE_ANCHO):
+			if not a_quien.has(o):
+				a_quien.append(o)
+	var partes: Array = []
+	for v in a_quien:
+		var d: float = corte_viento(e, v, e.cortes_viento)
+		partes.append("%s %.2f" % [(v as Combatant).nombre, d] if d > 0.0 else "%s lo esquiva" % (v as Combatant).nombre)
+	_pantalla._update_hp()
+	_pantalla._log_extra("💨 El corte de viento de %s sigue de largo: %s" % [_pantalla._etq(e), ", ".join(partes)])
 
 
 # LA DOBLE GUADAÑA en el mapa (AbilityData.forma_mitades): a 't' le caen los golpes de las mitades del cono en

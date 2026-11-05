@@ -914,6 +914,11 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		c.resiste_magia = mdat2.resiste_magia
 		c.sigilo_prob = mdat2.sigilo_prob
 		c.salto_esquiva = mdat2.salto_esquiva
+		# (05/11, los de la Segadora) zona de siega, cortes de viento y vuelo corto (el alcance va abajo, con el suyo).
+		c.zona_siega = mdat2.zona_siega
+		c.cortes_viento = mdat2.cortes_viento
+		c.cortes_melee_mult = mdat2.cortes_melee_mult
+		c.vuelo_corto_prob = mdat2.vuelo_corto_prob
 		# (31/10, los del rey rata) llamada, escudo de carne, furia, a mi espalda, frente blindado y camada acorazada.
 		c.llamada_min = mdat2.llamada_min
 		c.llamada_max = mdat2.llamada_max
@@ -1007,6 +1012,10 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	c.fx_basico_mapa = fx_basico_mapa
 	c.anim_basico = anim_basico
 	c.alcance = alcance_real(float(mm.get("escala", 1.0)) if mutante else 1.0)
+	# GARRAS MAS LARGAS (05/11, la Segadora de sierra): su mutacion le estira el alcance.
+	var mdat_alc: MutacionData = mutacion_de(mutacion) if mutante else null
+	if mdat_alc != null:
+		c.alcance *= mdat_alc.alcance_mult
 	c.mutante = mutante
 	c.mutacion = mutacion if mutante else &""
 	c.grado_mut = grado_de(mutante, mutacion)

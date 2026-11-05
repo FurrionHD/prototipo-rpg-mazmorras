@@ -71,6 +71,27 @@ func _ready() -> void:
 		_ver(e is EfectoPixel, "golpe %d: el impacto es el de pixel" % m)
 	padre.queue_free()
 
+	print("6) LAS PASIVAS (los datos; la pelea, en prueba_segadora_pelea)")
+	var no: Combatant = ed.crear_combatant(0.5, false, false, &"")
+	_ver(si.zona_siega == 0.5 and si.cortes_viento == 0.0 and si.vuelo_corto_prob == 0.0, "sierra: Zona de siega x0,5, sin cortes")
+	_ver(ve.cortes_viento == 0.5 and ve.cortes_melee_mult == 0.8 and ve.vuelo_corto_prob == 0.3,
+		"vendaval: cortes x0,5, cuerpo a cuerpo x0,8, Vuelo corto 30 %")
+	_ver(no.zona_siega == 0.0 and no.cortes_viento == 0.0, "la normal no tiene nada de eso")
+	var esc: float = float(EnemyData.mult_mutante(false, 1)["escala"])
+	_ver(absf(si.alcance - ed.alcance_real(esc) * 1.43) < 0.01, "sierra: las garras llegan x1,43 (%.1f, la normal %.1f)" % [si.alcance, no.alcance])
+
+	print("7) EL ABANICO DEL VENDAVAL (tres lineas)")
+	var f = CombatFormas.de_habilidad_mapa(ven, Vector2.ZERO, 0.0, 50.0, Vector2(100, 0))
+	_ver(f.abanico == 3 and f.lineas().size() == 3, "la forma lleva tres lineas")
+	var r_lejos := Rect2(Vector2(120, -6), Vector2(12, 12))
+	var r_pegado := Rect2(Vector2(6, -6), Vector2(12, 12))
+	var r_lado := Rect2(Vector2(0, 120), Vector2(12, 12))
+	var r_ala: Vector2 = Vector2.RIGHT.rotated(deg_to_rad(20.0)) * 120.0
+	_ver(f.veces(r_lejos) == 1, "lejos y de frente, una linea (%d)" % f.veces(r_lejos))
+	_ver(f.veces(r_pegado) == 3, "pegado a ella, donde se cruzan, las tres (%d)" % f.veces(r_pegado))
+	_ver(f.veces(Rect2(r_ala - Vector2(6, 6), Vector2(12, 12))) == 1, "en un ala del abanico, una")
+	_ver(f.veces(r_lado) == 0 and not f.toca(r_lado), "de lado, ninguna")
+
 	print("")
 	print("FIN: TODO BIEN" if _mal == 0 else "FIN: %d MAL" % _mal)
 	get_tree().quit(1 if _mal > 0 else 0)

@@ -22,6 +22,8 @@ grado = 1
 habilidades = Array[ExtResource("21_ab")]([ExtResource("3_gua"), ExtResource("4_ens"), ExtResource("22_sie")])
 sprite = &"sierra"
 pesos = {"agilidad": 30, "destreza": 58, "fuerza": 66, "magia": 7, "resistencia": 28, "voluntad": 11}
+alcance_mult = 1.43
+zona_siega = 0.5
 
 [sub_resource type="Resource" id="MUT_vendaval"]
 script = ExtResource("20_mut")
@@ -32,6 +34,10 @@ desde = Array[StringName]([&"sierra"])
 habilidades = Array[ExtResource("21_ab")]([ExtResource("3_gua"), ExtResource("4_ens"), ExtResource("22_sie"), ExtResource("23_ven")])
 sprite = &"vendaval"
 pesos = {"agilidad": 20, "destreza": 36, "fuerza": 34, "magia": 58, "resistencia": 18, "voluntad": 34}
+alcance_mult = 1.43
+cortes_viento = 0.5
+cortes_melee_mult = 0.8
+vuelo_corto_prob = 0.3
 
 [sub_resource type="Resource" id="SA_san"]
 script = ExtResource("2")

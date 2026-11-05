@@ -2010,6 +2010,9 @@ func _reparto_en(ab: AbilityData, c: Combatant, f) -> Array:
 		elif f.tramos > 1:
 			# El cono a TROZOS (la Onda): cada tramo mas lejos, forma_tramo_baja menos.
 			esc = maxf(0.0, ab.forma_escala - ab.forma_tramo_baja * float(f.tramo_de(r)))
+		# EN ABANICO (el Vendaval de cortes): una por linea que le toque; donde se cruzan, varias.
+		if f.abanico > 1:
+			esc *= float(f.veces(r))
 		# SOLO AL PRIMERO: manda lo cerca que este de quien pega, no del centro de la huella. Y en el
 		# AVANCE tambien: los golpes caen en el orden en que te los cruzas.
 		# (El IMAN de un circulo, huella_apunte_hechizo: al mas cercano al CENTRO.)
@@ -3998,6 +4001,7 @@ func charcos_empezar_turno(c: Combatant) -> void:
 	if _pantalla._espejo or c == null:
 		return
 	_pisado.erase(c)   # turno nuevo: cada charco se puede volver a pisar
+	_segados.erase(c)  # y cada Zona de siega puede volver a cortarle
 	_desde_charco[c] = pies_de(c)
 	_pisar_si(c, pies_de(c), pies_de(c))
 
@@ -4007,7 +4011,55 @@ func charcos_tras_andar(c: Combatant) -> void:
 	if _pantalla._espejo or c == null or not _desde_charco.has(c):
 		return
 	_pisar_si(c, _desde_charco[c], pies_de(c))
+	_zona_siega(c, _desde_charco[c], pies_de(c))
 	_desde_charco[c] = pies_de(c)
+
+
+# ------------------------------------------------------------
+#  LA SEGADORA MUTANTE (05/11; plan elegant-popping-firefly)
+# ------------------------------------------------------------
+# ZONA DE SIEGA (la de sierra, Combatant.zona_siega): quien ENTRE o SE MUEVA dentro de su alcance se lleva un tajo de
+# zona_siega x su golpe, fuera de turno, UNA VEZ POR TURNO SUYO. Como los charcos: lo andado (a-b, en recta) al cerrar
+# su accion; quedarse quieto dentro no cuenta. Solo quien lleva la pelea (el golpe viaja como cualquier otro).
+var _segados: Dictionary = {}   # Combatant (de los tuyos) -> {Combatant (la segadora): true} en este turno suyo
+
+func _zona_siega(c: Combatant, a: Vector2, b: Vector2) -> void:
+	if not c.is_alive() or not _pantalla._aliados.has(c) or a.distance_to(b) < 2.0:
+		return
+	var ya: Dictionary = _segados.get(c, {})
+	for e in _pantalla._enemies:
+		var en: Combatant = e
+		if en.zona_siega <= 0.0 or not en.is_alive() or ya.has(en) or cuerpo_de(en) == null or not en.puede_atacar():
+			continue
+		# El hueco de su cuerpo al camino, como el del alcance (borde a borde).
+		var p: Vector2 = pies_de(en)
+		var cerca: Vector2 = Geometry2D.get_closest_point_to_segment(p, a, b)
+		var su_medio: float = maxf(bulto_de(en).size.x, bulto_de(en).size.y) * 0.5
+		if cerca.distance_to(p) - su_medio - radio_pisa(c) * 0.5 > alcance_de(en):
+			continue
+		ya[en] = true
+		_segados[c] = ya
+		_pantalla.enemigos.tajo_zona_siega(en, c)
+		if not c.is_alive():
+			return
+
+
+# Los de los tuyos (vivos, sin contar a 't') que estan en la linea que SIGUE detras de 't' en la direccion del golpe de
+# 'e': 'largo' px desde el borde de su cuerpo, 'ancho' de ancho. La usan los cortes de viento del Vendaval rojo.
+func en_linea_detras(e: Combatant, t: Combatant, largo: float, ancho: float) -> Array:
+	var out: Array = []
+	if e == null or t == null or cuerpo_de(e) == null or cuerpo_de(t) == null:
+		return out
+	var dir: Vector2 = pies_de(t) - pies_de(e)
+	dir = dir.normalized() if dir.length_squared() > 0.01 else Vector2.RIGHT
+	var r: Rect2 = bulto_de(t)
+	var sale: float = maxf(r.size.x, r.size.y) * 0.5
+	var f = CombatFormas.linea(pies_de(t) + dir * sale, dir, largo, ancho)
+	var bando: Array = _pantalla._aliados if _pantalla._aliados.has(t) else _pantalla._enemies
+	for o in bando:
+		if o != t and (o as Combatant).is_alive() and cuerpo_de(o) != null and f.toca(bulto_de(o)):
+			out.append(o)
+	return out
 
 
 # Un charco que acaba de aparecer (la nube de quien revienta al morir): lo respira ya quien este dentro, con la misma
@@ -4300,6 +4352,7 @@ func olvidar_charcos() -> void:
 	_charcos.clear()
 	_orden_estrellas.clear()
 	_pisado.clear()
+	_segados.clear()
 	_desde_charco.clear()
 
 

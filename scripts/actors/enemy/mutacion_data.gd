@@ -114,6 +114,18 @@ class_name MutacionData
 @export var sigilo_prob: float = 0.0
 # SE APARTA DE UN SALTO (la sombria): al ESQUIVAR un golpe cuerpo a cuerpo, salta 'salto_esquiva' px hacia atras.
 @export var salto_esquiva: float = 0.0
+# (05/11, los mutantes de la SEGADORA; plan elegant-popping-firefly, numeros provisionales)
+# GARRAS MAS LARGAS: su alcance x alcance_mult (la de sierra: 35 -> 50).
+@export var alcance_mult: float = 1.0
+# ZONA DE SIEGA (la de sierra): quien ENTRE o SE MUEVA dentro de su alcance se lleva un tajo de zona_siega x su golpe,
+# fuera de turno, una vez por turno suyo. 0 = no.
+@export var zona_siega: float = 0.0
+# CORTES DE VIENTO (el Vendaval rojo): cada golpe de arma suyo lanza ademas un corte de VIENTO, MAGICO (de su Magia,
+# contra la defensa magica), de cortes_viento x el golpe; y su cuerpo a cuerpo baja a cortes_melee_mult (te da los dos).
+@export var cortes_viento: float = 0.0
+@export var cortes_melee_mult: float = 1.0
+# VUELO CORTO (el Vendaval rojo): al encajar un golpe cuerpo a cuerpo, vuelo_corto_prob de saltar atras y soltar un corte.
+@export var vuelo_corto_prob: float = 0.0
 # (31/10, los mutantes del REY RATA: el de las cloacas y el del desguace; numeros aprobados por el jefe)
 # LLAMADA: su Chillido trae de llamada_min a llamada_max ratas de un agujero junto a el, sin pasar de llamada_tope ratas
 # suyas vivas a la vez.

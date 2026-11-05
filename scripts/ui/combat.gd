@@ -483,6 +483,7 @@ func _pasiva_al_golpearle(obj: Combatant, quien: Combatant, dmg: float = 0.0) ->
 	_esporas(obj, quien)
 	_acido_piel(obj, quien)
 	_devolver_corte(obj, quien, dmg)
+	_vuelo_corto(obj, quien)
 	if obj == null or quien == null or obj.al_ser_golpeado.is_empty() or obj.al_ser_golpeado_prob <= 0.0 \
 			or not _enemies.has(obj) or not quien.is_alive():
 		return
@@ -609,6 +610,26 @@ func _devolver_corte(obj: Combatant, quien: Combatant, dmg: float) -> void:
 		false)
 	_update_hp()
 	_log_extra("🪞 Las aristas de %s le devuelven el corte a %s: %.2f" % [_etq(obj), quien.nombre, vuelta])
+
+
+# VUELO CORTO (05/11, el Vendaval rojo, ver MutacionData): al encajar un golpe CUERPO A CUERPO, a veces (30 %) bate las
+# alas, salta hacia atras (el mismo salto que la rata sombria al esquivar) y le suelta un corte de viento a quien le pego.
+# Solo en el mapa (en la fila no hay atras) y quien lleva la pelea.
+const VUELO_CORTO_PX := 45.0
+
+func _vuelo_corto(obj: Combatant, quien: Combatant) -> void:
+	if obj == null or quien == null or obj.vuelo_corto_prob <= 0.0 or not _enemies.has(obj) or not obj.is_alive() \
+			or not quien.is_alive() or not tactico or _espejo or quien.a_distancia:
+		return
+	if turno_mapa.hueco_entre(quien, obj) > HUECO_CUERPO_A_CUERPO:
+		return   # solo cuerpo a cuerpo
+	if randf() >= obj.vuelo_corto_prob:
+		return
+	turno_mapa.pedir_salto_atras(obj, quien, VUELO_CORTO_PX)
+	var d: float = enemigos.corte_viento(obj, quien, obj.cortes_viento if obj.cortes_viento > 0.0 else 0.5)
+	_update_hp()
+	_log_extra("💨 %s bate las alas, salta atrás y le suelta un corte a %s%s" % [_etq(obj), quien.nombre,
+		": %.2f" % d if d > 0.0 else ", que lo esquiva"])
 
 
 # ACIDO EN LA PIEL (06/10, el slime pestilente, ver MutacionData): al que le pega CUERPO A CUERPO, a veces (acido_prob,
