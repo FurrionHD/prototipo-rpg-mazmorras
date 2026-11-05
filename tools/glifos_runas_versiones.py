@@ -39,7 +39,16 @@ CIEMPIES = {   # Dos mentes (05/11): naranja de la Runa de ciempies
     'C dos ojos': (".......", ".##.##.", "#.##.##", "#.##.##", ".##.##.", ".......", "......."),
     'D anillos enroscados': ("#######", "#.....#", "#.###.#", "#.#.#.#", "#.#...#", "#.#####", "#......"),
 }
-COL = {'ciempies': (0.86, 0.38, 0.1), 'arana': (0.2, 0.5, 0.62), 'ya': (0.36, 0.7, 0.42), 'rata': (0.55, 0.45, 0.6), 'rey': (0.62, 0.22, 0.2), 'jabali': (0.32, 0.5, 0.22)}
+SEGADORA = {   # Filo de aire (05/11): el verde palido del viento
+    'A media luna de viento': ("..###..", ".##....", "##.....", "##.....", "##.....", ".##....", "..###.."),
+    'B garra plegada': ("#......", "##.....", ".##..#.", "..####.", "...##..", "..##...", ".##...."),
+    'C tres cortes': ("#..#..#", "#..#..#", ".#.#.#.", ".#.#.#.", "..###..", "...#...", "......."),
+    'D guadaña': ("...####", "..#....", ".#.....", ".#..##.", "#..#...", "#.#....", "##....."),
+    'E mango y hoja recta': (".######", "#.....#", "#....#.", ".....#.", "....#..", "....#..", "...#..."),
+    'F mango y hoja curva': ("..#####", ".##...#", "##...#.", "#....#.", "....#..", "....#..", "...#..."),
+    'G hoja gorda colgando': ("#######", "###..#.", ".##..#.", "....#..", "....#..", "...#...", "...#..."),
+}
+COL = {'segadora': (0.42, 0.7, 0.58), 'ciempies': (0.86, 0.38, 0.1), 'arana': (0.2, 0.5, 0.62), 'ya': (0.36, 0.7, 0.42), 'rata': (0.55, 0.45, 0.6), 'rey': (0.62, 0.22, 0.2), 'jabali': (0.32, 0.5, 0.22)}
 
 
 def sello(glifo, col, r):
@@ -64,8 +73,8 @@ def sello(glifo, col, r):
 
 filas = [('ahora', YA, COL['ya']), ('RATA (Alcantarilla)', RATA, COL['rata']), ('REY RATA (Sangre real)', REY, COL['rey']),
          ('JABALI (Musgo viejo)', JABALI, COL['jabali']), ('ARAÑA (Hilo conductor)', ARANA, COL['arana']),
-         ('CIEMPIES (Dos mentes)', CIEMPIES, COL['ciempies'])]
-W, H = 1240, 120 * len(filas) + 20
+         ('CIEMPIES (Dos mentes)', CIEMPIES, COL['ciempies']), ('SEGADORA (Filo de aire)', SEGADORA, COL['segadora'])]
+W, H = 2340, 120 * len(filas) + 20
 lam = Image.new('RGB', (W, H), (40, 42, 50))
 d = ImageDraw.Draw(lam)
 for k, (titulo, tabla, col) in enumerate(filas):
