@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_i"]
+script = ExtResource("2")
+estado = 53
+prob = 1.0
+
+[resource]
+script = ExtResource("1")
+coste_energia = 0.0
+fx_estilo = 0
+nombre = "Pulso magnético"
+descripcion = "Alza la herradura y el aire se le pone a zumbar. Lo que siga cerca cuando la baje acaba pegado a ella, y no se despega en un rato."
+efectos = [SubResource("SA_i")]
+dano_mult = 0.6
+cooldown = 4
+carga_turnos = 1
+forma = 1
+forma_apunte = 2
+forma_radio = 80.0
+forma_desde_quien_ataca = true
+atrae = 80.0
+es_magico = true
+fx_anim_carga = &"pulso_carga"
+fx_anim = &"pulso"
+fx_anim_interrumpe = &"idle"

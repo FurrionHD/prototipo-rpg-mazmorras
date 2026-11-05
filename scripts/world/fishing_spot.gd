@@ -479,11 +479,13 @@ func _crear_aspecto() -> void:
 	_cana = CanaPesca.new()
 	_cana.visible = false
 	add_child(_cana)
+	CapaPixel.meter(_cana)   # en pixel art (memoria efectos-pixel-personajes)
 	_hilo = CanaPesca.new()
 	_hilo.parte = CanaPesca.Parte.SEDAL
 	_hilo.arco_alto = ARCO_ALTO
 	_hilo.visible = false
 	add_child(_hilo)
+	CapaPixel.meter(_hilo)
 
 	_crear_mira()
 

@@ -138,9 +138,11 @@ func refrescar() -> void:
 	_nombre.text = "%d. %s" % [idx + 1, c.nombre] if idx >= 0 else c.nombre
 	# Mismo formato que la barra de la tarjeta (ver combat._update_hp), que es donde se decidio.
 	_hp.max_value = c.max_hp
-	_hp.value = c.current_hp
-	_hp_lbl.text = "%.2f / %.2f" % [c.current_hp, c.max_hp] \
-		+ TramoEscudo.poner_costra(_hp, c.current_hp, c.max_hp, c.costra)   # la costra de ambar (el Tocon ambarino)
+	# Lo que SE VE (la barra de su ficha, que espera al golpe), no lo ya resuelto.
+	var hp_v: float = c.vida_vista()
+	_hp.value = hp_v
+	_hp_lbl.text = "%.2f / %.2f" % [hp_v, c.max_hp] \
+		+ TramoEscudo.poner_costra(_hp, hp_v, c.max_hp, c.costra_vista())   # la costra de ambar (el Tocon ambarino)
 
 	# LOS CHIPS se borran y se recrean enteros, asi que solo cuando cambian de verdad: si no, esto
 	# estaria creando y tirando botones sesenta veces por segundo.
@@ -151,10 +153,7 @@ func refrescar() -> void:
 		for hijo in _chips.get_children():
 			hijo.queue_free()
 		for par in pares:
-			var col: Color = (par[3] as Color) if par.size() > 3 else _pantalla.efectos.CHIP_NEUTRO
-			var txt: String = String(par[2]) if par.size() > 2 and String(par[2]) != "" \
-				else String(par[0])
-			_chips.add_child(StatusChip.crear(txt, col, String(par[1])))
+			_chips.add_child(StatusChip.de_par(par))
 	_refrescar_lista(c, y)
 
 
@@ -162,7 +161,7 @@ func refrescar() -> void:
 func _refrescar_lista(apuntado: Combatant, y: float) -> void:
 	var otros: Array = []
 	for e in _pantalla._enemies:
-		if e != apuntado and e.is_alive():
+		if e != apuntado and e.is_alive() and not e.en_sombras():   # (el que esta en las sombras no se ve: ni en la lista)
 			otros.append(e)
 	if otros != _ultima_lista:
 		_ultima_lista = otros.duplicate()
@@ -174,7 +173,7 @@ func _refrescar_lista(apuntado: Combatant, y: float) -> void:
 	for f in _filas:
 		var e: Combatant = f["c"]
 		(f["hp"] as ProgressBar).max_value = maxf(e.max_hp, 1.0)
-		(f["hp"] as ProgressBar).value = e.current_hp
+		(f["hp"] as ProgressBar).value = e.vida_vista()
 		(f["nombre"] as Label).text = "%d. %s" % [_pantalla._enemies.find(e) + 1, e.nombre]
 	_lista_scroll.visible = not otros.is_empty()
 	# El alto: el de todas las filas, sin pasar de lo que deja libre la barra de acciones.

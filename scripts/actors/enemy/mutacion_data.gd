@@ -114,6 +114,18 @@ class_name MutacionData
 @export var sigilo_prob: float = 0.0
 # SE APARTA DE UN SALTO (la sombria): al ESQUIVAR un golpe cuerpo a cuerpo, salta 'salto_esquiva' px hacia atras.
 @export var salto_esquiva: float = 0.0
+# (05/11, los mutantes de la SEGADORA; plan elegant-popping-firefly, numeros provisionales)
+# GARRAS MAS LARGAS: su alcance x alcance_mult (la de sierra: 35 -> 50).
+@export var alcance_mult: float = 1.0
+# ZONA DE SIEGA (la de sierra): quien ENTRE o SE MUEVA dentro de su alcance se lleva un tajo de zona_siega x su golpe,
+# fuera de turno, una vez por turno suyo. 0 = no.
+@export var zona_siega: float = 0.0
+# CORTES DE VIENTO (el Vendaval rojo): cada golpe de arma suyo lanza ademas un corte de VIENTO, MAGICO (de su Magia,
+# contra la defensa magica), de cortes_viento x el golpe; y su cuerpo a cuerpo baja a cortes_melee_mult (te da los dos).
+@export var cortes_viento: float = 0.0
+@export var cortes_melee_mult: float = 1.0
+# VUELO CORTO (el Vendaval rojo): al encajar un golpe cuerpo a cuerpo, vuelo_corto_prob de saltar atras y soltar un corte.
+@export var vuelo_corto_prob: float = 0.0
 # (31/10, los mutantes del REY RATA: el de las cloacas y el del desguace; numeros aprobados por el jefe)
 # LLAMADA: su Chillido trae de llamada_min a llamada_max ratas de un agujero junto a el, sin pasar de llamada_tope ratas
 # suyas vivas a la vez.
@@ -165,6 +177,15 @@ class_name MutacionData
 @export var carga_elemento: int = -1
 @export var carga_tope: int = 4
 @export var carga_estallido: AbilityData = null
+# (04/11, los mutantes del ESCARABAJO; numeros provisionales)
+# ADHERENCIA: si tu turno empieza a adherencia_radio px o menos de el, ese turno mueves la mitad (Id.ADHERIDO).
+@export var adherencia_radio: float = 0.0
+# LIMADURAS: cada golpe que encaja, +defensa (Id.LIMADURAS, hasta limaduras_tope); la habilidad con gasta_limaduras pega mas y las gasta.
+@export var limaduras_tope: int = 0
+# PEGA Y SE VA: acabados sus golpes se aleja estos px. Con orbita y alguien Imantado, no: se queda encima.
+@export var pega_y_se_va: float = 0.0
+# ORBITA: con alguien Imantado (el Pulso), +velocidad y sus golpes a ese no se esquivan.
+@export var orbita: bool = false
 # LA COSTRA DE AMBAR: como el escudo de agua del set Marea, una capa de costra_frac de su vida POR ENCIMA de la vida (se
 # come los golpes antes; el veneno y las brasas no la tocan). Rota, vuelve ENTERA a los costra_turnos turnos suyos, y al
 # romperse suelta UNO al azar de costra_bichos (los bichos del ambar), sin pasar de costra_tope vivos.
@@ -175,3 +196,18 @@ class_name MutacionData
 # CHUPAR A LOS ENRAIZADOS (el Espantajo): al empezar su turno, a cada uno de los tuyos que este clavado al suelo
 # (Enraizado o Resinado) le quita chupa_enraizados de su vida MAXIMA y se cura exactamente lo que le ha quitado.
 @export var chupa_enraizados: float = 0.0
+# (05/11, los mutantes del CIEMPIES; numeros provisionales)
+# DOS MENTES: un aturdimiento solo duerme una cabeza y la otra sigue; hacen falta dos, o uno de AREA que pille a las dos.
+# Cada cabeza lleva su propio decaimiento de control. Ver Combatant._dormir_cabezas.
+@export var dos_mentes: bool = false
+# SU BASICO, si es una habilidad (el mordisco en U: las dos cabezas al mismo). Con una cabeza dormida, basico_una_cabeza.
+@export var basico_propio: AbilityData = null
+@export var basico_una_cabeza: AbilityData = null
+# LA CABEZA LIBRE: enroscando con una, la otra muerde con cabeza_libre_mult de su ataque a otro a cabeza_libre_radio px.
+@export var cabeza_libre_mult: float = 0.0
+@export var cabeza_libre_radio: float = 70.0
+# EL ENROSQUE DOBLE: si otro de los tuyos esta a esta distancia de su presa, lo atrapa tambien (una presa por cabeza).
+@export var enrosque_pegados_radio: float = 0.0
+# APRIETA MAS: +aprieta_por_turno de daño por cada turno que lleva apretando, hasta +aprieta_max.
+@export var aprieta_por_turno: float = 0.0
+@export var aprieta_max: float = 0.0

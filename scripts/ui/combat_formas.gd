@@ -80,6 +80,33 @@ class Forma extends RefCounted:
 	# (30/10) DONDE CAEN las bolas de la Andanada: sobre los enemigos de dentro, elegidos al soltarla (ver
 	# CombatMagia._bolas_a_los_de_dentro). Vacio = las de siempre, sacadas del centro (MagiaAire.puntos_andanada).
 	var puntos: Array = []
+	# LINEA EN ABANICO (05/11, el Vendaval de cortes): 'abanico' lineas iguales que salen del mismo sitio, repartidas en
+	# 'abanico_angulo' grados (el abanico ENTERO). 0/1 = una sola. Quien quede donde se cruzan cobra una por linea (veces).
+	var abanico: int = 0
+	var abanico_angulo: float = 0.0
+
+	# Las lineas del abanico, cada una una LINEA normal (sin abanico). Sin abanico, ella misma.
+	func lineas() -> Array:
+		if abanico <= 1 or tipo != CombatFormas.Tipo.LINEA:
+			return [self]
+		var out: Array = []
+		for i in abanico:
+			var t: float = float(i) / float(abanico - 1) - 0.5
+			var l: Forma = CombatFormas.linea(origen, dir.rotated(deg_to_rad(abanico_angulo * t)), largo, ancho)
+			l.ancho_fin = ancho_fin
+			l.tramos = tramos
+			out.append(l)
+		return out
+
+	# Cuantas lineas del abanico le tocan a esta caja (1 o 0 sin abanico).
+	func veces(r: Rect2) -> int:
+		if abanico <= 1 or tipo != CombatFormas.Tipo.LINEA:
+			return 1 if toca(r) else 0
+		var n: int = 0
+		for l in lineas():
+			if (l as Forma).toca(r):
+				n += 1
+		return n
 
 	# ¿Es una fila de circulos? (ver CombatFormas.BOLAS)
 	func en_bolas() -> bool:
@@ -101,6 +128,11 @@ class Forma extends RefCounted:
 
 	# ¿Este punto esta tapado por la forma? Es la unica pregunta que le hace la pelea.
 	func contiene(p: Vector2) -> bool:
+		if abanico > 1 and tipo == CombatFormas.Tipo.LINEA:
+			for l in lineas():
+				if (l as Forma).contiene(p):
+					return true
+			return false
 		if en_bolas():
 			for c in centros_bolas():
 				if p.distance_to(c) <= ancho * 0.5:
@@ -136,6 +168,8 @@ class Forma extends RefCounted:
 	# le toque el cuerpo, no solo el centro, asi un jefe grande cuenta por su borde (igual que el
 	# alcance, que tambien se mide borde a borde).
 	func toca(r: Rect2) -> bool:
+		if abanico > 1 and tipo == CombatFormas.Tipo.LINEA:
+			return veces(r) > 0
 		if en_bolas():
 			for c in centros_bolas():
 				if _mas_cerca(r, c).distance_to(c) <= ancho * 0.5:
@@ -432,6 +466,8 @@ static func _forma_mapa(ab: AbilityData, pies: Vector2, dir: Vector2, centro: Ve
 			var l := linea(pies, dir, r, ab.forma_ancho if ab.forma_ancho > 0.0 else ANCHO_LINEA)
 			l.ancho_fin = ab.forma_ancho_fin
 			l.tramos = ab.forma_tramos
+			l.abanico = ab.lineas_abanico
+			l.abanico_angulo = ab.lineas_angulo
 			return l
 		Tipo.PUNTO:
 			return punto(centro, r)
@@ -504,6 +540,10 @@ static func alcanzados(f: Forma, candidatos: Array, principal: Variant,
 # rejilla cuadrada aunque los cuerpos vayan proyectados a 45 grados.
 static func dibujar(f: Forma, ci: CanvasItem, col: Color) -> void:
 	if f == null or ci == null:
+		return
+	if f.abanico > 1 and f.tipo == Tipo.LINEA:
+		for l in f.lineas():
+			dibujar(l, ci, col)
 		return
 	var relleno := Color(col.r, col.g, col.b, col.a * 0.22)
 	if f.en_bolas():

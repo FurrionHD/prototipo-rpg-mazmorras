@@ -1,0 +1,168 @@
+{
+ "lienzo": [
+  136,
+  136
+ ],
+ "anims": {
+  "idle": {
+   "fotogramas": 8,
+   "fps": 4.0,
+   "loop": true,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "walk": {
+   "fotogramas": 8,
+   "fps": 10.0,
+   "loop": true,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "basico": {
+   "fotogramas": 8,
+   "fps": 14.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "pinza": {
+   "fotogramas": 7,
+   "fps": 14.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "oleada": {
+   "fotogramas": 6,
+   "fps": 18.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "enrosque": {
+   "fotogramas": 8,
+   "fps": 11.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "libre_idle": {
+   "fotogramas": 6,
+   "fps": 8.0,
+   "loop": true,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "libre_muerde": {
+   "fotogramas": 6,
+   "fps": 14.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "encaje": {
+   "fotogramas": 4,
+   "fps": 18.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "muerte": {
+   "fotogramas": 8,
+   "fps": 10.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "comer": {
+   "fotogramas": 10,
+   "fps": 10.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "evolucion": {
+   "fotogramas": 18,
+   "fps": 10.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "enroscarse_detras": {
+   "fotogramas": 6,
+   "fps": 12.0,
+   "loop": false,
+   "dirs": 1,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "enroscado_detras": {
+   "fotogramas": 8,
+   "fps": 8.0,
+   "loop": true,
+   "dirs": 1,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "apreton_detras": {
+   "fotogramas": 5,
+   "fps": 14.0,
+   "loop": false,
+   "dirs": 1,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "desenroscarse_detras": {
+   "fotogramas": 6,
+   "fps": 12.0,
+   "loop": false,
+   "dirs": 1,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "enroscarse_delante": {
+   "fotogramas": 6,
+   "fps": 12.0,
+   "loop": false,
+   "dirs": 1,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "enroscado_delante": {
+   "fotogramas": 8,
+   "fps": 8.0,
+   "loop": true,
+   "dirs": 1,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "apreton_delante": {
+   "fotogramas": 5,
+   "fps": 14.0,
+   "loop": false,
+   "dirs": 1,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "desenroscarse_delante": {
+   "fotogramas": 6,
+   "fps": 12.0,
+   "loop": false,
+   "dirs": 1,
+   "parpado": false,
+   "grupos_parpado": 0
+  }
+ }
+}

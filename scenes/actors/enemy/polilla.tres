@@ -46,7 +46,9 @@ drop_piso_debut = 9
 drop_piso_pleno = 12
 al_golpear = [SubResource("SA_ven")]
 inmune_estados = [0]
+vuela = true
 resist_elemental = {
+6: 1.5,
 1: 1.6,
 5: 0.7
 }

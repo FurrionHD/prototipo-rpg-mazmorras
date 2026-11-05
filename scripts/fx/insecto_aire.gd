@@ -50,7 +50,7 @@ extends Node2D
 class_name InsectoAire
 
 enum Modo { TELARANA, QUELICEROS, PONZONA, VENENO, HEBRAS, RED, PALA, ARROLLA, CAPARAZON, RODADA,
-	FORCIPULAS, PATITAS, APRETON, OLEADA, TAJO, GUADANA, ESTOCADA }
+	FORCIPULAS, PATITAS, APRETON, OLEADA, TAJO, GUADANA, ESTOCADA, VIENTO }
 # Los del suelo, en el orden de SueloRoto.Tipo.INSECTO_*: no reordenar (el Modo si se puede).
 enum Suelo { TELARANA, RODADA, OLEADA }
 const _MODO_DE_SUELO := [Modo.TELARANA, Modo.RODADA, Modo.OLEADA]
@@ -125,6 +125,19 @@ var _peso: float = 1.0                # ARROLLA: el primero que atraviesa, enter
 static func area(padre: Node, f: CombatFormas.Forma, s: int, semilla: int, espera: float) -> Node2D:
 	if padre == null or f == null or s < 0 or s >= _MODO_DE_SUELO.size():
 		return null
+	# EN PIXEL ART (04/11/2026): la banda de la Embestida rodante del escarabajo (la de su linea; las mas largas, cuando les llegue).
+	if int(_MODO_DE_SUELO[s]) == Modo.RODADA and f.largo <= 105.0:
+		return EfectoPixel.lanzar(padre, "escarabajo", "rodada", SueloRoto.origen_de(f), SpriteLienzo.dir8(f.dir), null, espera, -1.0,
+			maxf(BarridoAire.ritmo, 0.05))
+	# EN PIXEL ART (04/11/2026): el ovillo de la telarana vuela hasta el sitio y alli revienta (la red que se queda la pone red()).
+	if int(_MODO_DE_SUELO[s]) == Modo.TELARANA:
+		var dir_t: Vector2 = f.dir.normalized() if f.dir.length_squared() > 0.0001 else Vector2.RIGHT
+		var lejos: float = f.ancho if f.ancho > 8.0 else 60.0
+		var r_t: float = maxf(BarridoAire.ritmo, 0.05)
+		var cae: EfectoPixel = EfectoPixel.lanzar(padre, "arana", "red_sale", f.centro, 0, null, espera + T_TELA_CAE, -1.0, r_t)
+		if cae != null:
+			cae.poner_vuelo("arana", "ovillo", f.centro - dir_t * lejos - Vector2(0.0, 14.0), f.centro, 30.0, T_TELA_CAE)
+		return cae
 	var e := InsectoAire.new()
 	e.modo = int(_MODO_DE_SUELO[s])
 	e.forma = f
@@ -196,7 +209,54 @@ static func t_salir(s: int) -> float:
 # 'peso' (ARROLLA): la fraccion del golpe que se lleva (CombatFX: 1 el primero, menos los de detras).
 # 'de_lado' (TAJO, GUADANA): de que lado de quien corta viene la hoja (-1 su izquierda, +1 su derecha).
 static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semilla: int, espera: float,
-		ritmo: float, boca: float = -1.0, peso: float = 1.0, de_lado: float = 1.0) -> InsectoAire:
+		ritmo: float, boca: float = -1.0, peso: float = 1.0, de_lado: float = 1.0) -> Node2D:
+	# EN PIXEL ART (04/11/2026): los queliceros de la arana (se cierran en el marco 3: ese es el golpe) y el veneno que gotea.
+	# Y la pala del escarabajo (se hunde en el marco 2), el cruce de la bola y el polvo de su Caparazon (el reflejo, sobre su sprite).
+	if padre != null and (m == Modo.PALA or m == Modo.ARROLLA):
+		var hacia_p: Vector2 = caja.get_center() - desde
+		var r_pl: float = maxf(ritmo, 0.05)
+		return EfectoPixel.lanzar(padre, "escarabajo", "pala" if m == Modo.PALA else "arrolla", Vector2(caja.get_center().x, caja.end.y),
+			SpriteLienzo.dir8(hacia_p) if hacia_p.length_squared() > 1.0 else 0, null, maxf(espera - (2.0 / 14.0 / r_pl if m == Modo.PALA else 0.0), 0.0), -1.0, r_pl)
+	if padre != null and m == Modo.CAPARAZON:
+		# (a sus pies de verdad: su caja es el dibujo entero, y el anillo ya va 6 celdas por debajo de su origen)
+		return EfectoPixel.lanzar(padre, "escarabajo", "capa_polvo", Vector2(caja.get_center().x, caja.position.y + caja.size.y * 0.55), 0, null, maxf(espera, 0.0), -1.0, maxf(ritmo, 0.05))
+	# LA SEGADORA EN PIXEL (05/11): el corte lo pinta la ESTELA de su garra (TacticoPixel, al empezar su gesto); sobre quien
+	# recibe solo el impacto: destello y sangre, y en el Ensarte las esquirlas por detras y el agujero. 'boca' > 0 = hoja de
+	# metal (sus mutantes).
+	# EL CORTE DE VIENTO (05/11): su impacto verde palido, el de la lamina aprobada (segadora_efectos_horno.py).
+	if padre != null and m == Modo.VIENTO:
+		return EfectoPixel.lanzar(padre, "segadora", "impacto_viento", Vector2(caja.get_center().x, caja.end.y), 0, null,
+			maxf(espera, 0.0), -1.0, maxf(ritmo, 0.05))
+	if padre != null and (m == Modo.TAJO or m == Modo.GUADANA or m == Modo.ESTOCADA):
+		var pies_s := Vector2(caja.get_center().x, caja.end.y)
+		var hacia_s: Vector2 = caja.get_center() - desde
+		var r_s: float = maxf(ritmo, 0.05)
+		var metal: bool = boca > 0.0
+		if m == Modo.ESTOCADA:
+			return EfectoPixel.lanzar(padre, "segadora", "estocada_metal" if metal else "estocada_hueso", pies_s,
+				SpriteLienzo.dir8(hacia_s) if hacia_s.length_squared() > 1.0 else 0, null, maxf(espera, 0.0), -1.0, r_s)
+		return EfectoPixel.lanzar(padre, "segadora", "impacto_metal" if metal else "impacto_hueso", pies_s, 0, null, maxf(espera, 0.0), -1.0, r_s)
+	# EL CIEMPIES Y SUS MUTANTES EN PIXEL (05/11): 'de_lado' = que cabeza es: 0 el normal; -1 la A (naranja), +1 la B (turquesa).
+	if padre != null and (m == Modo.FORCIPULAS or m == Modo.PATITAS or m == Modo.APRETON):
+		var pies_c := Vector2(caja.get_center().x, caja.end.y)
+		var hacia_c: Vector2 = caja.get_center() - desde
+		var dir_c: int = SpriteLienzo.dir8(hacia_c) if hacia_c.length_squared() > 1.0 else 0
+		var r_c: float = maxf(ritmo, 0.05)
+		var cabeza: String = "" if is_zero_approx(de_lado) else ("_a" if de_lado < 0.0 else "_b")
+		match m:
+			Modo.FORCIPULAS:
+				var hoja_c: String = "tijera" if cabeza == "" else "gancho%s" % cabeza
+				return EfectoPixel.lanzar(padre, "ciempies", hoja_c, pies_c, dir_c, null, maxf(espera - (3.0 if cabeza == "" else 2.0) / 14.0 / r_c, 0.0), -1.0, r_c)
+			Modo.PATITAS:
+				return EfectoPixel.lanzar(padre, "ciempies", "patitas", pies_c, 0, null, maxf(espera, 0.0), -1.0, r_c)
+			_:
+				return EfectoPixel.lanzar(padre, "ciempies", "apreton%s" % cabeza, pies_c, 0, null, maxf(espera, 0.0), -1.0, r_c)
+	if padre != null and (m == Modo.QUELICEROS or m == Modo.PONZONA or m == Modo.VENENO):
+		var hacia_q: Vector2 = caja.get_center() - desde
+		var r_q: float = maxf(ritmo, 0.05)
+		var es_q: bool = m != Modo.VENENO
+		return EfectoPixel.lanzar(padre, "arana", "queliceros" if es_q else "veneno", Vector2(caja.get_center().x, caja.end.y),
+			SpriteLienzo.dir8(hacia_q) if hacia_q.length_squared() > 1.0 else 0, null, maxf(espera - (3.0 / 14.0 / r_q if es_q else 0.0), 0.0), -1.0, r_q)
 	if padre == null:
 		return null
 	var e := InsectoAire.new()
@@ -333,9 +393,12 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 
 # LA RED QUE SE QUEDA (la Telaraña): no se va sola; se va cuando CombatTactico la seca (secar()). 'espera' = lo que
 # falta para que caiga el ovillo que la tiende.
-static func red(padre: Node, f: CombatFormas.Forma, semilla: int, espera: float) -> InsectoAire:
+static func red(padre: Node, f: CombatFormas.Forma, semilla: int, espera: float) -> Node2D:
 	if padre == null or f == null:
 		return null
+	# EN PIXEL ART (04/11/2026): la red tendida, que se rasga al irse.
+	if f.radio <= 32.0:
+		return PiezaPixel.crear(padre, "arana", "", "red_dura", "red_vete", f.centro, 0, PackedColorArray(), maxf(espera, 0.0))
 	var e := InsectoAire.new()
 	e.modo = Modo.RED
 	e.forma = f

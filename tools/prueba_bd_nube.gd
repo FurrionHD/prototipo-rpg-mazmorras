@@ -94,6 +94,11 @@ func _nuevo_y_otro_pc(id: String) -> void:
 	var s: Dictionary = await Mundos._subir_bd(false)
 	ok(s.get("ok", false) and int(s.get("rev", 0)) == 1, "primera subida, entera: %d filas, rev %d" % [int(s.get("subidas", 0)), int(s.get("rev", 0))])
 	Game.money += 7
+	# AL EMPEZAR UN SEGUNDO (04/11, fallo en el banco): cerrar vuelve a guardar, y si el reloj cambia de segundo entre medias la
+	# fecha es una fila nueva que sube (rev 3). Es lo correcto en el juego; lo que aqui se mira es el rev exacto.
+	var seg0: int = int(Time.get_unix_time_from_system())
+	while int(Time.get_unix_time_from_system()) == seg0:
+		await get_tree().process_frame
 	Mundos.guardar_actual()
 	s = await Mundos._subir_bd(false)
 	ok(s.get("ok", false) and int(s.get("rev", 0)) == 2 and int(s.get("subidas", 99)) <= 5,

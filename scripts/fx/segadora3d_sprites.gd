@@ -29,6 +29,58 @@ const ANIMS := {
 	"cadaver": {"hoja": "muerte", "dirs": 8, "marcos": 1, "desde": 7, "fps": 1.0, "loop": false},
 }
 
+# LOS MUTANTES DE LA SEGADORA (05/11, segadora-mutante): su carpeta y sus animaciones (tools/sprites_sdf/segadora_mut_sdf.py).
+# Ya vienen a su tamaño y con SU color (sin el tinte del piso).
+const LIENZO_MUT := Vector2i(220, 220)
+const _MUT := {
+	"idle": {"hoja": "idle", "dirs": 8, "marcos": 8, "fps": 3.0, "loop": true},
+	"walk": {"hoja": "walk", "dirs": 8, "marcos": 8, "fps": 9.0, "loop": true},
+	"acecho": {"hoja": "acecho", "dirs": 8, "marcos": 8, "fps": 5.0, "loop": true},
+	"basico": {"hoja": "basico", "dirs": 8, "marcos": 6, "fps": 16.0, "loop": false},
+	"basico_der": {"hoja": "basico_der", "dirs": 8, "marcos": 6, "fps": 16.0, "loop": false},
+	"embestida": {"hoja": "embestida", "dirs": 8, "marcos": 8, "fps": 12.0, "loop": false},
+	"ensarte": {"hoja": "ensarte", "dirs": 8, "marcos": 8, "fps": 13.0, "loop": false},
+	"guadanas": {"hoja": "guadanas", "dirs": 8, "marcos": 8, "fps": 13.0, "loop": false},
+	"siega_carga": {"hoja": "siega_carga", "dirs": 8, "marcos": 8, "fps": 8.0, "loop": true},
+	"siega": {"hoja": "siega", "dirs": 8, "marcos": 7, "fps": 13.0, "loop": false},
+	"encaje": {"hoja": "encaje", "dirs": 8, "marcos": 4, "fps": 18.0, "loop": false},
+	"muerte": {"hoja": "muerte", "dirs": 8, "marcos": 8, "fps": 10.0, "loop": false},
+	"cadaver": {"hoja": "muerte", "dirs": 8, "marcos": 1, "desde": 7, "fps": 1.0, "loop": false},
+	"comer": {"hoja": "comer", "dirs": 8, "marcos": 10, "fps": 10.0, "loop": false},
+	"evolucion": {"hoja": "evolucion", "dirs": 8, "marcos": 18, "fps": 10.0, "loop": false},
+}
+const _MUT_VENDAVAL := {
+	"vendaval_carga": {"hoja": "vendaval_carga", "dirs": 8, "marcos": 8, "fps": 8.0, "loop": true},
+	"vendaval": {"hoja": "vendaval", "dirs": 8, "marcos": 7, "fps": 13.0, "loop": false},
+	"salto_atras": {"hoja": "salto_atras", "dirs": 8, "marcos": 6, "fps": 14.0, "loop": false},
+}
+const SPRITES_MUT := [&"sierra", &"vendaval"]
+
+
+static func _sprite_mutante(ed: EnemyData, mutacion: StringName) -> StringName:
+	var m: MutacionData = ed.mutacion_de(mutacion) if ed != null else null
+	return m.sprite if m != null and SPRITES_MUT.has(m.sprite) else &""
+
+
+# --- EL SPRITE DE MUTANTE (contrato de SpritesEnemigo, como Ciempies3DSprites) ---
+static func tiene_mutante(ed: EnemyData, mutacion: StringName = &"") -> bool:
+	return _sprite_mutante(ed, mutacion) != &""
+
+
+static func clave_mutante_de(ed: EnemyData, _t: float, mutacion: StringName = &"") -> String:
+	var s: StringName = _sprite_mutante(ed, mutacion)
+	return "" if s == &"" else "segadora3d_segadora_sdf_%s" % String(s)
+
+
+static func generar_mutante_de(ed: EnemyData, _t: float, mutacion: StringName = &"") -> SpriteFrames:
+	var s: StringName = _sprite_mutante(ed, mutacion)
+	if s == &"":
+		return null
+	var a: Dictionary = _MUT.duplicate()
+	if s == &"vendaval":
+		a.merge(_MUT_VENDAVAL)
+	return Sprites3D.montar("res://assets/sprites/enemigos/segadora_sdf_%s/" % String(s), a, LIENZO_MUT, BASE, BASE)
+
 
 # --- Contrato de SpritesEnemigo ---
 static func generar_de(ed: EnemyData, t: float) -> SpriteFrames:

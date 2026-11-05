@@ -266,7 +266,10 @@ ANIMS = {
 
 if __name__ == '__main__':
     args = sys.argv[1:]
-    if args == ['vistas']:
+    if args[:1] == ['puntas']:
+        import json
+        json.dump(puntas_armas(escena, MODELO, ANIMS, ('guadana_-1', 'guadana_1'), 'hoja'), open(args[1], 'w'))
+    elif args == ['vistas']:
         os.makedirs(VISTAS, exist_ok=True)
         fotos = [render(MODELO, escena(POSE()), d) for d in range(5)]
         print(vistas_lado_a_lado(fotos, 'segadora_806e40_2.20', VISTAS + 'segadora_vs_viejo.png', 3))

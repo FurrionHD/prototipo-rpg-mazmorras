@@ -119,6 +119,7 @@ static func area(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, n_nuc
 	e.z_index = SueloRoto.Z_SUELO
 	e.process_mode = Node.PROCESS_MODE_ALWAYS
 	padre.add_child(e)
+	CapaPixel.meter(e)   # en pixel art (memoria efectos-pixel-personajes)
 	e._preparar_area()
 	return e
 
@@ -217,6 +218,7 @@ static func golpe(padre: Node, m: int, desde: Vector2, caja: Rect2, fallo: bool,
 	e.z_index = Z_ENCIMA
 	e.process_mode = Node.PROCESS_MODE_ALWAYS   # la pelea tactica pausa el arbol
 	padre.add_child(e)
+	CapaPixel.meter(e)   # en pixel art (memoria efectos-pixel-personajes)
 	e._preparar_golpe()
 	return e
 

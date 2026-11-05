@@ -335,6 +335,12 @@ var anim_basico: StringName = &""   # ver EnemyData.anim_basico
 # las armas a distancia, cuando las haya) si. Lo marca la habilidad que carga (AbilityData.eleva).
 func volando() -> bool:
 	return charging != null and charging.eleva
+
+# VUELA SIEMPRE (05/11, polilla y chillon): el cuerpo a cuerpo les llega igual (eso es volando()), pero el viento les da de lleno.
+var vuela: bool = false
+
+func en_el_aire() -> bool:
+	return vuela or volando()
 var al_ser_golpeado_texto: String = ""
 
 # LA TABLA DE AMENAZA de este enemigo (30/09, como en el WoW): cuanta le ha generado cada uno de los tuyos
@@ -493,6 +499,11 @@ var devuelve_corte_frac: float = 0.0
 var resiste_magia: float = 1.0
 var sigilo_prob: float = 0.0
 var salto_esquiva: float = 0.0
+# (05/11, los de la Segadora, ver MutacionData) ZONA DE SIEGA, CORTES DE VIENTO y VUELO CORTO.
+var zona_siega: float = 0.0
+var cortes_viento: float = 0.0
+var cortes_melee_mult: float = 1.0
+var vuelo_corto_prob: float = 0.0
 # (31/10, los mutantes del rey rata, ver MutacionData) LLAMADA, ESCUDO DE CARNE, FURIA DE REY, A MI ESPALDA, FRENTE
 # BLINDADO y ARMA A LA CAMADA.
 var llamada_min: int = 0
@@ -623,6 +634,12 @@ var runa_alcantarilla_dano: float = 0.0  # ...y + este % del golpe que lo abre
 var runa_hilo_prob: float = 0.0         # set Hilo conductor (03/11): prob. de que el golpe rebote en rayo...
 var runa_hilo_dano: float = 0.0         # ...con este % del golpe...
 var runa_hilo_radio: float = 0.0        # ...a un enemigo a esta distancia del golpeado
+# set FILO DE AIRE (05/11, la segadora): tus golpes de arma se alargan con un corte de VIENTO de runa_filo_dano x el golpe a
+# quien la forma normal no toco: conos y circulos +runa_filo_mas de radio, lineas +runa_filo_linea, a uno runa_filo_detras px.
+var runa_filo_dano: float = 0.0
+var runa_filo_mas: float = 0.0
+var runa_filo_linea: float = 0.0
+var runa_filo_detras: float = 0.0
 var runa_musgo_reduce: float = 0.0     # set Musgo viejo (31/10): -% de los golpes de AREA (no quemado)
 var runa_ambar: float = 0.0            # set Ambar (03/11): capa de ambar (fraccion de tu vida) = la COSTRA de arriba...
 var runa_ambar_turnos: int = 3         # ...que, rota, vuelve a los tantos turnos tuyos
@@ -827,7 +844,7 @@ func aplicar_imbue(elem: int, pct: float, usos: int, cuerpo: bool,
 func rodar_prisma() -> void:
 	if not imbue_prisma or imbue_usos <= 0:
 		return
-	var e: int = Elementos.TODOS[randi() % Elementos.TODOS.size()]
+	var e: int = Elementos.AZAR_MAGIA[randi() % Elementos.AZAR_MAGIA.size()]
 	imbue_elemento = e
 	# Y deja el ESTADO de ese elemento (03/10, su decision), como los mantos de uno solo.
 	imbue_estado = int(Elementos.ESTADO_DE_IMBUIR.get(e, -1))
@@ -1171,6 +1188,13 @@ func take_damage(amount: float, es_dot: bool = false) -> void:
 	else:
 		amount *= 1.0 - clampf(runa_menos_dot, 0.0, 0.9)
 	if not es_dot:
+		# LO QUE LE PASA AL ENCAJAR UN GOLPE DE VERDAD (04/11, el escarabajo): se le pegan limaduras; en el aire, lo bajan.
+		if amount > 0.0 and limaduras_tope > 0:
+			apply_status(StatusEffects.Id.LIMADURAS)
+		if amount > 0.0 and has_status(StatusEffects.Id.EN_VUELO):
+			_quitar_status(StatusEffects.Id.EN_VUELO)
+			derribado = true
+			print("[vuelo] %s: el golpe le baja del aire" % nombre)
 		_golpe_recibido = maxf(amount, 0.0)
 		_golpe_frame = Engine.get_process_frames()
 		# EL QUE ESTA EN LAS SOMBRAS sale al encajar un golpe de verdad (30/10, la rata sombria). El veneno no le saca.
@@ -1178,6 +1202,65 @@ func take_damage(amount: float, es_dot: bool = false) -> void:
 			_quitar_status(StatusEffects.Id.EN_SOMBRAS)
 			print("[sombras] %s: el golpe le saca de las sombras" % nombre)
 	current_hp = maxf(0.0, current_hp - amount)
+
+
+# LO QUE SE VE (04/11, playtest: "la capa de ambar se rompe al pulsar el boton"). El daño se resuelve al pulsar y el golpe
+# se ve despues; la barra de vida ya lo esperaba, pero la capa no. Solo para pintar: lo escribe cada fotograma
+# CombatEfectos.tick_capas. -1 = nadie lo pinta (sin pantalla): vale lo de verdad.
+var vis_hp: float = -1.0
+var vis_costra: float = -1.0
+var vis_agua: float = -1.0
+
+func vida_vista() -> float:
+	return vis_hp if vis_hp >= 0.0 else current_hp
+
+func costra_vista() -> float:
+	return vis_costra if vis_costra >= 0.0 else costra
+
+func agua_vista() -> float:
+	return vis_agua if vis_agua >= 0.0 else runa_escudo_agua
+
+
+# (04/11, los mutantes del escarabajo: MutacionData)
+var adherencia_radio: float = 0.0
+var limaduras_tope: int = 0
+var pega_y_se_va: float = 0.0
+var orbita: bool = false
+var derribado: bool = false          # un area le ha dado en el aire: la pelea le corta el Picado
+var limaduras_gastadas: bool = false # su Embestida ya las ha usado: la pelea se las quita al acabar el fotograma
+var imparable_coraza: bool = false   # el imparable se lo ha puesto la Coraza (no es suyo de siempre)
+# (05/11, los mutantes del ciempies: MutacionData)
+var dos_mentes: bool = false
+var basico_propio: AbilityData = null
+var basico_una_cabeza: AbilityData = null
+var cabeza_libre_mult: float = 0.0
+var cabeza_libre_radio: float = 70.0
+var enrosque_pegados_radio: float = 0.0
+var aprieta_por_turno: float = 0.0
+var aprieta_max: float = 0.0
+# LAS DOS CABEZAS: 0 = la A, la que enrosca; 1 = la B, la que queda libre. Un aturdimiento suelto va primero a la B.
+var cabezas_dormidas: Array = [false, false]
+var cabezas_este_turno: Array = [false, false]   # las que no actuan este turno suyo (tick_statuses las despierta)
+var _cabeza_control: Array = [0, 0]              # el decaimiento de cada cabeza por su cuenta
+var _cabeza_frio: Array = [0, 0]
+# El aturdimiento que viene ahora es de AREA: pilla a las dos cabezas. Lo pone quien lo lanza y se gasta al usarlo.
+var aturdir_en_area: bool = false
+# Y el set Dos mentes: el primer aturdimiento que te entra no te para; se recarga a los runa_mentes_turnos turnos tuyos.
+var runa_mentes_turnos: int = 0
+var runa_mentes_espera: int = 0
+# Lo que hay que avisar en pantalla (lo recoge la pelea, CombatTactico._tick_avisos_mentes): 1 = el set ha parado un
+# aturdimiento, 2 = una cabeza se ha dormido.
+var aviso_mentes: int = 0
+# Y el set Campo magnetico.
+var runa_campo_cada: int = 0
+var runa_campo_radio: float = 0.0
+var runa_campo_barra: float = 0.0
+var runa_campo_cuenta: int = 0
+
+
+# ¿No se le puede elegir de objetivo? En las sombras o en el aire: las areas si le dan.
+func no_elegible() -> bool:
+	return en_sombras() or has_status(StatusEffects.Id.EN_VUELO)
 
 
 # EN LAS SOMBRAS (30/10): ni se le ve ni se le puede elegir de objetivo; las areas si le dan.
@@ -1391,10 +1474,19 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 		print("[runas] %s: el escudo de agua para el %s" % [nombre, String(d.get("nombre", "?"))])
 		runa_agua_paradas += 1
 		return
+	# EL SET DOS MENTES: lo aguanta tu otra cabeza. No gasta escalon: no te ha llegado a parar.
+	if id == StatusEffects.Id.ATURDIDO and runa_mentes_turnos > 0 and runa_mentes_espera <= 0:
+		runa_mentes_espera = runa_mentes_turnos
+		aviso_mentes = 1
+		print("[runas] %s: Dos mentes aguanta el aturdimiento" % nombre)
+		return
+	# DOS MENTES (el ciempies): este aturdimiento se queda en una cabeza; solo con las dos dormidas pasa a ser de verdad.
+	if id == StatusEffects.Id.ATURDIDO and dos_mentes and not _dormir_cabezas():
+		return
 	# UN CONTROL QUE PRENDE gasta escalon del decaimiento (el siguiente costara el doble). Va aqui,
 	# en el choke point, y no en cada tirada: fallar NO gasta escalon -- si lo gastara, resistir un
 	# aturdimiento te haria mas resistente al siguiente sin haberte costado nada.
-	if StatusEffects.es_control(id):
+	if StatusEffects.es_control(id) and not (dos_mentes and id == StatusEffects.Id.ATURDIDO):
 		anotar_control()
 	# LAS CARGAS: un control que prende le quita una, y el agua a la de fuego.
 	if StatusEffects.es_control(id) or (id == StatusEffects.Id.MOJADO and carga_elemento == Elementos.Elemento.FUEGO):
@@ -1596,6 +1688,14 @@ func _min_turns_status(id: int):
 # activo durante la accion de los 3 turnos (si no, se "gasta" uno antes de poder usarlo).
 func tick_statuses() -> Dictionary:
 	enfriar_control()   # un turno mas sin que le prenda un control: el decaimiento se va soltando
+	# DOS MENTES: las cabezas dormidas pierden ESTE turno y luego se despiertan.
+	cabezas_este_turno = cabezas_dormidas.duplicate()
+	cabezas_dormidas = [false, false]
+	# (a mano: los estados sin efecto se saltan su primer descuento, y el aviso duraba un turno de mas)
+	if dos_mentes:
+		quitar_estado(StatusEffects.Id.UNA_CABEZA)
+	if runa_mentes_espera > 0:
+		runa_mentes_espera -= 1
 	var antes_de_tick: int = statuses.size()
 	var total_dmg: float = 0.0
 	var total_heal: float = 0.0
@@ -2042,6 +2142,9 @@ var _control_frio: int = 0     # turnos que lleva sin que le prenda ninguno
 func decaimiento_control(id: int) -> float:
 	if not StatusEffects.es_control(id):
 		return 1.0
+	# (DOS MENTES: el aturdir mira el escalon de la cabeza a la que le tocaria.)
+	if dos_mentes and id == StatusEffects.Id.ATURDIDO:
+		return CONTROL_ESCALERA[mini(int(_cabeza_control[_cabeza_siguiente()]), CONTROL_ESCALERA.size() - 1)]
 	return CONTROL_ESCALERA[mini(_control_n, CONTROL_ESCALERA.size() - 1)]
 
 
@@ -2052,8 +2155,46 @@ func anotar_control() -> void:
 	_control_frio = 0
 
 
+# LA CABEZA A LA QUE LE TOCA EL PROXIMO: primero la que queda libre (la B), luego la que enrosca.
+func _cabeza_siguiente() -> int:
+	return 0 if bool(cabezas_dormidas[1]) else 1
+
+
+# DOS MENTES (05/11, sus palabras): "se estunee dos veces, o con un ataque de area que golpee a las dos cabezas, y que cada
+# cabeza lleve su contador". Duerme una cabeza (o las dos, si es de area). Devuelve true si ya no queda ninguna despierta:
+# entonces SI es un Aturdido de los de siempre, y apply_status sigue.
+func _dormir_cabezas() -> bool:
+	var area: bool = aturdir_en_area
+	aturdir_en_area = false
+	for _k in (2 if area else 1):
+		var c: int = _cabeza_siguiente()
+		if bool(cabezas_dormidas[c]):
+			break
+		cabezas_dormidas[c] = true
+		_cabeza_control[c] = mini(int(_cabeza_control[c]) + 1, CONTROL_ESCALERA.size() - 1)
+		_cabeza_frio[c] = 0
+	if bool(cabezas_dormidas[0]) and bool(cabezas_dormidas[1]):
+		quitar_estado(StatusEffects.Id.UNA_CABEZA)
+		return true
+	apply_status(StatusEffects.Id.UNA_CABEZA)
+	aviso_mentes = 2
+	frenar_carga()
+	return false
+
+
+# ¿Le falta una cabeza este turno suyo?
+func una_cabeza_este_turno() -> bool:
+	return dos_mentes and (bool(cabezas_este_turno[0]) or bool(cabezas_este_turno[1]))
+
+
 # Un turno mas sin que le prenda ningun control. Lo llama tick_statuses.
 func enfriar_control() -> void:
+	if dos_mentes:
+		for k in 2:
+			_cabeza_frio[k] = int(_cabeza_frio[k]) + 1
+			if int(_cabeza_frio[k]) >= CONTROL_RESET:
+				_cabeza_control[k] = 0
+				_cabeza_frio[k] = 0
 	if _control_n <= 0:
 		return
 	_control_frio += 1

@@ -192,7 +192,7 @@ func pintar_escudos_agua(soltar: bool = false) -> void:
 			continue
 		if soltar:
 			EscudoAgua.quitar(cu)
-		elif c.runa_escudo_max > 0.0 and c.runa_escudo_agua > 0.0 and c.is_alive():
+		elif c.runa_escudo_max > 0.0 and c.agua_vista() > 0.0 and c.is_alive():
 			# EL DIBUJO ENTERO del muñeco (no su caja de choque, que es solo la parte de abajo: la primera lamina salio
 			# con la burbuja en los pies). Ya esta donde esta el nodo, que es lo que sigue la burbuja.
 			var m = cu.get("_muneco")
@@ -421,6 +421,11 @@ func desmontar() -> void:
 			(par[0] as Node).process_mode = par[1]
 	_modos_guardados.clear()
 	_tirones.clear()
+	# Fuera de la pelea las piernas vuelven a su ritmo (a x2 se las habia puesto _animar).
+	for a in _pantalla._aliados:
+		var cu: Node2D = cuerpo_de(a)
+		if is_instance_valid(cu) and cu.get("_muneco") is MunecoJugador:
+			(cu.get("_muneco") as MunecoJugador).velocidad = 1.0
 	_quitar_circulo()
 	_apagar_circulos()
 	olvidar_charcos()
@@ -437,6 +442,8 @@ func desmontar() -> void:
 		_trent.quitar()
 	if _arana != null:
 		_arana.quitar()
+	if _pixel != null:
+		_pixel.quitar()
 	pintar_imbuiciones(true)
 	pintar_escudos_agua(true)
 	for cu in _gestos_mapa.keys():   # un gesto a medias no puede dejar la marca puesta: no se volveria a animar
@@ -799,6 +806,7 @@ func radio_de(c: Combatant) -> float:
 # LO DE LOS MUTANTES DEL TRENT Y SUS BICHOS encima de los cuerpos (03/11): la resina, el humo, el pringue... aparte.
 var _trent: TacticoTrent = null
 var _arana: TacticoArana = null
+var _pixel: TacticoPixel = null
 
 
 # LA FURIA DE REY A LA VISTA (31/10, el rey rata): quien lleve FURIA_REY lleva encima sus ojos rojos y su vaho
@@ -1106,7 +1114,7 @@ func llega(a: Combatant, b: Combatant) -> bool:
 	if b.volando() and _pantalla._enemies.has(b) and not _pantalla._enemies.has(a) and not a.a_distancia:
 		return false
 	# EN LAS SOMBRAS (30/10, la rata sombria): a quien no se ve no se le pega a el; solo le dan las areas.
-	if b.en_sombras() and _pantalla._enemies.has(b) and not _pantalla._enemies.has(a):
+	if b.no_elegible() and _pantalla._enemies.has(b) and not _pantalla._enemies.has(a):
 		return false
 	var tope: float = alcance_de(a)
 	if not _pantalla._espejo and _pantalla._aliados.has(a) and not _es_mio(a):
@@ -1372,7 +1380,7 @@ func apuntar_al_mas_cercano(c: Combatant) -> void:
 	var mejor_hueco: float = INF
 	for i in _pantalla._enemies.size():
 		var e: Combatant = _pantalla._enemies[i]
-		if e == null or not e.is_alive() or e.en_sombras():
+		if e == null or not e.is_alive() or e.no_elegible():
 			continue
 		var a_tiro: bool = llega(c, e)
 		var hueco: float = hueco_entre(c, e)
@@ -1417,6 +1425,9 @@ func tick(delta: float) -> bool:
 	if _arana == null:
 		_arana = TacticoArana.new(self)
 	_arana.tick()
+	if _pixel == null:
+		_pixel = TacticoPixel.new(self)
+	_pixel.tick()
 	_tick_circulos()
 	_tick_alcances()
 	_tick_huellas(delta)
@@ -1434,6 +1445,7 @@ func tick(delta: float) -> bool:
 	_tick_carne()
 	_tick_presas_carga()
 	_tick_enroscados()
+	_tick_avisos_mentes()
 	_tick_pegadas(delta)
 	_tick_vis_pegadas()
 	_tick_tirones(delta)
@@ -1598,8 +1610,13 @@ func usa_huella_hechizo(spell: SpellData) -> bool:
 
 
 func huella_hechizo(spell: SpellData) -> AbilityData:
-	if _huellas_hechizo.has(spell):
-		return _huellas_hechizo[spell]
+	if not _huellas_hechizo.has(spell):
+		_huellas_hechizo[spell] = crear_huella_hechizo(spell)
+	return _huellas_hechizo[spell]
+
+
+# La huella de un hechizo, sin pelea por medio: la pelea y el conjuro cargado del mapa (conjuro_cargado.gd).
+static func crear_huella_hechizo(spell: SpellData) -> AbilityData:
 	var ab := AbilityData.new()
 	ab.nombre = spell.nombre
 	ab.forma = spell.forma
@@ -1617,7 +1634,6 @@ func huella_hechizo(spell: SpellData) -> AbilityData:
 	# (ver punto_con_iman). Lo que se apunta sigue con su alcance de siempre (huella_apunte_hechizo).
 	if spell.forma_iman > 0.0 and int(spell.forma_apunte) == CombatFormas.Apunte.LIBRE:
 		ab.forma_rango = spell.forma_rango + spell.forma_iman
-	_huellas_hechizo[spell] = ab
 	return ab
 
 
@@ -1628,9 +1644,16 @@ var _huellas_iman: Dictionary = {}   # SpellData -> AbilityData
 func huella_apunte_hechizo(spell: SpellData) -> AbilityData:
 	if spell == null or (spell.forma_iman <= 0.0 and not a_un_aliado(spell)):
 		return huella_hechizo(spell)
-	if _huellas_iman.has(spell):
-		return _huellas_iman[spell]
-	var ab: AbilityData = huella_hechizo(spell).duplicate()
+	if not _huellas_iman.has(spell):
+		_huellas_iman[spell] = crear_huella_apunte(spell)
+	return _huellas_iman[spell]
+
+
+static func crear_huella_apunte(spell: SpellData) -> AbilityData:
+	var ab: AbilityData = crear_huella_hechizo(spell)
+	if spell.forma_iman <= 0.0 and not a_un_aliado(spell):
+		return ab
+	ab = ab.duplicate()
 	ab.forma_rango = spell.forma_rango
 	# A UNO DE LOS TUYOS (Filos, Mantos, Vendaje; 30/10, el jefe: "seleccionas un aliado y se le lanza independientemente
 	# de donde este"): un circulo con iman para elegirle (el mas cercano a su centro, aliados_de_huella), en toda la zona.
@@ -1638,7 +1661,6 @@ func huella_apunte_hechizo(spell: SpellData) -> AbilityData:
 		ab.forma = CombatFormas.Tipo.CIRCULO
 		ab.forma_radio = spell.forma_iman if spell.forma_iman > 0.0 else RADIO_ELEGIR_ALIADO
 		ab.forma_rango = ALCANCE_ELEGIR_ALIADO
-		_huellas_iman[spell] = ab
 		return ab
 	if int(spell.forma) == CombatFormas.Tipo.LINEA:
 		ab.forma_ancho = spell.forma_iman
@@ -1647,7 +1669,6 @@ func huella_apunte_hechizo(spell: SpellData) -> AbilityData:
 		ab.forma_radio = spell.forma_iman
 	ab.forma_solo_primero = true
 	ab.set_meta(&"iman", true)
-	_huellas_iman[spell] = ab
 	return ab
 
 
@@ -1787,6 +1808,31 @@ func reelegir_aliado(spell: SpellData, c: Combatant) -> void:
 		_reeligiendo = null
 
 
+# ELEGIR EL SITIO de un conjuro que entro en la pelea sin el (cargado sin apuntar, o interrumpido a media frase; 04/11,
+# el jefe: "al entrar te deja apuntarla cuando llegue tu turno"). Se apunta como siempre y 'al_elegir' recibe el punto.
+var _al_elegir_sitio: Callable = Callable()
+
+func apuntar_sitio(spell: SpellData, c: Combatant, al_elegir: Callable) -> void:
+	if c != null and _quien != c:
+		var cuerpo: Node2D = cuerpo_de(c)
+		if cuerpo != null:
+			_quien = c
+			_cuerpo = cuerpo
+	_al_elegir_sitio = al_elegir
+	apuntar(huella_apunte_hechizo(spell))
+	if _apuntando == null:
+		_al_elegir_sitio = Callable()
+	elif is_instance_valid(_boton_volver):
+		_boton_volver.visible = false   # el conjuro ya esta en marcha: no hay menu al que volver
+
+
+func confirmar_sitio(punto: Vector2) -> void:
+	var al_elegir: Callable = _al_elegir_sitio
+	_al_elegir_sitio = Callable()
+	_dejar_de_apuntar()
+	al_elegir.call(punto)
+
+
 # EL IMAN AL SOLTARLA: si alguien esta en la zona de enganche apuntada en 'punto', el punto pasa a SU cuerpo (el mas
 # cercano al centro en un circulo, el primero que se cruza en una linea) y la magia sale hacia el como siempre. Nadie
 # dentro = el punto de siempre (cae donde se apunto).
@@ -1795,7 +1841,7 @@ func punto_con_iman(spell: SpellData, c: Combatant, punto: Vector2) -> Vector2:
 		return punto
 	var ab: AbilityData = huella_apunte_hechizo(spell)
 	# (30/10) El iman no engancha a quien esta en las sombras (le delataria); el area, si le cae, le da igual.
-	var rep: Array = _reparto_en(ab, c, forma_de(ab, c, punto)).filter(func(r): return not (r["c"] as Combatant).en_sombras())
+	var rep: Array = _reparto_en(ab, c, forma_de(ab, c, punto)).filter(func(r): return not (r["c"] as Combatant).no_elegible())
 	if rep.is_empty():
 		return punto
 	return bulto_de(rep[0]["c"]).get_center()
@@ -1900,7 +1946,7 @@ func siguiente_en_cadena(desde: Combatant, ya: Array, maximo: float) -> Combatan
 	var mejor: Combatant = null
 	var d_mejor: float = INF
 	for e in _pantalla._vivos():
-		if ya.has(e) or e.en_sombras():
+		if ya.has(e) or e.no_elegible():
 			continue   # (30/10) la cadena salta a quien se ve
 		var d: float = hueco_entre(desde, e)
 		if d <= maximo and d < d_mejor - 0.001:
@@ -1964,6 +2010,9 @@ func _reparto_en(ab: AbilityData, c: Combatant, f) -> Array:
 		elif f.tramos > 1:
 			# El cono a TROZOS (la Onda): cada tramo mas lejos, forma_tramo_baja menos.
 			esc = maxf(0.0, ab.forma_escala - ab.forma_tramo_baja * float(f.tramo_de(r)))
+		# EN ABANICO (el Vendaval de cortes): una por linea que le toque; donde se cruzan, varias.
+		if f.abanico > 1:
+			esc *= float(f.veces(r))
 		# SOLO AL PRIMERO: manda lo cerca que este de quien pega, no del centro de la huella. Y en el
 		# AVANCE tambien: los golpes caen en el orden en que te los cruzas.
 		# (El IMAN de un circulo, huella_apunte_hechizo: al mas cercano al CENTRO.)
@@ -2175,6 +2224,7 @@ func _refrescar_apunte(raton: Vector2) -> void:
 			Desliz.ANTES: pilla = "te acercas y estocada"
 			Desliz.YA: pilla = "solo el paso"
 		_letrero.text = ("%s: párate para lanzarla" % _apuntando.nombre) if _andando \
+			else ("%s: %s.  Clic para elegir el sitio" % [_apuntando.nombre, pilla]) if _al_elegir_sitio.is_valid() \
 			else "%s: %s.  Clic para lanzarla · clic derecho para volver" % [_apuntando.nombre, pilla]
 
 
@@ -2182,6 +2232,9 @@ func _confirmar_apunte() -> void:
 	# HAY QUE ESTAR QUIETO para lanzarla (lo pidio el usuario): asi el personaje ya se ha girado hacia
 	# donde golpea. Andando, el clic no hace nada (el letrero lo avisa).
 	if _andando:
+		return
+	if _al_elegir_sitio.is_valid():
+		confirmar_sitio(_raton_en_mundo())
 		return
 	var ab: AbilityData = _apuntando
 	# LAS DE UNO DE LOS TUYOS (Escolta, Muro) no se lanzan al aire: sin nadie debajo, el clic no hace nada.
@@ -2218,8 +2271,8 @@ func _confirmar_apunte() -> void:
 
 
 func _cancelar_apunte() -> void:
-	if _reeligiendo != null:
-		return   # el conjuro ya esta recitado: hay que elegir a alguien (no hay menu al que volver)
+	if _reeligiendo != null or _al_elegir_sitio.is_valid():
+		return   # el conjuro ya esta en marcha: hay que elegir (no hay menu al que volver)
 	var era_hechizo: bool = not _hechizo_apuntado.is_empty()
 	_hechizo_apuntado = []
 	_dejar_de_apuntar()
@@ -2700,33 +2753,97 @@ func _tick_presas_carga() -> void:
 # Todo en quien lleva la pelea; el estado viaja a los espejos como puerta (Combatant.PUERTA_ENROSCADO).
 const PROB_SOLTARSE := 0.3
 const SUELTA_POR_DANO := 0.35
-var _enroscados: Dictionary = {}   # Combatant (el que enrosca) -> {"presa": Combatant, "hp": vida al enroscar}
+var _enroscados: Dictionary = {}   # Combatant (el que enrosca) -> {"presas": [{"c", "cabeza"}], "hp": vida al enroscar, "turnos"}
 
+# (05/11, los mutantes) Cada presa va con UNA cabeza: 0 la A, 1 la B. El ciempies normal y el Bicefalo tienen una sola
+# presa (con la A); el Nudo carmesi, si hay otro pegado a la primera (enrosque_pegados_radio), tambien con la B.
 func empezar_enrosque(e: Combatant, presa: Combatant) -> bool:
 	if _pantalla._espejo or e == null or presa == null or not e.is_alive() or not presa.is_alive() \
 			or _enroscados.has(e) or presa.enroscado():
 		return false
-	_enroscados[e] = {"presa": presa, "hp": e.current_hp}
+	_enroscados[e] = {"presas": [{"c": presa, "cabeza": 0}], "hp": e.current_hp, "turnos": 0}
 	e.apply_status(StatusEffects.Id.ENROSCADO)
 	presa.apply_status(StatusEffects.Id.ENROSCADO)
+	if e.enrosque_pegados_radio > 0.0:
+		var otro: Combatant = _pegado_a(presa, e.enrosque_pegados_radio)
+		if otro != null:
+			_enroscados[e]["presas"].append({"c": otro, "cabeza": 1})
+			otro.apply_status(StatusEffects.Id.ENROSCADO)
 	return true
 
 
-# A quien tiene enroscado 'e' (null = a nadie).
+# El de los tuyos mas cercano a 'presa', a 'radio' px como mucho y sin enroscar.
+func _pegado_a(presa: Combatant, radio: float) -> Combatant:
+	var mejor: Combatant = null
+	var mejor_d: float = radio * radio
+	for c in _pantalla._aliados:
+		if c == presa or not (c as Combatant).is_alive() or (c as Combatant).enroscado() or cuerpo_de(c) == null:
+			continue
+		var d: float = pos_de(c).distance_squared_to(pos_de(presa))
+		if d <= mejor_d:
+			mejor_d = d
+			mejor = c
+	return mejor
+
+
+# A quien tiene enroscado 'e' (null = a nadie). Con dos, la primera.
 func enrosque_de(e: Combatant) -> Combatant:
 	var d = _enroscados.get(e)
-	return d["presa"] if d != null else null
+	return d["presas"][0]["c"] if d != null and not (d["presas"] as Array).is_empty() else null
 
 
-# Lo suelta: los dos pierden el estado y se dice por que.
-func soltar_enrosque(e: Combatant, motivo: String) -> void:
+# Todas sus presas.
+func presas_de(e: Combatant) -> Array:
+	var d = _enroscados.get(e)
+	return [] if d == null else (d["presas"] as Array).map(func(p): return p["c"])
+
+
+# APRIETA MAS (el Nudo carmesi): un turno mas apretando.
+func contar_apreton(e: Combatant) -> void:
+	var d = _enroscados.get(e)
+	if d != null:
+		d["turnos"] = int(d["turnos"]) + 1
+
+
+func mult_apreton(e: Combatant) -> float:
+	var d = _enroscados.get(e)
+	if d == null or e.aprieta_por_turno <= 0.0:
+		return 1.0
+	return 1.0 + minf(e.aprieta_por_turno * maxi(int(d["turnos"]) - 1, 0), e.aprieta_max)
+
+
+# A QUIEN LLEGA LA CABEZA LIBRE: el mas cercano de los tuyos que no sea su presa (desde su presa: de ahi sale lo libre).
+func a_tiro_de_la_libre(e: Combatant) -> Combatant:
+	var presa: Combatant = enrosque_de(e)
+	if presa == null:
+		return null
+	var mejor: Combatant = null
+	var mejor_d: float = e.cabeza_libre_radio * e.cabeza_libre_radio
+	for c in _pantalla._aliados:
+		if c == presa or not (c as Combatant).is_alive() or cuerpo_de(c) == null:
+			continue
+		var d: float = pos_de(c).distance_squared_to(pos_de(presa))
+		if d <= mejor_d:
+			mejor_d = d
+			mejor = c
+	return mejor
+
+
+# Lo suelta: 'solo' = solo a esa presa (el Nudo con dos); si no le queda ninguna, tambien pierde el estado el.
+func soltar_enrosque(e: Combatant, motivo: String, solo: Combatant = null) -> void:
 	var d = _enroscados.get(e)
 	if d == null:
 		return
-	_enroscados.erase(e)
-	var presa: Combatant = d["presa"]
-	e.quitar_estado(StatusEffects.Id.ENROSCADO)
-	presa.quitar_estado(StatusEffects.Id.ENROSCADO)
+	var quedan: Array = []
+	for p in d["presas"]:
+		if solo != null and p["c"] != solo:
+			quedan.append(p)
+		else:
+			(p["c"] as Combatant).quitar_estado(StatusEffects.Id.ENROSCADO)
+	d["presas"] = quedan
+	if quedan.is_empty():
+		_enroscados.erase(e)
+		e.quitar_estado(StatusEffects.Id.ENROSCADO)
 	if motivo != "":
 		_pantalla._set_log(motivo)
 	_pantalla._update_hp()
@@ -2735,14 +2852,35 @@ func soltar_enrosque(e: Combatant, motivo: String) -> void:
 # LA PRESA PASA: forcejea, y con PROB_SOLTARSE se suelta. Devuelve la linea del log.
 func forcejear(c: Combatant) -> String:
 	for e in _enroscados.keys():
-		if _enroscados[e]["presa"] != c:
+		if not presas_de(e).has(c):
 			continue
 		_temblar_presa(c)   # forcejea
 		if randf() < PROB_SOLTARSE:
-			soltar_enrosque(e, "")
+			soltar_enrosque(e, "", c)
 			return "💪 %s forcejea y se suelta de %s." % [c.nombre, _pantalla._etq(e)]
 		return "%s forcejea, pero %s no le suelta. 🐛" % [c.nombre, _pantalla._etq(e)]
 	return "%s pasa el turno. ⏳" % c.nombre
+
+
+# DOS MENTES SE VE (05/11): el aviso viaja como el de INMUNE y su peso dice cual es, asi sale en todas las pantallas sin
+# gastar un estilo nuevo: 1 INMUNE, 0,5 el set que para el aturdimiento, 0,25 una cabeza dormida.
+func _tick_avisos_mentes() -> void:
+	if _pantalla._espejo:
+		return
+	for c in _pantalla._aliados + _pantalla._enemies:
+		if (c as Combatant).aviso_mentes == 0:
+			continue
+		var peso: float = 0.5 if (c as Combatant).aviso_mentes == 1 else 0.25
+		(c as Combatant).aviso_mentes = 0
+		if (c as Combatant).is_alive():
+			_pantalla.efectos._fx_golpe(c, c, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.AVISO_INMUNE, peso, true)
+
+
+func _texto_aviso_inmune(ev: Dictionary) -> String:
+	var peso: float = float(ev.get("peso", 1.0))
+	if peso < 0.4:
+		return "¡UNA CABEZA!"
+	return "¡DOS MENTES!" if peso < 0.75 else "INMUNE"
 
 
 # Cada fotograma en quien lleva la pelea: lo que suelta al ciempies sin que sea su turno.
@@ -2751,20 +2889,29 @@ func _tick_enroscados() -> void:
 		return
 	for e in _enroscados.keys():
 		var d: Dictionary = _enroscados[e]
-		var presa: Combatant = d["presa"]
-		if not (e as Combatant).is_alive() or not presa.is_alive():
+		if not (e as Combatant).is_alive():
 			soltar_enrosque(e, "")
-		elif (e as Combatant).aturdido():
-			soltar_enrosque(e, "💫 %s, aturdido, suelta a %s." % [_pantalla._etq(e), presa.nombre])
-		elif float(d["hp"]) - (e as Combatant).current_hp >= SUELTA_POR_DANO * float((e as Combatant).max_hp):
-			soltar_enrosque(e, "🐛 %s no aguanta más golpes y suelta a %s." % [_pantalla._etq(e), presa.nombre])
+			continue
+		if (e as Combatant).aturdido():
+			soltar_enrosque(e, "💫 %s, aturdido, suelta a su presa." % _pantalla._etq(e))
+			continue
+		if float(d["hp"]) - (e as Combatant).current_hp >= SUELTA_POR_DANO * float((e as Combatant).max_hp):
+			soltar_enrosque(e, "🐛 %s no aguanta más golpes y suelta a su presa." % _pantalla._etq(e))
+			continue
+		for p in (d["presas"] as Array).duplicate():
+			var presa: Combatant = p["c"]
+			if not presa.is_alive():
+				soltar_enrosque(e, "", presa)
+			# DOS MENTES: la cabeza que aprieta, dormida, suelta a SU presa.
+			elif (e as Combatant).dos_mentes and bool((e as Combatant).cabezas_dormidas[int(p["cabeza"])]):
+				soltar_enrosque(e, "💫 La cabeza aturdida de %s suelta a %s." % [_pantalla._etq(e), presa.nombre], presa)
 	# Un Enroscado sin nadie que lo sujete (no deberia pasar) no se queda para siempre.
 	for c in _pantalla._aliados + _pantalla._enemies:
 		if not (c as Combatant).has_status(StatusEffects.Id.ENROSCADO) or _enroscados.has(c):
 			continue
 		var sujeto: bool = false
 		for e2 in _enroscados:
-			if _enroscados[e2]["presa"] == c:
+			if presas_de(e2).has(c):
 				sujeto = true
 		if not sujeto:
 			(c as Combatant).quitar_estado(StatusEffects.Id.ENROSCADO)
@@ -2773,7 +2920,8 @@ func _tick_enroscados() -> void:
 func olvidar_enroscados() -> void:
 	for e in _enroscados.keys():
 		(e as Combatant).quitar_estado(StatusEffects.Id.ENROSCADO)
-		(_enroscados[e]["presa"] as Combatant).quitar_estado(StatusEffects.Id.ENROSCADO)
+		for presa in presas_de(e):
+			(presa as Combatant).quitar_estado(StatusEffects.Id.ENROSCADO)
 	_enroscados.clear()
 	_presas_carga.clear()
 	for e in _vis_enrosque.keys():
@@ -2788,32 +2936,64 @@ func olvidar_enroscados() -> void:
 # la abraza en vez de quedarse pegado delante (CiempiesSprites._montar_enroscado). Trepa al empezar, respira en bucle,
 # aprieta en cada turno suyo (_on_dibujo_mapa, INSECTO_APRETON) y al soltarla se desenrosca y vuelve a verse su
 # cuerpo, que nunca se movio de su lado. En TODAS las maquinas: en el espejo la pareja se deduce (ver _pares_enrosque).
-var _vis_enrosque: Dictionary = {}   # Combatant (el ciempies) -> {presa, det, del, sp (su sprite de siempre), sale}
+# (05/11, los mutantes) Una pieza por presa: la segunda del Nudo con las hojas '_b' (la cabeza B). Con una sola presa, lo
+# que no enrosca va en un tercer sprite (libre_idle/libre_muerde), con la cabeza B, hacia su sitio de siempre.
+var _vis_enrosque: Dictionary = {}   # Combatant (el ciempies) -> {"sp", "piezas": [{presa, det, del, suf, sale}], "libre"}
 
-# Quien tiene enroscado a quien. Quien lleva la pelea lo sabe (_enroscados); al espejo solo le llega el ESTADO de los
-# dos (Combatant.PUERTA_ENROSCADO), asi que cada ciempies enroscado va con el de los tuyos enroscado mas cercano.
+# Quien tiene enroscado a quien (una lista por ciempies). Quien lleva la pelea lo sabe (_enroscados); al espejo solo le
+# llega el ESTADO (Combatant.PUERTA_ENROSCADO), asi que cada uno va con el de los tuyos enroscado mas cercano; el que tiene
+# hojas '_b' puede llevarse dos, los que esten pegados a la primera.
 func _pares_enrosque() -> Dictionary:
 	var out: Dictionary = {}
 	if not _pantalla._espejo:
 		for e in _enroscados:
-			out[e] = _enroscados[e]["presa"]
+			out[e] = presas_de(e)
 		return out
+	var cogidos: Array = []
 	for e in _pantalla._enemies:
 		if not (e as Combatant).is_alive() or not (e as Combatant).has_status(StatusEffects.Id.ENROSCADO):
 			continue
-		var mejor: Combatant = null
-		var mejor_d: float = INF
-		for c in _pantalla._aliados:
-			if not (c as Combatant).is_alive() or not (c as Combatant).has_status(StatusEffects.Id.ENROSCADO) \
-					or out.values().has(c) or cuerpo_de(c) == null:
-				continue
-			var d: float = pos_de(c).distance_squared_to(pos_de(e))
-			if d < mejor_d:
-				mejor_d = d
-				mejor = c
-		if mejor != null:
-			out[e] = mejor
+		var mejor: Combatant = _enroscado_cerca(pos_de(e), INF, cogidos)
+		if mejor == null:
+			continue
+		cogidos.append(mejor)
+		out[e] = [mejor]
+		var cu: Node2D = cuerpo_de(e)
+		var sp = cu.get("_sprite") if cu != null else null
+		if sp is AnimatedSprite2D and (sp as AnimatedSprite2D).sprite_frames.has_animation(&"enroscado_b_detras_0"):
+			var otro: Combatant = _enroscado_cerca(pos_de(mejor), RADIO_DOS_PRESAS_ESPEJO, cogidos)
+			if otro != null:
+				cogidos.append(otro)
+				out[e].append(otro)
 	return out
+
+
+const RADIO_DOS_PRESAS_ESPEJO := 60.0
+
+func _enroscado_cerca(desde: Vector2, radio: float, fuera: Array) -> Combatant:
+	var mejor: Combatant = null
+	var mejor_d: float = radio * radio if radio < INF else INF
+	for c in _pantalla._aliados:
+		if not (c as Combatant).is_alive() or not (c as Combatant).has_status(StatusEffects.Id.ENROSCADO) \
+				or fuera.has(c) or cuerpo_de(c) == null:
+			continue
+		var d: float = pos_de(c).distance_squared_to(desde)
+		if d < mejor_d:
+			mejor_d = d
+			mejor = c
+	return mejor
+
+
+func _sprite_enrosque(sp: AnimatedSprite2D, z: int, anim: StringName) -> AnimatedSprite2D:
+	var m := AnimatedSprite2D.new()
+	m.sprite_frames = sp.sprite_frames
+	m.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	m.z_as_relative = false
+	m.z_index = z
+	_arena().add_child(m)
+	m.global_scale = sp.global_scale
+	m.play(anim)
+	return m
 
 
 func _tick_vis_enrosque() -> void:
@@ -2823,55 +3003,90 @@ func _tick_vis_enrosque() -> void:
 	var pares: Dictionary = _pares_enrosque() if arena != null else {}
 	for e in pares:
 		var v = _vis_enrosque.get(e)
-		if v != null and not bool(v["sale"]) and v["presa"] == pares[e]:
-			continue
-		if v != null:
-			_quitar_vis_enrosque(e)
-		var cu: Node2D = cuerpo_de(e)
-		var sp = cu.get("_sprite") if cu != null else null
-		if not (sp is AnimatedSprite2D) or not (sp as AnimatedSprite2D).sprite_frames.has_animation(&"enroscado_detras_0"):
-			continue   # sin sus mitades (un horneado viejo): se queda como estaba
-		var mitades: Array = []
-		for suf in ["_detras", "_delante"]:
-			var m := AnimatedSprite2D.new()
-			m.sprite_frames = (sp as AnimatedSprite2D).sprite_frames
-			m.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-			m.z_as_relative = false
-			m.z_index = Game.Z_PERSONAJES + (-1 if suf == "_detras" else 1)
-			arena.add_child(m)
-			m.global_scale = (sp as AnimatedSprite2D).global_scale
-			m.play(StringName("enroscarse%s_0" % suf))
-			mitades.append(m)
-		(sp as AnimatedSprite2D).visible = false
-		_vis_enrosque[e] = {"presa": pares[e], "det": mitades[0], "del": mitades[1], "sp": sp, "sale": false}
+		if v == null:
+			var cu: Node2D = cuerpo_de(e)
+			var sp0 = cu.get("_sprite") if cu != null else null
+			if not (sp0 is AnimatedSprite2D) or not (sp0 as AnimatedSprite2D).sprite_frames.has_animation(&"enroscado_detras_0"):
+				continue   # sin sus mitades (un horneado viejo): se queda como estaba
+			(sp0 as AnimatedSprite2D).visible = false
+			v = {"sp": sp0, "piezas": [], "libre": null}
+			_vis_enrosque[e] = v
+		var sp: AnimatedSprite2D = v["sp"]
+		for presa in pares[e]:
+			if (v["piezas"] as Array).any(func(p): return p["presa"] == presa and not bool(p["sale"])):
+				continue
+			# La primera con su cabeza A; la segunda, con la B.
+			var usado: bool = (v["piezas"] as Array).any(func(p): return String(p["suf"]) == "" and not bool(p["sale"]))
+			var suf: String = "_b" if usado and sp.sprite_frames.has_animation(&"enroscado_b_detras_0") else ""
+			(v["piezas"] as Array).append({"presa": presa, "suf": suf, "sale": false,
+				"det": _sprite_enrosque(sp, Game.Z_PERSONAJES - 1, StringName("enroscarse%s_detras_0" % suf)),
+				"del": _sprite_enrosque(sp, Game.Z_PERSONAJES + 1, StringName("enroscarse%s_delante_0" % suf))})
 	for e in _vis_enrosque.keys():
 		var v: Dictionary = _vis_enrosque[e]
-		var det: AnimatedSprite2D = v["det"]
-		var dl: AnimatedSprite2D = v["del"]
-		if not is_instance_valid(det) or not is_instance_valid(dl):
+		var deseadas: Array = pares.get(e, [])
+		for p in (v["piezas"] as Array).duplicate():
+			var det: AnimatedSprite2D = p["det"]
+			var dl: AnimatedSprite2D = p["del"]
+			if not is_instance_valid(det) or not is_instance_valid(dl):
+				(v["piezas"] as Array).erase(p)
+				continue
+			# El origen del dibujo (el centro del lienzo) a los pies de la presa.
+			if cuerpo_de(p["presa"]) != null:
+				det.global_position = pies_de(p["presa"])
+				dl.global_position = det.global_position
+			var suf: String = p["suf"]
+			if deseadas.has(p["presa"]) and not bool(p["sale"]):
+				# Trepar y apretar no son bucle: al acabar, vuelve a respirar.
+				if not det.is_playing():
+					det.play(StringName("enroscado%s_detras_0" % suf))
+					dl.play(StringName("enroscado%s_delante_0" % suf))
+				continue
+			# Muerto: fuera ya (su muerte la hace su cuerpo). Soltado: se desenrosca y luego se le vuelve a ver.
+			if not bool(p["sale"]) and (e as Combatant).is_alive():
+				p["sale"] = true
+				det.play(StringName("desenroscarse%s_detras_0" % suf))
+				dl.play(StringName("desenroscarse%s_delante_0" % suf))
+			elif not (e as Combatant).is_alive() or not det.is_playing():
+				det.queue_free()
+				dl.queue_free()
+				(v["piezas"] as Array).erase(p)
+		_tick_vis_libre(e, v, deseadas)
+		if (v["piezas"] as Array).is_empty():
 			_quitar_vis_enrosque(e)
-			continue
-		# El origen del dibujo (el centro del lienzo) a los pies de la presa.
-		var presa: Combatant = v["presa"]
-		if cuerpo_de(presa) != null:
-			det.global_position = pies_de(presa)
-			dl.global_position = det.global_position
-		var sigue: bool = pares.has(e) and pares[e] == presa
-		if sigue:
-			# Trepar y apretar no son bucle: al acabar, vuelve a respirar.
-			if not det.is_playing():
-				det.play(&"enroscado_detras_0")
-				dl.play(&"enroscado_delante_0")
-			continue
-		# Muerto: fuera ya (su muerte la hace su cuerpo). Soltado: se desenrosca y luego se le vuelve a ver.
-		if not (e as Combatant).is_alive():
-			_quitar_vis_enrosque(e)
-		elif not bool(v["sale"]):
-			v["sale"] = true
-			det.play(&"desenroscarse_detras_0")
-			dl.play(&"desenroscarse_delante_0")
-		elif not det.is_playing():
-			_quitar_vis_enrosque(e)
+
+
+# LO QUE NO ENROSCA (el Bicefalo y el Nudo con una presa): sale de los pies de la presa hacia donde esta su cuerpo.
+func _tick_vis_libre(e: Combatant, v: Dictionary, deseadas: Array) -> void:
+	var sp: AnimatedSprite2D = v["sp"]
+	var libre = v["libre"]
+	if deseadas.size() != 1 or not sp.sprite_frames.has_animation(&"libre_idle_0"):
+		if is_instance_valid(libre):
+			(libre as Node).queue_free()
+		v["libre"] = null
+		return
+	var presa: Combatant = deseadas[0]
+	if cuerpo_de(presa) == null:
+		return
+	if not is_instance_valid(libre):
+		libre = _sprite_enrosque(sp, Game.Z_PERSONAJES - 1, &"libre_idle_0")
+		v["libre"] = libre
+	(libre as AnimatedSprite2D).global_position = pies_de(presa)
+	if not (libre as AnimatedSprite2D).is_playing() or String((libre as AnimatedSprite2D).animation).begins_with("libre_idle"):
+		var hacia: Vector2 = pos_de(e) - pos_de(presa)
+		var nom := StringName("libre_idle_%d" % SpritesEnemigo.dir8(hacia if hacia.length() > 1.0 else Vector2.DOWN))
+		if (libre as AnimatedSprite2D).animation != nom or not (libre as AnimatedSprite2D).is_playing():
+			(libre as AnimatedSprite2D).play(nom)
+
+
+# LA CABEZA LIBRE MUERDE: hacia su victima; al acabar vuelve a su sitio (_tick_vis_libre).
+func morder_vis_libre(e: Combatant, obj: Combatant) -> void:
+	var v = _vis_enrosque.get(e)
+	if v == null or not is_instance_valid(v["libre"]):
+		return
+	if (v["piezas"] as Array).is_empty() or obj == null or cuerpo_de(obj) == null:
+		return
+	var presa: Combatant = v["piezas"][0]["presa"]
+	(v["libre"] as AnimatedSprite2D).play(StringName("libre_muerde_%d" % SpritesEnemigo.dir8(pos_de(obj) - pos_de(presa))))
 
 
 func _quitar_vis_enrosque(e: Combatant) -> void:
@@ -2879,9 +3094,12 @@ func _quitar_vis_enrosque(e: Combatant) -> void:
 	_vis_enrosque.erase(e)
 	if v == null:
 		return
-	for k in ["det", "del"]:
-		if is_instance_valid(v[k]):
-			(v[k] as Node).queue_free()
+	for p in v["piezas"]:
+		for k in ["det", "del"]:
+			if is_instance_valid(p[k]):
+				(p[k] as Node).queue_free()
+	if is_instance_valid(v["libre"]):
+		(v["libre"] as Node).queue_free()
 	if is_instance_valid(v["sp"]):
 		(v["sp"] as CanvasItem).visible = true
 
@@ -2889,12 +3107,15 @@ func _quitar_vis_enrosque(e: Combatant) -> void:
 # EL APRETON en el sprite enroscado (y en el golpe con el que se enrosca, si ya esta respirando).
 func _apretar_vis_enrosque(e: Combatant) -> void:
 	var v = _vis_enrosque.get(e)
-	if v == null or bool(v["sale"]) or not is_instance_valid(v["det"]):
+	if v == null:
 		return
-	if not String((v["det"] as AnimatedSprite2D).animation).begins_with("enroscado"):
-		return   # aun trepando: que acabe
-	(v["det"] as AnimatedSprite2D).play(&"apreton_detras_0")
-	(v["del"] as AnimatedSprite2D).play(&"apreton_delante_0")
+	for p in v["piezas"]:
+		if bool(p["sale"]) or not is_instance_valid(p["det"]):
+			continue
+		if not String((p["det"] as AnimatedSprite2D).animation).begins_with("enroscado"):
+			continue   # aun trepando: que acabe
+		(p["det"] as AnimatedSprite2D).play(StringName("apreton%s_detras_0" % String(p["suf"])))
+		(p["del"] as AnimatedSprite2D).play(StringName("apreton%s_delante_0" % String(p["suf"])))
 
 
 # ------------------------------------------------------------
@@ -3158,7 +3379,7 @@ func sacar_decidida(e: Combatant) -> AbilityData:
 # UNA HUELLA = 15 floats: [cod, clase, tipo, cx, cy, ox, oy, dx, dy, radio, apertura, nucleo, tramos,
 # ancho, ancho_fin]. cod = el codigo de siempre del combatiente (espejo._cod_combatiente). clase 0 =
 # apuntando, 1 = carga. En la LINEA el radio es su largo; ancho y ancho_fin solo los mira ella.
-const FLOATS_HUELLA := 15
+const FLOATS_HUELLA := 17   # (05/11, protocolo 69) + el abanico de la linea y su angulo
 const CLASE_APUNTANDO := 0
 const CLASE_CARGA := 1
 const CLASE_ESCUDAZO := 2   # la linea del escudazo de la Guardia rota, que va con la de apuntar
@@ -3191,7 +3412,7 @@ var _claves_red: Array = []                # las que pinte llegadas por red, par
 static func _empaquetar(cod: int, clase: int, f, nucleo: float) -> PackedFloat32Array:
 	return PackedFloat32Array([float(cod), float(clase), float(f.tipo), f.centro.x, f.centro.y,
 		f.origen.x, f.origen.y, f.dir.x, f.dir.y, f.radio, f.apertura, nucleo, float(f.tramos),
-		f.ancho, f.ancho_fin])
+		f.ancho, f.ancho_fin, float(f.abanico), f.abanico_angulo])
 
 
 static func _desempaquetar(d: PackedFloat32Array, i: int) -> Array:
@@ -3205,6 +3426,8 @@ static func _desempaquetar(d: PackedFloat32Array, i: int) -> Array:
 	f.tramos = int(d[i + 12])
 	f.ancho = d[i + 13]
 	f.ancho_fin = d[i + 14]
+	f.abanico = int(d[i + 15])
+	f.abanico_angulo = d[i + 16]
 	if f.tipo == CombatFormas.Tipo.LINEA:
 		f.largo = f.radio
 	return [int(d[i]), int(d[i + 1]), f, d[i + 11]]
@@ -3780,6 +4003,7 @@ func charcos_empezar_turno(c: Combatant) -> void:
 	if _pantalla._espejo or c == null:
 		return
 	_pisado.erase(c)   # turno nuevo: cada charco se puede volver a pisar
+	_segados.erase(c)  # y cada Zona de siega puede volver a cortarle
 	_desde_charco[c] = pies_de(c)
 	_pisar_si(c, pies_de(c), pies_de(c))
 
@@ -3789,7 +4013,55 @@ func charcos_tras_andar(c: Combatant) -> void:
 	if _pantalla._espejo or c == null or not _desde_charco.has(c):
 		return
 	_pisar_si(c, _desde_charco[c], pies_de(c))
+	_zona_siega(c, _desde_charco[c], pies_de(c))
 	_desde_charco[c] = pies_de(c)
+
+
+# ------------------------------------------------------------
+#  LA SEGADORA MUTANTE (05/11; plan elegant-popping-firefly)
+# ------------------------------------------------------------
+# ZONA DE SIEGA (la de sierra, Combatant.zona_siega): quien ENTRE o SE MUEVA dentro de su alcance se lleva un tajo de
+# zona_siega x su golpe, fuera de turno, UNA VEZ POR TURNO SUYO. Como los charcos: lo andado (a-b, en recta) al cerrar
+# su accion; quedarse quieto dentro no cuenta. Solo quien lleva la pelea (el golpe viaja como cualquier otro).
+var _segados: Dictionary = {}   # Combatant (de los tuyos) -> {Combatant (la segadora): true} en este turno suyo
+
+func _zona_siega(c: Combatant, a: Vector2, b: Vector2) -> void:
+	if not c.is_alive() or not _pantalla._aliados.has(c) or a.distance_to(b) < 2.0:
+		return
+	var ya: Dictionary = _segados.get(c, {})
+	for e in _pantalla._enemies:
+		var en: Combatant = e
+		if en.zona_siega <= 0.0 or not en.is_alive() or ya.has(en) or cuerpo_de(en) == null or not en.puede_atacar():
+			continue
+		# El hueco de su cuerpo al camino, como el del alcance (borde a borde).
+		var p: Vector2 = pies_de(en)
+		var cerca: Vector2 = Geometry2D.get_closest_point_to_segment(p, a, b)
+		var su_medio: float = maxf(bulto_de(en).size.x, bulto_de(en).size.y) * 0.5
+		if cerca.distance_to(p) - su_medio - radio_pisa(c) * 0.5 > alcance_de(en):
+			continue
+		ya[en] = true
+		_segados[c] = ya
+		_pantalla.enemigos.tajo_zona_siega(en, c)
+		if not c.is_alive():
+			return
+
+
+# Los de los tuyos (vivos, sin contar a 't') que estan en la linea que SIGUE detras de 't' en la direccion del golpe de
+# 'e': 'largo' px desde el borde de su cuerpo, 'ancho' de ancho. La usan los cortes de viento del Vendaval rojo.
+func en_linea_detras(e: Combatant, t: Combatant, largo: float, ancho: float) -> Array:
+	var out: Array = []
+	if e == null or t == null or cuerpo_de(e) == null or cuerpo_de(t) == null:
+		return out
+	var dir: Vector2 = pies_de(t) - pies_de(e)
+	dir = dir.normalized() if dir.length_squared() > 0.01 else Vector2.RIGHT
+	var r: Rect2 = bulto_de(t)
+	var sale: float = maxf(r.size.x, r.size.y) * 0.5
+	var f = CombatFormas.linea(pies_de(t) + dir * sale, dir, largo, ancho)
+	var bando: Array = _pantalla._aliados if _pantalla._aliados.has(t) else _pantalla._enemies
+	for o in bando:
+		if o != t and (o as Combatant).is_alive() and cuerpo_de(o) != null and f.toca(bulto_de(o)):
+			out.append(o)
+	return out
 
 
 # Un charco que acaba de aparecer (la nube de quien revienta al morir): lo respira ya quien este dentro, con la misma
@@ -3876,7 +4148,7 @@ func _charco_visible(clave: String, f, queda: float, dueno: Combatant = null) ->
 		if estilo == 3 or estilo == 4:
 			# LA BABA de las mutaciones del slime (06/10: "tendria que ser un charco UNICO y que sea god"): una sola
 			# mancha, el rastro alargado o el charco redondo, con sus pinchos si los lleva (BabaSuelo).
-			n = BabaSuelo.crear(arena, f, _color_de(dueno), estilo == 4, hash(clave))
+			n = SlimeAire.baba_pixel(arena, f, _color_de(dueno), estilo == 4)
 		elif f.tipo == CombatFormas.Tipo.LINEA:
 			# EL RASTRO: una fila de charquitos a lo largo de lo que recorrio.
 			var lista: Array = []
@@ -3886,7 +4158,7 @@ func _charco_visible(clave: String, f, queda: float, dueno: Combatant = null) ->
 			for i in pasos:
 				var fi := CombatFormas.circulo(f.origen + f.dir * f.largo * (float(i) + 0.5) / float(pasos), r)
 				fi.apertura = f.apertura
-				var b: BestiaAire = BestiaAire.charco(arena, fi, hash(clave) + i, BestiaAire.T_SAVIA_CAE * 0.3 * i / pasos)
+				var b: PiezaPixel = BestiaAire.charco(arena, fi, hash(clave) + i, BestiaAire.T_SAVIA_CAE * 0.3 * i / pasos)
 				_vestir_charco(b, estilo, dueno)
 				lista.append(b)
 			n = lista
@@ -3897,13 +4169,13 @@ func _charco_visible(clave: String, f, queda: float, dueno: Combatant = null) ->
 			n = SimaAire.nube(arena, f, hash(clave), SimaAire.T_NUBE_SALE)
 		elif estilo == 5:
 			# LA NUBE DE MIASMA (06/10, el miasma y el pestilente): la misma nube, del color de su slime.
-			n = SimaAire.nube(arena, f, hash(clave), SimaAire.T_NUBE_SALE, _color_de(dueno))
+			n = SlimeAire.nube_pixel(arena, f, _color_de(dueno), SimaAire.T_NUBE_SALE)
 		elif estilo == 7:
 			# LA NUBE DE CENIZA (06/10, la ceniza y brasa): la misma nube, gris ceniza.
-			n = SimaAire.nube(arena, f, hash(clave), SimaAire.T_NUBE_SALE, NUBE_CENIZA)
+			n = SlimeAire.nube_ceniza_pixel(arena, f, SimaAire.T_NUBE_SALE)
 		elif estilo == 6:
 			# LA BURBUJA FLOTANTE (06/10, el pestilente): sale volando de sus pies (f.origen) y flota hasta que revienta.
-			n = SlimeBurbuja.crear(arena, f, _color_de(dueno), hash(clave))
+			n = SlimeAire.burbuja_pixel(arena, f, _color_de(dueno))
 		elif estilo == 8:
 			# LA ESTRELLA del cielo nocturno y el de mil ojos (06/10): la que deja al moverse.
 			n = AbisalAire.estrella(arena, f, hash(clave))
@@ -3925,13 +4197,13 @@ func _charco_visible(clave: String, f, queda: float, dueno: Combatant = null) ->
 
 # LA BABA (06/10, el slime brotado y el brotado punzante): el charco de siempre, del color de SU slime y, el de pinchos,
 # sembrado de puas de cristal.
-func _vestir_charco(b: BestiaAire, estilo: int, dueno: Combatant) -> void:
+func _vestir_charco(b, estilo: int, dueno: Combatant) -> void:
 	if b != null and estilo == 11:
-		b.vestir_savia_negra()   # (03/11) la Savia negra del Espantajo
+		BestiaAire.vestir_savia_negra(b)   # (03/11) la Savia negra del Espantajo
 		return
 	if b == null or (estilo != 3 and estilo != 4):
 		return
-	b.vestir_baba(_color_de(dueno), estilo == 4)
+	BestiaAire.vestir_baba(b, _color_de(dueno), estilo == 4)
 
 
 # El color de SU slime (el del piso), para su baba.
@@ -3969,7 +4241,7 @@ func _tick_raices() -> void:
 	for c in todos:
 		# (el Resinado tambien enraiza, pero lo suyo es el cepo de ambar: TacticoTrent)
 		var atado: bool = (c as Combatant).is_alive() and (c as Combatant).enraizado() and cuerpo_de(c) != null \
-			and not (c as Combatant).has_status(StatusEffects.Id.RESINADO)
+			and not (c as Combatant).has_status(StatusEffects.Id.RESINADO) and not (c as Combatant).has_status(StatusEffects.Id.IMANTADO)
 		var n = _raices.get(c)
 		# EL DEL MICELIO (30/09): lo marca el Latigazo al pegar (_on_dibujo_mapa), con el color del miconido.
 		var micelio = cuerpo_de(c).get_meta("atado_micelio") if cuerpo_de(c) != null and cuerpo_de(c).has_meta("atado_micelio") else null
@@ -4082,6 +4354,7 @@ func olvidar_charcos() -> void:
 	_charcos.clear()
 	_orden_estrellas.clear()
 	_pisado.clear()
+	_segados.clear()
 	_desde_charco.clear()
 
 
@@ -4130,7 +4403,9 @@ func _tick_moviendo(delta: float) -> void:
 				_animar(_cuerpo, _mirada_de(_cuerpo), false)
 		return
 	var antes: Vector2 = _cuerpo.global_position
-	var nueva: Vector2 = paso(antes, dir.limit_length(1.0) * VEL_PASEO * delta, _inicio, _radio,
+	# A x2 TAMBIEN TU (05/11, el jefe: "todo va a x2 menos el personaje cuando anda"): el paso va con el
+	# reloj de la pelea, como el enemigo que se acerca (_tick_acercarse). El circulo no cambia: solo llegas antes.
+	var nueva: Vector2 = paso(antes, dir.limit_length(1.0) * VEL_PASEO * delta * _pantalla._vel_pelea, _inicio, _radio,
 		_dentro(arena), _puede_estar.bind(_cuerpo))
 	_colocar(_quien, _cuerpo, nueva)
 	_andando = true
@@ -5254,6 +5529,24 @@ func _on_impacto(ev: Dictionary) -> void:
 const T_SALTO_ESQUIVA := 0.22
 const ALTO_SALTO_ESQUIVA := 9.0
 
+# PEGA Y SE VA (04/11, el escarabajo saeta): acabados sus golpes se aleja 'px' de 'de', de un salto (el Picado del chillon: Desliz.TRAS).
+func pedir_retirada(c: Combatant, de: Combatant, px: float) -> void:
+	if _pantalla._espejo or not _pantalla.tactico or c == null or de == null or cuerpo_de(c) == null or cuerpo_de(de) == null:
+		return
+	# DESDE DONDE VA A ACABAR su golpe (el Picado salta antes de pegar: el desliz esta pedido pero aun no se ha hecho).
+	# Desde donde esta ahora, tras el Picado volvia volando casi a su sitio de salida (04/11).
+	var desde: Vector2 = pos_de(c)
+	for d in _deslices:
+		if d["c"] == c and d.has("hasta"):
+			desde = d["hasta"]
+	var pies: Vector2 = desde + _bajo_de(c)
+	var dir: Vector2 = pies - pies_de(de)
+	dir = dir.normalized() if dir.length_squared() > 0.01 else Vector2.RIGHT
+	var hasta: Vector2 = _sitio_libre_desde(c, desde, pies + dir * px)
+	if hasta.distance_to(desde) >= 2.0:
+		pedir_desliz(c, hasta, Desliz.TRAS, 1, T_SALTO_ESQUIVA, ALTO_SALTO_ESQUIVA)
+
+
 func pedir_salto_atras(c: Combatant, de: Combatant, px: float) -> void:
 	if _pantalla._espejo or not _pantalla.tactico or c == null or de == null or cuerpo_de(c) == null \
 			or cuerpo_de(de) == null or c.imparable:
@@ -5419,7 +5712,7 @@ const _MODO_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.QUE
 	CombatFX.Estilo.INSECTO_FORCIPULAS: InsectoAire.Modo.FORCIPULAS, CombatFX.Estilo.INSECTO_PATITAS: InsectoAire.Modo.PATITAS,
 	CombatFX.Estilo.INSECTO_APRETON: InsectoAire.Modo.APRETON,
 	CombatFX.Estilo.INSECTO_TAJO: InsectoAire.Modo.TAJO, CombatFX.Estilo.INSECTO_GUADANA: InsectoAire.Modo.GUADANA,
-	CombatFX.Estilo.INSECTO_ESTOCADA: InsectoAire.Modo.ESTOCADA}
+	CombatFX.Estilo.INSECTO_ESTOCADA: InsectoAire.Modo.ESTOCADA, CombatFX.Estilo.INSECTO_VIENTO: InsectoAire.Modo.VIENTO}
 
 const _MODO_SIMA := {CombatFX.Estilo.SIMA_PORRAZO: SimaAire.Modo.PORRAZO, CombatFX.Estilo.SIMA_TOS: SimaAire.Modo.TOS,
 	CombatFX.Estilo.SIMA_LATIGO: SimaAire.Modo.LATIGO, CombatFX.Estilo.SIMA_VENTOSA: SimaAire.Modo.VENTOSA,
@@ -5473,6 +5766,10 @@ func _dibujo_pasiva(ev: Dictionary, vuelo: float) -> void:
 			if caja_a.has_area():
 				PasivaAire.sobre_cuerpo(arena, PasivaAire.Modo.DESTELLO, bulto_de(v), caja_a, pies_de(a), semilla, vuelo, ritmo)
 		CombatFX.Estilo.AVISO_INTERRUMPIDO:
+			# (04/11) Ya se sabe que no va a soltarla: su 'interrumpe' sale ahora, sin esperar a T_CARGA_SUELTA (bajado del aire
+			# se quedaba 1,5 s flotando). El aviso llega a todas las pantallas.
+			if _poses_carga.has(v):
+				_poses_carga[v]["t"] = T_CARGA_SUELTA
 			# El peso dice que era: 1 la carga de un arma, 0,5 un conjuro (su circulo se rompe aparte, circulo_acaba).
 			PasivaAire.sobre_cuerpo(arena, PasivaAire.Modo.ESQUIRLAS, Rect2(), bulto_de(v), pies_de(v), semilla, vuelo, ritmo,
 				1.0 if float(ev.get("peso", 1.0)) > 0.75 else 0.0)
@@ -5494,7 +5791,7 @@ func _dibujo_pasiva(ev: Dictionary, vuelo: float) -> void:
 				_pantalla._timeline.retrasar(v, _pantalla.ratio_de(v) + perdida)
 		CombatFX.Estilo.AVISO_INMUNE:
 			if _pantalla._fx != null:
-				_pantalla._fx.texto_sobre(ev["bv"], "INMUNE", AVISO_INMUNE_C, 14)
+				_pantalla._fx.texto_sobre(ev["bv"], _texto_aviso_inmune(ev), AVISO_INMUNE_C, 14)
 
 
 # POSADA, ES PIEDRA (la gargola, 30/09): esta posada si no se ha movido desde que empezo su ultimo turno (antes del
@@ -5698,8 +5995,7 @@ func _tick_jabali() -> void:
 			var ritmo: float = maxf(BarridoAire.ritmo, 0.05)
 			_jabali_quema[cu] = Time.get_ticks_msec() + int(JabaliAire.T_LLAMARADA / ritmo * 1000.0)
 			gesto_bicho_en_mapa(e, &"quemandose", JabaliAire.T_LLAMARADA)
-			JabaliAire.quema(arena, Vector2(caja.get_center().x, caja.position.y + caja.size.y * 0.12), mira,
-				maxf(caja.size.x, caja.size.y) * 0.75, sem)
+			JabaliAire.quema(arena, caja.get_center(), mira, sem)
 			continue
 		if _jabali_quema.has(cu):
 			if Time.get_ticks_msec() < int(_jabali_quema[cu]):
@@ -5729,6 +6025,7 @@ func _tick_jabali() -> void:
 var _costra_var: Dictionary = {}   # cuerpo -> true si lleva puesta la hoja sin costra
 
 func _tick_costra() -> void:
+	_pantalla.efectos.tick_capas()
 	for e in _pantalla._enemies:
 		if e.costra_max <= 0.0 or not e.is_alive():
 			continue
@@ -5738,7 +6035,7 @@ func _tick_costra() -> void:
 		var ed = cu.get("data")
 		if not (ed is EnemyData):
 			continue
-		var rota: bool = e.costra <= 0.0
+		var rota: bool = e.costra_vista() <= 0.0   # cuando toca el golpe, no al pulsar
 		if rota == bool(_costra_var.get(cu, false)):
 			_costra_var[cu] = rota
 			continue
@@ -5998,7 +6295,18 @@ const _MODO_FIERA := {CombatFX.Estilo.FIERA_TESTARAZO: FieraAire.Modo.TESTARAZO,
 	CombatFX.Estilo.FIERA_DENTELLADA: FieraAire.Modo.DENTELLADA,
 	CombatFX.Estilo.FIERA_TENTACULO: FieraAire.Modo.TENTACULO, CombatFX.Estilo.FIERA_MIRADA: FieraAire.Modo.MIRADA}
 
+# EL FILO DE AIRE (05/11): un golpe de VIENTO de los tuyos con el estilo de su arma es el corte del set; se pinta el mismo
+# golpe del arma, tenido de viento (CapaPixel.tinte). Llega igual al espejo: el elemento viaja con el golpe.
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
+	var a_t: Combatant = _de_bloque(ev["ba"]) if ev.has("ba") else null
+	var de_viento: bool = int(ev.get("elem", -1)) == Elementos.Elemento.VIENTO and a_t != null 		and _pantalla._aliados.has(a_t) and int(ev.get("estilo", 0)) != CombatFX.Estilo.INSECTO_VIENTO
+	if de_viento:
+		CapaPixel.tinte = CapaPixel.TINTE_VIENTO
+	_dibujo_mapa(ev, vuelo)
+	CapaPixel.tinte = Color.WHITE
+
+
+func _dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	if int(ev.get("estilo", 0)) >= CombatFX.Estilo.PASIVA_LLAMADA and int(ev.get("estilo", 0)) <= CombatFX.Estilo.AVISO_INMUNE:
 		_dibujo_pasiva(ev, vuelo)
 		return
@@ -6081,8 +6389,9 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	# LOS SLIMES (SlimeAire, 28/09): del cuerpo del slime (un poco por encima de su centro: la boca) al que recibe.
 	if estilo in _MODO_SLIME:
 		var desde_s: Vector2 = bulto_de(a).get_center() - Vector2(0.0, bulto_de(a).size.y * 0.15) 			if a != null and cuerpo_de(a) != null else bulto_de(v).get_center() - Vector2(30.0, 0.0)
+		# (al Rey destronado no le vuelve el trozo: se queda en el suelo, es su pedazo)
 		SlimeAire.sobre_cuerpo(arena, int(_MODO_SLIME[estilo]), desde_s, bulto_de(v), ev.get("color", Color.WHITE),
-			semilla, vuelo, ritmo)
+			semilla, vuelo, ritmo, a == null or a.mutacion != &"destronado")
 		return
 	# LOS MUTANTES DE LA RATA (30/10): las mandibulas de la rata (BestiaAire) y, encima, lo suyo (RataAire): jirones de
 	# sombra, esquirlas de cristal (ahumado si es la de cuarzo: lo dice su color), el corte de cristal y el velo.
@@ -6112,6 +6421,9 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 			else bulto_de(v).get_center() - Vector2(30.0, 0.0)
 		# LA EMBOSCADA (la araña, 30/09): al que esta en su tela, la tela late bajo el y el mordisco sale mas grande.
 		var boca_i: float = bulto_de(a).size.x if a != null and cuerpo_de(a) != null else -1.0
+		# EL CORTE DE VIENTO (05/11, Filo de aire y la Segadora): la media luna vuela hasta el y llega con su impacto.
+		if estilo == CombatFX.Estilo.INSECTO_VIENTO:
+			CorteVientoAire.lanzar(arena, desde_i, bulto_de(v), vuelo, ritmo)
 		if estilo in [CombatFX.Estilo.INSECTO_QUELICEROS, CombatFX.Estilo.INSECTO_PONZONA] and emboscada(a, v):
 			boca_i *= EMBOSCADA_BOCA
 			PasivaAire.sobre_cuerpo(arena, PasivaAire.Modo.LATIDO, bulto_de(a), bulto_de(v), pies_de(v), semilla, vuelo, ritmo)
@@ -6122,8 +6434,31 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 			lado_i = float(cuerpo_de(a).get_meta("lado_basico", -1.0)) if a != null and cuerpo_de(a) != null else -1.0
 		elif estilo == CombatFX.Estilo.INSECTO_GUADANA:
 			lado_i = -1.0 if int(ev.get("tanda", 0)) % 2 == 0 else 1.0
+		if estilo == CombatFX.Estilo.INSECTO_CAPARAZON:
+			for quien in [v, a]:
+				if quien != null and cuerpo_de(quien) != null and cuerpo_de(quien).get("_sprite") is AnimatedSprite2D:
+					GrietaPixel.reflejo(cuerpo_de(quien).get("_sprite"), vuelo, 0.4 / maxf(ritmo, 0.05))
+					break
+		# LA SEGADORA (05/11): ahi 'boca' dice si su hoja es de METAL (sus mutantes: los que tienen Siega).
+		if estilo in [CombatFX.Estilo.INSECTO_TAJO, CombatFX.Estilo.INSECTO_GUADANA, CombatFX.Estilo.INSECTO_ESTOCADA]:
+			boca_i = 1.0 if a != null and cuerpo_de(a) != null and _tiene_anim_bicho(cuerpo_de(a), "siega") else -1.0
 		InsectoAire.sobre_cuerpo(arena, int(_MODO_INSECTO[estilo]), desde_i, bulto_de(v), semilla, vuelo, ritmo,
 			boca_i, float(ev.get("peso", 1.0)), lado_i)
+		if estilo == CombatFX.Estilo.INSECTO_FORCIPULAS or estilo == CombatFX.Estilo.INSECTO_APRETON:
+			lado_i = 0.0
+		# EL COLOR DE CADA CABEZA (05/11): el basico en U y la Pinza, un golpe de cada una; la libre es la B.
+		if estilo == CombatFX.Estilo.INSECTO_FORCIPULAS and a != null and _tiene_anim_bicho(cuerpo_de(a), "libre_idle"):
+			lado_i = 1.0 if _vis_enrosque.has(a) or int(ev.get("tanda", 0)) % 2 == 1 else -1.0
+		elif estilo == CombatFX.Estilo.INSECTO_APRETON and a != null and _tiene_anim_bicho(cuerpo_de(a), "libre_idle"):
+			lado_i = -1.0
+			if _vis_enrosque.has(a):
+				for p_e in _vis_enrosque[a]["piezas"]:
+					if p_e["presa"] == v and String(p_e["suf"]) == "_b":
+						lado_i = 1.0
+		# LA CABEZA LIBRE (el Bicefalo): el que esta enroscado y muerde a otro, lo muerde con ella. Por aqui para que se vea
+		# igual en todas las pantallas.
+		if estilo == CombatFX.Estilo.INSECTO_FORCIPULAS and a != null and _vis_enrosque.has(a):
+			morder_vis_libre(a, v)
 		# EL APRETON del Enrosque: el sprite enroscado aprieta y la presa tiembla.
 		if estilo == CombatFX.Estilo.INSECTO_APRETON:
 			if a != null:
@@ -6162,7 +6497,7 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		ConstructoAire.sobre_cuerpo(arena, ConstructoAire.Modo.CLAVADO, Vector2.ZERO, bulto_de(v), pies_de(v), v.color_visual,
 			semilla, vuelo, ritmo)
 		if _pantalla._fx != null:
-			_pantalla._fx.texto_sobre(ev["bv"], "INMUNE", AVISO_INMUNE_C, 14)
+			_pantalla._fx.texto_sobre(ev["bv"], _texto_aviso_inmune(ev), AVISO_INMUNE_C, 14)
 		return
 	# EL MINOTAURO (MinotauroAire, 02/10): el hachazo que cae (o se clava en el suelo si lo esquiva), el enganche de la
 	# Cornada y el polvo del Pisoton; a los dos ultimos les tiembla la figura. Lo del Barrido va por el suelo (el filo) y la
@@ -6231,12 +6566,12 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	if estilo == CombatFX.Estilo.ARANA_ARCO:
 		var caja_ar: Rect2 = bulto_de(v)
 		var desde_ar: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null else caja_ar.get_center()
-		MagiaAire.arco(arena, desde_ar, caja_ar.get_center(), AranaAire.CIAN, semilla, vuelo, ritmo)
+		AranaAire.arco(arena, desde_ar, caja_ar.get_center(), false, vuelo, ritmo)
 		return
 	if estilo == CombatFX.Estilo.ARANA_HILO:
 		var caja_hi: Rect2 = bulto_de(v)
 		var desde_hi: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null else caja_hi.get_center()
-		MagiaAire.arco(arena, desde_hi, caja_hi.get_center(), AranaAire.NARANJA, semilla, vuelo, ritmo)
+		AranaAire.arco(arena, desde_hi, caja_hi.get_center(), true, vuelo, ritmo)
 		return
 	if estilo == CombatFX.Estilo.ARANA_DESCARGA:
 		AranaAire.rayos(arena, pies_de(v), 80.0, semilla)
@@ -6290,7 +6625,7 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		var mas_cerca: Combatant = null
 		var d_min: float = INF
 		for e in _pantalla._vivos():
-			if e.en_sombras():
+			if e.no_elegible():
 				continue
 			var d_e: float = pies_de(e).distance_squared_to(pies_de(v))
 			if d_e < d_min:
@@ -6645,7 +6980,7 @@ func _mas_cercano_al_alcance(c: Combatant, pies: Vector2) -> Combatant:
 	var mejor: Combatant = null
 	var d_mejor: float = INF
 	for e in _pantalla._vivos():
-		if e.en_sombras():
+		if e.no_elegible():
 			continue   # (30/10) en las sombras no se le apunta
 		var r: Rect2 = bulto_de(e)
 		var cerca := Vector2(clampf(pies.x, r.position.x, r.end.x), clampf(pies.y, r.position.y, r.end.y))
@@ -6661,9 +6996,13 @@ func _mas_cercano_al_alcance(c: Combatant, pies: Vector2) -> Combatant:
 # el NODO. Sin sitio, donde esta.
 # 'excluir' = los que no cuentan para no acabar encima (los que la embestida aparta de su raya al cruzarlos).
 func _sitio_libre_hacia(c: Combatant, pies_fin: Vector2, excluir: Array = []) -> Vector2:
+	return _sitio_libre_desde(c, pos_de(c), pies_fin, excluir)
+
+
+# Lo mismo saliendo de 'ini' (su nodo), no de donde esta ahora.
+func _sitio_libre_desde(c: Combatant, ini: Vector2, pies_fin: Vector2, excluir: Array = []) -> Vector2:
 	var cuerpo: Node2D = cuerpo_de(c)
 	var bajo: Vector2 = _bajo_de(c)
-	var ini: Vector2 = pos_de(c)
 	if cuerpo == null:
 		return ini
 	var fin: Vector2 = pies_fin - bajo
@@ -6733,7 +7072,7 @@ func pedir_ponerse_delante(c: Combatant, aliado: Combatant) -> void:
 	var enemigo: Combatant = null
 	var d_mejor: float = INF
 	for e in _pantalla._vivos():
-		if e.en_sombras():
+		if e.no_elegible():
 			continue
 		var d: float = hueco_entre(aliado, e)
 		if d < d_mejor:
@@ -7046,7 +7385,7 @@ var _gestos_bicho: Dictionary = {}   # cuerpo -> {t, dur, encaje, cola, sostener
 # LAS QUE NO SE AJUSTAN AL GOLPE: el gesto dura lo que va del arranque al ultimo golpe mas un pelin, y estas tienen su
 # propio reloj. La rodada del escarabajo cruza la linea en InsectoAire.T_RODADA (los golpes le van llegando por el
 # camino) y luego se desenrosca; el Caparazon se aplasta a 0,44 s, que es cuando sale el reflejo.
-const _GESTO_A_SU_RITMO := ["rodar", "caparazon", "arremeter"]
+const _GESTO_A_SU_RITMO := ["rodar", "caparazon", "arremeter", "embestir", "pasada"]
 # LAS EMBESTIDAS CON SU HOJA EN TRES TRAMOS (10/10, el jefe: "primero se agacha que de tiempo a verlo... y luego embiste
 # y cuando termina ya se levanta"): hasta que pega, quieto en el primer marco; mientras cruza su linea (Desliz.EMBISTE),
 # los marcos de 'bucle' en bucle; al llegar, de 'levanta' al final a su ritmo. La hoja de la Cornada ya los trae: 0-1
@@ -7090,6 +7429,8 @@ func gesto_bicho_en_mapa(c: Combatant, pide: StringName, dur: float, encaje: boo
 	cuerpo.set_meta("gesto_pelea", true)
 	_gestos_bicho[cuerpo] = {"t": 0.0, "dur": maxf(dur if dur > 0.0 else natural, 0.2), "encaje": encaje,
 		"cola": partes.slice(1) if not encaje else PackedStringArray(), "sostener": sostener}
+	if not encaje and _pixel != null:
+		_pixel.al_gesto(c, cuerpo, base, float(_gestos_bicho[cuerpo]["dur"]))
 
 
 # Su embestida pendiente o en curso (el desliz EMBISTE que acaba de pedir, aqui o leido por red), o {}.
@@ -7672,7 +8013,8 @@ var _poses_carga: Dictionary = {}   # Combatant -> {ab, t}
 func _tick_cargas_bicho(delta: float) -> void:
 	for e in _pantalla._enemies:
 		var ab: AbilityData = e.charging if e.is_alive() else null
-		if ab != null and ab.fx_anim_carga != &"" and not _poses_carga.has(e) and cuerpo_de(e) != null:
+		# (tumbado, la carga que aun no se le ha cortado no le vuelve a poner en pose: se la corta la pelea en este fotograma)
+		if ab != null and ab.fx_anim_carga != &"" and not _poses_carga.has(e) and not _volcadas.has(e) and cuerpo_de(e) != null:
 			_poses_carga[e] = {"ab": ab, "t": 0.0}
 			gesto_bicho_en_mapa(e, ab.fx_anim_carga, -1.0, false, true)
 	for e in _poses_carga.keys():
@@ -7701,24 +8043,29 @@ func _tick_cargas_bicho(delta: float) -> void:
 # ('volcar>volcada', sostenida) mientras le dure; al pasarsele, 'enderezarse'. Se mira el estado cada fotograma (viaja al
 # espejo con los estados), asi que la ven igual todas las pantallas. Si estaba cargando, la pose de carga se va: el
 # volteo es la interrupcion.
+# (04/11) LOS QUE VUELAN (el saeta y el iman errante, los que tienen hoja 'volteado'): lo mismo, 'caer>volteado' y 'recolocarse'.
+# Bajado del aire SIN aturdir no se queda tumbado: su fx_anim_interrumpe es 'caer>recolocarse'.
 var _volcadas: Dictionary = {}   # Combatant -> true
 
 func _tick_volcadas() -> void:
 	for e in _pantalla._enemies:
-		if (e as Combatant).volteo_mult == 1.0:
+		var tumbada: bool = (e as Combatant).is_alive() and (e as Combatant).aturdido()
+		if tumbada == _volcadas.has(e):
 			continue
 		var cu: Node2D = cuerpo_de(e)
 		if cu == null:
 			continue
-		var tumbada: bool = (e as Combatant).is_alive() and (e as Combatant).aturdido()
-		if tumbada and not _volcadas.has(e):
+		var vuela: bool = _tiene_anim_bicho(cu, "volteado")
+		if (e as Combatant).volteo_mult == 1.0 and not vuela:
+			continue
+		if tumbada:
 			_volcadas[e] = true
 			_poses_carga.erase(e)
-			gesto_bicho_en_mapa(e, &"volcar>volcada", -1.0, false, true)
-		elif not tumbada and _volcadas.has(e):
+			gesto_bicho_en_mapa(e, &"caer>volteado" if vuela else &"volcar>volcada", -1.0, false, true)
+		else:
 			_volcadas.erase(e)
 			if (e as Combatant).is_alive():
-				gesto_bicho_en_mapa(e, &"enderezarse", -1.0)
+				gesto_bicho_en_mapa(e, &"recolocarse" if vuela else &"enderezarse", -1.0)
 
 
 func _soltar_gesto_bicho(cuerpo: Node2D) -> void:
@@ -7812,6 +8159,9 @@ func _animar(cuerpo: Node2D, dir: Vector2, moviendose: bool, vel: Vector2 = Vect
 		# caido se queda en el suelo (ver caer_en_mapa).
 		if _gestos_mapa.has(cuerpo) or cuerpo.has_meta(MARCA_CAIDO):
 			return
+		# Andar y estar quieto, al ritmo de la pelea (a x2, las piernas tambien): fuera de un gesto el muñeco
+		# iba siempre a 1. El gesto pone el suyo (gesto_en_mapa) y al acabar vuelve por aqui.
+		(muneco as MunecoJugador).velocidad = _pantalla._vel_pelea
 		# CARGANDO, quieto: el arma en alto hasta soltarla (lo pidio el jefe: "que mantenga el martillo en
 		# alto hasta que golpea el suelo").
 		var c: Combatant = _aliado_de_cuerpo(cuerpo)

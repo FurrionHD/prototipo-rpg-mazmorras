@@ -65,6 +65,126 @@ def rot_eje(eje, ang):
     return np.eye(3) + math.sin(ang) * K + (1 - math.cos(ang)) * K @ K
 
 
+# ============================================================
+#  LOS BRAZOS (04/11, su queja tras jugarlo: "planos y guarros, no doblan nada, rectos tiesos"; el del Espantajo, "un palo
+#  que mide el 100 % de su alto"). Como los del trent normal: rama gruesa con CODO NUDOSO que dobla (hueso 'antebrazo_*'),
+#  vetas de corteza en relieve, un muñon de rama, un nudo hueco y manazas de dedos-rama con nudillo.
+# ============================================================
+def _flexion(p, s):
+    # El codo: algo doblado siempre; al coger impulso (alza > 0) se dobla mucho, al descargar se estira, y se queda un pelin
+    # atras en el columpio (el antebrazo va arrastrado, que es lo que lo hace leerse como rama y no como palo).
+    a = p['alza']
+    f = 0.35 + (0.55 * a if a > 0 else 0.5 * a) - 0.3 * p['clava'] + 0.22 * p['columpio'] * s
+    return max(0.05, f)
+
+
+def huesos_codos(X, p, codos):
+    for s, ld in ((-1, 'd'), (1, 'i')):
+        X['antebrazo_' + ld] = comp(X['brazo_' + ld], sobre(codos[s], rx(_flexion(p, s)) @ ry(-s * 0.12)))
+
+
+def _perp(d):
+    a = np.cross(d, V((0.0, 0.0, 1.0)))
+    if np.linalg.norm(a) < 1e-3:
+        a = V((1.0, 0.0, 0.0))
+    a = a / np.linalg.norm(a)
+    return a, np.cross(d, a)
+
+
+def _tramo_nudoso(e, a, b, r0, r1, mat, grupo, semilla):
+    # De 'a' a 'b' en tres tramos que se tuercen un poco, con vetas de corteza en relieve alrededor.
+    a, b = V(a, dtype=float), V(b, dtype=float)
+    d = b - a; largo = np.linalg.norm(d); d = d / largo
+    u1, u2 = _perp(d)
+    rnd = random.Random(semilla)
+    pts = [a]
+    for k in (1, 2):
+        t = k / 3.0
+        pts.append(a + (b - a) * t + (u1 * rnd.uniform(-1, 1) + u2 * rnd.uniform(-1, 1)) * largo * 0.07)
+    pts.append(b)
+    rs = [r0, r0 + (r1 - r0) * 0.33 + 0.25, r0 + (r1 - r0) * 0.66, r1]
+    for i in range(3):
+        tv._cono(e, pts[i], pts[i + 1], rs[i], rs[i + 1], mat, 0.6, grupo)
+    # LAS VETAS: cuatro costillas que van a lo largo, algo en espiral.
+    for k in range(4):
+        ang = k * math.pi / 2 + rnd.uniform(-0.3, 0.3)
+        prev = None
+        for j in range(4):
+            t = j / 3.0
+            c = pts[min(int(t * 3), 2)] * (1 - (t * 3 % 1)) + pts[min(int(t * 3) + 1, 3)] * (t * 3 % 1) if j < 3 else pts[3]
+            r = r0 + (r1 - r0) * t
+            q = ang + t * 0.6
+            pt = c + (u1 * math.cos(q) + u2 * math.sin(q)) * r * 0.92
+            if prev is not None:
+                tv._cono(e, prev, pt, 0.42 * r0 / 2.0 + 0.2, 0.38 * r0 / 2.0 + 0.18, mat, 0.2, grupo)
+            prev = pt
+    return pts
+
+
+# LAS VETAS DE UN TRONCO (04/11: "el tronco central sigue siendo completamente liso"): costillas de corteza en relieve que
+# suben algo en espiral, como las del trent normal, menos donde diga 'evitar' (grados: la grieta, la cara).
+def vetas_tronco(e, eje, rad, mat, n, semilla, evitar=(), t0=0.05, t1=0.95, grueso=0.8):
+    rnd = random.Random(semilla)
+    for k in range(n):
+        a0 = k / n * 360.0 + rnd.uniform(-8, 8)
+        if any(abs(((a0 - ev + 180) % 360) - 180) < 28 for ev in evitar):
+            continue
+        prev = None
+        for j in range(6):
+            t = t0 + (t1 - t0) * j / 5.0
+            pt = tv._sobre(eje, rad, t, a0 + j * 7.0 + rnd.uniform(-3, 3), 0.05)
+            if prev is not None:
+                tv._cono(e, prev, pt, grueso, grueso * 0.85, mat, 0.3, 'veta')
+            prev = pt
+
+
+# Una pierna de rama: muslo y espinilla nudosos con la RODILLA abultada.
+def pierna_rama(e, cadera, rodilla, pie, r, mat, grupo, semilla):
+    _tramo_nudoso(e, cadera, rodilla, r[0], r[1], mat, grupo, semilla)
+    tv._elip(e, rodilla, (r[1] * 1.35, r[1] * 1.35, r[1] * 1.25), mat, 0.5, grupo)
+    _tramo_nudoso(e, rodilla, pie, r[1], r[2], mat, grupo, semilla + 5)
+
+
+def brazo_rama(e, s, hombro, codo, mano, r, mat, semilla, n_dedos=3, largo_dedo=4.5, abre=1.0, ramitas=True):
+    hb, ha = ('brazo_d', 'antebrazo_d') if s < 0 else ('brazo_i', 'antebrazo_i')
+    g = 'brazo%d' % s
+    hombro, codo, mano = V(hombro, dtype=float), V(codo, dtype=float), V(mano, dtype=float)
+    # EL BRAZO: del hombro al codo, con un muñon de rama que sale hacia fuera y arriba.
+    e.h = hb
+    pts = _tramo_nudoso(e, hombro, codo, r[0], r[1], mat, g, semilla)
+    tv._elip(e, codo, (r[1] * 1.3, r[1] * 1.3, r[1] * 1.2), mat, 0.6, g)
+    if ramitas:
+        if mat == 'seca':
+            tv._rama_seca(e, pts[1], V((0.9 * s, -0.3, 0.6)), 6.0, r[1] * 0.45, semilla + 3, 1, mat, g)
+        else:
+            tv._cono(e, pts[1], pts[1] + V((2.4 * s, -0.6, 2.4)), r[1] * 0.42, 0.25, mat, 0, g)
+    # EL ANTEBRAZO: arranca DENTRO del nudo del codo (varias celdas de solape: si no, al doblar se despega).
+    e.h = ha
+    tv._elip(e, codo, (r[1] * 1.35, r[1] * 1.35, r[1] * 1.25), mat, 0.6, g)
+    pts2 = _tramo_nudoso(e, codo, mano, r[1], r[2], mat, g, semilla + 11)
+    lado, _ = _perp((mano - codo) / max(np.linalg.norm(mano - codo), 1e-6))
+    tv._elip(e, pts2[1] + lado * s * r[1] * 0.85, (r[1] * 0.35, r[1] * 0.35, r[1] * 0.5), 'hueco', 0, 'nudo')
+    if ramitas:
+        tv._cono(e, pts2[2], pts2[2] + V((1.6 * s, 0.4, 1.8)), r[2] * 0.4, 0.2, mat, 0, g)
+    # LA MANAZA: un bulto de corteza y dedos-rama con NUDILLO (tres tramos que se doblan hacia abajo).
+    delante = mano - codo; delante[2] = 0.0
+    delante = delante / max(np.linalg.norm(delante), 1e-6) if np.linalg.norm(delante) > 0.1 else V((0.0, 1.0, 0.0))
+    tv._elip(e, mano + V((0, 0.4, -0.4)), (r[2] * 1.45, r[2] * 1.3, r[2] * 1.2), mat, 0.8, g)
+    lat = np.cross(delante, V((0, 0, 1.0))); lat /= max(np.linalg.norm(lat), 1e-6)
+    for i in range(n_dedos):
+        f = (i - (n_dedos - 1) / 2) * abre
+        a = mano + lat * f * r[2] * 0.7 + V((0, 0, -r[2] * 0.4))
+        b = a + delante * largo_dedo * 0.45 + lat * f * 0.5 + V((0, 0, -largo_dedo * 0.15))
+        c = b + delante * largo_dedo * 0.3 + V((0, 0, -largo_dedo * 0.35))
+        d = c + delante * largo_dedo * 0.1 + V((0, 0, -largo_dedo * 0.3))
+        rd = r[2] * 0.42
+        tv._cono(e, a, b, rd, rd * 0.85, mat, 0.2, g)
+        tv._elip(e, b, (rd * 1.05, rd * 1.05, rd * 1.05), mat, 0.2, g)
+        tv._cono(e, b, c, rd * 0.85, rd * 0.6, mat, 0.1, g)
+        tv._cono(e, c, d, rd * 0.6, 0.08, mat, 0, g)
+    e.h = 'tronco'
+
+
 def POSE(**k):
     p = dict(avance=0.0, mece=0.0, balanceo=0.0, gira=0.0, bota=0.0, hunde=0.0, alza=0.0, abre=0.0, columpio=0.0,
              clava=0.0, patas=0.0, fase=0.0, recoge=0.0, abren=0.0, tumba=0.0, cabeza=0.0, evo=1.0, carga=0.0)
@@ -91,6 +211,8 @@ class _Esc(tv._Cuerpo):
 T_BASE = V((0.0, 0.0, 8.0))
 T_PATAS = [((i + 0.5) / 6 * 2 * math.pi) for i in range(6)]
 T_HOMBRO = {s: V((5.0 * s, 6.0, 15.0)) for s in (-1, 1)}
+T_CODO = {s: V((9.0 * s, 9.5, 11.0)) for s in (-1, 1)}
+T_MANO = {s: V((8.0 * s, 17.0, 7.0)) for s in (-1, 1)}
 
 
 def _cadera(i):
@@ -122,6 +244,7 @@ def huesos_tocon(p):
         a = ts._brazo_ang(p['alza']) * (1.0 - p['clava']) - 0.55 * p['clava'] + p['columpio'] * 0.30 * s
         Mb = rx(a) @ ry(-s * p['abre'] * 0.5)
         X['brazo_' + ld] = comp(X['tronco'], sobre(T_HOMBRO[s], Mb))
+    huesos_codos(X, p, T_CODO)
     return X
 
 
@@ -164,17 +287,19 @@ def piezas_tocon(e, ambar=True):
         b = _cadera(i)
         rod = V((0, 0, 15.0)) + u * 14.0
         punta = V((0, 0, 0.3)) + u * 19.0
-        tv._tubo(e, [b, rod, punta], [2.4, 1.7, 0.3], mat, 'pata%d' % i, 0.4)
+        # (04/11) con corteza: el muslo nudoso y la punta que se afila
+        _tramo_nudoso(e, b, rod, 2.5, 1.9, mat, 'pata%d' % i, 30 + i)
+        tv._cono(e, rod, punta, 1.8, 0.3, mat, 0.4, 'pata%d' % i)
         if SIN_COSTRA:
             tv._elip(e, rod + V((0, 0, 0.6)), (1.5, 1.5, 0.7), 'hueco', 0, 'cuenca')
         else:
             tv._ambar_con_bichos(e, rod, (2.4, 2.4, 2.2), 1 if i % 2 else 0, 80 + i, 0.4)
     for s in (-1, 1):
-        e.h = 'brazo_d' if s < 0 else 'brazo_i'
-        g = 'brazo%d' % s
-        mano = V((6.5 * s, 16.0, 6.0))
-        tv._tubo(e, [T_HOMBRO[s], (8.5 * s, 11.0, 13.0), mano], [1.6, 1.3, 1.1], mat, g, 0.4)
-        tv._dedos(e, mano, (0.0, 1.0, -0.6), mat, 3, 4.5, 0.5, 1.1, g)
+        brazo_rama(e, s, T_HOMBRO[s], T_CODO[s], T_MANO[s], (2.3, 2.0, 1.7), mat, 40 + s, 3, 4.5, 1.1)
+        if not SIN_COSTRA:
+            # una gota de ambar en el codo, que es suyo
+            e.h = 'brazo_d' if s < 0 else 'brazo_i'
+            tv._ambar_con_bichos(e, T_CODO[s] + V((0.8 * s, -0.6, 1.2)), (1.6, 1.6, 1.4), 0, 90 + s, 0.4)
     e.h = 'tronco'
 
 
@@ -183,6 +308,10 @@ def piezas_tocon(e, ambar=True):
 # ============================================================
 E_CADERA = {s: V((3.0 * s, -2.0, 21.0)) for s in (-1, 1)}
 E_HOMBRO = {s: V((4.5 * s, 8.0, 40.0)) for s in (-1, 1)}
+# (04/11) Mas cortos: el brazo entero bajaba de los hombros a los pies (32 de sus 41). Ahora el codo a media altura y la
+# mano por la cadera; las garras, largas, son las que llegan abajo.
+E_CODO = {s: V((9.5 * s, 9.0, 30.0)) for s in (-1, 1)}
+E_MANO = {s: V((9.0 * s, 14.5, 20.0)) for s in (-1, 1)}
 E_BASE = V((0.0, -2.0, 20.0))
 E_CUELLO = V((0.0, 11.0, 41.0))
 
@@ -204,6 +333,7 @@ def huesos_espantajo(p):
         X['brazo_' + ld] = comp(X['tronco'], sobre(E_HOMBRO[s], Mb))
         Mp = rx(p['patas'] * 0.30 * s * math.sin(2 * math.pi * p['fase'])) @ ry(s * p['recoge'] * 0.08)
         X['pierna_' + ld] = comp(raiz, sobre(E_CADERA[s], Mp))
+    huesos_codos(X, p, E_CODO)
     return X
 
 
@@ -214,12 +344,16 @@ def piezas_espantajo(e, carga=0.0):
         e.h = 'pierna_d' if s < 0 else 'pierna_i'
         g = 'pierna%d' % s
         pie = V((5.5 * s, 0.0, 1.5))
-        tv._tubo(e, [E_CADERA[s], (5.5 * s, 3.5, 12.0), pie], [2.2, 1.7, 1.5], 'seca', g, 0.5)
+        pierna_rama(e, E_CADERA[s], V((5.5 * s, 3.5, 12.0)), pie, (2.5, 2.0, 1.6), 'seca', g, 20 + s)
         tv._raices_pie(e, pie, 'seca', 4, 4.0, 0.9, g)
     e.h = 'tronco'
     eje = [(0, -2.0, 20.0), (0, -1.0, 28.0), (0, 2.0, 35.0), (0, 7.0, 40.0), (0, 11.0, 41.0)]
     rad = [4.4, 4.0, 4.0, 3.8, 3.0]
     tv._tubo(e, eje, rad, 'seca', 'cuerpo', 1.0)
+    # la corteza: vetas en espiral (no por la grieta de la espalda) y unos nudos huecos
+    vetas_tronco(e, eje, rad, 'seca', 12, 33, evitar=(270,), grueso=0.75)
+    for (t, ang) in ((0.3, 30), (0.55, 150), (0.75, 60)):
+        tv._elip(e, tv._sobre(eje, rad, t, ang, -0.2), (0.9, 0.9, 1.3), 'hueco', 0, 'nudo')
     tv._grietas(e, eje, rad, (40, 140, 220, 320), 'savia_negra', 'grieta_luz', 31, 0.05, 0.75, 0.2)
     # LA GRIETA DE LA ESPALDA (por donde sale el Geiser): una raja larga por el espinazo, con la luz dentro.
     ancho = 0.9 + 0.9 * carga
@@ -243,12 +377,7 @@ def piezas_espantajo(e, carga=0.0):
     for x in (-1.0, 0.0, 1.0):
         tv._cono(e, (x, 17.5, 34.5), (x * 1.2, 17.6, 31.0 - abs(x)), 0.5, 0.1, 'seca', 0, 'barba')
     for s in (-1, 1):
-        e.h = 'brazo_d' if s < 0 else 'brazo_i'
-        g = 'brazo%d' % s
-        mano = V((9.0 * s, 15.0, 8.0))
-        tv._tubo(e, [E_HOMBRO[s], (9.5 * s, 9.5, 29.0), (9.5 * s, 13.0, 17.0), mano], [2.0, 1.6, 1.4, 1.3], 'seca', g,
-                 0.5)
-        tv._dedos(e, mano, (0.0, 1.0, -0.5), 'seca', 4, 6.0, 0.55, 1.0, g)
+        brazo_rama(e, s, E_HOMBRO[s], E_CODO[s], E_MANO[s], (2.3, 1.9, 1.6), 'seca', 60 + s, 4, 7.0, 1.0)
     e.h = 'tronco'
 
 

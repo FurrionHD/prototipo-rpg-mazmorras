@@ -8,6 +8,54 @@
 [ext_resource type="Resource" path="res://resources/materials/nucleo_escarabajo.tres" id="6_nuc"]
 [ext_resource type="Resource" path="res://resources/materials/carne_insecto.tres" id="7_carne"]
 
+[ext_resource type="Script" path="res://scripts/actors/enemy/mutacion_data.gd" id="20_mut"]
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="21_ab"]
+[ext_resource type="Resource" path="res://resources/abilities/escarabajo_pulso.tres" id="22_pul"]
+[ext_resource type="Resource" path="res://resources/abilities/escarabajo_embestida_imantada.tres" id="23_emb"]
+[ext_resource type="Resource" path="res://resources/abilities/escarabajo_coraza_imantada.tres" id="24_cor"]
+[ext_resource type="Resource" path="res://resources/abilities/escarabajo_picado.tres" id="25_pic"]
+[ext_resource type="Resource" path="res://resources/abilities/escarabajo_pasada.tres" id="26_pas"]
+[ext_resource type="Resource" path="res://resources/abilities/escarabajo_elitros.tres" id="27_eli"]
+[ext_resource type="Resource" path="res://resources/abilities/escarabajo_picado_magnetico.tres" id="28_pma"]
+[ext_resource type="Resource" path="res://resources/materials/runa_escarabajo.tres" id="29_runa"]
+
+; LOS MUTANTES DEL ESCARABAJO DE HIERRO (04/11, memoria escarabajo-mutante; numeros provisionales). Dos ramas que se juntan:
+;     Escarabajo --> Escarabajo iman (pesado: Pulso, Adherencia, Limaduras)  --come mas--> Iman errante (los dos, Orbita)
+;               \--> Escarabajo saeta (agil: Picado, Pega y se va)          --come mas--/
+[sub_resource type="Resource" id="MUT_iman"]
+script = ExtResource("20_mut")
+id = &"iman"
+nombre = "Escarabajo imán"
+grado = 1
+habilidades = Array[ExtResource("21_ab")]([ExtResource("22_pul"), ExtResource("23_emb"), ExtResource("24_cor")])
+sprite = &"iman"
+pesos = {"agilidad": 12, "destreza": 12, "fuerza": 38, "magia": 18, "resistencia": 52, "voluntad": 18}
+adherencia_radio = 60.0
+limaduras_tope = 5
+
+[sub_resource type="Resource" id="MUT_saeta"]
+script = ExtResource("20_mut")
+id = &"saeta"
+nombre = "Escarabajo saeta"
+grado = 1
+habilidades = Array[ExtResource("21_ab")]([ExtResource("25_pic"), ExtResource("26_pas"), ExtResource("27_eli")])
+sprite = &"saeta"
+pesos = {"agilidad": 50, "destreza": 38, "fuerza": 22, "magia": 8, "resistencia": 16, "voluntad": 16}
+pega_y_se_va = 60.0
+
+[sub_resource type="Resource" id="MUT_errante"]
+script = ExtResource("20_mut")
+id = &"errante"
+nombre = "Imán errante"
+grado = 2
+desde = Array[StringName]([&"iman", &"saeta"])
+habilidades = Array[ExtResource("21_ab")]([ExtResource("22_pul"), ExtResource("25_pic"), ExtResource("26_pas"), ExtResource("28_pma")])
+sprite = &"errante"
+pesos = {"agilidad": 34, "destreza": 26, "fuerza": 20, "magia": 30, "resistencia": 24, "voluntad": 16}
+adherencia_radio = 60.0
+pega_y_se_va = 60.0
+orbita = true
+
 [sub_resource type="Resource" id="SA_peg"]
 script = ExtResource("2_sa")
 estado = 9
@@ -45,6 +93,8 @@ resist_elemental = {
 resist_aturdir = 0.5
 fx_basico = 23
 habilidades = [ExtResource("3_pis"), ExtResource("4_emb")]
+mutaciones = Array[ExtResource("20_mut")]([SubResource("MUT_iman"), SubResource("MUT_saeta"), SubResource("MUT_errante")])
+drop_runa = ExtResource("29_runa")
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
 ; ALCANCE del basico en el mapa (29/09): como el rey rata.
 alcance = 20.0

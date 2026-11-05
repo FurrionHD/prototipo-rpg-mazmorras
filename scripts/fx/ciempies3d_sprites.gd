@@ -36,7 +36,75 @@ const ANIMS := {
 	"apreton_delante": {"hoja": "apreton_delante", "dirs": 1, "marcos": 5, "fps": 14.0, "loop": false},
 	"desenroscarse_delante": {"hoja": "desenroscarse_delante", "dirs": 1, "marcos": 6, "fps": 12.0, "loop": false},
 	"cadaver": {"hoja": "muerte", "dirs": 8, "marcos": 1, "desde": 7, "fps": 1.0, "loop": false},
+	# COMER UN CRISTAL (05/11, sus mutantes).
+	"comer": {"hoja": "comer", "dirs": 8, "marcos": 10, "fps": 10.0, "loop": false, "opcional": true},
 }
+
+# LOS MUTANTES DEL CIEMPIES (05/11, ciempies-mutante): su carpeta y sus animaciones (tools/sprites_sdf/ciempies_mut_sdf.py).
+# Ya vienen a su tamaño y con SU color (sin el tinte del piso). Su 'embestida' de siempre es su basico.
+const LIENZOS_MUT := {&"bicefalo": Vector2i(136, 136), &"nudo": Vector2i(184, 216)}
+const _MUT_COMUN := {
+	"idle": {"hoja": "idle", "dirs": 8, "marcos": 8, "fps": 4.0, "loop": true},
+	"basico": {"hoja": "basico", "dirs": 8, "marcos": 8, "fps": 14.0, "loop": false},
+	"basico_u": {"hoja": "basico", "dirs": 8, "marcos": 8, "fps": 14.0, "loop": false},
+	"embestida": {"hoja": "basico", "dirs": 8, "marcos": 8, "fps": 14.0, "loop": false},
+	"pinza": {"hoja": "pinza", "dirs": 8, "marcos": 7, "fps": 14.0, "loop": false},
+	"oleada": {"hoja": "oleada", "dirs": 8, "marcos": 6, "fps": 18.0, "loop": false},
+	"enrosque": {"hoja": "enrosque", "dirs": 8, "marcos": 8, "fps": 11.0, "loop": false},
+	"libre_idle": {"hoja": "libre_idle", "dirs": 8, "marcos": 6, "fps": 8.0, "loop": true},
+	"libre_muerde": {"hoja": "libre_muerde", "dirs": 8, "marcos": 6, "fps": 14.0, "loop": false},
+	"encaje": {"hoja": "encaje", "dirs": 8, "marcos": 4, "fps": 18.0, "loop": false},
+	"muerte": {"hoja": "muerte", "dirs": 8, "marcos": 8, "fps": 10.0, "loop": false},
+	"cadaver": {"hoja": "muerte", "dirs": 8, "marcos": 1, "desde": 7, "fps": 1.0, "loop": false},
+	"comer": {"hoja": "comer", "dirs": 8, "marcos": 10, "fps": 10.0, "loop": false},
+	"evolucion": {"hoja": "evolucion", "dirs": 8, "marcos": 18, "fps": 10.0, "loop": false},
+}
+const _MUT_NUDO := {
+	"derrumbe_carga": {"hoja": "derrumbe_carga", "dirs": 8, "marcos": 8, "fps": 10.0, "loop": true},
+	"derrumbe": {"hoja": "derrumbe", "dirs": 8, "marcos": 7, "fps": 12.0, "loop": false},
+}
+
+
+# Las piezas del enrosque, 'suf' = "" (la cabeza A) o "_b" (la B, la segunda presa del Nudo).
+static func _piezas(suf: String) -> Dictionary:
+	var a: Dictionary = {}
+	for lado in ["_detras", "_delante"]:
+		for t in [["enroscarse", 6, 12.0, false], ["enroscado", 8, 8.0, true], ["apreton", 5, 14.0, false], ["desenroscarse", 6, 12.0, false]]:
+			var nom: String = "%s%s%s" % [t[0], suf, lado]
+			a[nom] = {"hoja": nom, "dirs": 1, "marcos": t[1], "fps": t[2], "loop": t[3]}
+	return a
+
+
+static func _anims_mutante(sprite: StringName) -> Dictionary:
+	var a: Dictionary = _MUT_COMUN.duplicate()
+	a["walk"] = {"hoja": "walk", "dirs": 8, "marcos": 8, "fps": 10.0 if sprite == &"bicefalo" else 7.0, "loop": true}
+	a.merge(_piezas(""))
+	if sprite == &"nudo":
+		a.merge(_MUT_NUDO)
+		a.merge(_piezas("_b"))
+	return a
+
+
+static func _sprite_mutante(ed: EnemyData, mutacion: StringName) -> StringName:
+	var m: MutacionData = ed.mutacion_de(mutacion) if ed != null else null
+	return m.sprite if m != null and LIENZOS_MUT.has(m.sprite) else &""
+
+
+# --- EL SPRITE DE MUTANTE (contrato de SpritesEnemigo, como Jabali3DSprites) ---
+static func tiene_mutante(ed: EnemyData, mutacion: StringName = &"") -> bool:
+	return _sprite_mutante(ed, mutacion) != &""
+
+
+static func clave_mutante_de(ed: EnemyData, _t: float, mutacion: StringName = &"") -> String:
+	var s: StringName = _sprite_mutante(ed, mutacion)
+	return "" if s == &"" else "ciempies3d_ciempies_sdf_%s" % String(s)
+
+
+static func generar_mutante_de(ed: EnemyData, _t: float, mutacion: StringName = &"") -> SpriteFrames:
+	var s: StringName = _sprite_mutante(ed, mutacion)
+	if s == &"":
+		return null
+	return Sprites3D.montar("res://assets/sprites/enemigos/ciempies_sdf_%s/" % String(s), _anims_mutante(s), LIENZOS_MUT[s], BASE, BASE)
 
 
 # --- Contrato de SpritesEnemigo ---

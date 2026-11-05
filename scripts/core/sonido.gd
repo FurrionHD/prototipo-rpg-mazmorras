@@ -133,6 +133,7 @@ const ELEMENTOS := {
 	Elementos.Elemento.RAYO: "rayo",
 	Elementos.Elemento.LUZ: "luz",
 	Elementos.Elemento.OSCURIDAD: "oscuridad",
+	Elementos.Elemento.VIENTO: "viento",
 }
 
 # La misma muestra seis veces seguidas suena a metralleta. Un pelin de tono cada vez y la racha se

@@ -96,7 +96,7 @@ func _probar_sorteo() -> void:
 	var vistos := {}
 	for i in 4000:
 		vistos[p.elemento_imbuido()] = true
-	_ok("salen los cinco elementos (%d)" % vistos.size(), vistos.size() == Elementos.TODOS.size())
+	_ok("salen los cinco elementos (%d)" % vistos.size(), vistos.size() == Elementos.AZAR_MAGIA.size())
 	_ok("y ninguna tirada sale sin elemento",
 		not vistos.has(Elementos.Elemento.NINGUNO))
 	# Y LOS DEMAS NO SORTEAN: si el campo se colara en un .tres normal, ese hechizo dejaria de ser

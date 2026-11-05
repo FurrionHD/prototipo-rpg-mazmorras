@@ -120,8 +120,21 @@ var _suelo_tipo: int = 0
 # su propia distancia sino a lo que tardo el PRIMER golpe. Es una regla (no viaja): el espejo llama igual.
 var _rs_primero: float = -1.0
 
+# (05/11) LA COPIA DE VIENTO del Filo de aire viaja como otro suelo con el tipo + SUELO_VIENTO, detras del de verdad.
+const SUELO_VIENTO := 10000
+
+func fijar_suelo_viento(tipo: int, forma: CombatFormas.Forma, semilla: int) -> void:
+	if forma == null or _pantalla._fx == null or not _pantalla.tactico:
+		return
+	_pantalla._fx.pedir_suelo_viento(forma)
+	_pantalla.espejo._apuntar_suelo_red(tipo + SUELO_VIENTO, forma, semilla, 0.0)
+
+
 func fijar_suelo(tipo: int, forma: CombatFormas.Forma, semilla: int, nucleo: float) -> void:
 	if forma == null or _pantalla._fx == null or not _pantalla.tactico:
+		return
+	if tipo >= SUELO_VIENTO:
+		_pantalla._fx.pedir_suelo_viento(forma)   # (en el espejo: la copia de viento que llega por red)
 		return
 	_suelo_forma = forma
 	_suelo_tipo = tipo
@@ -180,7 +193,53 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 	if not solo_dibujo and not evadido and dmg > 0.0:
 		_rebote_hilo(atacante, victima, dmg)
 		_rebote_tormenta(atacante, victima)
+		_al_entrar_viento(atacante, victima, dmg, elem)
 		_pantalla.enemigos.absorber_elemento(victima, elem, dmg)
+
+
+# LO QUE HACE EL VIENTO AL ENTRAR (05/11, el jefe). Es ley del elemento, venga de quien venga (tambien contra los tuyos):
+# - al que esta elevado cargando (la gargola en su Picado) le corta lo que preparaba y le quita una carga;
+# - AVIVA EL FUEGO: el x1,5 va en Elementos; aqui las llamas de un Quemado saltan a los suyos que tenga pegados.
+# Va una vez por resolucion (si un area pilla a tres quemados, salta solo la primera) y lo que salta no vuelve a saltar.
+const AVIVA_RADIO := 30.0
+const AVIVA_DANO := 0.3
+const AVIVA_PROB_QUEMAR := 0.4
+var _aviva_fotograma: int = -1
+
+func _al_entrar_viento(atacante: Combatant, victima: Combatant, dmg: float, elem: int) -> void:
+	if elem != Elementos.Elemento.VIENTO or _en_rebote or _pantalla._espejo or victima == null:
+		return
+	if victima.en_el_aire():
+		victima.frenar_carga()
+		if victima.volando():
+			var linea: String = _pantalla.interrumpir(victima, atacante)
+			if linea != "":
+				_pantalla._log_extra(linea)
+	if not victima.has_status(StatusEffects.Id.QUEMADURA) or not _pantalla.tactico \
+			or _aviva_fotograma == Engine.get_process_frames():
+		return
+	_aviva_fotograma = Engine.get_process_frames()
+	var es_enemigo: bool = _pantalla._enemies.has(victima)
+	var suyos: Array = _pantalla._vivos() if es_enemigo else _pantalla._aliados
+	var fuego: int = Elementos.Elemento.FUEGO
+	for v in suyos:
+		if v == victima or not v.is_alive() or v.no_elegible() \
+				or _pantalla.turno_mapa.hueco_entre(victima, v) > AVIVA_RADIO:
+			continue
+		var mult: float = Elementos.mult_recibido(fuego, v)
+		var d: float = maxf(0.1, dmg * AVIVA_DANO * mult)
+		v.take_damage(d)
+		_en_rebote = true
+		_fx_golpe(victima, v, d, false, false, fuego, CombatFX.Estilo.PASIVA_ARDE, 0.6, false, "", AbilityData.Gesto.AUTO, null, 0, mult)
+		_en_rebote = false
+		if v.is_alive() and randf() < StatusEffects.prob_final(AVIVA_PROB_QUEMAR, atacante, v, StatusEffects.Id.QUEMADURA):
+			v.apply_status(StatusEffects.Id.QUEMADURA)
+		if es_enemigo:
+			_pantalla._apuntar_dano(v, d, atacante)
+			_pantalla._caidos_de_rebote.append(v)
+		elif not v.is_alive():
+			_pantalla.altas._caer_aliado(v)
+		_pantalla._log_extra("🔥 El viento aviva las llamas de %s y saltan a %s: %.2f" % [_pantalla._etq(victima), _pantalla._etq(v), d])
 
 
 # EL SET HILO CONDUCTOR (03/11, las arañas mutantes): el golpe puede saltar en rayo a otro enemigo cercano. Va detras del
@@ -197,7 +256,7 @@ func _rebote_hilo(atacante: Combatant, victima: Combatant, dmg: float) -> void:
 		return
 	var a_tiro: Array = []
 	for e in _pantalla._vivos():
-		if e != victima and not e.en_sombras() and (not _pantalla.tactico \
+		if e != victima and not e.no_elegible() and (not _pantalla.tactico \
 				or _pantalla.turno_mapa.hueco_entre(victima, e) <= atacante.runa_hilo_radio):
 			a_tiro.append(e)
 	if a_tiro.is_empty():
@@ -526,15 +585,83 @@ func _refrescar_chips(c: Combatant, bloque: Dictionary, idx: int, forzar: bool =
 		# (cargando, recitando, provocacion, imbuicion) siguen siendo pares y se pintan en gris claro.
 		# Se mira el tamaño y no el tipo para que un espejo con la instantanea vieja (pares de 2) no
 		# reviente al llegar: la red manda estos mismos arrays.
-		var col: Color = (par[3] as Color) if par.size() > 3 else CHIP_NEUTRO
-		# SOLO EL ICONO cuando lo hay (par[2], que lo separa chip_de_grupo). Los chips de mecanica
-		# vienen como pares de 2 y se quedan con su texto, que ya es corto y dice algo que no cabe
-		# en un icono ("frase 2 de 3"). Lo demas -magnitud, turnos, que hace- esta en el tooltip.
-		var visible_txt: String = String(par[2]) if par.size() > 2 and String(par[2]) != "" \
-			else String(par[0])
-		var ultimo: bool = par.size() > 4 and bool(par[4])
-		_chip(box, visible_txt, String(par[1]), idx, col, ultimo)
+		# SOLO EL ICONO cuando lo hay (los del catalogo); los de mecanica, su icono y lo que dicen ademas ("2/3"). Lo
+		# demas -magnitud, turnos, que hace- esta en el tooltip. Todo eso lo decide StatusChip.de_par (iconos en pixel).
+		var clic: Callable = _pantalla.figuras._seleccionar.bind(idx) if idx >= 0 else Callable()
+		box.add_child(StatusChip.de_par(par, clic))
 	box.visible = box.get_child_count() > 0
+
+
+# LAS CAPAS SE ROMPEN CUANDO TOCA EL GOLPE (04/11, playtest del .exe; tanto la costra del Tocon como la capa de ambar y el
+# escudo de agua de los tuyos). Mismo principio que la barra de vida (CombatFX.encolar): lo resuelto se queda sin verse
+# hasta que aterriza su golpe; con varios, baja a tramos y se rompe con el ultimo. En el espejo la instantanea puede
+# llegar antes que el paquete de los golpes, asi que lo que baja sin golpe a la vista se espera un rato a que llegue.
+const ESPERA_CAPA_MS := 1500
+var _capas: Dictionary = {}   # Combatant -> {n: golpes pendientes del fotograma anterior, pend: si habia, desde: ms}
+
+func tick_capas() -> void:
+	if _pantalla._fx == null:
+		return
+	var de_los_mios := false
+	for c in _pantalla._aliados:
+		if _tick_capa(c):
+			de_los_mios = true
+	for e in _pantalla._enemies:
+		if _tick_capa(e):
+			var b: Dictionary = _pantalla._bloque_de(e)
+			if b.get("hp") is ProgressBar:
+				TramoEscudo.poner_costra(b["hp"] as ProgressBar, e.current_hp, e.max_hp, e.costra_vista())
+	if de_los_mios and _pantalla.tactico:
+		_pantalla.turno_mapa.refrescar_barras_grupo()
+
+
+# Devuelve true si ha cambiado algo de lo que se ve de 'c'.
+func _tick_capa(c: Combatant) -> bool:
+	var b: Dictionary = _pantalla._bloque_de(c)
+	if b.is_empty():
+		return false
+	var cambia := false
+	var bar = b.get("hp")
+	if bar is ProgressBar and is_instance_valid(bar) and b.has("hp_meta") and c.vis_hp != (bar as ProgressBar).value:
+		c.vis_hp = (bar as ProgressBar).value
+		cambia = true
+	if c.costra_max <= 0.0 and c.runa_escudo_max <= 0.0:
+		return cambia
+	var st: Dictionary = _capas.get(c, {})
+	if st.is_empty():
+		st = {"n": 0, "pend": false, "desde": -1}
+		_capas[c] = st
+		c.vis_costra = c.costra
+		c.vis_agua = c.runa_escudo_agua
+		return true
+	var pend: bool = _golpe_por_ver(b)
+	var n: int = _pantalla._fx.impactos_pendientes(b)
+	var nc: float = _capa_paso(st, c.vis_costra, c.costra, pend, n)
+	var na: float = _capa_paso(st, c.vis_agua, c.runa_escudo_agua, pend, n)
+	if pend or (c.costra >= nc and c.runa_escudo_agua >= na):
+		st["desde"] = -1
+	st["n"] = n
+	st["pend"] = pend
+	if nc != c.vis_costra or na != c.vis_agua:
+		c.vis_costra = nc
+		c.vis_agua = na
+		cambia = true
+	return cambia
+
+
+# Lo que se ve de una capa este fotograma, de lo que se veia ('visto') y lo que hay de verdad ('real').
+func _capa_paso(st: Dictionary, visto: float, real: float, pend: bool, n: int) -> float:
+	if pend:
+		var antes: int = int(st["n"])
+		if n > 0 and n < antes and visto > real:
+			return real + (visto - real) * float(n) / float(antes)   # ha caido uno de varios: su tramo
+		return visto
+	if bool(st["pend"]) or real >= visto or not _pantalla._espejo:
+		return real
+	var ahora: int = Time.get_ticks_msec()
+	if int(st["desde"]) < 0:
+		st["desde"] = ahora
+	return real if ahora - int(st["desde"]) >= ESPERA_CAPA_MS else visto
 
 
 # ¿Le queda a 'bloque' un golpe por ver? El suyo en la cola, o (en el espejo) golpes que aun esperan turno.
@@ -655,10 +782,10 @@ Solo tiene ojos para él: todo lo que haga va a por él, si le alcanza." % [
 	# linea de intro del log, que a los tres turnos ya nadie recuerda.
 	var lentas: int = int(_pantalla._lentas.get(c, 0))
 	if lentas > 0:
-		out.append(["😮‍💨x%d" % lentas,
+		out.append(["😮x%d" % lentas,
 			"Sin fuelle\nEntraste agotado: tus próximas %d acción%s van a medio ritmo." % [
 				lentas, "" if lentas == 1 else "es"],
-			"😮‍💨", Color(0.8, 0.6, 0.45)])
+			"😮", Color(0.8, 0.6, 0.45)])
 	if c.foco_cargas > 0:
 		out.append(["🔮x%d" % c.foco_cargas,
 			"Foco arcano: %d carga%s\nCada hechizo OFENSIVO gasta una y pega un %d%% más.\nNo caduca con los turnos." % [
@@ -679,21 +806,6 @@ Solo tiene ojos para él: todo lo que haga va a por él, si le alcanza." % [
 	return out
 
 
-# Un chip: el icono+numeros de siempre (etiqueta()), y al pasar el raton por encima, la ficha
-# entera (resumen()). TooltipButton porque el tooltip por defecto de Godot no parte lineas.
-# 'idx' = enemigo al que pertenece (-1 = jugador).
-#
-# El chip SI se come el clic (un tooltip necesita recibir el raton, asi que no puede ir en
-# IGNORE como los demas hijos del bloque). En vez de pelearse con eso, se le hace bueno: el
-# chip tambien selecciona. Asi el bloque no tiene zonas muertas -> pinches donde pinches
-# dentro del borde, apuntas a ese bicho.
-# Color de los chips que NO son un estado del catalogo (cargando, recitando, provocacion, imbuicion):
-# no tienen color propio porque no salen de StatusEffects.
-const CHIP_NEUTRO := Color(0.78, 0.80, 0.86)
-
-# El chip se monta en StatusChip, el mismo sitio que usa el HUD del mapa: asi un veneno se ve igual
-# en la pelea y andando por el pasillo. Clicar el de un enemigo lo SELECCIONA, como antes.
-func _chip(box: Container, texto: String, tooltip: String, idx: int = -1,
-		color: Color = CHIP_NEUTRO, parpadea: bool = false) -> void:
-	var clic: Callable = _pantalla.figuras._seleccionar.bind(idx) if idx >= 0 else Callable()
-	box.add_child(StatusChip.crear(texto, color, tooltip, clic, parpadea))
+# EL CHIP lo monta StatusChip.de_par, el mismo sitio que usa el HUD del mapa: asi un veneno se ve igual en la pelea y
+# andando por el pasillo. Un chip SI se come el clic (un tooltip necesita recibir el raton), asi que se le hace bueno:
+# clicar el de un enemigo lo SELECCIONA, y el bloque no tiene zonas muertas.

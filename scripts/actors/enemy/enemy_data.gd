@@ -406,6 +406,8 @@ func drop_factor_piso(piso: int) -> float:
 # POSADA, ES PIEDRA (gargola): si desde que empezo su ultimo turno no se ha movido, recibe x'posada_mult'. Al volar
 # (moverse, el Picado, que la muevan) lo pierde hasta su siguiente turno. 1 = no la tiene.
 @export var posada_mult: float = 1.0
+# VUELA SIEMPRE (05/11, polilla y chillon): para el viento va en el aire. No cambia a quien le llega el cuerpo a cuerpo.
+@export var vuela: bool = false
 # IMPARABLE (coloso): tirones, empujones y atracciones no le mueven ni le cortan la carga.
 @export var imparable: bool = false
 # Lo que se dice en el log cuando salta 'al_ser_golpeado' ("" = lo de siempre segun su dibujo).
@@ -833,6 +835,7 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	c.cuece_elem = cuece_elem
 	c.cuece_mult = cuece_mult
 	c.posada_mult = posada_mult
+	c.vuela = vuela
 	c.imparable = imparable
 	c.al_ser_golpeado_texto = al_ser_golpeado_texto
 	c.regen_turno = regen_turno
@@ -911,6 +914,11 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		c.resiste_magia = mdat2.resiste_magia
 		c.sigilo_prob = mdat2.sigilo_prob
 		c.salto_esquiva = mdat2.salto_esquiva
+		# (05/11, los de la Segadora) zona de siega, cortes de viento y vuelo corto (el alcance va abajo, con el suyo).
+		c.zona_siega = mdat2.zona_siega
+		c.cortes_viento = mdat2.cortes_viento
+		c.cortes_melee_mult = mdat2.cortes_melee_mult
+		c.vuelo_corto_prob = mdat2.vuelo_corto_prob
 		# (31/10, los del rey rata) llamada, escudo de carne, furia, a mi espalda, frente blindado y camada acorazada.
 		c.llamada_min = mdat2.llamada_min
 		c.llamada_max = mdat2.llamada_max
@@ -945,8 +953,24 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		c.rebote_mult = mdat2.rebote_mult
 		c.rebote_radio = mdat2.rebote_radio
 		c.carga_elemento = mdat2.carga_elemento
-		c.carga_tope = mdat2.carga_tope
+		# Solo quien tiene cargas (carga_elemento >= 0). MutacionData.carga_tope vale 4 de serie: copiado a ciegas, TODOS los
+		# mutantes salian con el contador de las arañas sin llenarse nunca (playtest del .exe, 04/11).
+		c.carga_tope = mdat2.carga_tope if mdat2.carga_elemento >= 0 else 0
 		c.carga_estallido = mdat2.carga_estallido
+		# (04/11, el escarabajo) sus pasivas.
+		c.adherencia_radio = mdat2.adherencia_radio
+		c.limaduras_tope = mdat2.limaduras_tope
+		c.pega_y_se_va = mdat2.pega_y_se_va
+		c.orbita = mdat2.orbita
+		# (05/11, el ciempies) las dos cabezas.
+		c.dos_mentes = mdat2.dos_mentes
+		c.basico_propio = mdat2.basico_propio
+		c.basico_una_cabeza = mdat2.basico_una_cabeza
+		c.cabeza_libre_mult = mdat2.cabeza_libre_mult
+		c.cabeza_libre_radio = mdat2.cabeza_libre_radio
+		c.enrosque_pegados_radio = mdat2.enrosque_pegados_radio
+		c.aprieta_por_turno = mdat2.aprieta_por_turno
+		c.aprieta_max = mdat2.aprieta_max
 
 	# RESISTENCIA A EFECTOS Y EFICACIA: la curva del PISO por el ajuste de ESTE bicho. Los dos ejes
 	# hacen falta y hacen cosas distintas: la resistencia decide lo que TE aguanta, la eficacia lo
@@ -988,6 +1012,10 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	c.fx_basico_mapa = fx_basico_mapa
 	c.anim_basico = anim_basico
 	c.alcance = alcance_real(float(mm.get("escala", 1.0)) if mutante else 1.0)
+	# GARRAS MAS LARGAS (05/11, la Segadora de sierra): su mutacion le estira el alcance.
+	var mdat_alc: MutacionData = mutacion_de(mutacion) if mutante else null
+	if mdat_alc != null:
+		c.alcance *= mdat_alc.alcance_mult
 	c.mutante = mutante
 	c.mutacion = mutacion if mutante else &""
 	c.grado_mut = grado_de(mutante, mutacion)

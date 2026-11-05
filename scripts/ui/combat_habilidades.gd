@@ -748,8 +748,14 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 				var pies: Vector2 = _pantalla.turno_mapa.pies_de(_pantalla._player)
 				f_suelo = CombatFormas.cono(pies, f_suelo.centro - pies, EstelaGolpe.RADIO, 0.0)
 			# Con dos armas, su variante de dos manos si la tiene (la maza: SueloRoto.con_manos).
-			_pantalla.efectos.fijar_suelo(SueloRoto.con_manos(ab.suelo_roto, manos), f_suelo,
-				(randi() & 0x3FFFFFFF) | 1, ab.forma_nucleo)
+			var sem_suelo: int = (randi() & 0x3FFFFFFF) | 1
+			_pantalla.efectos.fijar_suelo(SueloRoto.con_manos(ab.suelo_roto, manos), f_suelo, sem_suelo, ab.forma_nucleo)
+			# EL FILO DE AIRE (05/11): el mismo efecto, alargado y de viento, detras (lo aprobo el jefe en la lamina).
+			var p_f: Combatant = _pantalla._player
+			if p_f.runa_filo_dano > 0.0 and ab.dano_mult > 0.0 and not ab.es_magico:
+				var f_v = forma_alargada(f_suelo, p_f)
+				if f_v != null:
+					_pantalla.efectos.fijar_suelo_viento(SueloRoto.con_manos(ab.suelo_roto, manos), f_v, sem_suelo)
 	var mana_ganado: float = ab.mana_gain
 	if es_conversion and not soltando:
 		mana_ganado += coste / ab.energia_a_mana
@@ -1138,6 +1144,12 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# martillo gigante en alto del Martillo de guerra salia al soltarlo y tapaba al personaje.)
 	if not (en_mapa and ab.suelo_roto >= 0):
 		_pantalla.enemigos._fx_sobre_mi(ab)
+	# EL SET FILO DE AIRE: la forma alargada, a quien la normal no ha tocado.
+	if en_mapa:
+		var ya: Array = reparto_mapa.map(func(d): return d["c"])
+		for v in filo_de_aire(_pantalla._player, ab, ya, obj):
+			if not tocados.has(v):
+				tocados.append(v)
 	_pantalla._update_hp()
 	_pantalla._fin_de_eleccion()
 	# A TODOS los alcanzados, no solo al objetivo principal (misma regla que la magia de area).
@@ -1164,6 +1176,80 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 #   escala_prob / escala_mag: < 1.0 en los SECUNDARIOS de un area. Salen de la FRACCION DE DAÑO que
 #           ha encajado ese objetivo, no de un numero a mano: si encaja el 40% del golpe, tiene el
 #           40% de la probabilidad. Asi al tocar area_secundario esto se ajusta solo.
+# ============================================================
+#  EL SET FILO DE AIRE (05/11, la segadora; plan elegant-popping-firefly)
+# ============================================================
+# Tras un golpe DE ARMA de 'p' (una habilidad 'ab', o el basico con ab = null): la misma forma, ALARGADA, y un corte de
+# VIENTO de runa_filo_dano x su golpe a cada enemigo que la alargada toca y la normal NO ('ya'). Cono y circulo: radio
+# +runa_filo_mas; linea: +runa_filo_linea de largo; un golpe a uno (o sin forma): una linea de runa_filo_detras px detras
+# de 'obj'. Una vez por habilidad. Solo en el mapa y quien lleva la pelea. Devuelve a quien le ha dado (para rematarlos).
+const FILO_ANCHO := 18.0
+
+
+# LA FORMA ALARGADA del Filo de aire: cono y circulo +runa_filo_mas de radio, linea +runa_filo_linea de largo, con la misma
+# direccion y lo demas de la normal (de ahi arrancan los giros y los barridos). null si no es una de esas.
+static func forma_alargada(f, p: Combatant):
+	if f == null or p == null:
+		return null
+	var f2 = null
+	match f.tipo:
+		CombatFormas.Tipo.CONO:
+			f2 = CombatFormas.cono(f.origen, f.dir, f.radio * (1.0 + p.runa_filo_mas), f.apertura)
+		CombatFormas.Tipo.CIRCULO:
+			f2 = CombatFormas.circulo(f.centro, f.radio * (1.0 + p.runa_filo_mas))
+		CombatFormas.Tipo.LINEA:
+			f2 = CombatFormas.linea(f.origen, f.dir, f.largo * (1.0 + p.runa_filo_linea), f.ancho)
+	if f2 != null:
+		f2.dir = f.dir
+		f2.origen = f.origen
+		f2.dentro = f.dentro
+		f2.tramos = f.tramos
+		f2.cunas = f.cunas
+	return f2
+
+func filo_de_aire(p: Combatant, ab: AbilityData, ya: Array, obj: Combatant) -> Array:
+	var out: Array = []
+	if p == null or p.runa_filo_dano <= 0.0 or not _pantalla.tactico or _pantalla._espejo \
+			or not _pantalla._aliados.has(p) or not p.is_alive():
+		return out
+	if ab != null and (ab.dano_mult <= 0.0 or ab.forma_a_aliados or ab.es_magico):
+		return out
+	var t = _pantalla.turno_mapa
+	var nuevos: Array = []
+	var f = t.forma_de(ab, p, t.apunte) if ab != null and int(ab.forma) >= 0 else null
+	var f2 = forma_alargada(f, p) if f != null else null
+	if f2 != null:
+		for e in _pantalla._vivos():
+			if not ya.has(e) and not (e as Combatant).no_elegible() and t.cuerpo_de(e) != null and f2.toca(t.bulto_de(e)):
+				nuevos.append(e)
+	elif obj != null and t.cuerpo_de(obj) != null:
+		for e in t.en_linea_detras(p, obj, p.runa_filo_detras, FILO_ANCHO):
+			if not ya.has(e) and not (e as Combatant).no_elegible():
+				nuevos.append(e)
+	var partes: Array = []
+	# SE PINTA CON EL GOLPE DE SU ARMA, tenido de viento (CombatTactico._on_dibujo_mapa lo reconoce por el elemento).
+	var est: int = _pantalla.efectos._estilo_de_habilidad(ab, p)
+	for e in nuevos:
+		var v: Combatant = e
+		var r: Dictionary = StatsMath.resolve_attack(p, v, false)
+		if r.get("evaded", false):
+			_pantalla.efectos._fx_golpe(p, v, 0.0, false, true, Elementos.Elemento.VIENTO, est, 0.7, false)
+			partes.append("%s lo esquiva" % _pantalla._etq(v))
+			continue
+		var mult: float = Elementos.mult_recibido(Elementos.Elemento.VIENTO, v)
+		var d: float = maxf(0.1, float(r["damage"]) * p.runa_filo_dano * mult)
+		v.take_damage(d)
+		_pantalla.efectos._fx_golpe(p, v, d, false, false, Elementos.Elemento.VIENTO, est, 0.7, false,
+			"", AbilityData.Gesto.AUTO, null, 0, mult)
+		_pantalla._apuntar_dano(v, d, p)
+		out.append(v)
+		partes.append("%s %.2f" % [_pantalla._etq(v), d])
+	if not partes.is_empty():
+		_pantalla._update_hp()
+		_pantalla._log_extra("💨 Filo de aire: el corte de %s sigue de largo (%s)" % [p.nombre, ", ".join(partes)])
+	return out
+
+
 func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico: bool = false,
 		filtro: String = "todos", escala_prob: float = 1.0, escala_mag: float = 1.0) -> Array:
 	var out: Array = []
@@ -1227,6 +1313,8 @@ func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico:
 				_pantalla._player.atk() * (ab.dano_mult if ab != null and ab.dano_mult > 0.0 else 1.0)) * escala_mag
 			# N stacks por tirada, igual que la rama enemiga. Antes se aplicaba siempre 1 e
 			# ignoraba a.stacks: la primera habilidad que lo use tiene que funcionar sin acordarse.
+			# DOS MENTES: un aturdir que pilla un area le da a las dos cabezas.
+			d.aturdir_en_area = ab != null and (ab.es_area() or (ab.forma >= 0 and not ab.forma_solo_primero))
 			for _s in maxi(1, a.stacks):
 				d.apply_status(a.estado, _pantalla._player.runa_turnos(a.estado, a.turns), _pantalla._player.runa_mag(a.estado, mag, d), 1, false, a.cap, a.mult)
 			out.append(nom if al_enemigo else "%s (%s)" % [nom, d.nombre])

@@ -180,7 +180,12 @@ const MAX_CONEXIONES := 32
 #     la costra del Tocon, la capa de ambar del set Ambar y la garrapata), estilos TRENT_CHUPAR 221 y AMBAR_REVIENTA
 #     222 y suelos TRENT_RESINA/TRENT_SAVIA/TRENT_GEISER/AMBAR_BOLA 110-113 (con el charco_estilo 11, la savia negra).
 #   65 = (03/11) los mutantes de la araña: PARALISIS 51 y ENCAPULLADO 52, las cargas en el campo 12 de la instantanea y los estilos ARANA_* 223-226.
-const PROTOCOLO := 65
+#   66 = (04/11) estados IMANTADO..ELITROS 53-59 (el escarabajo); el campo 13 de la instantanea (los estados: el maniqui del espejo los pinta) y la espera de la costra en el 12.
+#   67 = (04/11) el conjuro cargado en el mapa: "punto" en el casteo de la ficha, en la respuesta a la frase, y 'apuntar' en _tu_frase y _tu_disparo.
+#   68 = (05/11) los mutantes del ciempies (Dos mentes: UNA_CABEZA y sus cabezas en el espejo).
+#   69 = (05/11) los de la Segadora: la HUELLA lleva el abanico (Forma.abanico y su angulo, dos floats mas: FLOATS_HUELLA
+#     17) para que el Vendaval de cortes se vea en tres lineas en los espejos; el elemento VIENTO y su estado.
+const PROTOCOLO := 69
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

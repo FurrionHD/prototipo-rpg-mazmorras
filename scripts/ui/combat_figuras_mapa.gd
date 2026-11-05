@@ -280,7 +280,9 @@ func _rect_cuerpo_px(cuerpo: Node2D) -> Rect2:
 			#
 			# Lo que vale es el TAMAÑO de lo pintado, puesto alrededor del origen del sprite, que es
 			# donde se ve el bicho.
-			return _rect_de(spr, _tam_pose(spr), spr.centered, spr.offset)
+			# Y CENTRADA EN EL DIBUJO, no en su origen (04/11, playtest: el jabali de lado lleva el dibujo 3-4 unidades
+			# corrido hacia el morro, y la barra quedaba descuadrada con el). Lo corrido es de cada pose.
+			return _rect_de(spr, _tam_pose(spr), spr.centered, spr.offset + _centro_pose(spr))
 
 	# Los que todavia no tienen arte son un ColorRect, y enemy._aplicar_escala ya lo deja a su
 	# tamaño. Se mide igual: el nodo que pinta, preguntado por lo que ocupa.
@@ -325,6 +327,25 @@ func _tam_pose(spr: AnimatedSprite2D) -> Vector2:
 			tam = Vector2(maxf(tam.x, float(s.x)), maxf(tam.y, float(s.y)))
 	_cache_pose[clave] = tam
 	return tam
+
+# Cuanto va corrido el dibujo de la pose respecto al centro de su lona (las hojas van recortadas y el 'margin' del
+# AtlasTexture repone el hueco: ahi esta donde cae). Del primer fotograma con dibujo, para que no tiemble al animarse.
+static var _cache_centro := {}
+
+func _centro_pose(spr: AnimatedSprite2D) -> Vector2:
+	var sf: SpriteFrames = spr.sprite_frames
+	var clave: String = "%d/%s" % [sf.get_instance_id(), spr.animation]
+	if not _cache_centro.has(clave):
+		var c := Vector2.ZERO
+		for i in sf.get_frame_count(spr.animation):
+			var at := sf.get_frame_texture(spr.animation, i) as AtlasTexture
+			if at != null and at.region.has_area():
+				c = at.margin.position + at.region.size * 0.5 - at.get_size() * 0.5
+				break
+		_cache_centro[clave] = c
+	var v: Vector2 = _cache_centro[clave]
+	return Vector2(-v.x if spr.flip_h else v.x, -v.y if spr.flip_v else v.y)
+
 
 func _pintado_de(tex: Texture2D) -> Rect2i:
 	var clave: int = tex.get_rid().get_id()

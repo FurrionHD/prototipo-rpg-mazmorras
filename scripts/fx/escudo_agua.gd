@@ -68,11 +68,12 @@ static func poner(cuerpo: Node2D, c: Combatant, caja: Rect2, z_detras: int = -10
 	e._paradas = c.runa_agua_paradas
 	e._z = [z_detras, z_delante, absolutos]
 	cuerpo.add_child(e)
+	CapaPixel.meter(e)   # en pixel art (memoria efectos-pixel-personajes)
 	return e
 
 
 static func de(cuerpo: Node2D) -> EscudoAgua:
-	return cuerpo.get_node_or_null("EscudoAgua") as EscudoAgua if is_instance_valid(cuerpo) else null
+	return CapaPixel.hijo_de(cuerpo, "EscudoAgua") as EscudoAgua if is_instance_valid(cuerpo) else null
 
 
 static func quitar(cuerpo: Node2D) -> void:
@@ -108,7 +109,7 @@ func _process(delta: float) -> void:
 	if _c == null:
 		queue_free()
 		return
-	var v: float = _c.runa_escudo_agua
+	var v: float = _c.agua_vista()   # lo que se ve: revienta cuando toca el golpe, no al resolverlo
 	if _rota >= 0.0:
 		_rota += delta
 		if _rota >= T_REVIENTA:
@@ -155,7 +156,7 @@ func _mitad(capa: Node2D, y: float) -> bool:
 
 # Lo que le queda (0..1).
 func _frac() -> float:
-	return clampf(_c.runa_escudo_agua / maxf(_c.runa_escudo_max, 0.001), 0.0, 1.0) if _c != null else 0.0
+	return clampf(_c.agua_vista() / maxf(_c.runa_escudo_max, 0.001), 0.0, 1.0) if _c != null else 0.0
 
 
 func _centro() -> Vector2:

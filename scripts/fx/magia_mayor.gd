@@ -190,6 +190,7 @@ static func area(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, esper
 	e.z_index = SueloRoto.Z_SUELO
 	e.process_mode = Node.PROCESS_MODE_ALWAYS
 	padre.add_child(e)
+	CapaPixel.meter(e)   # en pixel art (memoria efectos-pixel-personajes)
 	e._preparar()
 	return e
 
@@ -1606,6 +1607,7 @@ static func rayo_tormenta(padre: Node, caja: Rect2, semilla: int, espera: float,
 	e.z_index = Z_RAYOS_TORMENTA
 	e.process_mode = Node.PROCESS_MODE_ALWAYS
 	padre.add_child(e)
+	CapaPixel.meter(e)   # en pixel art (memoria efectos-pixel-personajes)
 	for i in 6:
 		var a: float = e._rng.randf_range(0.0, TAU)
 		e._motas.append({"a": a, "largo": e._rng.randf_range(9.0, 16.0)})
@@ -1751,6 +1753,7 @@ static func columna_luz(padre: Node, caja: Rect2, semilla: int, espera: float, r
 	e.z_index = Z_ENCIMA
 	e.process_mode = Node.PROCESS_MODE_ALWAYS
 	padre.add_child(e)
+	CapaPixel.meter(e)   # en pixel art (memoria efectos-pixel-personajes)
 	for i in 5:
 		e._trozos.append({"x": e._rng.randf_range(-12.0, 12.0), "t0": e._rng.randf_range(0.0, 0.25),
 			"largo": e._rng.randf_range(5.0, 8.0), "fase": e._rng.randf_range(0.0, TAU)})
@@ -2118,6 +2121,7 @@ static func petalos_prisma(padre: Node, desde: Vector2, caja: Rect2, semilla: in
 	e.z_index = Z_ENCIMA
 	e.process_mode = Node.PROCESS_MODE_ALWAYS
 	padre.add_child(e)
+	CapaPixel.meter(e)   # en pixel art (memoria efectos-pixel-personajes)
 	for i in PETALOS_CHORRO:
 		e._trozos.append({"h": float(i) / float(PETALOS_CHORRO) + e._rng.randf_range(-0.03, 0.03),
 			"retraso": float(i) * 0.035, "lado": e._rng.randf_range(-8.0, 8.0), "largo": e._rng.randf_range(11.0, 16.0)})

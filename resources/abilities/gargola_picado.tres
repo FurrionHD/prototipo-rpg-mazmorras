@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 nombre = "Picado"
-descripcion = "Extiende las alas de piedra, se eleva un instante y se deja caer sobre ti como una losa. El momento que pasa arriba es tu única ventana para pararla."
+descripcion = "Extiende las alas de piedra, se eleva un instante y no te quita el ojo de encima: da igual dónde te metas, cae sobre ti como una losa. El momento que pasa arriba es tu única ventana para pararla."
 coste_energia = 0.0
 golpes_min = 1
 golpes_max = 1
@@ -13,12 +13,14 @@ dano_mult = 2.1
 carga_turnos = 1
 fx_estilo = 21
 cooldown = 4
-; EN EL MAPA (30/09, constructos paso 1): se eleva y cae como una losa en un circulo r22 LIBRE a 120 px como mucho;
-; cargado 1 turno (la huella roja dice donde caera) y se queda alli, como el salto del acechador.
+; EN EL MAPA (30/09, constructos paso 1): se eleva y cae como una losa en un circulo r22; cargado 1 turno y se queda alli,
+; como el salto del acechador. (04/11, su peticion, como el Picado del escarabajo saeta) PERSIGUE: la marca va con su presa y
+; cae donde este, asi que andar no sirve: solo se para aturdiendola.
 forma = 1
 forma_apunte = 3
 forma_radio = 22.0
-forma_rango = 120.0
+forma_rango = 400.0
+carga_persigue = true
 salta = true
 ; EN EL AIRE toda la carga: el cuerpo a cuerpo no le llega, la magia si (lo pidio el usuario, 30/09).
 eleva = true

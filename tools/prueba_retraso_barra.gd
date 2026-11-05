@@ -214,6 +214,10 @@ func _correr() -> void:
 	# se fija para que esta prueba mire siempre ese caso. Se devuelve al acabar el paso.
 	var agi_antes = e.abilities.agilidad
 	e.abilities.agilidad = 36
+	# SU PRESA ES EL QUE TIENE PEGADO (04/11): elige por su tabla de amenaza, y la de esta prueba la llenan los golpes de los pasos de
+	# antes, que aciertan o fallan al azar. Cuando un compañero le habia hecho mas, iba a por el (a rodearle: bien hecho) y esto
+	# fallaba 1 de cada pocas vueltas. Aqui se mira tu area, no a quien persigue: la amenaza, toda de 'al'.
+	e.amenaza = {al: 1000.0}
 	combat._casteos.erase(al)
 	al.charging = null
 	if ab != null and tm.usa_huella(ab):

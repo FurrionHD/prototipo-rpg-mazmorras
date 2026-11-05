@@ -189,9 +189,39 @@ func _mostrar_test(idx: int) -> void:
 		_pantalla._set_log("🔮 %s recita %s (%d/%d). Esperando..." % [
 			_pantalla._player.nombre, _pantalla._cast_spell.nombre, idx + 1, _pantalla._cast_spell.longitud()])
 		_pantalla.espejo._pedir_a_remoto(dueno, {"tipo": "frase", "idx": idx, "opciones": opciones,
-			"nombre": _pantalla._cast_spell.nombre, "largo": _pantalla._cast_spell.longitud()})
+			"nombre": _pantalla._cast_spell.nombre, "largo": _pantalla._cast_spell.longitud(),
+			"apuntar": _ruta_si_falta_sitio()})
 		return
-	_pintar_test(idx, opciones, _pantalla._cast_spell.nombre, _pantalla._cast_spell.longitud(), correcta)
+	var sp: SpellData = _pantalla._cast_spell
+	if _falta_sitio():
+		_pedir_sitio(sp, func(p: Vector2) -> void:
+			_pantalla._casteos[_pantalla._player]["punto"] = p
+			_pintar_test(idx, opciones, sp.nombre, sp.longitud(), correcta))
+		return
+	_pintar_test(idx, opciones, sp.nombre, sp.longitud(), correcta)
+
+
+# ¿ESTE CONJURO ENTRO EN LA PELEA SIN SITIO? (cargado sin apuntar o interrumpido a media frase, en el mapa; 04/11). Los
+# de dentro se apuntan al elegirlos, asi que solo les pasa a estos. Los que van a uno de los tuyos no se apuntan al suelo.
+func _falta_sitio() -> bool:
+	if not _pantalla.tactico:
+		return false
+	var k: Dictionary = _pantalla._casteos.get(_pantalla._player, {})
+	var spell = k.get("spell")
+	return spell is SpellData and not (k.get("punto") is Vector2) \
+		and _pantalla.turno_mapa.usa_huella_hechizo(spell) and not (spell as SpellData).forma_a_aliados
+
+
+# Lo que viaja al dueño del conjuro: la ruta del hechizo a apuntar ("" = ya tiene sitio). La ruta y no un si/no: en su
+# espejo puede no haber llegado aun el circulo que le diria que hechizo es.
+func _ruta_si_falta_sitio() -> String:
+	return String(_pantalla._cast_spell.resource_path) if _falta_sitio() else ""
+
+
+func _pedir_sitio(spell: SpellData, al_elegir: Callable) -> void:
+	_pantalla._ocultar_cajas()
+	_pantalla._set_log("🔮 Elige dónde cae %s." % spell.nombre)
+	_pantalla.turno_mapa.apuntar_sitio(spell, _pantalla._player, al_elegir)
 
 
 # Pinta el examen de UNA frase. Vale igual para la pantalla que lleva la pelea y para un espejo al
@@ -242,7 +272,7 @@ func _pintar_test(idx: int, opciones: Array, nombre: String, largo: int, correct
 
 
 # ESPEJO: me toca recitar una frase de MI personaje. El examen lo ha sorteado el anfitrion.
-func recitar_frase(idx: int, opciones: Array, nombre: String, largo: int, seq: int = 0) -> void:
+func recitar_frase(idx: int, opciones: Array, nombre: String, largo: int, seq: int = 0, apuntar: String = "") -> void:
 	if not _pantalla._espejo:
 		return
 	if seq != 0 and seq == _pantalla.espejo._seq_contestada:
@@ -253,11 +283,24 @@ func recitar_frase(idx: int, opciones: Array, nombre: String, largo: int, seq: i
 	# Repeticion del anfitrion: si ya tengo el examen delante, no se re-sortea (ver turno_mio).
 	if _pantalla._state == _pantalla.State.WAITING_PLAYER and _pantalla._cast_box != null and _pantalla._cast_box.visible:
 		return
+	if _pantalla._state == _pantalla.State.WAITING_PLAYER and _pantalla.tactico and _pantalla.turno_mapa.esta_apuntando():
+		return   # repeticion: ya estoy eligiendo el sitio
 	_pantalla._traza_add("ME PIDEN LA FRASE %d (#%d) de %s" % [idx + 1, seq, nombre])
 	_pantalla._state = _pantalla.State.WAITING_PLAYER
 	if _pantalla.tactico and idx >= 0 and idx < _pantalla._aliados.size():
 		_pantalla.turno_mapa.enfocar(_pantalla._aliados[idx])   # la camara, al que recita
+	# Se quedo sin sitio al entrar en la pelea: primero el sitio y luego sigue por su frase. Viaja con la respuesta.
+	var sp_a: SpellData = load(apuntar) as SpellData if apuntar != "" and _pantalla.tactico else null
+	if sp_a != null:
+		_pedir_sitio(sp_a, func(p: Vector2) -> void:
+			_punto_canto = p
+			_pintar_test(idx, opciones, nombre, largo, ""))
+		return
 	_pintar_test(idx, opciones, nombre, largo, "")
+
+
+# ESPEJO: el sitio elegido antes de seguir recitando, hasta que salga con la respuesta a la frase.
+var _punto_canto: Variant = null
 
 
 # Frases de los OTROS hechizos equipados (para nutrir los distractores del test).
@@ -276,7 +319,11 @@ func _responder_frase(elegida: String, correcta: String) -> void:
 		return
 	# ESPEJO: no se si he acertado (la frase correcta no viaja: la comprueba el anfitrion).
 	if _pantalla._espejo:
-		_pantalla.espejo._responder_al_anfitrion({"tipo": "frase", "texto": elegida})
+		var resp_f: Dictionary = {"tipo": "frase", "texto": elegida}
+		if _punto_canto is Vector2:
+			resp_f["punto"] = [(_punto_canto as Vector2).x, (_punto_canto as Vector2).y]
+			_punto_canto = null
+		_pantalla.espejo._responder_al_anfitrion(resp_f)
 		return
 	if elegida == correcta:
 		# LA FRASE QUE SE HA DICHO, al registro: en el de todos, porque esto corre en quien lleva la pelea
@@ -320,6 +367,7 @@ func _cancelar_casteo() -> void:
 	# contestar: el menu de acciones que me devolvera viene por el mismo camino que una repeticion, y
 	# los guardias de turno_mio / recitar_frase lo descartarian si aun tuviera los botones delante.
 	if _pantalla._espejo:
+		_punto_canto = null
 		_pantalla._ocultar_cajas()
 		_pantalla._set_log("Cancelando el conjuro...")
 		_pantalla.espejo._responder_al_anfitrion({"tipo": "cancelar"})
@@ -344,6 +392,9 @@ func aplicar_reapunte(punto_nuevo, aliado_nuevo: Combatant) -> void:
 		return
 	if punto_nuevo is Vector2 and k.get("punto") is Vector2:
 		k["punto"] = _pantalla.turno_mapa.punto_reapuntado(spell, _pantalla._player, k["punto"], punto_nuevo)
+	elif punto_nuevo is Vector2 and _falta_sitio():
+		# Entro sin sitio: es el primero que se elige. Hasta donde llega lo recorta su huella (forma_de), como siempre.
+		k["punto"] = punto_nuevo
 	if _aliado_huyo():
 		var vivos: Array[Combatant] = _pantalla._aliados_vivos()
 		if aliado_nuevo != null and vivos.has(aliado_nuevo):
@@ -364,13 +415,30 @@ func _mostrar_disparo() -> void:
 	if dueno != 0 and not Net.peleas.esta_en_mi_pelea(dueno, _pantalla.pelea):
 		_pantalla.sacar_a(dueno)   # ver _mostrar_test: se fue con el conjuro ya recitado
 		return
+	# CARGADO EN EL MAPA Y CON SU SITIO ELEGIDO (04/11, el jefe): "se tirara instant al llegar tu turno". Sin boton.
+	var k_m: Dictionary = _pantalla._casteos.get(_pantalla._player, {})
+	if _pantalla.tactico and bool(k_m.get("desde_mapa", false)) and k_m.get("punto") is Vector2:
+		_disparar_hechizo()
+		return
 	if dueno != 0:
 		_pantalla._ocultar_cajas()
 		_pantalla._set_log("%s tiene el conjuro listo. Esperando..." % _pantalla._player.nombre)
 		_pantalla.espejo._pedir_a_remoto(dueno, {"tipo": "disparo", "nombre": _pantalla._cast_spell.nombre,
-			"reelegir": _aliado_huyo()})
+			"reelegir": _aliado_huyo(), "apuntar": _ruta_si_falta_sitio()})
+		return
+	if _falta_sitio():
+		_pedir_sitio(_pantalla._cast_spell, func(p: Vector2) -> void: _disparar_en(p))
 		return
 	_pintar_disparo(_pantalla._cast_spell.nombre, _aliado_huyo())
+
+
+# Lanza en 'p' el conjuro que entro sin sitio, en cuanto se elige.
+func _disparar_en(p: Vector2) -> void:
+	if _pantalla._espejo:
+		_pantalla.espejo._responder_al_anfitrion({"tipo": "disparar", "obj": _pantalla._target_idx, "punto": [p.x, p.y]})
+		return
+	_pantalla._casteos[_pantalla._player]["punto"] = p
+	_disparar_hechizo()
 
 
 # ¿El conjuro iba a uno de los tuyos que ha HUIDO de la pelea? (30/10, el jefe: "menos si se sale del combate al huir,
@@ -425,7 +493,7 @@ func _pintar_disparo(nombre: String, reelegir: bool = false) -> void:
 
 
 # ESPEJO: mi conjuro esta listo, el boton de lanzarlo va aqui.
-func lanzar_conjuro(nombre: String, seq: int = 0, reelegir: bool = false) -> void:
+func lanzar_conjuro(nombre: String, seq: int = 0, reelegir: bool = false, apuntar: String = "") -> void:
 	if not _pantalla._espejo:
 		return
 	if seq != 0 and seq == _pantalla.espejo._seq_contestada:
@@ -435,10 +503,16 @@ func lanzar_conjuro(nombre: String, seq: int = 0, reelegir: bool = false) -> voi
 		_pantalla.espejo._seq_espejo = seq
 	if _pantalla._state == _pantalla.State.WAITING_PLAYER and _pantalla._cast_box != null and _pantalla._cast_box.visible:
 		return   # repeticion del anfitrion: ya tengo el boton delante
+	if _pantalla._state == _pantalla.State.WAITING_PLAYER and _pantalla.tactico and _pantalla.turno_mapa.esta_apuntando():
+		return   # repeticion: ya estoy eligiendo el sitio
 	_pantalla._traza_add("ME PIDEN EL DISPARO (#%d) de %s" % [seq, nombre])
 	_pantalla._state = _pantalla.State.WAITING_PLAYER
 	if _pantalla.tactico:
 		_pantalla.turno_mapa.enfocar(_pantalla._player)   # la camara, al que lo suelta
+	var sp_a: SpellData = load(apuntar) as SpellData if apuntar != "" and _pantalla.tactico else null
+	if sp_a != null:
+		_pedir_sitio(sp_a, func(p: Vector2) -> void: _disparar_en(p))
+		return
 	_pintar_disparo(nombre, reelegir)
 
 
@@ -884,6 +958,11 @@ func aplicar_casteo_entrante(idx_aliado: int, d: Dictionary) -> void:
 	# impacto). Sin esta marca, _disparar_hechizo se lo volveria a cobrar aqui.
 	_pantalla._casteos[quien] = {"spell": sp, "idx": frase, "aliado": _aliado_de_apoyo(d.get("apoyo", {})),
 		"pagado": bool(d.get("pagado", false))}
+	# CARGADO EN EL MAPA: con su sitio elegido sale solo en su turno (_mostrar_disparo).
+	var pt: Array = d.get("punto", [])
+	if pt.size() >= 2:
+		_pantalla._casteos[quien]["punto"] = Vector2(float(pt[0]), float(pt[1]))
+		_pantalla._casteos[quien]["desde_mapa"] = true
 	if frase >= sp.longitud():
 		_pantalla._set_log("✨ %s entra con %s ya recitado." % [quien.nombre, sp.nombre])
 	else:
@@ -1563,6 +1642,8 @@ func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null
 				if a.magnitud < 0.0 else -1.0
 			var mag_h: float = a.magnitud if a.magnitud >= 0.0 \
 				else (mag_real_h if mag_real_h >= 0.0 else StatusEffects.magnitud_por_golpe(int(a.estado), _pantalla._player.atk(), golpe))
+			# DOS MENTES: un aturdir que pilla un area le da a las dos cabezas.
+			d_h.aturdir_en_area = spell.forma >= 0 and not spell.forma_solo_primero
 			d_h.apply_status(a.estado, _pantalla._player.runa_turnos(a.estado, a.turns), _pantalla._player.runa_mag(a.estado, mag_h, d_h), 1, false, a.cap)
 			print("[estado] %s recibe %s del hechizo %s (prob %.0f%%)" % [
 				_pantalla._etq(d_h), nom, spell.nombre, spell.efecto_prob(a) * 100.0])

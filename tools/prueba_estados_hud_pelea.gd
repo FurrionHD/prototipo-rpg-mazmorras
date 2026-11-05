@@ -104,6 +104,13 @@ func _correr() -> void:
 		textos.append("%s (%s)" % [h.text, String(h.tooltip_text).get_slice("\n", 0)])
 	print("     chips: %s" % [textos])
 	_ver(vivos.size() >= 3, "bajo su barra salen los tres estados (%d chips)" % vivos.size())
+	# Y SU FICHA SALE (05/11, el jefe: "en combate no sale el modal de los estados"): la pelea apaga al jugador y un Control
+	# apagado o pausado no recibe el raton en Godot 4, asi que el chip se pintaba pero su tooltip no saltaba nunca.
+	var reciben: bool = not vivos.is_empty()
+	for h in vivos:
+		if not (h as Control).can_process() or String(h.tooltip_text) == "":
+			reciben = false
+	_ver(reciben, "los chips de la pelea reciben el raton (su ficha puede salir)")
 
 	for k in combat._enemies:
 		k.current_hp = 0.0

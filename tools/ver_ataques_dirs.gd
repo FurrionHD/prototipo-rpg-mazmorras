@@ -8,7 +8,7 @@ extends Node2D
 
 # El combate tactico no tiene class_name: sus constantes (el salto de los enemigos) se leen de su script.
 const _TACTICO := preload("res://scripts/ui/combat_tactico.gd")
-const LADO := 420            # px de pantalla de cada viñeta
+var LADO: int = 420          # px de pantalla de cada viñeta (ATAQUES_LADO=640: mas grande, para ver los pixeles)
 const HABILIDADES := [
 	["martillo", "golpe_sismico"], ["martillo", "martillo_de_guerra"], ["martillo", "rompecorazas"],
 	["martillo", "onda_expansiva"], ["martillo", "temblor"],
@@ -182,6 +182,20 @@ const ROJO := Color(0.8, 0.35, 0.35)
 
 var _cam: Camera2D
 var _enemigos: Array = []    # donde estan los pies de cada figura roja
+# ATAQUES_FILO=1 (05/11, el jefe: el corte del set Filo de aire "en conjunto con el efecto de un ataque de verdad"): en cada
+# viñeta del efecto sale tambien el corte de viento a los que estan en la franja ALARGADA (y no en la normal); si no hay
+# nadie, un bicho de muestra en ella. Mismos numeros que el set (set_segadora.tres).
+const FILO_MAS := 0.3
+const FILO_LINEA := 0.4
+const FILO_DETRAS := 50.0
+const FILO_IMPACTO := 0.32   # cuando llega el corte (aprox.: justo tras el golpe del arma)
+const FILO_TINTE := Color(0.62, 1.0, 0.8, 0.8)   # el viento: el mismo efecto tenido de verde palido
+var _filo_on: bool = false
+var _filo_ab: AbilityData = null
+var _filo_f = null
+var _filo_yo: Vector2 = Vector2.ZERO
+var _filo_cortes: Array = []
+var _filo_figs: Array = []
 var _huella: Node2D
 var _forma_huella = null
 var _forma_huella2 = null   # la segunda huella de la misma habilidad (el pisoton de la Carga acorazada)
@@ -192,6 +206,8 @@ var _figs: Array = []        # las figuras de alrededor (rojas; verdes en las de
 
 
 func _ready() -> void:
+	if OS.get_environment("ATAQUES_LADO") != "":
+		LADO = int(OS.get_environment("ATAQUES_LADO"))
 	_cam = Camera2D.new()
 	add_child(_cam)
 	_cam.make_current()
@@ -210,17 +226,167 @@ func _ready() -> void:
 	_rotulo.add_theme_color_override("font_outline_color", Color.BLACK)
 	_rotulo.add_theme_constant_override("outline_size", 6)
 	capa.add_child(_rotulo)
+	# ATAQUES_PIXEL=1 -> los efectos pasados a pixel art por CapaPixel (04/11): el mismo dibujo en la rejilla de los sprites.
+	if OS.get_environment("ATAQUES_PIXEL") != "":
+		child_entered_tree.connect(func(n: Node):
+			var sc = n.get_script()
+			if n is Node2D and not (n is CapaPixel) and sc != null and str(sc.resource_path).begins_with("res://scripts/fx/"):
+				CapaPixel.meter.call_deferred(n))
+	_filo_on = OS.get_environment("ATAQUES_FILO") != ""
 	call_deferred("_correr")
 
 
+func _filo_limpiar() -> void:
+	for c in _filo_cortes:
+		if is_instance_valid(c):
+			(c as Node).queue_free()
+	_filo_cortes.clear()
+	for fg in _filo_figs:
+		if is_instance_valid(fg):
+			(fg as Node).queue_free()
+	_filo_figs.clear()
+
+
+func _filo_alargada(f):
+	var f2 = null
+	match f.tipo:
+		CombatFormas.Tipo.CONO:
+			f2 = CombatFormas.cono(f.origen, f.dir, f.radio * (1.0 + FILO_MAS), f.apertura)
+		CombatFormas.Tipo.CIRCULO:
+			f2 = CombatFormas.circulo(f.centro, f.radio * (1.0 + FILO_MAS))
+		CombatFormas.Tipo.LINEA:
+			f2 = CombatFormas.linea(f.origen, f.dir, f.largo * (1.0 + FILO_LINEA), f.ancho)
+	if f2 != null:
+		# LA MISMA DIRECCION (y lo demas de la forma): el Molinete arranca su giro desde ahi, y un circulo nuevo mira al
+		# este; sin esto el de viento iba desfasado del de verdad segun hacia donde mirases (05/11, el jefe lo vio).
+		f2.dir = f.dir
+		f2.origen = f.origen
+		f2.dentro = f.dentro
+		f2.tramos = f.tramos
+		f2.cunas = f.cunas
+	return f2
+
+
+# EL FILO DE AIRE EN CUALQUIER ARMA (05/11, el jefe: "necesito verlo en todos los efectos que sean muy especificos de
+# armas"): sus GOLPES sobre un cuerpo (XAire.golpe: daga, espada, estoque, maza, baston, escudo; todos con la misma firma)
+# se repiten, tenidos de viento y a la vez, sobre los de la franja alargada (en el basico, sobre el que queda detras); y
+# su AREA (SueloRoto) se repite con la forma alargada, detras de la de verdad.
+func _filo_piezas(piezas: Array, f, ab: AbilityData, semilla: int, yo: Vector2) -> void:
+	if not _filo_on or f == null or ab == null or piezas.is_empty():
+		return
+	_filo_f = null   # (con esto no hace falta la media luna suelta)
+	var golpes: Array = []
+	var areas: Array = []
+	for pz in piezas:
+		var n: Node = pz["n"]
+		if n == null:
+			continue
+		# (un golpe sobre un cuerpo: con su caja y SIN forma; la onda del escudo lleva forma y es un area)
+		if n.get("_caja") is Rect2 and (n.get("_caja") as Rect2).has_area() and n.get("forma") == null 				and n.get("modo") != null and n.get_script() != null and n.get_script().has_method("golpe"):
+			golpes.append(pz)
+		else:
+			areas.append(pz)   # (el barrido, el giro, la grieta: lo que no es un golpe sobre un cuerpo)
+	var basico: bool = ab.nombre.begins_with("Tajo (basico")
+	var cajas_v: Array = []
+	if basico and not golpes.is_empty():
+		var r0: Rect2 = golpes[0]["n"].get("_caja")
+		var dir0: Vector2 = (r0.get_center() - yo).normalized()
+		var p_v: Vector2 = Vector2(r0.get_center().x, r0.end.y) + dir0 * FILO_DETRAS * 0.8
+		for p in _enemigos:
+			if (p as Vector2).distance_to(p_v) < 14.0:
+				cajas_v.append(Rect2(p - Vector2(7, 26), Vector2(14, 26)))
+		if cajas_v.is_empty():
+			_filo_figs.append(_figura(p_v, Color(1.0, 0.55, 0.3)))
+			cajas_v.append(Rect2(p_v - Vector2(7, 26), Vector2(14, 26)))
+	elif not golpes.is_empty() or (not areas.is_empty() and int(ab.suelo_roto) >= 0):
+		cajas_v = _filo_cajas_franja(f)
+	if not golpes.is_empty():
+		for k in cajas_v.size():
+			var tpl: Dictionary = golpes[k % golpes.size()]
+			var tn: Node = tpl["n"]
+			var r_v: Rect2 = cajas_v[k]
+			var hacia_v: Vector2 = (r_v.get_center() - yo).normalized()
+			var n_v: Node2D = tn.get_script().golpe(self, int(tn.get("modo")), r_v.get_center() - hacia_v * 16.0, r_v,
+				false, true, k, semilla + 50 + k, 0.0, 1.0)
+			if n_v != null:
+				n_v.modulate = FILO_TINTE
+				piezas.append({"n": n_v, "t0": float(tpl["t0"])})
+	if not areas.is_empty() and int(ab.suelo_roto) >= 0 and not basico:
+		var f2 = _filo_alargada(f)
+		if f2 != null:
+			var s_v: Node2D = SueloRoto.lanzar(self, f2, ab.suelo_roto, semilla + 7)
+			if s_v != null:
+				s_v.modulate = FILO_TINTE
+				s_v.z_index -= 1
+				piezas.append({"n": s_v, "t0": float(areas[0]["t0"])})
+
+
+# Los cuerpos de la franja alargada (que la normal no toca); si no hay ninguno, uno de muestra en medio de ella.
+func _filo_cajas_franja(f) -> Array:
+	var out: Array = []
+	var f2 = _filo_alargada(f)
+	if f2 == null:
+		return out
+	for p in _enemigos:
+		var r := Rect2(p - Vector2(7, 26), Vector2(14, 26))
+		if f2.toca(r) and not f.toca(r):
+			out.append(r)
+	if out.is_empty():
+		var dir: Vector2 = f.dir.normalized() if f.dir.length_squared() > 0.01 else Vector2.RIGHT
+		var desde: Vector2 = f.centro if f.tipo == CombatFormas.Tipo.CIRCULO else f.origen
+		var hasta: float = f.radio * (1.0 + FILO_MAS * 0.6) if f.tipo != CombatFormas.Tipo.LINEA else f.largo * (1.0 + FILO_LINEA * 0.6)
+		var p2: Vector2 = desde + dir * hasta + Vector2(0, 13)
+		_filo_figs.append(_figura(p2, Color(1.0, 0.55, 0.3)))
+		out.append(Rect2(p2 - Vector2(7, 26), Vector2(14, 26)))
+	return out
+
+
+func _filo_en(t: float) -> void:
+	if not _filo_on or _filo_f == null:
+		return
+	if _filo_cortes.is_empty():
+		var f = _filo_f
+		var f2 = null if _filo_ab != null and _filo_ab.nombre.begins_with("Tajo (basico") else _filo_alargada(f)
+		var desde: Vector2 = f.centro if f.tipo == CombatFormas.Tipo.CIRCULO else _filo_yo
+		var blancos: Array = []
+		if f2 != null:
+			for p in _enemigos:
+				var r := Rect2(p - Vector2(7, 26), Vector2(14, 26))
+				if f2.toca(r) and not f.toca(r):
+					blancos.append(p)
+			if blancos.is_empty():
+				var dir: Vector2 = f.dir.normalized() if f.dir.length_squared() > 0.01 else Vector2.RIGHT
+				var hasta: float = (f.radio * (1.0 + FILO_MAS * 0.6)) if f.tipo != CombatFormas.Tipo.LINEA 					else f.largo * (1.0 + FILO_LINEA * 0.6)
+				blancos.append(desde + dir * hasta + Vector2(0, 13))
+		else:
+			# a uno: por detras del mas cercano hacia donde pega
+			var dir2: Vector2 = (f.centro - _filo_yo).normalized() if f.centro.distance_squared_to(_filo_yo) > 1.0 else Vector2.RIGHT
+			desde = _filo_yo + dir2 * 30.0
+			blancos.append(desde + dir2 * FILO_DETRAS * 0.8 + Vector2(0, 13))
+		for p in blancos:
+			if not (p in _enemigos):
+				_filo_figs.append(_figura(p, Color(1.0, 0.55, 0.3)))
+			var c: CorteVientoAire = CorteVientoAire.lanzar(self, desde, Rect2(p - Vector2(7, 26), Vector2(14, 26)), FILO_IMPACTO, 1.0)
+			c.set_process(false)
+			_filo_cortes.append(c)
+	for c in _filo_cortes:
+		if is_instance_valid(c):
+			c._t = t
+			c.queue_redraw()
+
+
 func _draw() -> void:
+	_losetas(self)
+
+
+func _losetas(ci: CanvasItem) -> void:
 	# Un suelo de losetas oscuro, como el de la mazmorra (el de ver_suelo_roto).
 	var r: int = 400
 	for x in range(-r, r, 16):
 		for y in range(-r, r, 16):
 			var v: float = 0.17 + 0.015 * float((x / 16 + y / 16) % 2)
-			draw_rect(Rect2(x, y, 16, 16), Color(v, v + 0.02, v + 0.035))
-			draw_rect(Rect2(x, y, 16, 16), Color(0.11, 0.12, 0.14), false, 1.0)
+			ci.draw_rect(Rect2(x, y, 16, 16), Color(v, v + 0.02, v + 0.035))
+			ci.draw_rect(Rect2(x, y, 16, 16), Color(0.11, 0.12, 0.14), false, 1.0)
 
 
 func _figura(p: Vector2, col: Color) -> ColorRect:
@@ -280,6 +446,9 @@ func _correr() -> void:
 		var nom: String = h[1]
 		if pedidas != "" and not (nom in pedidas.split(",")):
 			continue
+		# ATAQUES_SIN_MAGIA=1 -> solo las armas
+		if arma == "magia" and OS.get_environment("ATAQUES_SIN_MAGIA") != "":
+			continue
 		var ab: AbilityData
 		var hechizo: SpellData = null
 		if arma == "magia":
@@ -336,6 +505,9 @@ func _correr() -> void:
 						mejor = dd
 						hacia = p + Vector2(0, -13)
 			var f = CombatFormas.de_habilidad_mapa(ab, yo, PISA, ALCANCE[arma], hacia)
+			_filo_ab = ab
+			_filo_f = f if hechizo == null else null   # (la magia no lo activa)
+			_filo_yo = yo
 			if hechizo != null:
 				f.cunas = hechizo.forma_cunas
 				# De donde sale lo que se lanza a un circulo (ver CombatTactico.forma_hechizo).
@@ -374,6 +546,16 @@ func _correr() -> void:
 			var f_suelo = f
 			if ab.suelo_roto == SueloRoto.Tipo.ESTELA:
 				f_suelo = CombatFormas.cono(yo, f.centro - yo, EstelaGolpe.RADIO, 0.0)
+			# EL FILO DE AIRE (05/11, el jefe: "tiene que unirse visualmente al efecto, hacerlo mas grande pero con viento"): el
+			# MISMO efecto del arma con la forma alargada, tenido de viento y detras del de verdad.
+			var s_viento: Node2D = null
+			if _filo_on and _filo_alargada(f_suelo) != null:
+				s_viento = SueloRoto.lanzar(self, _filo_alargada(f_suelo), ab.suelo_roto, 1234 + fila, 0.0)
+				if s_viento != null:
+					s_viento.set_process(false)
+					s_viento.modulate = FILO_TINTE
+					s_viento.z_index -= 1
+				_filo_f = null   # (con el efecto alargado no hace falta la media luna suelta)
 			var s: Node2D = SueloRoto.lanzar(self, f_suelo, ab.suelo_roto, 1234 + fila, ab.forma_nucleo)
 			s.set_process(false)
 			# LA SANGRE DEL HACHA: sale en el juego cuando el golpe entra (CombatTactico._on_impacto); aqui se
@@ -398,6 +580,12 @@ func _correr() -> void:
 					sangres.append({"n": n, "t0": antes + SueloRoto.retraso(f_suelo, p, ab.suelo_roto), "hecho": 0.0})
 			for col in tiempos.size():
 				s.set("_t", float(tiempos[col]))
+				if is_instance_valid(s_viento):
+					s_viento.set("_t", float(tiempos[col]))
+					for hijo_v in ["_geiser", "_aire", "_atras", "_delante"]:
+						if s_viento.get(hijo_v) != null:
+							(s_viento.get(hijo_v) as Node2D).queue_redraw()
+					s_viento.queue_redraw()
 				for sg in sangres:
 					var quiere: float = float(tiempos[col]) - float(sg["t0"])
 					while float(sg["hecho"]) + 0.01 <= quiere:
@@ -410,6 +598,8 @@ func _correr() -> void:
 				s.queue_redraw()
 				await _viñeta(hoja, col + 1, fila, "%s · %s · %.2f s" % [ab.nombre, dir_n, float(tiempos[col])])
 			s.queue_free()
+			if is_instance_valid(s_viento):
+				s_viento.queue_free()
 			for sg in sangres:
 				if is_instance_valid(sg["n"]):
 					(sg["n"] as Node).queue_free()
@@ -466,6 +656,7 @@ func _efecto_daga(ab: AbilityData, nom: String, f, fila: int, hoja: Image, tiemp
 					r0, false, true, 0, semilla, 0.0, 1.0), "t0": 0.2})
 		"filo_emponzonado":
 			piezas.append({"n": DagaAire.ponzona(self, null, semilla, 0.0, 1.0, mano + Vector2(6.0, 0.0)), "t0": 0.0})
+	_filo_piezas(piezas, f, ab, semilla, yo)
 	for pz in piezas:
 		(pz["n"] as Node).set_process(false)
 	for col in tiempos.size():
@@ -565,6 +756,7 @@ func _efecto_estoque(ab: AbilityData, nom: String, f, fila: int, hoja: Image, ti
 				var ahi: Vector2 = yo.lerp(fin, clampf(t0 / maxf(dur, 0.01), 0.0, 1.0))
 				piezas.append({"n": EstoqueAire.golpe(self, EstoqueAire.Modo.DANZA, ahi + alto - f.dir * 12.0, r3, false,
 					i == 0, i, semilla + i, 0.0, 1.0), "t0": t0})
+	_filo_piezas(piezas, f, ab, semilla, yo)
 	for pz in piezas:
 		if pz["n"] != null:
 			(pz["n"] as Node).set_process(false)
@@ -742,6 +934,7 @@ func _efecto_espada(ab: AbilityData, nom: String, f, fila: int, hoja: Image, tie
 				var ahi: Vector2 = yo.lerp(fin, clampf(t0 / maxf(dur, 0.01), 0.0, 1.0))
 				piezas.append({"n": EspadaAire.golpe(self, EspadaAire.Modo.RITMO, ahi + alto - f.dir * 12.0, r3, false,
 					i == 0, i, semilla + i, 0.0, 1.0), "t0": t0})
+	_filo_piezas(piezas, f, ab, semilla, yo)
 	for pz in piezas:
 		if pz["n"] != null:
 			(pz["n"] as Node).set_process(false)
@@ -851,6 +1044,7 @@ func _efecto_maza(ab: AbilityData, nom: String, dual: bool, f, fila: int, hoja: 
 					var largo: float = minf(ab.junta_aliados, de.distance_to(yo) - 24.0)
 					if largo > 2.0:
 						pasos.append({"fig": _figs[int(cajas[i][1])], "de": de, "a": de + (yo - de).normalized() * largo})
+	_filo_piezas(piezas, f, ab, semilla, yo)
 	for pz in piezas:
 		if pz["n"] != null:
 			(pz["n"] as Node).set_process(false)
@@ -942,6 +1136,7 @@ func _efecto_baston(ab: AbilityData, nom: String, f, fila: int, hoja: Image, tie
 				var mano: Vector2 = yo + alto + (hacia_fila as Vector2).normalized().orthogonal() * 5.0
 				piezas.append({"n": BastonAire.golpe(self, m_v, mano, r3, false, false, 0, semilla, 0.0, 1.0,
 					r3.get_center() - yo), "t0": 0.0})
+	_filo_piezas(piezas, f, ab, semilla, yo)
 	for pz in piezas:
 		if pz["n"] != null:
 			(pz["n"] as Node).set_process(false)
@@ -982,6 +1177,12 @@ func _pies_caja(r: Rect2) -> Vector2:
 
 
 func _viñeta(hoja: Image, col: int, fila: int, texto: String) -> void:
+	if _filo_on:
+		var m := RegEx.create_from_string("([0-9]+[.][0-9]+) s$").search(texto)
+		if col == 0:
+			_filo_limpiar()
+		elif m != null:
+			_filo_en(float(m.get_string(1)))
 	var tam: Vector2 = get_viewport().get_visible_rect().size
 	_rotulo.text = texto
 	_rotulo.position = tam * 0.5 - Vector2(LADO, LADO) * 0.5 + Vector2(8, 4)
@@ -1138,9 +1339,11 @@ func _efecto_magia(sp: SpellData, f, fila: int, hoja: Image, tiempos: Array, dir
 	for col in tiempos.size():
 		var t: float = float(tiempos[col])
 		s.set("_t", t)
+		s.queue_redraw()
 		for hijo in ["_suelo", "_delante", "_brillo", "_lluvia"]:
-			if s.get(hijo) != null:
-				(s.get(hijo) as Node2D).queue_redraw()
+			var hn = s.get(hijo)
+			if hn is Node2D:
+				(hn as Node2D).queue_redraw()
 		for ar in arcos:
 			(ar["n"] as Node2D).set("_t", t - float(ar["t0"]))
 			((ar["n"] as Node2D).get("_brillo") as Node2D).queue_redraw()
@@ -1371,9 +1574,9 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 				# es eso: el gas que le sale de golpe); aqui tambien, en las columnas de tiempo.
 				if (ab.charco_estilo == 5 or ab.charco_estilo == 7) and f != null:
 					var fn2 = CombatFormas.circulo(f.centro, ab.charco_radio if ab.charco_radio > 0.0 else f.radio)
-					piezas.append({"n": SimaAire.nube(self, fn2, 800 + fila * 13, 0.0,
-						Color(0.52, 0.49, 0.47) if ab.charco_estilo == 7 else col),
-						"t0": 0.0})
+					# (en pixel art, como en el juego: la hoja de cuando sale; lo que dura se ve en su columna)
+					piezas.append({"n": EfectoPixel.lanzar(self, "slime", _base_nube(ab.charco_estilo, fn2.radio) + "_sale", fn2.centro, 0, null, 0.0, -1.0, 1.0,
+						PackedColorArray() if ab.charco_estilo == 7 else SlimeAire.paleta_pixel(col)), "t0": 0.0})
 				# EL EMPUJON de la Marea: los que pilla se apartan cuando les llega.
 				var pasos: Array = []
 				if not is_zero_approx(ab.tiron) and f != null and ab.suelo_roto >= 0:
@@ -1415,23 +1618,17 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 					if ab.charco_estilo == 5 or ab.charco_estilo == 7:
 						# LA NUBE DE MIASMA (06/10), de su color y con su radio (el del Escupitajo, mas grande que su golpe).
 						var fn = CombatFormas.circulo(f.centro, ab.charco_radio if ab.charco_radio > 0.0 else f.radio)
-						var nb: SimaAire = SimaAire.nube(self, fn, 900 + fila * 17, 0.0,
-							Color(0.52, 0.49, 0.47) if ab.charco_estilo == 7 else col)
+						var nb: EfectoPixel = EfectoPixel.lanzar(self, "slime", _base_nube(ab.charco_estilo, fn.radio) + "_dura", fn.centro, 0, null, 0.0, -1.0, 1.0,
+							PackedColorArray() if ab.charco_estilo == 7 else SlimeAire.paleta_pixel(col))
 						nb.set_process(false)
-						nb.set("_t", 1.2)
-						for hijo in ["_suelo", "_delante"]:
-							var su3 = nb.get(hijo)
-							if su3 is Node2D:
-								(su3 as Node2D).queue_redraw()
 						charcos.append(nb)
 					elif ab.charco_estilo == 3 or ab.charco_estilo == 4:
 						# La BABA del slime: una sola mancha (BabaSuelo), como en el juego.
 						var fb = CombatFormas.linea(f.origen, f.dir, f.largo, f.ancho) if (ab.rastro and f.tipo == CombatFormas.Tipo.LINEA) 							else CombatFormas.circulo(f.centro, f.radio)
-						var bs: BabaSuelo = BabaSuelo.crear(self, fb, col, ab.charco_estilo == 4, 900 + fila * 17)
+						var es_l: bool = fb.tipo == CombatFormas.Tipo.LINEA
+						var bs: EfectoPixel = EfectoPixel.lanzar(self, "slime", ("baba_l" if es_l else "baba_c") + ("_p" if ab.charco_estilo == 4 else "") + "_dura",
+							fb.origen if es_l else fb.centro, SpriteLienzo.dir8(fb.dir) if es_l else 0, null, 0.0, -1.0, 1.0, SlimeAire.paleta_pixel(col))
 						bs.set_process(false)
-						bs.set("_t", 1.0)
-						for hijo in ["_suelo", "_encima"]:
-							(bs.get(hijo) as Node2D).queue_redraw()
 						charcos.append(bs)
 					elif ab.rastro and f.tipo == CombatFormas.Tipo.LINEA:
 						var r_c: float = maxf(f.ancho * 0.45, 6.0)
@@ -1441,15 +1638,9 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 					else:
 						fs.append(CombatFormas.circulo(f.centro, f.radio))
 					for i in fs.size():
-						var b: BestiaAire = BestiaAire.charco(self, fs[i], 900 + fila * 17 + i, 0.0)
-						if ab.charco_estilo == 3 or ab.charco_estilo == 4:
-							b.vestir_baba(col, ab.charco_estilo == 4)
+						var b: EfectoPixel = EfectoPixel.lanzar(self, "trent", "charco_13_dura", fs[i].centro, 0, null, 0.0, -1.0, 1.0,
+							SlimeAire.paleta_pixel(col) if (ab.charco_estilo == 3 or ab.charco_estilo == 4) else BestiaAire.PAL_SAVIA)
 						b.set_process(false)
-						b.set("_t", 1.0)
-						for hijo in ["_suelo", "_delante"]:
-							var su2 = b.get(hijo)
-							if su2 is Node2D:
-								(su2 as Node2D).queue_redraw()
 						charcos.append(b)
 					await _viñeta(hoja, 1 + tiempos.size(), fila, "%s · %s · %s · lo que se queda (%d turnos)"
 						% [ed.enemy_name, ab.nombre, dir_n, ab.charco_turnos])
@@ -1463,6 +1654,13 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 			print("[hoja] ", ruta)
 		cuerpo.queue_free()
 		await get_tree().process_frame
+
+
+# Las hojas de la nube que se queda (como SlimeAire.nube_pixel y nube_ceniza_pixel).
+func _base_nube(estilo: int, radio: float) -> String:
+	if estilo == 7:
+		return "nubec_50"
+	return "nube_65" if radio > 57.0 else "nube_50"
 
 
 # LAS BURBUJAS PESTILENTES (06/10, el slime pestilente): no tienen huella; se ven salir volando de el a sus sitios al
@@ -1501,11 +1699,9 @@ func _hoja_rayos(salida: String, carpeta_s: String, ed: EnemyData, ab: AbilityDa
 				rayos.append([p, meta])
 		var fijas: Array = []
 		for i in estrellas.size():
-			var st: AbisalAire = AbisalAire.estrella(self, CombatFormas.circulo(estrellas[i], 6.0), 300 + i)
+			var st: EfectoPixel = EfectoPixel.lanzar(self, "slime", "estrella_dura", estrellas[i])
 			st.set_process(false)
-			st.set("_t", 2.0 + 0.4 * float(i))
-			for hijo in ["_suelo", "_delante"]:
-				(st.get(hijo) as Node2D).queue_redraw()
+			st.avanzar_a(2.0 + 0.4 * float(i))
 			fijas.append(st)
 		await _viñeta(hoja, 0, fila, "%s · %s · %s · sus estrellas" % [ed.enemy_name, ab.nombre, dir_n])
 		var piezas: Array = []
@@ -1513,15 +1709,13 @@ func _hoja_rayos(salida: String, carpeta_s: String, ed: EnemyData, ab: AbilityDa
 			var a: Vector2 = r[0]
 			var b: Vector2 = r[1]
 			var fr := CombatFormas.linea(a, (b - a).normalized(), a.distance_to(b), ab.rayo_ancho)
-			var n: AbisalAire = AbisalAire.area(self, fr, AbisalAire.Modo.MIRADA if ab.mirada else AbisalAire.Modo.RAYO,
+			var n: Node2D = AbisalAire.area(self, fr, AbisalAire.Modo.MIRADA if ab.mirada else AbisalAire.Modo.RAYO,
 				400 + piezas.size(), 0.0)
 			n.set_process(false)
 			piezas.append(n)
 		for c in momentos.size():
 			for n in piezas:
 				n.set("_t", float(momentos[c]))
-				for hijo in ["_suelo", "_delante"]:
-					(n.get(hijo) as Node2D).queue_redraw()
 			await _viñeta(hoja, c + 1, fila, "%s · %s · %s · %.2f s" % [ed.enemy_name, ab.nombre, dir_n, momentos[c]])
 		for n in piezas + fijas:
 			(n as Node).queue_free()
@@ -2182,16 +2376,10 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 			var textos: Array = ["recien tendida", "le quedan 2 turnos", "le queda 1 turno", "se deshace"]
 			var quedas: Array = [1.0, 2.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0]
 			for c2 in 4:
-				var red_n: InsectoAire = InsectoAire.red(self, f_r, 4242, 0.0)
+				# (en pixel art: la red tendida; el ultimo, ya rasgandose)
+				var red_n: EfectoPixel = EfectoPixel.lanzar(self, "arana", "red_vete" if c2 == 3 else "red_dura", f_r.centro)
 				red_n.set_process(false)
-				red_n.queda = quedas[c2]
-				red_n._t = 1.0
-				if c2 == 3:
-					red_n._secando = 0.75
-				for hijo in ["_suelo", "_delante", "_brillo"]:
-					var su = red_n.get(hijo)
-					if su is Node2D:
-						(su as Node2D).queue_redraw()
+				red_n.avanzar_a(0.35 if c2 == 3 else 0.0)
 				await _viñeta(hoja_r, c2, 0, "%s · %s · %s" % [ed.enemy_name, ab.nombre, textos[c2]])
 				red_n.queue_free()
 			cuerpo.visible = true
@@ -2271,7 +2459,7 @@ func _hojas_aura_fria(salida: String) -> void:
 			_yo_fig.position = pegado - Vector2(7, 26)
 			var caja: Rect2 = Rect2(pegado - Vector2(7, 26), Vector2(14, 26))
 			await _viñeta(hoja, 0, fila, "%s · %s · %s" % ["Slime de arrecife" if cual == "anemona" else "Slime de escarcha", nombre, dir_n])
-			var nodo: ProfundoAire = null
+			var nodo: Node2D = null
 			if cual == "destello":
 				nodo = ProfundoAire.sobre_cuerpo(self, ProfundoAire.Modo.HELADA, bulto, caja, pegado, 700 + fila * 31, 0.0, 1.0)
 			elif cual == "anemona":
@@ -2279,15 +2467,10 @@ func _hojas_aura_fria(salida: String) -> void:
 					ProfundoAire.T_ESTIRA, 1.0)
 			if nodo != null:
 				nodo.set_process(false)
-			var neb: NeblinaFria = spr.get_node_or_null(NeblinaFria.NOMBRE) as NeblinaFria
 			for c in tiempos.size():
 				var t: float = float(tiempos[c])
-				if neb != null:
-					neb._t = 7.0 + t + float(fila) * 0.37
 				if nodo != null:
-					nodo._t = t
-					for su in [nodo._suelo, nodo._delante]:
-						(su as Node2D).queue_redraw()
+					nodo.set("_t", t)
 				await _viñeta(hoja, c + 1, fila, "%s · %s · %.2f s" % [nombre, dir_n, t])
 			if nodo != null:
 				nodo.queue_free()
@@ -2387,34 +2570,31 @@ func _hojas_rey(salida: String) -> void:
 				cad.position = alla - Vector2(0, 10)
 			await _viñeta(hoja, 0, fila, "%s · %s · %s" % ["Rey tirano" if mut == &"tirano" else "Rey destronado", nombre, dir_n])
 			var nodos: Array = []
+			var antes_rey: int = get_child_count()
 			match cual:
 				"decreto":
-					nodos.append(ReyAire.sobre_cuerpo(self, ReyAire.Modo.DECRETO, bulto, caja_yo, 700 + fila * 31, 0.0, 1.0))
+					ReyAire.sobre_cuerpo(self, ReyAire.Modo.DECRETO, bulto, caja_yo, 700 + fila * 31, 0.0, 1.0)
 				"tributo":
 					var caja_cad: Rect2 = Rect2(alla - Vector2(10, 20), Vector2(20, 16))
-					nodos.append(ReyAire.sobre_cuerpo(self, ReyAire.Modo.TRIBUTO, caja_cad, bulto, 700 + fila * 31, 0.0, 1.0))
+					ReyAire.sobre_cuerpo(self, ReyAire.Modo.TRIBUTO, caja_cad, bulto, 700 + fila * 31, 0.0, 1.0)
 				_:
 					var col: Color = ed.color_visual(0.5)
 					for k in 3:
 						var p: Vector2 = yo + dvec.rotated(deg_to_rad(-22.0 + 22.0 * k)) * (60.0 + 15.0 * (k % 2))
 						var f := CombatFormas.circulo(p, 11.0 if cual == "clavadas" else 12.0)
 						f.origen = yo
-						nodos.append(ReyAire.pieza(self, f, ReyAire.Modo.CLAVADA if cual == "clavadas" else ReyAire.Modo.PEDAZO,
-							col, 900 + fila * 17 + k))
+						# (en pixel art: la hoja de lo que dura; PiezaPixel no se mueve a mano)
+						EfectoPixel.lanzar(self, "slime", "clavada_dura" if cual == "clavadas" else "pedazo_dura", p, 0, null, 0.0, -1.0, 1.0,
+							PackedColorArray() if cual == "clavadas" else SlimeAire.paleta_pixel(col))
+			for i_rey in range(antes_rey, get_child_count()):
+				nodos.append(get_child(i_rey))
 			for n in nodos:
 				(n as Node).set_process(false)
 			for c in cols.size():
 				for n in nodos:
-					var ra: ReyAire = n
-					ra._t = float(cols[c][1])
-					ra._secando = float(cols[c][2])
-					if float(cols[c][3]) >= 0.0:
-						ra._vuelve_a = yo
-						ra._vuelve_t = float(cols[c][3])
-					else:
-						ra._vuelve_t = -1.0
-					for su in [ra._suelo, ra._delante]:
-						(su as Node2D).queue_redraw()
+					# (lo que llega despues de volar lleva ese tiempo de espera)
+					var vuela_rey: bool = n.get("_bola") != null
+					n.set("_t", float(cols[c][1]) - (ReyAire.T_SUBE + ReyAire.T_ARCO if vuela_rey else 0.0))
 				await _viñeta(hoja, c + 1, fila, "%s · %s · %s" % [nombre, dir_n, cols[c][0]])
 			for n in nodos:
 				(n as Node).queue_free()

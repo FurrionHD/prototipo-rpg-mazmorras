@@ -1,9 +1,8 @@
 # ============================================================
 #  casteo_mapa.gd
 #  RECITAR UN HECHIZO EN LA MAZMORRA, fuera de combate: es la forma que tiene un mago de ABRIR la
-#  pelea. Mantienes el boton de atacar, eliges hechizo, recitas sus frases aqui mismo y, si lo
-#  cantas entero, sale disparado hacia el bicho. Al impactar se abre el combate con el como
-#  objetivo principal y el hechizo se resuelve DENTRO, tal cual (ver player._lanzar_conjuro_mapa).
+#  pelea. Mantienes el boton de atacar, eliges hechizo y recitas sus frases aqui mismo. Si lo cantas
+#  entero NO sale: se queda CARGADO y puedes andar con el hasta elegir donde cae (ver conjuro_cargado.gd).
 #
 #  TRES COSAS QUE LO HACEN DISTINTO DEL RECITADO DE COMBATE:
 #
@@ -27,12 +26,11 @@ const GloboCasteoS = preload("res://scripts/ui/globo_casteo.gd")
 
 # Se ha cantado entero: sale el conjuro. El mana YA esta cobrado.
 #
-# 'destino' es a QUIEN de los tuyos va, y solo lo llevan las IMBUICIONES: esas no se disparan contra
-# nadie, se le ponen a un compañero (o a ti). Para el resto de hechizos es null y manda 'objetivo',
-# que es el bicho.
+# 'destino' es a QUIEN de los tuyos va, y solo lo llevan las de APOYO: esas no se disparan contra
+# nadie, se le ponen a un compañero (o a ti). Para el resto de hechizos es null: se quedan cargados.
 # 'destino': un PersonajeData de mi grupo, o en multi un Dictionary {peer, idx, nombre} con el personaje
 # de OTRO jugador (ver _candidatos_imbue).
-signal lanzado(spell: SpellData, objetivo: Node, destino: Variant)
+signal lanzado(spell: SpellData, destino: Variant)
 # Se ha fallado una frase: backfire ya aplicado (daño y mana). 'muerto' = te ha matado.
 signal fallado(spell: SpellData, dano: float, muerto: bool)
 # Se ha cerrado sin cantar nada (Volver, o interrumpido): no se ha cobrado nada.
@@ -66,10 +64,8 @@ const ANCHO_BANDA_TACTIL := 340.0
 
 var _pj: PersonajeData = null
 var _jugador: Node2D = null
-var _objetivo: Node = null          # el bicho al que va (se fija al empezar)
 var _spell: SpellData = null
-# A QUIEN DE LOS TUYOS va la imbuicion. null = el hechizo va contra el bicho de _objetivo, como
-# siempre. Se elige en un paso intermedio, entre escoger el hechizo y ponerse a recitar, igual que
+# A QUIEN DE LOS TUYOS va la de apoyo. null = se queda cargado. Se elige en un paso intermedio, entre escoger el hechizo y ponerse a recitar, igual que
 # en combate (ver combat._elegir_objetivo_aliado).
 var _destino_pj = null   # PersonajeData, o Dictionary si es de otro jugador (ver lanzado)
 var _frase: int = 0                 # por que frase vamos (0 = ninguna recitada aun)
@@ -95,12 +91,9 @@ var _bloqueo: String = ""
 const VEL_QUIETO := 6.0
 
 
-# 'objetivo' es el bicho al que apuntas al EMPEZAR. Al soltarlo se vuelve a mirar (ver _reapuntar): va
-# al que tengas delante en ese momento, que es lo que se espera si te has girado mientras cantabas.
-func setup(pj: PersonajeData, jugador: Node2D, objetivo: Node) -> void:
+func setup(pj: PersonajeData, jugador: Node2D) -> void:
 	_pj = pj
 	_jugador = jugador
-	_objetivo = objetivo
 
 
 func _ready() -> void:
@@ -185,12 +178,6 @@ func _menu_hechizos() -> void:
 			if _candidatos_imbue(sp).is_empty():
 				b.disabled = true
 				b.tooltip_text = "⛔ No hay nadie a quien echárselo\n\n%s" % b.tooltip_text
-		elif not is_instance_valid(_objetivo):
-			# Y las de ATAQUE si lo necesitan. Antes esto no se podia ni ver: sin bicho a tiro el panel
-			# no llegaba a abrirse (ver player._abrir_casteo), asi que no habia forma de imbuirse
-			# estando solo. Ahora se abre igual y son estas las que salen apagadas.
-			b.disabled = true
-			b.tooltip_text = "⛔ No hay nada a tiro a lo que lanzarlo\n\n%s" % b.tooltip_text
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.custom_minimum_size = Vector2(0, ALTO_BOTON)
 		b.clip_text = true
@@ -439,28 +426,19 @@ func _responder(elegida: String, correcta: String) -> void:
 # ------------------------------------------------------------
 # Cantado entero: se cobra el mana (al SOLTARLO, igual que en combate) y sale el conjuro.
 func _completar() -> void:
-	# ULTIMA COMPROBACION antes de cobrar: sin linea de visión (o en movimiento) el conjuro NO sale.
-	# Los botones ya se apagan solos (ver _motivo_bloqueo) y _responder lo vuelve a mirar, asi que
-	# esto solo salta en una carrera rarisima; esta porque el maná se paga AQUI y de aqui no se
-	# vuelve. Se retrocede una frase para no dejar el panel muerto: la repites y ya.
-	if _motivo_bloqueo() != "":
-		_frase = maxi(0, _frase - 1)
-		_mostrar_frase()
-		return
 	var coste: float = _coste(_spell)
 	Game.gastar_mana(_pj, coste)
 	print("[casteo] %s lanza %s desde el mapa | -%.2f MP" % [_pj.nombre, _spell.nombre, coste])
 	var sp := _spell
-	# AL SOLTARLO, AL QUE TIENES DELANTE (playtest del 20/09/2026): el objetivo se elegia al empezar y
-	# ya no cambiaba, asi que si mientras cantabas ese bicho se iba a pelear con tu compañero y tu te
-	# girabas hacia otro grupo mas cerca, el conjuro salia por tu espalda hacia el de antes.
-	if _destino_pj == null:
-		_objetivo = _reapuntar()
-	var obj := _objetivo
 	var destino = _destino_pj
-	_circulo_magico(CirculoMagico.Fin.DISPARO)
+	# EL DE ATAQUE SE QUEDA CARGADO (04/11, el jefe): el circulo sigue a tus pies mientras andas con el; lo cierra
+	# conjuro_cargado.gd cuando lo sueltes. El de apoyo sale ya.
+	if destino == null:
+		_circ_acabado = true
+	else:
+		_circulo_magico(CirculoMagico.Fin.DISPARO)
 	_cerrar()
-	lanzado.emit(sp, obj, destino)
+	lanzado.emit(sp, destino)
 
 
 # Fallar una frase EN EL MAPA. Mismo precio que en combate (mana + daño), pero aqui puede matarte y
@@ -533,18 +511,6 @@ func _cerrar() -> void:
 func _process(delta: float) -> void:
 	if _cerrado:
 		return
-	# El objetivo se ha muerto o lo ha limpiado el reciclador mientras cantabas: el conjuro se queda
-	# sin a quien ir. Se cae SIN cobrar (aun no habias soltado nada).
-	#
-	# Salvo si es una IMBUICION: esa va a alguien de tu grupo y le da igual lo que le pase al bicho
-	# que hubiera a tiro cuando abriste el panel. Si el bicho se muere a media frase, tu sigues
-	# cantando, que es exactamente lo que esperarias.
-	# (Antes de cortar se busca otro: al soltarlo va igualmente al que tengas delante, ver _reapuntar.)
-	if _destino_pj == null and _objetivo != null and not is_instance_valid(_objetivo):
-		_objetivo = _reapuntar()
-		if _objetivo == null:
-			interrumpir()
-			return
 	Game.sumar_alboroto(ALBOROTO_CANTANDO * delta)
 	_refrescar_bloqueo()
 	_seguir_al_jugador()
@@ -574,48 +540,14 @@ func _seguir_al_jugador() -> void:
 #
 #   MOVIENDOTE  -> cantar es plantarse. Recitar corriendo quitaba toda la tension: te ibas leyendo
 #                  las frases de camino y el ruido no significaba nada.
-#   TRAS UNA PARED -> si el bicho se te mete detras de un muro, el conjuro no tiene por donde salir.
-#                  No se cancela (eso seria castigar el conjuro por un paso suyo): se ESPERA. Si se
-#                  vuelve a asomar, sigues por donde ibas.
 #
-# El "◄ Volver" no se toca nunca: cancelar tiene que poder hacerse en cualquiera de los dos casos.
+# El "◄ Volver" no se toca nunca: cancelar tiene que poder hacerse siempre.
 func _motivo_bloqueo() -> String:
 	if not is_instance_valid(_jugador):
 		return ""
 	if (_jugador.velocity as Vector2).length() > VEL_QUIETO:
 		return "quieto para recitar"
-	# LA LINEA DE VISION SOLO LA PIDE LO QUE VUELA. Una imbuicion se la pones a alguien de tu grupo,
-	# que va pegado a ti (ver party_trail): no hay nada que cruce la sala, asi que un muro entre tu y
-	# el bicho de turno no puede impedir que te tiñas la espada.
-	if _destino_pj != null:
-		return ""
-	# is_instance_valid ANTES del `is`: al bicho al que apuntas se lo puede llevar por delante otro
-	# (o tu propio conjuro) mientras cantas, y `_objetivo is Node2D` sobre un nodo ya borrado es un
-	# error por fotograma -- 894 en una sesion del playtest del 19/09.
-	if is_instance_valid(_objetivo) and _objetivo is Node2D and _jugador.has_method("ve_a") \
-			and not _jugador.ve_a((_objetivo as Node2D).global_position):
-		# Si el de antes se ha tapado pero tienes OTRO delante y a la vista, no hay bloqueo: el conjuro
-		# ira a ese al soltarlo. Solo se pregunta aqui, que es el caso raro, porque cuesta rayos.
-		if _candidato_delante() == null:
-			return "sin línea de visión"
 	return ""
-
-
-# EL QUE TIENES DELANTE AHORA: el mas cercano dentro del cono de lo que miras y sin pared en medio (el
-# mismo criterio que el que elige al abrir el panel, player._abrir_casteo). null si no hay ninguno.
-func _candidato_delante() -> Node:
-	if not is_instance_valid(_jugador) or not _jugador.has_method("_enemigos_a_tiro"):
-		return null
-	var cands: Array = _jugador._enemigos_a_tiro(_jugador.RANGO_CASTEO)
-	return cands[0][1] if not cands.is_empty() else null
-
-
-# A QUIEN VA el conjuro: al que tengas delante; si no hay ninguno, al del principio si sigue vivo.
-func _reapuntar() -> Node:
-	var delante: Node = _candidato_delante()
-	if delante != null:
-		return delante
-	return _objetivo if is_instance_valid(_objetivo) else null
 
 
 func _refrescar_bloqueo() -> void:

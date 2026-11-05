@@ -475,7 +475,10 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		# lo que sueltan al llenarse las cargas, desde ellas.
 		ARANA_ARCO = 223, ARANA_DESCARGA = 224, ARANA_EXPLOSION = 225,
 		# el Hilo al rojo y el Capullo: el hilo de ascuas, de ella al golpeado.
-		ARANA_HILO = 226 }
+		ARANA_HILO = 226,
+		# LOS CORTES DE VIENTO (05/11, la Segadora mutante y el set Filo de aire): el impacto verde palido sobre quien lo
+		# encaja (InsectoAire.Modo.VIENTO). No es cuerpo a cuerpo: el corte vuela, no embiste nadie.
+		INSECTO_VIENTO = 227 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -533,7 +536,7 @@ const DIBUJO_MAPA := [Estilo.CRIA_LANZADA, Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA
 	# los insectoides (InsectoAire, 29/09): sobre el cuerpo que recibe.
 	Estilo.INSECTO_QUELICEROS, Estilo.INSECTO_PONZONA, Estilo.INSECTO_HEBRAS,
 	Estilo.INSECTO_PALA, Estilo.INSECTO_ARROLLA, Estilo.INSECTO_CAPARAZON, Estilo.INSECTO_FORCIPULAS, Estilo.INSECTO_PATITAS,
-	Estilo.INSECTO_TAJO, Estilo.INSECTO_GUADANA, Estilo.INSECTO_ESTOCADA,
+	Estilo.INSECTO_TAJO, Estilo.INSECTO_GUADANA, Estilo.INSECTO_ESTOCADA, Estilo.INSECTO_VIENTO,
 	# las simas (SimaAire, 30/09).
 	Estilo.SIMA_PORRAZO, Estilo.SIMA_TOS, Estilo.SIMA_LATIGO, Estilo.SIMA_VENTOSA, Estilo.SIMA_CHUPADA,
 	Estilo.SIMA_OIDOS, Estilo.SIMA_PALETOS, Estilo.SIMA_ALA, Estilo.SIMA_POLVO, Estilo.SIMA_VELO,
@@ -723,7 +726,7 @@ const T_VUELO := {
 	# Las forcipulas llegan abiertas y se cruzan en el golpe; las patitas empiezan a clavarse justo antes.
 	Estilo.INSECTO_FORCIPULAS: 0.14, Estilo.INSECTO_PATITAS: 0.06,
 	# La hoja de la segadora cruza el cuerpo en el viaje y corta en el golpe.
-	Estilo.INSECTO_TAJO: 0.12, Estilo.INSECTO_GUADANA: 0.12, Estilo.INSECTO_ESTOCADA: 0.1,
+	Estilo.INSECTO_TAJO: 0.12, Estilo.INSECTO_GUADANA: 0.12, Estilo.INSECTO_ESTOCADA: 0.1, Estilo.INSECTO_VIENTO: 0.02,
 	# El porrazo y la tos salen EN el golpe; el latigo sale de la mano y tarda en llegar (SimaAire.T_LATIGO_VA).
 	Estilo.SIMA_PORRAZO: 0.02, Estilo.SIMA_TOS: 0.02, Estilo.SIMA_LATIGO: 0.2,
 	# La boca llega abierta y se cierra en el golpe; las gotas suben EN el golpe.
@@ -1631,6 +1634,15 @@ func impacto_pendiente(bloque: Dictionary) -> bool:
 	return false
 
 
+# Cuantos golpes le quedan a 'bloque' por aterrizar (la capa de ambar o de agua baja a tramos con ellos: CombatEfectos).
+func impactos_pendientes(bloque: Dictionary) -> int:
+	var n: int = 0
+	for ev in _cola:
+		if is_same(ev["bv"], bloque) and not bool(ev.get("solo_dibujo", false)) and not bool(ev["lanzado"]):
+			n += 1
+	return n
+
+
 func golpes_pendientes(bloque: Dictionary) -> bool:
 	return float(bloque.get("hp_pend", 0.0)) > 0.0
 
@@ -1657,9 +1669,15 @@ func barras_quietas() -> bool:
 				continue
 			var bar: ProgressBar = b[clave]
 			if bar != null and is_instance_valid(bar) and bar.is_visible_in_tree() \
-					and not is_equal_approx(bar.value, float(b[clave + "_meta"])):
+					and not _barra_llego(bar, float(b[clave + "_meta"])):
 				return false
 	return true
+
+
+# ¿Ha llegado? La barra se redondea a su 'step' (0,01) y la meta no: 18,72 contra 18,722193 no era "igual" NUNCA, y con un
+# enemigo herido el boton de Continuar esperaba hasta su tope, 6 s con todo parado (playtest del .exe, 04/11: al huir).
+func _barra_llego(bar: ProgressBar, meta: float) -> bool:
+	return absf(bar.value - meta) <= maxf(bar.step, 0.0001)
 
 
 func _mover_barras(delta: float) -> void:
@@ -1671,7 +1689,7 @@ func _mover_barras(delta: float) -> void:
 			if bar == null or not is_instance_valid(bar):
 				continue
 			var meta: float = b[clave + "_meta"]
-			if not is_equal_approx(bar.value, meta):
+			if not _barra_llego(bar, meta):
 				var paso: float = maxf(bar.max_value, 1.0) * VEL_BARRA * delta
 				# SUBIENDO POR UNA CURA: a su paso, lo que dura la espiral (ver _aterrizar_cura).
 				if bar.value < meta and b.has(clave + "_vel_subida"):
@@ -1735,6 +1753,13 @@ func pedir_suelo(padre: Node, forma: RefCounted, tipo: int, semilla: int, nucleo
 	_suelo = {"padre": padre, "forma": forma, "tipo": tipo, "semilla": semilla, "nucleo": nucleo}
 
 
+# EL FILO DE AIRE (05/11): al suelo pedido se le pega su COPIA DE VIENTO, el mismo efecto con la forma alargada, tenido y
+# detras del de verdad. Sale a la vez que el (en _lanzar_suelo).
+func pedir_suelo_viento(forma: RefCounted) -> void:
+	if not _suelo.is_empty() and forma != null:
+		_suelo["viento"] = forma
+
+
 func _lanzar_suelo(espera: float) -> void:
 	var s: Dictionary = _suelo
 	_suelo = {}
@@ -1742,6 +1767,12 @@ func _lanzar_suelo(espera: float) -> void:
 		return
 	# Los del aire (estelas del mandoble) van al ritmo de la pelea, como sus golpes y el muñeco.
 	BarridoAire.ritmo = escala_tiempo
+	if s.has("viento"):
+		CapaPixel.tinte = CapaPixel.TINTE_VIENTO
+		var sv: Node2D = SueloRoto.lanzar(s["padre"], s["viento"], int(s["tipo"]), int(s["semilla"]) + 7, 0.0, espera)
+		CapaPixel.tinte = Color.WHITE
+		if sv != null:
+			sv.z_index -= 1
 	SueloRoto.lanzar(s["padre"], s["forma"], int(s["tipo"]), int(s["semilla"]), float(s["nucleo"]), espera)
 	suelo_lanzado.emit(int(s["tipo"]), espera)
 
@@ -2127,8 +2158,13 @@ const IMPACTO_ANIM_MAPA := {
 	# primer marco, a la vez que sale el rastro y que la pelea lo mueve por la linea. El Caparazon se aplasta del todo
 	# a 0,571x7/9.
 	"rodar": 0.0, "caparazon": 0.44,
+	# Sus mutantes (04/11): el Pulso da el golpe seco a 0,33x6/14 y el Picado toca a 0,6x8/14; la Embestida imantada y la
+	# Pasada ya vienen lanzadas desde el primer marco, como la bola.
+	"pulso": 0.14, "picado": 0.34, "embestir": 0.0, "pasada": 0.0,
 	# El ciempies (29/09): cada sacudida de la Oleada pica a 0,5x5/18.
 	"oleada": 0.14,
+	# Sus mutantes (05/11): el basico en U muerde a 0,31x7/14, la Pinza cierra a 0,5x6/14 y el Derrumbe cae a 0,29x6/12.
+	"basico_u": 0.155, "pinza": 0.21, "derrumbe": 0.145,
 	# La segadora (29/09): las dos guadañas caen a 0,5x7/13.
 	"guadanas": 0.27,
 	# y el Ensarte, que ya esta dentro a 3/13 (despues de sus tres marcos clavada).

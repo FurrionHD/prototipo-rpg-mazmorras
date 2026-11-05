@@ -22,6 +22,8 @@ config/icon="res://icon.svg"
 
 [autoload]
 
+FuenteIconos="*res://scripts/ui/fuente_iconos.gd"
+
 Identidad="*res://scripts/core/identity.gd"
 Perfil="*res://scripts/core/profile.gd"
 Game="*res://scripts/core/game.gd"

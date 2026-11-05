@@ -51,6 +51,7 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, semilla: int, espera: flo
 	e.z_index = Game.Z_ENCIMA_PERSONAJES + 80
 	e.process_mode = Node.PROCESS_MODE_ALWAYS
 	padre.add_child(e)
+	CapaPixel.meter(e)   # en pixel art (memoria efectos-pixel-personajes)
 	return e
 
 

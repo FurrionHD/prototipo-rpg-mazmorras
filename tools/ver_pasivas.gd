@@ -302,9 +302,8 @@ func _hoja_emboscada(salida: String) -> void:
 		var fig := _figura(fig_p, AZUL)
 		_cam.global_position = fig_p * 0.5 + Vector2(0, -10)
 		var ba: Rect2 = _bulto(ar)
-		var red: InsectoAire = InsectoAire.red(self, CombatFormas.circulo(fig_p, 22.0), 51 + fila, 0.0)
+		var red: EfectoPixel = EfectoPixel.lanzar(self, "arana", "red_dura", fig_p)
 		red.set_process(false)
-		red._t = 1.0
 		var piezas: Array = [
 			{"n": InsectoAire.sobre_cuerpo(self, InsectoAire.Modo.QUELICEROS, ba.get_center(), _caja_fig(fig), 61 + fila, 0.14, 1.0,
 				ba.size.x * 1.5), "t0": 0.0},

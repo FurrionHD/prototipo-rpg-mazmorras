@@ -51,8 +51,8 @@ const FILTROS_HERRERIA := [
 ]
 # Los juegos que cose la PELETERIA (la tela, 08/10/2026, con su rollo).
 const FILTROS_PELETERIA := [
-	{"nombre": "Armadura de cuero", "icono": "coraza", "juego": "cuero"},
-	{"nombre": "Armadura de tela", "icono": "rollo", "juego": "tela"},
+	{"nombre": "Armadura de cuero", "icono": "coraza_cuero", "juego": "cuero"},
+	{"nombre": "Armadura de tela", "icono": "coraza_tela", "juego": "tela"},
 ]
 const NOMBRE_RANURA := {"casco": "Casco", "pecho": "Pecho", "manos": "Manos",
 	"pantalones": "Pantalones", "botas": "Botas"}

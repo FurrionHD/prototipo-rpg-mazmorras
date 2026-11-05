@@ -57,7 +57,7 @@ func _correr() -> void:
 	var sp: SpellData = load("res://resources/spells/%s.tres" % nom)
 	# 1) Recitado entero y soltado.
 	var c: Node = CASTEO_MAPA.new()
-	c.setup(Game.lider(), jug, null)
+	c.setup(Game.lider(), jug)
 	jug.add_child(c)
 	await _esperar(3)
 	c._elegir(sp)
@@ -72,7 +72,7 @@ func _correr() -> void:
 	await _pausa(1.0)
 	# 2) Otro que se falla en la segunda frase.
 	var c2: Node = CASTEO_MAPA.new()
-	c2.setup(Game.lider(), jug, null)
+	c2.setup(Game.lider(), jug)
 	jug.add_child(c2)
 	await _esperar(3)
 	c2._elegir(sp)

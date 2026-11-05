@@ -41,7 +41,9 @@ drop_extra_chance = 0.1
 drop_piso_debut = 8
 drop_piso_pleno = 11
 al_golpear = [SubResource("SA_sil")]
+vuela = true
 resist_elemental = {
+6: 1.25,
 4: 1.5,
 5: 0.7
 }

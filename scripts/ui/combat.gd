@@ -483,6 +483,7 @@ func _pasiva_al_golpearle(obj: Combatant, quien: Combatant, dmg: float = 0.0) ->
 	_esporas(obj, quien)
 	_acido_piel(obj, quien)
 	_devolver_corte(obj, quien, dmg)
+	_vuelo_corto(obj, quien)
 	if obj == null or quien == null or obj.al_ser_golpeado.is_empty() or obj.al_ser_golpeado_prob <= 0.0 \
 			or not _enemies.has(obj) or not quien.is_alive():
 		return
@@ -609,6 +610,26 @@ func _devolver_corte(obj: Combatant, quien: Combatant, dmg: float) -> void:
 		false)
 	_update_hp()
 	_log_extra("🪞 Las aristas de %s le devuelven el corte a %s: %.2f" % [_etq(obj), quien.nombre, vuelta])
+
+
+# VUELO CORTO (05/11, el Vendaval rojo, ver MutacionData): al encajar un golpe CUERPO A CUERPO, a veces (30 %) bate las
+# alas, salta hacia atras (el mismo salto que la rata sombria al esquivar) y le suelta un corte de viento a quien le pego.
+# Solo en el mapa (en la fila no hay atras) y quien lleva la pelea.
+const VUELO_CORTO_PX := 45.0
+
+func _vuelo_corto(obj: Combatant, quien: Combatant) -> void:
+	if obj == null or quien == null or obj.vuelo_corto_prob <= 0.0 or not _enemies.has(obj) or not obj.is_alive() \
+			or not quien.is_alive() or not tactico or _espejo or quien.a_distancia:
+		return
+	if turno_mapa.hueco_entre(quien, obj) > HUECO_CUERPO_A_CUERPO:
+		return   # solo cuerpo a cuerpo
+	if randf() >= obj.vuelo_corto_prob:
+		return
+	turno_mapa.pedir_salto_atras(obj, quien, VUELO_CORTO_PX)
+	var d: float = enemigos.corte_viento(obj, quien, obj.cortes_viento if obj.cortes_viento > 0.0 else 0.5)
+	_update_hp()
+	_log_extra("💨 %s bate las alas, salta atrás y le suelta un corte a %s%s" % [_etq(obj), quien.nombre,
+		": %.2f" % d if d > 0.0 else ", que lo esquiva"])
 
 
 # ACIDO EN LA PIEL (06/10, el slime pestilente, ver MutacionData): al que le pega CUERPO A CUERPO, a veces (acido_prob,
@@ -1080,10 +1101,10 @@ func setup(player_cs: Array, enemy_cs: Array, enemy_initiated: bool,
 func _objetivo() -> Combatant:
 	# EN LAS SOMBRAS (30/10, la rata sombria): no se le puede elegir. Si no queda otro, el primero vivo igual (para
 	# que nada se quede sin objetivo), pero llega() no le alcanza: solo le dan las areas.
-	if _target_idx >= 0 and _target_idx < _enemies.size() and _enemies[_target_idx].is_alive() 			and not _enemies[_target_idx].en_sombras():
+	if _target_idx >= 0 and _target_idx < _enemies.size() and _enemies[_target_idx].is_alive() 			and not _enemies[_target_idx].no_elegible():
 		return _enemies[_target_idx]
 	for e in _enemies:
-		if e.is_alive() and not e.en_sombras():
+		if e.is_alive() and not e.no_elegible():
 			return e
 	for e in _enemies:
 		if e.is_alive():
@@ -1474,7 +1495,7 @@ func _update_hp() -> void:
 		# pintaba llena como si fuera 75.
 		# La barra se DESLIZA hasta la vida nueva (lo mueve CombatFX) y EL NUMERO VIAJA CON ELLA.
 		efectos._fijar_barra_num(b, "hp", e.current_hp, e.max_hp, "%.2f / %.2f")
-		TramoEscudo.poner_costra(b["hp"] as ProgressBar, e.current_hp, e.max_hp, e.costra)   # el Tocon ambarino
+		TramoEscudo.poner_costra(b["hp"] as ProgressBar, e.current_hp, e.max_hp, e.costra_vista())   # el Tocon ambarino
 		# La etiqueta se queda SOLO con el nombre; los estados van en su fila de chips, porque ahi
 		# cada uno se puede señalar y explicarse solo. El nivel se cayo de aqui: en una tarjeta que
 		# al tope se aprieta a 130 px se comia el sitio del nombre, que es lo unico que hay que
@@ -1650,6 +1671,7 @@ func _process(delta: float) -> void:
 	if _espejo:
 		espejo._interpolar_atb_espejo(delta)
 	_update_timeline()  # refleja el orden de turnos siempre
+	efectos.tick_capas()   # lo que se ve de las capas y de la vida va con el golpe, no con el boton
 	# EN EL MAPA las fichas van pegadas a su cuerpo: hay que recolocarlas cada fotograma. Va aqui
 	# arriba, antes del return del espejo, porque en el espejo los cuerpos tambien se mueven.
 	if tactico:
@@ -1835,6 +1857,8 @@ func _begin_player_turn() -> void:
 	var ev: Dictionary = _player.tick_statuses()
 	enemigos.revisar_capullos()
 	_log_tick(_player, ev)
+	enemigos.turno_junto_al_iman(_player)
+	enemigos.campo_magnetico(_player)
 	_update_hp()
 	if not _player.is_alive():
 		_set_log("%s cae por el daño de sus estados. ☠" % _player.nombre)
@@ -2341,6 +2365,11 @@ func _accion_atacar() -> void:
 	for v in golpeados_en_la_accion:
 		if not tocados.has(v):
 			tocados.append(v)
+	# EL SET FILO DE AIRE: el golpe a uno sigue por detras con un corte de viento.
+	if tactico:
+		for v in habilidades.filo_de_aire(_player, null, tocados, obj):
+			if not tocados.has(v):
+				tocados.append(v)
 	_tras_accion_jugador_varios(tocados)
 
 
@@ -3212,6 +3241,10 @@ func _set_log(texto: String) -> void:
 
 
 func _pintar_linea_log(texto: String) -> void:
+	# Sin la caja del registro (una pelea montada a mano en las pruebas) se apunta y ya.
+	if _log == null:
+		_log_lines.append(texto)
+		return
 	if not _log_lines.is_empty():
 		_log.newline()
 	_log_lines.append(texto)
@@ -3300,6 +3333,7 @@ func aviso_inmune(objetivo: Combatant, lanzador: Combatant) -> void:
 # aturdido, miedo), lo pierde. Para los dos lados, enemigos y los tuyos. Se mira aqui y no en cada sitio que pone
 # estados: por apply_status entran por muchas vias (golpes, habilidades, hechizos, contraataques, pasivas).
 func _cortar_por_control() -> void:
+	enemigos.tick_escarabajo()
 	for c in _enemies + _aliados:
 		if c == null or not c.is_alive() or (c.charging == null and not _casteos.has(c)) or not c.aturdido():
 			continue
@@ -3498,11 +3532,11 @@ func aplicar_casteo_entrante(idx_aliado: int, d: Dictionary) -> void:
 func hechizo_de_entrada(spell: SpellData, idx_enemigo: int, idx_lanzador: int) -> void:
 	magia.hechizo_de_entrada(spell, idx_enemigo, idx_lanzador)
 
-func lanzar_conjuro(nombre: String, seq: int = 0, reelegir: bool = false) -> void:
-	magia.lanzar_conjuro(nombre, seq, reelegir)
+func lanzar_conjuro(nombre: String, seq: int = 0, reelegir: bool = false, apuntar: String = "") -> void:
+	magia.lanzar_conjuro(nombre, seq, reelegir, apuntar)
 
-func recitar_frase(idx: int, opciones: Array, nombre: String, largo: int, seq: int = 0) -> void:
-	magia.recitar_frase(idx, opciones, nombre, largo, seq)
+func recitar_frase(idx: int, opciones: Array, nombre: String, largo: int, seq: int = 0, apuntar: String = "") -> void:
+	magia.recitar_frase(idx, opciones, nombre, largo, seq, apuntar)
 
 func retomar_canto(spell: SpellData, idx_frase: int, idx_lanzador: int) -> void:
 	magia.retomar_canto(spell, idx_frase, idx_lanzador)

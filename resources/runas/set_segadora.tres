@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="RunaSetData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/runa_set_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/materials/quitina_segada.tres" id="2_mat"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_segadora.tres" id="3_nuc"]
+[ext_resource type="Resource" path="res://resources/materials/runa_segadora.tres" id="4_runa"]
+
+; FILO DE AIRE (05/11, plan elegant-popping-firefly; numeros provisionales), set de ARMA de la segadora: tus golpes de arma
+; se alargan con un corte de viento que solo cobra a quien la forma normal no ha tocado.
+[resource]
+script = ExtResource("1")
+id = &"segadora"
+nombre = "Filo de aire"
+tipo = 0
+material = ExtResource("2_mat")
+nucleo = ExtResource("3_nuc")
+coste_material = 6
+coste_nucleo = 3
+runa = ExtResource("4_runa")
+bonus_2p = {"ataque_pct": 0.1}
+efecto = &"filo_aire"
+params = {"dano": 0.3, "mas": 0.3, "linea": 0.4, "detras": 50.0}
+metadata/_custom_type_script = "res://scripts/items/runa_set_data.gd"

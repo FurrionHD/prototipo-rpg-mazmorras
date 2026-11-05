@@ -6,8 +6,8 @@
 #  Al disparar se acelera y se cierra en un fogonazo; al fallar la frase se agrieta, parpadea y se rompe; si se
 #  corta (muerte, huida) se apaga.
 #  Va colgado del cuerpo (le sigue), como AreaCuracion. El suelo SIN achatar; la corona tiene altura -> y a K.
-#  NADA DE LINEAS peladas: cada trazo es una banda rellena, nucleo casi blanco y halo difuminado, en mezcla
-#  aditiva (brilla). Todo va en un triangle_array por capa: un circulo son miles de triangulos.
+#  EN PIXEL ART (04/11/2026): cada trazo es una linea de celdas casi blanca con su filo de color y el cuerpo
+#  oscuro a trama, en la rejilla de los sprites (ver _hoja y circulo_pixel.gdshader). Nada de alfa a medias.
 # ============================================================
 extends Node2D
 class_name CirculoMagico
@@ -21,8 +21,6 @@ const T_ENTRE_CAPAS := 0.25  # si salen varias capas de golpe (un espejo que lle
 const T_DISPARO := 0.6
 const T_FALLO := 0.85
 const T_APAGA := 0.35
-const ANCHO := 0.9           # el nucleo del trazo
-const HALO := 2.0            # el difuminado a cada lado
 const Z_LUZ := SueloRoto.Z_SUELO + 1
 const Z_CORONA := Game.Z_PERSONAJES + 2590   # por encima de TODOS los cuerpos (su tope ronda +2560), bajo los nombres (+2600)
 
@@ -35,9 +33,13 @@ var _estado: int = Estado.VIVO
 var _t_fin: float = 0.0
 var _geo: Array = []          # por grupo: [{paths: [...], pozo: r, g, a}]
 var _deriva: Array = []       # por grupo: hacia donde sale despedido al romperse
-var _fondo: Node2D
-var _luz: Node2D
-var _corona: Node2D
+var _suelo: Dictionary = {}    # las hojas de pixeles (ver _hoja)
+var _corona: Dictionary = {}
+
+const CELDA: float = SpriteLienzo.UNIDADES_POR_CELDA
+const SHADER := preload("res://scripts/fx/circulo_pixel.gdshader")
+const LADO_SUELO := Vector2i(112, 112)   # celdas: la orbita, los satelites y el fogonazo caben
+const LADO_CORONA := Vector2i(44, 36)
 
 
 # FUERA DE COMBATE (casteo_mapa, y lo mismo en las pantallas de los demas por Net.jugadores.anunciar_circulo):
@@ -139,19 +141,18 @@ func avanzar(dt: float) -> void:
 	if _t - _t_fin >= dura and _estado != Estado.VIVO:
 		queue_free()
 		return
-	for n in [_fondo, _luz, _corona]:
-		if n != null:
-			n.queue_redraw()
+	for h in [_suelo, _corona]:
+		if not h.is_empty():
+			_colocar(h)
 
 
 # ------------------------------------------------------------
 #  LA GEOMETRIA (una vez, en coordenadas de cada grupo)
 # ------------------------------------------------------------
 func _preparar() -> void:
-	_fondo = _capa(SueloRoto.Z_SUELO, false)
-	_luz = _capa(Z_LUZ, true)
+	_suelo = _hoja(LADO_SUELO, Z_LUZ, 0.0)
 	if int(receta.get("n", 1)) >= 4:
-		_corona = _capa(Z_CORONA, true)
+		_corona = _hoja(LADO_CORONA, Z_CORONA, -SellosMagicos.ALTO_CORONA)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(str(receta.get("clave", "")))
 	for g in receta.get("grupos", []):
@@ -161,19 +162,6 @@ func _preparar() -> void:
 				"g": float(pz.get("g", 1.0)), "a": float(pz.get("a", 1.0))})
 		_geo.append(piezas)
 		_deriva.append(Vector2.from_angle(rng.randf_range(0.0, TAU)) * rng.randf_range(6.0, 14.0))
-
-
-func _capa(z: int, aditiva: bool) -> Node2D:
-	var n := Node2D.new()
-	n.z_as_relative = false
-	n.z_index = z
-	if aditiva:
-		var m := CanvasItemMaterial.new()
-		m.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-		n.material = m
-	add_child(n)
-	n.draw.connect(_pintar.bind(n))
-	return n
 
 
 static func _polar(r: float, a: float) -> Vector2:
@@ -288,7 +276,9 @@ static func _mcd(a: int, b: int) -> int:
 
 
 # ------------------------------------------------------------
-#  EL DIBUJO
+#  EL DIBUJO, EN PIXEL ART (04/11/2026): la geometria se traza como MASCARA en un lienzo de 1 celda = 1 pixel
+#  (la rejilla de los sprites) y circulo_pixel.gdshader le pone la paleta cerrada del elemento, el filo y el
+#  cuerpo oscuro a trama. Se recalcula cada fotograma: al girar salta celda a celda, como un sprite.
 # ------------------------------------------------------------
 func _vida() -> float:
 	var x: float = _t - _t_fin
@@ -352,41 +342,101 @@ func _xf(gi: int, p: Vector2) -> Vector2:
 	return q
 
 
-func _pintar(capa: Node2D) -> void:
+# La paleta cerrada de cada elemento: [nucleo casi blanco, claro, medio (el halo), oscuro].
+static func paleta_pixel() -> PackedColorArray:
+	var out := PackedColorArray()
+	for e in 6:
+		var tonos: Array = SellosMagicos.tono(e)
+		var halo: Color = tonos[0]
+		var nucleo: Color = tonos[1]
+		out.append(nucleo)
+		out.append(halo.lerp(nucleo, 0.4))
+		out.append(halo)
+		out.append(halo.darkened(0.55))
+	return out
+
+
+# Una hoja de pixeles: el lienzo (SubViewport) donde se traza la mascara y el sprite que la pone en el mundo.
+func _hoja(lado: Vector2i, z: int, alto: float) -> Dictionary:
+	var vp := SubViewport.new()
+	vp.size = lado
+	vp.transparent_bg = true
+	vp.disable_3d = true
+	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(vp)
+	var lienzo := Node2D.new()
+	vp.add_child(lienzo)
+	var mat := ShaderMaterial.new()
+	mat.shader = SHADER
+	mat.set_shader_parameter("pal", paleta_pixel())
+	var spr := Sprite2D.new()
+	spr.texture = vp.get_texture()
+	spr.centered = false
+	spr.top_level = true
+	spr.scale = Vector2(CELDA, CELDA)
+	spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	spr.z_as_relative = false
+	spr.z_index = z
+	spr.material = mat
+	add_child(spr)
+	var h := {"vp": vp, "lienzo": lienzo, "spr": spr, "mat": mat, "alto": alto,
+		"mitad": Vector2(lado / 2), "off": Vector2(lado / 2), "corona": alto != 0.0}
+	lienzo.draw.connect(_pintar.bind(h))
+	return h
+
+
+# El centro cae en una celda del mundo (no tiembla con la camara); lo que sobra va dentro del lienzo.
+func _colocar(h: Dictionary) -> void:
+	var centro: Vector2 = global_position + Vector2(0.0, float(h["alto"]))
+	var c: Vector2 = (centro / CELDA).floor()
+	var mitad: Vector2 = h["mitad"]
+	(h["spr"] as Sprite2D).global_position = (c - mitad) * CELDA
+	h["off"] = centro / CELDA - c + mitad
+	var mat: ShaderMaterial = h["mat"]
+	mat.set_shader_parameter("celda0", c - mitad)
+	var fallo: float = clampf((_t - _t_fin) / T_FALLO, 0.0, 1.0) if _estado == Estado.FALLO else 0.0
+	mat.set_shader_parameter("fallo", fallo)
+	(h["lienzo"] as Node2D).queue_redraw()
+
+
+func _en_celdas(h: Dictionary, p_mundo: Vector2) -> Vector2:
+	return (p_mundo - Vector2(0.0, float(h["alto"]))) / CELDA + (h["off"] as Vector2)
+
+
+static func _mascara(clase: float, elem: int, inten: float) -> Color:
+	return Color(clase, float(elem) / 8.0, clampf(inten * 0.5, 0.0, 1.0), 1.0)
+
+
+func _pintar(h: Dictionary) -> void:
 	if receta.is_empty():
 		return
+	var ci: Node2D = h["lienzo"]
 	var vida: float = _vida()
 	if vida <= 0.0:
 		return
-	var pv := PackedVector2Array()
-	var pc := PackedColorArray()
-	var pi := PackedInt32Array()
+	var es_corona: bool = h["corona"]
 	var grupos: Array = receta["grupos"]
 	var roto: float = _roto()
-	var destellos: Array = []
+	var tintes: Array = []      # [centro, radio, color] en celdas
+	var pozos: Array = []
+	var trazos: Array = []      # [puntos, color, grueso]
+	var destellos: Array = []   # [centro, radio, color]
 	for gi in grupos.size():
 		var g: Dictionary = grupos[gi]
-		var en_corona: bool = g["clase"] == "corona"
-		if (capa == _corona) != en_corona:
+		if es_corona != (g["clase"] == "corona"):
 			continue
 		var te: float = float(_t_etapa[int(g["etapa"]) - 1])
 		if te < 0.0 or _t < te:
 			continue
-		var tonos: Array = SellosMagicos.tono(int(g["elem"]))
-		var halo: Color = tonos[0]
-		var nucleo: Color = tonos[1]
-		if _estado == Estado.FALLO:
-			var x: float = clampf((_t - _t_fin) / T_FALLO, 0.0, 1.0)
-			halo = halo.lerp(Color(0.55, 0.2, 0.2), x)
-			nucleo = nucleo.lerp(Color(0.7, 0.5, 0.5), x)
-		# El fogonazo de cuando sale la capa.
+		var el: int = int(g["elem"])
 		var edad: float = _t - te
 		var boost: float = 1.0 + 1.3 * exp(-edad * 5.0)
 		var a_g: float = vida * _brillo() * boost
-		if edad < 0.4 and capa != _fondo:
+		# El fogonazo de cuando sale la capa: una estrella maciza.
+		if edad < 0.4:
 			var donde: Vector2 = _xf(gi, Vector2.ZERO) if g["clase"] in ["sat", "corona"] \
 				else _xf(gi, _polar(SellosMagicos.R_NUCLEO if g["etapa"] == 1 else SellosMagicos.R_ANILLO, 0.0))
-			destellos.append([donde, 11.0 * (1.0 - edad / 0.4), Color(nucleo, vida), _t * 2.0])
+			destellos.append([_en_celdas(h, donde), 9.0 * (1.0 - edad / 0.4), _mascara(1.0, el, 2.0 * vida)])
 		var piezas: Array = _geo[gi]
 		for k in piezas.size():
 			var pz: Dictionary = piezas[k]
@@ -394,114 +444,81 @@ func _pintar(capa: Node2D) -> void:
 			if u <= 0.0:
 				continue
 			u = 1.0 - pow(1.0 - u, 2.0)
-			if capa == _fondo:
-				if float(pz["pozo"]) > 0.0:
-					_disco(pv, pc, pi, gi, float(pz["pozo"]), Color(0.02, 0.0, 0.04, 0.9 * vida * u), Color(0.02, 0.0, 0.04, 0.0))
+			if float(pz["pozo"]) > 0.0:
+				pozos.append([_en_celdas(h, _xf(gi, Vector2.ZERO)), float(pz["pozo"]) * _escala() / CELDA,
+					_mascara(0.3, el, 2.0 * vida * u)])
 				continue
-			var a: float = float(pz["a"]) * a_g
-			var col_h := Color(halo, clampf(0.55 * a, 0.0, 1.0))
-			var col_n := Color(nucleo, clampf(a, 0.0, 1.0))
-			var w: float = ANCHO * float(pz["g"])
-			var h: float = HALO * (0.6 + 0.4 * float(pz["g"]))
+			# Fuerte = nucleo casi blanco con filo; fino = tono claro; tenue (la orbita) = tono medio. Lo tenue NO va a
+			# trama (saldria en motas sueltas): la trama es solo para lo que se apaga.
+			var fuerte: bool = float(pz["g"]) >= 0.75 and float(pz["a"]) >= 0.6
+			var clase: float = 1.0 if fuerte else (0.6 if float(pz["a"]) >= 0.6 else 0.5)
+			var col: Color = _mascara(clase, el, a_g)
+			var gr: float = 2.0 if float(pz["g"]) >= 1.1 else -1.0
 			var pn: int = 0
 			for p in pz["paths"]:
-				_banda(pv, pc, pi, gi, p, u, w, h, col_h, col_n, roto, gi * 131 + k * 17 + pn)
+				for tramo in _tramos(h, gi, p, u, roto, gi * 131 + k * 17 + pn):
+					trazos.append([tramo, col, gr])
 				pn += 1
-		# El suelo teñido bajo el nucleo y bajo el anillo (flojo: es luz sobre el suelo, no una mancha).
-		if capa == _fondo and g["clase"] in ["nucleo", "anillo"]:
-			var r_f: float = SellosMagicos.R_NUCLEO if g["clase"] == "nucleo" else SellosMagicos.R_ANILLO + 3.0
-			var u2: float = clampf(edad / T_TRAZA, 0.0, 1.0)
-			_disco(pv, pc, pi, gi, r_f * u2, Color(halo, 0.10 * vida), Color(halo, 0.03 * vida))
-	if not pv.is_empty():
-		RenderingServer.canvas_item_add_triangle_array(capa.get_canvas_item(), pi, pv, pc)
-	for d in destellos:
-		BarridoAire.destello(capa, d[0], d[1], d[2], d[3])
-	# EL FOGONAZO DEL DISPARO: el circulo se cierra en un destello en el centro.
-	if _estado == Estado.DISPARO and capa == _luz:
+		# (La luz teñida en el suelo de la version dibujada no va: a trama salia como manchas de barro.)
+	# EL FOGONAZO DEL DISPARO: el circulo se cierra en una estrella en el centro.
+	if _estado == Estado.DISPARO and not es_corona:
 		var x2: float = clampf((_t - _t_fin) / T_DISPARO, 0.0, 1.0)
 		if x2 > 0.45:
-			var tono0: Array = SellosMagicos.tono(int(grupos[0]["elem"]))
 			var f: float = (x2 - 0.45) / 0.55
-			BarridoAire.destello(capa, Vector2(0.0, -2.0), 38.0 * sin(f * PI) + 4.0, Color(tono0[1], 1.0 - f * f), f * 1.5)
+			destellos.append([_en_celdas(h, Vector2(0.0, -2.0)), (34.0 * sin(f * PI) + 4.0) / CELDA,
+				_mascara(1.0, int(grupos[0]["elem"]), 2.0 * (1.0 - f * f))])
+	# Por orden: la luz del suelo, los pozos, los trazos y los destellos encima.
+	for d in tintes:
+		if float(d[1]) > 0.3:
+			ci.draw_circle(d[0], d[1], d[2], true, -1.0, false)
+	for d in pozos:
+		if float(d[1]) > 0.3:
+			ci.draw_circle(d[0], d[1], d[2], true, -1.0, false)
+	for d in trazos:
+		ci.draw_polyline(d[0], d[1], d[2], false)
+	for d in destellos:
+		_estrella(ci, d[0], d[1], d[2])
 
 
-# Un disco con el centro de un color y el borde de otro (el suelo teñido, el pozo de la oscuridad).
-func _disco(pv: PackedVector2Array, pc: PackedColorArray, pi: PackedInt32Array, gi: int, r: float,
-		c_centro: Color, c_borde: Color) -> void:
-	if r <= 0.2:
-		return
-	var n: int = 24
-	var base: int = pv.size()
-	pv.append(_xf(gi, Vector2.ZERO))
-	pc.append(c_centro)
-	for i in n:
-		pv.append(_xf(gi, _polar(r, TAU * float(i) / float(n))))
-		pc.append(c_borde)
-	for i in n:
-		pi.append_array([base, base + 1 + i, base + 1 + (i + 1) % n])
-
-
-# UN TRAZO: banda rellena a lo largo del path, trazada hasta la fraccion 'u' de su largo. A lo ancho, de fuera
-# a dentro: transparente, halo, nucleo, halo, transparente. 'roto' se come tramos (el circulo que se rompe).
-func _banda(pv: PackedVector2Array, pc: PackedColorArray, pi: PackedInt32Array, gi: int, p: Dictionary,
-		u: float, w: float, h: float, col_h: Color, col_n: Color, roto: float, semilla: int) -> void:
+# Los tramos de un path trazado hasta la fraccion 'u' de su largo, ya en celdas; 'roto' se come trozos.
+func _tramos(h: Dictionary, gi: int, p: Dictionary, u: float, roto: float, semilla: int) -> Array:
 	var pts: PackedVector2Array = p["pts"]
 	var acum: PackedFloat32Array = p["acum"]
 	var nseg: int = acum.size() - 1
+	var out: Array = []
 	if nseg <= 0:
-		return
+		return out
 	var hasta: float = acum[nseg] * u
-	var cerrado: bool = p["cerrado"]
-	var suave: bool = p["suave"]
-	var transp := Color(col_h, 0.0)
-	var cols: Array = [transp, col_h, col_n, col_h, transp]
-	var offs: Array = [-(w * 0.5 + h), -w * 0.5, 0.0, w * 0.5, w * 0.5 + h]
 	var np: int = pts.size()
+	var cur := PackedVector2Array()
 	for i in nseg:
 		if acum[i] >= hasta:
 			break
 		if roto > 0.0 and _ruido(float(semilla * 97 + i), 3.0) < roto:
+			if cur.size() >= 2:
+				out.append(cur)
+			cur = PackedVector2Array()
 			continue
 		var a: Vector2 = pts[i]
 		var b: Vector2 = pts[(i + 1) % np]
 		var fin: float = clampf((hasta - acum[i]) / maxf(acum[i + 1] - acum[i], 0.0001), 0.0, 1.0)
-		b = a.lerp(b, fin)
-		var qa: Vector2 = _xf(gi, a)
-		var qb: Vector2 = _xf(gi, b)
-		var d: Vector2 = qb - qa
-		if d.length_squared() < 0.0001:
-			continue
-		var n_seg: Vector2 = d.normalized().orthogonal()
-		var na: Vector2 = n_seg
-		var nb: Vector2 = n_seg
-		if suave:
-			na = _normal_en(gi, pts, i, cerrado, n_seg)
-			nb = _normal_en(gi, pts, (i + 1) % np, cerrado, n_seg) if fin >= 1.0 else n_seg
-		var base: int = pv.size()
-		for j in 5:
-			pv.append(qa + na * offs[j])
-			pc.append(cols[j])
-		for j in 5:
-			pv.append(qb + nb * offs[j])
-			pc.append(cols[j])
-		for j in 4:
-			pi.append_array([base + j, base + j + 1, base + 6 + j, base + j, base + 6 + j, base + 5 + j])
+		if cur.is_empty():
+			cur.append(_en_celdas(h, _xf(gi, a)))
+		cur.append(_en_celdas(h, _xf(gi, a.lerp(b, fin))))
+	if cur.size() >= 2:
+		out.append(cur)
+	return out
 
 
-# La normal media en un vertice (los anillos sin juntas que se vean).
-func _normal_en(gi: int, pts: PackedVector2Array, i: int, cerrado: bool, def: Vector2) -> Vector2:
-	var np: int = pts.size()
-	if not cerrado and (i == 0 or i == np - 1):
-		return def
-	var prev: Vector2 = _xf(gi, pts[(i - 1 + np) % np])
-	var aqui: Vector2 = _xf(gi, pts[i])
-	var sig: Vector2 = _xf(gi, pts[(i + 1) % np])
-	var n1: Vector2 = (aqui - prev).normalized().orthogonal()
-	var n2: Vector2 = (sig - aqui).normalized().orthogonal()
-	var m: Vector2 = n1 + n2
-	if m.length_squared() < 0.0001:
-		return def
-	return m.normalized()
+# Un destello = estrella MACIZA de cuatro puntas (la receta de los efectos en pixel), en celdas.
+func _estrella(ci: Node2D, c: Vector2, r: float, col: Color) -> void:
+	if r < 1.0 or col.b <= 0.0:
+		return
+	var pts := PackedVector2Array()
+	for k in 8:
+		var ang: float = PI * 0.25 * float(k)
+		pts.append(c + Vector2(cos(ang), sin(ang)) * (r if k % 2 == 0 else maxf(1.2, r * 0.24)))
+	ci.draw_colored_polygon(pts, col)
 
 
 static func _ruido(x: float, k: float) -> float:

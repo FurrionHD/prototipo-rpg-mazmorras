@@ -54,7 +54,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	EN_SOMBRAS, FURIA_REY, COLMILLOS_ROTOS, MUSGO_QUEMADO,
 	RESINADO, SAVIA_NEGRA,
 	PICOR, PRINGADO,
-	PARALISIS, ENCAPULLADO }
+	PARALISIS, ENCAPULLADO,
+	IMANTADO, ADHERIDO, LIMADURAS, EN_VUELO, ORBITA, CORAZA_IMAN, ELITROS, UNA_CABEZA }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -587,6 +588,48 @@ static var _defs: Dictionary = {
 		"turns": 2, "sin_objetos": true, "debuff": true,
 		"descripcion": "Llevas las manos llenas de algo que no es barro. No vas a meterlas en la mochila.",
 	},
+	# LOS MUTANTES DEL ESCARABAJO (04/11; numeros provisionales).
+	Id.IMANTADO: {   # lo deja el Pulso: pegado a el, sin poder andar (dos porque se le tira en el turno del bicho: es tu turno entero)
+		"id": Id.IMANTADO, "nombre": "Imantado", "icono": "🧲", "color": Color(0.8, 0.19, 0.13),
+		"turns": 2, "enraiza": true, "debuff": true,
+		"descripcion": "Te has quedado pegado a la herradura. Los brazos los tienes libres; los pies, no.",
+	},
+	Id.ADHERIDO: {   # Adherencia: tu turno empieza a su lado: mueves la mitad, como el hielo
+		"id": Id.ADHERIDO, "nombre": "Adherido", "icono": "🧲", "color": Color(0.6, 0.62, 0.68),
+		"turns": 1, "mov_mult": CONGELACION_MOV, "debuff": true,
+		"descripcion": "Tan cerca del imán, cada paso cuesta el doble.",
+	},
+	Id.LIMADURAS: {   # cada golpe que encaja se le pegan; la Embestida imantada las gasta
+		"id": Id.LIMADURAS, "nombre": "Limaduras", "icono": "⚙", "color": Color(0.58, 0.61, 0.67),
+		"turns": 999, "stack_mode": "merge", "max_stacks": 5, "def_mult": 1.03,
+		"descripcion": "Cada golpe le deja más hierro encima. Las suelta todas de golpe en su Embestida.",
+	},
+	Id.EN_VUELO: {   # subido para el Picado: no se le puede elegir; un area lo baja
+		"id": Id.EN_VUELO, "nombre": "En el aire", "icono": "🪽", "color": Color(0.3, 0.66, 0.52),
+		"turns": 999,
+		"descripcion": "Demasiado alto para alcanzarlo. Solo un golpe de área lo baja de ahí.",
+	},
+	# LOS MUTANTES DEL CIEMPIES (05/11; numeros provisionales).
+	Id.UNA_CABEZA: {   # Dos mentes: un aturdimiento solo duerme una cabeza; la otra sigue (Combatant._dormir_cabezas)
+		"id": Id.UNA_CABEZA, "nombre": "Una cabeza aturdida", "icono": "💤", "color": Color(1.0, 0.9, 0.3),
+		"turns": 1,
+		"descripcion": "Una de sus cabezas no se entera de nada. La otra, sí. Hace falta aturdir las dos.",
+	},
+	Id.ORBITA: {   # el Iman errante, con alguien Imantado
+		"id": Id.ORBITA, "nombre": "Órbita", "icono": "🌀", "color": Color(0.8, 0.19, 0.13),
+		"turns": 999, "spd_mult": 1.25,
+		"descripcion": "Tiene a alguien pegado al imán y no piensa dejarlo: va más rápido y sus golpes a ese no se esquivan.",
+	},
+	Id.CORAZA_IMAN: {   # la Coraza imantada: no le mueven
+		"id": Id.CORAZA_IMAN, "nombre": "Coraza imantada", "icono": "🛡", "color": Color(0.34, 0.37, 0.43),
+		"turns": 3,
+		"descripcion": "Clavado al suelo por su propio imán: no hay empujón que lo mueva.",
+	},
+	Id.ELITROS: {   # los Elitros cerrados del Saeta
+		"id": Id.ELITROS, "nombre": "Élitros cerrados", "icono": "💨", "color": Color(0.3, 0.66, 0.52),
+		"turns": 3, "evade_flat": 0.25,
+		"descripcion": "Cerrado como una bala: acertarle es cosa de suerte.",
+	},
 	Id.CONGELACION: {
 		"id": Id.CONGELACION, "nombre": "Congelación", "icono": "❄", "color": Color(0.6, 0.85, 1.0),
 		"turns": 1, "mov_mult": CONGELACION_MOV,
@@ -985,6 +1028,9 @@ class Instance extends RefCounted:
 			lineas.append("Al empezar tu turno pierdes el %d %% de la energía que te quede." % roundi(float(d["picor"]) * 100.0))
 		if bool(d.get("sin_objetos", false)):
 			lineas.append("Impide usar objetos.")
+		# LO QUE ANDAS en tu turno (el Congelado: 05/11, el jefe, "no tiene descripcion": salia mudo en la ficha).
+		if d.has("mov_mult") and float(d["mov_mult"]) < 1.0:
+			lineas.append("En tu turno solo andas el %d%% del camino." % roundi(float(d["mov_mult"]) * 100.0))
 		# ESCOLTA, igual: era un chip mudo.
 		if float(d.get("seguimiento_pct", 0.0)) > 0.0:
 			lineas.append("Atacas detrás de un compañero.")
@@ -1001,6 +1047,11 @@ class Instance extends RefCounted:
 		# La frase de SABOR ('descripcion' del catalogo) NO se pinta aqui: en mitad de un turno lo
 		# que hace falta es saber que te esta pasando, no leerse un parrafo. Se queda en el catalogo
 		# para donde tenga sentido (ficha/bestiario), que es donde se lee con calma.
+		# SALVO si no ha salido NADA que diga que hace: un estado mudo es peor que un parrafo (05/11, el Congelado). Un
+		# estado nuevo con una mecanica que aqui no se traduce dice al menos su frase del catalogo.
+		var dice_algo: bool = lineas.size() > (2 if maxs > 1 else 1)
+		if not dice_algo and str(d.get("descripcion", "")) != "":
+			lineas.insert(1, str(d["descripcion"]))
 		return "\n".join(lineas)
 
 
@@ -1174,9 +1225,17 @@ static func efecto_legible(id: int, mult: float = 0.0, escala: float = 1.0) -> S
 #
 # Los tres ultimos van al final para que quien solo queria [etiqueta, tooltip] siga funcionando
 # sin tocar nada (los espejos leen estos mismos arrays y comprueban el size()).
+# El chip va como [etiqueta, tooltip, icono (emoji), color, ultimo turno, CLAVE del icono pixel]. El emoji se queda: lo
+# usan el registro, la red y CombatFX (que busca el estado por el). La clave es el nombre del Id en minusculas, el
+# PNG de assets/ui/estados (05/11: los iconos en pixel art; StatusChip.de_par).
+static func clave_icono(id: int) -> String:
+	var k = Id.find_key(id)
+	return String(k).to_lower() if k != null else ""
+
+
 static func chip_de_grupo(insts: Array) -> Array:
 	if insts.is_empty():
-		return ["", "", "", Color.WHITE, false]
+		return ["", "", "", Color.WHITE, false, ""]
 	var larga: Instance = insts[0]
 	var stacks_tot: int = 0
 	var dot_tot: float = 0.0
@@ -1195,18 +1254,18 @@ static func chip_de_grupo(insts: Array) -> Array:
 				fuerte = e
 		return [fuerte.etiqueta(), fuerte.resumen() + "\n\n%d quemaduras a la vez (arde la más fuerte): %s" % [
 			insts.size(), ", ".join(turnos)], str(fuerte.d.get("icono", "?")), fuerte.d.get("color", Color.WHITE),
-			larga.turns == 1]
+			larga.turns == 1, clave_icono(fuerte.id())]
 	var ic: String = str(larga.d.get("icono", "?"))
 	var col: Color = larga.d.get("color", Color.WHITE)
 	# Se mira el que MAS le queda, igual que la etiqueta: mientras siga vivo uno, el estado sigue
 	# puesto. Los permanentes (turns < 0) no parpadean nunca: no se van solos.
 	var ultimo: bool = larga.turns == 1
 	if insts.size() == 1:
-		return [larga.etiqueta(), larga.resumen(), ic, col, ultimo]
+		return [larga.etiqueta(), larga.resumen(), ic, col, ultimo, clave_icono(larga.id())]
 
 	# Mismo formato corto que etiqueta(): icono, stacks y lo que le queda. El daño total de todas
 	# las instancias juntas y el desglose por aplicacion van al tooltip, aqui debajo.
 	var etq: String = "%sx%d %s" % [ic, stacks_tot, larga.duracion_texto()]
 	var tip: String = larga.resumen() + "\n\n%d aplicaciones: %s" % [
 		insts.size(), ", ".join(turnos)]
-	return [etq, tip, ic, col, ultimo]
+	return [etq, tip, ic, col, ultimo, clave_icono(larga.id())]

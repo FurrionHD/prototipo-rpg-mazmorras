@@ -19,6 +19,8 @@ class_name Iconos
 
 # --- PERSONA (menu de personaje): cabeza y hombros ---
 static func persona(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "persona", pos, lado, col):
+		return
 	var g: float = lado * 0.09   # grosor comun del trazo
 	var cx: float = pos.x + lado * 0.5
 	# La cabeza, un pelin por encima del centro para dejar sitio a los hombros.
@@ -30,6 +32,8 @@ static func persona(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> voi
 
 # --- MOCHILA (bolsa/inventario): cuerpo, solapa y tirantes ---
 static func mochila(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "mochila", pos, lado, col):
+		return
 	var g: float = lado * 0.08
 	# Los tirantes van PRIMERO para que el cuerpo los tape por delante, como en una mochila de verdad.
 	c.draw_arc(Vector2(pos.x + lado * 0.36, pos.y + lado * 0.30), lado * 0.12, PI, TAU, 16, col, g, true)
@@ -45,6 +49,8 @@ static func mochila(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> voi
 
 # --- PERGAMINO (mapa): la hoja, los dos rollos y las lineas de texto ---
 static func pergamino(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "pergamino", pos, lado, col):
+		return
 	var g: float = lado * 0.08
 	var izq: float = pos.x + lado * 0.20
 	var der: float = pos.x + lado * 0.80
@@ -72,6 +78,8 @@ static func pergamino(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> v
 # como un pajaro o como un sobre; el lomo con el canto de las hojas se reconoce al instante y ademas
 # se distingue del `pergamino`, que es el otro icono con forma de papel.
 static func libro(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "libro", pos, lado, col):
+		return
 	var g: float = lado * 0.08
 	var izq: float = pos.x + lado * 0.24
 	var der: float = pos.x + lado * 0.76
@@ -94,6 +102,8 @@ static func libro(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 # convierten en una mancha, y dos formas simples —el cuerpo y la llama— se leen siempre. Ademas dice
 # lo que hace falta que diga: alguien pasando la noche con los libros.
 static func vela(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "vela", pos, lado, col):
+		return
 	var g: float = lado * 0.08
 	var cx: float = pos.x + lado * 0.5
 	var ancho: float = lado * 0.15
@@ -121,6 +131,8 @@ static func vela(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 
 # --- ENGRANAJE (pausa/opciones): corona de dientes y agujero ---
 static func engranaje(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "engranaje", pos, lado, col):
+		return
 	var g: float = lado * 0.08
 	var centro := Vector2(pos.x + lado * 0.5, pos.y + lado * 0.5)
 	var r: float = lado * 0.26
@@ -136,6 +148,8 @@ static func engranaje(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> v
 
 # --- MANO (interactuar): palma y cuatro dedos ---
 static func mano(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "mano", pos, lado, col):
+		return
 	var g: float = lado * 0.09
 	# La palma.
 	var palma := Rect2(pos.x + lado * 0.28, pos.y + lado * 0.46, lado * 0.44, lado * 0.34)
@@ -150,6 +164,8 @@ static func mano(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 
 # --- ESPADA (atacar): hoja, guarda y empuñadura, en diagonal ---
 static func espada(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "espada", pos, lado, col):
+		return
 	var g: float = lado * 0.10
 	var punta := pos + Vector2(lado * 0.80, lado * 0.16)
 	var pomo := pos + Vector2(lado * 0.24, lado * 0.80)
@@ -162,6 +178,8 @@ static func espada(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void
 
 # --- POCION (curacion): frasco con cuello y tapon ---
 static func pocion(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "pocion", pos, lado, col):
+		return
 	var g: float = lado * 0.09
 	c.draw_rect(Rect2(pos.x + lado * 0.40, pos.y + lado * 0.14, lado * 0.20, lado * 0.10), col, true)
 	# El cuello.
@@ -187,6 +205,8 @@ static func pocion(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void
 # La tapa en arco es lo que lo separa de la MOCHILA (caja cuadrada con tirantes): con las dos cuadradas
 # se confundian en la misma barra.
 static func cofre(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "cofre", pos, lado, col):
+		return
 	var g: float = lado * 0.08
 	var izq: float = pos.x + lado * 0.18
 	var der: float = pos.x + lado * 0.82
@@ -211,14 +231,20 @@ static func cofre(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 
 # --- FLECHAS del almacen: GUARDAR (abajo, a casa), RECOGER (arriba) y RECOGER TODO (doble) ---
 static func flecha_abajo(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "flecha_abajo", pos, lado, col):
+		return
 	_flecha(c, pos, lado, col, 1.0, 1)
 
 
 static func flecha_arriba(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "flecha_arriba", pos, lado, col):
+		return
 	_flecha(c, pos, lado, col, -1.0, 1)
 
 
 static func flecha_doble_arriba(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "flecha_doble_arriba", pos, lado, col):
+		return
 	_flecha(c, pos, lado, col, -1.0, 2)
 
 
@@ -239,6 +265,8 @@ static func _flecha(c: CanvasItem, pos: Vector2, lado: float, col: Color, sentid
 # --- MONEDA (la hucha del hogar): dos monedas, una de canto detras ---
 # Dos y no una: una sola circunferencia se lee como un anillo o un boton de radio.
 static func moneda(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "moneda", pos, lado, col):
+		return
 	var g: float = lado * 0.08
 	# La de DETRAS, asomando arriba a la derecha.
 	c.draw_arc(pos + Vector2(lado * 0.60, lado * 0.40), lado * 0.22, -PI * 0.95, PI * 0.35, 20, col, g, true)
@@ -253,6 +281,8 @@ static func moneda(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void
 # Se distingue de la MOCHILA en que no tiene tirantes: la mochila es la pieza de equipo que sube la
 # carga y la bolsa es el contenido, y con el mismo dibujo las dos pestañas se confundian.
 static func bolsa(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "bolsa", pos, lado, col):
+		return
 	var g: float = lado * 0.09
 	var cx: float = pos.x + lado * 0.5
 	var r: float = lado * 0.28
@@ -279,6 +309,8 @@ static func bolsa(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 
 # --- MATERIALES: un pedrusco con su veta ---
 static func mineral(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "mineral", pos, lado, col):
+		return
 	var g: float = lado * 0.09
 	# Silueta angulosa, que es lo que la separa de la pocion y de la bolsa (las dos redondas).
 	var p := PackedVector2Array([
@@ -298,6 +330,8 @@ static func mineral(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> voi
 
 # --- ARMADURAS: coraza (peto con hombreras) ---
 static func coraza(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "coraza", pos, lado, col):
+		return
 	var g: float = lado * 0.09
 	var cx: float = pos.x + lado * 0.5
 	# El peto: ancho de hombros arriba y en punta abajo, como un escudo pero con el cuello marcado.
@@ -316,6 +350,8 @@ static func coraza(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void
 
 # --- HERRAMIENTAS: un pico ---
 static func pico(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "pico", pos, lado, col):
+		return
 	var g: float = lado * 0.09
 	# El mango, en diagonal.
 	c.draw_line(pos + Vector2(lado * 0.68, lado * 0.20), pos + Vector2(lado * 0.34, lado * 0.84),
@@ -330,6 +366,8 @@ static func pico(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 # Lo que la separa del pico a 34 px es que el arco NO cruza el mango: sale de su punta y se curva
 # hacia el lado, como una C, en vez de ser una T.
 static func hoz(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "hoz", pos, lado, col):
+		return
 	var g: float = lado * 0.09
 	c.draw_line(pos + Vector2(lado * 0.30, lado * 0.86), pos + Vector2(lado * 0.44, lado * 0.50),
 		col, g, true)
@@ -339,6 +377,8 @@ static func hoz(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 
 # --- CAÑA (pesca): la vara en diagonal, el hilo cayendo y el anzuelo ---
 static func cana(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "cana", pos, lado, col):
+		return
 	var g: float = lado * 0.08
 	c.draw_line(pos + Vector2(lado * 0.18, lado * 0.86), pos + Vector2(lado * 0.80, lado * 0.14),
 		col, g, true)
@@ -351,6 +391,8 @@ static func cana(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 # --- CUCHILLO (desollar): hoja ANCHA y corta con el filo curvo, sin guarda ---
 # Sin guarda y con barriga, que es lo que lo separa de la daga (recta, fina y con guarda).
 static func cuchillo(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "cuchillo", pos, lado, col):
+		return
 	var g: float = lado * 0.10
 	# El mango.
 	c.draw_line(pos + Vector2(lado * 0.20, lado * 0.84), pos + Vector2(lado * 0.40, lado * 0.62),
@@ -370,6 +412,8 @@ static func cuchillo(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> vo
 #   - el techo y la base SOBRESALEN por los lados, que es lo que hace "farol" y no "caja";
 #   - la llama es una GOTA con punta arriba, no un circulo. El circulo era el ojo del candado.
 static func farol(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "farol", pos, lado, col):
+		return
 	var g: float = lado * 0.085
 	var cx: float = pos.x + lado * 0.5
 	# El asa, pequeña y por encima del techo.
@@ -395,6 +439,8 @@ static func farol(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 
 # --- CORRER: dos chevrones hacia delante ---
 static func correr(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "correr", pos, lado, col):
+		return
 	var g: float = lado * 0.12
 	for i in 2:
 		var x: float = pos.x + lado * (0.30 + 0.26 * float(i))
@@ -406,6 +452,8 @@ static func correr(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void
 
 # --- SIGILO: una pisada, que es lo que se lee como "ir sin ruido" ---
 static func sigilo(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "sigilo", pos, lado, col):
+		return
 	# La planta.
 	c.draw_arc(pos + Vector2(lado * 0.5, lado * 0.62), lado * 0.19, 0.0, TAU, 24, col, lado * 0.09, true)
 	# Los dedos, tres puntos por encima.
@@ -417,6 +465,8 @@ static func sigilo(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void
 
 # --- INFO: el circulito con la i ---
 static func info(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "info", pos, lado, col):
+		return
 	var g: float = lado * 0.09
 	var centro := pos + Vector2(lado * 0.5, lado * 0.5)
 	c.draw_arc(centro, lado * 0.34, 0.0, TAU, 32, col, g, true)
@@ -426,6 +476,8 @@ static func info(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 
 # --- CONSOLA (el panel de debug): la ventana con el prompt ">_" ---
 static func consola(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "consola", pos, lado, col):
+		return
 	var g: float = lado * 0.075
 	var m: float = lado * 0.14
 	# El marco de la ventana.
@@ -441,6 +493,8 @@ static func consola(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> voi
 
 # --- EQUIS (cerrar): dos aspas ---
 static func equis(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "equis", pos, lado, col):
+		return
 	var g: float = lado * 0.12
 	var m: float = lado * 0.24   # cuanto se mete el aspa desde el borde de la caja
 	c.draw_line(pos + Vector2(m, m), pos + Vector2(lado - m, lado - m), col, g, true)
@@ -468,22 +522,32 @@ static func _capsula(c: CanvasItem, a: Vector2, b: Vector2, grosor: float, col: 
 # El mismo idioma que la esquina de las celdas, donde el tier ya se lee como "numero en su chaflan":
 # asi la pestaña del mostrador T2 dice lo mismo que la muesca "2" de lo que vende.
 static func tier_1(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "tier_1", pos, lado, col):
+		return
 	_tier_n(c, pos, lado, col, "1")
 
 
 static func tier_2(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "tier_2", pos, lado, col):
+		return
 	_tier_n(c, pos, lado, col, "2")
 
 
 static func tier_3(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "tier_3", pos, lado, col):
+		return
 	_tier_n(c, pos, lado, col, "3")
 
 
 static func tier_4(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "tier_4", pos, lado, col):
+		return
 	_tier_n(c, pos, lado, col, "4")
 
 
 static func tier_5(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "tier_5", pos, lado, col):
+		return
 	_tier_n(c, pos, lado, col, "5")
 
 
@@ -503,6 +567,8 @@ static func _tier_n(c: CanvasItem, pos: Vector2, lado: float, col: Color, n: Str
 
 
 static func todo(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "todo", pos, lado, col):
+		return
 	var g: float = lado * 0.09
 	var l: float = lado * 0.26
 	var h: float = lado * 0.06
@@ -519,6 +585,8 @@ static func todo(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 
 # --- CASCO: yelmo con visera ---
 static func casco(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "casco", pos, lado, col):
+		return
 	var g: float = lado * 0.09
 	var cx: float = pos.x + lado * 0.5
 	# La boveda.
@@ -538,6 +606,8 @@ static func casco(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 # --- MANOS: guantelete ---
 # --- PANTALONES: dos perneras ---
 static func pantalon(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "pantalon", pos, lado, col):
+		return
 	var g: float = lado * 0.09
 	# La cintura.
 	c.draw_line(pos + Vector2(lado * 0.26, lado * 0.22), pos + Vector2(lado * 0.74, lado * 0.22),
@@ -559,6 +629,8 @@ static func pantalon(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> vo
 
 # --- BOTAS: bota de perfil ---
 static func botas(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "botas", pos, lado, col):
+		return
 	var g: float = lado * 0.09
 	# La caña y el pie, de una sola tirada: es la L lo que la hace bota.
 	var p := PackedVector2Array([
@@ -597,23 +669,33 @@ static func _hoja(c: CanvasItem, pos: Vector2, lado: float, col: Color,
 
 
 static func daga(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "daga", pos, lado, col):
+		return
 	_hoja(c, pos, lado, col, 0.55, 0.075, 0.24, 0.11)
 
 
 static func espada_corta(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "espada_corta", pos, lado, col):
+		return
 	_hoja(c, pos, lado, col, 0.78, 0.085, 0.22, 0.14)
 
 
 static func espada_larga(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "espada_larga", pos, lado, col):
+		return
 	_hoja(c, pos, lado, col, 1.0, 0.09, 0.20, 0.16)
 
 
 static func mandoble(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "mandoble", pos, lado, col):
+		return
 	# Hoja ANCHA y guarda mas arriba (empuñadura larga: se coge con las dos manos).
 	_hoja(c, pos, lado, col, 1.0, 0.15, 0.30, 0.20)
 
 
 static func estoque(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "estoque", pos, lado, col):
+		return
 	# Hoja finisima y una cazoleta redonda en vez de guarda recta: es TODA la diferencia con la
 	# espada, asi que el aro tiene que verse.
 	_hoja(c, pos, lado, col, 1.0, 0.045, 0.0, 0.0)
@@ -622,6 +704,8 @@ static func estoque(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> voi
 
 
 static func hacha(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "hacha", pos, lado, col):
+		return
 	var g: float = lado * 0.085
 	_hoja(c, pos, lado, col, 1.0, 0.08, 0.0, 0.0)
 	# La cabeza: una media luna colgada del extremo, hacia fuera del eje.
@@ -631,6 +715,8 @@ static func hacha(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 
 
 static func maza(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "maza", pos, lado, col):
+		return
 	# Mango CORTO y una bola: pequeña, que es lo que la separa del martillo.
 	_hoja(c, pos, lado, col, 0.60, 0.08, 0.0, 0.0)
 	var cabeza: Vector2 = pos + (_MANGO + (_PUNTA - _MANGO) * 0.62) * lado
@@ -638,6 +724,8 @@ static func maza(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 
 
 static func martillo(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "martillo", pos, lado, col):
+		return
 	# Mango LARGO y una cabeza cuadrada y grande.
 	_hoja(c, pos, lado, col, 0.86, 0.09, 0.0, 0.0)
 	var cabeza: Vector2 = pos + (_MANGO + (_PUNTA - _MANGO) * 0.86) * lado
@@ -646,6 +734,8 @@ static func martillo(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> vo
 
 
 static func baston(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "baston", pos, lado, col):
+		return
 	# Vara larga y fina con una piedra en la punta: el arma del mago.
 	_hoja(c, pos, lado, col, 0.92, 0.065, 0.0, 0.0)
 	var punta: Vector2 = pos + _PUNTA * lado
@@ -672,18 +762,26 @@ static func _escudo(c: CanvasItem, pos: Vector2, lado: float, col: Color, escala
 
 
 static func escudo_peq(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "escudo_peq", pos, lado, col):
+		return
 	_escudo(c, pos, lado, col, 0.72)
 
 
 static func escudo_med(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "escudo_med", pos, lado, col):
+		return
 	_escudo(c, pos, lado, col, 1.0)
 
 
 static func escudo_gra(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "escudo_gra", pos, lado, col):
+		return
 	_escudo(c, pos, lado, col, 1.28)
 
 
 static func varita(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "varita", pos, lado, col):
+		return
 	# Vara CORTA con destellos: lo mismo que el baston pero pequeño y con chispas, que es la
 	# diferencia que hay que ver en una fila donde los dos son "arma de mago".
 	_hoja(c, pos, lado, col, 0.58, 0.07, 0.0, 0.0)
@@ -699,6 +797,8 @@ static func varita(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void
 # llevas) y tres ramas huecas saliendo de el. Con mas nodos, a este tamaño, se convierte en una
 # mancha.
 static func habilidades(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "habilidades", pos, lado, col):
+		return
 	var g: float = lado * 0.075
 	var centro: Vector2 = pos + Vector2(lado * 0.5, lado * 0.5)
 	var r_centro: float = lado * 0.13
@@ -719,6 +819,8 @@ static func habilidades(c: CanvasItem, pos: Vector2, lado: float, col: Color) ->
 # Seis petalos en corona, uno relleno. El relleno no es adorno: dice que esto es algo que se
 # CONSIGUE de uno en uno, que es justo lo que son los desarrollos y las pasivas.
 static func flor(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "flor", pos, lado, col):
+		return
 	var g: float = lado * 0.07
 	var centro: Vector2 = pos + Vector2(lado * 0.5, lado * 0.5)
 	var r: float = lado * 0.30    # a que distancia del centro va el corazon de cada petalo
@@ -741,6 +843,8 @@ static func flor(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 # cuatro puntas (visto en captura). Con el ovalo cerrado, las patas se leen como lo que cuelga de
 # el y no como la figura entera.
 static func cuero(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "cuero", pos, lado, col):
+		return
 	var g: float = lado * 0.08
 	var centro: Vector2 = pos + Vector2(lado * 0.5, lado * 0.5)
 	var rx: float = lado * 0.26
@@ -767,6 +871,8 @@ static func cuero(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 # Lo pidio el usuario dibujandolo: el palo vertical, el CONTRAPESO abajo (el disco que hace girar el
 # huso) y el HILO que sale de arriba y hace una vuelta grande. La flor que habia antes no decia hilar.
 static func huso(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "huso", pos, lado, col):
+		return
 	var g: float = lado * 0.07
 	var x: float = pos.x + lado * 0.44
 	var arriba: float = pos.y + lado * 0.30
@@ -798,6 +904,8 @@ static func huso(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 # por abajo y se ondula. Macizo y no en contorno por lo mismo que el cuero: a tamaño de pestaña el
 # hueco pesa mas que la silueta.
 static func rollo(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "rollo", pos, lado, col):
+		return
 	var g: float = lado * 0.07
 	var centro: Vector2 = pos + Vector2(lado * 0.36, lado * 0.38)
 	var r: float = lado * 0.24
@@ -826,6 +934,8 @@ static func rollo(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 # La hebilla va a un lado y no en el centro a proposito: centrada, el icono se lee como un cinturon
 # abrochado (una cosa que llevas puesta) en vez de como una tira suelta (un material).
 static func correa(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "correa", pos, lado, col):
+		return
 	var g: float = lado * 0.08
 	var cy: float = pos.y + lado * 0.5
 	var alto: float = lado * 0.22
@@ -843,6 +953,8 @@ static func correa(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void
 
 # --- FLECHA (pestaña Flechas del carpintero, 02/10): en diagonal, punta arriba a la derecha y plumas abajo ---
 static func flecha_tiro(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "flecha_tiro", pos, lado, col):
+		return
 	var g: float = lado * 0.08
 	var a: Vector2 = pos + Vector2(lado * 0.20, lado * 0.80)
 	var b: Vector2 = pos + Vector2(lado * 0.74, lado * 0.26)
@@ -857,6 +969,8 @@ static func flecha_tiro(c: CanvasItem, pos: Vector2, lado: float, col: Color) ->
 
 # --- VIROTE (pestaña Virotes): mas corto y gordo, cabeza ancha ---
 static func virote(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "virote", pos, lado, col):
+		return
 	var g: float = lado * 0.13
 	var a: Vector2 = pos + Vector2(lado * 0.28, lado * 0.72)
 	var b: Vector2 = pos + Vector2(lado * 0.66, lado * 0.34)
@@ -870,6 +984,8 @@ static func virote(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void
 # --- CUERDA (arco y ballesta, 02/10): la madeja enrollada con el cabo suelto ---
 # Sin hebilla: es lo que la separa de la correa de al lado en la barra de pestañas.
 static func cuerda(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "cuerda", pos, lado, col):
+		return
 	var g: float = lado * 0.08
 	var centro: Vector2 = pos + Vector2(lado * 0.44, lado * 0.46)
 	c.draw_arc(centro, lado * 0.30, 0.0, TAU, 24, col, g, true)
@@ -887,6 +1003,8 @@ static func cuerda(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void
 # Macizo y no en contorno por lo mismo que el cuero: a tamaño de pestaña el hueco de dentro pesa mas
 # que la silueta.
 static func vida(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "vida", pos, lado, col):
+		return
 	var r: float = lado * 0.15
 	var izq: Vector2 = pos + Vector2(lado * 0.36, lado * 0.38)
 	var der: Vector2 = pos + Vector2(lado * 0.64, lado * 0.38)
@@ -902,6 +1020,8 @@ static func vida(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 # --- MANA (filtro de pociones): una GOTA ---
 # La punta arriba y el vientre redondo abajo: es lo que la separa del rombo del tier.
 static func mana(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "mana", pos, lado, col):
+		return
 	var g: float = lado * 0.09
 	var ctr: Vector2 = pos + Vector2(lado * 0.5, lado * 0.60)
 	var r: float = lado * 0.22
@@ -920,6 +1040,8 @@ static func mana(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 # El mismo frasco que 'pocion' para que se lea de la misma familia; la cruz dice "cura lo que no es
 # vida".
 static func antidoto(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "antidoto", pos, lado, col):
+		return
 	var g: float = lado * 0.09
 	c.draw_rect(Rect2(pos.x + lado * 0.40, pos.y + lado * 0.12, lado * 0.20, lado * 0.10), col, true)
 	c.draw_line(pos + Vector2(lado * 0.43, lado * 0.22), pos + Vector2(lado * 0.43, lado * 0.36),
@@ -935,6 +1057,8 @@ static func antidoto(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> vo
 
 # --- UNTURA (la boticaria, 03/10): una flecha en diagonal con una GOTA colgando de la punta ---
 static func untura(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "untura", pos, lado, col):
+		return
 	var g: float = lado * 0.09
 	var cola: Vector2 = pos + Vector2(lado * 0.16, lado * 0.84)
 	var punta: Vector2 = pos + Vector2(lado * 0.70, lado * 0.30)
@@ -956,6 +1080,8 @@ static func untura(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void
 # --- CUENCO (la cocina): el cuenco con el vapor saliendo ---
 # El vapor es lo que lo hace COMIDA: sin el, un semicirculo se lee como una luna.
 static func cuenco(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "cuenco", pos, lado, col):
+		return
 	var g: float = lado * 0.08
 	var borde_y: float = pos.y + lado * 0.52
 	# El cuenco, relleno: medio disco bajo la linea del borde, y el pie.
@@ -982,6 +1108,8 @@ static func cuenco(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void
 
 # --- CHAPA: una lamina en perspectiva, con el canto grueso ---
 static func chapa(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "chapa", pos, lado, col):
+		return
 	var g: float = lado * 0.08
 	var arriba := PackedVector2Array([
 		pos + Vector2(lado * 0.14, lado * 0.46), pos + Vector2(lado * 0.52, lado * 0.26),
@@ -998,6 +1126,8 @@ static func chapa(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 
 # --- HEBILLA: el marco con su pincho, sola (la correa lleva la tira) ---
 static func hebilla(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "hebilla", pos, lado, col):
+		return
 	var g: float = lado * 0.09
 	var marco := Rect2(pos.x + lado * 0.22, pos.y + lado * 0.24, lado * 0.56, lado * 0.52)
 	c.draw_rect(marco, col, false, g)
@@ -1011,6 +1141,8 @@ static func hebilla(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> voi
 
 # --- DESHACER: una flecha que vuelve sobre si misma ---
 static func deshacer(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "deshacer", pos, lado, col):
+		return
 	var g: float = lado * 0.09
 	var ctr: Vector2 = pos + Vector2(lado * 0.52, lado * 0.54)
 	var r: float = lado * 0.26
@@ -1023,6 +1155,8 @@ static func deshacer(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> vo
 
 # --- TABLON: la tabla con sus vetas ---
 static func tablon(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "tablon", pos, lado, col):
+		return
 	var g: float = lado * 0.08
 	var tabla := Rect2(pos.x + lado * 0.12, pos.y + lado * 0.34, lado * 0.76, lado * 0.32)
 	c.draw_rect(tabla, col, false, g)
@@ -1039,6 +1173,8 @@ static func tablon(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void
 
 # --- CARBON: el trozo con la llama encima ---
 static func carbon(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "carbon", pos, lado, col):
+		return
 	var trozo := PackedVector2Array([
 		pos + Vector2(lado * 0.18, lado * 0.80), pos + Vector2(lado * 0.26, lado * 0.60),
 		pos + Vector2(lado * 0.52, lado * 0.54), pos + Vector2(lado * 0.80, lado * 0.64),
@@ -1054,14 +1190,20 @@ static func carbon(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void
 # --- LOS TRES JUEGOS DE ARMADURA DE METAL: el peto con 1, 2 o 3 lamas ---
 # Mas lamas = mas metal: hierro (ligera), hierro completo (pesada) y placas (casi todo chapa).
 static func coraza_1(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "coraza_1", pos, lado, col):
+		return
 	_coraza_lamas(c, pos, lado, col, 1)
 
 
 static func coraza_2(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "coraza_2", pos, lado, col):
+		return
 	_coraza_lamas(c, pos, lado, col, 2)
 
 
 static func coraza_3(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "coraza_3", pos, lado, col):
+		return
 	_coraza_lamas(c, pos, lado, col, 3)
 
 
@@ -1076,14 +1218,20 @@ static func _coraza_lamas(c: CanvasItem, pos: Vector2, lado: float, col: Color, 
 
 # --- LA VETA de un metal (en bruto, veteado, profundo): 1, 2 o 3 vetas en la piedra ---
 static func veta_1(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "veta_1", pos, lado, col):
+		return
 	_vetas(c, pos, lado, col, 1)
 
 
 static func veta_2(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "veta_2", pos, lado, col):
+		return
 	_vetas(c, pos, lado, col, 2)
 
 
 static func veta_3(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "veta_3", pos, lado, col):
+		return
 	_vetas(c, pos, lado, col, 3)
 
 
@@ -1104,6 +1252,8 @@ static func _vetas(c: CanvasItem, pos: Vector2, lado: float, col: Color, n: int)
 # El casquete se dibuja como un arco GRUESO por encima de la cabeza y dos mechones cayendo a los
 # lados: un peinado a 22 px no se lee por su forma, se lee porque TAPA la parte de arriba.
 static func pelo(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "pelo", pos, lado, col):
+		return
 	var g: float = lado * 0.09
 	var cx: float = pos.x + lado * 0.5
 	var cy: float = pos.y + lado * 0.52
@@ -1118,6 +1268,8 @@ static func pelo(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 
 # --- ROPA (seccion del creador): una camisa con sus mangas ---
 static func ropa(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "ropa", pos, lado, col):
+		return
 	var g: float = lado * 0.09
 	var contorno := PackedVector2Array([
 		pos + Vector2(lado * 0.34, lado * 0.20), pos + Vector2(lado * 0.16, lado * 0.34),
@@ -1130,3 +1282,57 @@ static func ropa(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 	c.draw_polyline(PackedVector2Array([
 		pos + Vector2(lado * 0.34, lado * 0.20), pos + Vector2(lado * 0.50, lado * 0.34),
 		pos + Vector2(lado * 0.66, lado * 0.20)]), col, g, true)
+
+
+# ============================================================
+#  EN PIXEL ART (05/11, el jefe: "todo tiene que ir con pixel art")
+# ============================================================
+# Cada icono de aqui pinta primero SU DIBUJO (assets/ui/iconos/<nombre>.png, de tools/iconos_estados_pixel.py) y solo
+# si no existe, el trazo de siempre. Las pantallas no se enteran: siguen pasando la caja y el color. El color TIÑE el
+# dibujo (blanco = tal cual; gris = apagado) y el dibujo se agranda solo por enteros (x1, x2...) para que el pixel salga
+# nitido: un icono de 12 en una caja de 30 sale a 24, centrado.
+const CARPETA_PIXEL := "res://assets/ui/iconos/"
+const LADO_PIXEL := 12
+static var _pixeles: Dictionary = {}   # "nombre@factor" -> ImageTexture ya agrandada (o null si no hay dibujo)
+
+
+static func _pixel(c: CanvasItem, nombre: String, pos: Vector2, lado: float, col: Color) -> bool:
+	var factor: int = maxi(1, int(floor(lado / float(LADO_PIXEL))))
+	var tex: Texture2D = textura_pixel(nombre, factor)
+	if tex == null:
+		return false
+	var t: float = float(tex.get_width())
+	c.draw_texture(tex, (pos + Vector2(lado - t, lado - t) * 0.5).round(), col)
+	return true
+
+
+# El dibujo ya agrandado a 'factor' (con vecino mas cercano: el filtro del control no lo emborrona porque se pinta 1:1).
+static func textura_pixel(nombre: String, factor: int = 1) -> Texture2D:
+	var clave: String = "%s@%d" % [nombre, factor]
+	if not _pixeles.has(clave):
+		var ruta: String = CARPETA_PIXEL + nombre + ".png"
+		var tex: Texture2D = null
+		if ResourceLoader.exists(ruta):
+			var img: Image = (load(ruta) as Texture2D).get_image()
+			if img.is_compressed():
+				img.decompress()
+			img.convert(Image.FORMAT_RGBA8)
+			if factor > 1:
+				img.resize(img.get_width() * factor, img.get_height() * factor, Image.INTERPOLATE_NEAREST)
+			tex = ImageTexture.create_from_image(img)
+		_pixeles[clave] = tex
+	return _pixeles[clave]
+
+
+# LAS ARMADURAS DE LA PELETERIA, literales de su material (05/11): cuero con costuras y tela acolchada. Sin dibujo,
+# la coraza y el rollo de siempre.
+static func coraza_cuero(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "coraza_cuero", pos, lado, col):
+		return
+	coraza(c, pos, lado, col)
+
+
+static func coraza_tela(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "coraza_tela", pos, lado, col):
+		return
+	rollo(c, pos, lado, col)

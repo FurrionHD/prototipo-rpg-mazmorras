@@ -29,10 +29,11 @@ func _ready() -> void:
 		await _fin_solo()
 		return
 	var t := 0.0
-	while is_instance_valid(mia) and t < 90.0 and not mia.acabada() and not _algun_enemigo_herido(mia):
+	# (04/11) Si le toca una Rata sombria sola y se esconde, Atacar no puede con ella (solo las areas): la pelea se corta igual.
+	while is_instance_valid(mia) and t < 90.0 and not mia.acabada() and not _algun_enemigo_herido(mia) and not _todos_ocultos(mia):
 		await _un_turno(mia)
 		t += 0.25
-	if not _ok_y(is_instance_valid(mia) and not mia.acabada() and _algun_enemigo_herido(mia),
+	if not _ok_y(is_instance_valid(mia) and not mia.acabada() and (_algun_enemigo_herido(mia) or _todos_ocultos(mia)),
 			"hiero a un enemigo sin acabar la pelea (%.1f s)" % t):
 		await _fin_solo()
 		return
@@ -88,7 +89,8 @@ func _ready() -> void:
 
 	# 5) Como estaba: los enemigos con su vida (mis personajes defienden o esperan, no les pegan), los mios sin curarse.
 	var ahora_e: Array = (mia._enemies as Array).map(func(e): return e.current_hp)
-	var iguales := ahora_e.size() == vida_e.size()
+	# (04/11) Puede ENTRAR un bicho que estaba dentro de la arena al rehacerla (refuerzo): lo que se mira son los que deje.
+	var iguales := ahora_e.size() >= vida_e.size()
 	for i in mini(ahora_e.size(), vida_e.size()):
 		iguales = iguales and absf(float(ahora_e[i]) - float(vida_e[i])) < 0.51
 	_ok(iguales, "los enemigos siguen con la vida que les deje (%s / %s)" % [str(ahora_e), str(vida_e)])
@@ -120,6 +122,13 @@ func _ready() -> void:
 	_ok(await hasta_sala("peleas", func(v): return v == "0", 15.0) and dato_sala("reservas") == "0",
 		"la sala se queda sin peleas ni reservas (%s, %s)" % [dato_sala("peleas"), dato_sala("reservas")])
 	await _fin_solo()
+
+
+func _todos_ocultos(p: Node) -> bool:
+	for e in p._enemies:
+		if e.is_alive() and not e.en_sombras():
+			return false
+	return true
 
 
 func _algun_enemigo_herido(p: Node) -> bool:

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"runa_ciempies"
+nombre = "Runa de ciempiés"
+descripcion = "Una piedra con dos surcos que no se ponen de acuerdo. Si la miras un rato, tú tampoco."
+familia = 0
+tipo = 13
+tier = 1
+exigencia = 0.0
+peso_base = 0.1
+valor_base = 180
+color = Color(0.86, 0.38, 0.1, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

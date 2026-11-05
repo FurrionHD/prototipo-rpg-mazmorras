@@ -477,21 +477,62 @@ func _muesca_tier(w: float, h: float) -> void:
 # ------------------------------------------------------------
 # El simbolo de cada set, 7 x 7 (se pinta en claro sobre el sello del color de su runa).
 const GLIFO_SET := {
-	&"slime": ["...#...", "..###..", ".#####.", ".#####.", "#######", ".#####.", "..###.."],        # gota
-	&"profundo": [".##....", "#..#..#", "....##.", ".......", ".##....", "#..#..#", "....##."],  # olas
-	&"rey": ["#..#..#", "#.###.#", "#######", "#######", ".#####.", ".......", "......."],        # corona
-	&"fuego": ["...#...", "..##...", "..###..", ".####..", ".#####.", "#######", ".#####."],      # llama
-	&"venenoso": [".#####.", "#######", "#..#..#", "#######", ".##.##.", ".#.#.#.", "......."], # calavera
-	&"abisal": ["...#...", "..###..", "#######", ".#####.", "..###..", ".##.##.", ".#...#."],    # estrella
-	# (31/10, eligio el jefe de tools/glifos_runas_versiones.py) la rata y el Rey Rata.
-	&"rata": [".#####.", "#.#.#.#", "#.#.#.#", "#.#.#.#", "#.#.#.#", "#.#.#.#", ".#####."],      # rejilla de cloaca
-	&"rey_rata": ["#.#.#.#", "#######", "#######", ".#.#.#.", ".#...#.", ".....#.", "......."], # corona de colmillos
-	&"jabali": ["...#...", ".#.#.#.", "..###..", "#.###.#", ".#####.", "...#...", "...#..."],   # helecho (Musgo viejo)
-	# (03/11, el set Ambar del trent) la gota de ambar con un bichito dentro (el hueco con su cuerpo en medio).
-	&"trent": ["...#...", "..###..", ".##.##.", "##...##", "##.#.##", ".##.##.", "..###.."],    # gota con bicho (Ambar)
-	# (03/11, eligio el jefe de tools/glifos_runas_versiones.py) el rayo, del set Hilo conductor de la araña.
-	&"arana": ["....##.", "...##..", "..####.", "...#...", ".####..", "..##...", ".##...."],   # rayo, centrado
+	# (05/11, el jefe: "no hacer unicolor como antes, me ha molado"; "a tu criterio, me molan todos") TODOS A 9 x 9 Y
+	# A TRES TONOS (tools/glifos_varios_tonos.py; elegidos la A de cada uno salvo la estrella, la B): '#' blanco, '+' el
+	# tono claro del set (su runa aclarada) y '=' su acento (GLIFO_ACENTO).
+	&"slime": ["....+....", "...+++...", "..++#++..", ".++#+++=.", ".+#++++=.",
+		"++++++++=", "+++++++==", ".+++++==.", "..=====.."],   # Gota (Masa) (A)
+	&"profundo": [".........", ".###.....", "#+++#...#", "+===+###+", ".........",
+		".###.....", "#+++#...#", "+===+###+", "........."],   # Olas (Marea) (A)
+	&"rey": [".........", "#...#...#", "#+..#..+#", "#++###++#", "#+++++++#",
+		"++=+=+=++", "+++++++++", "#########", "........."],   # Corona (Corona) (A)
+	&"fuego": ["....=....", "...==....", "...=+=...", "..=++=.=.", "..=+#+==.",
+		".=+##++=.", "=+####+=.", "=+####+=.", ".=++++==."],   # Llama (Ignición) (A)
+	&"venenoso": [".#######.", "#########", "#==###==#", "#==###==#", "####+####",
+		".#######.", ".#+#+#+#.", "..+.+.+..", "........."],   # Calavera (Miasma) (A)
+	&"abisal": ["....#....", "...#+#...", "..#+++#..", ".#++=++#.", "#++===++#",
+		".#++=++#.", "..#+++#..", "...#+#...", "....#...."],   # Estrella (Cielo) (B)
+	&"rata": [".#######.", "#=#=#=#=#", "#=#=#=#=#", "#=#=#=#=#", "#=#=#=#=#",
+		"#=#=#=#=#", "#=#=#=#=#", "#=#=#=#=#", ".#######."],   # Rejilla (Alcantarilla) (A)
+	&"rey_rata": [".........", "#.#.#.#.#", "#########", "#+=+=+=+#", "#########",
+		".#.#.#.#.", ".#.#.#.#.", "..#...#..", "........."],   # Colmillos (Sangre real) (A)
+	&"jabali": ["....#....", ".#..#..#.", "..#+#+#..", "#..+#+..#", ".#++#++#.",
+		"..+=#=+..", "...=#=...", "....=....", "....=...."],   # Helecho (Musgo viejo) (A)
+	&"ciempies": ["#.#...#.#", ".#.....#.", "##=...=##", "#+#...#+#", "#+#...#+#",
+		"#+#...#+#", ".#+#.#+#.", "..#+#+#..", "...###..."],   # Dos cabezas (Dos mentes) (A)
+	&"escarabajo": [".#######.", "#+++++++#", "#+#####+#", "#+#...#+#", "#+#...#+#",
+		"#+#...#+#", "#+#...#+#", "===...===", "===...==="],   # Imán (Campo magnético) (A)
+	&"trent": ["...###...", "..#+++#..", ".#+#+++#.", "#++=+=++#", "#+++=+++#",
+		"#++=+=++#", ".#+++++#.", "..#+++#..", "...###..."],   # Ámbar (Ámbar) (A)
+	&"arana": ["....###..", "...##+...", "..##+....", ".#####=..", "...=##=..",
+		"...##=...", "..##=....", ".##=.....", ".#......."],   # Rayo (Hilo conductor) (A)
+	# (05/11, eligio el jefe de tools/glifos_guadana.py: "esta el peak") la guadaña del set Filo de aire, la I HOJA GRUESA.
+	# 9 x 9 y A TRES TONOS: '#' el filo (blanco), '+' la hoja (clara), '=' el mango (madera). Pidio rehacer los demas asi.
+	&"segadora": ["...+++++=", ".++++++=.", "++####.=.", "##....=..", "#.....=..", "......=..", ".....=...", ".....=...",
+		"....=...."],
 }
+# El ACENTO de cada set ('='); sin entrada, su runa oscurecida. El tono claro ('+') es su runa aclarada.
+const GLIFO_ACENTO := {
+	&"rey": Color(0.85, 0.2, 0.25),
+	&"fuego": Color(0.75, 0.15, 0.08),
+	&"venenoso": Color(0.5, 1.0, 0.25),
+	&"abisal": Color(0.6, 0.85, 1.0),
+	&"rata": Color(0.15, 0.12, 0.18),
+	&"rey_rata": Color(0.9, 0.15, 0.15),
+	&"jabali": Color(0.45, 0.32, 0.18),
+	&"ciempies": Color(0.25, 0.9, 0.85),
+	&"escarabajo": Color(0.85, 0.87, 0.92),
+	&"trent": Color(0.35, 0.2, 0.08),
+	&"arana": Color(0.95, 0.9, 0.4),
+}
+# Los TONOS propios de la guadaña (la hoja y el mango de madera); los demas salen de su runa (tonos_glifo).
+const GLIFO_TONOS := {"+": Color(0.70, 0.77, 0.75), "=": Color(0.59, 0.46, 0.33)}
+
+
+static func tonos_glifo(id: StringName, col: Color) -> Dictionary:
+	if id == &"segadora":
+		return GLIFO_TONOS
+	return {"+": col.lightened(0.55), "=": GLIFO_ACENTO.get(id, col.darkened(0.45))}
 
 
 func _pintar_sello() -> void:
@@ -513,7 +554,7 @@ func _marca_runas(ci: CanvasItem, w: float, h: float, y_banda: float) -> void:
 	ci.draw_circle(c + Vector2(1.5, 1.5), r, Color(0, 0, 0, 0.45))
 	ci.draw_circle(c, r, col.darkened(0.35))
 	ci.draw_arc(c, r, 0.0, TAU, 24, col.lightened(0.45), maxf(1.5, m * 0.018), true)
-	_glifo(ci, c, r * 1.25, GLIFO_SET.get(s.id, GLIFO_SET[&"slime"]), Color(1, 1, 1, 0.95))
+	_glifo(ci, c, r * 1.25, GLIFO_SET.get(s.id, GLIFO_SET[&"slime"]), Color(1, 1, 1, 0.95), tonos_glifo(s.id, col))
 	# Los 4 puntitos bajo el sello, encendidos los que tiene (con su borde oscuro: se leen sobre cualquier rareza).
 	var paso: float = r * 0.72
 	var y: float = c.y + r + m * 0.05
@@ -523,15 +564,19 @@ func _marca_runas(ci: CanvasItem, w: float, h: float, y_banda: float) -> void:
 		ci.draw_circle(p, m * 0.020, col.lightened(0.55) if i < n else Color(1, 1, 1, 0.20))
 
 
-func _glifo(ci: CanvasItem, c: Vector2, lado: float, filas: Array, tinta: Color) -> void:
-	var px: float = lado / 7.0
+func _glifo(ci: CanvasItem, c: Vector2, lado: float, filas: Array, tinta: Color, tonos: Dictionary = GLIFO_TONOS) -> void:
+	# 7 x 7 los de un color; 9 x 9 los de varios tonos (la guadaña): el mismo lado, pixeles mas finos.
+	var px: float = lado / float(maxi(7, filas.size()))
 	var x0: float = c.x - lado * 0.5
 	var y0: float = c.y - lado * 0.5
 	for j in filas.size():
 		var f: String = filas[j]
 		for i in f.length():
-			if f[i] == "#":
+			var ch: String = f[i]
+			if ch == "#":
 				ci.draw_rect(Rect2(x0 + float(i) * px, y0 + float(j) * px, px, px), tinta)
+			elif tonos.has(ch):
+				ci.draw_rect(Rect2(x0 + float(i) * px, y0 + float(j) * px, px, px), tonos[ch])
 
 
 # LA MUESCA DEL +N: el triangulo de la esquina de arriba a la DERECHA, del color de su nivel y con

@@ -1,8 +1,7 @@
 # ============================================================
 #  proyectil_hechizo.gd
-#  El conjuro que sale disparado cuando terminas de recitar en el mapa (ver casteo_mapa.gd). Va del
-#  que lo lanza al bicho y, al llegar, avisa por su señal: quien la escucha es el que abre el
-#  combate (player._impacto_conjuro).
+#  Lo que vuela en el mapa del que dispara al bicho (hoy, el arco y la ballesta: player._disparar_en_mapa). Al llegar,
+#  avisa por su señal: quien la escucha es el que abre el combate.
 #
 #  CADA ELEMENTO TIENE SU FORMA. Al principio esto era un cuadrado del color del elemento girando, y
 #  el resultado es que todo parecia la misma bola de fuego pintada de otro color. Se dibuja a mano

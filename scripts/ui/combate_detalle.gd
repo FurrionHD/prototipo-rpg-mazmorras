@@ -678,10 +678,28 @@ func _tab_detalles(c: Combatant) -> void:
 				cuerpo = str(entrada[0]) if entrada.size() > 0 else ""
 			var caja := PanelContainer.new()
 			var l := Label.new()
-			l.text = cuerpo
 			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			caja.add_child(l)
+			# EL ICONO EN PIXEL delante (05/11), como en su chip, y el texto sin el emoji con el que empieza.
+			var cl: Array = StatusChip.clave_de(entrada)
+			var tex: Texture2D = StatusChip.textura(String(cl[0]))
+			if tex != null:
+				if String(cl[1]) != "" and cuerpo.begins_with(String(cl[1])):
+					cuerpo = cuerpo.substr(String(cl[1]).length()).strip_edges(true, false)
+				var fila := HBoxContainer.new()
+				fila.add_theme_constant_override("separation", 8)
+				var ic := TextureRect.new()
+				ic.texture = tex
+				ic.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+				ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+				ic.custom_minimum_size = Vector2(24, 24)
+				ic.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+				fila.add_child(ic)
+				fila.add_child(l)
+				caja.add_child(fila)
+			else:
+				caja.add_child(l)
+			l.text = cuerpo
 			# Teñido con el color del estado, como el chip de la tarjeta: asi se reconoce cual es
 			# cual sin leer (los que no salen del catalogo no traen color y se quedan neutros).
 			if entrada.size() > 3 and entrada[3] is Color:

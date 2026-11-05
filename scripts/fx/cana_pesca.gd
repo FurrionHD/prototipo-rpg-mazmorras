@@ -66,7 +66,10 @@ static func mano_izquierda(p_dir: Vector2) -> bool:
 func actualizar() -> void:
 	if parte == Parte.VARA:
 		z_as_relative = false
+		var z_antes: int = z_index
 		z_index = Game.Z_PERSONAJES + (-1 if va_detras(dir) else 2600)
+		if z_index != z_antes:
+			CapaPixel.remarcar(self)   # detras o delante del cuerpo: otro lienzo
 	queue_redraw()
 
 

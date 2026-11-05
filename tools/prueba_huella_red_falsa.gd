@@ -60,12 +60,12 @@ func pedir_accion(peer: int, idx: int, seq: int = 0, radio: float = 0.0, preps: 
 		espejos[peer].turno_mio(idx, seq, radio, preps)
 
 
-func pedir_frase(peer: int, idx: int, opciones: Array, nombre: String, largo: int, seq: int = 0, _pe: PeleaViva = null) -> void:
+func pedir_frase(peer: int, idx: int, opciones: Array, nombre: String, largo: int, seq: int = 0, _pe: PeleaViva = null, _apuntar: String = "") -> void:
 	if is_instance_valid(espejos.get(peer)):
 		espejos[peer].recitar_frase(idx, opciones, nombre, largo, seq)
 
 
-func pedir_disparo(peer: int, nombre: String, seq: int = 0, _pe: PeleaViva = null, _reelegir: bool = false) -> void:
+func pedir_disparo(peer: int, nombre: String, seq: int = 0, _pe: PeleaViva = null, _reelegir: bool = false, _apuntar: String = "") -> void:
 	if is_instance_valid(espejos.get(peer)):
 		espejos[peer].lanzar_conjuro(nombre, seq)
 

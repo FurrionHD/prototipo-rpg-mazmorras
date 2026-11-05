@@ -106,6 +106,17 @@ func _correr() -> void:
 	_ver(sv != null and sv.has_animation(&"idle_0") and sv.has_animation(&"raices_4")
 		and sv != SpritesEnemigo.frames_de(ed, 0.5, true, &"ambarino"), "el Tocon sin costra: su variante")
 
+	# (04/11) LA MADERA NO SE VUELVE ROSA: el tinte del normal solo cambia lo claro que es, nunca el tono. Con el color del mas
+	# fuerte (99aa8e) el azul se multiplicaba x2,2 y la corteza (132, 73, 58) salia (227, 97, 128).
+	var base: Color = Trent3DSprites.BASE
+	var fuerte: Color = Trent3DSprites.tinte_madera(Color("99aa8e"))
+	var k: Vector3 = Vector3(fuerte.r / base.r, fuerte.g / base.g, fuerte.b / base.b)
+	_ver(k.x > 1.0 and is_equal_approx(k.x, k.y) and is_equal_approx(k.y, k.z), "el fuerte: mas claro y el mismo tono (x%.2f en los tres canales)" % k.x)
+	var corteza := Color8(132, 73, 58)
+	var teñida := Color(corteza.r * k.x, corteza.g * k.y, corteza.b * k.z)
+	_ver(teñida.r > teñida.g and teñida.g > teñida.b, "la corteza sigue siendo marron (r > g > b)")
+	_ver(Trent3DSprites.tinte_madera(base).is_equal_approx(base), "el color base no cambia")
+
 	await _pelea()
 	print("FIN: %s" % ("TODO BIEN" if _mal == 0 else "%d MAL" % _mal))
 	get_tree().quit(0 if _mal == 0 else 1)
@@ -281,18 +292,18 @@ func _pelea() -> void:
 	yo.costra_max = 10.0
 	yo.costra = 10.0
 	tt.tick()
-	var antes_n: int = arena.get_children().filter(func(n): return n is TrentAire).size()
+	var antes_n: int = arena.get_children().filter(func(n): return n.has_meta("trent")).size()
 	yo.take_damage(20.0)
 	tt.tick()
-	var despues_n: int = arena.get_children().filter(func(n): return n is TrentAire).size()
+	var despues_n: int = arena.get_children().filter(func(n): return n.has_meta("trent")).size()
 	_ver(despues_n > antes_n, "la capa de ambar de los tuyos revienta en grumos al romperse")
 	yo.costra_max = 0.0
 	# el Geiser y la Bola por su huella
 	var f := CombatFormas.circulo(tm.pies_de(yo), 45.0)
 	var gs: Node = SueloRoto.lanzar(arena, f, SueloRoto.Tipo.TRENT_GEISER, 3)
-	_ver(gs is TrentAire and (gs as TrentAire).modo == TrentAire.Modo.GEISER and (gs as TrentAire).version == 1,
+	_ver(gs != null and gs.get_meta("trent", -1) == TrentAire.Modo.GEISER,
 		"el Geiser sale por su huella, con la nube (la B)")
 	var fl := CombatFormas.linea(tm.pies_de(yo), Vector2.RIGHT, 100.0, 14.0)
-	_ver(SueloRoto.lanzar(arena, fl, SueloRoto.Tipo.AMBAR_BOLA, 4) is AmbarAire, "la Bola de caca rueda por su huella")
+	_ver(SueloRoto.lanzar(arena, fl, SueloRoto.Tipo.AMBAR_BOLA, 4).get_meta("ambar", -1) == AmbarAire.Modo.BOLA, "la Bola de caca rueda por su huella")
 	_ver(is_equal_approx(SueloRoto.retraso(fl, tm.pies_de(yo) + Vector2(50, 0), SueloRoto.Tipo.AMBAR_BOLA), AmbarAire.T_RUEDA * 0.5),
 		"y le da a cada uno cuando la bola llega")

@@ -220,6 +220,8 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # habilidades de golpe: la idea es ir rellenando esto UNA A UNA, que es donde se decide de verdad
 # como se siente cada habilidad.
 @export var forma: int = -1
+# HACEN FALTA LAS DOS CABEZAS (05/11, la Pinza del Bicefalo): con una dormida (Dos mentes) no la puede usar.
+@export var pide_dos_cabezas: bool = false
 # El tamaño de la forma en px (0 = el de por defecto). Radio en CIRCULO y CONO, largo en LINEA,
 # lado en RECTANGULO.
 @export var forma_radio: float = 0.0
@@ -417,6 +419,12 @@ enum Pieza { NINGUNA, PEDAZO, ESQUIRLA }
 @export var rayo_otros: float = 0.5
 # ATRAE hacia el centro de su huella estos px a quien le entre (el Agujero negro; como la Voragine).
 @export var atrae: float = 0.0
+# (04/11, el escarabajo) EN EL AIRE: mientras la carga no se le puede elegir (Id.EN_VUELO); un area lo baja y la pierde.
+@export var en_vuelo: bool = false
+# ARRASTRA AL PRIMERO hasta el final de su linea (la Embestida imantada).
+@export var arrastra_primero: bool = false
+# GASTA LAS LIMADURAS: +limaduras_mult de daño por cada una que lleve, y se quedan a cero (la Embestida imantada).
+@export var gasta_limaduras: bool = false
 # NO FALLA: sus golpes no se esquivan (la Mirada estelar).
 @export var infalible: bool = false
 # DESDE LAS SOMBRAS (30/10, el Mordisco sombrio): si quien la lanza esta EN LAS SOMBRAS, su PRIMER golpe no se esquiva.
@@ -429,6 +437,10 @@ enum Pieza { NINGUNA, PEDAZO, ESQUIRLA }
 # MAGICA (08/10/2026, de momento solo las de los slimes): pega con la MAGIA del que la lanza contra tu DEFENSA MAGICA y
 # la reduccion magica de tu armadura; ni la guardia ni el escudo la paran. Ver StatsMath.resolve_magico_enemigo.
 @export var es_magico: bool = false
+# EN ABANICO (05/11, el Vendaval de cortes del Vendaval rojo): una LINEA se lanza 'lineas_abanico' veces, repartidas en
+# 'lineas_angulo' grados (el abanico ENTERO). Quien quede donde se cruzan se come varias. 0/1 = una sola.
+@export var lineas_abanico: int = 0
+@export var lineas_angulo: float = 40.0
 # ATRAVIESA (solo en el mapa, con LINEA y 'carga'): no se para en el primero, rueda hasta el final de la linea
 # arrollando a todos por el camino; el primero se lleva el golpe entero y los demas area_secundario, hasta
 # area_max. La Embestida rodante del escarabajo (29/09).

@@ -38,6 +38,7 @@ drop_piso_debut = 25
 drop_piso_pleno = 28
 al_golpear = [SubResource("SA_lento")]
 resist_elemental = {
+6: 0.5,
 3: 0.5
 }
 inmune_estados = [0, 1]

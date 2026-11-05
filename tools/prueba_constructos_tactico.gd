@@ -159,6 +159,17 @@ func _probar_gargola(combat, t, e, al: Array) -> void:
 	await _esperar(2)
 	var plan: Dictionary = t.mejor_apunte(e, pic, al[0])
 	_ver(int(plan["n"]) >= 1 and pic.salta and pic.carga_turnos == 1, "el Picado llega a 105 px, cargado y se queda alli")
+	# (04/11) PERSIGUE: marca a su presa y cae donde este al soltar; andar no sirve.
+	t.guardar_carga_enemigo(e, pic, al[0])
+	var presa: Combatant = t._presas_carga.get(e)
+	_ver(pic.carga_persigue and presa != null, "el Picado marca a una presa, no un sitio")
+	if presa != null:
+		_colocar(t, [presa], [t.pies_de(presa) + Vector2(70, 60)])
+		await _esperar(2)
+		var f_pic = t.forma_de(pic, e, t.bulto_de(presa).get_center())
+		_ver(f_pic.centro.distance_to(t.pies_de(presa)) <= pic.forma_radio + t.radio_pisa(presa) + 12.0,
+			"y aunque se aparte le cae encima (a %d px)" % int(f_pic.centro.distance_to(t.pies_de(presa))))
+	t.olvidar_carga(e)
 	var mir: AbilityData = load("res://resources/abilities/gargola_mirada.tres")
 	var r0: float = t.radio_pisa(e)
 	_colocar(t, al, [pe + Vector2(r0 + 50, 0), pe + Vector2(-r0 - 50, 0)])

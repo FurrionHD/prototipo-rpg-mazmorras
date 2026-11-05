@@ -55,6 +55,7 @@ static func _nuevo(cuerpo: Node2D, es_onda: bool) -> AreaCuracion:
 	a.z_as_relative = false
 	a.z_index = Z_SUELO
 	cuerpo.add_child(a)
+	CapaPixel.meter(a)   # en pixel art (memoria efectos-pixel-personajes)
 	return a
 
 

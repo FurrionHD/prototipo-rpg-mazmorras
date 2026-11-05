@@ -132,7 +132,9 @@ const RUTAS_SETS := ["res://resources/runas/set_slime.tres", "res://resources/ru
 	"res://resources/runas/set_rey.tres", "res://resources/runas/set_fuego.tres",
 	"res://resources/runas/set_venenoso.tres", "res://resources/runas/set_abisal.tres",
 	"res://resources/runas/set_rata.tres", "res://resources/runas/set_rey_rata.tres", "res://resources/runas/set_jabali.tres",
-	"res://resources/runas/set_trent.tres", "res://resources/runas/set_arana.tres"]
+	"res://resources/runas/set_trent.tres", "res://resources/runas/set_arana.tres",
+	"res://resources/runas/set_escarabajo.tres", "res://resources/runas/set_ciempies.tres",
+	"res://resources/runas/set_segadora.tres"]
 static var _sets: Array = []
 
 static func sets() -> Array:
@@ -347,6 +349,12 @@ static func efecto_txt(s: RunaSetData) -> String:
 		&"musgo_viejo":
 			return "Los golpes de área te hacen un %d %% menos, salvo mientras estás Quemado (el musgo arde)." % [
 				roundi(float(p.get("reduce", 0.2)) * 100.0)]
+		&"dos_mentes":
+			return "El primer aturdimiento que te entra no te para: lo aguanta tu otra cabeza. Se recarga a los %d turnos tuyos." % [
+				int(p.get("turnos", 4))]
+		&"campo_magnetico":
+			return "Cada %d turnos tuyos, los enemigos pegados a ti pierden un %d %% de su barra de turno." % [
+				int(p.get("cada", 3)), roundi(float(p.get("barra", 0.25)) * 100.0)]
 		&"ambar":
 			return "Empiezas la pelea con una capa de ámbar que aguanta el %d %% de tu vida máxima en daño. Si te la rompen, vuelve entera a los %d turnos tuyos." % [
 				roundi(float(p.get("capa", 0.08)) * 100.0), int(p.get("turnos", 3))]
@@ -356,6 +364,10 @@ static func efecto_txt(s: RunaSetData) -> String:
 		&"miasma":
 			return "+%d %% de daño por cada carga de veneno del objetivo (hasta %d), y tu veneno dura %d turno más." % [
 				roundi(float(p.get("por_carga", 0.04)) * 100.0), int(p.get("max", 5)), int(p.get("turnos", 1))]
+		&"filo_aire":
+			return "Solo con golpes de arma: cada habilidad o golpe se alarga con un corte de viento que hace el %d %% del golpe a quien la forma normal no ha tocado (los conos y los círculos llegan un %d %% más lejos, las líneas un %d %% más largas, y un golpe a uno sigue %d px por detrás). Una vez por habilidad; la magia no." % [
+				roundi(float(p.get("dano", 0.3)) * 100.0), roundi(float(p.get("mas", 0.3)) * 100.0),
+				roundi(float(p.get("linea", 0.4)) * 100.0), roundi(float(p.get("detras", 50.0)))]
 		&"cielo":
 			return "+%d %% de daño de luz y oscuridad, y tus críticos tienen un %d %% de dejar Ceguera." % [
 				roundi(float(p.get("dano", 0.20)) * 100.0), roundi(float(p.get("ciego", 0.20)) * 100.0)]
@@ -509,6 +521,11 @@ static func aplicar(c: Combatant, p: PersonajeData) -> void:
 	var alc: Dictionary = efecto_activo(p, &"alcantarilla")
 	c.runa_alcantarilla_prob = float(alc.get("prob", 0.0))
 	c.runa_alcantarilla_dano = float(alc.get("dano", 0.0))
+	var filo: Dictionary = efecto_activo(p, &"filo_aire")
+	c.runa_filo_dano = float(filo.get("dano", 0.0))
+	c.runa_filo_mas = float(filo.get("mas", 0.0))
+	c.runa_filo_linea = float(filo.get("linea", 0.0))
+	c.runa_filo_detras = float(filo.get("detras", 0.0))
 	var hilo: Dictionary = efecto_activo(p, &"hilo_conductor")
 	c.runa_hilo_prob = float(hilo.get("prob", 0.0))
 	c.runa_hilo_dano = float(hilo.get("dano", 0.0))
@@ -517,6 +534,11 @@ static func aplicar(c: Combatant, p: PersonajeData) -> void:
 	var amb: Dictionary = efecto_activo(p, &"ambar")
 	c.runa_ambar = float(amb.get("capa", 0.0))
 	c.runa_ambar_turnos = int(amb.get("turnos", 3))
+	c.runa_mentes_turnos = int(efecto_activo(p, &"dos_mentes").get("turnos", 0))
+	var cam: Dictionary = efecto_activo(p, &"campo_magnetico")
+	c.runa_campo_cada = int(cam.get("cada", 0))
+	c.runa_campo_radio = float(cam.get("radio", 0.0))
+	c.runa_campo_barra = float(cam.get("barra", 0.0))
 	var sr: Dictionary = efecto_activo(p, &"sangre_real")
 	c.runa_sangre_real_carga = float(sr.get("por_carga", 0.0))
 	c.runa_sangre_real_max = float(sr.get("max", 0.0))

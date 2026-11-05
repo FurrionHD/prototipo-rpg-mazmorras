@@ -195,7 +195,8 @@ func _pelea() -> void:
 	for _i in 300:
 		tm.tick(0.016)
 		for n in tm._arena().get_children():
-			if n is RataAire and n.modo == RataAire.Modo.ONDA:
+			# (05/11) Con los efectos en pixel a RataAire solo le queda la ONDA del sigilo, y ya no guarda su modo.
+			if n is RataAire and (n.get("modo") == null or n.get("modo") == RataAire.Modo.ONDA):
 				ondas += 1
 		if ondas > 0:
 			break

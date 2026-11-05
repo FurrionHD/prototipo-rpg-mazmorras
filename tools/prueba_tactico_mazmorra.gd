@@ -176,6 +176,11 @@ func _pelea_jugada(gen: DungeonGenerator, px: Vector2) -> void:
 				if h.get("tactico") != null:
 					combat = h
 	_afirmar(combat != null and combat.tactico, "JUGADA: la pelea es tactica")
+	# (04/11, fallo en el banco) El lider es el lento del grupo: si el bicho cae antes de su turno, no pega y esto falla sin que pase nada.
+	# Con mas vida le da tiempo a todos.
+	for en_j in combat._enemies:
+		en_j.max_hp *= 5.0
+		en_j.current_hp = en_j.max_hp
 	if combat == null:
 		return
 	var tm = combat.turno_mapa

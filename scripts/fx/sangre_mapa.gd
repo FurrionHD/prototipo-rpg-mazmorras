@@ -61,6 +61,7 @@ func _montar(padre: Node) -> void:
 	z_index = Game.Z_ENCIMA_PERSONAJES + 80
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	padre.add_child(self)
+	CapaPixel.meter(self)   # en pixel art (memoria efectos-pixel-personajes)
 	_suelo = Node2D.new()
 	_suelo.z_as_relative = false
 	_suelo.z_index = SueloRoto.Z_SUELO

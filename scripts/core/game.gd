@@ -4251,6 +4251,7 @@ var _muriendo: bool = false
 # curado y la expedicion se acaba (la mazmorra se repuebla). El DINERO, el EQUIPO y lo que ya
 # tuvieras guardado en el Hogar no se tocan: el castigo es el botin de ESTA bajada.
 func morir_jugador() -> void:
+	olvidar_conjuro_cargado()
 	if es_arena():
 		_caer_en_arena()
 		return
@@ -7320,7 +7321,7 @@ func coste_mana_efectivo(spell: SpellData, pj: PersonajeData = null) -> float:
 # hubieras lanzado dentro, sin una segunda implementación que se desincronice con la primera.
 #
 # Es una nota de UN SOLO USO y de un solo hueco: se pone justo antes de abrir la pelea y se consume
-# al montarla. Si la pelea no llega a abrirse, quien lo apuntó lo borra (ver player._impacto_conjuro).
+# al montarla. Si la pelea no llega a abrirse, quien lo apuntó lo borra.
 var _hechizo_entrada: Dictionary = {}
 # Cuanto se espera a que la pelea se monte antes de dar el conjuro por perdido. En solitario es
 # inmediato; en multi, pedir pelea es una vuelta por la red (y el dueño del piso puede decir que no,
@@ -7412,6 +7413,39 @@ func _soltar_hechizo_de_entrada(combat: Node, pj: PersonajeData, pe: PeleaViva =
 	combat.hechizo_de_entrada(nota.get("spell"), idx, idx_lanza)
 
 
+# --- EL CONJURO CARGADO (04/11, el jefe) -------------------------------------------------------
+#
+# Recitado entero en el mapa (y ya pagado), pero sin soltar: andas con el y eliges donde cae
+# (conjuro_cargado.gd). Viaja con la ficha a cualquier pelea en la que entres: con 'punto' sale solo en tu
+# turno; sin el, te deja apuntarlo (combat_magia._mostrar_disparo). No caduca: el precio ya lo has pagado.
+var _conjuro_cargado: Dictionary = {}
+
+func cargar_conjuro(spell: SpellData, pj: PersonajeData) -> void:
+	_conjuro_cargado = {"spell": spell, "pj": pj}
+
+
+# El del lider (null = ninguno). De otro personaje no cuenta: lo lleva el que lo recito.
+func conjuro_cargado() -> SpellData:
+	return _conjuro_cargado.get("spell") if _conjuro_cargado.get("pj") == lider() else null
+
+
+func sitio_de_conjuro(punto: Variant) -> void:
+	if _conjuro_cargado.is_empty():
+		return
+	if punto is Vector2:
+		_conjuro_cargado["punto"] = punto
+	else:
+		_conjuro_cargado.erase("punto")
+
+
+func conjuro_con_sitio() -> bool:
+	return _conjuro_cargado.get("punto") is Vector2
+
+
+func olvidar_conjuro_cargado() -> void:
+	_conjuro_cargado = {}
+
+
 # --- EL CONJURO QUE TE LLEVAS A LA PELEA DE OTRO ----------------------------------------------
 #
 # Las dos notas de arriba solo saben soltarse en una pelea QUE SE EJECUTA AQUI. Cuando te UNES a la
@@ -7434,6 +7468,15 @@ var _casteo_en_vuelo: Dictionary = {}
 # del primero y ya no habria nada que devolver si la union se deniega. Lo limpia quien abre el
 # viaje: Net.peleas.solicitar_unirse (ver soltar_casteo_en_vuelo).
 func casteo_para_viajar(pj: PersonajeData) -> Dictionary:
+	if not _conjuro_cargado.is_empty() and _conjuro_cargado.get("pj") == pj:
+		var sp0: SpellData = _conjuro_cargado.get("spell")
+		var nota0 := _conjuro_cargado
+		_conjuro_cargado = {}
+		_casteo_en_vuelo = {"nota": "cargado", "datos": nota0}
+		var d0: Dictionary = {"ruta": sp0.resource_path, "frase": sp0.longitud(), "pagado": true}
+		if nota0.get("punto") is Vector2:
+			d0["punto"] = [(nota0["punto"] as Vector2).x, (nota0["punto"] as Vector2).y]
+		return d0
 	if not _hechizo_entrada.is_empty() and _hechizo_entrada.get("pj") == pj:
 		var sp: SpellData = _hechizo_entrada.get("spell")
 		if sp != null:
@@ -7462,7 +7505,11 @@ func devolver_casteo_en_vuelo() -> void:
 		return
 	var v := _casteo_en_vuelo
 	_casteo_en_vuelo = {}
-	if String(v.get("nota", "")) == "entrada":
+	if String(v.get("nota", "")) == "cargado":
+		# Sigue cargado, pero el sitio era para la pelea que no ha sido: lo eliges otra vez.
+		_conjuro_cargado = v["datos"]
+		_conjuro_cargado.erase("punto")
+	elif String(v.get("nota", "")) == "entrada":
 		_hechizo_entrada = v["datos"]
 		_hechizo_entrada_t = HECHIZO_ENTRADA_ESPERA
 	else:
@@ -9969,7 +10016,10 @@ const _MANIFIESTO_MATERIALES := [
 	"res://resources/materials/runa_rey_rata.tres",
 	"res://resources/materials/runa_jabali.tres",
 	"res://resources/materials/runa_trent.tres",
+	"res://resources/materials/runa_escarabajo.tres",
 	"res://resources/materials/runa_arana.tres",
+	"res://resources/materials/runa_ciempies.tres",
+	"res://resources/materials/runa_segadora.tres",
 	"res://resources/materials/sanguinaria.tres", "res://resources/materials/seta_simas.tres",
 	"res://resources/materials/tablon_anillada.tres",
 	"res://resources/materials/tablon_calcinada.tres",
@@ -15649,8 +15699,7 @@ func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array, pe: Pel
 		if Net.activo and not Net.soy_sala:
 			anunciar_mi_zona(pe.id, pe)
 	pe.montaje_ms = 0   # ya hay pantalla: el destrabe puede volver a vigilar
-	# El hechizo con el que has ABIERTO la pelea desde el mapa (ver player._impacto_conjuro): se
-	# resuelve dentro, contra el bicho al que le diste, antes del primer turno.
+	# La magia de apoyo con la que has entrado (ver player._soltar_apoyo).
 	var quien: PersonajeData = pe.aliados_pjs[0] if not pe.aliados_pjs.is_empty() else lider()
 	_soltar_hechizo_de_entrada(combat, quien, pe)
 	# Y el canto que te interrumpieron al abrirse esta misma pelea: se sigue por su frase.

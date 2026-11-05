@@ -8,6 +8,48 @@
 [ext_resource type="Resource" path="res://resources/materials/nucleo_ciempies.tres" id="6_nuc"]
 [ext_resource type="Resource" path="res://resources/materials/carne_insecto.tres" id="7_carne"]
 
+[ext_resource type="Script" path="res://scripts/actors/enemy/mutacion_data.gd" id="20_mut"]
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="21_ab"]
+[ext_resource type="Resource" path="res://resources/abilities/ciempies_pinza.tres" id="22_pin"]
+[ext_resource type="Resource" path="res://resources/abilities/nudo_derrumbe.tres" id="23_der"]
+[ext_resource type="Resource" path="res://resources/abilities/ciempies_basico_u.tres" id="24_bu"]
+[ext_resource type="Resource" path="res://resources/abilities/ciempies_basico_una.tres" id="25_bun"]
+[ext_resource type="Resource" path="res://resources/materials/runa_ciempies.tres" id="26_runa"]
+
+; LOS MUTANTES DEL CIEMPIES (05/11, memoria ciempies-mutante; numeros provisionales). En linea:
+;     Ciempies carmesi --> Ciempies bicefalo (dos cabezas, Dos mentes, basico en U, Pinza) --come mas--> Nudo carmesi (enorme, atrapa a dos, Derrumbe)
+[sub_resource type="Resource" id="MUT_bicefalo"]
+script = ExtResource("20_mut")
+id = &"bicefalo"
+nombre = "Ciempiés bicéfalo"
+grado = 1
+habilidades = Array[ExtResource("21_ab")]([ExtResource("3_fre"), ExtResource("4_mor"), ExtResource("22_pin")])
+sprite = &"bicefalo"
+pesos = {"agilidad": 32, "destreza": 40, "fuerza": 43, "magia": 9, "resistencia": 34, "voluntad": 12}
+dos_mentes = true
+basico_propio = ExtResource("24_bu")
+basico_una_cabeza = ExtResource("25_bun")
+cabeza_libre_mult = 0.6
+cabeza_libre_radio = 70.0
+
+[sub_resource type="Resource" id="MUT_nudo"]
+script = ExtResource("20_mut")
+id = &"nudo"
+nombre = "Nudo carmesí"
+grado = 2
+desde = Array[StringName]([&"bicefalo"])
+habilidades = Array[ExtResource("21_ab")]([ExtResource("3_fre"), ExtResource("4_mor"), ExtResource("22_pin"), ExtResource("23_der")])
+sprite = &"nudo"
+pesos = {"agilidad": 17, "destreza": 21, "fuerza": 56, "magia": 7, "resistencia": 53, "voluntad": 16}
+dos_mentes = true
+basico_propio = ExtResource("24_bu")
+basico_una_cabeza = ExtResource("25_bun")
+cabeza_libre_mult = 0.6
+cabeza_libre_radio = 70.0
+enrosque_pegados_radio = 36.0
+aprieta_por_turno = 0.15
+aprieta_max = 0.6
+
 [sub_resource type="Resource" id="SA_ven"]
 script = ExtResource("2_sa")
 estado = 0
@@ -27,7 +69,8 @@ fuerza = 45
 resistencia = 30
 destreza = 35
 agilidad = 40
-magia = 10
+magia = 8
+voluntad = 12
 base_hp = 55.0
 base_attack = 4.4
 base_defense = 3.4
@@ -50,6 +93,8 @@ inmune_estados = [0]
 fx_basico = 15
 habilidades = [ExtResource("3_fre"), ExtResource("4_mor")]
 prob_habilidad = 0.55
+mutaciones = Array[ExtResource("20_mut")]([SubResource("MUT_bicefalo"), SubResource("MUT_nudo")])
+drop_runa = ExtResource("26_runa")
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
 ; ALCANCE del basico en el mapa (29/09): es largo.
 alcance = 25.0

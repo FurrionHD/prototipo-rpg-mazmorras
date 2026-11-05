@@ -126,13 +126,13 @@ func _correr() -> void:
 	var paquete: PackedInt32Array = combat.espejo._bloques_suelo(43, f, 12345, 0.0)
 	await _esperar_a(func() -> bool: return not combat._fx.ocupado(), 6.0)
 	combat._fx.cancelar()
-	var ya: Array = ar.find_children("*", "MagiaAire", true, false)
+	var ya: Array = CapaPixel.efectos_de(ar, "MagiaAire")
 	combat._espejo = true
 	combat.espejo._aplicar_impactos_ya(paquete)
 	combat._espejo = false
 	await _esperar(2)
 	var leidos = null
-	for m in ar.find_children("*", "MagiaAire", true, false):
+	for m in CapaPixel.efectos_de(ar, "MagiaAire"):
 		if not ya.has(m):
 			leidos = m._puntos
 	_ver(leidos != null and leidos == f.puntos, "los puntos de las bolas llegan iguales al espejo (%s)" % str(leidos))
