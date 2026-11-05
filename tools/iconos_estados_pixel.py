@@ -698,9 +698,20 @@ ICONOS_MENU = [
         ".....a......", "....aba.....", "....aba.....", ".....a......", "...oooooo...", "..oddmddoo..",
         ".odmdddmddo.", "oddddmddddo.", "odmdddddmdo.", ".oddddddoo..", "..oooooo....", "............"),
         {'a': (255, 140, 40), 'b': (255, 230, 120)}),
-    ("coraza_1", "Coraza ligera", ACERO, lamas(1), {'a': (120, 125, 135)}),
-    ("coraza_2", "Coraza pesada", ACERO, lamas(2), {'a': (120, 125, 135)}),
-    ("coraza_3", "Placas", ACERO, lamas(3), {'a': (120, 125, 135)}),
+    # LAS ARMADURAS, LITERALES DE SU MATERIAL (05/11, el jefe: las de 1-2-3 rayas "no lo veo bien, lo haria literal de su
+    # material visualmente"): cuero con costuras, hierro con remaches, hierro completo con hombreras, placas por
+    # segmentos, tela acolchada.
+    ("coraza_1", "Armadura de hierro", (0.45, 0.47, 0.52), pon(CORAZA, {(3, 3): 'a', (8, 3): 'a', (3, 8): 'a',
+        (8, 8): 'a', (5, 6): 'a', (6, 6): 'a'}), {'a': (190, 195, 205)}),
+    ("coraza_2", "Armadura de hierro completo", (0.55, 0.57, 0.62), espejo(("oooo..", "ollloo", "olllll", "oollll",
+        ".ollll", ".oaaaa", ".ollll", ".ollll", ".oaaaa", ".ollll", "..olll", "..oooo")), {'a': (90, 92, 100)}),
+    ("coraza_3", "Armadura de placas", (0.8, 0.85, 0.95), espejo(("oooo..", "owwloo", "olllll", "oddddd", ".olwll",
+        ".odddd", ".olwll", ".odddd", ".olwll", ".odddd", "..olll", "..oooo")), {}),
+    ("coraza_cuero", "Armadura de cuero", (0.6, 0.4, 0.25), espejo((".oo...", "ollooo", "olllll", "olalll", ".ollll",
+        ".olall", ".ollll", ".olall", ".ollll", ".obbbb", "..olll", "..oooo")),
+        {'a': (230, 205, 160), 'b': (70, 45, 25)}),
+    ("coraza_tela", "Armadura de tela", (0.85, 0.78, 0.6), espejo((".oo...", "ollooo", "olllll", "olldll", ".oldll",
+        ".odddd", ".oldll", ".oldll", ".odddd", ".oldll", "..odll", "..oooo")), {}),
     ("veta_1", "Veta (en bruto)", (0.55, 0.55, 0.58), vetas(1), {'a': (230, 160, 80)}),
     ("veta_2", "Veta (veteado)", (0.55, 0.55, 0.58), vetas(2), {'a': (230, 160, 80)}),
     ("veta_3", "Veta (profundo)", (0.55, 0.55, 0.58), vetas(3), {'a': (230, 160, 80)}),
