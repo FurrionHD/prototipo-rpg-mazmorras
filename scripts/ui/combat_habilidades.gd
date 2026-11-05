@@ -1198,6 +1198,7 @@ func filo_de_aire(p: Combatant, ab: AbilityData, ya: Array, obj: Combatant) -> A
 				f2 = CombatFormas.circulo(f.centro, f.radio * (1.0 + p.runa_filo_mas))
 			_:
 				f2 = CombatFormas.linea(f.origen, f.dir, f.largo * (1.0 + p.runa_filo_linea), f.ancho)
+		f2.dir = f.dir   # (la misma direccion: de ahi arrancan los giros y los barridos)
 		for e in _pantalla._vivos():
 			if not ya.has(e) and not (e as Combatant).no_elegible() and t.cuerpo_de(e) != null and f2.toca(t.bulto_de(e)):
 				nuevos.append(e)

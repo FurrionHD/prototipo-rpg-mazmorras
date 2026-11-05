@@ -248,14 +248,23 @@ func _filo_limpiar() -> void:
 
 
 func _filo_alargada(f):
+	var f2 = null
 	match f.tipo:
 		CombatFormas.Tipo.CONO:
-			return CombatFormas.cono(f.origen, f.dir, f.radio * (1.0 + FILO_MAS), f.apertura)
+			f2 = CombatFormas.cono(f.origen, f.dir, f.radio * (1.0 + FILO_MAS), f.apertura)
 		CombatFormas.Tipo.CIRCULO:
-			return CombatFormas.circulo(f.centro, f.radio * (1.0 + FILO_MAS))
+			f2 = CombatFormas.circulo(f.centro, f.radio * (1.0 + FILO_MAS))
 		CombatFormas.Tipo.LINEA:
-			return CombatFormas.linea(f.origen, f.dir, f.largo * (1.0 + FILO_LINEA), f.ancho)
-	return null
+			f2 = CombatFormas.linea(f.origen, f.dir, f.largo * (1.0 + FILO_LINEA), f.ancho)
+	if f2 != null:
+		# LA MISMA DIRECCION (y lo demas de la forma): el Molinete arranca su giro desde ahi, y un circulo nuevo mira al
+		# este; sin esto el de viento iba desfasado del de verdad segun hacia donde mirases (05/11, el jefe lo vio).
+		f2.dir = f.dir
+		f2.origen = f.origen
+		f2.dentro = f.dentro
+		f2.tramos = f.tramos
+		f2.cunas = f.cunas
+	return f2
 
 
 func _filo_en(t: float) -> void:
