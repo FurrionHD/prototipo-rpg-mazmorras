@@ -2189,6 +2189,10 @@ func _mas_cercano_en_grupo(grupo: String, skip_extracted: bool, excluir: String 
 func _crear_capa_barras() -> void:
 	var layer := CanvasLayer.new()
 	layer.layer = 10
+	# SIEMPRE VIVA (05/11, el jefe: "en combate no sale el modal de los estados"): la pelea apaga al jugador
+	# (pausa en solitario, process_mode en el tactico) y en Godot 4 un Control apagado no recibe el raton, asi
+	# que los chips se pintaban pero su ficha no salia nunca. El cambio de lider ya mira que no haya pelea.
+	layer.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(layer)
 	_barras_layer = layer
 	# LA FILA SE AJUSTA A LA VENTANA. Con cuatro companeros la fila mide ~850 px, asi que en una
