@@ -2479,7 +2479,17 @@ static func banner_item(vb: VBoxContainer, item: Resource, pie: String, etiqueta
 		var pts := PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, h), Vector2(0, h)])
 		var izq: Color = col.darkened(0.62)
 		var der: Color = col.lerp(Color(1, 1, 1), 0.06).darkened(0.12)
-		caja.draw_polygon(pts, PackedColorArray([izq, der, der, izq]))
+		if HudEstilo.es_pixel():
+			# (06/11) EN PIXEL, FRANJAS planas y no un degradado continuo ("menos degradado real"), y su marco fino.
+			var nf: int = 6
+			var x0: float = 0.0
+			for k in nf:
+				var x1: float = floorf(w * float(k + 1) / float(nf) / 2.0) * 2.0 if k < nf - 1 else w
+				caja.draw_rect(Rect2(x0, 0, x1 - x0, h), izq.lerp(der, (float(k) + 0.5) / float(nf)))
+				x0 = x1
+			caja.draw_style_box(HudEstilo.marco_px(Color(0, 0, 0, 0), false, col.darkened(0.2)), Rect2(0, 0, w, h))
+		else:
+			caja.draw_polygon(pts, PackedColorArray([izq, der, der, izq]))
 		# El objeto GRANDE a la derecha; el texto respira a la izquierda.
 		if con_retrato:
 			RetratoPieza.encajar(retrato, Vector2(w * 0.76, h * 0.5), h * 0.78)
