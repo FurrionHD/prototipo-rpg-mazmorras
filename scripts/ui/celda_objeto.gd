@@ -367,11 +367,12 @@ func _draw() -> void:
 		# En pixel, el marco va EXACTO por dentro de la silueta (Geometry2D.offset_polygon, no _encoger, que es
 		# aproximado y lo dejaba torcido): un canto negro de P y el ambar de 2P por dentro; al pasar por encima, blanco.
 		# Y los NUMEROS de las muescas se repintan encima: el marco no los tapa.
+		# (06/11, el jefe: "tiene que ser el marco amarillo FUERA del recuadro, rodeando, no dentro") POR FUERA: el ambar de
+		# 2P pegado a la silueta, en el hueco entre celdas (6 px en las rejillas), sin tapar nada de la celda.
 		if button_pressed:
-			_anillo_px(marco, P * 0.5, P, Color(0.03, 0.04, 0.06, 0.92))
-			_anillo_px(marco, P * 2.0, P * 2.0, Color(0.95, 0.72, 0.36, 1.0))
+			_anillo_px(marco, -P, P * 2.0, Color(0.95, 0.72, 0.36, 1.0))
 		else:
-			_anillo_px(marco, P * 0.5, P, Color(1, 1, 1, 0.45))
+			_anillo_px(marco, -P * 0.5, P, Color(1, 1, 1, 0.45))
 		_numero_tier(w, h)
 		if _plus() > 0:
 			_numero_plus(w, h, _plus())

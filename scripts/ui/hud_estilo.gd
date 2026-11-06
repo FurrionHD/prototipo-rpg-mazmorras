@@ -177,6 +177,11 @@ static func tema_menus() -> Theme:
 	t.set_stylebox("read_only", "LineEdit", apagado)
 	t.set_stylebox("background", "ProgressBar", caja_barra_fondo())
 	t.set_stylebox("fill", "ProgressBar", caja_barra_relleno())
+	# LAS LISTAS CON SCROLL, con 4 px de aire por dentro: el marco ambar de la celda elegida va POR FUERA de la celda
+	# (celda_objeto.gd) y en la primera fila o columna el scroll, que recorta lo que se sale de el, se lo comia.
+	var aire := StyleBoxEmpty.new()
+	aire.set_content_margin_all(4)
+	t.set_stylebox("panel", "ScrollContainer", aire)
 	return t
 
 
