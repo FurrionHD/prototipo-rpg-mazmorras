@@ -140,12 +140,14 @@ func imbue_tope(tier: int) -> int:
 	var fila: Array = imbue_reparto(tier)
 	return fila.size() if not fila.is_empty() else -1
 
-# "+1 60% · +2 30% · +3 10%" (lo usan la ficha y el chip de la imbuicion).
+# "1 acumulación (60 %), 2 (30 %) o 3 (10 %)" (lo usan la ficha y el chip de la imbuicion; pase de textos 06/11).
 static func texto_reparto(fila: Array) -> String:
-	var partes: PackedStringArray = []
+	var partes: Array = []
 	for i in fila.size():
-		partes.append("+%d %d%%" % [i + 1, roundi(float(fila[i]) * 100.0)])
-	return " · ".join(partes)
+		partes.append("%d%s (%d %%)" % [i + 1, " acumulación" if i == 0 else "", roundi(float(fila[i]) * 100.0)])
+	if partes.size() <= 1:
+		return "1 acumulación" if partes.is_empty() else String(partes[0])
+	return ", ".join(partes.slice(0, partes.size() - 1)) + " o " + String(partes[partes.size() - 1])
 
 func es_imbuicion() -> bool:
 	return imbue_estado >= 0 and imbue_usos > 0
@@ -791,16 +793,15 @@ func _area_txt() -> String:
 	match area_modo:
 		AreaModo.SPLASH:
 			var alcance: String = "todos los enemigos" if area_max >= 99 else "hasta %d enemigos" % area_max
-			var base: String = "Salpica a %s: los de al lado encajan el %d%%" % [
-				alcance, roundi(area_secundario * 100.0)]
+			var base: String = "Salpica a %s: los adyacentes reciben un %s de ese daño." % [
+				alcance, _pct_txt(area_secundario)]
 			if area_secundario_decay > 0.0:
-				return base + ", y un %d%% menos por cada enemigo de más." % roundi(
-					area_secundario_decay * 100.0)
-			return base + "."
+				return base + " Cada enemigo de más recibe un %s menos." % _pct_txt(area_secundario_decay)
+			return base
 		AreaModo.BARRIDO:
 			var alcance2: String = "todos los enemigos" if area_max >= 99 else "hasta %d enemigos" % area_max
-			return "Barre a %s a la vez, pero cada objetivo de más le quita un %d%% al golpe." % [
-				alcance2, roundi((1.0 - area_falloff) * 100.0)]
+			return "Alcanza a %s a la vez; el daño baja un %s por cada enemigo de más." % [
+				alcance2, _pct_txt(1.0 - area_falloff)]
 	return ""
 
 
@@ -827,52 +828,53 @@ func _golpes_txt(manos: int) -> String:
 # daño, golpes, coste, cooldown, carga, foco/mana y estados. Asi cambiar un valor
 # (p.ej. cooldown) actualiza el texto solo. La 'descripcion' queda para el SABOR.
 # Lo usa el tooltip de habilidad (combat.gd) y cualquier UI futura.
+#
+# PASE DE TEXTOS (06/11, docs/guia_textos.md): cada % dice de que es ("del daño de un ataque basico"), los estados con
+# "probabilidad base de causar", el sujeto es "quien la usa" (lo eligio el jefe), a quien se le echa "un aliado", y nada
+# de "tú", "encajar" ni "CD".
 func resumen(manos: int = 1) -> String:
-	# UNA FRASE POR LINEA, como las magias (SpellData.descripcion_mecanica). Antes era una tira de
-	# abreviaturas unidas por puntos ("1.33× · 2 golpes · arma/escudo: 100%, 50% · ...") que se salia
-	# de la pantalla y no habia forma de leer en mitad de un turno.
+	# UNA FRASE POR LINEA, como las magias (SpellData.descripcion_mecanica).
 	var l: Array = []
 
 	# --- QUE HACE AL PEGAR ---
 	if dano_mult > 0.0:
-		# "del daño de un golpe normal" se repetia en TODAS y no aporta: el % ya se entiende solo.
 		var g: String = _golpes_txt(manos)
-		var pct: int = roundi(dano_mult * 100.0)
-		var tipo: String = " mágico" if es_magico else ""
+		var pct: String = _pct_txt(dano_mult)
+		var tipo: String = " como daño mágico" if es_magico else ""
 		if g == "1":
-			l.append("Golpea al objetivo haciendo un %d%% de daño%s." % [pct, tipo])
+			l.append("Inflige al objetivo seleccionado un %s del daño de un ataque básico%s." % [pct, tipo])
 		else:
-			l.append("Golpea %s veces al objetivo haciendo un %d%% de daño%s por golpe." % [g, pct, tipo])
+			l.append("Golpea %s veces al objetivo seleccionado; cada golpe inflige un %s del daño de un ataque básico%s." % [
+				g, pct, tipo])
 		if es_magico:
-			l.append("Va contra la Defensa mágica: ni la guardia ni el escudo lo paran.")
+			l.append("Se defiende con la Defensa mágica: la guardia y el escudo no lo reducen.")
 		if manos >= 2 and golpes_dual_max > golpes_max:
-			l.append("Los golpes que pone la segunda arma (del %dº) pegan al %d%%." % [
-				golpes_max + 1, roundi(dual_golpe_mult * 100.0)])
+			l.append("Los golpes de la segunda arma (del %d.º en adelante) infligen un %s del daño de los de la primera." % [
+				golpes_max + 1, _pct_txt(dual_golpe_mult)])
 		elif not mults_golpe.is_empty():
 			var partes := PackedStringArray()
 			for i in mults_golpe.size():
-				partes.append("el %dº al %d%%" % [i + 1, roundi(float(mults_golpe[i]) * 100.0)])
-			l.append("No todos pegan igual: %s." % _y(partes))
+				partes.append("el %d.º un %s" % [i + 1, _pct_txt(float(mults_golpe[i]))])
+			l.append("No todos los golpes infligen lo mismo: %s de ese daño." % _y(partes))
 		if escudo_desde_golpe == 0:
-			l.append("Pega con el ESCUDO, así que su daño sale de tu Defensa y no de tu arma.")
+			l.append("Golpea con el escudo: el daño sale de la Defensa, no del arma.")
 		elif escudo_desde_golpe > 0:
-			l.append("Del %dº golpe en adelante pega con el ESCUDO: ése sale de tu Defensa." % (
+			l.append("Del %d.º golpe en adelante golpea con el escudo: ese daño sale de la Defensa, no del arma." % (
 				escudo_desde_golpe + 1))
 		var at: String = _area_txt()
 		if at != "":
 			l.append(at)
 		elif redirige_al_morir and num_golpes_max(manos) > 1:
-			l.append("Si mata al objetivo, los golpes que sobren saltan a los enemigos que sigan vivos.")
+			l.append("Si el objetivo cae antes, los golpes que quedan saltan a otros enemigos.")
 		var por: float = golpes_extra_por_enemigo
 		if manos >= 2 and golpes_extra_por_enemigo_dual > 0.0:
 			por = golpes_extra_por_enemigo_dual
 		if por > 0.0:
-			l.append("Suma %s golpe%s por cada enemigo extra en combate (hasta %d)." % [
-				_num(por), "" if por == 1.0 else "s", golpes_extra_max])
+			l.append("%s (hasta %d)." % [_extra_por_enemigo_txt(por), golpes_extra_max])
 		if crit_extra > 0.0:
-			l.append("+%d%% de probabilidad de crítico." % roundi(crit_extra * 100.0))
+			l.append("Probabilidad de crítico de esta habilidad +%s." % _pct_txt(crit_extra))
 		if penetracion_extra > 0.0:
-			l.append("Ignora un %d%% más de la defensa." % roundi(penetracion_extra * 100.0))
+			l.append("Ignora un %s más de la Defensa del objetivo." % _pct_txt(penetracion_extra))
 	elif not es_imbuicion() and limpia_debuffs <= 0:
 		l.append("No hace daño.")
 
@@ -882,71 +884,71 @@ func resumen(manos: int = 1) -> String:
 		l.append(est)
 	if es_imbuicion():
 		var nom_est: String = str(StatusEffects.def(imbue_estado).get("nombre", "?"))
-		var doble: String = "" if imbue_prob_doble <= 0.0 else 			", y un %d%% de meter dos dosis de golpe" % roundi(imbue_prob_doble * 100.0)
-		l.append("Impregna tu arma de %s durante %d ataques: cada golpe tiene un %d%% de aplicarlo%s." % [
-			nom_est, imbue_usos, roundi(imbue_prob * 100.0), doble])
+		var doble: String = "" if imbue_prob_doble <= 0.0 \
+			else " y un %s de que sean 2 acumulaciones" % _pct_txt(imbue_prob_doble)
+		l.append("Impregna de %s el arma durante %d ataques: cada golpe tiene un %s de probabilidad base de causar %s%s." % [
+			nom_est, imbue_usos, _pct_txt(imbue_prob), nom_est, doble])
 		if not imbue_escalera.is_empty():
-			l.append("Si prende, las dosis que suma van por el tier del arma (y no pasa de la última):")
+			l.append("Al causarlo, las acumulaciones que suma dependen del tier del arma:")
 			for t in imbue_escalera.size():
-				l.append("  T%d%s: %s" % [t + 1, "+" if t == imbue_escalera.size() - 1 else "",
+				l.append("   · T%d%s: %s" % [t + 1, " o más" if t == imbue_escalera.size() - 1 else "",
 					texto_reparto(imbue_escalera[t])])
-		l.append("Se gasta al ATACAR, no con los turnos, y aguanta de un combate al siguiente.")
+		l.append("Se gasta al atacar, no con los turnos, y se conserva de un combate al siguiente.")
 		if imbue_por_destreza:
-			l.append("Prende más a menudo cuanta más Destreza tengas frente a su Resistencia.")
+			l.append("La probabilidad sube con la Destreza de quien la usa frente a la Resistencia del enemigo.")
 	if limpia_debuffs > 0:
-		var a_quien: String = "a todo el grupo" if objetivo_aliado == Objetivo.GRUPO else "al aliado que elijas"
-		l.append("Quita %s %s." % [
-			"todos los perjuicios" if limpia_debuffs >= 99
-			else "%d perjuicio%s al azar" % [limpia_debuffs, "" if limpia_debuffs == 1 else "s"], a_quien])
+		var todos: bool = limpia_debuffs >= 99
+		var cuantos: String = "todos los estados negativos" if todos \
+			else "%d estado%s negativo%s al azar" % [limpia_debuffs, "" if limpia_debuffs == 1 else "s",
+				"" if limpia_debuffs == 1 else "s"]
+		l.append("Elimina %s %s." % [cuantos, "de todos los aliados" if objetivo_aliado == Objetivo.GRUPO else "de un aliado"])
 	if reduce_cooldowns > 0:
-		l.append("Le quita %d turno%s de espera a tus OTRAS habilidades." % [
+		l.append("Las demás habilidades de quien la usa se recargan %d turno%s antes." % [
 			reduce_cooldowns, "" if reduce_cooldowns == 1 else "s"])
 	if invoca_cantidad > 0:
 		l.append("Invoca %d ayudante%s." % [invoca_cantidad, "" if invoca_cantidad == 1 else "s"])
 	if bloqueo_turnos > 0:
-		l.append("Te deja en guardia %d turno%s: encajas mucho menos hasta tu próximo turno." % [
-			bloqueo_turnos, "" if bloqueo_turnos == 1 else "s"])
+		l.append("Quien la usa se pone en guardia: recibe mucho menos daño hasta su próximo turno.")
 	if provoca_turnos > 0:
-		l.append("Durante %d turnos los enemigos tienden a atacarte a ti." % provoca_turnos)
+		l.append("Durante %d turno%s, los enemigos tienen más probabilidad de atacar a quien la usa." % [
+			provoca_turnos, "" if provoca_turnos == 1 else "s"])
 	if postura_contraataque:
 		if contra_con_escudo:
-			l.append("Te pones en guardia: esquivas más y devuelves de un ESCUDAZO (con tu Defensa) lo que esquives o pares, pero vas más lento.")
+			l.append("Quien la usa se pone en guardia: aumenta su Esquiva y devuelve con un escudazo (que sale de su Defensa) los golpes que esquiva o para, pero se vuelve más lento.")
 		else:
-			l.append("Te pones en guardia: esquivas más y devuelves los golpes que esquives, pero vas más lento.")
+			l.append("Quien la usa se pone en guardia: aumenta su Esquiva y devuelve los golpes que esquiva, pero se vuelve más lento.")
 	if defensa_a_aliados:
-		l.append("Pone en defensa a los tuyos que tengas cerca hasta su próximo turno.")
+		l.append("Pone en guardia a los aliados cercanos hasta su próximo turno.")
 	if protege_turnos > 0:
-		l.append(("Te plantas delante del aliado %d turno%s: los golpes que le busquen a él te"
-			+ " llegan a TI, con tu bloqueo y tu defensa.") % [
-				protege_turnos, "" if protege_turnos == 1 else "s"])
+		l.append("Durante %d turno%s, protege a un aliado: los ataques dirigidos a ese aliado los recibe quien la usa, con su bloqueo y su Defensa." % [
+			protege_turnos, "" if protege_turnos == 1 else "s"])
 	if foco_cargas > 0:
-		l.append("Te da %d cargas de Foco arcano para tus próximos hechizos." % foco_cargas)
+		l.append("Quien la usa obtiene %d cargas de Foco arcano para sus próximos hechizos." % foco_cargas)
 	if mana_gain > 0.0:
-		l.append("Te devuelve %.0f de maná." % mana_gain)
+		l.append("Quien la usa recupera %d de maná." % roundi(mana_gain))
 	if energia_a_mana > 0.0:
-		l.append("Convierte TODA tu energía en maná.")
+		l.append("Convierte toda la energía de quien la usa en maná.")
 
 	# --- LO QUE CUESTA (siempre la ultima linea) ---
 	var coste_p: Array = []
 	var c: float = coste(manos)
 	if c > 0.0:
-		coste_p.append("%.0f de energía" % c)
+		coste_p.append("%d de energía" % roundi(c))
 	if carga_turnos > 0:
-		coste_p.append("tarda %d turno%s en soltarse" % [carga_turnos, "" if carga_turnos == 1 else "s"])
+		coste_p.append("se carga durante %d turno%s" % [carga_turnos, "" if carga_turnos == 1 else "s"])
 	if cooldown > 0:
-		coste_p.append("CD %d turno%s" % [cooldown, "" if cooldown == 1 else "s"])
+		coste_p.append("se recarga en %d turno%s" % [cooldown, "" if cooldown == 1 else "s"])
 	if requiere_escudo:
-		coste_p.append("necesitas ESCUDO")
+		coste_p.append("requiere escudo")
 	if requiere_off_libre:
-		coste_p.append("necesitas la otra mano libre")
+		coste_p.append("requiere la otra mano libre")
 	if not coste_p.is_empty():
-		# El "Cuesta" solo si de verdad gasta energia: sin ella salia "Cuesta vuelve a estar lista
-		# en 5 turnos", que no es una frase.
 		if c > 0.0:
 			l.append("Coste: " + " · ".join(coste_p) + ".")
 		else:
-			# Sin energia (las de los enemigos) no hay "Coste:" que poner: solo el cooldown.
-			l.append(" · ".join(coste_p) + ".")
+			# Sin energia (las de los enemigos) no hay "Coste:" que poner.
+			var resto: String = " · ".join(coste_p)
+			l.append(resto.substr(0, 1).to_upper() + resto.substr(1) + ".")
 
 	# --- QUE CAMBIA CON DOS ARMAS IGUALES (al final: es un 'y ademas', no parte del kit) ---
 	# Solo se cuenta mirando la ficha a UNA mano: con dos ya se estan viendo los numeros del dual.
@@ -954,71 +956,95 @@ func resumen(manos: int = 1) -> String:
 		var d: Array = []
 		if golpes_dual_max > golpes_max:
 			d.append("da %s golpes en vez de %s" % [_golpes_txt(2), _golpes_txt(1)])
-			d.append("los golpes de la mano secundaria hacen un %d%% del daño original" % roundi(
-				dual_golpe_mult * 100.0))
+			d.append("los golpes de la segunda arma infligen un %s del daño de los de la primera" % _pct_txt(dual_golpe_mult))
 		if golpes_extra_por_enemigo_dual > golpes_extra_por_enemigo:
-			d.append("suma %s golpes por enemigo en vez de %s" % [
-				_num(golpes_extra_por_enemigo_dual), _num(golpes_extra_por_enemigo)])
+			d.append(_extra_por_enemigo_txt(golpes_extra_por_enemigo_dual).substr(0, 1).to_lower()
+				+ _extra_por_enemigo_txt(golpes_extra_por_enemigo_dual).substr(1))
 		if coste_energia_dual > 0.0 and coste_energia_dual != coste_energia:
-			d.append("Coste: %.0f de energía" % coste_energia_dual)
+			d.append("cuesta %d de energía" % roundi(coste_energia_dual))
 		if not d.is_empty():
-			l.append(_lista_efectos("CON DOS ARMAS IGUALES", d))
-	return "
-".join(l)
+			l.append(_lista_efectos("Con dos armas iguales", d))
+	return "\n".join(l)
 
 
-# Los estados que aplica, agrupados por A QUIEN van. Mismo criterio que SpellData._texto_estados:
-# una frase con nombres y porcentajes, no una lista de siglas.
+# "150 %", "37,5 %": coma decimal y espacio antes del % (guia de textos).
+static func _pct_txt(f: float) -> String:
+	var v: float = f * 100.0
+	if is_equal_approx(v, roundf(v)):
+		return "%d %%" % roundi(v)
+	return "%s %%" % ("%.1f" % v).replace(".", ",")
+
+
+# Los golpes de mas por enemigo, sin medios golpes: 0,5 por enemigo = "1 golpe más por cada 2 enemigos de más".
+func _extra_por_enemigo_txt(por: float) -> String:
+	if por < 1.0:
+		var cada: int = maxi(2, roundi(1.0 / por))
+		return "Da 1 golpe más por cada %d enemigos de más en el combate" % cada
+	var n: int = roundi(por)
+	return "Da %d golpe%s más por cada enemigo de más en el combate" % [n, "" if n == 1 else "s"]
+
+
+# Los estados que aplica, agrupados por A QUIEN van. Mismo criterio que SpellData._texto_estados.
 func _texto_estados(manos: int = 1) -> String:
-	var al_rival: Array = []
+	var al_rival: Array = []      # [prob, nombre, detalle]
 	var a_los_mios: Array = []
 	var por_crit: Array = []       # los que SOLO salen si el golpe critea (a.solo_crit)
 	for a in efectos:
 		if a == null or int(a.estado) < 0:
 			continue
-		var txt: String = _efecto_txt(a)
-		if txt == "":
-			continue
+		var e: Array = _efecto_partes(a)
 		if bool(a.solo_crit):
-			por_crit.append(txt)
+			por_crit.append(e)
 		elif a.en_objetivo:
-			al_rival.append(txt)
+			al_rival.append(e)
 		else:
-			a_los_mios.append(txt)
+			a_los_mios.append(e)
 
-	# "EN CADA GOLPE" cambia por completo lo que significa el porcentaje: un 22% en una habilidad
-	# de 6 tajos no es un 22%, es casi seguro. Sin esta coletilla el numero engaña.
+	# "CADA GOLPE" cambia por completo lo que significa el porcentaje: un 22 % en una habilidad
+	# de 6 tajos no es un 22 %, es casi seguro. Sin esto el numero engaña.
 	var multi: bool = num_golpes_max(manos) > 1
-	var cada: String = "En cada golpe " if efectos_por_golpe and multi else ""
+	var por_golpe: bool = efectos_por_golpe and multi
 	var a_quien: String = "a cada enemigo alcanzado" if es_area() else "al objetivo"
 
 	var out: Array = []
 	if not al_rival.is_empty():
-		out.append(_lista_efectos("%s%s %s" % [cada, "aplica" if cada != "" else "Aplica", a_quien], al_rival))
+		var sujeto: String = "Cada golpe tiene" if por_golpe else "Tiene"
+		out.append(_frase_causar(sujeto, al_rival, a_quien))
 	if not a_los_mios.is_empty():
-		if _algun_efecto_al_grupo():
-			out.append(_lista_efectos("Aplica a TODO el grupo", a_los_mios))
+		var grupo: bool = _algun_efecto_al_grupo()
+		var partes: Array = []
+		for e in a_los_mios:
+			var p: int = int(e[0])
+			partes.append(("%s%s" % [e[1], e[2]]) if p >= 100 else ("%s%s (con un %d %% de probabilidad)" % [e[1], e[2], p]))
+		if grupo:
+			out.append("Otorga a todos los aliados %s." % _y(partes))
 		else:
-			out.append(_lista_efectos("Te aplica a ti", a_los_mios))
-	# Los de critico van en su PROPIA frase, con la condicion delante: puestos en la misma lista
-	# salia "Aplica Sangrado (55%) y Sangrado (30%)", que no dice ni por que hay dos ni cuando cae
-	# el segundo.
+			out.append("Quien la usa obtiene %s." % _y(partes))
+	# Los de critico van en su PROPIA frase, con la condicion delante.
 	if not por_crit.is_empty():
-		out.append(_lista_efectos("Si el golpe es CRÍTICO, además aplica", por_crit))
-	return "
-".join(out)
+		out.append(_frase_causar("Si el golpe es crítico, además tiene", por_crit, a_quien))
+	return "\n".join(out)
 
 
-# Con UN efecto va todo en una frase; con varios, uno por linea con vineta. Juntarlos con "y" daba
-# lineas de 150 caracteres que no cabian en el tooltip y habia que leer dos veces.
+# "Tiene un 55 % de probabilidad base de causar Sangrado al objetivo durante 3 turnos." Con varios, uno por linea.
+func _frase_causar(sujeto: String, lista: Array, a_quien: String) -> String:
+	if lista.size() == 1:
+		var e: Array = lista[0]
+		return "%s un %d %% de probabilidad base de causar %s %s%s." % [sujeto, int(e[0]), e[1], a_quien, e[2]]
+	var l: Array = ["%s una probabilidad base de causar %s:" % [sujeto, a_quien]]
+	for e in lista:
+		l.append("   · %s: %d %%%s" % [e[1], int(e[0]), e[2]])
+	return "\n".join(l)
+
+
+# Con UN efecto va todo en una frase; con varios, uno por linea con vineta.
 func _lista_efectos(cabecera: String, cosas: Array) -> String:
 	if cosas.size() == 1:
-		return "%s %s." % [cabecera, cosas[0]]
+		return "%s: %s." % [cabecera, cosas[0]]
 	var l: Array = ["%s:" % cabecera]
 	for c in cosas:
 		l.append("   · %s" % c)
-	return "
-".join(l)
+	return "\n".join(l)
 
 
 func _algun_efecto_al_grupo() -> bool:
@@ -1038,23 +1064,30 @@ func _y(cosas) -> String:
 	return "%s y %s" % [", ".join(v.slice(0, v.size() - 1)), v[v.size() - 1]]
 
 
-# Texto de UN estado que aplica, a partir de su StatusApplication (nombre del catalogo
-# + probabilidad + stacks/nivel/duracion, todo derivado de los campos).
+# UN estado que aplica, en piezas: [probabilidad en %, nombre, " durante 3 turnos (Ataque +25 %)"].
+func _efecto_partes(a) -> Array:
+	var id_est: int = int(a.estado)
+	var nom: String = String(StatusEffects.def(id_est).get("nombre", "?"))
+	var turnos: int = int(a.turns) if int(a.turns) > 0 else int(StatusEffects.def(id_est).get("turns", 0))
+	var det: String = ""
+	if turnos > 0:
+		det += " durante %d turno%s" % [turnos, "" if turnos == 1 else "s"]
+	var extras: Array = []
+	var que_hace: String = StatusEffects.efecto_legible(id_est, float(a.mult))
+	if que_hace != "":
+		extras.append(que_hace)
+	if int(a.stacks) > 1:
+		extras.append("%d acumulaciones de golpe" % int(a.stacks))
+	if id_est == StatusEffects.Id.ATURDIDO and a.en_objetivo:
+		extras.append("se suma al aturdimiento propio del arma")
+	if not extras.is_empty():
+		det += " (%s)" % "; ".join(extras)
+	return [roundi(a.prob * 100.0), nom, det]
+
+
+# Texto de UN estado en una linea ("Sangrado (55 % · 3 turnos)"), para quien lo pida suelto.
 func _efecto_txt(a) -> String:
 	if a == null or int(a.estado) < 0:
 		return ""
-	var id_est: int = int(a.estado)
-	# Cada numero con su NOMBRE delante. Antes salia "Vulnerable (30%, -25%)" y no habia forma de
-	# saber cual era la probabilidad, cual el efecto y cual la duracion.
-	var detalles: Array = ["prob. %d%%" % roundi(a.prob * 100.0)]
-	var que_hace: String = StatusEffects.efecto_legible(id_est, float(a.mult))
-	if que_hace != "":
-		detalles.append(que_hace)
-	if int(a.stacks) > 1:
-		detalles.append("%d dosis de golpe" % int(a.stacks))
-	var turnos: int = int(a.turns) if int(a.turns) > 0 else int(StatusEffects.def(id_est).get("turns", 0))
-	if turnos > 0:
-		detalles.append("%d turno%s" % [turnos, "" if turnos == 1 else "s"])
-	if id_est == StatusEffects.Id.ATURDIDO and a.en_objetivo:
-		detalles.append("más el aturdir de tu arma")
-	return "%s (%s)" % [String(StatusEffects.def(id_est).get("nombre", "?")), " · ".join(detalles)]
+	var e: Array = _efecto_partes(a)
+	return "%s: %d %% de probabilidad base%s" % [e[1], int(e[0]), e[2]]

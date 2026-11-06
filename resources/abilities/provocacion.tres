@@ -17,4 +17,4 @@ provoca_turnos = 3
 bloqueo_turnos = 1
 requiere_escudo = true
 fx_estilo = 96
-descripcion = "Golpeas el escudo y ruges, y te cubres tras él: durante unos turnos los enemigos tienden a descargar su furia sobre ti en vez de sobre los tuyos. No los obliga, solo llama su atención, y quedas en guardia para encajarla."
+descripcion = "Golpeas el escudo y ruges, y te cubres tras él: durante unos turnos los enemigos tienden a descargar su furia sobre ti en vez de sobre los tuyos. No los obliga, solo llama su atención, y quedas en guardia para aguantarla."

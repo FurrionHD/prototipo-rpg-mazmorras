@@ -14,6 +14,9 @@ Si una frase se puede leer de dos maneras, está mal.
    «El objetivo queda…».
    - **En magias, «el lanzador»** (la magia no se porta, se lanza): «+ 12 por el poder mágico del
      lanzador».
+   - **En habilidades, «quien la usa»** (HSR pone el nombre del personaje; nosotros no tenemos uno
+     fijo): «Quien la usa obtiene Fortaleza durante 3 turnos (Ataque +25 %)». El daño, «del daño
+     de un ataque básico». Nada de «CD»: «se recarga en 3 turnos».
    - **A quien se le echa, como HSR: «un aliado» y después «ese aliado»** (decidido 06/11 tras
      contarlo en los textos oficiales, ver sección 4): «Otorga Fortaleza a un aliado durante 3
      turnos», «Los golpes de ese aliado infligen…». «Todos los aliados» si va a todos. A un
@@ -117,7 +120,7 @@ probabilidad base de causarla. El daño de las Quemaduras que causa el portador 
 |---|---|
 | Sets de runas (`Runas.efecto_txt`) | Hecho 06/11 |
 | Magias (fichas, línea compacta, Filos y Mantos con su afinidad; sabor y tildes) | Hecho 06/11 |
-| Habilidades | Pendiente |
+| Habilidades (fichas; sets con distancias sin px) | Hecho 06/11 |
 | Armas y armaduras (fichas) | Pendiente |
 | Objetos y consumibles (fichas, pociones, platos, unturas, cebos; sabor de pociones) | Hecho 06/11 |
 | Estados (ver también `textos_estados_y_cocina.md`) | Pendiente |

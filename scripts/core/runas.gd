@@ -313,6 +313,18 @@ static func num_txt(x: float) -> String:
 static func _pct(p: Dictionary, k: String, def: float) -> String:
 	return "%s %%" % num_txt(float(p.get(k, def)) * 100.0)
 
+# DISTANCIAS SIN PX (06/11, decision del jefe: en palabras, sin frases forzadas). Un cuerpo de personaje son ~24 px.
+# 'de_el' = la frase va del portador ("pegados a él") y no del objetivo ("pegado al objetivo").
+static func cerca_txt(px: float, de_el: bool) -> String:
+	if px <= 45.0:
+		return "pegados a él" if de_el else "pegado al objetivo"
+	if px <= 90.0:
+		return "cerca de él" if de_el else "cerca del objetivo"
+	return "a media distancia de él" if de_el else "a media distancia del objetivo"
+
+static func tramo_txt(px: float) -> String:
+	return "un tramo corto" if px <= 60.0 else "un buen tramo"
+
 static func _turnos(n: int) -> String:
 	return "%d turno%s" % [n, "" if n == 1 else "s"]
 
@@ -357,8 +369,8 @@ static func efecto_txt(s: RunaSetData) -> String:
 			return "Los ataques y habilidades del portador que ya pueden causar Sangrado suman un %s a su probabilidad base de causarlo. Además, los Sangrados que causa el portador infligen en cada turno un daño adicional equivalente al %s del daño del golpe que los causó." % [
 				_pct(p, "prob", 0.10), _pct(p, "dano", 0.05)]
 		&"hilo_conductor":
-			return "Cada golpe del portador tiene un %s de probabilidad de rebotar a otro enemigo que esté a %d px o menos del objetivo. El rebote inflige como Daño de Rayo un %s del daño de ese golpe y tiene un 100 %% de probabilidad base de dejar Electrizado al enemigo alcanzado. Si el objetivo ya está Electrizado, el rebote se produce siempre." % [
-				_pct(p, "prob", 0.25), roundi(float(p.get("radio", 60.0))), _pct(p, "dano", 0.4)]
+			return "Cada golpe del portador tiene un %s de probabilidad de rebotar a otro enemigo que esté %s. El rebote inflige como Daño de Rayo un %s del daño de ese golpe y tiene un 100 %% de probabilidad base de dejar Electrizado al enemigo alcanzado. Si el objetivo ya está Electrizado, el rebote se produce siempre." % [
+				_pct(p, "prob", 0.25), cerca_txt(float(p.get("radio", 60.0)), false), _pct(p, "dano", 0.4)]
 		&"musgo_viejo":
 			return "Los ataques en área (círculos, conos y ataques a varios objetivos) infligen al portador un %s menos de daño. Este efecto no funciona mientras el portador está Quemado." % [
 				_pct(p, "reduce", 0.2)]
@@ -366,8 +378,8 @@ static func efecto_txt(s: RunaSetData) -> String:
 			return "La primera vez que el portador fuera a quedar Aturdido, no queda Aturdido. Este efecto se puede volver a activar tras %s del portador." % [
 				_turnos(int(p.get("turnos", 4)))]
 		&"campo_magnetico":
-			return "Cada %s del portador, la barra de turno de los enemigos que estén a %d px o menos de él retrocede un %s." % [
-				_turnos(int(p.get("cada", 3))), roundi(float(p.get("radio", 40.0))), _pct(p, "barra", 0.25)]
+			return "Cada %s del portador, la barra de turno de los enemigos que estén %s retrocede un %s." % [
+				_turnos(int(p.get("cada", 3))), cerca_txt(float(p.get("radio", 40.0)), true), _pct(p, "barra", 0.25)]
 		&"ambar":
 			return "Al empezar el combate, el portador obtiene una capa de ámbar que absorbe daño equivalente al %s de su vida máxima. Si se rompe, vuelve a aparecer completa tras %s del portador." % [
 				_pct(p, "capa", 0.08), _turnos(int(p.get("turnos", 3)))]
@@ -378,8 +390,8 @@ static func efecto_txt(s: RunaSetData) -> String:
 			return "El daño que inflige el portador a un enemigo aumenta en un %s por cada acumulación de Veneno que tenga ese enemigo, hasta un máximo de %d acumulaciones. Además, los Venenos que causa el portador duran %s más." % [
 				_pct(p, "por_carga", 0.04), int(p.get("max", 5)), _turnos(int(p.get("turnos", 1)))]
 		&"filo_aire":
-			return "Los ataques con arma del portador se alargan con un corte de viento: los conos y los círculos llegan un %s más lejos, las líneas son un %s más largas y los ataques a un solo objetivo siguen %d px por detrás de él. Los enemigos a los que solo alcanza el corte reciben como Daño de Viento un %s del daño que esa habilidad o ataque les habría infligido. Se activa 1 vez por habilidad. No funciona con la magia." % [
-				_pct(p, "mas", 0.3), _pct(p, "linea", 0.4), roundi(float(p.get("detras", 50.0))), _pct(p, "dano", 0.3)]
+			return "Los ataques con arma del portador se alargan con un corte de viento: los conos y los círculos llegan un %s más lejos, las líneas son un %s más largas y los ataques a un solo objetivo siguen %s por detrás de él. Los enemigos a los que solo alcanza el corte reciben como Daño de Viento un %s del daño que esa habilidad o ataque les habría infligido. Se activa 1 vez por habilidad. No funciona con la magia." % [
+				_pct(p, "mas", 0.3), _pct(p, "linea", 0.4), tramo_txt(float(p.get("detras", 50.0))), _pct(p, "dano", 0.3)]
 		&"cielo":
 			return "El Daño de Luz y el Daño de Oscuridad del portador aumentan en un %s. Cuando el portador asesta un golpe crítico, tiene un %s de probabilidad base de causar Ceguera al objetivo." % [
 				_pct(p, "dano", 0.20), _pct(p, "ciego", 0.20)]

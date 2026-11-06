@@ -902,7 +902,7 @@ func imbue_resumen() -> String:
 		lineas.append("Cada golpe que acierta puede dejar %s (%d%% base; la probabilidad real depende de tu %s contra su Resistencia)."
 			% [dn, roundi(imbue_prob * 100.0), "Destreza" if imbue_por_destreza else "Magia"])
 		if not imbue_reparto.is_empty():
-			lineas.append("Si prende, suma (por el tier del arma): %s." % AbilityData.texto_reparto(imbue_reparto))
+			lineas.append("Al causarlo, suma %s (según el tier del arma)." % AbilityData.texto_reparto(imbue_reparto))
 		if imbue_tope >= 0:
 			lineas.append("Como mucho deja %d dosis." % imbue_tope)
 		if imbue_extra_estado >= 0:
