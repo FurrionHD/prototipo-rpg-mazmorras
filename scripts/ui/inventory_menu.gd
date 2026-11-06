@@ -939,9 +939,10 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 		_row(vb, "Hechizos", "%d sabidos  ·  lleva %d / %d" % [
 			Game.hechizos_sabidos(Game.lider()).size(),
 			Game.hechizos_equipados(Game.lider()).size(), Game.MAX_HECHIZOS])
-	elif cons.es_plato():
+	elif cons.es_plato() or cons.es_brebaje_de_estado():
 		# La ficha del plato ya trae QUE hace y CUANTO dura, todo derivado de sus efectos: aqui no se
-		# escribe ni un numero (ver ConsumableData.resumen_plato).
+		# escribe ni un numero (ver ConsumableData.resumen_plato). El ANTIDOTO tambien (06/11: salia por la rama de
+		# las pociones y decia "cura 30 · 0 s · 0 turnos").
 		_note(vb, cons.resumen_plato())
 	elif cons.es_untura():
 		_note(vb, cons.resumen_untura())
@@ -949,9 +950,10 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 		_row(vb, "Atracción", cons.resumen(0.0, 0.0))
 		_row(vb, "Puesto", "sí" if Game.cebo_activo == cons else "no")
 	else:
-		_row(vb, "Efecto", cons.resumen(Game.player_max_hp(), Game.player_max_mp()))
-		_row(vb, "Duración", "%.0f s (fuera de combate)" % cons.segundos)
-		_row(vb, "En combate", "%d turnos" % cons.turnos)
+		_row(vb, "Efecto", cons.resumen(Game.player_max_hp(), Game.player_max_mp(), Game.lider().nombre))
+		# Solo lo que se reparte (las pociones): la piedra de retorno decia "En combate: 1 turnos".
+		if cons.cura_hp() or cons.da_mana():
+			_row(vb, "Se reparte en", cons.reparto_txt())
 	if cons.descripcion != "":
 		_note(vb, cons.descripcion)
 
@@ -2122,9 +2124,9 @@ func _franja(vb: VBoxContainer, texto: String, bloquea: bool) -> void:
 func _texto_efecto(c: ConsumableData) -> String:
 	if c.es_grimorio():
 		return "Enseña %s  ·  %d de maná por lanzamiento." % [c.spell.nombre, c.spell.coste_mana]
-	if c.es_plato():
+	if c.es_plato() or c.es_brebaje_de_estado():
 		return c.resumen_plato()
-	return c.resumen(Game.player_max_hp(), Game.player_max_mp())
+	return c.resumen(Game.player_max_hp(), Game.player_max_mp(), Game.lider().nombre)
 
 
 const ANCHO_TARJETA := 116.0

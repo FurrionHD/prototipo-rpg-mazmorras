@@ -9,6 +9,6 @@ cura_total = 120.0
 cura_pct = 0.12
 turnos = 4
 segundos = 8.0
-descripcion = "Cura 120 + 12% de tu vida máxima, repartido en el tiempo. Un paso más en la segunda ley: más cura, un turno más de sostener."
+descripcion = "Un paso más: más cura y un trago más largo."
 valor_base = 520
 tier = 2

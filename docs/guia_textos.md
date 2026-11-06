@@ -64,9 +64,16 @@ Los elementos, con mayúscula cuando son tipo de daño: Daño de Fuego, Daño de
 Daño de Luz, Daño de Oscuridad. Los estados, con la mayúscula de su nombre: Quemadura, Sangrado,
 Veneno, Electrizado, Mojado, Pegajoso, Aturdido, Lento, Congelación, Ceguera.
 
-**Pendiente de decidir:** las distancias se dan en «px» (Hilo conductor, Filo de aire, Campo
-magnético). Funciona, pero suena a herramienta. Opciones: dejar los px, hablar de casillas o
-cuerpos («a 2 cuerpos o menos») o quitar la cifra («los enemigos cercanos»).
+**Distancias (decidido 06/11):** nada de «px». Se dicen en palabras, comparando, pero sin frases
+forzadas del tipo «el doble de lejos que el gusano». Primer caso, los cebos: «Atracción: Corta /
+Media / Larga». Pendiente de aplicar igual a Hilo conductor, Filo de aire y Campo magnético.
+
+## 2b. Pociones y objetos
+
+- **Efecto:** «Restaura 90 de vida + 12 % de la vida máxima de quien la bebe (114 para Dasui).»
+  El número de ejemplo es el del líder.
+- **Se reparte en:** «3 turnos en combate · 6 s fuera de combate». Solo en lo que se reparte.
+- **Bonus de platos y estados:** formato corto, «Agilidad +12 % · Esquiva +6 %».
 
 ## 4. Ejemplos de referencia
 
@@ -93,7 +100,7 @@ probabilidad base de causarla. El daño de las Quemaduras que causa el portador 
 | Magias | Pendiente |
 | Habilidades | Pendiente |
 | Armas y armaduras (fichas) | Pendiente |
-| Objetos y consumibles | Pendiente |
+| Objetos y consumibles (fichas, pociones, platos, unturas, cebos; sabor de pociones) | Hecho 06/11 |
 | Estados (ver también `textos_estados_y_cocina.md`) | Pendiente |
 | Menús y avisos | Pendiente |
 | Log de combate (frases; números con coma y sin ceros: `CombatPantalla._n`) | Hecho 06/11 |

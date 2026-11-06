@@ -11,5 +11,5 @@ mana_total = 20.0
 mana_pct = 0.10
 turnos = 5
 segundos = 10.0
-descripcion = "Restaura 20 + 10% de tu maná máximo, repartido en el tiempo. El escalón grande: mucho maná pero hay que sostenerlo 5 turnos."
+descripcion = "Mucho maná, pero tarda en entrar."
 valor_base = 1125

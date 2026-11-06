@@ -11,6 +11,6 @@ mana_total = 50.0
 mana_pct = 0.12
 turnos = 5
 segundos = 10.0
-descripcion = "Restaura 50 + 12% de tu maná máximo, repartido en el tiempo. El techo de la segunda ley: un depósito entero en un frasco, si sostienes los 5 turnos."
+descripcion = "Lo mejor de la baba profunda: un depósito entero en un frasco, si aguantas a que entre."
 valor_base = 2600
 tier = 2

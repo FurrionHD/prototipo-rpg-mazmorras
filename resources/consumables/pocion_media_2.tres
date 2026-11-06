@@ -9,6 +9,6 @@ cura_total = 160.0
 cura_pct = 0.12
 turnos = 5
 segundos = 10.0
-descripcion = "Cura 160 + 12% de tu vida máxima, repartido en el tiempo. Casi el techo de la segunda ley: mucha cura, pero hay que aguantar la defensa 5 turnos."
+descripcion = "Casi lo mejor de esta baba: mucha cura, pero lenta."
 valor_base = 720
 tier = 2

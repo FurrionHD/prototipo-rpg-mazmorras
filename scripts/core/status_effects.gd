@@ -1138,7 +1138,7 @@ static func instancia_de_dict(d: Dictionary):
 	return inst
 
 
-# QUE hace un estado, en una frase corta y con el NOMBRE de lo que toca ("−25% defensa"), para las
+# QUE hace un estado, en una frase corta y con el NOMBRE de lo que toca ("Defensa -25 %"), para las
 # fichas. Sin el nombre, un "(30%, -25%)" no dice si el -25% es probabilidad, daño o duracion.
 # 'mult' = el nivel concreto de esta aplicacion (StatusApplication.mult), o 0 para el del catalogo.
 # 'escala' = el tier del plato (1.2 = el T2, que aprieta un 20% mas). Escala el BONUS, igual que
@@ -1146,41 +1146,41 @@ static func instancia_de_dict(d: Dictionary):
 static func efecto_legible(id: int, mult: float = 0.0, escala: float = 1.0) -> String:
 	var d: Dictionary = def(id)
 	var etiquetas: Dictionary = {
-		"atk_mult": "ataque", "def_mult": "defensa", "spd_mult": "velocidad",
-		"dmg_taken_mult": "daño recibido", "heal_recv_mult": "curación recibida",
-		"def_flat_mult": "armadura", "aggro_mult": "de atención de los enemigos",
-		"hp_mult": "vida máxima",
-		"dmg_dealt_mult": "daño hecho", "spell_dmg_mult": "daño mágico",
-		"mana_coste_mult": "coste de los hechizos", "mp_kill_mult": "maná por enemigo",
-		"mp_regen_mult": "regeneración de maná", "dot_taken_mult": "daño por turno recibido",
-		"drop_mult": "probabilidad de botín",
+		"atk_mult": "Ataque", "def_mult": "Defensa", "spd_mult": "Velocidad",
+		"dmg_taken_mult": "Daño recibido", "heal_recv_mult": "Curación recibida",
+		"def_flat_mult": "Armadura", "aggro_mult": "Atención de los enemigos",
+		"hp_mult": "Vida máxima",
+		"dmg_dealt_mult": "Daño infligido", "spell_dmg_mult": "Daño mágico",
+		"mana_coste_mult": "Coste de los hechizos", "mp_kill_mult": "Maná al derrotar a un enemigo",
+		"mp_regen_mult": "Regeneración de maná", "dot_taken_mult": "Daño con el tiempo recibido",
+		"drop_mult": "Probabilidad de botín",
 	}
 	# Los ADITIVOS: puntos porcentuales, no multiplicadores. Un "+5% crítico" no es un x1.05, y
 	# pasarlo por la formula de arriba lo pintaria como "-95%".
 	var etiquetas_flat: Dictionary = {
-		"crit_flat": "crítico", "evade_flat": "esquiva",
-		"precision_flat": "acierto",
-		"status_resist_flat": "resistencia a estados",
-		"drop_doble_flat": "de que el botín salga doble",
+		"crit_flat": "Probabilidad de crítico", "evade_flat": "Esquiva",
+		"precision_flat": "Acierto",
+		"status_resist_flat": "Resistencia a estados",
+		"drop_doble_flat": "Probabilidad de botín doble",
 	}
 	var partes: Array = []
 	# Las HABILIDADES BASE (platos) van primero: es lo mas gordo que hacen.
 	for clave in (d.get("hab_mult", {}) as Dictionary):
-		partes.append("%+d%% %s" % [roundi((float(d["hab_mult"][clave]) - 1.0) * 100.0 * escala),
-			str(NOMBRE_HABILIDAD.get(clave, clave))])
+		partes.append("%s %+d %%" % [str(NOMBRE_HABILIDAD.get(clave, clave)),
+			roundi((float(d["hab_mult"][clave]) - 1.0) * 100.0 * escala)])
 	for clave in etiquetas:
 		if not d.has(clave):
 			continue
 		var m: float = mult if mult > 0.0 else float(d[clave])
-		partes.append("%+d%% %s" % [roundi((m - 1.0) * 100.0 * escala), str(etiquetas[clave])])
+		partes.append("%s %+d %%" % [str(etiquetas[clave]), roundi((m - 1.0) * 100.0 * escala)])
 	for clave in etiquetas_flat:
 		if d.has(clave):
-			partes.append("%+d%% %s" % [roundi(float(d[clave]) * 100.0 * escala),
-				str(etiquetas_flat[clave])])
+			partes.append("%s %+d %%" % [str(etiquetas_flat[clave]), roundi(float(d[clave]) * 100.0 * escala)])
 	if d.has("mochila_extra"):
-		partes.append("+%d de carga" % roundi(float(d["mochila_extra"]) * escala))
+		partes.append("Carga %+d" % roundi(float(d["mochila_extra"]) * escala))
+	# Formato corto de la guia de textos (06/11): "Agilidad +12 % · Esquiva +6 %".
 	if not partes.is_empty():
-		return " y ".join(partes)
+		return " · ".join(partes)
 	if bool(d.get("is_stun", false)):
 		return "le hace perder el turno"
 	if bool(d.get("dot", false)):

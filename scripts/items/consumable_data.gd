@@ -271,21 +271,31 @@ func es_cebo() -> bool:
 func es_untura() -> bool:
 	return untura_usos > 0
 
-# La ficha de la untura, todo sacado de los campos.
+# La ficha de la untura, todo sacado de los campos (06/11, pase de textos: al estilo de docs/guia_textos.md).
 func resumen_untura() -> String:
 	var l: PackedStringArray = []
 	var nom_est: String = str(StatusEffects.def(untura_estado).get("nombre", "?")) if untura_estado >= 0 else ""
 	if untura_elemento != Elementos.Elemento.NINGUNO:
-		l.append("Tus disparos añaden un %d%% de daño de %s." % [roundi(untura_pct * 100.0), Elementos.nombre(untura_elemento)])
+		l.append("Los disparos infligen un daño adicional de %s equivalente al %d %% del daño del disparo." % [
+			Elementos.nombre(untura_elemento), roundi(untura_pct * 100.0)])
 	if untura_estado >= 0:
-		l.append("Cada golpe que acierta puede dejar %s (%d%% base, según tu Destreza contra su Resistencia)." % [
-			nom_est, roundi(untura_prob * 100.0)])
+		l.append("Cada disparo que acierta tiene un %d %% de probabilidad base de causar %s." % [
+			roundi(untura_prob * 100.0), nom_est])
 	if not untura_reparto.is_empty():
-		l.append("Si prende, suma: %s (como mucho %d)." % [AbilityData.texto_reparto(untura_reparto), untura_reparto.size()])
+		var partes: Array = []
+		for i in untura_reparto.size():
+			partes.append("%d (%d %%)" % [i + 1, roundi(float(untura_reparto[i]) * 100.0)])
+		# "suma 1 acumulación (60 %), 2 (30 %) o 3 (10 %)"; con una sola fila, "suma 1 acumulación".
+		if partes.size() == 1:
+			l.append("Al causarlo, suma 1 acumulación.")
+		else:
+			partes[0] = "1 acumulación (%d %%)" % roundi(float(untura_reparto[0]) * 100.0)
+			l.append("Al causarlo, suma %s o %s." % [", ".join(partes.slice(0, partes.size() - 1)),
+				String(partes[partes.size() - 1])])
 	if untura_extra_estado >= 0:
-		l.append("Y cuando prende, un %d%% de dejar también %s." % [roundi(untura_extra_prob * 100.0),
-			str(StatusEffects.def(untura_extra_estado).get("nombre", "?"))])
-	l.append("Se unta al arco o a la ballesta con Untar y dura %d ataques." % untura_usos)
+		l.append("Cuando causa %s, tiene además un %d %% de probabilidad base de causar %s." % [nom_est,
+			roundi(untura_extra_prob * 100.0), str(StatusEffects.def(untura_extra_estado).get("nombre", "?"))])
+	l.append("Se aplica al arco o a la ballesta con Untar. Dura %d ataques." % untura_usos)
 	return "\n".join(l)
 
 # ¿Esta poción cura VIDA? ¿da MANÁ? (para el menu y el uso).
@@ -308,28 +318,52 @@ func mana_por_turno(max_mp: float) -> float:
 func mana_por_segundo(max_mp: float) -> float:
 	return mana_efectivo(max_mp) / maxf(0.1, segundos)
 
-# Resumen corto del efecto para menus/HUD, p.ej. "cura 27" / "maná 10" / "cura 27 + maná 10".
-# El alcance de la vuelta sale del CAMPO, nunca de la descripcion: si cambias piso_max_vuelta en el
-# .tres, el texto se entera solo.
-func resumen(max_hp: float, max_mp: float) -> String:
+# El efecto para menus y HUD (06/11, pase de textos): "Restaura 90 de vida + 12 % de la vida máxima de quien la bebe
+# (114 para Dasui)". 'quien' = el nombre para el numero de ejemplo ("" = sin ejemplo). El alcance de la vuelta sale del
+# CAMPO, nunca de la descripcion: si cambias piso_max_vuelta en el .tres, el texto se entera solo.
+func resumen(max_hp: float, max_mp: float, quien: String = "") -> String:
 	if es_vuelta_pueblo():
-		return "vuelve al pueblo (hasta el piso %d)" % piso_max_vuelta
+		return "Devuelve al pueblo desde el piso %d o más arriba." % piso_max_vuelta
 	if es_cebo():
-		return "atrae peces a %.0f px del corcho" % cebo_radio
+		return atraccion_txt().capitalize()   # va en la fila "Atracción": "Corta"
 	if es_untura():
 		return resumen_untura()
-	if es_plato():
+	if es_plato() or es_brebaje_de_estado():
 		return resumen_plato()
 	# El tocho no dice cuanta excelia da EN NUMERO: la que recibes depende de lo lejos que estes de
 	# tu base de nivel (Game.ganar), asi que un numero aqui mentiria a la mitad del grupo.
 	if es_tocho():
-		return "se lee una vez" if not es_tomo_sabio() else "se lee una vez · enseña algo de magia"
+		return "Se lee una vez." if not es_tomo_sabio() else "Se lee una vez. Enseña algo de magia."
 	var p: Array = []
 	if cura_hp():
-		p.append("cura %.0f" % cura_efectiva(max_hp))
+		p.append(_restaura("vida", cura_total, cura_pct, cura_efectiva(max_hp), quien))
 	if da_mana():
-		p.append("maná %.0f" % mana_efectivo(max_mp))
-	return " + ".join(p)
+		p.append(_restaura("maná", mana_total, mana_pct, mana_efectivo(max_mp), quien))
+	return "Restaura " + " y ".join(p) + "."
+
+# "90 de vida + 12 % de la vida máxima de quien la bebe (114 para Dasui)".
+static func _restaura(que: String, plano: float, pct: float, total: float, quien: String) -> String:
+	var s: String
+	if pct <= 0.0:
+		return "%d de %s" % [roundi(plano), que]
+	var de_max: String = "%d %% %s de quien la bebe" % [roundi(pct * 100.0),
+		"de la vida máxima" if que == "vida" else "del maná máximo"]
+	s = de_max if plano <= 0.0 else "%d de %s + %s" % [roundi(plano), que, de_max]
+	if quien != "":
+		s += " (%d para %s)" % [roundi(total), quien]
+	return s
+
+# Cuanto se reparte una pocion: "3 turnos en combate · 6 s fuera de combate".
+func reparto_txt() -> String:
+	return "%d turno%s en combate · %d s fuera de combate" % [turnos, "" if turnos == 1 else "s", roundi(segundos)]
+
+# LA ATRACCION DE UN CEBO, sin pixeles (06/11, decision del jefe: comparar en palabras, no "26 px").
+func atraccion_txt() -> String:
+	if cebo_radio < 40.0:
+		return "corta"
+	if cebo_radio < 80.0:
+		return "media"
+	return "larga"
 
 
 # FICHA de un plato: QUE te da y CUANTO dura, TODO derivado de los efectos y del catalogo de

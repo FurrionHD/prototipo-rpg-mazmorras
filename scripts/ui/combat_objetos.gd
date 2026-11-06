@@ -43,7 +43,8 @@ func _accion_objeto() -> void:
 		b.text = "%s  x%d" % [cons.nombre, n]
 		# Un PLATO no se reparte en turnos: su ficha ya dice lo que hace y cuanto dura.
 		b.tooltip_text = cons.resumen_plato() if (cons.es_plato() or cons.es_brebaje_de_estado()) \
-			else "%s en %d turnos" % [cons.resumen(_pantalla._player.max_hp, _pantalla._player.max_mp), cons.turnos]
+			else "%s\nSe reparte en %d turno%s." % [cons.resumen(_pantalla._player.max_hp, _pantalla._player.max_mp,
+				_pantalla._player.nombre), cons.turnos, "" if cons.turnos == 1 else "s"]
 		if cons.descripcion != "":
 			b.tooltip_text += "\n\n" + cons.descripcion
 		b.pressed.connect(_elegir_objetivo_objeto.bind(cons))

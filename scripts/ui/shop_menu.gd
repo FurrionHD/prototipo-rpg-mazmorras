@@ -685,12 +685,14 @@ func ficha_objeto(vb: VBoxContainer, m: Resource, cantidad: int = 0) -> void:
 		MenuScaffold.banner_item(vb, cd, pie, _clase_consumible(cd))
 		if cd.es_grimorio():
 			row(vb, "Enseña", cd.spell.nombre)
-		elif cd.es_plato():
+		elif cd.es_plato() or cd.es_brebaje_de_estado():
 			note(vb, cd.resumen_plato())
 		elif cd.es_cebo():
 			row(vb, "Atracción", cd.resumen(0.0, 0.0))
 		elif not cd.es_tocho():
-			row(vb, "Efecto", cd.resumen(Game.player_max_hp(), Game.player_max_mp()))
+			row(vb, "Efecto", cd.resumen(Game.player_max_hp(), Game.player_max_mp(), Game.lider().nombre))
+			if cd.cura_hp() or cd.da_mana():
+				row(vb, "Se reparte en", cd.reparto_txt())
 		row(vb, "Tienes", "%d en la bolsa" % int(Game.consumables.get(cd, 0)))
 		if cd.descripcion != "":
 			note(vb, cd.descripcion)
