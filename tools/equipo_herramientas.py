@@ -339,9 +339,63 @@ def cuchillo(cv):
     diag(cv, f)
 
 
+def cuchillo_ref(cv):
+    # EL CUCHILLO DE DESOLLAR DE LA REFERENCIA DEL JEFE (06/11), en espejo (punta arriba a la derecha): hoja CORTA y MUY
+    # ANCHA, con la PANZA curva del filo abajo y el LOMO casi recto que cae un poco a la punta; la GUARDA de metal; el
+    # MANGO de madera algo curvado, con dos REMACHES y el agujero del cordon al final.
+    n = cv.n
+    ax, ay = 0.08, 0.90                         # el final del mango
+    bx, by = 0.92, 0.12                         # la punta
+    L = math.hypot(bx - ax, by - ay)
+    d = ((bx - ax) / L, (by - ay) / L)          # a lo largo
+    nn = (d[1], -d[0])                          # hacia arriba-izquierda: el lado del lomo y de la luz
+    if nn[1] > 0:
+        nn = (-nn[0], -nn[1])
+    for y in range(n):
+        for x in range(n):
+            rx, ry = (x + 0.5) / n - ax, (y + 0.5) / n - ay
+            t = (rx * d[0] + ry * d[1]) / L     # 0 en el final del mango, 1 en la punta
+            w = rx * nn[0] + ry * nn[1]         # > 0 hacia el lomo
+            if t < 0.0 or t > 1.0:
+                continue
+            if t >= 0.52:                       # LA HOJA
+                k = (t - 0.52) / 0.48
+                # el LOMO recto casi hasta la punta y solo al final cae; la PANZA ancha ya desde la guarda, mas honda en
+                # medio, y sube en curva hasta la punta (estrecha junto a la guarda parecia una hoja de arbol)
+                lomo = 0.062 - 0.14 * max(0.0, k - 0.68) ** 1.2
+                panza = -(0.085 + 0.065 * math.sin(math.pi * min(1.0, k * 1.1))) * (1.0 - k ** 3.5)
+                if panza <= w <= lomo:
+                    if w <= panza + 0.035:
+                        tono = BRI                                  # el FILO
+                    elif w <= panza + 0.07:
+                        tono = MET_S                                # el bisel
+                    elif w >= lomo - 0.03:
+                        tono = MET_L if k < 0.85 else MET           # el lomo, a la luz
+                    else:
+                        tono = MET_L if w > (lomo + panza) * 0.5 + 0.02 else MET
+                    cv.pon(x, y, tono)
+            elif t >= 0.47:                     # LA GUARDA
+                if -0.075 <= w <= 0.075:
+                    cv.pon(x, y, MET_L if w > 0.02 else (MET if w > -0.03 else HON))
+            else:                               # EL MANGO, algo curvado y mas gordo en medio
+                k = t / 0.47
+                centro = -0.022 * math.sin(math.pi * k)
+                semi = 0.052 + 0.016 * math.sin(math.pi * k)
+                if abs(w - centro) <= semi:
+                    rel = (w - centro) / semi
+                    agujero = abs(t - 0.07) < 0.025 and abs(rel) < 0.45
+                    remache = (abs(t - 0.20) < 0.022 or abs(t - 0.36) < 0.022) and abs(rel) < 0.45
+                    if agujero:
+                        continue                                    # el agujero del cordon: hueco (sale el contorno)
+                    if remache:
+                        cv.pon(x, y, MET_L if rel > 0 else MET_S)
+                    else:
+                        cv.pon(x, y, MAD_L if rel > 0.45 else (MAD if rel > -0.45 else MAD_S))
+
+
 # (06/11) EL PICO: el de ARCO GRANDE (lo eligio el jefe; los otros se leian como punta de flecha). LA HOZ: abierta, con
 # la punta lejos del palo (cerrada sobre el mango "es muy cerrado hacia el palo"): la de SU FOTO, con la hoja fina.
-HERRAMIENTAS = [("Pico (arco grande)", pico_d), ("Hacha de talar", hacha_grande_talar), ("Hoz", hoz_ref), ("Caña", cana), ("Cuchillo", cuchillo)]
+HERRAMIENTAS = [("Pico (arco grande)", pico_d), ("Hacha de talar", hacha_grande_talar), ("Hoz", hoz_ref), ("Caña", cana), ("Cuchillo", cuchillo_ref)]
 
 
 def main():
