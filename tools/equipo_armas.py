@@ -18,7 +18,16 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import equipo_pixel as EP
-from equipo_pixel import B, MANGO_S, MANGO, MET_S, MET, MET_L, MAD_S, MAD, MAD_L, diag
+from equipo_pixel import B, MANGO_S, MANGO, MET_S, MET, MET_L, MAD_S, MAD, MAD_L
+
+# EL LARGO DEL ARMA dentro de su lienzo (06/11, el jefe en una captura): de esquina a esquina, en la celda la punta
+# pisaba el +N (arriba a la derecha) y el pomo los rombos (abajo a la izquierda). Al 84% deja libres las esquinas,
+# como el aire que ya traen las armaduras. Solo encoge a lo largo: el grueso de la hoja sigue en filas enteras.
+LARGO = 0.84
+
+
+def diag(cv, fn):
+    EP.diag(cv, lambda s, p, e: fn(s, p, e * LARGO))
 from PIL import Image, ImageDraw, ImageFont
 
 CUERDA, PLUMA, PLUMA_S = 11, 12, 13
@@ -143,11 +152,12 @@ def estoque(cv):
 # ---- LAS DE ASTA ----
 def hacha_grande(cv):
     def f(s, p, e):
-        c, r = 8.5 * e, 6.0 * e
+        eh = e / LARGO * 0.92                       # la CABEZA no encoge con el largo: con el arma corta se quedaba flaca
+        c, r = 8.5 * e, 6.0 * eh
         q = -p
         if q >= 1:
-            hw = 1.6 * e if q <= 3 else min(r, 1.6 * e + (q - 3) * 1.25 * e)
-            borde = 3 + 5.5 * e + 1.6 * e * math.sqrt(max(0.0, 1.0 - ((s - c) / r) ** 2))
+            hw = 1.6 * eh if q <= 3 else min(r, 1.6 * eh + (q - 3) * 1.25 * eh)
+            borde = 3 + 5.5 * eh + 1.6 * eh * math.sqrt(max(0.0, 1.0 - ((s - c) / r) ** 2))
             if abs(s - c) <= hw and q <= borde:
                 if q >= borde - 1.2:
                     return BRI if s < c else MET_L                         # el filo
@@ -193,8 +203,9 @@ def maza_peq(cv):
 
 def martillo_grande(cv):
     # MARTILLO DE GUERRA: una cabeza de bloque atravesada en el asta, con la cara plana y el pico detras
-    def f(s, p, e):
-        c = 9.5 * e
+    def f(s, p, e0):
+        e = e0 / LARGO * 0.92                       # la CABEZA no encoge con el largo (ver el hacha)
+        c = 9.5 * e0
         if abs(s - c) <= 3.4 * e and -8 * e <= p <= 7 * e:
             if p < -5 * e:                                                  # la cara de golpear
                 return BRI if p < -7 * e and s < c else (MET_L if s < c + 1 else MET_S)
@@ -207,9 +218,9 @@ def martillo_grande(cv):
             return MET_L if s - c < -2.2 * e else MET
         if c + 3.4 * e < s <= c + 5.5 * e and -1 <= p <= 0:
             return MET_L if p == -1 else MET                                # la punta de arriba
-        if -15 * e <= s <= c and -1 <= p <= 1:
-            if s < -11 * e:
-                return puno(s, p, -15 * e, -11 * e)
+        if -15 * e0 <= s <= c and -1 <= p <= 1:
+            if s < -11 * e0:
+                return puno(s, p, -15 * e0, -11 * e0)
             return MAD_L if p == -1 else (MAD if p == 0 else MAD_S)
         return 0
     diag(cv, f)
@@ -260,8 +271,8 @@ def arco(cv):
         for x in range(n):
             fx, fy = (x + 0.5) / n, (y + 0.5) / n
             v = fy - 0.5                                       # -0.5 .. 0.5 de arriba a abajo
-            if abs(v) <= 0.43:
-                curva = 0.30 + 0.24 * (v / 0.43) ** 2          # la pala, abierta hacia la derecha
+            if abs(v) <= 0.43 * LARGO:
+                curva = 0.30 + 0.24 * (v / (0.43 * LARGO)) ** 2          # la pala, abierta hacia la derecha
                 grueso = 0.10 - abs(v) * 0.10
                 d = fx - curva
                 if 0.0 <= d <= grueso:
@@ -270,10 +281,10 @@ def arco(cv):
                     else:
                         cv.pon(x, y, BRI if d < 0.02 and v < -0.15 else
                                (MET_L if d < grueso * 0.4 else (MET if d < grueso * 0.75 else MET_S)))
-            if abs(v) <= 0.42 and abs(fx - punta_x - 0.01) < 0.5 / n:
+            if abs(v) <= 0.42 * LARGO and abs(fx - punta_x - 0.01) < 0.5 / n:
                 cv.pon(x, y, CUERDA)
     for k in (-1, 1):                                          # los remates de las puntas
-        EP.punto(cv, punta_x, 0.5 + k * 0.43, MET_S)
+        EP.punto(cv, punta_x, 0.5 + k * 0.43 * LARGO, MET_S)
 
 
 def ballesta(cv):

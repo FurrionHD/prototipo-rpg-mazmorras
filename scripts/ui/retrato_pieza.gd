@@ -156,6 +156,11 @@ static func _datos(item: Resource) -> Dictionary:
 	# abajo y escorzadas (se miro en una hoja de contactos de las ocho direcciones). Tienen un pintor
 	# de retrato propio que las dibuja enteras, rectas y en diagonal: ArmaSprites.pintar_retrato. La
 	# "clave" que se le pasa es el TIPO de arma.
+	# (06/11) EL DIBUJO EN PIXEL DE VERDAD (tools/equipo_armas.py), si lo tiene.
+	var ico: String = ArmaSprites.icono(tn2)
+	if ico != "":
+		return {"icono": ico, "clave_roles": ArmaSprites.CLAVE_ROLES_ICONO, "roles": ArmaSprites.ROLES_ICONO,
+			"familia": ArmaSprites.familia_de(tn2)}
 	return {"claves": [tn2], "pintor": ArmaSprites.pintar_retrato,
 		"clave_roles": ArmaSprites.CLAVE_ROLES, "roles": ArmaSprites.ROLES,
 		"familia": ArmaSprites.familia_de(tn2)}
