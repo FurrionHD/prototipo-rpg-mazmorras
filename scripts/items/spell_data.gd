@@ -618,10 +618,10 @@ func _texto_curacion(cura_magica: float) -> String:
 	var fija: String = " + %.0f por el poder mágico del lanzador" % cura_magica if cura_magica >= 0.0 \
 		else " + una parte del poder mágico del lanzador"
 	if alcance == Alcance.TODOS:
-		return ("Restaura a todo el grupo (fuera de combate, a los aliados cercanos) un %s de la vida máxima de "
-			+ "cada uno%s.\nSe reparte entre todos los que alcanza: con 4 aliados, cada uno recibe un cuarto.") % [
-			_pct(cura_pct), fija]
-	return "Restaura al aliado seleccionado un %s de su vida máxima%s." % [_pct(cura_pct), fija]
+		return ("Cura a todos los aliados (fuera de combate, a los que estén cerca) con una cantidad de vida equivalente "
+			+ "al %s de la vida máxima de cada uno%s.\nSe reparte entre todos los que alcanza: con 4 aliados, cada uno "
+			+ "recibe un cuarto.") % [_pct(cura_pct), fija]
+	return "Cura a un aliado con una cantidad de vida equivalente al %s de su vida máxima%s." % [_pct(cura_pct), fija]
 
 
 # A quien llega el salpicon, en palabras.
@@ -669,7 +669,7 @@ func _texto_estados(a_quien: String, detalle: bool = false) -> String:
 			# Con detalle, el "a quien" va pegado al nombre: "causar Débil al objetivo durante 3 turnos (...)".
 			propios.append([roundi(prob_total(a) * 100.0), nom + (" " + a_quien if detalle else "") + extra])
 		else:
-			buffs.append(nom + extra)
+			buffs.append([nom, extra])
 			if bool(a.get("a_todo_el_grupo")):
 				grupo = true
 	var out: Array = []
@@ -680,7 +680,15 @@ func _texto_estados(a_quien: String, detalle: bool = false) -> String:
 				% [int(propios[k][0]), String(propios[k][1])])
 		out.append("Tiene %s." % _y(partes) if detalle else "Tiene %s %s." % [_y(partes), a_quien])
 	if not buffs.is_empty():
-		out.append("%s recibe %s." % ["Todo el grupo" if grupo else "El aliado seleccionado", _y(buffs)])
+		# Como HSR (06/11, eleccion del jefe): "Otorga X a un aliado" / "a todos los aliados".
+		var a_quien_b: String = "todos los aliados" if grupo else "un aliado"
+		if buffs.size() == 1:
+			out.append("Otorga %s a %s%s." % [String(buffs[0][0]), a_quien_b, String(buffs[0][1])])
+		else:
+			var lista_b: Array = []
+			for b in buffs:
+				lista_b.append(String(b[0]) + String(b[1]))
+			out.append("Otorga a %s %s." % [a_quien_b, _y(lista_b)])
 	return " ".join(out)
 
 
@@ -713,17 +721,18 @@ func _texto_imbuicion() -> String:
 	var que: String = "el cuerpo" if imbue_tipo == 2 else "el arma"
 	var lineas: Array = []
 	if imbue_prisma:
-		lineas.append("Envuelve en todos los elementos %s del aliado seleccionado durante %d ataque%s: cada golpe que da y cada uno que recibe es de un elemento al azar." % [
+		lineas.append("Envuelve en todos los elementos %s de un aliado durante %d ataque%s: cada golpe que da y cada uno que recibe es de un elemento al azar." % [
 			que, imbue_usos, "" if imbue_usos == 1 else "s"])
 	else:
 		# Con elemento al azar la ficha NO puede nombrar uno: seria mentir en la mitad de las tiradas.
 		var elem_txt: String = "un elemento al azar" if imbue_elemento_aleatorio else Elementos.nombre(elemento)
-		lineas.append("Envuelve en %s %s del aliado seleccionado durante %d ataque%s." % [
+		lineas.append("Envuelve en %s %s de un aliado durante %d ataque%s." % [
 			elem_txt, que, imbue_usos, "" if imbue_usos == 1 else "s"])
 	# El % de la imbuicion es del daño del GOLPE de quien la lleva (su Fuerza y su arma), no del daño del hechizo.
 	var de: String = "del elemento que salga" if (imbue_prisma or imbue_elemento_aleatorio) \
 		else "de %s" % Elementos.nombre(elemento)
-	var linea: String = "Sus golpes infligen un daño adicional %s equivalente al %s del daño del golpe" % [de, _pct(imbue_pct)]
+	var linea: String = "Los golpes de ese aliado infligen un daño adicional %s equivalente al %s del daño del golpe" % [
+		de, _pct(imbue_pct)]
 	if imbue_estado >= 0 and imbue_prob > 0.0:
 		linea += " y tienen un %s de probabilidad base de causar %s" % [_pct(imbue_prob),
 			String(StatusEffects.def(imbue_estado).get("nombre", "?"))]
@@ -742,9 +751,9 @@ func _texto_imbuicion() -> String:
 # tabla de Elementos con la intensidad de un cuerpo IMBUIDO (no la de un bicho hecho de ese elemento).
 func _texto_afinidad() -> String:
 	if imbue_prisma:
-		return "Además, en cada golpe que recibe se defiende como el elemento que salga."
+		return "Además, en cada golpe que recibe, ese aliado se defiende como el elemento que salga."
 	if imbue_elemento_aleatorio:
-		return "Además, toma la afinidad del elemento que salga."
+		return "Además, ese aliado toma la afinidad del elemento que salga."
 	var menos: Array = []
 	var mas: Array = []
 	var perfil: Dictionary = Elementos.PERFIL_DEFECTO.get(elemento, {})
@@ -756,7 +765,7 @@ func _texto_afinidad() -> String:
 		elif m > 1.0:
 			mas.append(txt)
 	var partes: Array = menos + mas
-	var s: String = "Además, toma la afinidad de %s: recibe %s" % [Elementos.nombre(elemento), _y(partes)]
+	var s: String = "Además, ese aliado toma la afinidad de %s: recibe %s" % [Elementos.nombre(elemento), _y(partes)]
 	var inmune: Array = []
 	for id in Elementos.inmunidades_de(elemento):
 		inmune.append(String(StatusEffects.def(int(id)).get("nombre", "?")))

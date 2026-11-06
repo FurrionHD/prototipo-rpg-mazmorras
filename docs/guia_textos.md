@@ -14,8 +14,10 @@ Si una frase se puede leer de dos maneras, está mal.
    «El objetivo queda…».
    - **En magias, «el lanzador»** (la magia no se porta, se lanza): «+ 12 por el poder mágico del
      lanzador».
-   - **A quien se le echa: «el aliado seleccionado» / «el objetivo seleccionado»** (los Filos,
-     Mantos y buffs se pueden echar a cualquiera del grupo). «Todo el grupo» si va a todos.
+   - **A quien se le echa, como HSR: «un aliado» y después «ese aliado»** (decidido 06/11 tras
+     contarlo en los textos oficiales, ver sección 4): «Otorga Fortaleza a un aliado durante 3
+     turnos», «Los golpes de ese aliado infligen…». «Todos los aliados» si va a todos. A un
+     enemigo, «el objetivo seleccionado».
    - **Los números, de los datos y concretos:** nada de «resiste lo mismo que el fuego»; «recibe
      un 20 % menos de Daño de Fuego y un 20 % más de Daño de Agua».
 2. **Cada porcentaje dice de qué es.** Nunca «el 30 %» a secas.
@@ -82,6 +84,17 @@ Media / Larga». Pendiente de aplicar igual a Hilo conductor, Filo de aire y Cam
 - **Bonus de platos y estados:** formato corto, «Agilidad +12 % · Esquiva +6 %».
 
 ## 4. Ejemplos de referencia
+
+**Fuentes** (los textos oficiales en español, en JSON):
+- Honkai: Star Rail: `https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/index_new/es/<f>.json`
+  con `<f>` = `character_skills`, `relic_sets`, `light_cones`.
+- Genshin Impact: `https://raw.githubusercontent.com/theBowja/genshin-db/main/src/data/Spanish/artifacts/<a>.json`.
+
+Cómo nombra HSR a quien recibe una habilidad de apoyo (contado en `character_skills`, 06/11): «un
+aliado» (65 veces), «todos los aliados» (82), y después «ese aliado»; «aliado seleccionado» sale una
+vez. Ejemplos: «Otorga una Gracia a un aliado y aumenta el ATQ de ese aliado en un 25 %» (Tingyun),
+«Cura a un aliado con una cantidad de PV equivalente al 10 % de los PV máx. de Bailu + 200» (Bailu),
+«Otorga a un aliado un escudo… durante 3 turnos» (Siete de Marzo).
 
 **Honkai: Star Rail**, set «Prisionero aislado»: «Por cada estado de Daño con el tiempo que tenga el
 objetivo, el portador ignora un 6 % de su DEF cuando le inflige daño, hasta un máximo de 3 estados
