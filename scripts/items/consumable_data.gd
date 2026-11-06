@@ -334,24 +334,31 @@ func resumen(max_hp: float, max_mp: float, quien: String = "") -> String:
 	# tu base de nivel (Game.ganar), asi que un numero aqui mentiria a la mitad del grupo.
 	if es_tocho():
 		return "Se lee una vez." if not es_tomo_sabio() else "Se lee una vez. Enseña algo de magia."
+	# Como la comida de Genshin (06/11, lo eligio el jefe): "Restaura un 22 % de la Vida Máx. y 1200 pts. de Vida al
+	# personaje seleccionado" -> "Restaura un 12 % de la vida máxima y 90 de vida a quien la bebe (114 para Dasui)."
 	var p: Array = []
+	var ejemplo: Array = []
 	if cura_hp():
-		p.append(_restaura("vida", cura_total, cura_pct, cura_efectiva(max_hp), quien))
+		p.append(_restaura("vida", cura_total, cura_pct))
+		ejemplo.append("%d de vida" % roundi(cura_efectiva(max_hp)))
 	if da_mana():
-		p.append(_restaura("maná", mana_total, mana_pct, mana_efectivo(max_mp), quien))
-	return "Restaura " + " y ".join(p) + "."
+		p.append(_restaura("maná", mana_total, mana_pct))
+		ejemplo.append("%d de maná" % roundi(mana_efectivo(max_mp)))
+	var s: String = "Restaura " + " y ".join(p) + " a quien la bebe"
+	# El ejemplo solo si hay un % (si es fijo, el numero ya esta dicho).
+	if quien != "" and (cura_pct > 0.0 or mana_pct > 0.0):
+		var solo_num: bool = ejemplo.size() == 1
+		s += " (%s para %s)" % [ejemplo[0].split(" ")[0] if solo_num else " y ".join(ejemplo), quien]
+	return s + "."
 
-# "90 de vida + 12 % de la vida máxima de quien la bebe (114 para Dasui)".
-static func _restaura(que: String, plano: float, pct: float, total: float, quien: String) -> String:
-	var s: String
+# "un 12 % de la vida máxima y 90 de vida" (primero el %, luego lo fijo, como Genshin).
+static func _restaura(que: String, plano: float, pct: float) -> String:
+	var de_max: String = "un %d %% %s" % [roundi(pct * 100.0), "de la vida máxima" if que == "vida" else "del maná máximo"]
 	if pct <= 0.0:
 		return "%d de %s" % [roundi(plano), que]
-	var de_max: String = "%d %% %s de quien la bebe" % [roundi(pct * 100.0),
-		"de la vida máxima" if que == "vida" else "del maná máximo"]
-	s = de_max if plano <= 0.0 else "%d de %s + %s" % [roundi(plano), que, de_max]
-	if quien != "":
-		s += " (%d para %s)" % [roundi(total), quien]
-	return s
+	if plano <= 0.0:
+		return de_max
+	return "%s y %d de %s" % [de_max, roundi(plano), que]
 
 # Cuanto se reparte una pocion: "3 turnos en combate · 6 s fuera de combate".
 func reparto_txt() -> String:
@@ -373,20 +380,9 @@ func atraccion_txt() -> String:
 # Se enseña ANTES de cocinar (en el menu del Cocinero) y tambien en el inventario: hay que poder
 # decidir si merece la pena gastar los ingredientes sin haber hecho el plato una vez.
 func resumen_plato() -> String:
-	var lineas: PackedStringArray = []
-	for ap in efectos:
-		if ap == null:
-			continue
-		var d: Dictionary = StatusEffects.def(int(ap.estado))
-		if d.is_empty():
-			continue
-		# efecto_legible sabe traducir NUMEROS (un +12% de defensa, un 6 de daño por turno), asi que
-		# con un estado que no mueve ninguna cifra -el Resguardo solo limpia y hace inmune- devuelve
-		# vacio y quedaba un "🧪 Resguardo:" sin decir nada. Ahi lo que lo cuenta es su descripcion.
-		var que: String = StatusEffects.efecto_legible(int(ap.estado), 0.0, escala_efecto)
-		if que.strip_edges() == "":
-			que = str(d.get("descripcion", ""))
-		lineas.append("%s %s: %s" % [str(d.get("icono", "")), str(d.get("nombre", "?")), que])
+	# Como la comida de Genshin (06/11, lo eligio el jefe): una frase con la duracion dentro. "Aumenta la Prob. CRIT de
+	# todos los miembros del equipo en un 9 % durante 300 s" -> "💨 Reflejos: aumenta la Agilidad de quien se lo come
+	# en un 12 %, su Probabilidad de crítico en un 6 % y su Esquiva en un 6 % durante 20 minutos."
 	var turnos: int = StatusEffects.PLATO_TURNOS
 	for ap in efectos:
 		if ap != null and int(ap.turns) > 0:
@@ -394,8 +390,53 @@ func resumen_plato() -> String:
 			break
 	# UN PLATO se mide en MINUTOS (dura 20 y lo llevas puesto por el mapa); un brebaje de combate,
 	# en TURNOS. Con la cuenta del plato, un antidoto de 3 turnos anunciaba "dura 0 minutos".
-	if es_comida:
-		lineas.append("Dura %d minutos." % int(round(float(turnos) * 5.0 / 60.0)))
-	else:
-		lineas.append("Dura %d turno%s." % [turnos, "" if turnos == 1 else "s"])
+	var durante: String = ("durante %d minutos" % int(round(float(turnos) * 5.0 / 60.0))) if es_comida \
+		else ("durante %d turno%s" % [turnos, "" if turnos == 1 else "s"])
+	var quien: String = "quien se lo come" if es_comida else "quien lo bebe"
+	var lineas: PackedStringArray = []
+	for ap in efectos:
+		if ap == null:
+			continue
+		var d: Dictionary = StatusEffects.def(int(ap.estado))
+		if d.is_empty():
+			continue
+		var que: String = StatusEffects.efecto_frase(int(ap.estado), quien, escala_efecto)
+		if que != "":
+			lineas.append("%s %s: %s %s." % [str(d.get("icono", "")), str(d.get("nombre", "?")), que, durante])
+			continue
+		# Sin numeros (el Resguardo solo limpia y hace inmune): la frase sale de 'limpia' e 'inmune' del catalogo.
+		# "Elimina el Veneno de quien lo bebe y, durante 3 turnos, es inmune al Veneno."
+		var limpia: Array = []
+		for id in (d.get("limpia", []) as Array):
+			limpia.append(_con_articulo(str(StatusEffects.def(int(id)).get("nombre", "?")), false))
+		var inmune: Array = []
+		for id in (d.get("inmune", []) as Array):
+			inmune.append(_con_articulo(str(StatusEffects.def(int(id)).get("nombre", "?")), true))
+		if not limpia.is_empty() or not inmune.is_empty():
+			var s: String
+			if not limpia.is_empty() and not inmune.is_empty():
+				s = "Elimina %s de %s y, %s, es inmune %s" % [_y(limpia), quien, durante, _y(inmune)]
+			elif not limpia.is_empty():
+				s = "Elimina %s de %s" % [_y(limpia), quien]
+			else:
+				s = "%s es inmune %s %s" % [quien.capitalize(), _y(inmune), durante]
+			lineas.append("%s %s: %s." % [str(d.get("icono", "")), str(d.get("nombre", "?")), s])
+		else:
+			lineas.append("%s %s: %s" % [str(d.get("icono", "")), str(d.get("nombre", "?")), str(d.get("descripcion", ""))])
 	return "\n".join(lineas)
+
+
+# "el Veneno" / "la Quemadura"; con 'a' delante, "al Veneno" / "a la Quemadura". Los nombres de estado que acaban en
+# -a son femeninos (Quemadura, Ceguera, Marca); el resto, masculinos (Veneno, Sangrado, Mojado).
+static func _con_articulo(nombre: String, con_a: bool) -> String:
+	var fem: bool = nombre.ends_with("a")
+	if con_a:
+		return ("a la " if fem else "al ") + nombre
+	return ("la " if fem else "el ") + nombre
+
+
+# "a", "a y b", "a, b y c".
+static func _y(lista: Array) -> String:
+	if lista.size() <= 1:
+		return "" if lista.is_empty() else String(lista[0])
+	return ", ".join(lista.slice(0, lista.size() - 1)) + " y " + String(lista[lista.size() - 1])

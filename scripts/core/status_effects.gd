@@ -1138,6 +1138,77 @@ static func instancia_de_dict(d: Dictionary):
 	return inst
 
 
+# LOS BONUS DE UN ESTADO, en piezas: [[etiqueta, valor, es_porcentaje, articulo]], en el orden en que se leen (las
+# habilidades base primero: es lo mas gordo que hacen los platos). Lo comparten el formato corto (efecto_legible) y la
+# frase al estilo de Genshin (efecto_frase).
+# 'mult' = el nivel concreto de esta aplicacion (StatusApplication.mult), o 0 para el del catalogo.
+# 'escala' = el tier del plato (1.2 = el T2, que aprieta un 20% mas).
+static func _bonus(id: int, mult: float = 0.0, escala: float = 1.0) -> Array:
+	var d: Dictionary = def(id)
+	# [clave, etiqueta, articulo]
+	var etiquetas: Array = [
+		["atk_mult", "Ataque", "el"], ["def_mult", "Defensa", "la"], ["spd_mult", "Velocidad", "la"],
+		["dmg_taken_mult", "Daño recibido", "el"], ["heal_recv_mult", "Curación recibida", "la"],
+		["def_flat_mult", "Armadura", "la"], ["aggro_mult", "Atención de los enemigos", "la"],
+		["hp_mult", "Vida máxima", "la"],
+		["dmg_dealt_mult", "Daño infligido", "el"], ["spell_dmg_mult", "Daño mágico", "el"],
+		["mana_coste_mult", "Coste de los hechizos", "el"], ["mp_kill_mult", "Maná al derrotar a un enemigo", "el"],
+		["mp_regen_mult", "Regeneración de maná", "la"], ["dot_taken_mult", "Daño con el tiempo recibido", "el"],
+		["drop_mult", "Probabilidad de botín", "la"],
+	]
+	# Los ADITIVOS: puntos porcentuales, no multiplicadores. Un "+5% crítico" no es un x1.05, y
+	# pasarlo por la formula de arriba lo pintaria como "-95%".
+	var etiquetas_flat: Array = [
+		["crit_flat", "Probabilidad de crítico", "la"], ["evade_flat", "Esquiva", "la"],
+		["precision_flat", "Acierto", "el"],
+		["status_resist_flat", "Resistencia a estados", "la"],
+		["drop_doble_flat", "Probabilidad de botín doble", "la"],
+	]
+	var out: Array = []
+	for clave in (d.get("hab_mult", {}) as Dictionary):
+		out.append([str(NOMBRE_HABILIDAD.get(clave, clave)), (float(d["hab_mult"][clave]) - 1.0) * 100.0 * escala, true, "la"])
+	for e in etiquetas:
+		if d.has(e[0]):
+			var m: float = mult if mult > 0.0 else float(d[e[0]])
+			out.append([e[1], (m - 1.0) * 100.0 * escala, true, e[2]])
+	for e in etiquetas_flat:
+		if d.has(e[0]):
+			out.append([e[1], float(d[e[0]]) * 100.0 * escala, true, e[2]])
+	if d.has("mochila_extra"):
+		out.append(["Carga", float(d["mochila_extra"]) * escala, false, "la"])
+	return out
+
+
+# EL MISMO EFECTO EN UNA FRASE, al estilo de la comida de Genshin (06/11, lo eligio el jefe): "aumenta la Agilidad de
+# quien se lo come en un 12 %, su Probabilidad de crítico en un 6 % y su Esquiva en un 6 %". 'quien' = "quien se lo
+# come", "quien lo bebe"... "" si el estado no mueve ningun numero (entonces lo cuenta su descripcion).
+static func efecto_frase(id: int, quien: String, escala: float = 1.0) -> String:
+	var bonus: Array = _bonus(id, 0.0, escala)
+	if bonus.is_empty():
+		return ""
+	var trozos: Array = []
+	var signo_antes: int = 0
+	for i in bonus.size():
+		var p: Array = bonus[i]
+		var v: float = float(p[1])
+		var signo: int = 1 if v >= 0.0 else -1
+		var cuanto: String = ("en un %d %%" if bool(p[2]) else "en %d") % absi(roundi(v))
+		var art: String = String(p[3])
+		var s: String
+		if i == 0:
+			# "aumenta la Agilidad de quien se lo come en un 12 %"
+			s = "%s %s %s de %s %s" % ["aumenta" if signo > 0 else "reduce", art, String(p[0]), quien, cuanto]
+		elif signo != signo_antes:
+			s = "%s su %s %s" % ["aumenta" if signo > 0 else "reduce", String(p[0]), cuanto]
+		else:
+			s = "su %s %s" % [String(p[0]), cuanto]
+		trozos.append(s)
+		signo_antes = signo
+	if trozos.size() == 1:
+		return String(trozos[0])
+	return ", ".join(trozos.slice(0, trozos.size() - 1)) + " y " + String(trozos[trozos.size() - 1])
+
+
 # QUE hace un estado, en una frase corta y con el NOMBRE de lo que toca ("Defensa -25 %"), para las
 # fichas. Sin el nombre, un "(30%, -25%)" no dice si el -25% es probabilidad, daño o duracion.
 # 'mult' = el nivel concreto de esta aplicacion (StatusApplication.mult), o 0 para el del catalogo.
@@ -1145,39 +1216,9 @@ static func instancia_de_dict(d: Dictionary):
 # Instance.escala, para que la ficha del plato T2 diga +12% y no +10%.
 static func efecto_legible(id: int, mult: float = 0.0, escala: float = 1.0) -> String:
 	var d: Dictionary = def(id)
-	var etiquetas: Dictionary = {
-		"atk_mult": "Ataque", "def_mult": "Defensa", "spd_mult": "Velocidad",
-		"dmg_taken_mult": "Daño recibido", "heal_recv_mult": "Curación recibida",
-		"def_flat_mult": "Armadura", "aggro_mult": "Atención de los enemigos",
-		"hp_mult": "Vida máxima",
-		"dmg_dealt_mult": "Daño infligido", "spell_dmg_mult": "Daño mágico",
-		"mana_coste_mult": "Coste de los hechizos", "mp_kill_mult": "Maná al derrotar a un enemigo",
-		"mp_regen_mult": "Regeneración de maná", "dot_taken_mult": "Daño con el tiempo recibido",
-		"drop_mult": "Probabilidad de botín",
-	}
-	# Los ADITIVOS: puntos porcentuales, no multiplicadores. Un "+5% crítico" no es un x1.05, y
-	# pasarlo por la formula de arriba lo pintaria como "-95%".
-	var etiquetas_flat: Dictionary = {
-		"crit_flat": "Probabilidad de crítico", "evade_flat": "Esquiva",
-		"precision_flat": "Acierto",
-		"status_resist_flat": "Resistencia a estados",
-		"drop_doble_flat": "Probabilidad de botín doble",
-	}
 	var partes: Array = []
-	# Las HABILIDADES BASE (platos) van primero: es lo mas gordo que hacen.
-	for clave in (d.get("hab_mult", {}) as Dictionary):
-		partes.append("%s %+d %%" % [str(NOMBRE_HABILIDAD.get(clave, clave)),
-			roundi((float(d["hab_mult"][clave]) - 1.0) * 100.0 * escala)])
-	for clave in etiquetas:
-		if not d.has(clave):
-			continue
-		var m: float = mult if mult > 0.0 else float(d[clave])
-		partes.append("%s %+d %%" % [str(etiquetas[clave]), roundi((m - 1.0) * 100.0 * escala)])
-	for clave in etiquetas_flat:
-		if d.has(clave):
-			partes.append("%s %+d %%" % [str(etiquetas_flat[clave]), roundi(float(d[clave]) * 100.0 * escala)])
-	if d.has("mochila_extra"):
-		partes.append("Carga %+d" % roundi(float(d["mochila_extra"]) * escala))
+	for p in _bonus(id, mult, escala):
+		partes.append(("%s %+d %%" if bool(p[2]) else "%s %+d") % [String(p[0]), roundi(float(p[1]))])
 	# Formato corto de la guia de textos (06/11): "Agilidad +12 % · Esquiva +6 %".
 	if not partes.is_empty():
 		return " · ".join(partes)

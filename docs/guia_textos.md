@@ -79,12 +79,16 @@ Veneno, Electrizado, Mojado, Pegajoso, Aturdido, Lento, Congelación, Ceguera.
 forzadas del tipo «el doble de lejos que el gusano». Primer caso, los cebos: «Atracción: Corta /
 Media / Larga». Pendiente de aplicar igual a Hilo conductor, Filo de aire y Campo magnético.
 
-## 2b. Pociones y objetos
+## 2b. Pociones y objetos (al estilo de la comida de Genshin, 06/11)
 
-- **Efecto:** «Restaura 90 de vida + 12 % de la vida máxima de quien la bebe (114 para Dasui).»
-  El número de ejemplo es el del líder.
+- **Efecto:** «Restaura un 12 % de la vida máxima y 90 de vida a quien la bebe (114 para Dasui).»
+  Primero el %, luego lo fijo. El número de ejemplo es el del líder.
 - **Se reparte en:** «3 turnos en combate · 6 s fuera de combate». Solo en lo que se reparte.
-- **Bonus de platos y estados:** formato corto, «Agilidad +12 % · Esquiva +6 %».
+- **Platos:** una frase con la duración dentro: «💨 Reflejos: aumenta la Agilidad de quien se lo come
+  en un 12 %, su Probabilidad de crítico en un 6 % y su Esquiva en un 6 % durante 20 minutos.»
+  (`StatusEffects.efecto_frase`).
+- **Bonus sueltos de estados y habilidades:** formato corto, «Agilidad +12 % · Esquiva +6 %»
+  (`StatusEffects.efecto_legible`).
 
 ## 4. Ejemplos de referencia
 
@@ -92,6 +96,9 @@ Media / Larga». Pendiente de aplicar igual a Hilo conductor, Filo de aire y Cam
 - Honkai: Star Rail: `https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/index_new/es/<f>.json`
   con `<f>` = `character_skills`, `relic_sets`, `light_cones`.
 - Genshin Impact: `https://raw.githubusercontent.com/theBowja/genshin-db/main/src/data/Spanish/artifacts/<a>.json`.
+  Comida: `.../src/data/Spanish/foods/<plato>.json` (p. ej. `sweetmadame`, `jueyunchilichicken`): «Restaura un
+  22 % de la Vida Máx. y 1200 pts. de Vida al personaje seleccionado.», «Aumenta la Prob. CRIT de todos los
+  miembros del equipo en un 9 % durante 300 s.»
 
 Cómo nombra HSR a quien recibe una habilidad de apoyo (contado en `character_skills`, 06/11): «un
 aliado» (65 veces), «todos los aliados» (82), y después «ese aliado»; «aliado seleccionado» sale una
