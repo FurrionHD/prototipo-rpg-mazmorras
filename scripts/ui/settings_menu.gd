@@ -196,7 +196,7 @@ func _fila_pantalla(vb: VBoxContainer) -> void:
 	caja.add_child(_pantalla)
 
 	var pista := Label.new()
-	pista.text = "F11 alterna pantalla completa en cualquier momento."
+	pista.text = "Pulsa F11 en cualquier momento para cambiar a pantalla completa o volver."
 	pista.add_theme_font_size_override("font_size", 11)
 	pista.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
 	caja.add_child(pista)
@@ -213,7 +213,7 @@ func _fila_vsync(vb: VBoxContainer) -> void:
 	vb.add_child(_vsync)
 
 	var pista := Label.new()
-	pista.text = "Quita el desgarro de la imagen. Apágala si el juego va a tirones."
+	pista.text = "Evita el desgarro de pantalla. Desactívala si el juego va a tirones."
 	pista.custom_minimum_size = Vector2(ANCHO, 0)
 	pista.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	pista.add_theme_font_size_override("font_size", 11)
