@@ -19,6 +19,7 @@
 
 extends Button
 class_name CeldaKit
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 # El "paquete" que viaja mientras arrastras lleva esta marca. Sin ella, un arrastre de OTRA parte
 # del juego (una celda del inventario) se dejaria soltar aqui y llegaria un Resource cualquiera.
@@ -80,7 +81,7 @@ func _get_drag_data(_pos: Vector2) -> Variant:
 	sb.set_border_width_all(2)
 	sb.set_corner_radius_all(6)
 	sb.set_content_margin_all(8)
-	caja.add_theme_stylebox_override("panel", sb)
+	caja.add_theme_stylebox_override("panel", HudEstilo.a_pixel(sb))
 	caja.add_child(vista)
 	set_drag_preview(caja)
 	var paquete: Dictionary = {"marca": MARCA, "item": item, "indice": indice, "es_ranura": es_ranura}

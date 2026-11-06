@@ -185,6 +185,20 @@ const ROLES := [
 
 const CLAVE_ROLES := "arma"
 
+# (06/11) LOS PAPELES DEL ICONO EN PIXEL de cada arma (assets/sprites/equipo/arma, de tools/equipo_armas.py): los de
+# ROLES y, en los tonos 14 y 15 (del 11 al 13 son la cuerda y las plumas), el BRILLO y el HONDO del material.
+const ROLES_ICONO := ROLES + [
+	PaletaEquipo.Rol.MATERIAL_B,   # 14 BRILLO
+	PaletaEquipo.Rol.MATERIAL_O,   # 15 HONDO
+]
+const CLAVE_ROLES_ICONO := "arma_icono"
+const CARPETA_ICONOS := "res://assets/sprites/equipo/arma/"
+
+# El icono en pixel de un tipo de arma ("daga", "varita"...), o "" si no lo tiene.
+static func icono(tn: String) -> String:
+	var r: String = CARPETA_ICONOS + tn + ".png"
+	return r if ResourceLoader.exists(r) else ""
+
 
 # LA FAMILIA DEL MATERIAL de un arma. Un baston y una varita son de MADERA -- su "hoja" es el asta --,
 # el resto son de metal. Sin esto, un baston de tier 3 saldria de acero blanco.

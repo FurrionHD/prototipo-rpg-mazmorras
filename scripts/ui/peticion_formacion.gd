@@ -7,6 +7,7 @@
 #  Contesta por Net.formacion.responder; si no se contesta, el host la da por rechazada al rato.
 # ============================================================
 extends CanvasLayer
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 var _cola: Array = []   # [{id, texto}]
 var _panel: PanelContainer = null
@@ -49,7 +50,7 @@ func _construir() -> void:
 	sb.content_margin_right = 16
 	sb.content_margin_top = 12
 	sb.content_margin_bottom = 12
-	_panel.add_theme_stylebox_override("panel", sb)
+	_panel.add_theme_stylebox_override("panel", HudEstilo.a_pixel(sb, true))
 	ancla.add_child(_panel)
 
 	var vb := VBoxContainer.new()

@@ -188,6 +188,21 @@ const ROLES := [
 
 const CLAVE_ROLES := "armadura"
 
+# (06/11) LOS PAPELES DEL ICONO EN PIXEL de cada pieza (assets/sprites/equipo/armadura, de tools/equipo_armaduras.py):
+# los mismos de ROLES y, en los tonos 11 y 12, el BRILLO y el HONDO del metal. Del 8 al 10 no se usan.
+const ROLES_ICONO := ROLES + [
+	PaletaEquipo.Rol.BORDE, PaletaEquipo.Rol.BORDE, PaletaEquipo.Rol.BORDE,   # 8..10 libres
+	PaletaEquipo.Rol.MATERIAL_B,   # 11 BRILLO
+	PaletaEquipo.Rol.MATERIAL_O,   # 12 HONDO
+]
+const CLAVE_ROLES_ICONO := "armadura_icono"
+const CARPETA_ICONOS := "res://assets/sprites/equipo/armadura/"
+
+# El icono en pixel de un tipo y una pieza, o "" si no lo tiene.
+static func icono(tipo: String, slot: String) -> String:
+	var r: String = CARPETA_ICONOS + "%s_%s.png" % [tipo, slot]
+	return r if ResourceLoader.exists(r) else ""
+
 
 # DE QUE FAMILIA ES EL MATERIAL de esta pieza. Es lo unico que sobrevive de las cuatro paletas viejas,
 # y es lo que hace que un peto de cuero y uno de placas del mismo tier NO salgan del mismo color.

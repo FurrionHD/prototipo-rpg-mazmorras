@@ -230,9 +230,9 @@ func progreso_frac() -> float:
 
 
 func _draw() -> void:
-	var font: Font = ThemeDB.fallback_font
-	# Fondo SEMITRANSPARENTE, no opaco: por detras se tiene que seguir viendo el charco.
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.05, 0.07, 0.10, 0.78))
+	# El marco de las faenas (MedidorFaena): hierro en pixel con el fondo SEMITRANSPARENTE, que por detras se tiene que
+	# seguir viendo el charco.
+	MedidorFaena.panel(self, Rect2(Vector2.ZERO, size))
 
 	var bx: float = 26.0
 	var bw: float = 46.0
@@ -240,47 +240,48 @@ func _draw() -> void:
 	var bh: float = size.y - 64.0
 
 	# La barra: el agua vista de canto.
-	draw_rect(Rect2(bx, by, bw, bh), Color(0.10, 0.17, 0.26))
+	var barra := Rect2(bx, by, bw, bh)
+	MedidorFaena.carril(self, barra, Color(0.10, 0.17, 0.26))
 
 	# EL TRAMO DEL PEZ. Verde cuando tienes la linea dentro, ambar cuando se te escapa: el color es
 	# el unico aviso que puedes leer sin apartar la vista de la barra.
 	var th: float = bh * _alto_tramo
 	var ty: float = by + bh * (1.0 - _pez_y) - th * 0.5
-	draw_rect(Rect2(bx, ty, bw, th),
-		Color(0.35, 0.75, 0.40, 0.75) if _dentro else Color(0.85, 0.65, 0.22, 0.55))
+	var tramo := Rect2(bx, ty, bw, th).intersection(barra)
+	MedidorFaena.zona(self, tramo, Color(0.30, 0.66, 0.36) if _dentro else Color(0.70, 0.54, 0.20))
 
 	# EL PEZ dentro de su tramo: el mismo rectangulo alargado que ves en el agua, de canto. Va del
 	# color del pez para que se lea de que bicho es la pelea.
 	var pw: float = bw * 0.55
 	var ph: float = 9.0
 	var py: float = by + bh * (1.0 - _pez_y) - ph * 0.5
-	draw_rect(Rect2(bx + (bw - pw) * 0.5, py, pw, ph),
-		_data.color if _data != null else Color(0.8, 0.8, 0.8))
+	var col_pez: Color = _data.color if _data != null else Color(0.8, 0.8, 0.8)
+	var rp := Rect2((Vector2(bx + (bw - pw) * 0.5, py) / 2.0).round() * 2.0, Vector2(roundf(pw / 2.0) * 2.0, 10.0))
+	draw_rect(rp.grow(2.0), MedidorFaena.CONTORNO)
+	draw_rect(rp, col_pez)
+	draw_rect(Rect2(rp.position, Vector2(rp.size.x, 2.0)), col_pez.lightened(0.4))
+	draw_rect(Rect2(rp.position + Vector2(0, rp.size.y - 2.0), Vector2(rp.size.x, 2.0)), col_pez.darkened(0.35))
+	draw_rect(Rect2(rp.position + Vector2(rp.size.x - 6.0, 2.0), Vector2(2.0, 2.0)), MedidorFaena.CONTORNO)   # el ojo
 
 	# TU LINEA: el hilo. Blanca, fina y de lado a lado de la barra, para que se distinga de un
 	# vistazo del tramo (que es una banda de color) — es lo unico que mueves tu.
-	var ly: float = by + bh * (1.0 - _y) - 1.5
-	draw_rect(Rect2(bx - 4.0, ly, bw + 8.0, 3.0), Color(1.0, 1.0, 1.0, 0.95))
+	MedidorFaena.marcador(self, barra, by + bh * (1.0 - _y))
 
 	# TENSION, en su propia barra al lado. Se llena de abajo a arriba, como la de tu tramo: dos
 	# barras que se leen al reves serian una trampa de lectura.
 	var tx: float = bx + bw + 12.0
 	var tw: float = 16.0
-	draw_rect(Rect2(tx, by, tw, bh), Color(0.22, 0.20, 0.19))
+	MedidorFaena.carril(self, Rect2(tx, by, tw, bh), Color(0.22, 0.20, 0.19))
 	var lleno: float = bh * _tension
 	# Rojo cuando esta a punto de romperse: el jugador tiene que notar el peligro sin contar pixeles.
 	var col: Color = Color(0.85, 0.25, 0.20) if _tension < 0.22 else Color(0.40, 0.75, 0.95)
-	draw_rect(Rect2(tx, by + bh - lleno, tw, lleno), col)
+	MedidorFaena.zona(self, Rect2(tx, by + bh - lleno, tw, lleno), col)
 
 	var nombre: String = _data.nombre if _data != null else "algo"
-	draw_string(font, Vector2(8.0, 20.0), nombre, HORIZONTAL_ALIGNMENT_CENTER, size.x - 16.0, 13)
-	if _state == READY:
-		draw_string(font, Vector2(8.0, size.y - 12.0), "SUELTA para empezar",
-			HORIZONTAL_ALIGNMENT_CENTER, size.x - 16.0, 11)
-	elif _state == RUNNING:
-		draw_string(font, Vector2(8.0, size.y - 12.0), "MANTÉN ESPACIO",
-			HORIZONTAL_ALIGNMENT_CENTER, size.x - 16.0, 11)
-	else:
-		draw_string(font, Vector2(8.0, size.y - 12.0),
-			"¡LO TIENES!" if _logrado else "Se ha soltado",
-			HORIZONTAL_ALIGNMENT_CENTER, size.x - 16.0, 11)
+	MedidorFaena.texto(self, 25.0, 8.0, size.x - 16.0, nombre, 16)
+	var estado: String = "SUELTA para empezar" if _state == READY else ("MANTÉN ESPACIO" if _state == RUNNING
+		else ("¡LO TIENES!" if _logrado else "Se ha soltado"))
+	var col_e: Color = MedidorFaena.TEXTO
+	if _state != READY and _state != RUNNING:
+		col_e = MedidorFaena.AMBAR if _logrado else MedidorFaena.ROJO
+	MedidorFaena.texto(self, size.y - 14.0, 8.0, size.x - 16.0, estado, 16, col_e)

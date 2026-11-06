@@ -185,7 +185,8 @@ const MAX_CONEXIONES := 32
 #   68 = (05/11) los mutantes del ciempies (Dos mentes: UNA_CABEZA y sus cabezas en el espejo).
 #   69 = (05/11) los de la Segadora: la HUELLA lleva el abanico (Forma.abanico y su angulo, dos floats mas: FLOATS_HUELLA
 #     17) para que el Vendaval de cortes se vea en tres lineas en los espejos; el elemento VIENTO y su estado.
-const PROTOCOLO := 69
+#   70 = (06/11) el REGISTRO agrupado: cada frase del log viaja con su grupo delante (combat_registro.codificar).
+const PROTOCOLO := 70
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

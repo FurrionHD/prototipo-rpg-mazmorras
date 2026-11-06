@@ -23,6 +23,7 @@
 
 extends Control
 class_name CombateDetalle
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 const ANCHO_PANEL := 460.0
 const AMBAR := Color(0.95, 0.72, 0.36)
@@ -298,8 +299,12 @@ func _pintar_tira() -> void:
 		marco.set_border_width_all(3 if i == _idx else 1)
 		marco.set_corner_radius_all(6)
 		marco.set_content_margin_all(3)
+		var caja: StyleBox = marco
+		if HudEstilo.es_pixel():   # (06/11) marco de pixel; el que miras, de bronce
+			caja = HudEstilo.marco_px(marco.bg_color, i == _idx)
+			caja.set_content_margin_all(4)
 		for estado in ["normal", "hover", "pressed", "focus"]:
-			b.add_theme_stylebox_override(estado, marco)
+			b.add_theme_stylebox_override(estado, caja)
 		var pj: PersonajeData = Game.pj_de_combatant(c)
 		var retrato: Texture2D = pj.textura() if pj != null else null
 		if retrato == null and _es_enemigo():
@@ -710,7 +715,7 @@ func _tab_detalles(c: Combatant) -> void:
 				sb.set_border_width_all(1)
 				sb.set_corner_radius_all(4)
 				sb.set_content_margin_all(8)
-				caja.add_theme_stylebox_override("panel", sb)
+				caja.add_theme_stylebox_override("panel", HudEstilo.a_pixel(sb))
 			_panel.add_child(caja)
 
 
@@ -1086,7 +1091,7 @@ func _abrir_modal_atributos(c: Combatant) -> void:
 	sb.set_border_width_all(1)
 	sb.set_corner_radius_all(8)
 	sb.set_content_margin_all(16)
-	caja.add_theme_stylebox_override("panel", sb)
+	caja.add_theme_stylebox_override("panel", HudEstilo.a_pixel(sb, true))
 	_modal.add_child(caja)
 
 	var scroll := ScrollContainer.new()

@@ -13,7 +13,7 @@ f34 PULSA _spell_box: Shock térmico fulminante  (14.06 MP)
 f37 PULSA frase Arde hasta el hueso
 f38 LOG ✓ Frase correcta. Continua el proximo turno...
 f68 PULSA Atacar
-f69 LOG Daniel golpea con Maza pequeña por 5.69 de daño.
+f69 LOG Daniel golpea con Maza pequeña e inflige 5.69 de daño.
 f69 Rey Slime hp=852.895 mp=21.188 en=0.000
 f124 PULSA Objeto
 f127 PULSA _objeto_box: Poción de maná media  x3
@@ -36,17 +36,17 @@ f306 Catalardio hp=198.658 mp=24.620 en=166.275
 f306 Daniel hp=190.719 mp=20.000 en=181.025
 f365 LOG ⚡ 1. Rey Slime se prepara para Brote. ¡Prepárate! (aturdirlo lo interrumpe)
 f399 PULSA Atacar
-f400 LOG Daniel golpea con Maza pequeña por 5.69 de daño.
+f400 LOG Daniel golpea con Maza pequeña e inflige 5.69 de daño.
 f400 Rey Slime hp=848.341 mp=21.188 en=0.000
 f458 PULSA Atacar
-f459 LOG Dasui golpea con Mandobles por 11.49 de daño.
+f459 LOG Dasui golpea con Mandobles e inflige 11.49 de daño.
 f459 Rey Slime hp=839.150 mp=21.188 en=0.000
 f520 PULSA Objeto
 f523 PULSA _objeto_box: Poción de maná media  x2
 f526 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  34/37 🔷)
 f527 LOG Catalardio le da Poción de maná media a Agirato ochinan. 🔷 29 de maná (10 ya), repartido en 3 turnos.
 f527 Agirato ochinan hp=198.795 mp=36.500 en=177.425
-f541 LOG 3. Slime venenoso ataca a Daniel por 0.37 de daño.  Le inflige Pegajoso.
+f541 LOG 3. Slime venenoso ataca a Daniel y le inflige 0.37 de daño.  Le inflige Pegajoso.
 f541 Daniel hp=190.344 mp=20.000 en=181.025
 f611 LOG Agirato ochinan recupera 9.79 de maná. 🔷
 f613 PULSA frase Que el vidrio se parta
@@ -196,7 +196,7 @@ f806 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f807 Slime venenoso hp=39.250 mp=20.495 en=0.000
 f807 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f807 PULSA Atacar
-f808 LOG Catalardio golpea con Martillo grande por 11.80 de daño.
+f808 LOG Catalardio golpea con Martillo grande e inflige 11.80 de daño.
 f808 Catalardio hp=198.658 mp=24.620 en=181.275
 f808 Rey Slime hp=830.892 mp=21.188 en=0.000
 f808 Slime venenoso hp=39.250 mp=20.495 en=0.000
@@ -436,7 +436,7 @@ f922 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f923 Slime venenoso hp=35.466 mp=20.495 en=0.000
 f923 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f923 PULSA 🔥 ¡Lanzar Shock térmico fulminante!
-f924 LOG … 499.16 de daño en total.
+f924 LOG 🗣️ Frases: «Arde hasta el hueso» ✓ · «Y ahora, hiela» ✓ · «Que el vidrio se parta» ✓
 f924 Agirato ochinan hp=198.795 mp=22.444 en=177.425
 f924 Rey Slime hp=571.294 mp=21.188 en=0.000
 f924 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -780,7 +780,7 @@ f1087 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1088 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1088 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1088 PULSA Atacar
-f1089 LOG Daniel golpea con Maza pequeña por 6.03 de daño.
+f1089 LOG Daniel golpea con Maza pequeña e inflige 6.03 de daño.
 f1089 Daniel hp=190.344 mp=20.000 en=174.025
 f1089 Rey Slime hp=566.468 mp=21.188 en=0.000
 f1089 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -889,7 +889,7 @@ f1140 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1140 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1141 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1141 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f1142 LOG 5. Slime de fuego ataca a Catalardio por 0.19 de daño.
+f1142 LOG 5. Slime de fuego ataca a Catalardio y le inflige 0.19 de daño.
 f1142 Catalardio hp=198.465 mp=24.620 en=181.275
 f1142 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1142 Slime venenoso hp=0.000 mp=20.363 en=0.000
@@ -1478,7 +1478,7 @@ f1424 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1425 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1425 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1425 PULSA Atacar
-f1426 LOG ¡CRITICO! Dasui golpea con Mandobles por 17.05 de daño. 💥
+f1426 LOG ¡CRITICO! Dasui golpea con Mandobles e inflige 17.05 de daño. 💥
 f1426 Dasui hp=199.517 mp=20.000 en=151.300
 f1426 Rey Slime hp=530.670 mp=21.188 en=0.000
 f1426 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -1682,7 +1682,7 @@ f1521 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1522 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1522 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1522 PULSA Atacar
-f1523 LOG Catalardio golpea con Martillo grande por 11.16 de daño.  ¡Retrasado! 💫
+f1523 LOG Catalardio golpea con Martillo grande e inflige 11.16 de daño.  ¡Retrasado! 💫
 f1523 Rey Slime hp=521.746 mp=21.188 en=0.000
 f1523 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1523 Slime venenoso hp=0.000 mp=20.363 en=0.000
@@ -2217,7 +2217,7 @@ f1780 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1781 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1781 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1781 PULSA Atacar
-f1782 LOG Dasui golpea con Mandobles por 12.21 de daño.
+f1782 LOG Dasui golpea con Mandobles e inflige 12.21 de daño.
 f1782 Dasui hp=199.517 mp=20.000 en=181.300
 f1782 Rey Slime hp=511.975 mp=21.188 en=0.000
 f1782 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -2699,7 +2699,7 @@ f2016 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2017 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2017 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2017 PULSA frase Kingdom Hearts
-f2018 LOG 2. Slime ataca a Catalardio por 0.14 de daño.
+f2018 LOG 2. Slime ataca a Catalardio y le inflige 0.14 de daño.
 f2018 Catalardio hp=198.329 mp=24.620 en=181.275
 f2018 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2018 Slime venenoso hp=0.000 mp=20.363 en=0.000
@@ -3090,7 +3090,7 @@ f2203 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2204 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2204 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2204 PULSA 🔥 ¡Lanzar Eclipse!
-f2205 LOG … 441.35 de daño en total.
+f2205 LOG 🗣️ Frases: «Luz y oscuridad» ✓ · «Oscuridad y luz» ✓ · «Feliz aniversario 20» ✓ · «Kingdom Hearts» ✓
 f2205 Agirato ochinan hp=198.599 mp=17.173 en=177.425
 f2205 Rey Slime hp=299.043 mp=21.188 en=0.000
 f2205 Slime hp=0.000 mp=20.429 en=0.000
@@ -3487,7 +3487,7 @@ f2396 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2396 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2397 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2397 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2398 LOG 1. Rey Slime ataca a Daniel por 0.97 de daño.
+f2398 LOG 1. Rey Slime ataca a Daniel y le inflige 0.97 de daño.
 f2398 Daniel hp=183.273 mp=20.000 en=181.025
 f2398 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2398 Slime venenoso hp=0.000 mp=20.363 en=0.000
@@ -3735,7 +3735,7 @@ f2514 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2515 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2515 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2515 PULSA Atacar
-f2516 LOG Daniel golpea con Maza pequeña por 5.01 de daño.
+f2516 LOG Daniel golpea con Maza pequeña e inflige 5.01 de daño.
 f2516 Rey Slime hp=278.251 mp=21.188 en=0.000
 f2516 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2516 Slime venenoso hp=0.000 mp=20.363 en=0.000
@@ -3864,7 +3864,7 @@ f2577 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2578 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2578 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2578 PULSA Atacar
-f2579 LOG Catalardio golpea con Martillo grande por 12.31 de daño.
+f2579 LOG Catalardio golpea con Martillo grande e inflige 12.31 de daño.
 f2579 Catalardio hp=198.329 mp=24.620 en=163.275
 f2579 Rey Slime hp=265.939 mp=21.188 en=0.000
 f2579 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -4397,7 +4397,7 @@ f2832 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2833 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2833 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2833 PULSA Atacar
-f2834 LOG Catalardio golpea con Martillo grande por 13.44 de daño.
+f2834 LOG Catalardio golpea con Martillo grande e inflige 13.44 de daño.
 f2834 Catalardio hp=198.329 mp=24.620 en=181.275
 f2834 Rey Slime hp=243.598 mp=21.188 en=0.000
 f2834 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -4794,7 +4794,7 @@ f3024 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3025 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3025 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3025 PULSA Atacar
-f3026 LOG Catalardio golpea con Martillo grande por 12.74 de daño.  ¡Retrasado! 💫
+f3026 LOG Catalardio golpea con Martillo grande e inflige 12.74 de daño.  ¡Retrasado! 💫
 f3026 Rey Slime hp=224.021 mp=21.188 en=0.000
 f3026 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3026 Slime venenoso hp=0.000 mp=20.363 en=0.000
@@ -4905,7 +4905,7 @@ f3078 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3079 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3079 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3079 PULSA Atacar
-f3080 LOG Dasui golpea con Mandobles por 9.74 de daño.
+f3080 LOG Dasui golpea con Mandobles e inflige 9.74 de daño.
 f3080 Dasui hp=199.517 mp=20.000 en=178.300
 f3080 Rey Slime hp=214.282 mp=21.188 en=0.000
 f3080 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -5034,7 +5034,7 @@ f3139 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3140 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3140 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3140 PULSA Atacar
-f3141 LOG Daniel golpea con Maza pequeña por 5.21 de daño.
+f3141 LOG Daniel golpea con Maza pequeña e inflige 5.21 de daño.
 f3141 Daniel hp=183.273 mp=20.000 en=174.025
 f3141 Rey Slime hp=209.072 mp=21.188 en=0.000
 f3141 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -5449,7 +5449,7 @@ f3506 Slime hp=23.047 mp=20.363 en=0.000
 f3506 Slime hp=22.621 mp=20.363 en=0.000
 f3507 Slime hp=23.047 mp=20.363 en=0.000
 f3507 Slime hp=22.621 mp=20.363 en=0.000
-f3508 LOG 2. Slime ataca a Daniel por 0.64 de daño.  Le inflige Pegajoso.
+f3508 LOG 2. Slime ataca a Daniel y le inflige 0.64 de daño.  Le inflige Pegajoso.
 f3508 Daniel hp=365.908 mp=20.000 en=122.025
 f3508 Slime hp=23.047 mp=20.363 en=0.000
 f3508 Slime hp=22.621 mp=20.363 en=0.000
@@ -5555,7 +5555,7 @@ f3558 Slime hp=23.047 mp=20.363 en=0.000
 f3558 Slime hp=22.621 mp=20.363 en=0.000
 f3559 Slime hp=23.047 mp=20.363 en=0.000
 f3559 Slime hp=22.621 mp=20.363 en=0.000
-f3560 LOG 3. Slime ataca a Catalardio por 0.13 de daño.  Le inflige Pegajoso.
+f3560 LOG 3. Slime ataca a Catalardio y le inflige 0.13 de daño.  Le inflige Pegajoso.
 f3560 Catalardio hp=198.196 mp=24.620 en=121.275
 f3560 Slime hp=23.047 mp=20.363 en=0.000
 f3560 Slime hp=22.621 mp=20.363 en=0.000

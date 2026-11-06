@@ -16,6 +16,7 @@
 # ============================================================
 
 extends Control
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 signal cerrado
 
@@ -72,7 +73,7 @@ func _ready() -> void:
 	sb.content_margin_right = 42
 	sb.content_margin_top = 32
 	sb.content_margin_bottom = 32
-	panel.add_theme_stylebox_override("panel", sb)
+	panel.add_theme_stylebox_override("panel", HudEstilo.a_pixel(sb, true))
 	center.add_child(panel)
 
 	var vb := VBoxContainer.new()

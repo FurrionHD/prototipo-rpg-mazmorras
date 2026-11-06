@@ -38,6 +38,7 @@ extends Button
 class_name CeldaObjeto
 
 const RetratoPieza = preload("res://scripts/ui/retrato_pieza.gd")
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 # --- proporciones, todas relativas al lado de la celda ---
 const MUESCA := 0.24        # lo que se come el chaflan de la esquina superior izquierda
@@ -251,7 +252,10 @@ func _draw() -> void:
 		# vertical: mezcla las dos coordenadas en vez de mirar solo la y.
 		var t: float = clampf((p.x / w + (1.0 - p.y / h)) * 0.5, 0.0, 1.0)
 		colores.append(oscuro.lerp(claro, t))
-	draw_polygon(borde, colores)
+	if HudEstilo.es_pixel():
+		_fondo_franjas(borde, w, h, oscuro, claro)
+	else:
+		draw_polygon(borde, colores)
 
 	# 1b. LA MUESCA, DEL COLOR DEL TIER. El hueco que deja el chaflan estaba a oscuras y no decia
 	# nada: cinco piezas de armadura seguidas se veian iguales y habia que pulsarlas una a una para
@@ -359,7 +363,20 @@ func _draw() -> void:
 	# chaflan y la esquina queda en angulo recto. Siguiendo la diagonal del chaflan, el marco pasaba
 	# justo por encima del numero del tier y lo tapaba.
 	var marco: PackedVector2Array = _contorno_marco(w, h)
-	if button_pressed:
+	if HudEstilo.es_pixel() and (button_pressed or _hover or has_focus()):
+		# En pixel, el marco va EXACTO por dentro de la silueta (Geometry2D.offset_polygon, no _encoger, que es
+		# aproximado y lo dejaba torcido): un canto negro de P y el ambar de 2P por dentro; al pasar por encima, blanco.
+		# Y los NUMEROS de las muescas se repintan encima: el marco no los tapa.
+		# (06/11, el jefe: "tiene que ser el marco amarillo FUERA del recuadro, rodeando, no dentro") POR FUERA: el ambar de
+		# 2P pegado a la silueta, en el hueco entre celdas (6 px en las rejillas), sin tapar nada de la celda.
+		if button_pressed:
+			_anillo_px(marco, -P, P * 2.0, Color(0.95, 0.72, 0.36, 1.0))
+		else:
+			_anillo_px(marco, -P * 0.5, P, Color(1, 1, 1, 0.45))
+		_numero_tier(w, h)
+		if _plus() > 0:
+			_numero_plus(w, h, _plus())
+	elif button_pressed:
 		var g: float = maxf(2.5, w * 0.034)
 		draw_polyline(_cerrar(marco), Color(0.03, 0.04, 0.06, 0.92), g * 1.9)
 		draw_polyline(_cerrar(_encoger(marco, w, h, g * 0.55)), Color(0.95, 0.72, 0.36, 1.0), g)
@@ -440,11 +457,14 @@ func _muesca_tier(w: float, h: float) -> void:
 	# (el trapecio de debajo), que multiplica la superficie sin tocar la silueta de la celda: la
 	# muesca sigue siendo la misma, lo que cambia es que ahora esta pintada.
 	var f: float = m * BANDA_TIER
-	draw_colored_polygon(PackedVector2Array([
-		Vector2.ZERO, Vector2(m + f, 0.0), Vector2(0.0, m + f)]), col)
+	draw_colored_polygon(_px(PackedVector2Array([
+		Vector2.ZERO, Vector2(m + f, 0.0), Vector2(0.0, m + f)]), Vector2.ZERO), col)
 	# Una linea mas clara en el canto de dentro: separa la franja del degradado del fondo, que en las
 	# rarezas claras tiran al mismo sitio y se comian el borde.
-	draw_line(Vector2(m + f, 0.0), Vector2(0.0, m + f), col.lightened(0.35), 2.0, true)
+	if HudEstilo.es_pixel():
+		_linea_px(Vector2(m + f, 0.0), Vector2(0.0, m + f), Vector2.ZERO, col.lightened(0.35))
+	else:
+		draw_line(Vector2(m + f, 0.0), Vector2(0.0, m + f), col.lightened(0.35), 2.0, true)
 
 	# EL NUMERO DEL TIER, escrito en la franja. El color agrupa de un vistazo (cuatro T2 seguidos se
 	# ven de golpe) y el numero lo remata sin dejar dudas, que era la pega del color solo: hay que
@@ -455,6 +475,17 @@ func _muesca_tier(w: float, h: float) -> void:
 	#
 	# Y ya no hay puntos de vuelta: los puso el diseño de color para separar un T2 de un T8, y con el
 	# numero escrito eso lo dice el propio numero. Dos formas de contar lo mismo es una de mas.
+	_numero_tier(w, h)
+
+
+# El NUMERO del tier en su muesca. Aparte para poder repintarlo ENCIMA del marco de seleccionada (en pixel).
+func _numero_tier(w: float, h: float) -> void:
+	var tier: int = IconoItem.tier_de(item) if item != null else 0
+	if tier <= 0:
+		return
+	var m: float = minf(w, h) * MUESCA
+	var f: float = m * BANDA_TIER
+	var col: Color = IconoItem.color_tier(tier)
 	var fuente: Font = get_theme_font(&"font")
 	var tam: int = maxi(int(minf(w, h) * 0.17), 8)
 	var txt: String = str(tier)
@@ -596,15 +627,26 @@ func _muesca_plus(w: float, h: float, n: int) -> float:
 	# El vertice de la derecha NO llega a la esquina: ahi el contorno lleva su chaflan pequeño (ver
 	# _contorno), y pintar hasta el pico se saldria del fondo por dos puntas.
 	var r: float = minf(w, h) * REDONDEO
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(w - lado, 0.0), Vector2(w - r, 0.0), Vector2(w, r), Vector2(w, lado)]), col)
+	draw_colored_polygon(_px(PackedVector2Array([
+		Vector2(w - lado, 0.0), Vector2(w - r, 0.0), Vector2(w, r), Vector2(w, lado)]), Vector2(w, 0.0)), col)
 	# La misma linea clara del canto que en el tier: sobre las rarezas claras el color de la muesca y
 	# el del fondo tiran al mismo sitio y el borde se perdia.
-	draw_line(Vector2(w - lado, 0.0), Vector2(w, lado), col.lightened(0.35), 2.0, true)
+	if HudEstilo.es_pixel():
+		_linea_px(Vector2(w - lado, 0.0), Vector2(w, lado), Vector2(w, 0.0), col.lightened(0.35))
+	else:
+		draw_line(Vector2(w - lado, 0.0), Vector2(w, lado), col.lightened(0.35), 2.0, true)
 
 	# EL NUMERO, dentro del triangulo y pegado a su lado ancho. El "+" va delante porque es lo que lo
 	# distingue del tier de enfrente: sin el, dos numeros sueltos en las dos esquinas se leen como si
 	# midieran lo mismo.
+	_numero_plus(w, h, n)
+	return lado
+
+
+# El NUMERO del +N en su muesca (aparte, como el del tier, para repintarlo encima del marco).
+func _numero_plus(w: float, h: float, n: int) -> void:
+	var col: Color = IconoItem.color_mejora(n)
+	var lado: float = minf(w, h) * (MUESCA + MUESCA * BANDA_TIER)
 	var fuente: Font = get_theme_font(&"font")
 	var txt: String = "+%d" % n
 	# Los de DOS CIFRAS ("+12") en un cuerpo menor: el triangulo se estrecha hacia abajo y a tamaño
@@ -619,13 +661,16 @@ func _muesca_plus(w: float, h: float, n: int) -> float:
 		else Color(1, 1, 1, 0.95)
 	draw_string(fuente, Vector2(cx - an * 0.5, cy + float(tam) * 0.38), txt,
 		HORIZONTAL_ALIGNMENT_LEFT, -1, tam, tinta)
-	return lado
 
 
 # El contorno de la celda: rectangulo con la esquina superior izquierda MUY achaflanada (la muesca,
 # que es la marca de la casa) y las otras tres apenas matadas. Va en sentido horario desde el final
 # de la muesca.
 func _contorno(w: float, h: float) -> PackedVector2Array:
+	return _px(_contorno_crudo(w, h), Vector2(w, h) * 0.5)
+
+
+func _contorno_crudo(w: float, h: float) -> PackedVector2Array:
 	var m: float = minf(w, h) * MUESCA
 	var r: float = minf(w, h) * REDONDEO
 	return PackedVector2Array([
@@ -636,16 +681,121 @@ func _contorno(w: float, h: float) -> PackedVector2Array:
 	])
 
 
+# ------------------------------------------------------------
+#  EN PIXEL (06/11, rework visual: "las celdas de objetos, pixel"): con el estilo pixel de mazmorra (HudEstilo) cada
+#  lado en DIAGONAL se vuelve una ESCALERA de pixeles de P, hacia dentro de la celda (cada peldaño elige la esquina mas
+#  cercana a 'centro'). Lo usan el contorno, la muesca del tier y la del +N, asi que el fondo, la banda del pie y los
+#  marcos salen en pixel solos. Los colores no cambian: la rareza y el tier se leen igual.
+# ------------------------------------------------------------
+const P := 2.0
+
+static func _px(poly: PackedVector2Array, centro: Vector2) -> PackedVector2Array:
+	if not HudEstilo.es_pixel():
+		return poly
+	var out := PackedVector2Array()
+	var n: int = poly.size()
+	for i in n:
+		_tramo(poly[i], poly[(i + 1) % n], centro, out)
+	# SIN PUNTOS REPETIDOS SEGUIDOS: al ajustar a la rejilla salen, y con ellos draw_colored_polygon no triangula y no
+	# pinta nada, sin avisar (las franjas del fondo no salian).
+	var limpio := PackedVector2Array()
+	for v in out:
+		if limpio.is_empty() or not limpio[limpio.size() - 1].is_equal_approx(v):
+			limpio.append(v)
+	while limpio.size() > 1 and limpio[0].is_equal_approx(limpio[limpio.size() - 1]):
+		limpio.remove_at(limpio.size() - 1)
+	# (06/11) Y SIN PUNTOS EN LINEA: la escalera de un lado muy corto va y vuelve sobre la misma recta (un pico de grosor
+	# cero) y con eso Godot tampoco triangula ("Invalid polygon data, triangulation failed", ~790 veces al abrir el
+	# inventario). Un punto alineado con sus dos vecinos no cambia la forma, asi que se quita.
+	var cambio := true
+	while cambio and limpio.size() > 3:
+		cambio = false
+		for i in limpio.size():
+			var a0: Vector2 = limpio[(i - 1 + limpio.size()) % limpio.size()]
+			var b0: Vector2 = limpio[i]
+			var c0: Vector2 = limpio[(i + 1) % limpio.size()]
+			if absf((b0 - a0).cross(c0 - b0)) < 0.001:
+				limpio.remove_at(i)
+				cambio = true
+				break
+	return limpio
+
+# Añade a 'out' el lado de 'a' a 'b' en escalera: 'a' y los peldaños, sin 'b' (que es el principio del siguiente).
+static func _tramo(a: Vector2, b: Vector2, centro: Vector2, out: PackedVector2Array) -> void:
+	a = a.snapped(Vector2(P, P))
+	b = b.snapped(Vector2(P, P))
+	out.append(a)
+	if is_equal_approx(a.x, b.x) or is_equal_approx(a.y, b.y):
+		return
+	var pasos: int = maxi(1, roundi(maxf(absf(b.x - a.x), absf(b.y - a.y)) / P))
+	var prev: Vector2 = a
+	for k in range(1, pasos + 1):
+		var q: Vector2 = a.lerp(b, float(k) / float(pasos)).snapped(Vector2(P, P))
+		var c1 := Vector2(q.x, prev.y)
+		var c2 := Vector2(prev.x, q.y)
+		out.append(c1 if c1.distance_squared_to(centro) < c2.distance_squared_to(centro) else c2)
+		if k < pasos:
+			out.append(q)
+		prev = q
+
+
+# EL FONDO EN FRANJAS (pixel): el mismo recorrido de color que el degradado, de oscuro abajo-izquierda a claro
+# arriba-derecha, pero en FRANJAS planas con el borde en escalera, que es como se pinta un degradado en pixel art.
+const FRANJAS := 5
+
+func _fondo_franjas(borde: PackedVector2Array, w: float, h: float, oscuro: Color, claro: Color) -> void:
+	draw_colored_polygon(borde, oscuro.lerp(claro, 0.5 / float(FRANJAS)))
+	for k in range(1, FRANJAS):
+		# Lo que queda por encima de la diagonal u - v = d (u = x/w, v = y/h): la mitad clara.
+		var d: float = 2.0 * float(k) / float(FRANJAS) - 1.0
+		var p0 := Vector2(d, 0.0)
+		var l := Vector2(1.0, 1.0) * 3.0
+		var nrm := Vector2(1.0, -1.0) * 3.0
+		var semi := PackedVector2Array()
+		for q in [p0 - l, p0 + l, p0 + l + nrm, p0 - l + nrm]:
+			semi.append(Vector2(q.x * w, q.y * h))
+		var col: Color = oscuro.lerp(claro, (float(k) + 0.5) / float(FRANJAS))
+		for trozo in Geometry2D.intersect_polygons(borde, semi):
+			var c := Vector2.ZERO
+			for v in trozo:
+				c += v
+			var esc: PackedVector2Array = _px(trozo, c / float(maxi(trozo.size(), 1)))
+			# Si la escalera de un trozo diminuto no se puede triangular, el trozo tal cual (sin escalera): un punto de
+			# color mal puesto no se ve; el error en la consola, cada vez que se pinta una celda, si.
+			if esc.size() < 3 or Geometry2D.triangulate_polygon(esc).is_empty():
+				esc = trozo
+			if esc.size() >= 3 and not Geometry2D.triangulate_polygon(esc).is_empty():
+				draw_colored_polygon(esc, col)
+
+
+# Un anillo de 'grueso' a 'dentro' px por dentro del contorno 'poly', sin suavizar (el marco de seleccionada en pixel).
+func _anillo_px(poly: PackedVector2Array, dentro: float, grueso: float, col: Color) -> void:
+	var hechos: Array = Geometry2D.offset_polygon(poly, -dentro, Geometry2D.JOIN_MITER)
+	if hechos.is_empty():
+		return
+	draw_polyline(_cerrar(hechos[0]), col, grueso, false)
+
+
+# Una linea en escalera de 'a' a 'b' (el canto claro de las muescas), hacia 'centro'.
+func _linea_px(a: Vector2, b: Vector2, centro: Vector2, col: Color) -> void:
+	var tramo := PackedVector2Array()
+	_tramo(a, b, centro, tramo)
+	tramo.append(b.snapped(Vector2(P, P)))
+	draw_polyline(tramo, col, P, false)
+
+
 # Por donde va el MARCO de seleccionada/hover. Sin tier es el contorno de siempre; con tier, el
 # triangulo de la muesca tapa el chaflan (llega hasta la esquina, ver _muesca_tier) y lo que se ve es
 # una esquina en angulo recto, asi que el marco la rodea por fuera en vez de cortar el triangulo.
 func _contorno_marco(w: float, h: float) -> PackedVector2Array:
-	var c: PackedVector2Array = _contorno(w, h)
+	var c: PackedVector2Array = _contorno_crudo(w, h)
 	if item == null or IconoItem.tier_de(item) <= 0:
-		return c
+		return _px(c, Vector2(w, h) * 0.5)
 	# El contorno empieza en (m, 0) y acaba en (0, m): la esquina va entre esos dos, cerrando el recorrido.
+	# (06/11) Se añade ANTES de la escalera: añadida despues, la escalera del chaflan ya estaba hecha y el marco
+	# cortaba la muesca en diagonal en vez de rodear la esquina.
 	c.append(Vector2.ZERO)
-	return c
+	return _px(c, Vector2(w, h) * 0.5)
 
 
 # El mismo contorno metido 'd' pixeles hacia DENTRO. Se hace tirando cada vertice hacia el centro de

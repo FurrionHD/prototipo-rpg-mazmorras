@@ -17,6 +17,7 @@
 # ============================================================
 
 extends CanvasLayer
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 const AMBAR := Color(0.95, 0.72, 0.36)
 const VERDE := Color(0.55, 0.85, 0.55)
@@ -749,10 +750,15 @@ func _dibujar_pestana(c: Control, i: int) -> void:
 
 	# EL FONDO de la pestaña, con el tinte de su rareza. La abierta lleva marco claro y la cerrada uno
 	# apenas visible: es el segundo aviso de cual esta abierta, detras del ancho.
-	c.draw_rect(Rect2(Vector2.ZERO, Vector2(w, h)),
-		Color(col.r * 0.14 + 0.05, col.g * 0.14 + 0.05, col.b * 0.14 + 0.07, 1.0), true)
-	c.draw_rect(Rect2(Vector2.ZERO, Vector2(w, h)),
-		Color(1, 1, 1, 0.75) if sel else Color(1, 1, 1, 0.12), false, 2.0 if sel else 1.0)
+	var fondo_p := Color(col.r * 0.14 + 0.05, col.g * 0.14 + 0.05, col.b * 0.14 + 0.07, 1.0)
+	if HudEstilo.es_pixel():
+		# (06/11) marco de pixel del color de su rareza; la abierta, mas claro.
+		c.draw_style_box(HudEstilo.marco_px(fondo_p, false, col.lightened(0.25) if sel else col.darkened(0.45)),
+			Rect2(Vector2.ZERO, Vector2(w, h)))
+	else:
+		c.draw_rect(Rect2(Vector2.ZERO, Vector2(w, h)), fondo_p, true)
+		c.draw_rect(Rect2(Vector2.ZERO, Vector2(w, h)),
+			Color(1, 1, 1, 0.75) if sel else Color(1, 1, 1, 0.12), false, 2.0 if sel else 1.0)
 
 	# EL TOMO, a la izquierda y siempre del mismo tamaño: lo que cambia entre abierta y cerrada es el
 	# hueco de al lado (donde cabe el nombre), no la miniatura.
@@ -1520,6 +1526,10 @@ func _pintar_carta_res(t: Dictionary) -> void:
 	dib.set_meta("col", _color_entrada(vista, seccion) if finge else color)
 	dib.set_meta("gordo", vista >= Upgrades.Rareza.EPICO)
 	dib.set_meta("familia", _familia_de(vista, seccion))
+	# EL LIBRO EN PIXEL que se ve (06/11). Mientras finge, un SEÑUELO: otro grimorio de la rareza que
+	# aparenta. Con el suyo propio el emblema y el color de la tapa destaparian el amago antes de tiempo.
+	dib.set_meta("tomo_real", c.tomo_id)
+	dib.set_meta("tomo", _senuelo(vista, c.tomo_id) if finge else c.tomo_id)
 	dib.draw.connect(_dibujar_carta_res.bind(dib))
 	_zona_res.add_child(dib)
 	_carta_actual = dib
@@ -1548,7 +1558,7 @@ func _pintar_carta_res(t: Dictionary) -> void:
 	sb.set_corner_radius_all(3)
 	sb.content_margin_top = 2
 	sb.content_margin_bottom = 2
-	cinta.add_theme_stylebox_override("normal", sb)
+	cinta.add_theme_stylebox_override("normal", HudEstilo.a_pixel(sb))
 	cinta.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	caja.add_child(cinta)
 
@@ -1592,7 +1602,8 @@ func _pintar_carta_res(t: Dictionary) -> void:
 func _dibujar_carta_res(c: Control) -> void:
 	if bool(c.get_meta("volteada", false)):
 		_banner.dibujar_tomo(c, c.get_meta("col", Color.WHITE),
-			bool(c.get_meta("gordo", false)), int(c.get_meta("familia", 0)))
+			bool(c.get_meta("gordo", false)), int(c.get_meta("familia", 0)),
+			StringName(c.get_meta("tomo", &"")))
 	else:
 		_banner.dibujar_dorso(c)
 
@@ -1672,6 +1683,7 @@ func _transformar_carta(dib: Control, caja: Control, r: int, color: Color) -> vo
 	dib.set_meta("col", color)
 	dib.set_meta("gordo", r >= Upgrades.Rareza.EPICO)
 	dib.set_meta("familia", _familia_de(r, String(dib.get_meta("seccion", ""))))
+	dib.set_meta("tomo", dib.get_meta("tomo_real", &""))
 	dib.queue_redraw()
 	dib.modulate = Color(2.4, 2.4, 2.4)
 	var tw: Tween = create_tween()
@@ -1771,7 +1783,7 @@ func _mini_resumen(rejilla: GridContainer, t: Dictionary) -> void:
 	dib.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	caja.add_child(dib)
 	var gordo: bool = r >= Upgrades.Rareza.EPICO
-	dib.draw.connect(_banner.dibujar_tomo.bind(dib, color, gordo, familia))
+	dib.draw.connect(_banner.dibujar_tomo.bind(dib, color, gordo, familia, c.tomo_id))
 
 	# LAS ESTRELLAS TAMBIEN AQUI. Sin ellas, un GRIMORIO comun se veia igual que una curiosidad
 	# -- mismo dibujo, y el gris del comun y el de los menus son casi el mismo color -- asi que un
@@ -2278,6 +2290,20 @@ func _banner_nombre() -> String:
 
 # TODO el catalogo: los hechizos que tienen grimorio. Sale del manifiesto y no de escanear la carpeta
 # porque en el .exe un escaneo de res:// no es de fiar (ver Libros).
+# EL SEÑUELO DEL AMAGO: un grimorio de rareza 'r' que no sea el de verdad, el mismo cada vez para la misma
+# carta (sale del id del real, no del azar: la carta se repinta muchas veces mientras finge). Si no hay
+# ninguno de esa rareza, sin libro (&""): la carta cae al tomo generico con el rombo.
+func _senuelo(r: int, real: StringName) -> StringName:
+	var ids: Array = []
+	for s in _todos_los_grimorios():
+		var id: StringName = GachaBanner.LibrosPixel.id_de_magia(s)
+		if int(s.rareza) == r and id != real:
+			ids.append(id)
+	if ids.is_empty():
+		return &""
+	return ids[absi(hash(real)) % ids.size()]
+
+
 func _todos_los_grimorios() -> Array:
 	var out: Array = []
 	for ruta in Libros.GRIMORIOS:
@@ -2362,6 +2388,14 @@ func _pintar_biblioteca(_pj: PersonajeData) -> void:
 	sub.add_theme_color_override("font_color", MenuScaffold.GRIS)
 	sub.add_theme_font_size_override("font_size", 11)
 	_content.add_child(sub)
+	# (06/11) EL LIBRO EN GRANDE, el de pixel a x3: es el que se esta leyendo.
+	if GachaBanner.LibrosPixel.tiene(c2.tomo_id):
+		var tapa := Control.new()
+		tapa.custom_minimum_size = Vector2(0, 104)
+		tapa.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tapa.draw.connect(func() -> void:
+			GachaBanner.LibrosPixel.pintar(tapa, Vector2(48.0, tapa.size.y * 0.5), 96.0, c2.tomo_id))
+		_content.add_child(tapa)
 	_content.add_child(HSeparator.new())
 	var txt := Label.new()
 	txt.text = c2.descripcion
@@ -2375,10 +2409,18 @@ func _pintar_biblioteca(_pj: PersonajeData) -> void:
 func _celda_libro(grid: GridContainer, c: ConsumableData) -> void:
 	var leido: bool = Game.tomo_leido(c.tomo_id)
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(0, 34)
+	# 38 y no 34 (06/11): cabe el libro de 32 px, y los no leidos miden lo mismo para que las filas casen.
+	b.custom_minimum_size = Vector2(0, 38)
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.text = "  " + (c.nombre if leido else "— — —")
 	b.disabled = not leido
+	# (06/11) SU LIBRO a la izquierda del nombre, a tamaño real (32 px) y nitido. El que no has leido no lo
+	# enseña: la gracia de la coleccion es no saber que te falta.
+	if leido:
+		var tex: Texture2D = GachaBanner.LibrosPixel.textura(c.tomo_id)
+		if tex != null:
+			b.icon = tex
+			b.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	if leido:
 		b.add_theme_color_override("font_color", MenuScaffold.AMBAR
 			if c.es_grimorio() else Color(0.86, 0.89, 0.94))
@@ -2396,7 +2438,7 @@ func _celda_libro(grid: GridContainer, c: ConsumableData) -> void:
 		# LOS TRES ESTADOS o el marco se cae al pasar el raton por encima, que es justo cuando lo
 		# estas mirando: el tema repone con su gris cualquiera que no se sobreescriba.
 		for estado in ["normal", "hover", "pressed"]:
-			b.add_theme_stylebox_override(estado, sb)
+			b.add_theme_stylebox_override(estado, HudEstilo.a_pixel(sb))
 	grid.add_child(b)
 
 

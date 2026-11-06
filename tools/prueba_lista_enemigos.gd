@@ -53,8 +53,6 @@ func _correr() -> void:
 		get_tree().quit(1)
 		return
 	var nodo: Node2D = await j.poner("res://scenes/actors/enemy/guardian_rango.tres", Vector2(0, 130), {})
-	await j.poner("res://scenes/actors/enemy/rata.tres", Vector2(70, 170), {})
-	await j.poner("res://scenes/actors/enemy/slime.tres", Vector2(-70, 170), {})
 	# LE PEGO YA, sin los 2 s que da j.pelear por si me embisten (28/10): el minotauro es un guardian A DISTANCIA y se
 	# aparta cuando me pego a el, y en ese rato la rata llegaba y embestia; la pelea se abria con ella y el slime, y el
 	# minotauro, ya a mas de RADIO_REFUERZO, se quedaba fuera (lo correcto en el juego; la prueba lo dejaba al azar).
@@ -62,6 +60,11 @@ func _correr() -> void:
 	if nodo != null:
 		var yo: Node2D = get_tree().get_first_node_in_group("player") as Node2D
 		yo.recolocar(nodo.global_position + Vector2(40, 0))
+		# (06/11) LOS OTROS DOS, YA AQUI y pegados (se ponen respecto al jugador): puestos al principio, con el banco
+		# cargando la maquina pasaba rato hasta el golpe, se iban andando fuera de la zona y la pelea se abria solo con el
+		# minotauro (lo correcto en el juego: los de fuera no entran; el azar era de la prueba).
+		await j.poner("res://scenes/actors/enemy/rata.tres", Vector2(0, 45), {})
+		await j.poner("res://scenes/actors/enemy/slime.tres", Vector2(-60, 30), {})
 		nodo.atacado_por_jugador(0.3)
 		await j._hasta(func(): return j.pantalla() != null and Net.peleas.espejando(), 10.0)
 		combat = j.pantalla()

@@ -70,6 +70,27 @@ func _correr() -> void:
 	var yo: Node = get_tree().get_first_node_in_group("player")
 	var otros: BarrasOtros = yo._barras_otros
 	var escala_sola: float = yo.escala_fila()
+	# (06/11) Y la del HUD de una pelea normal, SOLO con tu grupo (la de abajo lleva el otro grupo y encoge la fila).
+	if OS.get_environment("BARRAS_SALIDA") != "" and DisplayServer.get_name() != "headless":
+		await _esperar(20)
+		get_tree().root.get_viewport().get_texture().get_image().save_png(OS.get_environment("BARRAS_SALIDA") + "_solo.png")
+		print("     captura: %s_solo.png" % OS.get_environment("BARRAS_SALIDA"))
+		# Y LA FICHA DE DETALLE (la de mantener pulsado / el boton de info): sus tres pestañas, de uno de los tuyos y del
+		# enemigo. Directo a combate_detalle (sin pasar por _puedo_inspeccionar, que pide que sea tu turno).
+		var det = preload("res://scripts/ui/combate_detalle.gd").new()
+		det.preparar(combat)
+		combat.add_child(det)
+		for quien in [["aliado", combat._aliados[0]], ["enemigo", combat._enemies[0]]]:
+			det.abrir(quien[1])
+			for p in 3:
+				det._pestana = p
+				det._refrescar()
+				await _esperar(12)
+				get_tree().root.get_viewport().get_texture().get_image().save_png(
+					"%s_detalle_%s_%d.png" % [OS.get_environment("BARRAS_SALIDA"), quien[0], p])
+		det.cerrar()
+		det.queue_free()
+		await _esperar(3)
 	var grupos: Array = []
 	var jugadores: Array = OS.get_environment("BARRAS_JUGADORES").split(",", false)
 	if jugadores.is_empty():

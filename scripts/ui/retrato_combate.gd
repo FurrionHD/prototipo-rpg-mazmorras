@@ -42,6 +42,17 @@ static func poner(padre: Control, c: Combatant) -> bool:
 	return false
 
 
+# (06/11, rework del HUD) Lo mismo a partir de la FICHA (la fila del grupo no tiene combatiente fuera de la pelea).
+static func poner_pj(padre: Control, pj: PersonajeData) -> bool:
+	if pj == null:
+		return false
+	var foto: Texture2D = pj.textura()
+	if foto != null:
+		padre.add_child(_textura(foto, false))
+		return true
+	return _cara_de_muneco(padre, pj)
+
+
 # El primer fotograma del enemigo, RECORTADO A LO QUE SE VE. Devuelve null si no tiene sprite (los
 # que siguen siendo un cuadrado de color), y entonces se pinta su color.
 #

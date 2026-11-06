@@ -15,6 +15,7 @@
 # ============================================================
 
 extends CanvasLayer
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 const AMBAR := Color(0.95, 0.72, 0.36)
 const GRIS := Color(0.6, 0.63, 0.7)
@@ -226,7 +227,7 @@ func _tarjeta(d: Dictionary, elegida: bool, i: int) -> Button:
 		sb.border_color = AMBAR if elegida else Color(1, 1, 1, 0.12)
 		sb.set_border_width_all(2 if elegida else 1)
 		sb.set_corner_radius_all(10)
-		b.draw_style_box(sb, Rect2(Vector2.ZERO, b.size))
+		b.draw_style_box(HudEstilo.a_pixel(sb), Rect2(Vector2.ZERO, b.size))
 		dibujo.call(b, Vector2(14, (b.size.y - LADO_ICONO) * 0.5), LADO_ICONO,
 			AMBAR if elegida else MenuScaffold.TAB_APAGADA))
 	b.mouse_entered.connect(b.queue_redraw)

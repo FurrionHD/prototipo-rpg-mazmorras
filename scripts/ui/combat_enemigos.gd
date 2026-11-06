@@ -56,6 +56,7 @@ func _enemy_turn(e: Combatant) -> void:
 	# LA HABILIDAD QUE ESPERABA (CombatPantalla.RETRASO_HABILIDAD): sale ahora, sin turno nuevo (ni estados ni
 	# cooldowns). Aturdido no: va por el turno de siempre, que se la interrumpe.
 	if e.retrasando and e.charging != null and not e.aturdido():
+		_pantalla.registro.abrir(e)
 		_abrir_turno_enemigo()
 		_llega_retrasada(e)
 		return
@@ -71,6 +72,7 @@ func _enemy_turn(e: Combatant) -> void:
 	# Estados alterados (KAN-58): tick al inicio del turno del enemigo.
 	var ev: Dictionary = e.tick_statuses()
 	_pantalla._log_tick(e, ev)
+	_pantalla.registro.abrir(e)   # (06/11) lo de despues es de SU accion: una fila en el registro
 	_pantalla._dps_add("DoT (estados)", float(ev.get("damage", 0.0)))   # sangrado/veneno/quemadura que le pusiste
 	_pantalla._update_hp()
 	if not e.is_alive():
@@ -337,7 +339,7 @@ func _enemy_turn(e: Combatant) -> void:
 	if result.crit:
 		msg = "%s CLAVA un critico a %s: %.2f de daño! 💥" % [_pantalla._etq(e), obj.nombre, dmg]
 	else:
-		msg = "%s ataca a %s por %.2f de daño." % [_pantalla._etq(e), obj.nombre, dmg]
+		msg = "%s ataca a %s y le inflige %.2f de daño." % [_pantalla._etq(e), obj.nombre, dmg]
 	msg += _pantalla.magia._elem_golpe_txt(result, e.elemento_ataque)
 	if bool(_pantalla._defendiendo.get(obj, false)):
 		msg += " (defendido 🛡️)"

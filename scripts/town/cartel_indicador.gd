@@ -5,6 +5,7 @@
 #  barrio norte ya no se ve desde la plaza a donde hay que ir.
 # ============================================================
 extends Node2D
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 const DURACION := 6.0
 # Mas lejos que esto (px) y el globo se cierra: ya no estas leyendo el cartel.
@@ -49,7 +50,7 @@ func interact_with_player() -> void:
 		sb.content_margin_right = 6
 		sb.content_margin_top = 4
 		sb.content_margin_bottom = 4
-		_globo.add_theme_stylebox_override("panel", sb)
+		_globo.add_theme_stylebox_override("panel", HudEstilo.a_pixel(sb))
 		_globo.z_as_relative = false
 		_globo.z_index = Z_GLOBO
 		_globo.mouse_filter = Control.MOUSE_FILTER_IGNORE

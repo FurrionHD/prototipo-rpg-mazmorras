@@ -24,8 +24,10 @@
 # ============================================================
 
 extends Control
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 const Iconos = preload("res://scripts/ui/iconos.gd")
+const LibrosPixel = preload("res://scripts/ui/libros_pixel.gd")
 
 const AMBAR := Color(0.95, 0.72, 0.36)
 const GRIS := Color(0.6, 0.63, 0.7)
@@ -103,6 +105,10 @@ func _montar_lienzo() -> void:
 	caja.set_border_width_all(1)
 	caja.set_corner_radius_all(10)
 	_lienzo.add_theme_stylebox_override("panel", caja)
+	if HudEstilo.es_pixel():   # (06/11) el panel de hierro con remaches, como los del HUD
+		var px = HudEstilo.CajaPixel.new()
+		px.fondo = caja.bg_color
+		_lienzo.add_theme_stylebox_override("panel", px)
 	add_child(_lienzo)
 
 	# EL FONDO DEL CARTEL, detrás de todo: un resplandor del color del destacado. Es lo que hace que
@@ -127,7 +133,10 @@ func _dibujar_fondo(c: Control, col: Color) -> void:
 	var centro := Vector2(c.size.x * 0.68, c.size.y * 0.5)
 	for i in range(10, 0, -1):
 		var t: float = float(i) / 10.0
-		c.draw_circle(centro, 90.0 + t * 250.0, Color(col.r, col.g, col.b, 0.030 * (1.0 - t) + 0.004))
+		if HudEstilo.es_pixel():   # (06/11) en discos de pixel, a escalones de 4
+			HudEstilo.disco_px(c, centro, 90.0 + t * 250.0, Color(col.r, col.g, col.b, 0.030 * (1.0 - t) + 0.004), 4.0)
+		else:
+			c.draw_circle(centro, 90.0 + t * 250.0, Color(col.r, col.g, col.b, 0.030 * (1.0 - t) + 0.004))
 
 
 # --- LA COLUMNA DE TEXTO: cinta, nombre del banner y el garantizado ---
@@ -150,6 +159,11 @@ func _montar_texto(padre: Control) -> void:
 	sb.content_margin_top = 3
 	sb.content_margin_bottom = 3
 	cinta.add_theme_stylebox_override("normal", sb)
+	if HudEstilo.es_pixel():   # (06/11) una placa de bronce de pixel
+		var px_c: StyleBox = HudEstilo.marco_px(AMBAR, false, AMBAR.darkened(0.3))
+		px_c.content_margin_top = 4
+		px_c.content_margin_bottom = 4
+		cinta.add_theme_stylebox_override("normal", px_c)
 	cinta.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	col.add_child(cinta)
 
@@ -227,7 +241,7 @@ func _montar_abanico(padre: Control) -> void:
 		return
 	var titulo := Label.new()
 	titulo.text = "TAMBIÉN DESTACAN"
-	titulo.position = Vector2(22, 250)
+	titulo.position = Vector2(22, 232)   # (06/11) 18 px mas arriba, con las cartas: ver abajo
 	titulo.add_theme_font_size_override("font_size", 11)
 	titulo.add_theme_color_override("font_color", AMBAR)
 	padre.add_child(titulo)
@@ -235,7 +249,9 @@ func _montar_abanico(padre: Control) -> void:
 	# TRES COMO MUCHO: es un adorno que dice "de esta banda hay varios", no un catalogo. La lista
 	# entera esta en el modal de detalles, que es donde se va a mirar.
 	var cuantos: int = mini(3, epicos.size())
-	var centro := Vector2(120, 350)
+	# (06/11) 18 px mas arriba: las laterales, giradas, bajaban justo hasta el borde del lienzo (430) y con el marco de
+	# pixel se salian por debajo (lo vio el jefe). Asi acaban a ~412, dentro del marco.
+	var centro := Vector2(120, 332)
 	for i in cuantos:
 		var s: SpellData = epicos[i]
 		var mini_c := Control.new()
@@ -249,7 +265,8 @@ func _montar_abanico(padre: Control) -> void:
 			- Vector2(MINI_ANCHO, MINI_ALTO) * 0.5
 		mini_c.rotation = desvio * MINI_GIRO
 		padre.add_child(mini_c)
-		mini_c.draw.connect(dibujar_tomo.bind(mini_c, Upgrades.rareza_color(int(s.rareza)), false, FAM_GRIMORIO))
+		mini_c.draw.connect(dibujar_tomo.bind(mini_c, Upgrades.rareza_color(int(s.rareza)), false, FAM_GRIMORIO,
+			LibrosPixel.id_de_magia(s)))
 
 
 # --- EL DESTACADO: la carta gorda y su nombre ---
@@ -272,7 +289,7 @@ func _montar_destacado(padre: Control) -> void:
 	carta.offset_bottom = CARTA_ALTO * 0.5
 	carta.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	padre.add_child(carta)
-	carta.draw.connect(dibujar_tomo.bind(carta, col, true, FAM_GRIMORIO))
+	carta.draw.connect(dibujar_tomo.bind(carta, col, true, FAM_GRIMORIO, LibrosPixel.id_de_magia(s)))
 
 	# EL NOMBRE Y LAS ESTRELLAS, A LA IZQUIERDA de la carta y no debajo: debajo hay que estrechar la
 	# carta para que quepan las dos cosas, y la carta es lo que se ha venido a ver.
@@ -310,6 +327,11 @@ func _montar_destacado(padre: Control) -> void:
 	banda.content_margin_top = 3
 	banda.content_margin_bottom = 3
 	estrellas.add_theme_stylebox_override("normal", banda)
+	if HudEstilo.es_pixel():   # (06/11) la banda con marco fino de pixel
+		var px_b: StyleBox = HudEstilo.marco_px(Color(0.04, 0.04, 0.06), false, col.darkened(0.3))
+		px_b.content_margin_left = 10
+		px_b.content_margin_right = 10
+		estrellas.add_theme_stylebox_override("normal", px_b)
 	caja.add_child(estrellas)
 
 	var pie := Label.new()
@@ -336,7 +358,10 @@ const FAM_CURIOSIDAD := 0
 const FAM_SABIDURIA := 1
 const FAM_GRIMORIO := 2
 
-func dibujar_tomo(c: Control, col: Color, gordo: bool, familia: int = FAM_CURIOSIDAD) -> void:
+# 'tomo' (06/11): el tomo_id del libro. Si tiene dibujo en pixel (ver libros_pixel.gd) la carta lleva ESE
+# libro -- el emblema de su magia, la tapa de su elemento -- en vez del tomo generico con la marca.
+func dibujar_tomo(c: Control, col: Color, gordo: bool, familia: int = FAM_CURIOSIDAD,
+		tomo: StringName = &"") -> void:
 	var w: float = c.size.x
 	var h: float = c.size.y
 	var r := Rect2(Vector2.ZERO, Vector2(w, h))
@@ -366,6 +391,13 @@ func dibujar_tomo(c: Control, col: Color, gordo: bool, familia: int = FAM_CURIOS
 		var m2: float = 8.0
 		c.draw_rect(Rect2(Vector2(m2, m2), Vector2(w - m2 * 2.0, h - m2 * 2.0)),
 			Color(1, 1, 1, 0.12), false, 1.0)
+
+	# EL LIBRO EN PIXEL, si lo tiene: a escala ENTERA y centrado. Lleva su emblema y su chispa de
+	# sabiduria dentro, asi que no hace falta la marca de la familia encima.
+	if LibrosPixel.tiene(tomo):
+		var lado_px: float = minf(w * (0.78 if gordo else 0.84), h * (0.64 if gordo else 0.62))
+		LibrosPixel.pintar(c, Vector2(w, h) * 0.5, lado_px, tomo)
+		return
 
 	# EL TOMO, centrado.
 	#

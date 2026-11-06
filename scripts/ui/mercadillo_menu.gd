@@ -12,6 +12,7 @@
 #  (Game.precio_mostrador / Game.comprar_lote).
 # ============================================================
 extends CanvasLayer
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 const AMBAR := Color(0.95, 0.72, 0.36)
 const LADO_CELDA := 96.0
@@ -79,7 +80,7 @@ func _construir() -> void:
 	sb.set_border_width_all(1)
 	sb.set_corner_radius_all(10)
 	sb.set_content_margin_all(16)
-	_panel.add_theme_stylebox_override("panel", sb)
+	_panel.add_theme_stylebox_override("panel", HudEstilo.a_pixel(sb, true))
 	_root.add_child(_panel)
 
 	var col := VBoxContainer.new()

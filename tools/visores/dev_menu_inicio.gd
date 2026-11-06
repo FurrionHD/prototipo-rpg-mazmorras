@@ -22,6 +22,9 @@ func _ready() -> void:
 	DisplayServer.window_set_size(Vector2i(1280, 720))
 
 	_menu = preload("res://scripts/ui/main_menu.gd").new()
+	# (06/11) El tema que le pone el juego (cuelga de la raiz, que lleva MenuScaffold.tema()): colgado de este Node la
+	# cadena del tema se corta y la captura salia con los botones de serie de Godot.
+	_menu.theme = MenuScaffold.tema()
 	add_child(_menu)
 	await get_tree().process_frame
 	await _captura("titulo")

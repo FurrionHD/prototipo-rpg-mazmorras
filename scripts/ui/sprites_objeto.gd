@@ -62,6 +62,10 @@ const FIJOS := {
 
 static var _cache: Dictionary = {}   # clave de forma + resolucion -> PackedByteArray de la rejilla
 
+# (06/11) LOS LIBROS van en pixel art de verdad, uno por tomo_id (ver libros_pixel.gd). El 'libro_<marca>' de
+# las facetas se queda solo para un libro nuevo que aun no tenga su dibujo.
+const LibrosPixel = preload("res://scripts/ui/libros_pixel.gd")
+
 
 # ============================================================
 #  QUE SE PINTA PARA CADA OBJETO
@@ -71,6 +75,11 @@ static func pintar_item(ci: CanvasItem, centro: Vector2, lado: float, item: Reso
 	var e: Dictionary = _encargo(item)
 	if e.is_empty():
 		return false
+	if e.has("libro"):
+		return LibrosPixel.pintar(ci, centro, lado * 0.92, e["libro"])
+	if e.has("herramienta"):
+		_pintar_imagen(ci, centro, lado, _imagen_herramienta(e), true)
+		return true
 	if e.has("planta") or e.has("pez"):
 		var img: Image = _imagen_pez(e["pez"], e["color"], int(e.get("grietas", 0))) if e.has("pez") \
 			else _imagen_planta(int(e["planta"]), e["color"], int(e.get("grietas", 0)))
@@ -112,12 +121,16 @@ static func textura_item(item: Resource) -> Dictionary:
 	var caja: float = 0.92 if (e.has("pez") or e.has("planta")) else 1.0
 	# HORNEADO PRIMERO, como los enemigos y el jugador: si el PNG esta en disco se carga (ver
 	# hornear_iconos); si no -- algo nuevo que aun no ha pasado por el horno --, se genera al vuelo.
-	var ruta: String = ruta_icono(clave, item)
+	# EL LIBRO no pasa por el horno: su PNG ya es el dibujo (sale de tools/libros_pixel.py).
+	var ruta: String = LibrosPixel.ruta(e["libro"]) if e.has("libro") else ruta_icono(clave, item)
 	var tex: Texture2D = null
 	if ResourceLoader.exists(ruta):
 		tex = load(ruta) as Texture2D
 	if tex == null:
 		tex = ImageTexture.create_from_image(_imagen_de(e))
+		# El pixel art se amplia por un ENTERO (RetratoPieza.encajar), como el que viene de disco.
+		if e.has("herramienta"):
+			tex.set_meta("pixel", true)
 	var out: Dictionary = {"tex": tex, "caja": caja}
 	_cache_tex[clave] = out
 	return out
@@ -130,7 +143,7 @@ static func clave_icono(item: Resource) -> String:
 		return ""
 	return "%s|%s|%d|%s|%s" % [String(e.get("forma", "")), (e["color"] as Color).to_html(),
 		int(e.get("grietas", 0)), bool(e.get("puro", false)),
-		String(e["pez"].id) if e.has("pez") else str(e.get("planta", ""))]
+		String(e["pez"].id) if e.has("pez") else (String(e["libro"]) if e.has("libro") else str(e.get("planta", "")))]
 
 
 const CARPETA_ICONOS := "res://assets/sprites/iconos/"
@@ -181,6 +194,10 @@ static func _carpeta_de(item: Resource) -> String:
 static func _imagen_de(e: Dictionary) -> Image:
 	var col: Color = e["color"]
 	var img: Image
+	if e.has("libro"):
+		return LibrosPixel.imagen(e["libro"]).duplicate()
+	if e.has("herramienta"):
+		return _imagen_herramienta(e).duplicate()
 	if e.has("pez") or e.has("planta"):
 		img = (_imagen_pez(e["pez"], col, int(e.get("grietas", 0))) if e.has("pez")
 			else _imagen_planta(int(e["planta"]), col, int(e.get("grietas", 0)))).duplicate()
@@ -222,7 +239,7 @@ static func hornear_iconos() -> int:
 	var hechas: Dictionary = {}   # ruta -> true
 	for it in items_con_icono():
 		var clave: String = clave_icono(it)
-		if clave == "":
+		if clave == "" or _encargo(it).has("libro") or _encargo(it).has("herramienta"):
 			continue
 		var ruta: String = ruta_icono(clave, it)
 		if hechas.has(ruta):
@@ -387,6 +404,8 @@ static func _encargo(item: Resource) -> Dictionary:
 		return {"forma": "pocion_%d_%d" % [(maxi(cp.tier, 1) - 1) % 9, n], "color": col}
 	if item is ConsumableData and (item as ConsumableData).en_biblioteca():
 		var cd := item as ConsumableData
+		if LibrosPixel.tiene(cd.tomo_id):
+			return {"libro": cd.tomo_id, "forma": "libro_px", "color": cd.color_suelo()}
 		var marca: String = "rombo" if cd.es_grimorio() else ("chispa" if cd.es_tomo_sabio() else "nada")
 		return {"forma": "libro_" + marca, "color": cd.color_suelo()}
 	if item is ToolData:
@@ -397,19 +416,76 @@ static func _encargo(item: Resource) -> Dictionary:
 			# EL FAROLILLO CAMBIA DE ASPECTO CON EL TIER (las tres referencias del jefe): farol cuadrado,
 			# candil con asa y farol labrado de luz azul. Pasado el T3 se queda con el ultimo.
 			var ft: int = clampi(tier, 1, 3)
+			# (06/11) En pixel si tiene su PNG (tools/equipo_faroles.py --hornear): ya viene en color, no se tiñe.
+			if ResourceLoader.exists(ruta_herramienta("farol_%d" % ft)):
+				return {"herramienta": "farol_%d" % ft, "fijo": true, "forma": "herr_px_farol_%d" % ft,
+					"color": FAROL_COLOR[ft - 1]}
 			return {"forma": "farol_%d" % ft, "color": FAROL_COLOR[ft - 1]}
 		var forma_h: String = ["pico", "hoz", "hacha", "cana", "farol_1", "cuchillo"][int(td.tipo)]
 		# La cabeza, del METAL de su tier y su mejora -- el mismo que una espada (PaletaEquipo).
-		return {"forma": forma_h, "color": PaletaEquipo.base(PaletaEquipo.METAL, tier,
-			Game.mejoras_actuales(item))}
+		var mej_h: int = Game.mejoras_actuales(item)
+		var col_h: Color = PaletaEquipo.base(PaletaEquipo.METAL, tier, mej_h)
+		# (06/11) EN PIXEL ART DE VERDAD si tiene su PNG (tools/equipo_herramientas.py --hornear): grises de indice
+		# tenidos aqui con la paleta del arma. Otra forma ("herr_px_") para no cargar el icono horneado viejo.
+		if ResourceLoader.exists(ruta_herramienta(forma_h)):
+			return {"herramienta": forma_h, "tier": tier, "mej": mej_h, "forma": "herr_px_" + forma_h, "color": col_h}
+		return {"forma": forma_h, "color": col_h}
 	if item is BackpackData:
 		# EL CUERO DE SU TIER Y SU MEJORA, el mismo que lleva una armadura de cuero (PaletaEquipo): antes
 		# todas las mochilas salian del mismo marron y una T3 no se distinguia de la basica.
 		var m: Dictionary = Game.meta_de(item)
 		var mej: int = Game.mejoras_actuales(item)
+		# (06/11) En pixel si tiene su PNG: grises de indice tenidos con el CUERO de la armadura (FIBRA).
+		if ResourceLoader.exists(ruta_herramienta("mochila")):
+			return {"herramienta": "mochila", "tier": maxi(int(m.get("tier", 1)), 1), "mej": mej,
+				"familia": PaletaEquipo.FIBRA, "forma": "herr_px_mochila",
+				"color": PaletaEquipo.base(PaletaEquipo.FIBRA, maxi(int(m.get("tier", 1)), 1), mej)}
 		return {"forma": "mochila",
 			"color": PaletaEquipo.base(PaletaEquipo.FIBRA, maxi(int(m.get("tier", 1)), 1), mej)}
 	return {}
+
+
+# (06/11) LAS HERRAMIENTAS EN PIXEL (y el farolillo y la mochila): un PNG en grises de indice por forma (tono t = gris t/15), tenido con la paleta
+# del icono de arma (PaletaEquipo.colores_de con ArmaSprites.ROLES_ICONO, del METAL de su tier y mejora): la cabeza
+# de metal con su brillo y su hondo, el mango de la madera de su tier. La misma cuenta que la lamina que aprobo.
+const CARPETA_HERRAMIENTAS := "res://assets/sprites/equipo/herramienta/"
+static var _img_herr: Dictionary = {}   # forma|tier|mej -> Image ya tenida
+
+static func ruta_herramienta(forma: String) -> String:
+	return CARPETA_HERRAMIENTAS + forma + ".png"
+
+
+static func _imagen_herramienta(e: Dictionary) -> Image:
+	var forma: String = String(e["herramienta"])
+	var tier: int = int(e.get("tier", 1))
+	var mej: int = int(e.get("mej", 0))
+	var clave: String = "%s|%d|%d" % [forma, tier, mej]
+	if _img_herr.has(clave):
+		return _img_herr[clave]
+	var tex: Texture2D = load(ruta_herramienta(forma)) as Texture2D
+	var img: Image = tex.get_image() if tex != null else null
+	if img == null:
+		img = Image.create(1, 1, false, Image.FORMAT_RGBA8)
+	else:
+		img = img.duplicate()
+		if img.is_compressed():
+			img.decompress()
+		img.convert(Image.FORMAT_RGBA8)
+	# El FAROL ya viene en color; la MOCHILA va con los papeles de la armadura y su cuero; el resto, con los del arma.
+	if img != null and img.get_width() > 1 and not bool(e.get("fijo", false)):
+		var cols: Array = PaletaEquipo.colores_de(ArmaduraSprites.ROLES_ICONO, String(e["familia"]), tier, mej) \
+			if e.has("familia") else PaletaEquipo.colores_de(ArmaSprites.ROLES_ICONO, PaletaEquipo.METAL, tier, mej)
+		for y in img.get_height():
+			for x in img.get_width():
+				var g: Color = img.get_pixel(x, y)
+				if g.a <= 0.0:
+					continue
+				var t: int = clampi(roundi(g.r * 15.0), 1, cols.size() - 1)
+				var c: Color = cols[t]
+				c.a = 1.0
+				img.set_pixel(x, y, c)
+	_img_herr[clave] = img
+	return img
 
 
 # Lo que se BEBE (pociones y antidotos). El mismo criterio que IconoItem.es_pocion.
@@ -2211,13 +2287,16 @@ static func _grietas_imagen(rec: Image, grietas: int) -> void:
 
 
 # Pinta una imagen de colores por rachas, centrada y encajada en 'lado' sin deformarla.
-static func _pintar_imagen(ci: CanvasItem, centro: Vector2, lado: float, img: Image) -> void:
+static func _pintar_imagen(ci: CanvasItem, centro: Vector2, lado: float, img: Image, entero: bool = false) -> void:
 	var w: int = img.get_width()
 	var h: int = img.get_height()
 	if w <= 0 or h <= 0:
 		return
 	var k: float = lado * 0.92 / float(maxi(w, h))
-	var org: Vector2 = centro - Vector2(w, h) * k * 0.5
+	# El pixel art de verdad (herramientas) por un ENTERO: a x1,75 unas filas salen de uno y otras de dos.
+	if entero and k >= 1.0:
+		k = floorf(k)
+	var org: Vector2 = (centro - Vector2(w, h) * k * 0.5).round() if entero else centro - Vector2(w, h) * k * 0.5
 	for y in h:
 		var ya: float = round(org.y + float(y) * k)
 		var yb: float = round(org.y + float(y + 1) * k)

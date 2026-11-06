@@ -200,7 +200,7 @@ func _draw() -> void:
 	var w: float = size.x
 	MedidorFaena.panel(self, Rect2(Vector2.ZERO, size))
 	var nombre: String = _material.nombre if _material != null else "Madera"
-	MedidorFaena.texto(self, 20.0, 4.0, w - 8.0, nombre, 12)
+	MedidorFaena.texto(self, 25.0, 4.0, w - 8.0, nombre, 16)
 
 	var cr: Rect2 = MedidorFaena.CARRIL
 	MedidorFaena.carril(self, cr)
@@ -209,11 +209,10 @@ func _draw() -> void:
 		var y0: float = cr.position.y + maxf(_pos, 0.0) * cr.size.y
 		var y1: float = cr.position.y + minf(_pos + _ancho, 1.0) * cr.size.y
 		if y1 > y0:
-			draw_rect(Rect2(cr.position.x, y0, cr.size.x, y1 - y0), MedidorFaena.AMBAR)
-			draw_rect(Rect2(cr.position.x, y0, cr.size.x, 2.0), Color(1, 1, 1, 0.4))
+			MedidorFaena.zona(self, Rect2(cr.position.x, y0, cr.size.x, y1 - y0), MedidorFaena.AMBAR)
 	# El TRONCO: fijo, a media altura. Se dibuja SIEMPRE (es la referencia), sobresaliendo del carril.
 	var ty: float = cr.position.y + TRONCO * cr.size.y
-	draw_rect(Rect2(cr.position.x - 7.0, ty - 2.0, cr.size.x + 14.0, 4.0), Color.WHITE)
+	MedidorFaena.marcador(self, cr, ty)
 
 	MedidorFaena.marcas(self, w * 0.5, MedidorFaena.Y_MARCAS, _hachazos, _progreso, MedidorFaena.AZUL)
 	MedidorFaena.marcas(self, w * 0.5, MedidorFaena.Y_MARCAS_2, ASTILLAS_ROTO, _astillas, MedidorFaena.ROJO)
@@ -229,4 +228,4 @@ func _draw() -> void:
 	else:
 		estado = "Se raja" if _result.se_pierde() else _result.calidad_texto()
 		col = MedidorFaena.ROJO if _result.se_pierde() else MedidorFaena.AMBAR
-	MedidorFaena.texto(self, MedidorFaena.Y_ESTADO, 4.0, w - 8.0, estado, 12, col)
+	MedidorFaena.texto(self, MedidorFaena.Y_ESTADO, 4.0, w - 8.0, estado, 16, col)
