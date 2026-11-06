@@ -206,6 +206,35 @@ static func marco_px(fondo: Color, elegido: bool = false, borde: Color = Color(0
 	c._margenes()
 	return c
 
+# (06/11) CUALQUIER CAJA HECHA A MANO, EN PIXEL: las ~30 cajas que cada pantalla se montaba con su StyleBoxFlat redondeado
+# (pausa, ajustes, multijugador, mercadillo, tienda, avisos, globos, tooltips...). Con el estilo pixel sale una CajaPixel
+# con SU fondo y SUS margenes; 'panel' = marco de hierro con remaches (los paneles grandes); si no, el marco fino,
+# teñido por su borde si lo tiene (el ambar de un elegido, el rojo de un aviso). Con el estilo de antes, la caja tal cual.
+# Una caja del todo transparente (fondo y borde a 0) se deja como esta: es "aqui no hay nada" y asi tiene que seguir.
+static func a_pixel(sb: StyleBoxFlat, panel: bool = false) -> StyleBox:
+	if not es_pixel() or sb == null:
+		return sb
+	var con_borde: bool = sb.border_color.a > 0.0 and (sb.border_width_left + sb.border_width_top
+		+ sb.border_width_right + sb.border_width_bottom) > 0
+	if sb.bg_color.a <= 0.0 and not con_borde:
+		return sb
+	var c = CajaPixel.new()
+	c.fondo = sb.bg_color
+	if not panel:
+		c.grueso = 1
+		c.con_remaches = false
+		if con_borde and sb.border_color.a >= 0.3:
+			c.hierro = Color(sb.border_color.darkened(0.25), 1.0)
+			c.brillo = Color(sb.border_color.lightened(0.15), 1.0)
+			c.sombra = Color(sb.border_color.darkened(0.55), 1.0)
+	c._margenes()
+	for lado in ["left", "top", "right", "bottom"]:
+		var m: float = sb.get("content_margin_" + lado)
+		if m >= 0.0:
+			c.set("content_margin_" + lado, maxf(m, float(c.get("content_margin_" + lado))))
+	return c
+
+
 # Un DISCO de pixel (a franjas de 'p' de alto), para los circulos que antes eran suaves.
 static func disco_px(ci: CanvasItem, centro: Vector2, r: float, col: Color, p: float = 2.0) -> void:
 	if r <= 0.0:

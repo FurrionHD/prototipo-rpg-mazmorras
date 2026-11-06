@@ -715,7 +715,7 @@ func _tab_detalles(c: Combatant) -> void:
 				sb.set_border_width_all(1)
 				sb.set_corner_radius_all(4)
 				sb.set_content_margin_all(8)
-				caja.add_theme_stylebox_override("panel", sb)
+				caja.add_theme_stylebox_override("panel", HudEstilo.a_pixel(sb))
 			_panel.add_child(caja)
 
 
@@ -1091,7 +1091,7 @@ func _abrir_modal_atributos(c: Combatant) -> void:
 	sb.set_border_width_all(1)
 	sb.set_corner_radius_all(8)
 	sb.set_content_margin_all(16)
-	caja.add_theme_stylebox_override("panel", sb)
+	caja.add_theme_stylebox_override("panel", HudEstilo.a_pixel(sb, true))
 	_modal.add_child(caja)
 
 	var scroll := ScrollContainer.new()

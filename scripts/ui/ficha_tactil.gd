@@ -21,6 +21,7 @@
 # ============================================================
 
 extends CanvasLayer
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 # Lo que hay que aguantar para que sea "mantener pulsado" y no un toque. 0,4 s es lo que usan los
 # moviles para su propio menu contextual: mas corto salta sin querer al pulsar botones, mas largo
@@ -63,7 +64,7 @@ func _construir() -> void:
 	sb.content_margin_right = 16
 	sb.content_margin_top = 12
 	sb.content_margin_bottom = 12
-	_panel.add_theme_stylebox_override("panel", sb)
+	_panel.add_theme_stylebox_override("panel", HudEstilo.a_pixel(sb, true))
 	add_child(_panel)
 
 	var col := VBoxContainer.new()

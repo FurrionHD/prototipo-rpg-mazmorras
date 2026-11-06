@@ -24,6 +24,7 @@
 # ============================================================
 
 extends "res://scripts/ui/taller_menu.gd"
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 const TABS := ["Libro", "Cebos"]
 const TAB_ICONOS := ["libro", "cana"]
@@ -185,7 +186,7 @@ func _foto(d: MaterialData, conocido: bool) -> Control:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.09, 0.14, 0.21)
 	sb.set_corner_radius_all(8)
-	marco.add_theme_stylebox_override("panel", sb)
+	marco.add_theme_stylebox_override("panel", HudEstilo.a_pixel(sb))
 	# Los mismos numeros con los que el charco calcula el largo (ver FishingSpot), para que las tallas
 	# horneadas sean las mismas y no haya que hornear una hoja mas solo para el libro.
 	var techo: float = 128.0 * 0.42

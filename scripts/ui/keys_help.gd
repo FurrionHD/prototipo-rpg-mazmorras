@@ -6,6 +6,7 @@
 # ============================================================
 
 extends CanvasLayer
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 const DEBUG_KEYS := [
 	["Ñ", "Informe de la partida al log y a un fichero (solo lee)"],
@@ -80,7 +81,7 @@ func _construir() -> void:
 	sb.content_margin_right = 16
 	sb.content_margin_top = 12
 	sb.content_margin_bottom = 12
-	_panel.add_theme_stylebox_override("panel", sb)
+	_panel.add_theme_stylebox_override("panel", HudEstilo.a_pixel(sb, true))
 
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 2)

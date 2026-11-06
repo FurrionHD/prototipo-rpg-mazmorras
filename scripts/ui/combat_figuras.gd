@@ -890,7 +890,7 @@ func _ajustar_zoom_sprites() -> void:
 # apagado si manda un debuff, blanco si nada). Lo calcula CombatFX y llega por la señal
 # tinte_cambiado; el borde de seleccion siempre gana, que es lo que hay que poder ver cuando
 # estas eligiendo objetivo.
-func _sb_bloque(sel: bool, tinte: Color = Color.WHITE) -> StyleBoxFlat:
+func _sb_bloque(sel: bool, tinte: Color = Color.WHITE) -> StyleBox:
 	var sb := StyleBoxFlat.new()
 	var tenido: bool = tinte != Color.WHITE
 	sb.set_border_width_all(2)
@@ -898,10 +898,10 @@ func _sb_bloque(sel: bool, tinte: Color = Color.WHITE) -> StyleBoxFlat:
 	if tenido:
 		sb.bg_color = Color(tinte.r, tinte.g, tinte.b, 0.12 if sel else 0.10)
 		sb.border_color = Color(1, 1, 1, 0.95) if sel else Color(tinte.r, tinte.g, tinte.b, 0.75)
-		return sb
+		return HudEstilo.a_pixel(sb)
 	sb.bg_color = Color(1, 1, 1, 0.05) if sel else Color(0, 0, 0, 0)
 	sb.border_color = Color(1, 1, 1, 0.95) if sel else Color(0, 0, 0, 0)
-	return sb
+	return HudEstilo.a_pixel(sb)
 
 
 # Repinta el recuadro de UNA tarjeta juntando las dos cosas que deciden su estilo: si esta

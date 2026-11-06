@@ -11,6 +11,7 @@
 # ============================================================
 
 extends CanvasLayer
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 const MENU_PRINCIPAL := "res://scenes/ui/main_menu.tscn"
 const AJUSTES := preload("res://scripts/ui/settings_menu.gd")
@@ -72,7 +73,7 @@ func _construir() -> void:
 	sb.content_margin_right = 42
 	sb.content_margin_top = 32
 	sb.content_margin_bottom = 32
-	panel.add_theme_stylebox_override("panel", sb)
+	panel.add_theme_stylebox_override("panel", HudEstilo.a_pixel(sb, true))
 	center.add_child(panel)
 
 	var vb := VBoxContainer.new()
@@ -297,7 +298,7 @@ func _montar_amigos() -> void:
 	sb.set_border_width_all(1)
 	sb.set_corner_radius_all(8)
 	sb.set_content_margin_all(28)
-	panel.add_theme_stylebox_override("panel", sb)
+	panel.add_theme_stylebox_override("panel", HudEstilo.a_pixel(sb, true))
 	center.add_child(panel)
 
 	var vb := VBoxContainer.new()

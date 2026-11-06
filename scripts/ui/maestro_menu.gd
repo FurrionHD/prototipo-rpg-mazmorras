@@ -1558,7 +1558,7 @@ func _pintar_carta_res(t: Dictionary) -> void:
 	sb.set_corner_radius_all(3)
 	sb.content_margin_top = 2
 	sb.content_margin_bottom = 2
-	cinta.add_theme_stylebox_override("normal", sb)
+	cinta.add_theme_stylebox_override("normal", HudEstilo.a_pixel(sb))
 	cinta.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	caja.add_child(cinta)
 
@@ -2438,7 +2438,7 @@ func _celda_libro(grid: GridContainer, c: ConsumableData) -> void:
 		# LOS TRES ESTADOS o el marco se cae al pasar el raton por encima, que es justo cuando lo
 		# estas mirando: el tema repone con su gris cualquiera que no se sobreescriba.
 		for estado in ["normal", "hover", "pressed"]:
-			b.add_theme_stylebox_override(estado, sb)
+			b.add_theme_stylebox_override(estado, HudEstilo.a_pixel(sb))
 	grid.add_child(b)
 
 

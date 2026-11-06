@@ -628,7 +628,7 @@ func _color_calidad(txt: String) -> Color:
 
 
 # Fondo de una pildora de recogida: oscuro semitransparente y redondeado, con un borde tenue.
-func _fondo_pildora() -> StyleBoxFlat:
+func _fondo_pildora() -> StyleBox:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.08, 0.09, 0.12, 0.85)
 	sb.border_color = Color(0.87, 0.57, 0.26, 0.5)
@@ -638,12 +638,12 @@ func _fondo_pildora() -> StyleBoxFlat:
 	sb.content_margin_right = 12
 	sb.content_margin_top = 5
 	sb.content_margin_bottom = 5
-	return sb
+	return HudEstilo.a_pixel(sb)
 
 
 # Panel negro semitransparente: lo que va SOBRE el mapa (teclas, piso, monedas) tiene que
 # leerse igual en un suelo oscuro que en una pared blanca.
-func _fondo_negro() -> StyleBoxFlat:
+func _fondo_negro() -> StyleBox:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0, 0, 0, 0.55)
 	sb.set_corner_radius_all(4)
@@ -651,7 +651,7 @@ func _fondo_negro() -> StyleBoxFlat:
 	sb.content_margin_right = 8
 	sb.content_margin_top = 4
 	sb.content_margin_bottom = 4
-	return sb
+	return HudEstilo.a_pixel(sb)
 
 
 # ============================================================

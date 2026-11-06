@@ -9,6 +9,7 @@
 # ============================================================
 
 extends CanvasLayer
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 const AMBAR := Color(0.95, 0.72, 0.36)
 
@@ -45,7 +46,7 @@ func _ready() -> void:
 	sb.content_margin_right = 18
 	sb.content_margin_top = 12
 	sb.content_margin_bottom = 12
-	_caja.add_theme_stylebox_override("panel", sb)
+	_caja.add_theme_stylebox_override("panel", HudEstilo.a_pixel(sb, true))
 	raiz.add_child(_caja)
 
 	var vb := VBoxContainer.new()
