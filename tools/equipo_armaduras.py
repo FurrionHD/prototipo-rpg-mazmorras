@@ -10,7 +10,8 @@
 #    HIERRO COMPLETO  lo CERRADO sin adornos: gran yelmo, peto liso en cilindro, guanteletes de una pieza, grebas, escarpes.
 #    PLACAS   lo elegido (tools/equipo_placas_juego.py): armet, peto de caballero, guanteletes articulados, grebas, escarpes.
 #  El metal lleva los dos tonos nuevos (BRILLO y HONDO); la tela y el cuero no: su luz es blanda.
-#    python tools/equipo_armaduras.py [salida.png]
+#    python tools/equipo_armaduras.py [salida.png]   (la lamina)
+#    python tools/equipo_armaduras.py --hornear      (los 25 PNG del juego en assets/sprites/equipo/armadura)
 # ============================================================
 import json
 import os
@@ -325,7 +326,36 @@ SLOTS = ["Casco", "Pecho", "Manos", "Pantalones", "Botas"]
 TIERS = [1, 2, 3]
 
 
+TIPO_JUEGO = {"Tela": "tela", "Cuero": "cuero", "Hierro": "hierro", "Hierro completo": "hierro_completo",
+              "Placas": "placas"}   # ArmaduraSprites.TIPO_NOMBRE
+SLOT_JUEGO = ["casco", "pecho", "manos", "pantalones", "botas"]   # ArmaduraSprites.SLOT_NOMBRE
+RAMPA_TONOS = 16   # CapaJugador.RAMPA_TONOS: el gris del tono t es t / 15
+
+
+def hornear(carpeta):
+    # LOS PNG DEL JUEGO, uno por tipo y pieza, EN GRISES DE INDICE (como las capas del muñeco): el color lo pone
+    # paleta_equipo.gdshader con ArmaduraSprites.ROLES_ICONO segun el tier y el +N de cada pieza.
+    os.makedirs(carpeta, exist_ok=True)
+    n = 0
+    for nombre, _fam, _amp, piezas in TIPOS:
+        for slot, fn in zip(SLOT_JUEGO, piezas):
+            cv = EP.dibujar(fn, 32)
+            im = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+            for y in range(32):
+                for x in range(32):
+                    t = cv.p[y][x]
+                    if t:
+                        g = int(round(t / (RAMPA_TONOS - 1) * 255))
+                        im.putpixel((x, y), (g, g, g, 255))
+            im.save(os.path.join(carpeta, "%s_%s.png" % (TIPO_JUEGO[nombre], slot)))
+            n += 1
+    print("%d armaduras en %s" % (n, carpeta))
+
+
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "--hornear":
+        hornear(sys.argv[2] if len(sys.argv) > 2 else "assets/sprites/equipo/armadura")
+        return
     salida = sys.argv[1] if len(sys.argv) > 1 else "armaduras_lamina.png"
     with open(os.path.join(EP.AQUI, "paletas_equipo.json"), encoding="utf-8") as f:
         PAL = json.load(f)

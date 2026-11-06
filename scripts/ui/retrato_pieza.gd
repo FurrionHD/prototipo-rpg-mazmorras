@@ -74,6 +74,10 @@ static func encajar(tr: TextureRect, centro: Vector2, caja: float) -> void:
 	if tex == null:
 		return
 	var k: float = caja / float(maxi(tex.get_width(), tex.get_height()))
+	# (06/11) EL ICONO EN PIXEL (cargado de disco, no generado) se escala por un ENTERO: a x1,75 unas filas salen de
+	# un pixel y otras de dos, y deja de leerse como pixel art. Se redondea al entero mas cercano.
+	if tex is CompressedTexture2D and k >= 1.0:
+		k = roundf(k)
 	var tam := Vector2(tex.get_width(), tex.get_height()) * k
 	tr.position = centro - tam * 0.5
 	tr.size = tam
@@ -91,7 +95,8 @@ static func de(item: Resource, tier: int, mejoras: int, esc: float = ESC) -> Dic
 	var d: Dictionary = _datos(item)
 	if d.is_empty():
 		return {}
-	var tex: ImageTexture = _textura(d["claves"], d["pintor"], String(d.get("anim", ANIM)),
+	# (06/11) EL ICONO EN PIXEL si la pieza lo tiene (en grises de indice, como la capa): se tiñe igual.
+	var tex: Texture2D = load(d["icono"]) as Texture2D if d.has("icono") else 		_textura(d["claves"], d["pintor"], String(d.get("anim", ANIM)),
 		int(d.get("dir", DIR_SUR)), bool(d.get("voltear", false)), esc)
 	if tex == null:
 		return {}
@@ -114,6 +119,11 @@ static func _datos(item: Resource) -> Dictionary:
 		if not ArmaduraSprites.SLOTS_HECHOS.has(slot):
 			return {}
 		var tipo: String = ArmaduraSprites.nombre_tipo(int(a.tipo))
+		# (06/11) EL DIBUJO EN PIXEL DE VERDAD (tools/equipo_armaduras.py) en vez de la capa del muñeco ampliada.
+		var ico: String = ArmaduraSprites.icono(tipo, slot)
+		if ico != "":
+			return {"icono": ico, "clave_roles": ArmaduraSprites.CLAVE_ROLES_ICONO,
+				"roles": ArmaduraSprites.ROLES_ICONO, "familia": ArmaduraSprites.familia_de(tipo)}
 		var base: String = ArmaduraSprites.clave(tipo, slot)
 		# Los guanteletes son dos capas, una por mano: se pintan las dos en el mismo lienzo.
 		var claves: Array = [base + "_der", base + "_izq"] \
