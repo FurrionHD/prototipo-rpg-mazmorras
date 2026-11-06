@@ -17,6 +17,15 @@ func _init(pantalla: Pantalla) -> void:
 # ============================================================
 #  OBJETOS / pociones (KAN-57): submenu del inventario + uso
 # ------------------------------------------------------------
+# Lo que da una pocion repartida (06/11, pase de textos): "🔷 29 de maná: 10 ahora y 19 durante los 2 turnos siguientes".
+func _reparto(icono: String, que: String, total: float, ahora: float, restantes: int) -> String:
+	var n_t: String = Pantalla._n(roundf(total))
+	if restantes <= 0:
+		return "%s %s de %s" % [icono, n_t, que]
+	return "%s %s de %s: %s ahora y %s durante %s" % [icono, n_t, que, Pantalla._n(roundf(ahora)),
+		Pantalla._n(roundf(total) - roundf(ahora)), "el turno siguiente" if restantes == 1 else "los %d turnos siguientes" % restantes]
+
+
 func _accion_objeto() -> void:
 	_pantalla._ocultar_cajas()
 	for c in _pantalla._objeto_box.get_children():
@@ -119,19 +128,19 @@ func _usar_objeto(cons: ConsumableData, objetivo: Combatant, cobrar: bool = true
 		objetivo.heal(por_turno)
 		if restantes > 0:
 			objetivo.apply_status(StatusEffects.Id.REGENERACION, restantes, por_turno)
-		partes.append("✚ %.0f de vida (%.0f ya)" % [total, por_turno])
+		partes.append(_reparto("✚", "vida", total, por_turno, restantes))
 	if cons.da_mana():
 		var mana_turno: float = cons.mana_por_turno(objetivo.max_mp)
 		var mana_total: float = cons.mana_efectivo(objetivo.max_mp)
 		objetivo.regen_mana(mana_turno)
 		if restantes > 0:
 			objetivo.apply_status(StatusEffects.Id.REGEN_MANA, restantes, mana_turno)
-		partes.append("🔷 %.0f de maná (%.0f ya)" % [mana_total, mana_turno])
+		partes.append(_reparto("🔷", "maná", mana_total, mana_turno, restantes))
 	print("[objeto] %s le da %s a %s (x%d turnos)" % [
 		_pantalla._player.nombre, cons.nombre, objetivo.nombre, cons.turnos])
 	var quien: String = ("%s se bebe %s" % [_pantalla._player.nombre, cons.nombre] if objetivo == _pantalla._player
 		else "%s le da %s a %s" % [_pantalla._player.nombre, cons.nombre, objetivo.nombre])
-	_pantalla._set_log("%s. %s, repartido en %d turnos." % [quien, " y ".join(partes), cons.turnos])
+	_pantalla._set_log("%s. %s." % [quien, " y ".join(partes)])
 	_pantalla._update_hp()
 	_pantalla._fin_de_eleccion()
 	_pantalla._state = _pantalla.State.ADVANCING

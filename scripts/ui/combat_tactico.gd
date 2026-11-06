@@ -3994,7 +3994,7 @@ func _reabsorber_pedazo(clave: String) -> void:
 	dueno.heal(cura)
 	_pantalla.efectos._fx_golpe(dueno, dueno, 0.0, false, false, Elementos.Elemento.NINGUNO,
 		CombatFX.Estilo.PASIVA_DESTELLO, 0.6, true)
-	_pantalla._log_extra("🫧 Un pedazo de %s se le vuelve a juntar: +%.2f de vida" % [_pantalla._etq(dueno), cura])
+	_pantalla._log_extra("🫧 Un pedazo de %s se le vuelve a juntar y recupera %s de vida" % [_pantalla._etq(dueno), _pantalla._n(cura)])
 	_pantalla._update_hp()
 
 

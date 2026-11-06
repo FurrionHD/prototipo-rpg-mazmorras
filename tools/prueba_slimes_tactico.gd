@@ -149,7 +149,7 @@ func _correr() -> void:
 	for a in al:
 		print("  %s: %.1f -> %.1f" % [a.nombre, float(vida[a]), a.current_hp])
 	_ver(is_equal_approx(float(vida[al[0]]), al[0].current_hp), "el que se aparto se libra")
-	_ver(al[1].current_hp < float(vida[al[1]]) or combat._log_lines.back().find("no te ha dado") >= 0,
+	_ver(al[1].current_hp < float(vida[al[1]]) or combat._log_lines.back().find("falla") >= 0,
 		"al que se quedo le cae (o lo esquiva)")
 	_ver(not arena.huellas.has(e) and not t._cargas.has(e), "al soltar la huella se borra")
 	for l in combat._log_lines.slice(maxi(0, combat._log_lines.size() - 2)):

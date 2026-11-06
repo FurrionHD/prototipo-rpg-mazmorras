@@ -338,9 +338,9 @@ func _responder_frase(elegida: String, correcta: String) -> void:
 		# tiene el turno en este instante, y _player se presta y se devuelve en otras ramas.
 		Game.contar_frase_recitada(_pantalla._pj_de_magia(_pantalla._player, "recitar " + _pantalla._cast_spell.nombre))
 		if _pantalla._cast_index < _pantalla._cast_spell.longitud():
-			_pantalla._set_log("✓ Frase correcta. Continua el proximo turno...", "x")
+			_pantalla._set_log("✓ Frase correcta. Sigue en el próximo turno.", "x")
 		else:
-			_pantalla._set_log("✓ ¡Encantamiento completo! El proximo turno lo lanzas.", "x")
+			_pantalla._set_log("✓ ¡Conjuro completo! Se puede lanzar en el próximo turno.", "x")
 		_pantalla._player.regen_energy(_pantalla.ATTACK_ENERGY_REGEN)   # recitar es un turno basico: regenera energia (KAN-57)
 		# Repinta el bloque: sin esto el chip del conjuro (ver _chips_de) se quedaba una frase
 		# atrasado, porque los chips solo se rehacen desde aqui.
@@ -1203,8 +1203,8 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 		_pantalla._apuntar_dano(objetivo, dmg, _pantalla._player)   # contador oculto de Cazador
 		total += dmg
 		# CRITICO MAGICO: mismo 💥 que en el rastro del golpe fisico, para que se lea igual.
-		trail.append("%s%s%.1f%s" % [Elementos.icono(elem),
-			"💥" if bool(res.get("crit", false)) else "", dmg, _mult_sufijo(mult)])
+		trail.append("%s%s%s%s" % [Elementos.icono(elem),
+			"💥" if bool(res.get("crit", false)) else "", _pantalla._n(dmg), _mult_sufijo(mult)])
 		print("[magia] %s golpe %d/%d %s sobre %s: %.2f (x%.2f)%s" % [
 			spell.nombre, i + 1, n, Elementos.nombre(elem), objetivo.nombre, dmg, mult,
 			"  CRITICO 💥" if bool(res.get("crit", false)) else ""])
@@ -1222,8 +1222,8 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 		_pantalla.efectos._fx_tanda(tanda_base + n)
 		_pantalla.efectos._fx_golpe(objetivo, lanzador, reflejado, false, false, Elementos.Elemento.NINGUNO,
 			CombatFX.Estilo.JABALI_REFLEJO, 1.0, false)
-		_pantalla._log_extra("💎 Las drusas de %s le devuelven a %s %.2f del hechizo" % [_pantalla._etq(objetivo),
-			lanzador.nombre, reflejado])
+		_pantalla._log_extra("💎 Las drusas de %s le devuelven el hechizo a %s y le infligen %s de daño" % [_pantalla._etq(objetivo),
+			lanzador.nombre, _pantalla._n(reflejado)])
 	return {
 		"c": objetivo, "dano": total, "mult": ultimo_mult, "crit": hubo_crit,
 		"golpes": trail.size(), "trail": trail, "estados": aplicados,
@@ -1411,16 +1411,16 @@ func _log_hechizo(spell: SpellData, res_area: Array, res_reb: Array, foco: float
 			if not res_reb.is_empty():
 				var saltos: Array = []
 				for r in res_reb:
-					saltos.append("%s (%.1f%s)" % [_pantalla._etq(r.c), float(r.dano), _mult_sufijo(float(r.mult))])
+					saltos.append("%s (%s%s)" % [_pantalla._etq(r.c), _pantalla._n(float(r.dano)), _mult_sufijo(float(r.mult))])
 				_pantalla._set_log("↪ Los golpes que sobraban saltan a %s" % ", ".join(saltos))
-			_pantalla._set_log("… %.2f de daño en total.%s" % [total, foco_txt])
+			_pantalla._set_log("… %s de daño en total.%s" % [_pantalla._n(total), foco_txt])
 		else:
 			# El 💥 del critico: en los multigolpe ya iba dentro del rastro, pero un hechizo de UN
 			# golpe no pinta rastro y el critico no se veia por ningun lado — solo intuias que habia
 			# pasado algo porque el numero salia mas gordo de lo normal.
-			_pantalla._set_log("🔥 %s impacta a %s y le inflige %.2f de daño.%s%s%s" % [
-				spell.nombre, _pantalla._etq(r0.c), total,
-				"  ¡CRITICO! 💥" if bool(r0.get("crit", false)) else "",
+			_pantalla._set_log("🔥 %s impacta a %s y le inflige %s de daño.%s%s%s" % [
+				spell.nombre, _pantalla._etq(r0.c), _pantalla._n(total),
+				"  ¡Crítico! 💥" if bool(r0.get("crit", false)) else "",
 				_elem_txt(float(r0.mult)), foco_txt])
 		return total
 
@@ -1428,14 +1428,14 @@ func _log_hechizo(spell: SpellData, res_area: Array, res_reb: Array, foco: float
 	var partes: Array = []
 	for r in res_area:
 		# El 💥 por objetivo: en un area, uno puede comerse el critico y los demas no.
-		partes.append("%s (%s%.1f%s)" % [_pantalla._etq(r.c), "💥" if bool(r.get("crit", false)) else "",
-			float(r.dano), _mult_sufijo(float(r.mult))])
+		partes.append("%s (%s%s%s)" % [_pantalla._etq(r.c), "💥" if bool(r.get("crit", false)) else "",
+			_pantalla._n(float(r.dano)), _mult_sufijo(float(r.mult))])
 	_pantalla._set_log("%s %s alcanza a %s" % [Elementos.icono(spell.elemento), spell.nombre, ", ".join(partes)])
 	if not res_reb.is_empty():
 		var reb: Array = []
 		for r in res_reb:
 			# Los repetidos se listan tal cual: que se vea cuando la cadena insiste en el mismo.
-			reb.append("%s (%.1f%s)" % [_pantalla._etq(r.c), float(r.dano), _mult_sufijo(float(r.mult))])
+			reb.append("%s (%s%s)" % [_pantalla._etq(r.c), _pantalla._n(float(r.dano)), _mult_sufijo(float(r.mult))])
 		_pantalla._set_log("↯ Rebota ×%d: %s" % [reb.size(), ", ".join(reb)])
 	# Estados PLEGADOS: una linea por estado con todos los que lo cogieron, no una por enemigo.
 	var por_estado: Dictionary = {}
@@ -1448,7 +1448,7 @@ func _log_hechizo(spell: SpellData, res_area: Array, res_reb: Array, foco: float
 	for id in por_estado:
 		_pantalla._set_log("✨ %s: %s" % [
 			String(StatusEffects.def(int(id)).get("nombre", "?")), ", ".join(por_estado[id])])
-	_pantalla._set_log("… %.2f de daño en total.%s" % [total, foco_txt])
+	_pantalla._set_log("… %s de daño en total.%s" % [_pantalla._n(total), foco_txt])
 	return total
 
 
@@ -1478,9 +1478,11 @@ func _log_desglose(titulo: String, rastro: Array, tocados: Array, dano_por_obj: 
 	if multi:
 		var partes: Array = []
 		for c in tocados:
-			partes.append("%s (%.2f)" % [_pantalla._etq(c), float(dano_por_obj.get(c, 0.0))])
-		return "… %.2f de daño: %s%s" % [total, ", ".join(partes), sufijo]
-	return "… %.2f de daño (%d de %d golpes).%s" % [total, aciertos, rastro.size(), sufijo]
+			partes.append("%s (%s)" % [_pantalla._etq(c), _pantalla._n(float(dano_por_obj.get(c, 0.0)))])
+		return "… %s de daño en total: %s%s" % [_pantalla._n(total), ", ".join(partes), sufijo]
+	if rastro.size() <= 1:
+		return "… %s de daño.%s" % [_pantalla._n(total), sufijo]
+	return "… %s de daño en total (aciertan %d de %d golpes).%s" % [_pantalla._n(total), aciertos, rastro.size(), sufijo]
 
 
 # Un golpe de 'elem' gasta los estados que lo amplificaban (Rayo sobre Mojado). Solo se
@@ -1496,7 +1498,7 @@ func _gastar_amplificadores(objetivo: Combatant, elem: int) -> void:
 # Feedback elemental de UN golpe, compacto, para el rastro del log ("⚡4.1×1.5").
 func _mult_sufijo(mult: float) -> String:
 	if mult > 1.01 or mult < 0.99:
-		return "×%.1f" % mult
+		return "×" + _pantalla._n(mult)
 	return ""
 
 
@@ -1506,8 +1508,8 @@ func _mult_sufijo(mult: float) -> String:
 func _desglose_imbue(total: float, dmg_imbue: float, mult_imbue: float) -> String:
 	if dmg_imbue <= 0.0:
 		return ""
-	return "  (%.2f físico + %s%.2f de %s%s)" % [
-		maxf(0.0, total - dmg_imbue), Elementos.icono(_pantalla._player.imbue_elemento), dmg_imbue,
+	return "  (%s físico + %s%s de %s%s)" % [
+		_pantalla._n(maxf(0.0, total - dmg_imbue)), Elementos.icono(_pantalla._player.imbue_elemento), _pantalla._n(dmg_imbue),
 		Elementos.nombre(_pantalla._player.imbue_elemento), _mult_sufijo(mult_imbue)]
 
 
@@ -1565,9 +1567,9 @@ func _elem_reparto_txt(elem: int, mult_por_obj: Dictionary) -> String:
 # Feedback elemental de un hechizo de UN solo golpe. OJO: GDScript no soporta %g.
 func _elem_txt(mult: float) -> String:
 	if mult > 1.01:
-		return "  ¡DÉBIL! ×%.1f" % mult
+		return "  ¡DÉBIL! ×" + _pantalla._n(mult)
 	if mult < 0.99:
-		return "  resiste ×%.1f" % mult
+		return "  resiste ×" + _pantalla._n(mult)
 	return ""
 
 
@@ -1578,7 +1580,7 @@ func _elem_txt(mult: float) -> String:
 func _gastar_imbue() -> void:
 	if _pantalla._player.consumir_imbue():
 		print("[imbuicion] Se agota la imbuición de %s (sin usos)." % _pantalla._player.nombre)
-		_pantalla._set_log("Se agota tu imbuición. ✨")
+		_pantalla._set_log("Se agota la imbuición de %s. ✨" % _pantalla._player.nombre)
 
 
 # Aplica (o no) los estados del hechizo. Al ENEMIGO = con PROBABILIDAD (el enemigo puede
@@ -1622,7 +1624,7 @@ func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null
 			if not anunciados.has(a.estado):
 				anunciados[a.estado] = true
 				if not silencioso:
-					_pantalla._set_log("… %s es INMUNE a %s." % [_pantalla._etq(objetivo), nom])
+					_pantalla._set_log("… %s es inmune a %s." % [_pantalla._etq(objetivo), nom])
 				print("[estado] %s es INMUNE a %s" % [objetivo.nombre, nom])
 			if al_enemigo:
 				_pantalla.aviso_inmune(objetivo, _pantalla._player)
@@ -1634,7 +1636,8 @@ func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null
 			var p: float = StatusEffects.prob_final(spell.efecto_prob(a), _pantalla._player, objetivo, a.estado)
 			if randf() >= p:
 				if verboso and not silencioso:   # en multi-golpe callamos los fallos: serian 20 lineas de ruido
-					_pantalla._set_log("… pero %s resiste el %s. (%.0f%%)" % [_pantalla._etq(objetivo), nom, p * 100.0])
+					_pantalla._set_log("… pero %s se libra de %s (tenía un %s %% de probabilidad)." % [_pantalla._etq(objetivo), nom,
+						_pantalla._n(roundf(p * 100.0))])
 				print("[estado] %s RESISTE %s del hechizo (prob %.0f%%)" % [objetivo.nombre, nom, p * 100.0])
 				continue
 		for d_h in destinos_h:
@@ -1677,8 +1680,8 @@ func _backfire(elegida: String = "", correcta: String = "") -> void:
 	_pantalla._player.take_damage(dmg)
 	print("[magia] BACKFIRE %s | frase %d/%d | dano propio:%.2f" % [
 		spell.nombre, _pantalla._cast_index + 1, spell.longitud(), dmg])
-	_pantalla._set_log("💥 %s recita mal el conjuro y se descontrola: recibe %.2f de daño y pierde %.2f de maná. El hechizo se pierde."
-		% [_pantalla._player.nombre, dmg, mana_perdido])
+	_pantalla._set_log("💥 %s recita mal el conjuro y se descontrola: recibe %s de daño y pierde %s de maná. El hechizo se pierde."
+		% [_pantalla._player.nombre, _pantalla._n(dmg), _pantalla._n(mana_perdido)])
 	_log_frases(_pantalla._player, "«%s» ✗ (era «%s»)" % [elegida, correcta] if elegida != "" else "")
 	_pantalla._player.regen_energy(_pantalla.ATTACK_ENERGY_REGEN)   # aun fallando, es un turno sin gasto de energia (KAN-57)
 	if _pantalla.tactico:

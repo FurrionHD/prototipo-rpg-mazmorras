@@ -346,7 +346,7 @@ static var _defs: Dictionary = {
 		"descripcion": "La poción hace su trabajo poco a poco: te cura mientras aguantas, no antes.",
 	},
 	Id.REGEN_MANA: {   # MANÁ por turno (pociones de maná, KAN-56/57). magnitud = maná/turno.
-		"id": Id.REGEN_MANA, "nombre": "Regen. maná", "icono": "🔷", "color": Color(0.4, 0.6, 1.0),
+		"id": Id.REGEN_MANA, "nombre": "Regeneración de maná", "icono": "🔷", "color": Color(0.4, 0.6, 1.0),
 		"mana_heal": true, "turns": 3, "mana_default": 4.0,
 		"descripcion": "El pozo se va llenando solo, gota a gota.",
 	},

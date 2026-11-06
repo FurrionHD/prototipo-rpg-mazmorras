@@ -240,7 +240,7 @@ func _al_entrar_viento(atacante: Combatant, victima: Combatant, dmg: float, elem
 			_pantalla._caidos_de_rebote.append(v)
 		elif not v.is_alive():
 			_pantalla.altas._caer_aliado(v)
-		_pantalla._log_extra("🔥 El viento aviva las llamas de %s y saltan a %s: %.2f" % [_pantalla._etq(victima), _pantalla._etq(v), d])
+		_pantalla._log_extra("🔥 El viento aviva las llamas de %s, que saltan a %s y le infligen %s de daño" % [_pantalla._etq(victima), _pantalla._etq(v), _pantalla._n(d)])
 
 
 # EL SET HILO CONDUCTOR (03/11, las arañas mutantes): el golpe puede saltar en rayo a otro enemigo cercano. Va detras del
@@ -275,8 +275,8 @@ func _rebote_hilo(atacante: Combatant, victima: Combatant, dmg: float) -> void:
 	if v.is_alive() and randf() < StatusEffects.prob_final(1.0, atacante, v, StatusEffects.Id.RAYO):
 		v.apply_status(StatusEffects.Id.RAYO)
 	_pantalla._caidos_de_rebote.append(v)
-	_pantalla._log_extra("⚡ El hilo de %s salta de %s a %s: %.2f" % [atacante.nombre, _pantalla._etq(victima),
-		_pantalla._etq(v), d])
+	_pantalla._log_extra("⚡ El hilo de %s salta de %s a %s y le inflige %s de daño" % [atacante.nombre,
+		_pantalla._etq(victima), _pantalla._etq(v), _pantalla._n(d)])
 
 
 # EL REBOTE DE LA ARAÑA TORMENTOSA (03/11): UN golpe, UN rebote, siempre (basico, habilidades, areas: uno por cada golpeado).
@@ -312,7 +312,7 @@ func _rebote_tormenta(e: Combatant, golpeado: Combatant) -> void:
 			v.apply_status(StatusEffects.Id.RAYO)
 		if not v.is_alive():
 			_pantalla.altas._caer_aliado(v)
-		_pantalla._log_extra("⚡ El rayo de %s salta a %s: %.2f" % [_pantalla._etq(e), v.nombre, d])
+		_pantalla._log_extra("⚡ El rayo de %s salta a %s y le inflige %s de daño" % [_pantalla._etq(e), v.nombre, _pantalla._n(d)])
 		desde = v
 		if not sigue:
 			break

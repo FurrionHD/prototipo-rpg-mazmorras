@@ -121,11 +121,11 @@ func _enemy_turn(e: Combatant) -> void:
 			if _pantalla.tactico:
 				_pantalla.turno_mapa.olvidar_carga(e)   # su huella roja se va con ella
 			print("[habilidad enemigo] %s ATURDIDO: se le INTERRUMPE %s" % [e.nombre, interrumpida])
-			_pantalla._set_log("%s está %s: se le interrumpe %s. 💫" % [_pantalla._etq(e),
-				"paralizado" if ev.paralizado else "aturdido", interrumpida])
+			_pantalla._set_log("A %s se le interrumpe %s: está %s. 💫" % [_pantalla._etq(e), interrumpida,
+				"Paralizado" if ev.paralizado else "Aturdido"])
 		else:
-			_pantalla._set_log("%s está %s y pierde el turno. 💫" % [_pantalla._etq(e),
-				"paralizado" if ev.paralizado else "aturdido"])
+			_pantalla._set_log("%s pierde el turno: está %s. 💫" % [_pantalla._etq(e),
+				"Paralizado" if ev.paralizado else "Aturdido"])
 		_pantalla._pausa_lectura()   # ya se le resto la barra ATB en _process; pierde la accion
 		return
 
@@ -337,18 +337,18 @@ func _enemy_turn(e: Combatant) -> void:
 			Game.GAIN_RESISTENCIA_BLOQUEO * aggro_mult, Game.RETO_MAX_FISICO, pj_obj)
 	var msg: String
 	if result.crit:
-		msg = "%s CLAVA un critico a %s: %.2f de daño! 💥" % [_pantalla._etq(e), obj.nombre, dmg]
+		msg = "¡Crítico! %s ataca a %s y le inflige %s de daño. 💥" % [_pantalla._etq(e), obj.nombre, _pantalla._n(dmg)]
 	else:
-		msg = "%s ataca a %s y le inflige %.2f de daño." % [_pantalla._etq(e), obj.nombre, dmg]
+		msg = "%s ataca a %s y le inflige %s de daño." % [_pantalla._etq(e), obj.nombre, _pantalla._n(dmg)]
 	msg += _pantalla.magia._elem_golpe_txt(result, e.elemento_ataque)
 	if bool(_pantalla._defendiendo.get(obj, false)):
-		msg += " (defendido 🛡️)"
+		msg += "  %s estaba en guardia y recibe menos. 🛡️" % obj.nombre
 	# Aturdir/retrasar del enemigo (si algun dia lleva arma contundente).
 	if result.aturde:
 		msg += _pantalla._aplicar_aturdir(obj, result.crit)
 	# Estados "al golpear" del enemigo (pegajoso/veneno de slimes, KAN-58 Fase 3).
 	for nom in e.roll_on_hit(obj):
-		msg += "  Le inflige %s." % nom
+		msg += "  Causa %s a %s." % [nom, obj.nombre]
 	# RIPOSTE AL BLOQUEAR (escudo pequeño): el golpe ha conectado y lo has parado con la guardia
 	# arriba, asi que puede volver. Va DESPUES del mensaje del golpe enemigo para que el log se lea
 	# en orden (primero te pegan, luego respondes); el FX lo encola _contras_pendientes y sale tras
@@ -617,7 +617,7 @@ func _chupar_enraizados(e: Combatant) -> void:
 		return
 	e.heal(total)
 	print("[chupar] %s chupa %.2f a %s y se cura" % [e.nombre, total, ", ".join(nombres)])
-	_pantalla._log_extra("🖤 %s chupa de las raíces de %s (+%.1f)." % [_pantalla._etq(e), ", ".join(nombres), total])
+	_pantalla._log_extra("🖤 %s chupa de las raíces de %s y recupera %s de vida." % [_pantalla._etq(e), ", ".join(nombres), _pantalla._n(total)])
 	_pantalla._update_hp()
 
 
@@ -792,7 +792,7 @@ func absorber_elemento(e: Combatant, elem: int, dmg: float) -> void:
 		return
 	var habria: float = dmg / maxf(float(e.resist_elemental.get(elem, 1.0)), 0.01)
 	e.heal(habria * CARGA_ABSORBE_CURA)
-	_pantalla._log_extra("✨ %s absorbe %s y recupera %.1f." % [_pantalla._etq(e), Elementos.nombre(elem), habria * CARGA_ABSORBE_CURA])
+	_pantalla._log_extra("✨ %s absorbe %s y recupera %s de vida." % [_pantalla._etq(e), Elementos.nombre(elem), _pantalla._n(habria * CARGA_ABSORBE_CURA)])
 	_pantalla._update_hp()
 	sumar_carga(e)
 
@@ -927,7 +927,7 @@ func _enemy_begin_retraso(e: Combatant, ab: AbilityData, obj: Combatant = null) 
 		_victima_retraso[e] = obj
 	_pantalla.echar_atras(e)
 	print("[habilidad enemigo] %s prepara %s: sale al volver a llegar a la barra" % [e.nombre, ab.nombre])
-	_pantalla._set_log("⏳ %s prepara %s. ¡Apártate! (aturdirlo lo interrumpe)" % [_pantalla._etq(e), ab.nombre])
+	_pantalla._set_log("⏳ %s prepara %s. ¡Apártate! Si queda Aturdido, se interrumpe." % [_pantalla._etq(e), ab.nombre])
 	_pantalla._update_hp()   # el chip ⏳ en su tarjeta
 	_pantalla._pausa_lectura()
 
@@ -961,7 +961,7 @@ func _enemy_begin_charge(e: Combatant, ab: AbilityData, obj: Combatant = null, t
 		_pantalla.turno_mapa.guardar_carga_enemigo(e, ab, obj)
 	print("[habilidad enemigo] %s empieza a cargar %s (%d turno%s)" % [
 		e.nombre, ab.nombre, ab.carga_turnos, "" if ab.carga_turnos == 1 else "s"])
-	_pantalla._set_log("⚡ %s se prepara para %s. ¡Prepárate! (aturdirlo lo interrumpe)" % [_pantalla._etq(e), ab.nombre])
+	_pantalla._set_log("⚡ %s se prepara para %s. ¡Prepárate! Si queda Aturdido, se interrumpe." % [_pantalla._etq(e), ab.nombre])
 	_pantalla._update_hp()   # pinta YA el chip ⚡ en SU tarjeta (si no, no saldria hasta el proximo refresco)
 	_pantalla._pausa_lectura()
 
@@ -1062,7 +1062,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 		# quedaba sin su Furia). Igual que al acertar, donde los "self" van aparte de los golpes.
 		var propios: Array = _enemy_tirar_efectos(e, ab, e, 1.0, "self")
 		if not propios.is_empty():
-			_pantalla._log_extra("Aplica: %s." % ", ".join(propios))
+			_pantalla._log_extra(_estados_txt(e, propios).strip_edges())
 			_pantalla._update_hp()
 		_pantalla._pausa_lectura()   # mismo motivo que en _enemy_turn: su barra ya se gasto, hay que reanudar
 		return
@@ -1299,8 +1299,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 		var titulo: String = "%s usa %s" % [_pantalla._etq(e), ab.nombre]
 		if tocados.size() <= 1:
 			titulo += " → %s" % _pantalla._etq(obj)
-		var sin_dar: String = "… no te ha dado con ninguno de los %d golpe%s." % [
-			rastro.size(), "" if rastro.size() == 1 else "s"]
+		var sin_dar: String = "… falla el golpe." if rastro.size() == 1 else "… falla los %d golpes." % rastro.size()
 		msg = _pantalla.magia._log_desglose(titulo, rastro, tocados, dano_por_obj, total, sin_dar)
 	else:
 		msg = "%s usa %s" % [_pantalla._etq(e), ab.nombre]
@@ -1321,14 +1320,14 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 	# Que se CHUPA lo que te saca. Sin decirlo, un bicho que drena se lee como un bicho que
 	# simplemente no baja de vida, y eso parece un fallo en vez de su mecanica.
 	if robado_total > 0.0:
-		msg += "  🩸 Se cura %.2f con lo que te saca." % robado_total
+		msg += "  🩸 Recupera %s de vida con lo que chupa." % _pantalla._n(robado_total)
 		# LA GARRAPATA ENGORDA con cada chupada (EnemyData.hincha_tope).
 		if e.hincha_tope > 0 and e.hinchazon < e.hincha_tope:
 			e.hinchazon += 1
 			msg += "  Se hincha (%d/%d)." % [e.hinchazon, e.hincha_tope]
 	if not estados_log.is_empty():
-		# Neutro: las entradas ya dicen "(a sí mismo)" cuando el estado es un buff propio.
-		msg += "  Aplica: %s." % ", ".join(estados_log)
+		# "Causa X" lo que le pone a los tuyos; "<el bicho> recibe Y" lo suyo (las entradas propias traen "(a sí mismo)").
+		msg += _estados_txt(e, estados_log)
 	if invocados > 0:
 		msg += "  ¡Brotan %d slime%s a su lado! 🟢" % [invocados, "" if invocados == 1 else "s"]
 	if contra_txt != "":
@@ -1478,7 +1477,7 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 			# que en el golpe basico.
 			total_bruto += dmg_bruto
 			conecto += 1
-			rastro.append({"t": "💥%.2f" % dmg if result.crit else "%.2f" % dmg, "c": t})
+			rastro.append({"t": "💥" + _pantalla._n(dmg) if result.crit else _pantalla._n(dmg), "c": t})
 			var et := "[%s] golpe %d: %s %.2f" % [t.nombre, i + 1, ("CRITICO 💥" if result.crit else "acierta"), dmg]
 			if ab.efectos_por_golpe and aplicar_efectos:
 				var ap: Array = _enemy_tirar_efectos(e, ab, t, escala, "objetivo", escala_prob)
@@ -1600,7 +1599,7 @@ func tajo_zona_siega(e: Combatant, t: Combatant) -> void:
 		ab.efectos = e.on_hit
 		puestos = _enemy_tirar_efectos(e, ab, t, 1.0, "objetivo")
 	_pantalla._update_hp()
-	_pantalla._log_extra("✱ %s se mete en la Zona de siega de %s: tajo de %.2f%s" % [t.nombre, _pantalla._etq(e), dmg,
+	_pantalla._log_extra("✱ %s se mete en la Zona de siega de %s: el tajo le inflige %s de daño%s" % [t.nombre, _pantalla._etq(e), _pantalla._n(dmg),
 		(" (" + ", ".join(puestos) + ")") if not puestos.is_empty() else ""])
 	if e.cortes_viento > 0.0 and e.is_alive():
 		cortes_tras_golpe(e, t)
@@ -1616,7 +1615,7 @@ func cortes_tras_golpe(e: Combatant, t: Combatant) -> void:
 	var partes: Array = []
 	for v in a_quien:
 		var d: float = corte_viento(e, v, e.cortes_viento)
-		partes.append("%s %.2f" % [(v as Combatant).nombre, d] if d > 0.0 else "%s lo esquiva" % (v as Combatant).nombre)
+		partes.append("%s %s" % [(v as Combatant).nombre, _pantalla._n(d)] if d > 0.0 else "%s lo esquiva" % (v as Combatant).nombre)
 	_pantalla._update_hp()
 	_pantalla._log_extra("💨 El corte de viento de %s sigue de largo: %s" % [_pantalla._etq(e), ", ".join(partes)])
 
@@ -1659,7 +1658,7 @@ func _enemy_apretar(e: Combatant, presa: Combatant, cerrar: bool = true) -> void
 	var pj_p: PersonajeData = Game.pj_de_combatant(presa)
 	Game.desgastar_armadura(pj_p)
 	Game.contar_dano_recibido(dmg, pj_p)
-	_pantalla._set_log("🐛 %s aprieta a %s: %.2f de daño." % [_pantalla._etq(e), presa.nombre, dmg])
+	_pantalla._set_log("🐛 %s aprieta a %s y le inflige %s de daño." % [_pantalla._etq(e), presa.nombre, _pantalla._n(dmg)])
 	_pantalla._update_hp()
 	if not presa.is_alive():
 		_pantalla.altas._caer_aliado(presa)
@@ -1706,7 +1705,7 @@ func _morder_con_la_libre(e: Combatant) -> void:
 	var pj: PersonajeData = Game.pj_de_combatant(obj)
 	Game.desgastar_armadura(pj)
 	Game.contar_dano_recibido(dmg, pj)
-	_pantalla._set_log("🐛 La otra cabeza de %s muerde a %s: %.2f de daño." % [_pantalla._etq(e), obj.nombre, dmg])
+	_pantalla._set_log("🐛 La otra cabeza de %s muerde a %s y le inflige %s de daño." % [_pantalla._etq(e), obj.nombre, _pantalla._n(dmg)])
 	_pantalla._update_hp()
 	if not obj.is_alive():
 		_pantalla.altas._caer_aliado(obj)
@@ -1722,6 +1721,22 @@ func _morder_con_la_libre(e: Combatant) -> void:
 # N stacks por tirada (a.stacks). Devuelve los nombres aplicados para el log.
 # filtro: "todos" = self + a-objetivo; "objetivo" = solo los que van a QUIEN encaja (debuff/DoT, se
 # aplican por objetivo del area); "self" = solo los buffs propios (en_objetivo=false), UNA vez por uso.
+# Los estados de una habilidad del bicho, en frases (06/11, pase de textos): lo que le pone a los tuyos -> "Causa X";
+# lo suyo (las entradas con "(a sí mismo)") -> "<el bicho> recibe Y".
+func _estados_txt(e: Combatant, lista: Array) -> String:
+	var a_otros: Array = []
+	var propios: Array = []
+	for s in lista:
+		var t: String = String(s)
+		if t.ends_with(" (a sí mismo)"):
+			propios.append(t.trim_suffix(" (a sí mismo)"))
+		else:
+			a_otros.append("·" + t)
+	if not propios.is_empty():
+		a_otros.append("%s recibe %s" % [_pantalla._etq(e), ", ".join(propios)])
+	return _pantalla._frase_estados(a_otros)
+
+
 func _enemy_tirar_efectos(e: Combatant, ab: AbilityData, victima: Combatant, escala_mag: float = 1.0,
 		filtro: String = "todos", escala_prob: float = 1.0) -> Array:
 	var out: Array = []
@@ -1910,14 +1925,14 @@ func _contraatacar(atacante: Combatant, quien: Combatant, mult: float = -1.0,
 	# Excelia: el contraataque golpea, entrena como un ataque normal (Fuerza, o Destreza si es de distancia).
 	var pj_contra: PersonajeData = Game.pj_de_combatant(quien)
 	Game.ganar_golpe(_pantalla._reto(atacante, pj_contra) * quien.motion_value, pj_contra, quien)
-	var extra := "un CRITICO 💥 " if result.crit else ""
+	var extra := "un crítico 💥 " if result.crit else ""
 	# EL ARMA SALE DEL COMBATIENTE, no escrita a mano. Decia "el estoque" siempre, y desde que el
 	# escudo pequeño tambien ripostea eso mentia con cualquier otra arma. set_active_hand(0) de
 	# arriba ya ha fijado la principal, asi que current_hand_name() es exactamente con lo que pega.
 	var arma: String = "el escudo" if con_escudo else quien.current_hand_name()
 	if arma == "":
 		arma = "lo que tiene a mano"
-	return "%s con %s: %s%.2f de daño! %s" % [abrir, arma, extra, dmg,
+	return "%s con %s: %s%s de daño! %s" % [abrir, arma, extra, _pantalla._n(dmg),
 		"🛡️⚔" if al_bloquear else "🤺"]
 
 

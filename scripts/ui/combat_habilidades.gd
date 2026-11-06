@@ -36,7 +36,7 @@ func _pedir_soltar_carga(ab: AbilityData) -> void:
 		return
 	if dueno != 0:
 		_pantalla._ocultar_cajas()
-		_pantalla._set_log("%s tiene %s lista. Esperando su objetivo..." % [_pantalla._player.nombre, ab.nombre])
+		_pantalla._set_log("%s ya puede soltar %s. Esperando su objetivo..." % [_pantalla._player.nombre, ab.nombre])
 		_pantalla.espejo._pedir_a_remoto(dueno, {"tipo": "soltar", "nombre": ab.nombre})
 		return
 	_pintar_soltar(ab.nombre)
@@ -61,7 +61,7 @@ func _pintar_soltar(nombre: String) -> void:
 	_pantalla._cast_box.add_child(b)
 	_pantalla._alto_panel(_pantalla.ALTO_BOTON_ACCION)
 	_pantalla._cast_box.visible = true
-	_pantalla._set_log("%s está lista. Elige a quién y suéltala." % nombre)
+	_pantalla._set_log("Ya se puede soltar %s: elige el objetivo." % nombre)
 	_pantalla._ocultar_log()   # el boton ocupa el sitio del historial, igual que el de disparo
 
 
@@ -572,7 +572,7 @@ func _empezar_carga_jugador(ab: AbilityData) -> void:
 	_pantalla._player.charge_left = ab.carga_turnos
 	print("[habilidad] %s empieza a cargar %s (%d turno%s)" % [
 		_pantalla._player.nombre, ab.nombre, ab.carga_turnos, "" if ab.carga_turnos == 1 else "s"])
-	_pantalla._set_log("⚡ %s se prepara para %s. (si te aturden, se interrumpe)" % [_pantalla._player.nombre, ab.nombre])
+	_pantalla._set_log("⚡ %s se prepara para %s. Si queda Aturdido, se interrumpe." % [_pantalla._player.nombre, ab.nombre])
 	# CON ARCO O BALLESTA, en el mapa se ve TENSAR: el aire se aprieta hacia el que carga (DistanciaAire.TENSA).
 	if _pantalla.tactico and _pantalla._player.a_distancia:
 		_pantalla.efectos._fx_golpe(_pantalla._player, _pantalla._player, 0.0, false, false, Elementos.Elemento.NINGUNO,
@@ -589,7 +589,7 @@ func _empezar_retraso_jugador(ab: AbilityData) -> void:
 	_pantalla._player.retrasando = true
 	_pantalla.echar_atras(_pantalla._player)
 	print("[habilidad] %s prepara %s: sale al volver a llegar a la barra" % [_pantalla._player.nombre, ab.nombre])
-	_pantalla._set_log("⏳ %s prepara %s. (si le aturden, se interrumpe)" % [_pantalla._player.nombre, ab.nombre])
+	_pantalla._set_log("⏳ %s prepara %s. Si queda Aturdido, se interrumpe." % [_pantalla._player.nombre, ab.nombre])
 	_pantalla._fin_de_eleccion()   # cierra la accion: oculta las cajas y repinta (aqui sale el chip ⏳)
 	_pantalla._tras_accion_jugador_varios([])
 
@@ -905,7 +905,7 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 				# varios, al final se le pega la etiqueta de a quien fue), y su daño a la cuenta
 				# del objetivo para el reparto.
 				rastro.append({"t": "falla" if r.evaded
-					else ("💥%.2f" % r.dmg if r.crit else "%.2f" % r.dmg), "c": r.c})
+					else ("💥" + _pantalla._n(r.dmg) if r.crit else _pantalla._n(r.dmg)), "c": r.c})
 				dano_por_obj[r.c] = float(dano_por_obj.get(r.c, 0.0)) + r.dmg
 				print("        " + r.linea)
 			# Fin de la habilidad si, sin área ni redirección, el objetivo ya cayó (los que
@@ -1056,7 +1056,7 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		for al in a_defender:
 			_pantalla._poner_en_defensa(al)
 		if not a_defender.is_empty():
-			estados_log.append("en defensa: %s" % ", ".join(a_defender.map(func(x): return x.nombre)))
+			estados_log.append("en guardia: %s" % ", ".join(a_defender.map(func(x): return x.nombre)))
 	# CIERRAN FILAS (Muro de aliados): los de la huella se arriman un paso al que la lanza.
 	if ab.junta_aliados > 0.0 and _aliados_mapa != null:
 		for al in _aliados_mapa:
@@ -1071,7 +1071,7 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 			ab.imbue_estado, ab.imbue_prob, Elementos.INTENSIDAD_IMBUIDO,
 			ab.imbue_prob_doble, ab.imbue_por_destreza, 1.0, false,
 			ab.imbue_tope(_tier_arma_activa()), ab.imbue_reparto(_tier_arma_activa()))
-		estados_log.append("%s en el arma (%d ataques)" % [
+		estados_log.append("el arma puede causar %s durante %d ataques" % [
 			str(StatusEffects.def(ab.imbue_estado).get("nombre", "?")), ab.imbue_usos])
 	# LIMPIAR DEBUFFS: a un aliado elegido (Purificar) o a todo el grupo (el area del baston).
 	if ab.limpia_debuffs > 0:
@@ -1092,8 +1092,9 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# RECORTE DE COOLDOWNS: a las OTRAS habilidades, nunca a la suya (ver AbilityData).
 	if ab.reduce_cooldowns > 0:
 		var destrabadas: int = _pantalla._player.reducir_cooldowns(ab.reduce_cooldowns, ab)
-		estados_log.append("cooldowns −%dt%s" % [ab.reduce_cooldowns,
-			"" if destrabadas == 0 else " (%d lista%s)" % [destrabadas, "" if destrabadas == 1 else "s"]])
+		estados_log.append("las demás habilidades se recargan %d turno%s antes%s" % [ab.reduce_cooldowns,
+			"" if ab.reduce_cooldowns == 1 else "s",
+			"" if destrabadas == 0 else " (%d ya disponible%s)" % [destrabadas, "" if destrabadas == 1 else "s"]])
 
 	# ---- Mensaje al jugador ----
 	# Con daño van DOS lineas: el RASTRO (que hizo cada golpe) y el REPARTO (cuanto se llevo cada
@@ -1108,16 +1109,15 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 			else "%s usa %s, pero no hay ningún enemigo a su alcance.") % [_pantalla._player.nombre, ab.nombre]
 	elif ab.dano_mult > 0.0:
 		var titulo: String = ab.nombre if tocados.size() > 1 else "%s → %s" % [ab.nombre, _pantalla._etq(obj)]
-		var sin_dar: String = "… no le has dado con ninguno de los %d golpe%s." % [
-			rastro.size(), "" if rastro.size() == 1 else "s"]
+		var sin_dar: String = "… falla el golpe." if rastro.size() == 1 else "… falla los %d golpes." % rastro.size()
 		msg = _pantalla.magia._log_desglose(titulo, rastro, tocados, dano_por_obj, total, sin_dar,
 			_pantalla.magia._desglose_imbue(total, total_imbue, mult_imbue))
 	else:
 		msg = "%s usa %s." % [_pantalla._player.nombre, ab.nombre]
 	if mana_ganado > 0.0:
-		msg += "  +%.1f MP." % mana_ganado
+		msg += "  Recupera %s de maná. 🔷" % _pantalla._n(mana_ganado)
 	if not estados_log.is_empty():
-		msg += "  ✨%s." % ", ".join(estados_log)
+		msg += _pantalla._frase_estados(estados_log)
 	if ab.bloqueo_turnos > 0:
 		msg += "  🛡️ En guardia."
 	if ab.postura_contraataque:
@@ -1270,7 +1270,7 @@ func filo_de_aire(p: Combatant, ab: AbilityData, ya: Array, obj: Combatant) -> A
 			"", AbilityData.Gesto.AUTO, null, 0, mult)
 		_pantalla._apuntar_dano(v, d, p)
 		out.append(v)
-		partes.append("%s %.2f" % [_pantalla._etq(v), d])
+		partes.append("%s %s" % [_pantalla._etq(v), _pantalla._n(d)])
 	if not partes.is_empty():
 		_pantalla._update_hp()
 		_pantalla._log_extra("💨 Filo de aire: el corte de %s sigue de largo (%s)" % [p.nombre, ", ".join(partes)])
@@ -1344,5 +1344,10 @@ func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico:
 			d.aturdir_en_area = ab != null and (ab.es_area() or (ab.forma >= 0 and not ab.forma_solo_primero))
 			for _s in maxi(1, a.stacks):
 				d.apply_status(a.estado, _pantalla._player.runa_turnos(a.estado, a.turns), _pantalla._player.runa_mag(a.estado, mag, d), 1, false, a.cap, a.mult)
-			out.append(nom if al_enemigo else "%s (%s)" % [nom, d.nombre])
+			# "·" = causado al golpeado (CombatPantalla._frase_estados lo junta en "Causa X"). El buff que se pone el que la
+			# usa y se llama como ella (Guardia de carne) no se repite: "usa Guardia de carne" ya lo dice.
+			if al_enemigo:
+				out.append("·" + nom)
+			elif not (d == _pantalla._player and ab != null and nom == ab.nombre):
+				out.append("%s recibe %s" % [d.nombre, nom])
 	return out

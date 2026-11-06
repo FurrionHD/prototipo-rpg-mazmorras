@@ -96,4 +96,4 @@ probabilidad base de causarla. El daño de las Quemaduras que causa el portador 
 | Objetos y consumibles | Pendiente |
 | Estados (ver también `textos_estados_y_cocina.md`) | Pendiente |
 | Menús y avisos | Pendiente |
-| Log de combate (una línea por acción, desglose, filtros, frases mágicas) | Pendiente, después de magias y habilidades |
+| Log de combate (frases; números con coma y sin ceros: `CombatPantalla._n`) | Hecho 06/11 |
