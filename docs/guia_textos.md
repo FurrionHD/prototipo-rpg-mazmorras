@@ -12,6 +12,12 @@ Si una frase se puede leer de dos maneras, está mal.
 1. **Se habla del «portador».** «El daño que inflige el portador aumenta en un 20 %», no «haces un
    20 % más». En habilidades y magias, el sujeto es quien la usa o el objetivo: «Inflige…»,
    «El objetivo queda…».
+   - **En magias, «el lanzador»** (la magia no se porta, se lanza): «+ 12 por el poder mágico del
+     lanzador».
+   - **A quien se le echa: «el aliado seleccionado» / «el objetivo seleccionado»** (los Filos,
+     Mantos y buffs se pueden echar a cualquiera del grupo). «Todo el grupo» si va a todos.
+   - **Los números, de los datos y concretos:** nada de «resiste lo mismo que el fuego»; «recibe
+     un 20 % menos de Daño de Fuego y un 20 % más de Daño de Agua».
 2. **Cada porcentaje dice de qué es.** Nunca «el 30 %» a secas.
    - Mal: «hace el 30 % a quien la forma normal no tocaba».
    - Bien: «reciben como Daño de Viento un 30 % del daño que esa habilidad les habría infligido».
@@ -97,7 +103,7 @@ probabilidad base de causarla. El daño de las Quemaduras que causa el portador 
 | Sección | Estado |
 |---|---|
 | Sets de runas (`Runas.efecto_txt`) | Hecho 06/11 |
-| Magias | Pendiente |
+| Magias (fichas, línea compacta, Filos y Mantos con su afinidad; sabor y tildes) | Hecho 06/11 |
 | Habilidades | Pendiente |
 | Armas y armaduras (fichas) | Pendiente |
 | Objetos y consumibles (fichas, pociones, platos, unturas, cebos; sabor de pociones) | Hecho 06/11 |

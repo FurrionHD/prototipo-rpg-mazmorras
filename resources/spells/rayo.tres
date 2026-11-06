@@ -20,7 +20,7 @@ alcance = 1
 dano_salpicon = 0.5
 rebotes = 5
 dano_rebote = 0.55
-descripcion = "Hechizo medio de rayo. Un solo rayo seco que, al caer, arquea de un cuerpo a otro sin preguntar: mas saltos que la Descarga y mas gordos, y deja electrizado con facilidad. En un duelo, todos los arcos se ceban en el mismo."
+descripcion = "Hechizo medio de rayo. Un solo rayo seco que, al caer, arquea de un cuerpo a otro sin preguntar: más saltos que la Descarga y más gordos, y deja electrizado con facilidad. En un duelo, todos los arcos se ceban en el mismo."
 efectos = [SubResource("SA_electrizado")]
 ; LA FORMA EN EL MAPA (26/09, su decision): cae del CIELO sobre el que este donde apuntas y salta en CADENA
 ; 5 veces (mas lejos que la Descarga).
