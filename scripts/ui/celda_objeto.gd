@@ -38,6 +38,7 @@ extends Button
 class_name CeldaObjeto
 
 const RetratoPieza = preload("res://scripts/ui/retrato_pieza.gd")
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 # --- proporciones, todas relativas al lado de la celda ---
 const MUESCA := 0.24        # lo que se come el chaflan de la esquina superior izquierda
@@ -359,12 +360,17 @@ func _draw() -> void:
 	# chaflan y la esquina queda en angulo recto. Siguiendo la diagonal del chaflan, el marco pasaba
 	# justo por encima del numero del tier y lo tapaba.
 	var marco: PackedVector2Array = _contorno_marco(w, h)
-	if button_pressed:
+	if button_pressed and HudEstilo.es_pixel():
+		# En pixel: negro por fuera y ambar por dentro, de P cada uno, en escalera (sin suavizar).
+		draw_polyline(_cerrar(marco), Color(0.03, 0.04, 0.06, 0.92), P * 2.0, false)
+		draw_polyline(_cerrar(_px(_encoger(marco, w, h, P * 1.5), Vector2(w, h) * 0.5)), Color(0.95, 0.72, 0.36, 1.0), P, false)
+	elif button_pressed:
 		var g: float = maxf(2.5, w * 0.034)
 		draw_polyline(_cerrar(marco), Color(0.03, 0.04, 0.06, 0.92), g * 1.9)
 		draw_polyline(_cerrar(_encoger(marco, w, h, g * 0.55)), Color(0.95, 0.72, 0.36, 1.0), g)
 	elif _hover or has_focus():
-		draw_polyline(_cerrar(marco), Color(1, 1, 1, 0.45), maxf(1.5, w * 0.016))
+		draw_polyline(_cerrar(marco), Color(1, 1, 1, 0.45), P if HudEstilo.es_pixel() else maxf(1.5, w * 0.016),
+			not HudEstilo.es_pixel())
 	if disabled or tenue:
 		draw_polygon(borde, PackedColorArray([Color(0.04, 0.05, 0.07, 0.55)]))
 
@@ -440,11 +446,14 @@ func _muesca_tier(w: float, h: float) -> void:
 	# (el trapecio de debajo), que multiplica la superficie sin tocar la silueta de la celda: la
 	# muesca sigue siendo la misma, lo que cambia es que ahora esta pintada.
 	var f: float = m * BANDA_TIER
-	draw_colored_polygon(PackedVector2Array([
-		Vector2.ZERO, Vector2(m + f, 0.0), Vector2(0.0, m + f)]), col)
+	draw_colored_polygon(_px(PackedVector2Array([
+		Vector2.ZERO, Vector2(m + f, 0.0), Vector2(0.0, m + f)]), Vector2.ZERO), col)
 	# Una linea mas clara en el canto de dentro: separa la franja del degradado del fondo, que en las
 	# rarezas claras tiran al mismo sitio y se comian el borde.
-	draw_line(Vector2(m + f, 0.0), Vector2(0.0, m + f), col.lightened(0.35), 2.0, true)
+	if HudEstilo.es_pixel():
+		_linea_px(Vector2(m + f, 0.0), Vector2(0.0, m + f), Vector2.ZERO, col.lightened(0.35))
+	else:
+		draw_line(Vector2(m + f, 0.0), Vector2(0.0, m + f), col.lightened(0.35), 2.0, true)
 
 	# EL NUMERO DEL TIER, escrito en la franja. El color agrupa de un vistazo (cuatro T2 seguidos se
 	# ven de golpe) y el numero lo remata sin dejar dudas, que era la pega del color solo: hay que
@@ -596,11 +605,14 @@ func _muesca_plus(w: float, h: float, n: int) -> float:
 	# El vertice de la derecha NO llega a la esquina: ahi el contorno lleva su chaflan pequeño (ver
 	# _contorno), y pintar hasta el pico se saldria del fondo por dos puntas.
 	var r: float = minf(w, h) * REDONDEO
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(w - lado, 0.0), Vector2(w - r, 0.0), Vector2(w, r), Vector2(w, lado)]), col)
+	draw_colored_polygon(_px(PackedVector2Array([
+		Vector2(w - lado, 0.0), Vector2(w - r, 0.0), Vector2(w, r), Vector2(w, lado)]), Vector2(w, 0.0)), col)
 	# La misma linea clara del canto que en el tier: sobre las rarezas claras el color de la muesca y
 	# el del fondo tiran al mismo sitio y el borde se perdia.
-	draw_line(Vector2(w - lado, 0.0), Vector2(w, lado), col.lightened(0.35), 2.0, true)
+	if HudEstilo.es_pixel():
+		_linea_px(Vector2(w - lado, 0.0), Vector2(w, lado), Vector2(w, 0.0), col.lightened(0.35))
+	else:
+		draw_line(Vector2(w - lado, 0.0), Vector2(w, lado), col.lightened(0.35), 2.0, true)
 
 	# EL NUMERO, dentro del triangulo y pegado a su lado ancho. El "+" va delante porque es lo que lo
 	# distingue del tier de enfrente: sin el, dos numeros sueltos en las dos esquinas se leen como si
@@ -628,12 +640,56 @@ func _muesca_plus(w: float, h: float, n: int) -> float:
 func _contorno(w: float, h: float) -> PackedVector2Array:
 	var m: float = minf(w, h) * MUESCA
 	var r: float = minf(w, h) * REDONDEO
-	return PackedVector2Array([
+	return _px(PackedVector2Array([
 		Vector2(m, 0.0), Vector2(w - r, 0.0), Vector2(w, r),        # arriba y esquina der.
 		Vector2(w, h - r), Vector2(w - r, h),                        # abajo derecha
 		Vector2(r, h), Vector2(0.0, h - r),                          # abajo izquierda
 		Vector2(0.0, m),                                             # sube hasta la muesca
-	])
+	]), Vector2(w, h) * 0.5)
+
+
+# ------------------------------------------------------------
+#  EN PIXEL (06/11, rework visual: "las celdas de objetos, pixel"): con el estilo pixel de mazmorra (HudEstilo) cada
+#  lado en DIAGONAL se vuelve una ESCALERA de pixeles de P, hacia dentro de la celda (cada peldaño elige la esquina mas
+#  cercana a 'centro'). Lo usan el contorno, la muesca del tier y la del +N, asi que el fondo, la banda del pie y los
+#  marcos salen en pixel solos. Los colores no cambian: la rareza y el tier se leen igual.
+# ------------------------------------------------------------
+const P := 2.0
+
+static func _px(poly: PackedVector2Array, centro: Vector2) -> PackedVector2Array:
+	if not HudEstilo.es_pixel():
+		return poly
+	var out := PackedVector2Array()
+	var n: int = poly.size()
+	for i in n:
+		_tramo(poly[i], poly[(i + 1) % n], centro, out)
+	return out
+
+# Añade a 'out' el lado de 'a' a 'b' en escalera: 'a' y los peldaños, sin 'b' (que es el principio del siguiente).
+static func _tramo(a: Vector2, b: Vector2, centro: Vector2, out: PackedVector2Array) -> void:
+	a = a.snapped(Vector2(P, P))
+	b = b.snapped(Vector2(P, P))
+	out.append(a)
+	if is_equal_approx(a.x, b.x) or is_equal_approx(a.y, b.y):
+		return
+	var pasos: int = maxi(1, roundi(maxf(absf(b.x - a.x), absf(b.y - a.y)) / P))
+	var prev: Vector2 = a
+	for k in range(1, pasos + 1):
+		var q: Vector2 = a.lerp(b, float(k) / float(pasos)).snapped(Vector2(P, P))
+		var c1 := Vector2(q.x, prev.y)
+		var c2 := Vector2(prev.x, q.y)
+		out.append(c1 if c1.distance_squared_to(centro) < c2.distance_squared_to(centro) else c2)
+		if k < pasos:
+			out.append(q)
+		prev = q
+
+
+# Una linea en escalera de 'a' a 'b' (el canto claro de las muescas), hacia 'centro'.
+func _linea_px(a: Vector2, b: Vector2, centro: Vector2, col: Color) -> void:
+	var tramo := PackedVector2Array()
+	_tramo(a, b, centro, tramo)
+	tramo.append(b.snapped(Vector2(P, P)))
+	draw_polyline(tramo, col, P, false)
 
 
 # Por donde va el MARCO de seleccionada/hover. Sin tier es el contorno de siempre; con tier, el
