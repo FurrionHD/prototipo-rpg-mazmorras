@@ -86,7 +86,7 @@ f893 LOG 🗣️ Frases: «Arde hasta el hueso» ✓ · «Y ahora, hiela» ✓ �
 f893 Agirato ochinan hp=195.474 mp=22.444 en=177.425
 f893 Rey Slime hp=406.503 mp=21.188 en=0.000
 f893 Slime hp=0.000 mp=20.429 en=0.000
-f973 LOG 1. Rey Slime usa Brote contra Dasui.  ¡Brotan 2 slimes a su lado! 🟢
+f973 LOG 1. Rey Slime usa Brote.  ¡Brotan 2 slimes a su lado! 🟢
 f973 Slime de fuego hp=50.050 mp=20.891 en=0.000
 f1042 LOG ¡Turno de Dasui! Elige una acción.
 f1044 PULSA Habilidad

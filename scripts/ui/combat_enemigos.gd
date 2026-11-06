@@ -1303,7 +1303,21 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 		msg = _pantalla.magia._log_desglose(titulo, rastro, tocados, dano_por_obj, total, sin_dar)
 	else:
 		msg = "%s usa %s" % [_pantalla._etq(e), ab.nombre]
-		if obj == e:
+		# SOLO SOBRE SI MISMO (la Ignicion): sin daño y sin nada que vaya al objetivo. Decia "usa Ignición contra
+		# Daniel" porque 'obj' es a quien apuntaba ese turno (06/11, lo vio el jefe). Ahora: "usa Ignición y recibe
+		# Encendido."
+		var solo_propia: bool = true
+		for a in ab.efectos:
+			if a != null and a.estado >= 0 and a.en_objetivo:
+				solo_propia = false
+		var propios_txt: Array = []
+		for s in estados_log:
+			if String(s).ends_with(" (a sí mismo)"):
+				propios_txt.append(String(s).trim_suffix(" (a sí mismo)"))
+		if solo_propia and not propios_txt.is_empty():
+			msg += " y recibe %s." % ", ".join(propios_txt)
+			estados_log = estados_log.filter(func(s): return not String(s).ends_with(" (a sí mismo)"))
+		elif obj == e or solo_propia:
 			msg += "."
 		else:
 			msg += " y alcanza a %d de los tuyos." % tocados.size() if tocados.size() > 1 \

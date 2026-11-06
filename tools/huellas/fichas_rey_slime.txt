@@ -306,7 +306,7 @@ f3478 998 PULSA ⚡ ¡Soltar Bastonazo!
 f3479 LOG … 9,54 de daño.  Recupera 0,2 de maná. 🔷
 f3479 Agirato ochinan hp=198.305 mp=27.588 en=151.425
 f3479 Rey Slime hp=7.879 mp=21.188 en=0.000
-f3550 LOG 1. Rey Slime usa Brote contra Daniel.  ¡Brotan 2 slimes a su lado! 🟢
+f3550 LOG 1. Rey Slime usa Brote.  ¡Brotan 2 slimes a su lado! 🟢
 f3550 Slime de fuego hp=50.050 mp=20.891 en=0.000
 f3608 LOG Turno de Daniel. Esperando su acción...
 f3608 Daniel hp=167.980 mp=20.000 en=166.025
@@ -2225,7 +2225,7 @@ f4605 Slime de fuego hp=0.000 mp=20.891 en=0.000
 f4605 Slime de fuego hp=9.454 mp=20.891 en=0.000
 f4606 Slime de fuego hp=0.000 mp=20.891 en=0.000
 f4606 Slime de fuego hp=9.454 mp=20.891 en=0.000
-f4607 LOG 3. Slime de fuego usa Ignición contra Daniel.  3. Slime de fuego recibe Encendido.
+f4607 LOG 3. Slime de fuego usa Ignición y recibe Encendido.
 f4607 Slime de fuego hp=0.000 mp=20.891 en=0.000
 f4607 Slime de fuego hp=9.454 mp=20.891 en=0.000
 f4608 Slime de fuego hp=0.000 mp=20.891 en=0.000
