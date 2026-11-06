@@ -339,7 +339,7 @@ func _enemy_turn(e: Combatant) -> void:
 	if result.crit:
 		msg = "%s CLAVA un critico a %s: %.2f de daño! 💥" % [_pantalla._etq(e), obj.nombre, dmg]
 	else:
-		msg = "%s ataca a %s por %.2f de daño." % [_pantalla._etq(e), obj.nombre, dmg]
+		msg = "%s ataca a %s y le inflige %.2f de daño." % [_pantalla._etq(e), obj.nombre, dmg]
 	msg += _pantalla.magia._elem_golpe_txt(result, e.elemento_ataque)
 	if bool(_pantalla._defendiendo.get(obj, false)):
 		msg += " (defendido 🛡️)"

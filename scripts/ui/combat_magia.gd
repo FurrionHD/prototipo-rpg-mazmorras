@@ -1414,7 +1414,7 @@ func _log_hechizo(spell: SpellData, res_area: Array, res_reb: Array, foco: float
 			# El 💥 del critico: en los multigolpe ya iba dentro del rastro, pero un hechizo de UN
 			# golpe no pinta rastro y el critico no se veia por ningun lado — solo intuias que habia
 			# pasado algo porque el numero salia mas gordo de lo normal.
-			_pantalla._set_log("🔥 %s impacta a %s por %.2f de daño.%s%s%s" % [
+			_pantalla._set_log("🔥 %s impacta a %s y le inflige %.2f de daño.%s%s%s" % [
 				spell.nombre, _pantalla._etq(r0.c), total,
 				"  ¡CRITICO! 💥" if bool(r0.get("crit", false)) else "",
 				_elem_txt(float(r0.mult)), foco_txt])

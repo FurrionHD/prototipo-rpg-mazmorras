@@ -16,7 +16,7 @@ f38 PULSA frase Arde hasta el hueso
 f39 LOG ✓ Frase correcta. Continua el proximo turno...
 f67 LOG ¡Turno de Daniel! Elige una acción.
 f69 PULSA Atacar
-f70 LOG Daniel golpea con Maza pequeña por 5.87 de daño.  ¡Retrasado! 💫
+f70 LOG Daniel golpea con Maza pequeña e inflige 5.87 de daño.  ¡Retrasado! 💫
 f70 Rey Slime hp=852.753 mp=21.188 en=0.000
 f123 LOG ¡Turno de Dasui! Elige una acción.
 f125 PULSA Objeto
@@ -28,9 +28,9 @@ f134 LOG ¡Turno de Catalardio! Elige una acción.
 f136 PULSA Defender
 f137 LOG Catalardio se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
 f137 Catalardio hp=198.733 mp=24.620 en=166.275
-f145 LOG 3. Slime venenoso ataca a Daniel por 0.39 de daño.  Le inflige Pegajoso.  Le inflige Veneno.
+f145 LOG 3. Slime venenoso ataca a Daniel y le inflige 0.39 de daño.  Le inflige Pegajoso.  Le inflige Veneno.
 f145 Daniel hp=190.596 mp=20.000 en=181.025
-f202 LOG 2. Slime ataca a Agirato ochinan por 0.12 de daño.
+f202 LOG 2. Slime ataca a Agirato ochinan y le inflige 0.12 de daño.
 f202 Agirato ochinan hp=198.676 mp=24.279 en=177.425
 f289 LOG 🔮 Shock térmico fulminante — recita la frase 2/3:
 f289 Agirato ochinan hp=198.676 mp=34.494 en=177.425
@@ -40,11 +40,11 @@ f295 LOG ⏳ 1. Rey Slime prepara Brote. ¡Apártate! (aturdirlo lo interrumpe)
 f332 LOG ¡Turno de Daniel! Elige una acción.
 f332 Daniel hp=187.596 mp=20.000 en=181.025
 f334 PULSA Atacar
-f335 LOG ¡CRITICO! Daniel golpea con Maza pequeña por 8.81 de daño. 💥
+f335 LOG ¡CRITICO! Daniel golpea con Maza pequeña e inflige 8.81 de daño. 💥
 f335 Rey Slime hp=845.708 mp=21.188 en=0.000
 f389 LOG ¡Turno de Dasui! Elige una acción.
 f391 PULSA Atacar
-f392 LOG Dasui golpea con Mandobles por 11.47 de daño.
+f392 LOG Dasui golpea con Mandobles e inflige 11.47 de daño.
 f392 Rey Slime hp=836.529 mp=21.188 en=0.000
 f449 LOG ¡Turno de Catalardio! Elige una acción.
 f451 PULSA Objeto
@@ -71,7 +71,7 @@ f672 LOG 1. Rey Slime esquiva tu ataque (Mandobles). 💨
 f727 LOG ⚡ 2. Slime se prepara para Reventón. ¡Prepárate! (aturdirlo lo interrumpe)
 f764 LOG ¡Turno de Catalardio! Elige una acción.
 f766 PULSA Atacar
-f767 LOG Catalardio golpea con Martillo grande por 11.72 de daño.
+f767 LOG Catalardio golpea con Martillo grande e inflige 11.72 de daño.
 f767 Catalardio hp=198.733 mp=24.620 en=181.275
 f767 Rey Slime hp=827.150 mp=21.188 en=0.000
 f836 LOG Golpe demoledor está lista. Elige a quién y suéltala.
@@ -96,12 +96,12 @@ f1048 Dasui hp=199.642 mp=20.000 en=109.300
 f1057 LOG ⏳ 3. Slime venenoso prepara Escupitajo tóxico. ¡Apártate! (aturdirlo lo interrumpe)
 f1094 LOG ¡Turno de Catalardio! Elige una acción.
 f1096 PULSA Atacar
-f1097 LOG Catalardio golpea con Martillo grande por 11.90 de daño.
+f1097 LOG Catalardio golpea con Martillo grande e inflige 11.90 de daño.
 f1097 Rey Slime hp=398.171 mp=21.188 en=0.000
 f1155 LOG ¡Turno de Agirato ochinan! Elige una acción.
 f1155 Agirato ochinan hp=192.474 mp=22.866 en=177.425
 f1157 PULSA Atacar
-f1158 LOG ¡CRITICO! Agirato ochinan golpea con Baston por 7.46 de daño. 💥  🔷 +0.2 MP.
+f1158 LOG ¡CRITICO! Agirato ochinan golpea con Baston e inflige 7.46 de daño. 💥  🔷 +0.2 MP.
 f1158 Agirato ochinan hp=192.474 mp=23.066 en=177.425
 f1158 Rey Slime hp=392.950 mp=21.188 en=0.000
 f1214 LOG ¡Turno de Daniel! Elige una acción.
@@ -127,12 +127,12 @@ f1479 LOG ⏳ Agirato ochinan prepara Bastonazo. (si le aturden, se interrumpe)
 f1479 Agirato ochinan hp=189.474 mp=36.500 en=151.425
 f1482 LOG ¡Turno de Catalardio! Elige una acción.
 f1484 PULSA Atacar
-f1485 LOG Catalardio golpea con Martillo grande por 13.34 de daño.  ¡Retrasado! 💫
+f1485 LOG Catalardio golpea con Martillo grande e inflige 13.34 de daño.  ¡Retrasado! 💫
 f1485 Rey Slime hp=366.022 mp=21.188 en=0.000
 f1545 LOG ¡Turno de Daniel! Elige una acción.
 f1545 Daniel hp=178.596 mp=20.000 en=139.025
 f1547 PULSA Atacar
-f1548 LOG ¡CRITICO! Daniel golpea con Maza pequeña por 7.56 de daño. 💥
+f1548 LOG ¡CRITICO! Daniel golpea con Maza pequeña e inflige 7.56 de daño. 💥
 f1548 Daniel hp=178.596 mp=20.000 en=174.025
 f1548 Rey Slime hp=360.731 mp=21.188 en=0.000
 f1602 LOG ¡Turno de Dasui! Elige una acción.
@@ -147,7 +147,7 @@ f1705 LOG Bastonazo está lista. Elige a quién y suéltala.
 f1707 PULSA ⚡ ¡Soltar Bastonazo!
 f1708 LOG … 7.56 de daño (1 de 1 golpes).  ✨Lento.
 f1708 Rey Slime hp=355.441 mp=21.188 en=0.000
-f1773 LOG 3. Slime venenoso ataca a Daniel por 0.35 de daño.
+f1773 LOG 3. Slime venenoso ataca a Daniel y le inflige 0.35 de daño.
 f1773 Daniel hp=178.250 mp=20.000 en=174.025
 f1854 LOG ¡Turno de Catalardio! Elige una acción.
 f1856 PULSA Habilidad
@@ -156,12 +156,12 @@ f1860 LOG ⏳ Catalardio prepara Golpe sísmico. (si le aturden, se interrumpe)
 f1860 Catalardio hp=198.733 mp=24.620 en=121.275
 f1861 LOG ¡Turno de Daniel! Elige una acción.
 f1863 PULSA Atacar
-f1864 LOG Daniel golpea con Maza pequeña por 5.63 de daño.
+f1864 LOG Daniel golpea con Maza pequeña e inflige 5.63 de daño.
 f1864 Daniel hp=178.250 mp=20.000 en=181.025
 f1864 Rey Slime hp=351.499 mp=21.188 en=0.000
 f1922 LOG ¡Turno de Dasui! Elige una acción.
 f1924 PULSA Atacar
-f1925 LOG Dasui golpea con Mandobles por 10.36 de daño.
+f1925 LOG Dasui golpea con Mandobles e inflige 10.36 de daño.
 f1925 Dasui hp=199.642 mp=20.000 en=151.300
 f1925 Rey Slime hp=344.246 mp=21.188 en=0.000
 f1979 LOG ¡Turno de Agirato ochinan! Elige una acción.
@@ -174,7 +174,7 @@ f1993 LOG … 1.72 de daño: Dasui (0.28), Catalardio (0.68), Agirato ochinan (0
 f1993 Catalardio hp=198.058 mp=24.620 en=121.275
 f1993 Dasui hp=199.361 mp=20.000 en=151.300
 f1993 Daniel hp=177.482 mp=20.000 en=181.025
-f2066 LOG 2. Slime de fuego ataca a Daniel por 0.41 de daño.
+f2066 LOG 2. Slime de fuego ataca a Daniel y le inflige 0.41 de daño.
 f2066 Daniel hp=177.075 mp=20.000 en=181.025
 f2118 LOG … 1.54 de daño: Daniel (0.00), Dasui (1.54)  Aplica: Quemadura.
 f2118 Dasui hp=197.821 mp=20.000 en=151.300
@@ -319,7 +319,7 @@ f2239 Slime de fuego hp=42.011 mp=20.891 en=0.000
 f2239 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f2240 Slime de fuego hp=42.011 mp=20.891 en=0.000
 f2240 Slime de fuego hp=42.797 mp=20.891 en=0.000
-f2241 LOG 3. Slime venenoso ataca a Daniel por 0.34 de daño.
+f2241 LOG 3. Slime venenoso ataca a Daniel y le inflige 0.34 de daño.
 f2241 Daniel hp=176.732 mp=20.000 en=181.025
 f2241 Slime de fuego hp=42.011 mp=20.891 en=0.000
 f2241 Slime de fuego hp=42.797 mp=20.891 en=0.000
@@ -905,7 +905,7 @@ f2518 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f2518 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f2519 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f2519 Slime de fuego hp=42.797 mp=20.891 en=0.000
-f2520 LOG 4. Slime de fuego ataca a Daniel por 0.41 de daño.  Le inflige Quemadura.
+f2520 LOG 4. Slime de fuego ataca a Daniel y le inflige 0.41 de daño.  Le inflige Quemadura.
 f2520 Daniel hp=176.319 mp=20.000 en=139.025
 f2520 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f2520 Slime de fuego hp=42.797 mp=20.891 en=0.000
@@ -1031,7 +1031,7 @@ f2580 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f2580 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f2581 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f2581 Slime de fuego hp=42.797 mp=20.891 en=0.000
-f2582 LOG 3. Slime venenoso ataca a Catalardio por 0.11 de daño. (defendido 🛡️)
+f2582 LOG 3. Slime venenoso ataca a Catalardio y le inflige 0.11 de daño. (defendido 🛡️)
 f2582 Catalardio hp=197.950 mp=24.620 en=106.275
 f2582 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f2582 Slime de fuego hp=42.797 mp=20.891 en=0.000
@@ -1294,7 +1294,7 @@ f2704 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f2705 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f2705 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f2705 PULSA Atacar
-f2706 LOG Daniel golpea con Maza pequeña por 5.20 de daño.
+f2706 LOG Daniel golpea con Maza pequeña e inflige 5.20 de daño.
 f2706 Daniel hp=175.047 mp=20.000 en=174.025
 f2706 Rey Slime hp=322.581 mp=21.188 en=0.000
 f2706 Slime de fuego hp=37.456 mp=20.891 en=0.000
@@ -1788,7 +1788,7 @@ f2945 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f2945 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f2946 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f2946 Slime de fuego hp=42.797 mp=20.891 en=0.000
-f2947 LOG 3. Slime venenoso ataca a Daniel por 0.41 de daño.  Le inflige Pegajoso.  Le inflige Veneno.
+f2947 LOG 3. Slime venenoso ataca a Daniel y le inflige 0.41 de daño.  Le inflige Pegajoso.  Le inflige Veneno.
 f2947 Daniel hp=174.640 mp=20.000 en=174.025
 f2947 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f2947 Slime de fuego hp=42.797 mp=20.891 en=0.000
@@ -2113,7 +2113,7 @@ f3100 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f3101 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3101 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f3101 PULSA Atacar
-f3102 LOG Dasui golpea con Mandobles por 10.31 de daño.
+f3102 LOG Dasui golpea con Mandobles e inflige 10.31 de daño.
 f3102 Dasui hp=196.821 mp=20.000 en=151.300
 f3102 Rey Slime hp=315.364 mp=21.188 en=0.000
 f3102 Slime de fuego hp=37.456 mp=20.891 en=0.000
@@ -2232,7 +2232,7 @@ f3157 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f3158 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3158 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f3158 PULSA Atacar
-f3159 LOG Catalardio golpea con Martillo grande por 13.33 de daño.
+f3159 LOG Catalardio golpea con Martillo grande e inflige 13.33 de daño.
 f3159 Catalardio hp=197.950 mp=24.620 en=148.275
 f3159 Rey Slime hp=306.033 mp=21.188 en=0.000
 f3159 Slime de fuego hp=37.456 mp=20.891 en=0.000
@@ -2579,7 +2579,7 @@ f3325 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3325 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f3326 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3326 Slime de fuego hp=42.797 mp=20.891 en=0.000
-f3327 LOG 4. Slime de fuego ataca a Catalardio por 0.19 de daño.
+f3327 LOG 4. Slime de fuego ataca a Catalardio y le inflige 0.19 de daño.
 f3327 Catalardio hp=197.761 mp=24.620 en=148.275
 f3327 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3327 Slime de fuego hp=42.797 mp=20.891 en=0.000
@@ -2697,7 +2697,7 @@ f3383 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3383 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f3384 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3384 Slime de fuego hp=42.797 mp=20.891 en=0.000
-f3385 LOG 3. Slime venenoso ataca a Daniel por 0.77 de daño.
+f3385 LOG 3. Slime venenoso ataca a Daniel y le inflige 0.77 de daño.
 f3385 Daniel hp=339.348 mp=20.000 en=122.025
 f3385 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3385 Slime de fuego hp=42.797 mp=20.891 en=0.000
@@ -3168,7 +3168,7 @@ f3612 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3612 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f3613 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3613 Slime de fuego hp=42.797 mp=20.891 en=0.000
-f3614 LOG 2. Slime de fuego ataca a Daniel por 0.90 de daño.
+f3614 LOG 2. Slime de fuego ataca a Daniel y le inflige 0.90 de daño.
 f3614 Daniel hp=338.443 mp=20.000 en=122.025
 f3614 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3614 Slime de fuego hp=42.797 mp=20.891 en=0.000
@@ -3312,12 +3312,12 @@ f3817 LOG ⏳ Agirato ochinan prepara Bastonazo. (si le aturden, se interrumpe)
 f3817 Agirato ochinan hp=184.684 mp=36.147 en=151.425
 f3822 LOG ¡Turno de Catalardio! Elige una acción.
 f3824 PULSA Atacar
-f3825 LOG Catalardio golpea con Martillo grande por 12.51 de daño.
+f3825 LOG Catalardio golpea con Martillo grande e inflige 12.51 de daño.
 f3825 Rey Slime hp=75.014 mp=21.188 en=0.000
 f3877 LOG ¡Turno de Daniel! Elige una acción.
 f3877 Daniel hp=332.443 mp=20.000 en=122.025
 f3879 PULSA Atacar
-f3880 LOG Daniel golpea con Maza pequeña por 5.41 de daño.
+f3880 LOG Daniel golpea con Maza pequeña e inflige 5.41 de daño.
 f3880 Daniel hp=332.443 mp=20.000 en=157.025
 f3880 Rey Slime hp=69.608 mp=21.188 en=0.000
 f3952 LOG Bastonazo está lista. Elige a quién y suéltala.
@@ -3345,7 +3345,7 @@ f4114 LOG 1. Rey Slime esquiva tu ataque (Martillo grande). 💨
 f4176 LOG ¡Turno de Agirato ochinan! Elige una acción.
 f4176 Agirato ochinan hp=184.074 mp=36.500 en=151.425
 f4178 PULSA Atacar
-f4179 LOG Agirato ochinan golpea con Baston por 6.94 de daño.
+f4179 LOG Agirato ochinan golpea con Baston e inflige 6.94 de daño.
 f4179 Agirato ochinan hp=184.074 mp=36.500 en=177.425
 f4179 Rey Slime hp=47.965 mp=21.188 en=0.000
 f4247 LOG Golpe demoledor está lista. Elige a quién y suéltala.
@@ -3360,17 +3360,17 @@ f4344 LOG ¡Turno de Agirato ochinan! Elige una acción.
 f4346 PULSA Habilidad
 f4349 PULSA _ability_box: atras (apagados: Bastonazo  (26 EN)  ⏳1 [⛔ En cooldown: 1 turno])
 f4352 PULSA Atacar
-f4353 LOG ¡CRITICO! Agirato ochinan golpea con Baston por 9.58 de daño. 💥
+f4353 LOG ¡CRITICO! Agirato ochinan golpea con Baston e inflige 9.58 de daño. 💥
 f4353 Rey Slime hp=29.846 mp=21.188 en=0.000
 f4404 LOG ¡Turno de Catalardio! Elige una acción.
 f4406 PULSA Atacar
-f4407 LOG Catalardio golpea con Martillo grande por 11.46 de daño.
+f4407 LOG Catalardio golpea con Martillo grande e inflige 11.46 de daño.
 f4407 Rey Slime hp=18.384 mp=21.188 en=0.000
 f4466 LOG ⏳ 1. Rey Slime prepara Brote. ¡Apártate! (aturdirlo lo interrumpe)
 f4509 LOG ¡Turno de Daniel! Elige una acción.
 f4509 Daniel hp=162.327 mp=20.000 en=115.025
 f4511 PULSA Atacar
-f4512 LOG Daniel golpea con Maza pequeña por 4.85 de daño.
+f4512 LOG Daniel golpea con Maza pequeña e inflige 4.85 de daño.
 f4512 Daniel hp=162.327 mp=20.000 en=150.025
 f4512 Rey Slime hp=13.533 mp=21.188 en=0.000
 f4588 LOG ¡Turno de Dasui! Elige una acción.

@@ -2427,7 +2427,7 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 		_dps_add("Básico (%s)" % con_arma, result.damage)
 		var txt: String
 		if result.crit:
-			txt = "¡CRITICO! %s golpea con %s%s por %.2f de daño. 💥" % [_player.nombre, con_arma, de_nota, result.damage]
+			txt = "¡CRITICO! %s golpea con %s%s e inflige %.2f de daño. 💥" % [_player.nombre, con_arma, de_nota, result.damage]
 			# Excelia: clavar un critico entrena Agilidad (encontraste el hueco). Escala con el
 			# PESO del arma (motion_value): un arma pesada critea poco, asi que cuando SI lo clava
 			# entrena mas Agilidad; una ligera critea a menudo y aporta menos por golpe. El factor
@@ -2437,7 +2437,7 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 			Game.ganar("agilidad", _reto(obj, pj_atacante) * agi_factor, Game.GAIN_AGILIDAD_CRITICO,
 				Game.RETO_MAX_FISICO, pj_atacante)
 		else:
-			txt = "%s golpea con %s%s por %.2f de daño." % [_player.nombre, con_arma, de_nota, result.damage]
+			txt = "%s golpea con %s%s e inflige %.2f de daño." % [_player.nombre, con_arma, de_nota, result.damage]
 		# Cuanto de ese daño lo ha puesto la IMBUICION, y si el objetivo era debil/resistente
 		# a ella. Sin esto el bonus elemental era invisible: el daño total no lo delata.
 		txt += magia._imbue_dmg_txt(result)
