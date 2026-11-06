@@ -13,6 +13,7 @@ extends Node
 
 const TABLA_SCRIPT := preload("res://scripts/ui/fuente_iconos_tabla.gd")
 const CARPETA := "res://assets/ui/estados/"
+const LETRA := "res://assets/fonts/mazmorra_jersey.ttf"
 const LADO := 12        # los dibujos son de 12 x 12
 const TAM := 12         # tamaño de letra al que el dibujo sale 1:1 (a mas letra, se escala)
 const ASCENSO := 10     # cuanto del dibujo queda por encima de la linea de escritura
@@ -36,6 +37,21 @@ func instalar() -> void:
 	var base: Font = tema.default_font if tema != null and tema.default_font != null else ThemeDB.fallback_font
 	if base == null or fuente != null:
 		return
+	# (06/11, rework visual a pixel) LA LETRA DEL JUEGO: "Mazmorra Jersey" (Jersey 10, OFL, escalada para salir nitida a
+	# 16 y 32 px: ver assets/fonts/LEEME.txt). Sin suavizado de subpixel ni hinting, que emborronan el pixel; con el
+	# suavizado en gris, que a los tamaños que no son 16 o 32 es lo que evita trazos de un pixel que bailan. La de antes
+	# se queda DETRAS, de reserva, para los pocos signos que Jersey no tiene (el ∞).
+	if ResourceLoader.exists(LETRA):
+		var px := load(LETRA) as FontFile
+		if px != null:
+			px.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
+			px.hinting = TextServer.HINTING_NONE
+			px.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
+			px.generate_mipmaps = false
+			px.fallbacks = [base]
+			if base is FontFile:   # la de reserva tampoco tira de las del sistema (los emojis de colores, ver abajo)
+				(base as FontFile).allow_system_fallback = false
+			base = px
 	var f := FontFile.new()
 	f.fixed_size = TAM
 	f.fixed_size_scale_mode = TextServer.FIXED_SIZE_SCALE_INTEGER_ONLY   # pixel nitido: x1, x2... nunca a medias

@@ -1,0 +1,5 @@
+mazmorra_jersey.ttf
+  Es "Jersey 10" (Copyright 2023 The Soft Type Project Authors, https://github.com/scfried/soft-type-jersey),
+  bajo la SIL Open Font License 1.1 (OFL.txt, en esta carpeta). Hay que distribuir OFL.txt con el juego.
+  MODIFICADA el 06/11/2026: solo la escala interna (unitsPerEm 1400 -> 1200, un 17 % mas grande) para que un pixel
+  del diseño mida 1/16 em y salga nitida a 16 y 32 px. Renombrada a "Mazmorra Jersey". Los dibujos no se tocan.
