@@ -212,11 +212,11 @@ GRIMORIOS = [
 # (id del tocho, nombre corto, emblema, tapa, color del emblema, sabiduria?)
 TOCHOS = [
     ("actas_torre", "Actas de la torre", "torre", (0.18, 0.28, 0.34), (0.86, 0.82, 0.70), True),
-    ("antorchas", "Las antorchas", "antorcha", (0.38, 0.26, 0.16), (0.56, 0.37, 0.20), False),
-    ("botas", "La bota de cuero", "bota", (0.44, 0.32, 0.20), (0.66, 0.46, 0.28), False),
+    ("antorchas", "Las antorchas", "antorcha", (0.24, 0.20, 0.18), (0.66, 0.46, 0.26), False),
+    ("botas", "La bota de cuero", "bota", (0.30, 0.26, 0.24), (0.70, 0.48, 0.28), False),
     ("boticario", "El boticario", "frasco", (0.22, 0.34, 0.26), (0.80, 0.86, 0.90), True),
     ("cartas", "Cartas no enviadas", "carta", (0.48, 0.40, 0.30), (0.93, 0.89, 0.78), False),
-    ("cortesia", "Manual de cortesia", "sombrero", (0.30, 0.22, 0.36), (0.30, 0.26, 0.24), False),
+    ("cortesia", "Manual de cortesia", "sombrero", (0.56, 0.44, 0.62), (0.22, 0.18, 0.20), False),
     ("croquis", "Croquis del piso 3", "mapa", (0.40, 0.34, 0.24), (0.90, 0.84, 0.66), False),
     ("cuentas_gremio", "Libro de cuentas", "monedas", (0.26, 0.30, 0.22), (0.96, 0.80, 0.36), False),
     ("errores_propios", "Mis errores", "sombrero_mago", (0.24, 0.18, 0.40), (0.50, 0.40, 0.80), True),
@@ -237,7 +237,7 @@ TOCHOS = [
     ("rata_segundo", "La rata comun, 2", "rata_2", (0.38, 0.28, 0.22), (0.70, 0.62, 0.56), False),
     ("respiracion", "La respiracion", "aliento", (0.20, 0.32, 0.38), (0.80, 0.92, 0.96), True),
     ("setas", "Setas de la roca", "setas", (0.46, 0.20, 0.18), (0.92, 0.30, 0.26), False),
-    ("silencio", "El silencio", "silencio", (0.16, 0.16, 0.22), (0.62, 0.60, 0.70), False),
+    ("silencio", "El silencio", "silencio", (0.16, 0.16, 0.22), (0.84, 0.82, 0.92), False),
     ("sopa", "Espesar una sopa", "sopa", (0.30, 0.42, 0.26), (0.92, 0.62, 0.30), False),
     ("suenos", "Los suenos", "luna", (0.18, 0.20, 0.36), (0.96, 0.90, 0.62), False),
     ("versos_pozo", "Versos del pozo", "pozo", (0.30, 0.30, 0.34), (0.70, 0.70, 0.72), False),
