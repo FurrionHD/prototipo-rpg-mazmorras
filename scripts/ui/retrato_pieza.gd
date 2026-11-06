@@ -136,6 +136,11 @@ static func _datos(item: Resource) -> Dictionary:
 	if item is ShieldData:
 		var tn: String = EscudoSprites.TAMANO_NOMBRE[clampi(int((item as ShieldData).tamano), 0,
 			EscudoSprites.TAMANO_NOMBRE.size() - 1)]
+		# (06/11) EL DIBUJO EN PIXEL DE VERDAD (tools/equipo_escudos.py), si lo tiene.
+		var ico_e: String = EscudoSprites.icono(tn)
+		if ico_e != "":
+			return {"icono": ico_e, "clave_roles": EscudoSprites.CLAVE_ROLES_ICONO,
+				"roles": EscudoSprites.ROLES_ICONO, "familia": PaletaEquipo.METAL}
 		# De frente: el escudo va en la izquierda y mira a camara con su cara buena.
 		return {"claves": ["escudo_%s_mano_izq" % tn], "pintor": EscudoSprites.pintar,
 			"anim": "guardia", "dir": DIR_SUR,

@@ -109,6 +109,21 @@ const ROLES := [
 
 const CLAVE_ROLES := "escudo"
 
+# (06/11) LOS PAPELES DEL ICONO EN PIXEL de cada escudo (assets/sprites/equipo/escudo, de tools/equipo_escudos.py): los
+# de ROLES y, del 8 al 10, el BRILLO, el HONDO y la SOMBRA del metal del aro.
+const ROLES_ICONO := ROLES + [
+	PaletaEquipo.Rol.MATERIAL_B,   # 8 BRILLO
+	PaletaEquipo.Rol.MATERIAL_O,   # 9 HONDO
+	PaletaEquipo.Rol.MATERIAL_S,   # 10 metal en sombra
+]
+const CLAVE_ROLES_ICONO := "escudo_icono"
+const CARPETA_ICONOS := "res://assets/sprites/equipo/escudo/"
+
+# El icono en pixel de un tamaño de escudo ("pequeno", "normal", "grande"), o "" si no lo tiene.
+static func icono(tn: String) -> String:
+	var r: String = CARPETA_ICONOS + tn + ".png"
+	return r if ResourceLoader.exists(r) else ""
+
 
 # ============================================================
 #  QUE CLAVES EXISTEN

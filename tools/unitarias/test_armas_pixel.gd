@@ -41,3 +41,16 @@ func test_el_retrato_es_el_icono() -> void:
 	var r: Dictionary = RetratoPieza.de(w, 2, 0)
 	if cierto(r.has("tex"), "la espada larga tiene retrato"):
 		igual((r["tex"] as Texture2D).resource_path, ArmaSprites.icono("espada_larga"), "el retrato es el icono")
+
+
+func test_cada_escudo_tiene_icono() -> void:
+	for tn in EscudoSprites.TAMANO_NOMBRE:
+		var r: String = EscudoSprites.icono(String(tn))
+		if cierto(r != "", "falta el icono del escudo %s" % tn):
+			var t := load(r) as Texture2D
+			igual(Vector2i(t.get_width(), t.get_height()), Vector2i(32, 32), "tamaño de %s" % r)
+	var s := ShieldData.new()
+	s.tamano = ShieldData.Tamano.NORMAL
+	var rp: Dictionary = RetratoPieza.de(s, 2, 0)
+	if cierto(rp.has("tex"), "el escudo normal tiene retrato"):
+		igual((rp["tex"] as Texture2D).resource_path, EscudoSprites.icono("normal"), "el retrato del escudo es el icono")
