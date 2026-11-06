@@ -70,6 +70,11 @@ func _correr() -> void:
 	var yo: Node = get_tree().get_first_node_in_group("player")
 	var otros: BarrasOtros = yo._barras_otros
 	var escala_sola: float = yo.escala_fila()
+	# (06/11) Y la del HUD de una pelea normal, SOLO con tu grupo (la de abajo lleva el otro grupo y encoge la fila).
+	if OS.get_environment("BARRAS_SALIDA") != "" and DisplayServer.get_name() != "headless":
+		await _esperar(20)
+		get_tree().root.get_viewport().get_texture().get_image().save_png(OS.get_environment("BARRAS_SALIDA") + "_solo.png")
+		print("     captura: %s_solo.png" % OS.get_environment("BARRAS_SALIDA"))
 	var grupos: Array = []
 	var jugadores: Array = OS.get_environment("BARRAS_JUGADORES").split(",", false)
 	if jugadores.is_empty():

@@ -814,7 +814,15 @@ const ALTO_BLOQUE := Y_ESTADOS + ALTO_ESTADOS
 static func x_columna(i: int) -> float:
 	# El borde seguro se suma aqui, que es el unico sitio que decide donde empieza la fila: en un
 	# movil con la pantalla redondeada, la primera columna se comia el canto (ver Tactil.borde).
-	return X_COL_BARRAS + Tactil.borde.x + float(i) * (ANCHO_COL + SEP_COL)
+	return X_COL_BARRAS + Tactil.borde.x + float(i) * (ANCHO_COL + ancho_retrato() + SEP_COL)
+
+
+# (06/11, rework del HUD) Con RETRATOS (HudEstilo.retratos) la columna lleva la cara a la izquierda y crece eso.
+const LADO_RETRATO := 50.0
+
+static func ancho_retrato() -> float:
+	return LADO_RETRATO + 6.0 if HudEstilo.retratos else 0.0
+
 
 
 # Donde empiezan las columnas del OTRO jugador (BarrasOtros): detras de la mochila y el farol del HUD (hud.recolocar,
@@ -852,7 +860,7 @@ func _rehacer_barras() -> void:
 		# La y tambien baja por el borde seguro: la muesca y la esquina redondeada se comen la fila
 		# de arriba igual que el canto lateral.
 		raiz.position = Vector2(x_columna(i), Tactil.borde.y)
-		raiz.size = Vector2(ANCHO_COL, ALTO_BLOQUE)
+		raiz.size = Vector2(ANCHO_COL + ancho_retrato(), ALTO_BLOQUE)
 		# LA TARJETA ENTERA ES EL BOTON de cambiar de lider: las tres barras, el nombre y el hueco
 		# entre medias. Sale por el mismo sitio que las teclas 1/2/3 (cambiar_lider + refrescar), asi
 		# que no hay una segunda version de la regla.
@@ -871,6 +879,29 @@ func _rehacer_barras() -> void:
 				refrescar_lider()
 		)
 		_barras_layer.add_child(raiz)
+		# (06/11) EL RETRATO, a la izquierda (RetratoCombate: tu foto o tu cara sin casco), y lo demas en 'cuerpo',
+		# corrido lo que mide. Sin retratos 'cuerpo' esta en 0 y todo queda donde siempre.
+		var cuerpo := Control.new()
+		cuerpo.position = Vector2(ancho_retrato(), 0)
+		cuerpo.size = Vector2(ANCHO_COL, ALTO_BLOQUE)
+		cuerpo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		raiz.add_child(cuerpo)
+		if HudEstilo.retratos:
+			var marco := PanelContainer.new()
+			marco.position = Vector2(0, Y_NOMBRE)
+			marco.size = Vector2(LADO_RETRATO, LADO_RETRATO)
+			marco.add_theme_stylebox_override("panel", HudEstilo.caja_retrato())
+			marco.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			raiz.add_child(marco)
+			var cara := Control.new()
+			cara.clip_contents = true
+			cara.custom_minimum_size = Vector2(LADO_RETRATO - 8.0, LADO_RETRATO - 8.0)
+			cara.size = cara.custom_minimum_size
+			cara.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			marco.add_child(cara)
+			RETRATO_COMBATE.poner_pj(cara, pj)
+		var tarjeta: Control = raiz   # la de verdad (la que se pulsa y se borra); lo de dentro cuelga de cuerpo
+		raiz = cuerpo
 
 		# El cuadradito de color y el nombre encima, lo unico que distingue una columna de otra.
 		var punto := ColorRect.new()
@@ -893,11 +924,11 @@ func _rehacer_barras() -> void:
 		raiz.add_child(nombre)
 
 		# Las tres barras, iguales para todos (vida, aguante, mana).
-		var hp: ProgressBar = _barra_col(raiz, Y_HP, ALTO_HP, Color(1.0, 0.4, 0.4))
+		var hp: ProgressBar = _barra_col(raiz, Y_HP, ALTO_HP, HudEstilo.VIDA)
 		var hp_lbl: Label = _crear_label_barra(hp)
-		var en: ProgressBar = _barra_col(raiz, Y_EN, ALTO_EN, Color(0.4, 1.0, 0.5))
+		var en: ProgressBar = _barra_col(raiz, Y_EN, ALTO_EN, HudEstilo.ENERGIA)
 		var en_lbl: Label = _crear_label_barra(en)
-		var mp: ProgressBar = _barra_col(raiz, Y_MP, ALTO_MP, Color(0.4, 0.6, 1.0))
+		var mp: ProgressBar = _barra_col(raiz, Y_MP, ALTO_MP, HudEstilo.MANA)
 		var mp_lbl: Label = _crear_label_barra(mp)
 
 		# EL CUADRO DE EQUIPO, pegado a la derecha de las tres barras y con su mismo alto (de la de
@@ -926,7 +957,7 @@ func _rehacer_barras() -> void:
 
 		# La FIRMA de lo que hay pintado ahora mismo. _refrescar_barras corre en CADA frame y los
 		# chips son nodos: sin esto se reconstruirian sesenta veces por segundo para pintar lo mismo.
-		_barras.append({"pj": pj, "raiz": raiz, "nombre": nombre, "hp": hp, "hp_lbl": hp_lbl,
+		_barras.append({"pj": pj, "raiz": tarjeta, "nombre": nombre, "hp": hp, "hp_lbl": hp_lbl,
 			"en": en, "en_lbl": en_lbl, "mp": mp, "mp_lbl": mp_lbl, "equipo": equipo,
 			"estados": estados, "estados_firma": ""})
 
@@ -941,7 +972,9 @@ func _barra_col(raiz: Control, y: float, alto: float, color: Color) -> ProgressB
 	b.custom_minimum_size = Vector2(ANCHO_BARRA, alto)
 	b.size = Vector2(ANCHO_BARRA, alto)
 	b.position = Vector2(0, y)
-	b.self_modulate = color
+	# OPACAS (06/11, rework del HUD): con las cajas de serie, semitransparentes, el borde de la arena y lo que hubiera
+	# detras se veia a traves de las barras (unas rayas claras cruzando la energia). Las cajas y el color, del estilo.
+	HudEstilo.vestir_barra(b, color)
 	# UNA BARRA NO SE PULSA: se deja pasar el toque a la tarjeta, que es la que cambia de lider. Un
 	# Control atrapa el raton por defecto, y como las tres barras ocupan casi toda la tarjeta, lo
 	# unico que quedaba vivo era la tira del nombre y los huecos entre barras.
@@ -1711,6 +1744,8 @@ func quiere_atacarme(bicho: Node) -> bool:
 # eliges donde cae (conjuro_cargado.gd). Toda la maquina del recitado vive en casteo_mapa.gd; aqui solo esta el
 # "puedo o no" y a donde va lo recitado.
 const CASTEO_MAPA = preload("res://scripts/ui/casteo_mapa.gd")
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
+const RETRATO_COMBATE = preload("res://scripts/ui/retrato_combate.gd")
 const PROYECTIL_HECHIZO = preload("res://scripts/actors/player/proyectil_hechizo.gd")
 const CONJURO_CARGADO = preload("res://scripts/ui/conjuro_cargado.gd")
 
@@ -2377,8 +2412,8 @@ func _refrescar_barras() -> void:
 		en_bar.max_value = maxf(1.0, maxen_c)
 		en_bar.value = en_c
 		# Rojiza cuando ese se ha quedado sin fuelle (el lider por _exhausted, via el meta de arriba).
-		en_bar.self_modulate = Color(1.0, 0.4, 0.4) if c == null and bool(pj.get_meta("sin_fuelle", false)) \
-			else Color(0.4, 1.0, 0.5)
+		en_bar.self_modulate = HudEstilo.SIN_FUELLE if c == null and bool(pj.get_meta("sin_fuelle", false)) \
+			else HudEstilo.ENERGIA
 		(fila["en_lbl"] as Label).text = "%.0f/%.0f" % [en_c, maxen_c]
 		var mp_bar: ProgressBar = fila["mp"]
 		var maxmp_c: float = c.max_mp if c != null else float(maximos[3])

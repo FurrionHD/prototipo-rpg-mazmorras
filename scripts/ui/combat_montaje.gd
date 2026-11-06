@@ -10,6 +10,8 @@ extends RefCounted
 # script para que Godot deduzca los tipos (los := sobre ella); los NOMBRES no los comprueba al compilar:
 # de eso se encarga tools/verificar_pantalla.py.
 const Pantalla = preload("res://scripts/ui/combat.gd")
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
+const AnilloAcciones = preload("res://scripts/ui/anillo_acciones.gd")
 var _pantalla: Pantalla = null
 
 
@@ -61,7 +63,12 @@ const ALTO_BANDA_ALI := _pantalla.ALTO_TARJETA_ALI + _pantalla.SEP_COLUMNA + _pa
 var _capa_numeros: Control = null   # donde vuelan los numeros de daño, por encima de todo
 
 
+# El icono de cada accion (assets/ui/estados).
+var ICONO_ACCION := {}
+
 func _crear_acciones() -> void:
+	ICONO_ACCION = {_pantalla.Action.ATTACK: "espadas", _pantalla.Action.HABILIDAD: "arma", _pantalla.Action.MAGIC: "magia",
+		_pantalla.Action.DEFEND: "defendiendo", _pantalla.Action.OBJETO: "resguardo", _pantalla.Action.FLEE: "seguir"}
 	# ABAJO A LA DERECHA, en la columna que comparte con el registro: el registro arriba (es lo que
 	# se lee) y los botones abajo (es lo que se toca, al alcance del pulgar). El centro de la
 	# pantalla se queda libre para la pelea.
@@ -74,13 +81,24 @@ func _crear_acciones() -> void:
 	_pantalla._panel_acciones.alignment = BoxContainer.ALIGNMENT_END
 	_pantalla._panel_acciones.add_theme_constant_override("separation", 8)
 	_pantalla._panel_acciones.mouse_filter = Control.MOUSE_FILTER_PASS
+	# BOTONES OPACOS (06/11, rework del HUD): con el tema de siempre eran semitransparentes y en el mapa se veian el muro y
+	# las puertas por detras. El tema (el del estilo, ver hud_estilo.gd) va en el PANEL, asi lo heredan tambien los
+	# submenus (magias, habilidades, objetos).
+	_pantalla._panel_acciones.theme = HudEstilo.tema_botones()
 	_pantalla.add_child(_pantalla._panel_acciones)
 
 	# Los seis, en rejilla de 2x3 y repartiendose el ancho.
-	_pantalla._actions_box = GridContainer.new()
-	(_pantalla._actions_box as GridContainer).columns = _pantalla.COLUMNAS_ACCION
-	_pantalla._actions_box.add_theme_constant_override("h_separation", 10)
-	_pantalla._actions_box.add_theme_constant_override("v_separation", 10)
+	# (06/11) En el estilo MODERNO, en anillo alrededor de un Atacar grande (anillo_acciones.gd).
+	var anillo: bool = not HudEstilo.es_pixel()
+	if anillo:
+		_pantalla._actions_box = AnilloAcciones.new()
+		# Mide mas que la rejilla: que el panel crezca hacia ARRIBA y no se salga de la pantalla por abajo.
+		_pantalla._panel_acciones.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	else:
+		_pantalla._actions_box = GridContainer.new()
+		(_pantalla._actions_box as GridContainer).columns = _pantalla.COLUMNAS_ACCION
+		_pantalla._actions_box.add_theme_constant_override("h_separation", 10)
+		_pantalla._actions_box.add_theme_constant_override("v_separation", 10)
 	_pantalla._actions_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_pantalla._panel_acciones.add_child(_pantalla._actions_box)
 	var defs := [
@@ -98,6 +116,19 @@ func _crear_acciones() -> void:
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL   # se reparten la franja a partes iguales
 		b.add_theme_font_size_override("font_size", 18)
 		var id: int = d[0]
+		# (06/11) SU ICONO (los de la fuente de iconos en pixel). Va en 'icon' y no en el texto: el texto lo reescribe
+		# la pantalla (Atacar/Pasar, Huir/Pasar) y se llevaria el icono por delante.
+		b.icon = HudEstilo.icono(ICONO_ACCION.get(id, ""))
+		b.expand_icon = true
+		b.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		if anillo:
+			# Cuadrados (y con la caja redonda del tema, circulos); el icono encima y el nombre debajo.
+			b.custom_minimum_size = Vector2.ZERO
+			b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
+			b.add_theme_font_size_override("font_size", 16 if id == _pantalla.Action.ATTACK else 11)
+			b.add_theme_constant_override("icon_max_width", 44 if id == _pantalla.Action.ATTACK else 26)
+			b.clip_text = true
 		b.pressed.connect(_pantalla._on_action.bind(id))
 		_pantalla._actions_box.add_child(b)
 		_pantalla._action_buttons[id] = b
@@ -334,13 +365,10 @@ func _montar_log() -> void:
 	_log_caja.offset_left = -ANCHO_COL_DER - _pantalla.MARGEN_UI - Tactil.borde.x
 	_log_caja.offset_right = -_pantalla.MARGEN_UI - Tactil.borde.x
 	_log_caja.offset_top = _pantalla.MARGEN_UI + Tactil.borde.y
-	# FONDO OPACO: el registro ya no vive sobre el negro del fondo, se superpone al escenario.
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.08, 0.08, 0.11, 0.92)
-	sb.set_corner_radius_all(4)
-	for lado in ["left", "right", "top", "bottom"]:
-		sb.set("content_margin_" + lado, 8.0)
-	_log_caja.add_theme_stylebox_override("panel", sb)
+	# FONDO OPACO: el registro ya no vive sobre el negro del fondo, se superpone al escenario. (06/11) La caja del estilo.
+	_log_caja.add_theme_stylebox_override("panel", HudEstilo.caja_panel())
+	# Y los botones de su fila de arriba (Registro, info, velocidad), con el mismo tema que las acciones.
+	_log_caja.theme = HudEstilo.tema_botones()
 	_pantalla.add_child(_log_caja)
 
 	var vb := VBoxContainer.new()
@@ -369,6 +397,7 @@ func _montar_log() -> void:
 	_pantalla._boton_detalle = Button.new()
 	_pantalla._boton_detalle.text = "ⓘ"
 	_pantalla._boton_detalle.custom_minimum_size = Vector2(34, 28)
+	_pantalla._boton_detalle.add_theme_font_size_override("font_size", 20)   # (06/11) a 14 el icono era un punto azul
 	_pantalla._boton_detalle.flat = true
 	_pantalla._boton_detalle.focus_mode = Control.FOCUS_NONE
 	_pantalla._boton_detalle.tooltip_text = "Detalles de los combatientes (en tu turno)"

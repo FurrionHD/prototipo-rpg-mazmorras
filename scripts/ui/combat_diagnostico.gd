@@ -339,7 +339,8 @@ func _crear_estados_dev() -> void:
 	# EL TOGGLE, en la fila de herramientas de arriba (con el registro y la velocidad). Suelto en
 	# una esquina no le queda ninguna libre: abajo-dcha son los botones de accion y abajo-izda es
 	# la tarjeta del primero de los tuyos, que es justo la que tapaba.
-	toggle.text = "⚙"
+	toggle.text = "🔧"   # (06/11) "⚙" es el icono de las LIMADURAS en la fuente de iconos: salia un cuadrado punteado
+	toggle.add_theme_font_size_override("font_size", 20)
 	toggle.custom_minimum_size = Vector2(36, 28)
 	toggle.focus_mode = Control.FOCUS_NONE
 	toggle.tooltip_text = "Panel de pruebas de estados (dev)"

@@ -26,6 +26,7 @@ extends RefCounted
 
 const Pantalla = preload("res://scripts/ui/combat.gd")
 const Montaje = preload("res://scripts/ui/combat_montaje.gd")
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 var _pantalla: Pantalla = null
 
@@ -64,12 +65,8 @@ func montar() -> void:
 	_caja.offset_right = -_pantalla.MARGEN_UI - Tactil.borde.x
 	_caja.mouse_filter = Control.MOUSE_FILTER_PASS
 	_caja.visible = false   # sin nadie apuntado no hay pestaña
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.08, 0.08, 0.11, 0.92)   # el mismo fondo que el registro
-	sb.set_corner_radius_all(4)
-	for lado in ["left", "right", "top", "bottom"]:
-		sb.set("content_margin_" + lado, 8.0)
-	_caja.add_theme_stylebox_override("panel", sb)
+	# (06/11) La misma caja que el registro, la del estilo del HUD (hud_estilo.gd).
+	_caja.add_theme_stylebox_override("panel", HudEstilo.caja_panel())
 	_pantalla.add_child(_caja)
 
 	var vb := VBoxContainer.new()
@@ -85,7 +82,7 @@ func montar() -> void:
 	_hp = ProgressBar.new()
 	_hp.show_percentage = false
 	_hp.custom_minimum_size = Vector2(0, ALTO_BARRA)
-	_hp.self_modulate = Color(1.0, 0.4, 0.4)
+	HudEstilo.vestir_barra(_hp, HudEstilo.VIDA)
 	_hp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vb.add_child(_hp)
 	_hp_lbl = _pantalla.efectos._crear_label_barra(_hp, 13)
