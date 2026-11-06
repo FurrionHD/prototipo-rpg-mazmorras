@@ -27,6 +27,7 @@ extends Control
 const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 const Iconos = preload("res://scripts/ui/iconos.gd")
+const LibrosPixel = preload("res://scripts/ui/libros_pixel.gd")
 
 const AMBAR := Color(0.95, 0.72, 0.36)
 const GRIS := Color(0.6, 0.63, 0.7)
@@ -264,7 +265,8 @@ func _montar_abanico(padre: Control) -> void:
 			- Vector2(MINI_ANCHO, MINI_ALTO) * 0.5
 		mini_c.rotation = desvio * MINI_GIRO
 		padre.add_child(mini_c)
-		mini_c.draw.connect(dibujar_tomo.bind(mini_c, Upgrades.rareza_color(int(s.rareza)), false, FAM_GRIMORIO))
+		mini_c.draw.connect(dibujar_tomo.bind(mini_c, Upgrades.rareza_color(int(s.rareza)), false, FAM_GRIMORIO,
+			LibrosPixel.id_de_magia(s)))
 
 
 # --- EL DESTACADO: la carta gorda y su nombre ---
@@ -287,7 +289,7 @@ func _montar_destacado(padre: Control) -> void:
 	carta.offset_bottom = CARTA_ALTO * 0.5
 	carta.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	padre.add_child(carta)
-	carta.draw.connect(dibujar_tomo.bind(carta, col, true, FAM_GRIMORIO))
+	carta.draw.connect(dibujar_tomo.bind(carta, col, true, FAM_GRIMORIO, LibrosPixel.id_de_magia(s)))
 
 	# EL NOMBRE Y LAS ESTRELLAS, A LA IZQUIERDA de la carta y no debajo: debajo hay que estrechar la
 	# carta para que quepan las dos cosas, y la carta es lo que se ha venido a ver.
@@ -356,7 +358,10 @@ const FAM_CURIOSIDAD := 0
 const FAM_SABIDURIA := 1
 const FAM_GRIMORIO := 2
 
-func dibujar_tomo(c: Control, col: Color, gordo: bool, familia: int = FAM_CURIOSIDAD) -> void:
+# 'tomo' (06/11): el tomo_id del libro. Si tiene dibujo en pixel (ver libros_pixel.gd) la carta lleva ESE
+# libro -- el emblema de su magia, la tapa de su elemento -- en vez del tomo generico con la marca.
+func dibujar_tomo(c: Control, col: Color, gordo: bool, familia: int = FAM_CURIOSIDAD,
+		tomo: StringName = &"") -> void:
 	var w: float = c.size.x
 	var h: float = c.size.y
 	var r := Rect2(Vector2.ZERO, Vector2(w, h))
@@ -386,6 +391,13 @@ func dibujar_tomo(c: Control, col: Color, gordo: bool, familia: int = FAM_CURIOS
 		var m2: float = 8.0
 		c.draw_rect(Rect2(Vector2(m2, m2), Vector2(w - m2 * 2.0, h - m2 * 2.0)),
 			Color(1, 1, 1, 0.12), false, 1.0)
+
+	# EL LIBRO EN PIXEL, si lo tiene: a escala ENTERA y centrado. Lleva su emblema y su chispa de
+	# sabiduria dentro, asi que no hace falta la marca de la familia encima.
+	if LibrosPixel.tiene(tomo):
+		var lado_px: float = minf(w * (0.78 if gordo else 0.84), h * (0.64 if gordo else 0.62))
+		LibrosPixel.pintar(c, Vector2(w, h) * 0.5, lado_px, tomo)
+		return
 
 	# EL TOMO, centrado.
 	#

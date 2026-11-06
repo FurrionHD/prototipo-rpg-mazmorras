@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c1coonnkvgknf"
-path="res://.godot/imported/libro_rombo_9e6bd9ff_0_false_.png-ffd234562de49fdf82090c12d1430afa.ctex"
+uid="uid://bmq2ok4ngyos5"
+path="res://.godot/imported/grimorio_tormenta.png-fd11ab63077f7e0e1ce1ee81de64f5d1.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/iconos/consumibles/grimorios/libro_rombo_9e6bd9ff_0_false_.png"
-dest_files=["res://.godot/imported/libro_rombo_9e6bd9ff_0_false_.png-ffd234562de49fdf82090c12d1430afa.ctex"]
+source_file="res://assets/sprites/libros/grimorio_tormenta.png"
+dest_files=["res://.godot/imported/grimorio_tormenta.png-fd11ab63077f7e0e1ce1ee81de64f5d1.ctex"]
 
 [params]
 

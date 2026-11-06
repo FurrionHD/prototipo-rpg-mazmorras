@@ -6,6 +6,7 @@
 #  de su tema. No toca el juego: saca una lamina para que el jefe elija.
 #    python tools/libros_pixel.py [salida.png]          (los tres estilos de prueba)
 #    python tools/libros_pixel.py --todos [salida.png]  (los 59 libros en el estilo A, el elegido)
+#    python tools/libros_pixel.py --hornear             (los PNG del juego en assets/sprites/libros, por tomo_id)
 # ============================================================
 import os
 import sys
@@ -359,7 +360,25 @@ def lamina_todos(salida):
     print(salida)
 
 
+def hornear(carpeta):
+    # LOS PNG DEL JUEGO: uno de 32 x 32 por libro, con el nombre de su tomo_id (el de su .tres), que es lo que
+    # busca scripts/ui/libros_pixel.gd. Grimorio = "grimorio_" + el id de su magia.
+    import libros_emblemas as LE
+    os.makedirs(carpeta, exist_ok=True)
+    n = 0
+    for (gid, _n, e, el) in LE.GRIMORIOS:
+        libro_a(LE.TAPA[el], LE.EMB[el], None, LE.E[e], False).save(os.path.join(carpeta, "grimorio_%s.png" % gid))
+        n += 1
+    for (tid, _n, e, t, c, sab) in LE.TOCHOS:
+        libro_a(t, c, None, LE.E[e], sab).save(os.path.join(carpeta, "%s.png" % tid))
+        n += 1
+    print("%d libros en %s" % (n, carpeta))
+
+
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "--hornear":
+        hornear(sys.argv[2] if len(sys.argv) > 2 else "assets/sprites/libros")
+        return
     if len(sys.argv) > 1 and sys.argv[1] == "--todos":
         lamina_todos(sys.argv[2] if len(sys.argv) > 2 else "libros_todos.png")
         return

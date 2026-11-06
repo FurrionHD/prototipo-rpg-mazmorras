@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bqxh12dgt0yj4"
-path="res://.godot/imported/libro_nada_786654ff_0_false_.png-1a52db07155973f5247965ae215be94a.ctex"
+uid="uid://b2fmi0bldp603"
+path="res://.godot/imported/suenos.png-965a5a84d5df08b2306adc792bfdfdda.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/iconos/consumibles/tochos/libro_nada_786654ff_0_false_.png"
-dest_files=["res://.godot/imported/libro_nada_786654ff_0_false_.png-1a52db07155973f5247965ae215be94a.ctex"]
+source_file="res://assets/sprites/libros/suenos.png"
+dest_files=["res://.godot/imported/suenos.png-965a5a84d5df08b2306adc792bfdfdda.ctex"]
 
 [params]
 

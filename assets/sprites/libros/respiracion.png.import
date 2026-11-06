@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bysf46m24ce3i"
-path="res://.godot/imported/libro_chispa_b8944dff_0_false_.png-eaa5d915b2ee3f8ff50a14e8e20db5e4.ctex"
+uid="uid://dk20tvaary6xl"
+path="res://.godot/imported/respiracion.png-672d09d06665f1195eea03a91a09a1c7.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/iconos/consumibles/tochos/libro_chispa_b8944dff_0_false_.png"
-dest_files=["res://.godot/imported/libro_chispa_b8944dff_0_false_.png-eaa5d915b2ee3f8ff50a14e8e20db5e4.ctex"]
+source_file="res://assets/sprites/libros/respiracion.png"
+dest_files=["res://.godot/imported/respiracion.png-672d09d06665f1195eea03a91a09a1c7.ctex"]
 
 [params]
 

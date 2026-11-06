@@ -62,6 +62,10 @@ const FIJOS := {
 
 static var _cache: Dictionary = {}   # clave de forma + resolucion -> PackedByteArray de la rejilla
 
+# (06/11) LOS LIBROS van en pixel art de verdad, uno por tomo_id (ver libros_pixel.gd). El 'libro_<marca>' de
+# las facetas se queda solo para un libro nuevo que aun no tenga su dibujo.
+const LibrosPixel = preload("res://scripts/ui/libros_pixel.gd")
+
 
 # ============================================================
 #  QUE SE PINTA PARA CADA OBJETO
@@ -71,6 +75,8 @@ static func pintar_item(ci: CanvasItem, centro: Vector2, lado: float, item: Reso
 	var e: Dictionary = _encargo(item)
 	if e.is_empty():
 		return false
+	if e.has("libro"):
+		return LibrosPixel.pintar(ci, centro, lado * 0.92, e["libro"])
 	if e.has("planta") or e.has("pez"):
 		var img: Image = _imagen_pez(e["pez"], e["color"], int(e.get("grietas", 0))) if e.has("pez") \
 			else _imagen_planta(int(e["planta"]), e["color"], int(e.get("grietas", 0)))
@@ -112,7 +118,8 @@ static func textura_item(item: Resource) -> Dictionary:
 	var caja: float = 0.92 if (e.has("pez") or e.has("planta")) else 1.0
 	# HORNEADO PRIMERO, como los enemigos y el jugador: si el PNG esta en disco se carga (ver
 	# hornear_iconos); si no -- algo nuevo que aun no ha pasado por el horno --, se genera al vuelo.
-	var ruta: String = ruta_icono(clave, item)
+	# EL LIBRO no pasa por el horno: su PNG ya es el dibujo (sale de tools/libros_pixel.py).
+	var ruta: String = LibrosPixel.ruta(e["libro"]) if e.has("libro") else ruta_icono(clave, item)
 	var tex: Texture2D = null
 	if ResourceLoader.exists(ruta):
 		tex = load(ruta) as Texture2D
@@ -130,7 +137,7 @@ static func clave_icono(item: Resource) -> String:
 		return ""
 	return "%s|%s|%d|%s|%s" % [String(e.get("forma", "")), (e["color"] as Color).to_html(),
 		int(e.get("grietas", 0)), bool(e.get("puro", false)),
-		String(e["pez"].id) if e.has("pez") else str(e.get("planta", ""))]
+		String(e["pez"].id) if e.has("pez") else (String(e["libro"]) if e.has("libro") else str(e.get("planta", "")))]
 
 
 const CARPETA_ICONOS := "res://assets/sprites/iconos/"
@@ -181,6 +188,8 @@ static func _carpeta_de(item: Resource) -> String:
 static func _imagen_de(e: Dictionary) -> Image:
 	var col: Color = e["color"]
 	var img: Image
+	if e.has("libro"):
+		return LibrosPixel.imagen(e["libro"]).duplicate()
 	if e.has("pez") or e.has("planta"):
 		img = (_imagen_pez(e["pez"], col, int(e.get("grietas", 0))) if e.has("pez")
 			else _imagen_planta(int(e["planta"]), col, int(e.get("grietas", 0)))).duplicate()
@@ -222,7 +231,7 @@ static func hornear_iconos() -> int:
 	var hechas: Dictionary = {}   # ruta -> true
 	for it in items_con_icono():
 		var clave: String = clave_icono(it)
-		if clave == "":
+		if clave == "" or _encargo(it).has("libro"):
 			continue
 		var ruta: String = ruta_icono(clave, it)
 		if hechas.has(ruta):
@@ -387,6 +396,8 @@ static func _encargo(item: Resource) -> Dictionary:
 		return {"forma": "pocion_%d_%d" % [(maxi(cp.tier, 1) - 1) % 9, n], "color": col}
 	if item is ConsumableData and (item as ConsumableData).en_biblioteca():
 		var cd := item as ConsumableData
+		if LibrosPixel.tiene(cd.tomo_id):
+			return {"libro": cd.tomo_id, "forma": "libro_px", "color": cd.color_suelo()}
 		var marca: String = "rombo" if cd.es_grimorio() else ("chispa" if cd.es_tomo_sabio() else "nada")
 		return {"forma": "libro_" + marca, "color": cd.color_suelo()}
 	if item is ToolData:
