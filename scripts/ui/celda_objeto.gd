@@ -704,6 +704,20 @@ static func _px(poly: PackedVector2Array, centro: Vector2) -> PackedVector2Array
 			limpio.append(v)
 	while limpio.size() > 1 and limpio[0].is_equal_approx(limpio[limpio.size() - 1]):
 		limpio.remove_at(limpio.size() - 1)
+	# (06/11) Y SIN PUNTOS EN LINEA: la escalera de un lado muy corto va y vuelve sobre la misma recta (un pico de grosor
+	# cero) y con eso Godot tampoco triangula ("Invalid polygon data, triangulation failed", ~790 veces al abrir el
+	# inventario). Un punto alineado con sus dos vecinos no cambia la forma, asi que se quita.
+	var cambio := true
+	while cambio and limpio.size() > 3:
+		cambio = false
+		for i in limpio.size():
+			var a0: Vector2 = limpio[(i - 1 + limpio.size()) % limpio.size()]
+			var b0: Vector2 = limpio[i]
+			var c0: Vector2 = limpio[(i + 1) % limpio.size()]
+			if absf((b0 - a0).cross(c0 - b0)) < 0.001:
+				limpio.remove_at(i)
+				cambio = true
+				break
 	return limpio
 
 # Añade a 'out' el lado de 'a' a 'b' en escalera: 'a' y los peldaños, sin 'b' (que es el principio del siguiente).
@@ -745,7 +759,13 @@ func _fondo_franjas(borde: PackedVector2Array, w: float, h: float, oscuro: Color
 			var c := Vector2.ZERO
 			for v in trozo:
 				c += v
-			draw_colored_polygon(_px(trozo, c / float(maxi(trozo.size(), 1))), col)
+			var esc: PackedVector2Array = _px(trozo, c / float(maxi(trozo.size(), 1)))
+			# Si la escalera de un trozo diminuto no se puede triangular, el trozo tal cual (sin escalera): un punto de
+			# color mal puesto no se ve; el error en la consola, cada vez que se pinta una celda, si.
+			if esc.size() < 3 or Geometry2D.triangulate_polygon(esc).is_empty():
+				esc = trozo
+			if esc.size() >= 3 and not Geometry2D.triangulate_polygon(esc).is_empty():
+				draw_colored_polygon(esc, col)
 
 
 # Un anillo de 'grueso' a 'dentro' px por dentro del contorno 'poly', sin suavizar (el marco de seleccionada en pixel).
