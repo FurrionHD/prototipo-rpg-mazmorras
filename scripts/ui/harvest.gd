@@ -202,21 +202,21 @@ func _draw() -> void:
 	var w: float = size.x
 	MedidorFaena.panel(self, Rect2(Vector2.ZERO, size))
 	var nombre: String = _material.nombre if _material != null else "Planta"
-	MedidorFaena.texto(self, 20.0, 4.0, w - 8.0, nombre, 12)
+	MedidorFaena.texto(self, 25.0, 4.0, w - 8.0, nombre, 16)
 
 	var cr: Rect2 = MedidorFaena.CARRIL
 	MedidorFaena.carril(self, cr)
 	if _state == RUNNING:
 		var yb: float = cr.position.y + (_linea - _borde) * cr.size.y
-		draw_rect(Rect2(cr.position.x, yb, cr.size.x, 2.0 * _borde * cr.size.y), VERDE_BORDE)
+		MedidorFaena.zona(self, Rect2(cr.position.x, yb, cr.size.x, 2.0 * _borde * cr.size.y), VERDE_BORDE)
 		var yn: float = cr.position.y + (_linea - _nucleo) * cr.size.y
-		draw_rect(Rect2(cr.position.x, yn, cr.size.x, 2.0 * _nucleo * cr.size.y), VERDE_VIVO)
+		MedidorFaena.zona(self, Rect2(cr.position.x, yn, cr.size.x, 2.0 * _nucleo * cr.size.y), VERDE_VIVO)
 		# La raya de corte, fina, en el centro exacto.
 		var yl: float = cr.position.y + _linea * cr.size.y
-		draw_rect(Rect2(cr.position.x - 3.0, yl - 1.0, cr.size.x + 6.0, 2.0), Color(1, 1, 1, 0.55))
+		draw_rect(Rect2(roundf(cr.position.x), roundf(yl / 2.0) * 2.0 - 1.0, roundf(cr.size.x), 2.0), Color(1, 1, 1, 0.55))
 		# El marcador: la hoja de la hoz que baja por el tallo, sobresaliendo del carril.
 		var ym: float = cr.position.y + _marker * cr.size.y
-		draw_rect(Rect2(cr.position.x - 7.0, ym - 2.0, cr.size.x + 14.0, 4.0), Color.WHITE)
+		MedidorFaena.marcador(self, cr, ym)
 
 	MedidorFaena.marcas(self, w * 0.5, MedidorFaena.Y_MARCAS, _cortes, _corte_actual, MedidorFaena.AZUL)
 	MedidorFaena.marcas(self, w * 0.5, MedidorFaena.Y_MARCAS_2, DESTROZO_ROTO, _destrozo, MedidorFaena.ROJO)
@@ -232,4 +232,4 @@ func _draw() -> void:
 	else:
 		estado = "Hecha jirones" if _result.se_pierde() else _result.calidad_texto()
 		col = MedidorFaena.ROJO if _result.se_pierde() else MedidorFaena.AMBAR
-	MedidorFaena.texto(self, MedidorFaena.Y_ESTADO, 4.0, w - 8.0, estado, 12, col)
+	MedidorFaena.texto(self, MedidorFaena.Y_ESTADO, 4.0, w - 8.0, estado, 16, col)

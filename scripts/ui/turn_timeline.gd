@@ -238,8 +238,8 @@ func _draw() -> void:
 	# fuera (en vertical, encima; tumbada, por encima de la linea como siempre).
 	if vertical:
 		draw_line(b - Vector2(16.0, 0.0), b + Vector2(16.0, 0.0), Color(1, 1, 1), 2.0)
-		draw_string(font, b + Vector2(-size.x * 0.5, -10.0), "ACCION",
+		draw_string(font, b + Vector2(-size.x * 0.5, -10.0), "ACCIÓN",
 			HORIZONTAL_ALIGNMENT_CENTER, size.x, 12)
 	else:
 		draw_line(b - Vector2(0.0, 16.0), b + Vector2(0.0, 16.0), Color(1, 1, 1), 2.0)
-		draw_string(font, b + Vector2(-30.0, -22.0), "ACCION", HORIZONTAL_ALIGNMENT_LEFT, -1, 12)
+		draw_string(font, b + Vector2(-30.0, -22.0), "ACCIÓN", HORIZONTAL_ALIGNMENT_LEFT, -1, 12)

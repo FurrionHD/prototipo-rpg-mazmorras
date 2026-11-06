@@ -68,6 +68,10 @@ enum Rol {
 	CUERDA,
 	PLUMA,
 	PLUMA_S,
+	# (06/11) LOS DOS TONOS DEL METAL DE LOS ICONOS en pixel (tools/equipo_*.py): el metal se lee por CONTRASTE, asi
+	# que el icono lleva un BRILLO casi blanco y un HONDO de sombra profunda, los dos del mismo color base.
+	MATERIAL_B,
+	MATERIAL_O,
 }
 
 # LAS FAMILIAS DE MATERIAL. 'MATERIAL' se resuelve con la que le toque a la pieza: una armadura de
@@ -343,4 +347,6 @@ static func _color_de(rol: int, mat: Color, cuero: Color, madera: Color, acento:
 		Rol.CUERDA: return C_CUERDA
 		Rol.PLUMA: return C_PLUMA
 		Rol.PLUMA_S: return C_PLUMA_S
+		Rol.MATERIAL_B: return _derivar(mat, 1.55, 0.30)
+		Rol.MATERIAL_O: return _derivar(mat, 0.36, 1.20)
 		_: return C_BORDE

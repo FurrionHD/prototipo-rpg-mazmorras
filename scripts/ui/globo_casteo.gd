@@ -13,6 +13,7 @@
 
 extends Node2D
 class_name GloboCasteo
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 # A que altura flota sobre el NODO del personaje, en unidades de mundo.
 #
@@ -105,7 +106,7 @@ func _recolocar() -> void:
 	_texto.position = _fondo.position
 
 
-func _estilo(color: Color) -> StyleBoxFlat:
+func _estilo(color: Color) -> StyleBox:
 	var sb := StyleBoxFlat.new()
 	# Fondo oscuro con el tinte del elemento: el color tiene que LEERSE de un vistazo (es la pista
 	# de que te viene encima) sin que el texto blanco pierda contraste.
@@ -115,4 +116,4 @@ func _estilo(color: Color) -> StyleBoxFlat:
 	sb.set_corner_radius_all(8)
 	sb.content_margin_left = 8.0
 	sb.content_margin_right = 8.0
-	return sb
+	return HudEstilo.a_pixel(sb)

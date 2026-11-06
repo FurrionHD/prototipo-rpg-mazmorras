@@ -19,6 +19,7 @@
 # ============================================================
 
 extends CanvasLayer
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 const TiendaVender = preload("res://scripts/ui/tienda/tienda_vender.gd")
 const TiendaComprar = preload("res://scripts/ui/tienda/tienda_comprar.gd")
@@ -209,7 +210,7 @@ func _construir() -> void:
 	caja.set_border_width_all(1)
 	caja.set_corner_radius_all(8)
 	caja.set_content_margin_all(8)
-	_bandeja.add_theme_stylebox_override("panel", caja)
+	_bandeja.add_theme_stylebox_override("panel", HudEstilo.a_pixel(caja, true))
 	_bandeja.visible = false
 	col_izq.add_child(_bandeja)
 

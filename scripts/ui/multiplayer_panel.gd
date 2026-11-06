@@ -8,6 +8,7 @@
 # ============================================================
 
 extends CanvasLayer
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 var _root: Control = null
 var _ip: LineEdit = null
@@ -56,7 +57,7 @@ func _construir() -> void:
 	sb.content_margin_right = 28
 	sb.content_margin_top = 22
 	sb.content_margin_bottom = 22
-	panel.add_theme_stylebox_override("panel", sb)
+	panel.add_theme_stylebox_override("panel", HudEstilo.a_pixel(sb, true))
 	center.add_child(panel)
 
 	var vb := VBoxContainer.new()

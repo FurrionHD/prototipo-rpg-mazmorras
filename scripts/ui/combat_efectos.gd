@@ -5,6 +5,7 @@
 #  _update_hp y _bloque_de, que usa todo el combate, siguen en la pantalla.
 # ============================================================
 extends RefCounted
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 # La pantalla de la que es este tema: todo lo que no es del tema se le pide a ella. Tipada con su
 # script para que Godot deduzca los tipos (los := sobre ella); los NOMBRES no los comprueba al compilar:
@@ -32,7 +33,7 @@ func _crear_barras_aliado(bloque: Dictionary, c: Combatant) -> void:
 		en.show_percentage = false
 		en.max_value = c.max_energy
 		en.custom_minimum_size = Vector2(0, ALTO_BARRA_MENOR)
-		en.self_modulate = Color(0.95, 0.85, 0.3)   # energia = amarillo
+		HudEstilo.vestir_barra(en, HudEstilo.ENERGIA)   # (06/11) energia: verde, como en la fila del grupo
 		en.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		vb.add_child(en)
 		bloque["en"] = en
@@ -42,7 +43,7 @@ func _crear_barras_aliado(bloque: Dictionary, c: Combatant) -> void:
 		mp.show_percentage = false
 		mp.max_value = c.max_mp
 		mp.custom_minimum_size = Vector2(0, ALTO_BARRA_MENOR)
-		mp.self_modulate = Color(0.4, 0.6, 1.0)     # mana = azul
+		HudEstilo.vestir_barra(mp, HudEstilo.MANA)
 		mp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		vb.add_child(mp)
 		bloque["mp"] = mp

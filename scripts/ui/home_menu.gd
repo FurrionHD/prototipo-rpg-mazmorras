@@ -12,6 +12,7 @@
 # ============================================================
 
 extends CanvasLayer
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 const TABS := ["Equipo", "Encargos", "Cofre"]
 const TAB_ICONOS := ["persona", "pergamino", "cofre"]
@@ -334,7 +335,7 @@ func _tarjeta(padre: VBoxContainer) -> Dictionary:
 	return {"info": info, "botones": botones, "caja": caja}
 
 
-func _fondo_tarjeta() -> StyleBoxFlat:
+func _fondo_tarjeta() -> StyleBox:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.10, 0.11, 0.14, 0.85)
 	sb.border_color = Color(0.30, 0.33, 0.40, 0.7)
@@ -344,7 +345,7 @@ func _fondo_tarjeta() -> StyleBoxFlat:
 	sb.content_margin_right = 8
 	sb.content_margin_top = 5
 	sb.content_margin_bottom = 5
-	return sb
+	return HudEstilo.a_pixel(sb)
 
 
 # El cuerpo del personaje, del tamaño de un icono: mismo color y mismo material que por el mapa.

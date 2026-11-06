@@ -12,6 +12,7 @@
 # ============================================================
 
 class_name BotonIcono
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 
 # Crea el boton. 'dibujo' es una de las funciones de Iconos (se le pasa el CanvasItem, la esquina,
@@ -78,10 +79,10 @@ static func crear(dibujo: Callable, al_pulsar: Callable, lado: float = 72.0,
 	return c
 
 
-static func _caja(fondo: Color) -> StyleBoxFlat:
+static func _caja(fondo: Color) -> StyleBox:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = fondo
 	sb.border_color = Color(1, 1, 1, 0.28)
 	sb.set_border_width_all(2)
 	sb.set_corner_radius_all(12)
-	return sb
+	return HudEstilo.a_pixel(sb)

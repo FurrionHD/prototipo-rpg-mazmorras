@@ -376,7 +376,7 @@ func _trozo_log() -> Array:
 	var n: int = _pantalla._log_lines.size()
 	var desde: int = maxi(_log_enviadas, n - _LOG_TROZO_MAX)
 	_log_enviadas = n
-	return _pantalla._log_lines.slice(desde, n)
+	return _pantalla.registro.trozo_codificado(desde, n)   # con el grupo de cada frase (combat_registro.gd)
 
 
 # ESPEJO: añade lo que falte de un trozo que acaba en la frase 'total'. Si hay hueco, pide el entero.
@@ -679,7 +679,7 @@ func estado_para_guardar(base: int = 0) -> Dictionary:
 		nodo.set_meta("id_pelea", base + i)
 		ens.append({"id": i, "vivo": e.is_alive(), "invocado": _pantalla._slots_invocados.has(i),
 			"vol": _volatil(e), "gauge": float(_pantalla._gauge.get(e, 0.0))})
-	return {"aliados": als, "enemigos": ens, "log": _pantalla._log_lines.duplicate()}
+	return {"aliados": als, "enemigos": ens, "log": _pantalla.registro.entero_codificado()}
 
 
 # Corre al REHACER una pelea guardada (Net.peleas._rehacer), con la pantalla ya montada por el camino de siempre: le

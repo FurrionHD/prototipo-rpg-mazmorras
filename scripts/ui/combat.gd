@@ -70,6 +70,8 @@ const CombatDiagnostico = preload("res://scripts/ui/combat_diagnostico.gd")
 var diagnostico = CombatDiagnostico.new(self)
 const CombatMontaje = preload("res://scripts/ui/combat_montaje.gd")
 var montaje = CombatMontaje.new(self)
+const CombatRegistro = preload("res://scripts/ui/combat_registro.gd")
+var registro = CombatRegistro.new(self)
 # EL MONTAJE ALTERNATIVO: la misma pelea, puesta en escena sobre el mapa en vez de en dos filas de
 # tarjetas. Hereda del de arriba y solo cambia tres funciones (ver su cabecera). Se enchufa en
 # _ready cuando la pelea es TACTICA.
@@ -1304,7 +1306,7 @@ func _ready() -> void:
 		for c in _lentas:
 			cansados.append(c.nombre)
 		intro += "  (Agotados: %s empiezan más lentos)" % ", ".join(cansados)
-	_set_log(intro)
+	_set_log(intro, "f")
 
 	# Marca de INICIO en consola (para separar combates al montar los Excel). La vida y el mana con los que EMPIEZA cada
 	# uno, sobre su maximo (08/10: solo salia el maximo, y en el log parecia que cada pelea empezaba a tope).
@@ -1661,7 +1663,7 @@ func _tick_platos(delta: float) -> void:
 			if e.turns > 0:
 				continue
 			c.retirar_status(e)
-			_set_log("A %s se le pasa el efecto de %s." % [_etq(c), str(e.d.get("nombre", "?"))])
+			_set_log("A %s se le pasa el efecto de %s." % [_etq(c), str(e.d.get("nombre", "?"))], "s")
 	_update_hp()
 
 
@@ -1857,11 +1859,13 @@ func _begin_player_turn() -> void:
 	var ev: Dictionary = _player.tick_statuses()
 	enemigos.revisar_capullos()
 	_log_tick(_player, ev)
+	# (06/11) Desde aqui, todo lo que pase es de SU accion: una fila en el registro (ver combat_registro.gd).
+	registro.abrir(_player)
 	enemigos.turno_junto_al_iman(_player)
 	enemigos.campo_magnetico(_player)
 	_update_hp()
 	if not _player.is_alive():
-		_set_log("%s cae por el daño de sus estados. ☠" % _player.nombre)
+		_set_log("%s cae por el daño de sus estados. ☠" % _player.nombre, "s")
 		altas._caer_aliado(_player)   # el DoT (veneno...) puede tumbarlo
 		if altas.derrota():
 			_end(false)
@@ -1878,7 +1882,7 @@ func _begin_player_turn() -> void:
 		_player.heal(_player.max_hp * AUTORREGEN_PCT * autoreg)
 		var curado: float = _player.current_hp - antes
 		if curado > 0.0:
-			_set_log("%s se regenera (+%.1f). ♻" % [_player.nombre, curado])
+			_set_log("%s se regenera (+%.1f). ♻" % [_player.nombre, curado], "s")
 			_update_hp()
 	if ev.stunned:
 		# Aturdirte mientras CARGAS te interrumpe, igual que a los bichos (ver el mismo bloque en
@@ -1892,9 +1896,9 @@ func _begin_player_turn() -> void:
 				turno_mapa.olvidar_carga(_player)
 			print("[habilidad] %s ATURDIDO: se le INTERRUMPE %s" % [_player.nombre, interrumpida])
 			_set_log("%s está %s: se le interrumpe %s. 💫" % [_player.nombre,
-				"paralizado" if ev.paralizado else "aturdido", interrumpida])
+				"paralizado" if ev.paralizado else "aturdido", interrumpida], "s")
 		else:
-			_set_log("%s está %s y pierde el turno. 💫" % [_player.nombre, "paralizado" if ev.paralizado else "aturdido"])
+			_set_log("%s está %s y pierde el turno. 💫" % [_player.nombre, "paralizado" if ev.paralizado else "aturdido"], "s")
 		_pausa_lectura()
 		return
 
@@ -1913,7 +1917,7 @@ func _begin_player_turn() -> void:
 		if _player.charge_left > 0:
 			_player.charge_left -= 1
 		if _player.charge_left > 0:
-			_set_log("%s sigue cargando %s... ⚡" % [_player.nombre, _player.charging.nombre])
+			_set_log("%s sigue cargando %s... ⚡" % [_player.nombre, _player.charging.nombre], "s")
 			_ocultar_cajas()
 			_pausa_lectura()
 			return
@@ -1971,7 +1975,7 @@ func _pedir_accion_del_turno() -> void:
 		return
 	if dueno != 0:
 		_ocultar_cajas()
-		_set_log("Turno de %s. Esperando su acción..." % _player.nombre)
+		_set_log("Turno de %s. Esperando su acción..." % _player.nombre, "a")
 		# Con el RADIO que puede andar en el mapa: lo calculo yo, que tengo su Agilidad (ver
 		# turno_mapa.empezar_turno, que ya lo ha dejado puesto). En la pelea de fila va a 0.
 		espejo._pedir_a_remoto(dueno, {"tipo": "accion", "idx": _aliados.find(_player),
@@ -1997,15 +2001,15 @@ func seguir_tras_preparacion(ab: AbilityData) -> void:
 # estados que se disipan. No hace nada si el turno no traia eventos.
 func _log_tick(c: Combatant, ev: Dictionary) -> void:
 	if float(ev.damage) > 0.0:
-		_set_log("%s sufre %s (%.2f)." % [c.nombre, ", ".join(ev.dot), float(ev.damage)])
+		_set_log("%s sufre %s (%.2f)." % [c.nombre, ", ".join(ev.dot), float(ev.damage)], "s")
 	if float(ev.get("heal", 0.0)) > 0.0:
-		_set_log("%s se cura %s (%.2f). ✚" % [c.nombre, ", ".join(ev.get("heal_labels", [])), float(ev.heal)])
+		_set_log("%s se cura %s (%.2f). ✚" % [c.nombre, ", ".join(ev.get("heal_labels", [])), float(ev.heal)], "s")
 	if float(ev.get("mana", 0.0)) > 0.0:
-		_set_log("%s recupera %.2f de maná. 🔷" % [c.nombre, float(ev.mana)])
+		_set_log("%s recupera %.2f de maná. 🔷" % [c.nombre, float(ev.mana)], "s")
 	if float(ev.get("energia", 0.0)) > 0.0:
-		_set_log("A %s el picor le quita %.2f de energía. 🦟" % [c.nombre, float(ev.energia)])
+		_set_log("A %s el picor le quita %.2f de energía. 🦟" % [c.nombre, float(ev.energia)], "s")
 	if not (ev.expired as Array).is_empty():
-		_set_log("A %s se le disipa: %s." % [c.nombre, ", ".join(ev.expired)])
+		_set_log("A %s se le disipa: %s." % [c.nombre, ", ".join(ev.expired)], "s")
 
 
 # Muestra la barra de acciones normales (Atacar/Magia/Defender/Huir).
@@ -2015,7 +2019,7 @@ func _mostrar_acciones() -> void:
 	_refresh_actions()
 	# Se nombra a QUIEN le toca: con tres bloques iguales, "tu turno" no dice de quien es la
 	# accion que estas eligiendo (su bloque tambien lo marca con ▶).
-	_set_log("¡Turno de %s! Elige una acción." % _player.nombre)
+	_set_log("¡Turno de %s! Elige una acción." % _player.nombre, "a")
 
 
 # Que hace cada accion. El coste de Defender NO se escribe a mano: sale de la constante.
@@ -2423,7 +2427,7 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 		_dps_add("Básico (%s)" % con_arma, result.damage)
 		var txt: String
 		if result.crit:
-			txt = "¡CRITICO! %s golpea con %s%s por %.2f de daño. 💥" % [_player.nombre, con_arma, de_nota, result.damage]
+			txt = "¡CRITICO! %s golpea con %s%s e inflige %.2f de daño. 💥" % [_player.nombre, con_arma, de_nota, result.damage]
 			# Excelia: clavar un critico entrena Agilidad (encontraste el hueco). Escala con el
 			# PESO del arma (motion_value): un arma pesada critea poco, asi que cuando SI lo clava
 			# entrena mas Agilidad; una ligera critea a menudo y aporta menos por golpe. El factor
@@ -2433,7 +2437,7 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 			Game.ganar("agilidad", _reto(obj, pj_atacante) * agi_factor, Game.GAIN_AGILIDAD_CRITICO,
 				Game.RETO_MAX_FISICO, pj_atacante)
 		else:
-			txt = "%s golpea con %s%s por %.2f de daño." % [_player.nombre, con_arma, de_nota, result.damage]
+			txt = "%s golpea con %s%s e inflige %.2f de daño." % [_player.nombre, con_arma, de_nota, result.damage]
 		# Cuanto de ese daño lo ha puesto la IMBUICION, y si el objetivo era debil/resistente
 		# a ella. Sin esto el bonus elemental era invisible: el daño total no lo delata.
 		txt += magia._imbue_dmg_txt(result)
@@ -3028,7 +3032,7 @@ func _disparar_seguimientos(obj: Combatant) -> void:
 # Una linea suelta al log sin tocar el mensaje principal de la accion.
 func _log_extra(txt: String) -> void:
 	print("        [escolta] " + txt)
-	_set_log(txt)
+	_set_log(txt, "x")
 
 
 func _tras_accion_jugador_varios(objs: Array) -> void:
@@ -3146,6 +3150,13 @@ func _end(player_won: bool, fled: bool = false) -> void:
 				Game.rodar_slayer_por_familia(int(e.familia), _ultimo_en_golpear.get(e))
 		_recoger_flechas()
 	_state = State.FINISHED
+	# (06/11) Un conjuro a medias se queda en el registro: cual era y que frases llevaba.
+	for c in _casteos:
+		var sp_c = (_casteos[c] as Dictionary).get("spell")
+		if sp_c is SpellData:
+			var dichas_c: String = magia.frases_txt(c)
+			_set_log("🔮 %s se queda con %s a medias: la pelea ha terminado.%s" % [c.nombre, (sp_c as SpellData).nombre,
+				("  Llevaba: " + dichas_c) if dichas_c != "" else ""], "f")
 	magia._limpiar_casteo()
 	_casteos.clear()   # y los conjuros a medias de los demas: la pelea ha terminado para todos
 	_ocultar_cajas()
@@ -3187,14 +3198,14 @@ func _end(player_won: bool, fled: bool = false) -> void:
 		var caidos: String = _enemies[0].nombre if _enemies.size() == 1 \
 			else "%d enemigos" % _enemies.size()
 		_set_log("¡GANASTE el combate contra " + caidos + "! 🎉"
-			+ ("" if mp_vic <= 0.0 else "  🔷 +%.1f MP." % mp_vic))
+			+ ("" if mp_vic <= 0.0 else "  🔷 +%.1f MP." % mp_vic), "f")
 	elif fled:
 		# Al huir se dice a cuantos dejas atras: si te llevaste a alguno por delante, cuenta.
 		var quedan: int = _vivos().size()
 		_set_log("Habéis escapado. 🏃  (Dejáis atrás %d enemigo%s en pie)" % [
-			quedan, "" if quedan == 1 else "s"])
+			quedan, "" if quedan == 1 else "s"], "f")
 	else:
-		_set_log("Todo el grupo ha caído en combate... 💀")
+		_set_log("Todo el grupo ha caído en combate... 💀", "f")
 
 	# Marca de FIN en consola (cierra el bloque del combate para los Excel).
 	var desenlace: String = "huye el grupo" if fled else \
@@ -3234,37 +3245,25 @@ func _end(player_won: bool, fled: bool = false) -> void:
 # anfitrion, y aqui se comeria dos golpes iguales seguidos.
 var _log_lines: Array[String] = []
 
-func _set_log(texto: String) -> void:
+# (06/11) 'tipo' dice como va en el registro agrupado (ver combat_registro.gd): "" la de siempre (principal de su
+# accion si es la primera), "x" un extra de la accion, "s" un estado del tick, "a" un aviso de ahora ("Turno de X"),
+# "f" una frase suelta fuera de cualquier accion (empieza o acaba la pelea).
+func _set_log(texto: String, tipo: String = "") -> void:
 	if _log_lines.size() > 0 and _log_lines[_log_lines.size() - 1] == texto:
 		return
-	_pintar_linea_log(texto)
+	registro.apuntar(texto, registro.meta_nueva(tipo))
 
 
+# Una frase que llega del anfitrion (el espejo), CODIFICADA con su grupo (combat_registro.codificar).
 func _pintar_linea_log(texto: String) -> void:
-	# Sin la caja del registro (una pelea montada a mano en las pruebas) se apunta y ya.
-	if _log == null:
-		_log_lines.append(texto)
-		return
-	if not _log_lines.is_empty():
-		_log.newline()
-	_log_lines.append(texto)
-	_log.add_text(texto)
-	# A lo ultimo que ha pasado, que es lo que hay que estar viendo. Quien quiera mirar atras sube
-	# con la rueda; el siguiente golpe le devolvera al final, que es donde esta la pelea.
-	_log_al_final()
+	var d: Array = registro.decodificar(texto)
+	registro.apuntar(String(d[0]), d[1])
 
 
 # El registro entero de golpe: al rehacer una pelea guardada, o cuando el espejo pide el log
-# completo porque le falta un trozo (ver espejo.aplicar_log_entero).
+# completo porque le falta un trozo (ver espejo.aplicar_log_entero). Frases codificadas.
 func _rehacer_log(lineas: Array) -> void:
-	_log.clear()
-	_log_lines.clear()
-	for l in lineas:
-		if not _log_lines.is_empty():
-			_log.newline()
-		_log_lines.append(String(l))
-		_log.add_text(String(l))
-	_log_al_final()
+	registro.rehacer(lineas)
 
 
 # Aplica el aturdir a un objetivo y devuelve el texto para el log. Dos niveles (KAN-58):
@@ -3373,9 +3372,15 @@ func interrumpir(c: Combatant, quien: Combatant = null, por_control: bool = fals
 	if tactico:
 		efectos._fx_golpe(quien if quien != null else c, c, 0.0, false, false, Elementos.Elemento.NINGUNO,
 			CombatFX.Estilo.AVISO_INTERRUMPIDO, 0.5 if era_conjuro else 1.0, true)
+	# (06/11) Del conjuro, lo que llevaba recitado y que NO cuesta maná (se paga al soltarlo).
+	var cola: String = ""
+	if era_conjuro:
+		var dichas: String = magia.frases_txt(c)
+		magia.olvidar_frases(c)
+		cola = " Sin coste de maná." + (("  Llevaba: " + dichas) if dichas != "" else "")
 	if por_control:
-		return "💫 %s pierde %s: no puede seguir así." % [c.nombre, que]
-	return "💢 %s sale despedido%s y pierde %s." % [c.nombre, (" por " + quien.nombre) if quien != null else "", que]
+		return "💫 %s pierde %s: no puede seguir así.%s" % [c.nombre, que, cola]
+	return "💢 %s sale despedido%s y pierde %s.%s" % [c.nombre, (" por " + quien.nombre) if quien != null else "", que, cola]
 
 
 func _aplicar_aturdir(objetivo: Combatant, es_crit: bool) -> String:
@@ -3591,8 +3596,9 @@ func aplicar_impactos(datos: PackedInt32Array) -> void:
 func aplicar_instantanea(snap: Dictionary) -> void:
 	espejo.aplicar_instantanea(snap)
 
+# CODIFICADO (con el grupo de cada frase delante): es lo que viaja al espejo. El texto sigue dentro tal cual.
 func log_entero() -> Array:
-	return _log_lines.duplicate()
+	return registro.entero_codificado()
 
 func aplicar_log_entero(lineas: Array) -> void:
 	espejo.aplicar_log_entero(lineas)

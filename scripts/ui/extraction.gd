@@ -209,22 +209,21 @@ const VIOLETA := Color(0.70, 0.48, 0.95)
 func _draw() -> void:
 	var w: float = size.x
 	MedidorFaena.panel(self, Rect2(Vector2.ZERO, size))
-	MedidorFaena.texto(self, 20.0, 4.0, w - 8.0, "Cristal T%d" % _categoria, 12)
+	MedidorFaena.texto(self, 25.0, 4.0, w - 8.0, "Cristal T%d" % _categoria, 16)
 
 	var cr: Rect2 = MedidorFaena.CARRIL
 	MedidorFaena.carril(self, cr)
 	var zona := Rect2(cr.position.x, cr.position.y + _zone_start * cr.size.y,
 		cr.size.x, _zone_ratio * cr.size.y)
-	draw_rect(zona, VIOLETA)
-	draw_rect(Rect2(zona.position, Vector2(zona.size.x, 2.0)), Color(1, 1, 1, 0.45))
+	MedidorFaena.zona(self, zona, VIOLETA)
 	# Marcador GRUESO y sobresaliendo del carril: en movimiento, una raya fina se lee mucho peor.
 	var my: float = cr.position.y + _marker * cr.size.y
-	draw_rect(Rect2(cr.position.x - 7.0, my - 2.0, cr.size.x + 14.0, 4.0), Color.WHITE)
+	MedidorFaena.marcador(self, cr, my)
 
 	MedidorFaena.marcas(self, w * 0.5, MedidorFaena.Y_MARCAS, _presses, _done - _misses, MedidorFaena.AZUL)
 	MedidorFaena.marcas(self, w * 0.5, MedidorFaena.Y_MARCAS_2, mini(3, _presses), _misses, MedidorFaena.ROJO)
 	if _perdones > 0:
-		MedidorFaena.marcas(self, w * 0.5, MedidorFaena.Y_MARCAS_3, _perdones, _perdones, MedidorFaena.AMBAR, 5.0)
+		MedidorFaena.marcas(self, w * 0.5, MedidorFaena.Y_MARCAS_3, _perdones, _perdones, MedidorFaena.AMBAR, 6.0)
 
 	var estado: String
 	var col: Color = MedidorFaena.TEXTO_SUAVE
@@ -238,4 +237,4 @@ func _draw() -> void:
 	else:
 		estado = "Roto: perdido" if _result.se_pierde() else _result.calidad_texto()
 		col = MedidorFaena.ROJO if _result.se_pierde() else MedidorFaena.AMBAR
-	MedidorFaena.texto(self, MedidorFaena.Y_ESTADO, 4.0, w - 8.0, estado, 12, col)
+	MedidorFaena.texto(self, MedidorFaena.Y_ESTADO, 4.0, w - 8.0, estado, 16, col)

@@ -20,6 +20,7 @@
 
 extends RefCounted
 class_name StatusChip
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 const FUENTE := 12
 
@@ -130,7 +131,7 @@ static func de_par(par: Array, clic: Callable = Callable()) -> Button:
 	return b
 
 
-static func _fondo(color: Color, alpha: float) -> StyleBoxFlat:
+static func _fondo(color: Color, alpha: float) -> StyleBox:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(color.r * 0.55, color.g * 0.55, color.b * 0.55, alpha)
 	sb.border_color = Color(color.r, color.g, color.b, alpha + 0.25)
@@ -140,4 +141,4 @@ static func _fondo(color: Color, alpha: float) -> StyleBoxFlat:
 	sb.content_margin_right = 5.0
 	sb.content_margin_top = 1.0
 	sb.content_margin_bottom = 1.0
-	return sb
+	return HudEstilo.a_pixel(sb)

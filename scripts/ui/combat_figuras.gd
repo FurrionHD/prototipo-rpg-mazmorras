@@ -5,6 +5,7 @@
 #  mantener pulsado. Lo demas, a _pantalla.
 # ============================================================
 extends RefCounted
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 # La pantalla de la que es este tema: todo lo que no es del tema se le pide a ella. Tipada con su
 # script para que Godot deduzca los tipos (los := sobre ella); los NOMBRES no los comprueba al compilar:
@@ -229,7 +230,7 @@ func _crear_bloque(c: Combatant, numero: int, idx: int) -> Dictionary:
 	hp.max_value = c.max_hp
 	hp.show_percentage = false
 	hp.custom_minimum_size = Vector2(0, ALTO_BARRA_HP)
-	hp.self_modulate = Color(1.0, 0.4, 0.4)
+	HudEstilo.vestir_barra(hp, HudEstilo.VIDA)
 	# PASS y no el STOP por defecto: la barra ocupa media caja, y en STOP se tragaria el clic
 	# de seleccion en toda esa mitad.
 	hp.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -889,7 +890,7 @@ func _ajustar_zoom_sprites() -> void:
 # apagado si manda un debuff, blanco si nada). Lo calcula CombatFX y llega por la señal
 # tinte_cambiado; el borde de seleccion siempre gana, que es lo que hay que poder ver cuando
 # estas eligiendo objetivo.
-func _sb_bloque(sel: bool, tinte: Color = Color.WHITE) -> StyleBoxFlat:
+func _sb_bloque(sel: bool, tinte: Color = Color.WHITE) -> StyleBox:
 	var sb := StyleBoxFlat.new()
 	var tenido: bool = tinte != Color.WHITE
 	sb.set_border_width_all(2)
@@ -897,10 +898,10 @@ func _sb_bloque(sel: bool, tinte: Color = Color.WHITE) -> StyleBoxFlat:
 	if tenido:
 		sb.bg_color = Color(tinte.r, tinte.g, tinte.b, 0.12 if sel else 0.10)
 		sb.border_color = Color(1, 1, 1, 0.95) if sel else Color(tinte.r, tinte.g, tinte.b, 0.75)
-		return sb
+		return HudEstilo.a_pixel(sb)
 	sb.bg_color = Color(1, 1, 1, 0.05) if sel else Color(0, 0, 0, 0)
 	sb.border_color = Color(1, 1, 1, 0.95) if sel else Color(0, 0, 0, 0)
-	return sb
+	return HudEstilo.a_pixel(sb)
 
 
 # Repinta el recuadro de UNA tarjeta juntando las dos cosas que deciden su estilo: si esta

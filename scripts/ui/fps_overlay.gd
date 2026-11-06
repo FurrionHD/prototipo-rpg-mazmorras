@@ -13,6 +13,7 @@
 # ============================================================
 
 extends CanvasLayer
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 var _lbl: Label = null
 var _caja: PanelContainer = null
@@ -49,7 +50,7 @@ func _ready() -> void:
 	sb.content_margin_right = 8
 	sb.content_margin_top = 2
 	sb.content_margin_bottom = 2
-	_caja.add_theme_stylebox_override("panel", sb)
+	_caja.add_theme_stylebox_override("panel", HudEstilo.a_pixel(sb))
 	_caja.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_caja)
 

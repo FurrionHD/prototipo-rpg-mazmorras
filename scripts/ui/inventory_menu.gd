@@ -18,6 +18,7 @@
 # ============================================================
 
 extends CanvasLayer
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 const TABS := ["Bolsa", "Equipo", "Consumibles", "Materiales", "Armas", "Armaduras"]
 # El icono de cada pestaña, en el mismo orden que TABS. Van con icono y SIN texto, como en los
@@ -2106,6 +2107,9 @@ func _franja(vb: VBoxContainer, texto: String, bloquea: bool) -> void:
 	sb.content_margin_top = 7
 	sb.content_margin_bottom = 7
 	caja.add_theme_stylebox_override("panel", sb)
+	if HudEstilo.es_pixel():   # (06/11) la franja con marco de pixel teñido de su color
+		var px: StyleBox = HudEstilo.marco_px(sb.bg_color.darkened(0.35), false, sb.bg_color.lightened(0.2))
+		caja.add_theme_stylebox_override("panel", px)
 	vb.add_child(caja)
 	var l := Label.new()
 	l.text = texto
@@ -2155,7 +2159,8 @@ func _tarjeta_persona(fila: Container, c: ConsumableData, i: int) -> void:
 		sb.border_color = AMBAR if elegida else Color(1, 1, 1, 0.12)
 		sb.set_border_width_all(2 if elegida else 1)
 		sb.set_corner_radius_all(8)
-		b.draw_style_box(sb, Rect2(Vector2.ZERO, Vector2(w, h)))
+		# (06/11) En pixel: marco fino de hierro; la elegida, de bronce.
+		b.draw_style_box(HudEstilo.marco_px(sb.bg_color, elegida) if HudEstilo.es_pixel() else sb, Rect2(Vector2.ZERO, Vector2(w, h)))
 		var f: Font = b.get_theme_font(&"font")
 		# El nombre arriba, con la corona si es quien va en cabeza.
 		var nombre: String = ("* " if pj == Game.lider() else "") + pj.nombre

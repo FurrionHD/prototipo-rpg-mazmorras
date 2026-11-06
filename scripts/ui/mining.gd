@@ -223,7 +223,7 @@ func _draw() -> void:
 	var w: float = size.x
 	MedidorFaena.panel(self, Rect2(Vector2.ZERO, size))
 	var nombre: String = _material.nombre if _material != null else "Veta"
-	MedidorFaena.texto(self, 20.0, 4.0, w - 8.0, nombre, 12)
+	MedidorFaena.texto(self, 25.0, 4.0, w - 8.0, nombre, 16)
 
 	var cr: Rect2 = MedidorFaena.CARRIL
 	MedidorFaena.carril(self, cr)
@@ -233,15 +233,15 @@ func _draw() -> void:
 		Color(MedidorFaena.ROJO, 0.30))
 	# La franja buena.
 	var franja := Rect2(cr.position.x, tope_franja, cr.size.x, cr.size.y * _opt_ancho)
-	draw_rect(franja, MedidorFaena.AMBAR)
-	draw_rect(Rect2(franja.position, Vector2(franja.size.x, 2.0)), Color(1, 1, 1, 0.4))
+	MedidorFaena.zona(self, franja, MedidorFaena.AMBAR)
 	# La carga: una columna que sube desde abajo y una raya blanca que la remata, que sobresale del
 	# carril por los dos lados para que se lea aunque la columna caiga dentro de la franja.
 	var c: float = carga()
 	if c > 0.0:
 		var cy: float = cr.position.y + cr.size.y * (1.0 - c)
-		draw_rect(Rect2(cr.position.x + 5.0, cy, cr.size.x - 10.0, cr.end.y - cy), Color(0.95, 0.93, 0.86, 0.55))
-		draw_rect(Rect2(cr.position.x - 7.0, cy - 2.0, cr.size.x + 14.0, 4.0), Color.WHITE)
+		draw_rect(Rect2(roundf(cr.position.x) + 6.0, roundf(cy), roundf(cr.size.x) - 12.0, roundf(cr.end.y - cy)),
+			Color(0.95, 0.93, 0.86, 0.55))
+		MedidorFaena.marcador(self, cr, cy)
 
 	# Lo que ha cedido la veta y las grietas que lleva.
 	MedidorFaena.marcas(self, w * 0.5, MedidorFaena.Y_MARCAS, _golpes_necesarios, int(_progreso), MedidorFaena.AZUL)
@@ -258,4 +258,4 @@ func _draw() -> void:
 	else:
 		estado = "Escombro" if _result.se_pierde() else _result.calidad_texto()
 		col = MedidorFaena.ROJO if _result.se_pierde() else MedidorFaena.AMBAR
-	MedidorFaena.texto(self, MedidorFaena.Y_ESTADO, 4.0, w - 8.0, estado, 12, col)
+	MedidorFaena.texto(self, MedidorFaena.Y_ESTADO, 4.0, w - 8.0, estado, 16, col)

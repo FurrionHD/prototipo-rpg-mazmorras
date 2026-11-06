@@ -12,6 +12,7 @@
 
 extends Button
 class_name TooltipButton
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 # Ancho al que se parte el texto. Los resumenes de habilidad/hechizo caben en 3-6 lineas.
 const ANCHO := 560.0
@@ -63,7 +64,7 @@ func _make_custom_tooltip(for_text: String) -> Object:
 	sb.content_margin_right = 14
 	sb.content_margin_top = 12
 	sb.content_margin_bottom = 12
-	panel.add_theme_stylebox_override("panel", sb)
+	panel.add_theme_stylebox_override("panel", HudEstilo.a_pixel(sb))
 
 	var l := Label.new()
 	l.text = for_text

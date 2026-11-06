@@ -16,7 +16,7 @@ f36 Agirato ochinan hp=198.795 mp=14.485 en=151.425
 f62 LOG ⏳ 1. Araña de las simas prepara Telaraña. ¡Apártate! (aturdirlo lo interrumpe)
 f95 LOG ¡Turno de Daniel! Elige una acción.
 f97 PULSA Atacar
-f98 LOG Daniel golpea con Maza pequeña por 5.44 de daño.  ¡Retrasado! 💫
+f98 LOG Daniel golpea con Maza pequeña e inflige 5.44 de daño.  ¡Retrasado! 💫
 f98 Araña de las simas hp=50.611 mp=20.429 en=0.000
 f149 LOG Bastonazo está lista. Elige a quién y suéltala.
 f151 PULSA ⚡ ¡Soltar Bastonazo!
@@ -34,7 +34,7 @@ f217 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  15/37 🔷)
 f218 LOG Catalardio le da Poción de maná media a Agirato ochinan. 🔷 29 de maná (10 ya), repartido en 3 turnos.
 f218 Agirato ochinan hp=198.795 mp=24.479 en=151.425
 f219 LOG ⏳ 3. Jabalí prepara Embestida. ¡Apártate! (aturdirlo lo interrumpe)
-f280 LOG 2. Trent ataca a Daniel por 0.45 de daño.  Le inflige Veneno.
+f280 LOG 2. Trent ataca a Daniel y le inflige 0.45 de daño.  Le inflige Veneno.
 f280 Daniel hp=190.537 mp=20.000 en=181.025
 f337 LOG … no te ha dado con ninguno de los 1 golpe.
 f409 LOG ¡Turno de Agirato ochinan! Elige una acción.

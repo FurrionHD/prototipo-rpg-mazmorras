@@ -11,6 +11,7 @@
 # ============================================================
 
 extends CanvasLayer
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 # Solo por el enum Tipo (VETA/PLANTA/MADERA/SAL/HUERTO) con el que se elige la forma de cada marca.
 # resource_node.gd no tiene class_name, asi que hay que precargar el script para llegar a el.
@@ -228,7 +229,7 @@ func _crear_tarjeta(piso: int) -> Control:
 		sb.border_color = COLOR_SUBE if aqui else Color(1, 1, 1, 0.18)
 		sb.set_border_width_all(3 if aqui else 1)
 		sb.set_corner_radius_all(10)
-		c.draw_style_box(sb, Rect2(Vector2.ZERO, c.size))
+		c.draw_style_box(HudEstilo.a_pixel(sb), Rect2(Vector2.ZERO, c.size))
 
 		# Un piso sin cartografiar se pinta apagado: se puede mirar igual, pero sale en blanco.
 		var tinta: Color = Color(0.95, 0.95, 1.0) if con_mapa else Color(0.55, 0.55, 0.62)
