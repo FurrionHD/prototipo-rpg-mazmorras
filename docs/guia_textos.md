@@ -14,7 +14,7 @@ Si una frase se puede leer de dos maneras, está mal.
    «El objetivo queda…».
 2. **Cada porcentaje dice de qué es.** Nunca «el 30 %» a secas.
    - Mal: «hace el 30 % a quien la forma normal no tocaba».
-   - Bien: «reciben como Daño de Viento un 30 % del daño de un ataque básico del portador».
+   - Bien: «reciben como Daño de Viento un 30 % del daño que esa habilidad les habría infligido».
 3. **Si solo mejora algo que ya existe, se dice.** «Los ataques y habilidades del portador que ya
    pueden causar Quemadura suman un 10 % a su probabilidad base de causarla.» Así queda claro que
    el set no da Quemadura por sí solo.

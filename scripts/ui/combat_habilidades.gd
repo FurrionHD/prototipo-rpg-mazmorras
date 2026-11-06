@@ -1207,6 +1207,31 @@ static func forma_alargada(f, p: Combatant):
 		f2.cunas = f.cunas
 	return f2
 
+# LO QUE LA HABILIDAD 'ab' DE 'p' LE HARIA A 'v' si fuera su objetivo (06/11, el Filo de aire): sus golpes contra UNO,
+# con el plan de manos y de escudo, cada uno con su esquiva y su critico, x dano_mult, el multiplicador del golpe, la
+# municion y el Daño de habilidades (lo mismo que _resolver_golpe_hab, sin escudos de subditos ni efectos). Sin habilidad
+# (el basico), un golpe de arma. -1 si los esquiva todos.
+func dano_de_habilidad_contra(p: Combatant, ab: AbilityData, v: Combatant) -> float:
+	if ab == null:
+		var rb: Dictionary = StatsMath.resolve_attack(p, v, false)
+		return -1.0 if rb.get("evaded", false) else float(rb["damage"])
+	var idxs: Array = p.ability_hand_indices(ab)
+	var manos: int = maxi(1, idxs.size())
+	var golpes: int = ab.num_golpes(manos, 1)
+	var plan: Array = ab.plan_golpes(golpes, manos)
+	var total: float = 0.0
+	var alguno: bool = false
+	for i in golpes:
+		if not idxs.is_empty():
+			p.set_active_hand(idxs[mini(int(plan[i]["hand"]), idxs.size() - 1)])
+		var atk_ov: float = p.atk_escudo() if ab.golpe_es_de_escudo(i) else -1.0
+		var r: Dictionary = StatsMath.resolve_attack(p, v, false, atk_ov, ab.crit_extra, ab.penetracion_extra)
+		if r.get("evaded", false):
+			continue
+		alguno = true
+		total += float(r["damage"]) * ab.dano_mult * float(plan[i]["mult"]) * _mult_mun * (1.0 + p.runa_dano_hab)
+	return total if alguno else -1.0
+
 func filo_de_aire(p: Combatant, ab: AbilityData, ya: Array, obj: Combatant) -> Array:
 	var out: Array = []
 	if p == null or p.runa_filo_dano <= 0.0 or not _pantalla.tactico or _pantalla._espejo \
@@ -1231,13 +1256,15 @@ func filo_de_aire(p: Combatant, ab: AbilityData, ya: Array, obj: Combatant) -> A
 	var est: int = _pantalla.efectos._estilo_de_habilidad(ab, p)
 	for e in nuevos:
 		var v: Combatant = e
-		var r: Dictionary = StatsMath.resolve_attack(p, v, false)
-		if r.get("evaded", false):
+		# (06/11, lo pidio el jefe) De LO QUE LA HABILIDAD LE HARIA, no de un basico: una habilidad cara y fuerte
+		# alarga un corte fuerte.
+		var base: float = dano_de_habilidad_contra(p, ab, v)
+		if base < 0.0:
 			_pantalla.efectos._fx_golpe(p, v, 0.0, false, true, Elementos.Elemento.VIENTO, est, 0.7, false)
 			partes.append("%s lo esquiva" % _pantalla._etq(v))
 			continue
 		var mult: float = Elementos.mult_recibido(Elementos.Elemento.VIENTO, v)
-		var d: float = maxf(0.1, float(r["damage"]) * p.runa_filo_dano * mult)
+		var d: float = maxf(0.1, base * p.runa_filo_dano * mult)
 		v.take_damage(d)
 		_pantalla.efectos._fx_golpe(p, v, d, false, false, Elementos.Elemento.VIENTO, est, 0.7, false,
 			"", AbilityData.Gesto.AUTO, null, 0, mult)

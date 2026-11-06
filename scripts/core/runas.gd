@@ -378,7 +378,7 @@ static func efecto_txt(s: RunaSetData) -> String:
 			return "El daño que inflige el portador a un enemigo aumenta en un %s por cada acumulación de Veneno que tenga ese enemigo, hasta un máximo de %d acumulaciones. Además, los Venenos que causa el portador duran %s más." % [
 				_pct(p, "por_carga", 0.04), int(p.get("max", 5)), _turnos(int(p.get("turnos", 1)))]
 		&"filo_aire":
-			return "Los ataques con arma del portador se alargan con un corte de viento: los conos y los círculos llegan un %s más lejos, las líneas son un %s más largas y los ataques a un solo objetivo siguen %d px por detrás de él. Los enemigos a los que solo alcanza el corte reciben como Daño de Viento un %s del daño de un ataque básico del portador. Se activa 1 vez por habilidad. No funciona con la magia." % [
+			return "Los ataques con arma del portador se alargan con un corte de viento: los conos y los círculos llegan un %s más lejos, las líneas son un %s más largas y los ataques a un solo objetivo siguen %d px por detrás de él. Los enemigos a los que solo alcanza el corte reciben como Daño de Viento un %s del daño que esa habilidad o ataque les habría infligido. Se activa 1 vez por habilidad. No funciona con la magia." % [
 				_pct(p, "mas", 0.3), _pct(p, "linea", 0.4), roundi(float(p.get("detras", 50.0))), _pct(p, "dano", 0.3)]
 		&"cielo":
 			return "El Daño de Luz y el Daño de Oscuridad del portador aumentan en un %s. Cuando el portador asesta un golpe crítico, tiene un %s de probabilidad base de causar Ceguera al objetivo." % [

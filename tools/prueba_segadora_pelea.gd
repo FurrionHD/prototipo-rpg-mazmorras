@@ -152,6 +152,16 @@ func _correr() -> void:
 	_ver(combat.log_entero().size() == log1, "a quien ya toco la forma normal, nada")
 	var ven2: AbilityData = load("res://resources/abilities/vendaval_cortes.tres")
 	_ver(combat.habilidades.filo_de_aire(yo, ven2, [], a_e).is_empty(), "la magia no lo activa")
+	# (06/11) El corte sale de LO QUE LA HABILIDAD LE HARIA, no de un basico: una de x3 da un corte ~x3.
+	var fuerte := AbilityData.new()
+	fuerte.dano_mult = 3.0
+	var s_b: float = 0.0
+	var s_f: float = 0.0
+	for _k in 40:
+		s_b += maxf(0.0, combat.habilidades.dano_de_habilidad_contra(yo, null, b_e))
+		s_f += maxf(0.0, combat.habilidades.dano_de_habilidad_contra(yo, fuerte, b_e))
+	_ver(s_b > 0.0 and s_f > s_b * 2.0, "una habilidad de x3 alarga un corte mucho mas fuerte que el basico (%.1f / %.1f)" % [s_f, s_b])
+	_ver(Runas.efecto_txt(set_seg).contains("les habría infligido"), "y su texto lo dice")
 	yo.runa_filo_dano = 0.0
 	_ver(combat.habilidades.filo_de_aire(yo, null, [a_e], a_e).is_empty(), "sin el set, nada")
 
