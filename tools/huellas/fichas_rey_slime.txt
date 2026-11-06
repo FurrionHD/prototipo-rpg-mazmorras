@@ -98,7 +98,7 @@ f1082 Rey Slime hp=500.956 mp=21.188 en=0.000
 f1140 LOG Turno de Agirato ochinan. Esperando su acción...
 f1140 Agirato ochinan hp=198.795 mp=22.866 en=177.425
 f1142 998 PULSA Atacar
-f1143 LOG Agirato ochinan golpea con Baston e inflige 6,7 de daño.  Recupera 0,2 de maná. 🔷
+f1143 LOG Agirato ochinan golpea con Bastón e inflige 6,7 de daño.  Recupera 0,2 de maná. 🔷
 f1143 Agirato ochinan hp=198.795 mp=23.066 en=177.425
 f1143 Rey Slime hp=494.927 mp=21.188 en=0.000
 f1203 LOG Turno de Daniel. Esperando su acción...
@@ -160,7 +160,7 @@ f1818 LOG 3. Slime venenoso ataca a Daniel y le inflige 0,41 de daño.
 f1818 Daniel hp=181.876 mp=20.000 en=181.025
 f1875 LOG Turno de Agirato ochinan. Esperando su acción...
 f1877 998 PULSA Atacar
-f1878 LOG ¡Crítico! Agirato ochinan golpea con Baston e inflige 10,12 de daño. 💥
+f1878 LOG ¡Crítico! Agirato ochinan golpea con Bastón e inflige 10,12 de daño. 💥
 f1878 Agirato ochinan hp=198.570 mp=36.500 en=177.425
 f1878 Rey Slime hp=428.952 mp=21.188 en=0.000
 f1931 LOG Turno de Dasui. Esperando su acción...

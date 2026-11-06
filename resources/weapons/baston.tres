@@ -10,7 +10,7 @@
 
 [resource]
 script = ExtResource("1")
-nombre = "Baston"
+nombre = "Bastón"
 tipo = 9
 dos_manos = true
 puede_dual = false

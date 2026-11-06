@@ -805,9 +805,9 @@ func _rejilla_stats(c: Combatant) -> void:
 	MenuScaffold.fila(_panel, "Prob. crítico", _pct(float(n[6])))
 	MenuScaffold.fila(_panel, "Daño crítico", _crit_dmg_txt(float(n[7])))
 	MenuScaffold.fila(_panel, "Prob. crít. mágico", _pct(float(n[8])))
-	MenuScaffold.fila(_panel, "Daño crít. mágico", _crit_dmg_txt(float(n[9])))
+	MenuScaffold.fila(_panel, "Daño crítico mágico", _crit_dmg_txt(float(n[9])))
 	if float(n[10]) > 0.0:
-		MenuScaffold.fila(_panel, "Regen maná", "%.2f/turno" % float(n[10]))
+		MenuScaffold.fila(_panel, "Regeneración de maná", "%.2f/turno" % float(n[10]))
 	# Sus SETS DE RUNAS (en verde los que funcionan). Solo si es uno de los MIOS: de los demas no tengo la ficha.
 	var pj_c: PersonajeData = Game.pj_de_combatant(c)
 	# Y lo de las runas que no tiene fila propia (daño de habilidades, de un elemento...), solo si lo lleva.
@@ -1154,9 +1154,9 @@ func _abrir_modal_atributos(c: Combatant) -> void:
 		"Se resta SIEMPRE, aparte de la Defensa. Se promedia por la cobertura de cada pieza, "
 		+ "así que un set incompleto reduce mucho menos, y el desgaste la baja.")
 	if c.crit_resist > 0.001:
-		_fila_modal(vb, "Resist. crítico", _pct(c.crit_resist), 0.0)
+		_fila_modal(vb, "Resistencia a críticos", _pct(c.crit_resist), 0.0)
 	# Ver la nota de character_menu: es un cociente, no un "% de veces que resistes".
-	_fila_modal(vb, "Resist. estados", "%s (×%.2f)" % [
+	_fila_modal(vb, "Resistencia a estados", "%s (×%.2f)" % [
 		_pct(c.resist_estados()), 1.0 / (1.0 + c.resist_estados())], 0.0)
 	if c.eficacia_estados() > 0.001:
 		_fila_modal(vb, "Eficacia (estados)", "%s (×%.2f)" % [
@@ -1184,7 +1184,7 @@ func _fila_modal(vb: VBoxContainer, etiqueta: String, valor: String, bonus: floa
 	k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
 	row.add_child(k)
 	var v := Label.new()
-	v.text = valor
+	v.text = MenuScaffold.valor_es(valor)   # coma decimal y espacio antes del % (pase de textos 06/11)
 	row.add_child(v)
 	if absf(bonus) >= 0.5:
 		var bl := Label.new()

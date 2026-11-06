@@ -721,8 +721,8 @@ func _ficha_equipo(vb: VBoxContainer, m: Resource) -> void:
 		var wd := m as WandData
 		MenuScaffold.banner_item(vb, wd, "", "Varita")
 		var mg: Dictionary = Upgrades.magic_mods(wd.magic_amp, Game.tier_mult(tier), rareza, meta["mejoras"])
-		row(vb, "Amplif. magia", "×%.2f" % float(mg["magic_amp"]))
-		row(vb, "Vel. casteo", "×%.2f" % (wd.cast_vel_mult + float(mg["cast_vel_add"])))
+		row(vb, "Amplificación mágica", "×%.2f" % float(mg["magic_amp"]))
+		row(vb, "Velocidad de recitado", "×%.2f" % (wd.cast_vel_mult + float(mg["cast_vel_add"])))
 		for fila in MenuScaffold.filas_critico_magico(mg, wd.crit_bonus):
 			row(vb, fila[0], fila[1])
 	elif m is ArmorData:
@@ -773,12 +773,12 @@ func row(vb: VBoxContainer, etiqueta: String, valor: String, color_valor: Varian
 	r.add_theme_constant_override("separation", 8)
 	var k := Label.new()
 	k.text = etiqueta
-	k.custom_minimum_size = Vector2(150, 0)
+	k.custom_minimum_size = Vector2(200, 0)   # 200: cabe "Penalización a la esquiva" en una línea (medido, 06/11)
 	k.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
 	r.add_child(k)
 	var v := Label.new()
-	v.text = valor
+	v.text = MenuScaffold.valor_es(valor)   # coma decimal y espacio antes del % (pase de textos 06/11)
 	if color_valor is Color:
 		v.add_theme_color_override("font_color", color_valor)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL

@@ -408,12 +408,12 @@ func _row(vb: VBoxContainer, etiqueta: String, valor: String, color_valor: Varia
 	row.add_theme_constant_override("separation", 8)
 	var k := Label.new()
 	k.text = etiqueta
-	k.custom_minimum_size = Vector2(150, 0)
+	k.custom_minimum_size = Vector2(200, 0)   # 200: cabe "Penalización a la esquiva" en una línea (medido, 06/11)
 	k.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
 	row.add_child(k)
 	var v := Label.new()
-	v.text = valor
+	v.text = MenuScaffold.valor_es(valor)   # coma decimal y espacio antes del % (pase de textos 06/11)
 	if color_valor is Color:
 		v.add_theme_color_override("font_color", color_valor)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1190,9 +1190,9 @@ func _preview_arma(vb: VBoxContainer) -> void:
 		var meta_w: Dictionary = Game.meta_de(wd)
 		var mg: Dictionary = Upgrades.magic_mods(wd.magic_amp, Game.tier_mult(int(meta_w["tier"])),
 			int(meta_w["rareza"]), meta_w["mejoras"])
-		_row(vb, "Amplif. magia", "×%.2f" % float(mg["magic_amp"]))
-		_row(vb, "Regen maná", "%.2f/turno" % (wd.mp_regen_turno * float(mg["regen_mult"])))
-		_row(vb, "Vel. casteo", "×%.2f" % (wd.cast_vel_mult + float(mg["cast_vel_add"])))
+		_row(vb, "Amplificación mágica", "×%.2f" % float(mg["magic_amp"]))
+		_row(vb, "Regeneración de maná", "%.2f/turno" % (wd.mp_regen_turno * float(mg["regen_mult"])))
+		_row(vb, "Velocidad de recitado", "×%.2f" % (wd.cast_vel_mult + float(mg["cast_vel_add"])))
 		if float(mg["mana_reduccion"]) > 0.0:
 			_row(vb, "Coste de maná", "-%.0f%%" % (float(mg["mana_reduccion"]) * 100.0))
 		for fila in MenuScaffold.filas_critico_magico(mg, wd.crit_bonus):

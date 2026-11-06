@@ -197,7 +197,7 @@ func _ficha(vb: VBoxContainer) -> void:
 	# EN DOS COLUMNAS (08/10/2026, lo pidio el usuario: era un scroll largo con medio panel vacio a la derecha).
 	var rejilla := GridContainer.new()
 	rejilla.columns = 2
-	rejilla.add_theme_constant_override("h_separation", 28)
+	rejilla.add_theme_constant_override("h_separation", 20)
 	rejilla.add_theme_constant_override("v_separation", 2)
 	vb.add_child(rejilla)
 	for f in MenuScaffold.filas_mejora(item, int(meta["tier"]), rareza, mj, cat_sel):
@@ -256,20 +256,22 @@ func _atributo(vb: Container, etiqueta: String, valor: String, delta: String) ->
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var k := Label.new()
 	k.text = etiqueta
-	k.custom_minimum_size = Vector2(150, 0)
+	# 200 / 95 / 76 (06/11, pase de textos, MEDIDO con la fuente del juego): caben los nombres completos ("Probabilidad
+	# de crítico mágico", 197 px) y las dos columnas siguen entrando en el panel (~800 px).
+	k.custom_minimum_size = Vector2(200, 0)
 	k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
 	row.add_child(k)
 	# Con ANCHO fijo el valor y el delta: sin eso el autowrap de la ficha los dejaba a ancho cero y salian
 	# letra a letra (visto en captura). El delta va pegado al valor, no al otro extremo de la fila.
 	var v := Label.new()
-	v.text = valor
-	v.custom_minimum_size = Vector2(120, 0)
+	v.text = MenuScaffold.valor_es(valor)
+	v.custom_minimum_size = Vector2(95, 0)
 	row.add_child(v)
 	# El hueco del delta SIEMPRE (vacio si no sube): asi las dos columnas de la rejilla no bailan segun la mejora
 	# elegida, y las runas de debajo (MenuScaffold.bloque_runas compacto, que deja el mismo hueco) caen alineadas.
 	var d := Label.new()
-	d.text = delta
-	d.custom_minimum_size = Vector2(70, 0)
+	d.text = MenuScaffold.valor_es(delta)
+	d.custom_minimum_size = Vector2(76, 0)
 	d.add_theme_color_override("font_color", t.VERDE)
 	row.add_child(d)
 	vb.add_child(row)

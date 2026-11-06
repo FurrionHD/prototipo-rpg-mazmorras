@@ -549,7 +549,7 @@ func decir(txt: String, ok: bool = true) -> void:
 
 
 func row(vb: VBoxContainer, etiqueta: String, valor: String, color_valor: Variant = null,
-		ancho_etiqueta: float = 150.0) -> void:
+		ancho_etiqueta: float = 200.0) -> void:
 	var r := HBoxContainer.new()
 	r.add_theme_constant_override("separation", 8)
 	var k := Label.new()
@@ -559,7 +559,7 @@ func row(vb: VBoxContainer, etiqueta: String, valor: String, color_valor: Varian
 	k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
 	r.add_child(k)
 	var v := Label.new()
-	v.text = valor
+	v.text = MenuScaffold.valor_es(valor)   # coma decimal y espacio antes del % (pase de textos 06/11)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	if color_valor is Color:

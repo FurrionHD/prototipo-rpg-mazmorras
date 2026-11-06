@@ -45,7 +45,7 @@ const _BASE := {
 	"crit_dmg_mag": ["Daño crítico mágico", 0.06, 0.12, "tier", [0, 50, 0]],
 	"dano_hab": ["Daño de habilidades", 0.04, 0.08, "tier", [60, 60, 0]],
 	"eficacia": ["Eficacia", 0.04, 0.08, "tier", [60, 60, 0]],
-	"penetracion": ["Penetración", 0.08, 0.12, "fijo", [50, 0, 0]],
+	"penetracion": ["Ignora Defensa", 0.08, 0.12, "fijo", [50, 0, 0]],
 	"dano_jefes": ["Daño a mutantes y jefes", 0.05, 0.10, "tier", [40, 40, 0]],
 	"velocidad": ["Velocidad", 0.10, 0.20, "vel", [30, 30, 30]],
 	"dano_todos": ["Daño de todos los elementos", 0.04, 0.08, "tier", [5, 5, 0]],
@@ -58,7 +58,7 @@ const _BASE := {
 	"resist_crit": ["Resistencia a críticos", 0.02, 0.04, "fijo", [0, 0, 50]],
 	"cura_recibida": ["Curación recibida", 0.04, 0.08, "tier", [0, 0, 50]],
 	"menos_dot": ["Menos daño de estados", 0.04, 0.08, "tier", [0, 0, 50]],
-	"evasion": ["Evasión", 0.01, 0.03, "fijo", [0, 0, 40]],
+	"evasion": ["Esquiva", 0.01, 0.03, "fijo", [0, 0, 40]],
 }
 # Daño de UN elemento (arma) y resistencia a UN elemento (armadura): el peso de 60 repartido entre los cinco.
 const PESO_ELEM_DANO := 12
@@ -75,9 +75,9 @@ static func subs() -> Dictionary:
 		var b: Array = _BASE[k]
 		_cache_subs[k] = {"nombre": b[0], "min": b[1], "max": b[2], "escala": b[3], "pesos": b[4]}
 	for e in ELEMENTOS:
-		_cache_subs["dano_" + e] = {"nombre": "Daño de %s" % e, "min": 0.05, "max": 0.10, "escala": "tier",
+		_cache_subs["dano_" + e] = {"nombre": "Daño de %s" % e.capitalize(), "min": 0.05, "max": 0.10, "escala": "tier",
 			"pesos": [PESO_ELEM_DANO, PESO_ELEM_DANO, 0]}
-		_cache_subs["res_" + e] = {"nombre": "Resistencia a %s" % e, "min": 0.03, "max": 0.06, "escala": "fijo",
+		_cache_subs["res_" + e] = {"nombre": "Resistencia a %s" % e.capitalize(), "min": 0.03, "max": 0.06, "escala": "fijo",
 			"pesos": [0, 0, PESO_ELEM_RES]}
 	return _cache_subs
 
@@ -85,21 +85,19 @@ static func subs() -> Dictionary:
 static func nombre_sub(clave: String) -> String:
 	return str(subs().get(clave, {}).get("nombre", clave))
 
-# EL NOMBRE CORTO, el de las fichas: cabe en la columna de etiquetas (150) para que el valor quede ALINEADO con los
-# de encima (lo pidio el usuario: "todo en la misma linea"). Los mismos recortes que ya usa el juego ("Resist.",
-# "crít."). El completo, en el Taller y al pasar el raton.
+# EL NOMBRE DE LAS FICHAS: cabe en la columna de etiquetas (200 desde el 06/11, medido) para que el valor quede ALINEADO con los
+# de encima (lo pidio el usuario: "todo en la misma linea"). Desde el pase de textos van COMPLETOS (sin "Resist.",
+# "crít.", que el jefe pidio nombres enteros y una columna mas ancha).
 const _CORTOS := {
-	"crit": "Prob. crítico", "crit_mag": "Prob. crít. mágico", "crit_dmg_mag": "Daño crít. mágico",
+	"crit": "Probabilidad de crítico", "crit_mag": "Probabilidad de crítico mágico", "crit_dmg_mag": "Daño crítico mágico",
 	"dano_hab": "Daño habilidades", "dano_jefes": "Daño a jefes", "dano_todos": "Daño elemental",
-	"resist_estados": "Resist. estados", "resist_crit": "Resist. crítico", "menos_dot": "Menos daño estados",
-	"cura_recibida": "Cura recibida",
+	"resist_estados": "Resistencia a estados", "resist_crit": "Resistencia a críticos", "menos_dot": "Daño con el tiempo recibido",
+	"cura_recibida": "Curación recibida",
 }
 
 static func nombre_corto(clave: String) -> String:
 	if _CORTOS.has(clave):
 		return _CORTOS[clave]
-	if clave.begins_with("res_"):
-		return "Resist. " + clave.trim_prefix("res_")
 	return nombre_sub(clave)
 
 

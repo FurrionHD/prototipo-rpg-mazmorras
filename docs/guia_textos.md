@@ -128,7 +128,7 @@ probabilidad base de causarla. El daño de las Quemaduras que causa el portador 
 | Sets de runas (`Runas.efecto_txt`) | Hecho 06/11 |
 | Magias (fichas, línea compacta, Filos y Mantos con su afinidad; sabor y tildes) | Hecho 06/11 |
 | Habilidades (fichas; sets con distancias sin px) | Hecho 06/11 |
-| Armas y armaduras (fichas) | Pendiente |
+| Armas y armaduras (fichas: etiquetas completas, columna de 200 medida, números con coma vía `MenuScaffold.valor_es`) | Hecho 06/11 |
 | Objetos y consumibles (fichas, pociones, platos, unturas, cebos; sabor de pociones) | Hecho 06/11 |
 | Estados (ficha del chip en tercera persona, coletillas, chip de la imbuición, sabor) | Hecho 06/11 |
 | Menús y avisos | Pendiente |

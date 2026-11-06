@@ -650,13 +650,13 @@ func _pagina_atributos(c: Combatant) -> void:
 	if magico:
 		_row("Vel. recitado", "%.1f" % c.cast_spd())
 		_row("Prob. crít. mágico", _fmt_pct(_crit_magico(c)))
-		_row("Daño crít. mágico", _crit_dmg_txt(c.crit_dmg_magico))
+		_row("Daño crítico mágico", _crit_dmg_txt(c.crit_dmg_magico))
 	else:
 		_row("Velocidad", "%.0f" % c.spd())
 		_row("Prob. crítico", _fmt_pct(_crit_fisico(c)))
 		_row("Daño crítico", _crit_dmg_txt(c.crit_dmg))
 	if c.mp_regen_turno > 0.0:
-		_row("Regen maná", "%.2f/turno" % c.mp_regen_turno)
+		_row("Regeneración de maná", "%.2f/turno" % c.mp_regen_turno)
 	# Sus SETS DE RUNAS, de arma y de armadura (en verde los que funcionan).
 	_content.add_child(HSeparator.new())
 	MenuScaffold.resumen_sets(_content, pj)
@@ -1959,17 +1959,17 @@ func _weapon_stats(vb: VBoxContainer, w: WeaponData) -> void:
 		w.velocidad_mult * float(base["vel_mult"]), w.velocidad_mult * float(mods["vel_mult"])))
 	var crit: float = float(mods["crit"])
 	if crit != 0.0:
-		_row_en(vb, "Crítico", _con_mejoras_pct(float(base["crit"]), crit))
+		_row_en(vb, "Probabilidad de crítico", _con_mejoras_pct(float(base["crit"]), crit))
 	_row_en(vb, "Daño crítico", _con_mejoras("×%.2f",
 		StatsMath.CRIT_MULT + float(base["crit_dmg"]), StatsMath.CRIT_MULT + float(mods["crit_dmg"])))
 	if float(mods["precision"]) > 0.0:
-		_row_en(vb, "Precisión", "+%s" % _fmt_pct(float(mods["precision"])))
+		_row_en(vb, "Acierto", "+%s" % _fmt_pct(float(mods["precision"])))
 	if float(mods["evasion"]) > 0.0:
-		_row_en(vb, "Evasión", "+%s" % _fmt_pct(float(mods["evasion"])))
+		_row_en(vb, "Esquiva", "+%s" % _fmt_pct(float(mods["evasion"])))
 	if float(mods["aturdir"]) > 0.0:
-		_row_en(vb, "Aturdir", _con_mejoras_pct(float(base["aturdir"]), float(mods["aturdir"])))
+		_row_en(vb, "Probabilidad de aturdir", _con_mejoras_pct(float(base["aturdir"]), float(mods["aturdir"])))
 	if Upgrades.penetracion_arma(w) > 0.0:
-		_row_en(vb, "Ignora defensa", _fmt_pct(Upgrades.penetracion_arma(w)))
+		_row_en(vb, "Ignora Defensa", _fmt_pct(Upgrades.penetracion_arma(w)))
 	if w.es_magica:
 		var mg: Dictionary = Upgrades.magic_mods(w.magic_amp, tmult, rareza, mejoras)
 		var mgb: Dictionary = Upgrades.magic_mods(w.magic_amp, tmult, rareza, {})
@@ -1996,10 +1996,10 @@ func _shield_stats(vb: VBoxContainer, sh: ShieldData, tier: int, rareza: int,
 	# es justo lo que enseña el parentesis.
 	_row_en(vb, "Bloqueo", _con_mejoras_pct(float(base["bloqueo"]), float(mods["bloqueo"])))
 	if float(mods["resist_estados"]) > 0.0:
-		_row_en(vb, "Resist. estados",
+		_row_en(vb, "Resistencia a estados",
 			_con_mejoras_pct(float(base["resist_estados"]), float(mods["resist_estados"])))
 	_row_en(vb, "Velocidad", "×%.2f" % float(mods["vel_mult"]))
-	_row_en(vb, "Penal. esquiva", "-%s" % _fmt_pct(float(mods["evasion_penal"])))
+	_row_en(vb, "Penalización a la esquiva", "-%s" % _fmt_pct(float(mods["evasion_penal"])))
 
 
 # Las lineas magicas (baston y varita comparten math: Upgrades.magic_mods). 'mg' = con mejoras,
@@ -2014,10 +2014,10 @@ func _magic_stats(vb: VBoxContainer, mg: Dictionary, mgb: Dictionary, regen_base
 		MenuScaffold.dano_magico(_pj(), float(mg["magic_amp"]))))
 	var regen_b: float = regen_base * float(mgb["regen_mult"])
 	var regen_t: float = regen_base * float(mg["regen_mult"])
-	_row_en(vb, "Regen maná", _con_mejoras("%.2f", regen_b, regen_t) + " /turno")
+	_row_en(vb, "Regeneración de maná", _con_mejoras("%.2f", regen_b, regen_t) + " /turno")
 	MenuScaffold.nota(vb, "Gotea también mientras recitas: un conjuro corto tarda 2 turnos, así que "
 		+ "se paga %.2f de su maná él solo." % (regen_t * 2.0))
-	_row_en(vb, "Vel. casteo", _con_mejoras("×%.2f",
+	_row_en(vb, "Velocidad de recitado", _con_mejoras("×%.2f",
 		cast_base + float(mgb["cast_vel_add"]), cast_base + float(mg["cast_vel_add"])))
 	if float(mg["mana_reduccion"]) > 0.0:
 		_row_en(vb, "Coste de maná", "-%s" % _fmt_pct(float(mg["mana_reduccion"])))
@@ -2026,7 +2026,7 @@ func _magic_stats(vb: VBoxContainer, mg: Dictionary, mgb: Dictionary, regen_base
 	if float(mg["crit_magico"]) != 0.0:
 		_row_en(vb, "Crítico mágico",
 			_con_mejoras_pct(float(mgb["crit_magico"]), float(mg["crit_magico"])))
-	_row_en(vb, "Daño crít. mágico", _con_mejoras("×%.2f",
+	_row_en(vb, "Daño crítico mágico", _con_mejoras("×%.2f",
 		StatsMath.CRIT_MULT + float(mgb["crit_dmg_magico"]),
 		StatsMath.CRIT_MULT + float(mg["crit_dmg_magico"])))
 
@@ -2100,7 +2100,7 @@ func _resumen_pieza(vb: VBoxContainer, item: Resource) -> void:
 			var mg: Dictionary = Upgrades.magic_mods(w.magic_amp, tmult, rareza, mejoras)
 			_row_en(vb, "Ataque mágico", "%.1f" % MenuScaffold.dano_magico(_pj(), float(mg["magic_amp"])))
 		_row_en(vb, "Ataque", "%.1f" % MenuScaffold.dano_arma(w, float(mods["raw"]), _pj(), Game.durabilidad_item(w)))
-		_row_en(vb, "Crítico", _fmt_pct(float(mods["crit"])))
+		_row_en(vb, "Probabilidad de crítico", _fmt_pct(float(mods["crit"])))
 		_row_en(vb, "Daño crítico", "×%.2f" % (StatsMath.CRIT_MULT + float(mods["crit_dmg"])))
 	elif item is ShieldData:
 		var sm: Dictionary = Upgrades.shield_mods(item as ShieldData, tmult, rareza, mejoras)
@@ -2262,11 +2262,11 @@ func _title(txt: String) -> void:
 
 
 func _row(etiqueta: String, valor: String, color: Variant = null) -> void:
-	MenuScaffold.fila(_content, etiqueta, valor, 150, color)
+	MenuScaffold.fila(_content, etiqueta, valor, 200, color)
 
 
 func _row_en(vb: VBoxContainer, etiqueta: String, valor: String, color: Variant = null) -> void:
-	MenuScaffold.fila(vb, etiqueta, valor, 150, color)
+	MenuScaffold.fila(vb, etiqueta, valor, 200, color)
 
 
 func _note(txt: String) -> void:
