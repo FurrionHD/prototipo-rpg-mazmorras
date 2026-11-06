@@ -25,25 +25,90 @@ def asta(s, p, s0, s1):
     return 0
 
 
-def pico(cv):
-    # PICO: la cabeza curva atravesada arriba, con las dos puntas cayendo hacia el mango
+def _pico(cv, curva, largo_izq, largo_der, cara_der=False):
+    # EL PICO: la cabeza ATRAVESADA arriba, casi recta (un arco suave hacia la punta del mango) y solo las PUNTAS caen.
+    # Con mucha curva los dos brazos hacian una V y se leia como una punta de flecha (el jefe, 06/11).
+    #   curva       cuanto se arquea la cabeza
+    #   largo_*     lo que mide cada brazo (filas de diagonal)
+    #   cara_der    el brazo derecho acaba en CARA PLANA (pico y martillo) en vez de en punta
     def f(s, p, e):
-        c = 10.0 * e
-        for lado in (-1, 1):
-            if lado * p >= 0 and abs(p) <= 11:
-                centro = c - 0.045 * p * p / max(e, 0.5)
-                grueso = 2.4 - abs(p) * 0.12
-                if abs(s - centro) <= grueso:
-                    arriba = s > centro
-                    if abs(p) >= 10:
-                        return MET_L                                        # la punta
-                    if arriba:
-                        return BRI if lado < 0 and abs(p) < 7 else MET_L
-                    return HON if abs(s - centro) > grueso - 0.6 else MET
-        if abs(s - c) <= 2.2 and -2 <= p <= 1:
-            return MET_S                                                     # el ojo
+        c = 10.5 * e
+        lado = -1 if p < 0 else 1
+        largo = largo_izq if p < 0 else largo_der
+        if abs(p) <= largo:
+            k = abs(p) / max(1.0, largo)
+            centro = c - curva * p * p - (2.2 * k ** 4 if not (cara_der and p > 0) else 0.0)   # la punta cae al final
+            grueso = 1.7 * (1.0 - k * 0.65) if not (cara_der and p > 0) else 1.8
+            if abs(s - centro) <= grueso:
+                if abs(p) >= largo - 0.5:
+                    return MET_L if not (cara_der and p > 0) else MET
+                if s > centro:                                               # el canto de arriba, a la luz
+                    return BRI if (p < 0 and k < 0.7) else MET_L
+                if s < centro - grueso + 0.7:
+                    return HON
+                return MET
+        if abs(s - c) <= 2.4 and -2 <= p <= 1:
+            return MET_L if p == -2 else (MET_S if p < 1 else HON)           # el ojo
         return primero(puno(s, p, -15 * e, -11 * e, -1, 0), asta(s, p, -11 * e, c))
     diag(cv, f)
+
+
+def pico_arco(cv, grueso_max=2.6):
+    # EL PICO EN ARCO GRANDE: la cabeza es una media luna que recorre TODO el borde de arriba y el de la derecha, y el
+    # mango llega a su centro. Encajada en la esquina y pequeña, la cabeza se leia como una punta de flecha.
+    n = cv.n
+    cx, cy, R = 0.36, 0.64, 0.56                 # el centro del arco, abajo a la izquierda (hacia el mango)
+    for y in range(n):
+        for x in range(n):
+            fx, fy = (x + 0.5) / n, (y + 0.5) / n
+            d = math.hypot(fx - cx, fy - cy)
+            ang = math.atan2(-(fy - cy), fx - cx)          # 0 = derecha, pi/2 = arriba
+            if not (-0.30 <= ang <= 1.90):
+                continue
+            mitad = (1.90 - 0.30) / 2
+            k = abs(ang - (1.90 - 0.30) / 2 - (-0.30 + 0.30)) / mitad   # 0 en el centro del arco, 1 en las puntas
+            k = min(1.0, abs((ang - 0.80) / 1.10))
+            g = grueso_max * (1.0 - k ** 1.6 * 0.80) / n
+            if abs(d - R) <= g:
+                fuera = d > R
+                if k > 0.92:
+                    t = MET_L                                      # las puntas
+                elif fuera:
+                    t = BRI if ang > 0.9 else MET_L                # el canto de fuera, a la luz arriba
+                elif d < R - g * 0.5:
+                    t = HON
+                else:
+                    t = MET
+                cv.pon(x, y, t)
+    # el ojo donde entra el mango
+    ex, ey = cx + R * math.cos(0.80), cy - R * math.sin(0.80)
+    for y in range(n):
+        for x in range(n):
+            fx, fy = (x + 0.5) / n, (y + 0.5) / n
+            if abs(fx - ex) <= 2.2 / n and abs(fy - ey) <= 2.2 / n:
+                cv.pon(x, y, MET_S if fx + fy < ex + ey + 1.0 / n else HON)
+    # el mango, de abajo a la izquierda al ojo
+    def f(s, p, e):
+        if s > -11 * e * A.LARGO and s < 5.5 and -1 <= p <= 0:
+            return MAD_L if p == -1 else MAD_S
+        return puno(s, p, -15 * e, -11 * e, -1, 0) if s <= -11 * e * A.LARGO else 0
+    EP.diag(cv, lambda s, p, e: f(s, p, e) if cv.get(int((s * 2 + p + n - 1) / 2), int((p + n - 1 - s * 2) / 2)) == 0 else 0)
+
+
+def pico_d(cv):
+    pico_arco(cv, 2.6)
+
+
+def pico(cv):        # A: cabeza casi recta, las dos puntas caen al final
+    _pico(cv, 0.012, 11, 11)
+
+
+def pico_b(cv):      # B: algo mas arqueada, la del minero clasico
+    _pico(cv, 0.028, 10, 10)
+
+
+def pico_c(cv):      # C: pico por un lado y CARA PLANA de martillo por el otro
+    _pico(cv, 0.012, 11, 5, cara_der=True)
 
 
 def primero(*v):
@@ -88,6 +153,50 @@ def hoz(cv):
             return HON if ang > 0.4 else (MET if d < R - 0.6 else MET_S)
         return primero(puno(s, p, -14 * e, -6 * e, -1, 0), asta(s, p, -6 * e, cs + R * 0.98 - 1))
     diag(cv, f)
+
+
+def hoz_abierta(cv, R=0.27, fin=-0.15):
+    # LA HOZ ABIERTA: la hoja sale de lo alto del mango, sube por encima en arco y acaba con la PUNTA LEJOS del palo,
+    # a la derecha. Cerrada sobre el mango (la primera) se leia como un gancho (el jefe, 06/11).
+    n = cv.n
+    hx, hy = 0.40, 0.56                          # lo alto del mango: donde arranca la hoja
+    cx, cy = hx + R, hy                          # el centro del arco, a la derecha del mango
+    ini = math.pi                                # empieza a la izquierda del centro (en el mango)
+    for y in range(n):
+        for x in range(n):
+            fx, fy = (x + 0.5) / n, (y + 0.5) / n
+            d = math.hypot(fx - cx, fy - cy)
+            ang = math.atan2(-(fy - cy), fx - cx)
+            if ang < -math.pi / 2:
+                ang += 2 * math.pi
+            if not (fin <= ang <= ini):
+                continue
+            k = (ini - ang) / (ini - fin)                       # 0 en el mango, 1 en la punta
+            g = (3.4 * math.sin(math.pi * min(1.0, 0.15 + k * 0.85)) ** 0.7 + 0.6) / n
+            if R - g <= d <= R + 0.6 / n:
+                if d < R - g + 1.2 / n:
+                    t = BRI if k < 0.75 else MET_L              # el FILO, por dentro
+                elif d > R - 0.4 / n:
+                    t = HON if ang < 1.2 else MET_S             # el lomo
+                else:
+                    t = MET_L if ang > 1.8 else MET
+                cv.pon(x, y, t)
+    def f(s, p, e):
+        if -15 * e <= s < -10 * e:
+            return puno(s, p, -15 * e, -10 * e, -1, 0)
+        if -10 * e <= s <= -2.2 and -1 <= p <= 0:
+            return MAD_L if p == -1 else MAD_S
+        return 0
+    EP.diag(cv, f)
+    cv.pon(int(hx * n), int(hy * n), MET_S)                     # la virola
+
+
+def hoz_b(cv):
+    hoz_abierta(cv, 0.27, -0.15)
+
+
+def hoz_c(cv):
+    hoz_abierta(cv, 0.31, 0.25)
 
 
 def cana(cv):
@@ -135,8 +244,10 @@ def cuchillo(cv):
     diag(cv, f)
 
 
-HERRAMIENTAS = [("Pico", pico), ("Hacha de talar", hacha_talar), ("Hoz", hoz), ("Caña", cana),
-                ("Cuchillo", cuchillo)]
+# (06/11) EL PICO: el de ARCO GRANDE (lo eligio el jefe; los otros se leian como punta de flecha). LA HOZ: abierta, con
+# la punta lejos del palo (cerrada sobre el mango "es muy cerrado hacia el palo"); A y B a la espera de que elija.
+HERRAMIENTAS = [("Pico (arco grande)", pico_d), ("Hacha de talar", hacha_talar), ("Hoz A: abierta", hoz_b),
+                ("Hoz B: mas grande", hoz_c), ("Caña", cana), ("Cuchillo", cuchillo)]
 
 
 def main():
