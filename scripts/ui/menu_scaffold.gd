@@ -1454,9 +1454,11 @@ static func _con_mejoras(fmt: String, base: float, total: float) -> String:
 #  combat._crear_barras_aliado (energia y mana).
 # ============================================================
 
-const COLOR_VIDA := Color(1.0, 0.4, 0.4)
-const COLOR_ENERGIA := Color(0.95, 0.85, 0.3)
-const COLOR_MANA := Color(0.4, 0.6, 1.0)
+# (06/11, rework visual) Los MISMOS colores que el HUD (menos chillones, y la energia verde como en la fila del grupo:
+# aqui era amarilla y en el HUD verde, dos colores para lo mismo).
+const COLOR_VIDA := HudEstilo.VIDA
+const COLOR_ENERGIA := HudEstilo.ENERGIA
+const COLOR_MANA := HudEstilo.MANA
 
 
 # Una barra con su numero centrado encima. 'color' se aplica con SELF_MODULATE y no con modulate:
@@ -1469,7 +1471,7 @@ static func barra(padre: Node, color: Color, valor: float, maximo: float, fmt: S
 	b.value = clampf(valor, 0.0, b.max_value)
 	b.show_percentage = false
 	b.custom_minimum_size = Vector2(0, alto)
-	b.self_modulate = color
+	HudEstilo.vestir_barra(b, color)   # (06/11) la caja del estilo, opaca, y su color
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	padre.add_child(b)
@@ -2951,6 +2953,19 @@ static func _retrato(fila: HBoxContainer, pj: PersonajeData, i: int, elegido: bo
 			marco.add_child(mu)
 		else:
 			mu.queue_free()
+
+	# (06/11) EN PIXEL, EL MARCO VA ENCIMA del muñeco: debajo (en el draw del boton) el pelo y los hombros llenaban el cuadro
+	# y el marco no se veia ("no se si es cuadrado porque el personaje tapa los bordes"). Solo el marco, sin fondo, en la
+	# misma capa alta que las marcas.
+	if HudEstilo.es_pixel():
+		var borde := Control.new()
+		borde.custom_minimum_size = Vector2(LADO_RETRATO, LADO_RETRATO)
+		borde.size = Vector2(LADO_RETRATO, LADO_RETRATO)
+		borde.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		borde.z_index = 4096
+		b.add_child(borde)
+		borde.draw.connect(func() -> void:
+			borde.draw_style_box(HudEstilo.marco_px(Color(0, 0, 0, 0), elegido), Rect2(Vector2.ZERO, borde.size)))
 
 	# LAS MARCAS DE LAS ESQUINAS (la corona del que va en cabeza y el punto de "algo pendiente") en
 	# una capa ENCIMA del muñeco, con z 4096. Pintadas en el draw del boton quedaban DEBAJO: el muñeco

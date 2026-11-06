@@ -31,6 +31,7 @@
 # ============================================================
 
 extends CanvasLayer
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 # Por preload y no por class_name: un class_name nuevo obliga a pasar por --import antes de que lo
 # vean las herramientas headless, y sin eso se cuelgan sin decir por que.
@@ -1213,16 +1214,27 @@ func _pintar_vitrina() -> void:
 	# debajo. Los 44 son lo que ocupa la pastilla del +N con su aire.
 	var centro := Vector2(w * 0.5, maxf((h - 44.0) * 0.5, radio + 16.0))
 	# El HALO: circulos concentricos cada vez mas tenues, como la sombra del muñeco de la ficha.
+	# (06/11) EN PIXEL: los mismos circulos, pero a escalones de pixel (HudEstilo.disco_px / aro_px).
+	var px: bool = HudEstilo.es_pixel()
 	for i in 5:
 		var t: float = float(i) / 5.0
-		_vitrina.draw_circle(centro, radio * (1.0 - t * 0.16), Color(col, 0.05 + t * 0.05))
+		if px:
+			HudEstilo.disco_px(_vitrina, centro, radio * (1.0 - t * 0.16), Color(col, 0.05 + t * 0.05), 4.0)
+		else:
+			_vitrina.draw_circle(centro, radio * (1.0 - t * 0.16), Color(col, 0.05 + t * 0.05))
 	# Y LUZ EN EL CENTRO, detras de la pieza: el cuero y el hierro negro son muy oscuros y sobre el
 	# fondo apagado del aro se quedaban en una silueta negra. Con un foco claro detras se leen.
 	for i in 6:
 		var t: float = float(i) / 6.0
-		_vitrina.draw_circle(centro, radio * (0.80 - t * 0.55), Color(col.lightened(0.45), 0.06))
+		if px:
+			HudEstilo.disco_px(_vitrina, centro, radio * (0.80 - t * 0.55), Color(col.lightened(0.45), 0.06), 4.0)
+		else:
+			_vitrina.draw_circle(centro, radio * (0.80 - t * 0.55), Color(col.lightened(0.45), 0.06))
 	# El aro, del color del peldaño: la misma "esto es lo bueno que es" que el fondo de la celda.
-	_vitrina.draw_arc(centro, radio, 0.0, TAU, 96, Color(col.lightened(0.2), 0.75), 2.5, true)
+	if px:
+		HudEstilo.aro_px(_vitrina, centro, radio, 4.0, Color(col.lightened(0.2), 0.85), 2.0)
+	else:
+		_vitrina.draw_arc(centro, radio, 0.0, TAU, 96, Color(col.lightened(0.2), 0.75), 2.5, true)
 	# LA PIEZA: su retrato de verdad si tiene dibujo (ver retrato_pieza.gd); si no, el icono de siempre.
 	if _vitrina_pieza.visible:
 		RetratoPieza.encajar(_vitrina_pieza, centro, radio * 1.25)
@@ -1243,7 +1255,7 @@ func _pintar_vitrina() -> void:
 	sb.border_color = IconoItem.color_mejora(n)
 	sb.set_border_width_all(2)
 	sb.set_corner_radius_all(int(caja.size.y * 0.5))
-	_vitrina.draw_style_box(sb, caja)
+	_vitrina.draw_style_box(HudEstilo.marco_px(sb.bg_color, false, sb.border_color) if HudEstilo.es_pixel() else sb, caja)
 	_vitrina.draw_string(fuente, Vector2(caja.position.x + 14.0, caja.position.y + float(tam) + 1.0),
 		txt, HORIZONTAL_ALIGNMENT_LEFT, -1, tam, Color(0.97, 0.98, 1.0))
 

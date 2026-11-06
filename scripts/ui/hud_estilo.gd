@@ -180,6 +180,53 @@ static func tema_menus() -> Theme:
 	return t
 
 
+# ------------------------------------------------------------
+#  PIEZAS SUELTAS EN PIXEL (06/11): los marcos y circulos que cada pantalla se dibujaba a su manera.
+# ------------------------------------------------------------
+# Un MARCO FINO de pixel: de hierro, o de BRONCE si es el elegido (el ambar de "esto es lo que miras"). 'borde', si se
+# da, tiñe el hierro (el color de la mejora de un +N, el rojo de un aviso).
+static func marco_px(fondo: Color, elegido: bool = false, borde: Color = Color(0, 0, 0, 0)) -> StyleBox:
+	var c = CajaPixel.new()
+	c.grueso = 1
+	c.con_remaches = false
+	c.fondo = fondo
+	if elegido:
+		c.hierro = Color(0.62, 0.45, 0.22)
+		c.brillo = Color(0.92, 0.72, 0.38)
+		c.sombra = Color(0.36, 0.25, 0.12)
+	elif borde.a > 0.0:
+		c.hierro = borde.darkened(0.25)
+		c.brillo = borde.lightened(0.15)
+		c.sombra = borde.darkened(0.55)
+	c._margenes()
+	return c
+
+# Un DISCO de pixel (a franjas de 'p' de alto), para los circulos que antes eran suaves.
+static func disco_px(ci: CanvasItem, centro: Vector2, r: float, col: Color, p: float = 2.0) -> void:
+	if r <= 0.0:
+		return
+	var y: float = -floorf(r / p) * p
+	while y < r:
+		var yc: float = y + p * 0.5
+		var mitad: float = floorf(sqrt(maxf(r * r - yc * yc, 0.0)) / p) * p
+		if mitad > 0.0:
+			ci.draw_rect(Rect2((centro + Vector2(-mitad, y)).floor(), Vector2(mitad * 2.0, p)), col)
+		y += p
+
+# Un ARO de pixel de 'grueso' (el borde de la vitrina).
+static func aro_px(ci: CanvasItem, centro: Vector2, r: float, grueso: float, col: Color, p: float = 2.0) -> void:
+	var y: float = -floorf(r / p) * p
+	var ri: float = r - grueso
+	while y < r:
+		var yc: float = y + p * 0.5
+		var fuera: float = floorf(sqrt(maxf(r * r - yc * yc, 0.0)) / p) * p
+		var dentro: float = floorf(sqrt(maxf(ri * ri - yc * yc, 0.0)) / p) * p if absf(yc) < ri else 0.0
+		if fuera > dentro:
+			ci.draw_rect(Rect2((centro + Vector2(-fuera, y)).floor(), Vector2(fuera - dentro, p)), col)
+			ci.draw_rect(Rect2((centro + Vector2(dentro, y)).floor(), Vector2(fuera - dentro, p)), col)
+		y += p
+
+
 # Muy redondeado: en el anillo los botones son cuadrados y salen circulos; en las listas de los submenus, pildoras.
 static func _redondo(fondo: Color, borde: Color) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()

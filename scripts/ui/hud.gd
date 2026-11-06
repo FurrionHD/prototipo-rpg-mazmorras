@@ -16,6 +16,7 @@ extends CanvasLayer
 # Con nombre de clase para que las medidas de la botonera (ICONO_LADO, ICONO_MARGEN) se puedan leer
 # desde fuera: el panel de debug se abre justo debajo de ella y tiene que cuadrar con la fila.
 class_name Hud
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 var _counts: Label = null
 var _peso_box: CuadroCarga = null # la mochila (deposito con agua) a la derecha de las barras
@@ -194,6 +195,8 @@ var _inter_texto: Label = null
 var _inter_icono_nombre: String = ""
 var _inter_sb: StyleBoxFlat = null
 var _inter_sb_hover: StyleBoxFlat = null
+var _inter_px: StyleBox = null         # (06/11) las del estilo pixel
+var _inter_px_hover: StyleBox = null
 
 
 # Como el de la captura de referencia: la TECLA en su cuadrito aparte a la izquierda y, al lado, la
@@ -215,6 +218,10 @@ func _montar_boton_interaccion() -> void:
 	sb_t.set_border_width_all(1)
 	sb_t.set_corner_radius_all(6)
 	_inter_tecla.add_theme_stylebox_override("panel", sb_t)
+	if HudEstilo.es_pixel():   # (06/11) la tecla, una tecla de pixel: marco claro
+		var t_px: StyleBox = HudEstilo.marco_px(Color(0.08, 0.08, 0.10), false, Color(0.80, 0.78, 0.72))
+		t_px.set_content_margin_all(2)
+		_inter_tecla.add_theme_stylebox_override("panel", t_px)
 	_inter_tecla.custom_minimum_size = Vector2(INTER_ALTO, INTER_ALTO)
 	_inter_tecla.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_inter_tecla.visible = not Tactil.activo
@@ -243,14 +250,23 @@ func _montar_boton_interaccion() -> void:
 	_inter_sb_hover.bg_color = Color(0.14, 0.15, 0.20, 0.92)
 	_inter_sb_hover.border_color = Color(0.95, 0.72, 0.36, 0.95)
 	_inter_pastilla.add_theme_stylebox_override("panel", _inter_sb)
+	if HudEstilo.es_pixel():   # (06/11) la pastilla, marco fino de hierro; al pasar por encima, de bronce
+		_inter_px = HudEstilo.marco_px(Color(0.07, 0.07, 0.09))
+		_inter_px_hover = HudEstilo.marco_px(Color(0.12, 0.12, 0.14), true)
+		for sbx in [_inter_px, _inter_px_hover]:
+			sbx.content_margin_left = 12.0
+			sbx.content_margin_right = 12.0
+			sbx.content_margin_top = 3.0
+			sbx.content_margin_bottom = 3.0
+		_inter_pastilla.add_theme_stylebox_override("panel", _inter_px)
 	_inter_pastilla.custom_minimum_size = Vector2(0, INTER_ALTO)
 	_inter_pastilla.mouse_filter = Control.MOUSE_FILTER_STOP
 	_inter_pastilla.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	_inter_pastilla.gui_input.connect(_on_inter_input)
 	_inter_pastilla.mouse_entered.connect(func() -> void:
-		_inter_pastilla.add_theme_stylebox_override("panel", _inter_sb_hover))
+		_inter_pastilla.add_theme_stylebox_override("panel", _inter_px_hover if _inter_px_hover != null else _inter_sb_hover))
 	_inter_pastilla.mouse_exited.connect(func() -> void:
-		_inter_pastilla.add_theme_stylebox_override("panel", _inter_sb))
+		_inter_pastilla.add_theme_stylebox_override("panel", _inter_px if _inter_px != null else _inter_sb))
 	_inter.add_child(_inter_pastilla)
 
 	var fila := HBoxContainer.new()

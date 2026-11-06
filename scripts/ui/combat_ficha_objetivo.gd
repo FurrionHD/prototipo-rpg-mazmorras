@@ -206,7 +206,7 @@ func _crear_fila(e: Combatant) -> Dictionary:
 	hp.custom_minimum_size = Vector2(0, 8)
 	hp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	hp.self_modulate = Color(1.0, 0.4, 0.4)
+	HudEstilo.vestir_barra(hp, HudEstilo.VIDA)
 	hp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	fila.add_child(hp)
 	return {"c": e, "hp": hp, "nombre": nombre}

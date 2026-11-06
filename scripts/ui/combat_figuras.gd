@@ -5,6 +5,7 @@
 #  mantener pulsado. Lo demas, a _pantalla.
 # ============================================================
 extends RefCounted
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 # La pantalla de la que es este tema: todo lo que no es del tema se le pide a ella. Tipada con su
 # script para que Godot deduzca los tipos (los := sobre ella); los NOMBRES no los comprueba al compilar:
@@ -229,7 +230,7 @@ func _crear_bloque(c: Combatant, numero: int, idx: int) -> Dictionary:
 	hp.max_value = c.max_hp
 	hp.show_percentage = false
 	hp.custom_minimum_size = Vector2(0, ALTO_BARRA_HP)
-	hp.self_modulate = Color(1.0, 0.4, 0.4)
+	HudEstilo.vestir_barra(hp, HudEstilo.VIDA)
 	# PASS y no el STOP por defecto: la barra ocupa media caja, y en STOP se tragaria el clic
 	# de seleccion en toda esa mitad.
 	hp.mouse_filter = Control.MOUSE_FILTER_PASS

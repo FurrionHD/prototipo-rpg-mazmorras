@@ -61,9 +61,11 @@ func _draw(ci: RID, rect: Rect2) -> void:
 	_rect(ci, Rect2(x0, y0 + P, P, h - 2.0 * P), contorno)
 	_rect(ci, Rect2(x0 + w - P, y0 + P, P, h - 2.0 * P), contorno)
 	var dentro: Rect2 = rect.grow(-P)
+	# (06/11) TODO EN ANILLOS, nada relleno debajo: asi un marco con el fondo transparente (el de encima de los retratos,
+	# MenuScaffold.retratos) deja ver lo de dentro.
 	if grueso > 0:
 		var g: float = P * float(grueso)
-		_rect(ci, dentro, hierro)
+		_anillo(ci, dentro, g, hierro)
 		# Brillo arriba e izquierda, sombra abajo y derecha: la luz viene de arriba, como en el mapa.
 		_rect(ci, Rect2(dentro.position, Vector2(dentro.size.x, P)), brillo)
 		_rect(ci, Rect2(dentro.position, Vector2(P, dentro.size.y)), brillo)
@@ -71,15 +73,24 @@ func _draw(ci: RID, rect: Rect2) -> void:
 		_rect(ci, Rect2(dentro.position + Vector2(dentro.size.x - P, 0), Vector2(P, dentro.size.y)), sombra)
 		dentro = dentro.grow(-g)
 		# El canto de dentro, oscuro: separa el hierro del fondo.
-		_rect(ci, dentro, contorno)
+		_anillo(ci, dentro, P, contorno)
 		dentro = dentro.grow(-P)
-	_rect(ci, dentro, fondo)
+	if fondo.a > 0.0:
+		_rect(ci, dentro, fondo)
 	if con_remaches and grueso >= 2 and w >= 8.0 * P and h >= 8.0 * P:
 		var l: float = P * 2.0
 		for esq in [Vector2(x0 + P, y0 + P), Vector2(x0 + w - P - l, y0 + P),
 				Vector2(x0 + P, y0 + h - P - l), Vector2(x0 + w - P - l, y0 + h - P - l)]:
 			_rect(ci, Rect2(esq, Vector2(l, l)), remache)
 			_rect(ci, Rect2(esq + Vector2(P, P), Vector2(P, P)), remache.darkened(0.45))   # su sombra
+
+
+# Un marco de 'g' de grueso por dentro de 'r' (cuatro tiras, sin rellenar el centro).
+func _anillo(ci: RID, r: Rect2, g: float, c: Color) -> void:
+	_rect(ci, Rect2(r.position, Vector2(r.size.x, g)), c)
+	_rect(ci, Rect2(r.position + Vector2(0, r.size.y - g), Vector2(r.size.x, g)), c)
+	_rect(ci, Rect2(r.position + Vector2(0, g), Vector2(g, r.size.y - 2.0 * g)), c)
+	_rect(ci, Rect2(r.position + Vector2(r.size.x - g, g), Vector2(g, r.size.y - 2.0 * g)), c)
 
 
 # La barra que se llena: clara arriba, el tono en medio y oscura abajo (tres franjas de pixel).
