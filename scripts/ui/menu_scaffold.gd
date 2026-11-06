@@ -2804,6 +2804,8 @@ static func ancho_columna_ficha(col: Control, scroll: Control, contenido: Contro
 
 
 const LADO_RETRATO := 74.0
+# El z de lo que va ENCIMA del muñeco del retrato (marco, corona): el muñeco reparte z absolutos hasta 2048.
+const Z_SOBRE_MUNECO := 2049
 const ALTO_RETRATO := LADO_RETRATO + 20.0   # el cuadro, mas el renglon del nombre
 
 
@@ -2972,7 +2974,9 @@ static func _retrato(fila: HBoxContainer, pj: PersonajeData, i: int, elegido: bo
 		borde.custom_minimum_size = Vector2(LADO_RETRATO, LADO_RETRATO)
 		borde.size = Vector2(LADO_RETRATO, LADO_RETRATO)
 		borde.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		borde.z_index = 4096
+		# 2049 y NO 4096: justo encima del muñeco (llega a 2048) pero DEBAJO de lo que se abre encima del menu (el
+		# "Te ha salido" del gacha va en 3000 y con 4096 el marco y la corona le pasaban por encima).
+		borde.z_index = Z_SOBRE_MUNECO
 		b.add_child(borde)
 		borde.draw.connect(func() -> void:
 			borde.draw_style_box(HudEstilo.marco_px(Color(0, 0, 0, 0), elegido), Rect2(Vector2.ZERO, borde.size)))
@@ -2980,15 +2984,15 @@ static func _retrato(fila: HBoxContainer, pj: PersonajeData, i: int, elegido: bo
 	# LAS MARCAS DE LAS ESQUINAS (la corona del que va en cabeza y el punto de "algo pendiente") en
 	# una capa ENCIMA del muñeco, con z 4096. Pintadas en el draw del boton quedaban DEBAJO: el muñeco
 	# va en z absoluto (hasta 2048, ver capas-jugador-z-fijo) y el pelo llena las dos esquinas, asi que
-	# la corona no se habia visto nunca. Quien abre un modal ya esconde la fila entera, asi que este z
-	# no se cuela por encima de nada.
+	# la corona no se habia visto nunca. OJO: no todo lo que se pone encima esconde la fila (el revelado
+	# del gacha no), por eso va en Z_SOBRE_MUNECO y no en 4096.
 	if pj != Game.lider() and not marcado and not fuera:
 		return
 	var marcas := Control.new()
 	marcas.custom_minimum_size = Vector2(LADO_RETRATO, LADO_RETRATO)
 	marcas.size = Vector2(LADO_RETRATO, LADO_RETRATO)
 	marcas.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	marcas.z_index = 4096
+	marcas.z_index = Z_SOBRE_MUNECO
 	b.add_child(marcas)
 	var es_lider: bool = pj == Game.lider()
 	marcas.draw.connect(func() -> void:
