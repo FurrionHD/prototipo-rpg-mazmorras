@@ -76,7 +76,7 @@ static func encajar(tr: TextureRect, centro: Vector2, caja: float) -> void:
 	var k: float = caja / float(maxi(tex.get_width(), tex.get_height()))
 	# (06/11) EL ICONO EN PIXEL (cargado de disco, no generado) se escala por un ENTERO: a x1,75 unas filas salen de
 	# un pixel y otras de dos, y deja de leerse como pixel art. Se redondea al entero mas cercano.
-	if tex is CompressedTexture2D and k >= 1.0:
+	if (tex is CompressedTexture2D or tex.has_meta("pixel")) and k >= 1.0:
 		k = roundf(k)
 	var tam := Vector2(tex.get_width(), tex.get_height()) * k
 	tr.position = centro - tam * 0.5

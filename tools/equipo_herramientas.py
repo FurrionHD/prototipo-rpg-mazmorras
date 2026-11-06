@@ -5,6 +5,7 @@
 #  Hoy salen de las facetas de sprites_objeto.gd (poligonos rasterizados a partir de UN color). Lamina de prueba: no toca
 #  el juego hasta su visto bueno.
 #    python tools/equipo_herramientas.py [salida.png]
+#    python tools/equipo_herramientas.py --hornear   (los PNG en assets/sprites/equipo/herramienta)
 # ============================================================
 import json
 import math
@@ -396,9 +397,32 @@ def cuchillo_ref(cv):
 # (06/11) EL PICO: el de ARCO GRANDE (lo eligio el jefe; los otros se leian como punta de flecha). LA HOZ: abierta, con
 # la punta lejos del palo (cerrada sobre el mango "es muy cerrado hacia el palo"): la de SU FOTO, con la hoja fina.
 HERRAMIENTAS = [("Pico (arco grande)", pico_d), ("Hacha de talar", hacha_grande_talar), ("Hoz", hoz_ref), ("Caña", cana), ("Cuchillo", cuchillo_ref)]
+# El nombre del PNG de cada una: la forma que le da SpritesObjeto._encargo por el tipo de ToolData.
+CLAVES = ["pico", "hacha", "hoz", "cana", "cuchillo"]
+RAMPA_TONOS = 16
+
+
+# (06/11, aprobadas: "perfect") Los PNG en GRISES DE INDICE (tono t -> gris t/15), como las armas: el juego los tine con
+# PaletaEquipo.colores_de(ArmaSprites.ROLES_ICONO, METAL, tier, mejoras), la misma paleta que la lamina.
+def hornear(carpeta):
+    os.makedirs(carpeta, exist_ok=True)
+    for (_n, fn), clave in zip(HERRAMIENTAS, CLAVES):
+        cv = EP.dibujar(fn, 32)
+        im = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+        for y in range(32):
+            for x in range(32):
+                t = cv.p[y][x]
+                if t:
+                    g = int(round(t / (RAMPA_TONOS - 1) * 255))
+                    im.putpixel((x, y), (g, g, g, 255))
+        im.save(os.path.join(carpeta, "%s.png" % clave))
+    print("%d herramientas en %s" % (len(CLAVES), carpeta))
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "--hornear":
+        hornear(sys.argv[2] if len(sys.argv) > 2 else "assets/sprites/equipo/herramienta")
+        return
     salida = sys.argv[1] if len(sys.argv) > 1 else "herramientas_lamina.png"
     with open(os.path.join(EP.AQUI, "paletas_equipo.json"), encoding="utf-8") as f:
         PAL = json.load(f)
