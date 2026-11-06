@@ -17,6 +17,7 @@
 # ============================================================
 
 extends CanvasLayer
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 const AMBAR := Color(0.95, 0.72, 0.36)
 const VERDE := Color(0.55, 0.85, 0.55)
@@ -749,10 +750,15 @@ func _dibujar_pestana(c: Control, i: int) -> void:
 
 	# EL FONDO de la pestaña, con el tinte de su rareza. La abierta lleva marco claro y la cerrada uno
 	# apenas visible: es el segundo aviso de cual esta abierta, detras del ancho.
-	c.draw_rect(Rect2(Vector2.ZERO, Vector2(w, h)),
-		Color(col.r * 0.14 + 0.05, col.g * 0.14 + 0.05, col.b * 0.14 + 0.07, 1.0), true)
-	c.draw_rect(Rect2(Vector2.ZERO, Vector2(w, h)),
-		Color(1, 1, 1, 0.75) if sel else Color(1, 1, 1, 0.12), false, 2.0 if sel else 1.0)
+	var fondo_p := Color(col.r * 0.14 + 0.05, col.g * 0.14 + 0.05, col.b * 0.14 + 0.07, 1.0)
+	if HudEstilo.es_pixel():
+		# (06/11) marco de pixel del color de su rareza; la abierta, mas claro.
+		c.draw_style_box(HudEstilo.marco_px(fondo_p, false, col.lightened(0.25) if sel else col.darkened(0.45)),
+			Rect2(Vector2.ZERO, Vector2(w, h)))
+	else:
+		c.draw_rect(Rect2(Vector2.ZERO, Vector2(w, h)), fondo_p, true)
+		c.draw_rect(Rect2(Vector2.ZERO, Vector2(w, h)),
+			Color(1, 1, 1, 0.75) if sel else Color(1, 1, 1, 0.12), false, 2.0 if sel else 1.0)
 
 	# EL TOMO, a la izquierda y siempre del mismo tamaño: lo que cambia entre abierta y cerrada es el
 	# hueco de al lado (donde cabe el nombre), no la miniatura.

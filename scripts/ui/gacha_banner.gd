@@ -24,6 +24,7 @@
 # ============================================================
 
 extends Control
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 const Iconos = preload("res://scripts/ui/iconos.gd")
 
@@ -103,6 +104,10 @@ func _montar_lienzo() -> void:
 	caja.set_border_width_all(1)
 	caja.set_corner_radius_all(10)
 	_lienzo.add_theme_stylebox_override("panel", caja)
+	if HudEstilo.es_pixel():   # (06/11) el panel de hierro con remaches, como los del HUD
+		var px = HudEstilo.CajaPixel.new()
+		px.fondo = caja.bg_color
+		_lienzo.add_theme_stylebox_override("panel", px)
 	add_child(_lienzo)
 
 	# EL FONDO DEL CARTEL, detrás de todo: un resplandor del color del destacado. Es lo que hace que
@@ -127,7 +132,10 @@ func _dibujar_fondo(c: Control, col: Color) -> void:
 	var centro := Vector2(c.size.x * 0.68, c.size.y * 0.5)
 	for i in range(10, 0, -1):
 		var t: float = float(i) / 10.0
-		c.draw_circle(centro, 90.0 + t * 250.0, Color(col.r, col.g, col.b, 0.030 * (1.0 - t) + 0.004))
+		if HudEstilo.es_pixel():   # (06/11) en discos de pixel, a escalones de 4
+			HudEstilo.disco_px(c, centro, 90.0 + t * 250.0, Color(col.r, col.g, col.b, 0.030 * (1.0 - t) + 0.004), 4.0)
+		else:
+			c.draw_circle(centro, 90.0 + t * 250.0, Color(col.r, col.g, col.b, 0.030 * (1.0 - t) + 0.004))
 
 
 # --- LA COLUMNA DE TEXTO: cinta, nombre del banner y el garantizado ---
@@ -150,6 +158,11 @@ func _montar_texto(padre: Control) -> void:
 	sb.content_margin_top = 3
 	sb.content_margin_bottom = 3
 	cinta.add_theme_stylebox_override("normal", sb)
+	if HudEstilo.es_pixel():   # (06/11) una placa de bronce de pixel
+		var px_c: StyleBox = HudEstilo.marco_px(AMBAR, false, AMBAR.darkened(0.3))
+		px_c.content_margin_top = 4
+		px_c.content_margin_bottom = 4
+		cinta.add_theme_stylebox_override("normal", px_c)
 	cinta.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	col.add_child(cinta)
 
@@ -310,6 +323,11 @@ func _montar_destacado(padre: Control) -> void:
 	banda.content_margin_top = 3
 	banda.content_margin_bottom = 3
 	estrellas.add_theme_stylebox_override("normal", banda)
+	if HudEstilo.es_pixel():   # (06/11) la banda con marco fino de pixel
+		var px_b: StyleBox = HudEstilo.marco_px(Color(0.04, 0.04, 0.06), false, col.darkened(0.3))
+		px_b.content_margin_left = 10
+		px_b.content_margin_right = 10
+		estrellas.add_theme_stylebox_override("normal", px_b)
 	caja.add_child(estrellas)
 
 	var pie := Label.new()
