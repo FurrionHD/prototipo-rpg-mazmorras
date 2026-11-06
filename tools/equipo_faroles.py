@@ -9,6 +9,7 @@
 #  LA MOCHILA se tiñe por tier y +N con el CUERO de la armadura (paletas_equipo.json "armadura|cuero|t|m"), asi que se
 #  dibuja en los tonos de ArmaduraSprites.ROLES_ICONO. Tres versiones.
 #    python tools/equipo_faroles.py [salida.png]
+#    python tools/equipo_faroles.py --hornear   (lo elegido, a assets/sprites/equipo/herramienta)
 # ============================================================
 import colorsys
 import json
@@ -391,7 +392,36 @@ def mochila_c(cv):
 MOCHILAS = [("A cartera", mochila_a), ("B aventurero", mochila_b), ("C hatillo", mochila_c)]
 
 
+# (06/11) LO ELEGIDO ("todas me gustan, elige tu"): T1 A cuadrado, T2 B quinque, T3 A labrado y la mochila A cartera.
+ELEGIDOS_FAROL = [farol1_a, farol2_b, farol3_a]
+ELEGIDA_MOCHILA = mochila_a
+RAMPA_TONOS = 16
+
+
+def hornear(carpeta):
+    # El farol YA EN COLOR (sus colores son fijos por tier): farol_1..3.png. La mochila en GRISES DE INDICE (tono t ->
+    # gris t/15), que el juego tiñe con el cuero de su tier y su +N: mochila.png.
+    os.makedirs(carpeta, exist_ok=True)
+    for t, fn in enumerate(ELEGIDOS_FAROL):
+        cv = EP.dibujar(fn, N)
+        chispas(cv, t + 1)
+        EP.teñir(cv, PAL_FAROL[t]).save(os.path.join(carpeta, "farol_%d.png" % (t + 1)))
+    cv = EP.dibujar(ELEGIDA_MOCHILA, N)
+    im = Image.new("RGBA", (N, N), (0, 0, 0, 0))
+    for y in range(N):
+        for x in range(N):
+            t = cv.p[y][x]
+            if t:
+                g = int(round(t / (RAMPA_TONOS - 1) * 255))
+                im.putpixel((x, y), (g, g, g, 255))
+    im.save(os.path.join(carpeta, "mochila.png"))
+    print("3 faroles y la mochila en %s" % carpeta)
+
+
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "--hornear":
+        hornear(sys.argv[2] if len(sys.argv) > 2 else "assets/sprites/equipo/herramienta")
+        return
     salida = sys.argv[1] if len(sys.argv) > 1 else "faroles_lamina.png"
     with open(os.path.join(EP.AQUI, "paletas_equipo.json"), encoding="utf-8") as f:
         PAL = json.load(f)

@@ -416,6 +416,10 @@ static func _encargo(item: Resource) -> Dictionary:
 			# EL FAROLILLO CAMBIA DE ASPECTO CON EL TIER (las tres referencias del jefe): farol cuadrado,
 			# candil con asa y farol labrado de luz azul. Pasado el T3 se queda con el ultimo.
 			var ft: int = clampi(tier, 1, 3)
+			# (06/11) En pixel si tiene su PNG (tools/equipo_faroles.py --hornear): ya viene en color, no se tiñe.
+			if ResourceLoader.exists(ruta_herramienta("farol_%d" % ft)):
+				return {"herramienta": "farol_%d" % ft, "fijo": true, "forma": "herr_px_farol_%d" % ft,
+					"color": FAROL_COLOR[ft - 1]}
 			return {"forma": "farol_%d" % ft, "color": FAROL_COLOR[ft - 1]}
 		var forma_h: String = ["pico", "hoz", "hacha", "cana", "farol_1", "cuchillo"][int(td.tipo)]
 		# La cabeza, del METAL de su tier y su mejora -- el mismo que una espada (PaletaEquipo).
@@ -431,12 +435,17 @@ static func _encargo(item: Resource) -> Dictionary:
 		# todas las mochilas salian del mismo marron y una T3 no se distinguia de la basica.
 		var m: Dictionary = Game.meta_de(item)
 		var mej: int = Game.mejoras_actuales(item)
+		# (06/11) En pixel si tiene su PNG: grises de indice tenidos con el CUERO de la armadura (FIBRA).
+		if ResourceLoader.exists(ruta_herramienta("mochila")):
+			return {"herramienta": "mochila", "tier": maxi(int(m.get("tier", 1)), 1), "mej": mej,
+				"familia": PaletaEquipo.FIBRA, "forma": "herr_px_mochila",
+				"color": PaletaEquipo.base(PaletaEquipo.FIBRA, maxi(int(m.get("tier", 1)), 1), mej)}
 		return {"forma": "mochila",
 			"color": PaletaEquipo.base(PaletaEquipo.FIBRA, maxi(int(m.get("tier", 1)), 1), mej)}
 	return {}
 
 
-# (06/11) LAS HERRAMIENTAS EN PIXEL: un PNG en grises de indice por forma (tono t = gris t/15), tenido con la paleta
+# (06/11) LAS HERRAMIENTAS EN PIXEL (y el farolillo y la mochila): un PNG en grises de indice por forma (tono t = gris t/15), tenido con la paleta
 # del icono de arma (PaletaEquipo.colores_de con ArmaSprites.ROLES_ICONO, del METAL de su tier y mejora): la cabeza
 # de metal con su brillo y su hondo, el mango de la madera de su tier. La misma cuenta que la lamina que aprobo.
 const CARPETA_HERRAMIENTAS := "res://assets/sprites/equipo/herramienta/"
@@ -462,7 +471,10 @@ static func _imagen_herramienta(e: Dictionary) -> Image:
 		if img.is_compressed():
 			img.decompress()
 		img.convert(Image.FORMAT_RGBA8)
-		var cols: Array = PaletaEquipo.colores_de(ArmaSprites.ROLES_ICONO, PaletaEquipo.METAL, tier, mej)
+	# El FAROL ya viene en color; la MOCHILA va con los papeles de la armadura y su cuero; el resto, con los del arma.
+	if img != null and img.get_width() > 1 and not bool(e.get("fijo", false)):
+		var cols: Array = PaletaEquipo.colores_de(ArmaduraSprites.ROLES_ICONO, String(e["familia"]), tier, mej) \
+			if e.has("familia") else PaletaEquipo.colores_de(ArmaSprites.ROLES_ICONO, PaletaEquipo.METAL, tier, mej)
 		for y in img.get_height():
 			for x in img.get_width():
 				var g: Color = img.get_pixel(x, y)

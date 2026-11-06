@@ -2,7 +2,7 @@ extends "res://tools/unitarias/caso.gd"
 # ============================================================
 #  LAS HERRAMIENTAS EN PIXEL (06/11): pico, hoz, hacha, caña y cuchillo con su PNG de 32 x 32 en grises de indice
 #  (assets/sprites/equipo/herramienta, de tools/equipo_herramientas.py --hornear), tenidos en SpritesObjeto con la
-#  paleta del icono de arma por tier y mejora. El farolillo sigue con su dibujo de facetas.
+#  paleta del icono de arma por tier y mejora. El farolillo (en color, uno por tier) y la mochila (cuero) tambien.
 # ============================================================
 
 const SpritesObjeto = preload("res://scripts/ui/sprites_objeto.gd")
@@ -42,7 +42,17 @@ func test_el_icono_sale_en_pixel_y_tenido() -> void:
 		cierto(color, "la herramienta %d sale tenida, no en grises" % tipo)
 
 
-func test_el_farol_sigue_con_su_dibujo() -> void:
+func test_farol_y_mochila_en_pixel() -> void:
+	for f in ["farol_1", "farol_2", "farol_3", "mochila"]:
+		cierto(ResourceLoader.exists(SpritesObjeto.ruta_herramienta(f)), "falta el PNG de %s" % f)
 	var t: Dictionary = SpritesObjeto.textura_item(_herramienta(ToolData.Tipo.LAMPARA))
 	if cierto(t.has("tex"), "el farolillo tiene icono"):
-		cierto(not (t["tex"] as Texture2D).has_meta("pixel"), "el farolillo no es de los PNG en pixel")
+		cierto((t["tex"] as Texture2D).has_meta("pixel"), "el farolillo es de los PNG en pixel")
+	var m := BackpackData.new()
+	var tm: Dictionary = SpritesObjeto.textura_item(m)
+	if cierto(tm.has("tex"), "la mochila tiene icono"):
+		var tex: Texture2D = tm["tex"]
+		cierto(tex.has_meta("pixel"), "la mochila es de los PNG en pixel")
+		# tenida con el cuero: el pixel del medio no es gris
+		var c: Color = tex.get_image().get_pixel(16, 22)
+		cierto(c.a > 0.5 and absf(c.r - c.b) > 0.04, "la mochila sale tenida de cuero")
