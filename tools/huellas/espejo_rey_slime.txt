@@ -436,7 +436,7 @@ f922 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f923 Slime venenoso hp=35.466 mp=20.495 en=0.000
 f923 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f923 PULSA 🔥 ¡Lanzar Shock térmico fulminante!
-f924 LOG … 499.16 de daño en total.
+f924 LOG 🗣️ Frases: «Arde hasta el hueso» ✓ · «Y ahora, hiela» ✓ · «Que el vidrio se parta» ✓
 f924 Agirato ochinan hp=198.795 mp=22.444 en=177.425
 f924 Rey Slime hp=571.294 mp=21.188 en=0.000
 f924 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -3090,7 +3090,7 @@ f2203 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2204 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2204 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2204 PULSA 🔥 ¡Lanzar Eclipse!
-f2205 LOG … 441.35 de daño en total.
+f2205 LOG 🗣️ Frases: «Luz y oscuridad» ✓ · «Oscuridad y luz» ✓ · «Feliz aniversario 20» ✓ · «Kingdom Hearts» ✓
 f2205 Agirato ochinan hp=198.599 mp=17.173 en=177.425
 f2205 Rey Slime hp=299.043 mp=21.188 en=0.000
 f2205 Slime hp=0.000 mp=20.429 en=0.000

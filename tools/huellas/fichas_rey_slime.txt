@@ -74,7 +74,7 @@ f758 LOG Catalardio golpea con Martillo grande e inflige 11.34 de daño.  ¡Retr
 f758 Rey Slime hp=819.063 mp=21.188 en=0.000
 f828 LOG Agirato ochinan tiene el conjuro listo. Esperando...
 f830 998 PULSA 🔥 ¡Lanzar Shock térmico fulminante!
-f831 LOG … 449.07 de daño en total.
+f831 LOG 🗣️ Frases: «Arde hasta el hueso» ✓ · «Y ahora, hiela» ✓ · «Que el vidrio se parta» ✓
 f831 Agirato ochinan hp=198.795 mp=22.444 en=177.425
 f831 Rey Slime hp=519.671 mp=21.188 en=0.000
 f831 Slime hp=0.000 mp=20.429 en=0.000
@@ -276,7 +276,7 @@ f3137 Catalardio hp=197.823 mp=24.620 en=181.275
 f3137 Daniel hp=173.980 mp=20.000 en=181.025
 f3195 LOG Agirato ochinan tiene el conjuro listo. Esperando...
 f3197 998 PULSA 🔥 ¡Lanzar Eclipse!
-f3198 LOG … 388.12 de daño en total.
+f3198 LOG 🗣️ Frases: «Luz y oscuridad» ✓ · «Oscuridad y luz» ✓ · «Feliz aniversario 20» ✓ · «Kingdom Hearts» ✓
 f3198 Agirato ochinan hp=198.305 mp=17.173 en=177.425
 f3198 Rey Slime hp=29.067 mp=21.188 en=0.000
 f3198 Slime venenoso hp=0.000 mp=20.495 en=0.000

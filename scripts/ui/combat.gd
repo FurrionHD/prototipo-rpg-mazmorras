@@ -3150,6 +3150,13 @@ func _end(player_won: bool, fled: bool = false) -> void:
 				Game.rodar_slayer_por_familia(int(e.familia), _ultimo_en_golpear.get(e))
 		_recoger_flechas()
 	_state = State.FINISHED
+	# (06/11) Un conjuro a medias se queda en el registro: cual era y que frases llevaba.
+	for c in _casteos:
+		var sp_c = (_casteos[c] as Dictionary).get("spell")
+		if sp_c is SpellData:
+			var dichas_c: String = magia.frases_txt(c)
+			_set_log("🔮 %s se queda con %s a medias: la pelea ha terminado.%s" % [c.nombre, (sp_c as SpellData).nombre,
+				("  Llevaba: " + dichas_c) if dichas_c != "" else ""], "f")
 	magia._limpiar_casteo()
 	_casteos.clear()   # y los conjuros a medias de los demas: la pelea ha terminado para todos
 	_ocultar_cajas()
@@ -3365,9 +3372,15 @@ func interrumpir(c: Combatant, quien: Combatant = null, por_control: bool = fals
 	if tactico:
 		efectos._fx_golpe(quien if quien != null else c, c, 0.0, false, false, Elementos.Elemento.NINGUNO,
 			CombatFX.Estilo.AVISO_INTERRUMPIDO, 0.5 if era_conjuro else 1.0, true)
+	# (06/11) Del conjuro, lo que llevaba recitado y que NO cuesta maná (se paga al soltarlo).
+	var cola: String = ""
+	if era_conjuro:
+		var dichas: String = magia.frases_txt(c)
+		magia.olvidar_frases(c)
+		cola = " Sin coste de maná." + (("  Llevaba: " + dichas) if dichas != "" else "")
 	if por_control:
-		return "💫 %s pierde %s: no puede seguir así." % [c.nombre, que]
-	return "💢 %s sale despedido%s y pierde %s." % [c.nombre, (" por " + quien.nombre) if quien != null else "", que]
+		return "💫 %s pierde %s: no puede seguir así.%s" % [c.nombre, que, cola]
+	return "💢 %s sale despedido%s y pierde %s.%s" % [c.nombre, (" por " + quien.nombre) if quien != null else "", que, cola]
 
 
 func _aplicar_aturdir(objetivo: Combatant, es_crit: bool) -> String:

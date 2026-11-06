@@ -82,7 +82,7 @@ f839 Slime hp=28.084 mp=20.429 en=0.000
 f890 LOG El conjuro está listo. ¡Lánzalo!
 f890 Agirato ochinan hp=195.474 mp=36.500 en=177.425
 f892 PULSA 🔥 ¡Lanzar Shock térmico fulminante!
-f893 LOG … 629.88 de daño en total.
+f893 LOG 🗣️ Frases: «Arde hasta el hueso» ✓ · «Y ahora, hiela» ✓ · «Que el vidrio se parta» ✓
 f893 Agirato ochinan hp=195.474 mp=22.444 en=177.425
 f893 Rey Slime hp=406.503 mp=21.188 en=0.000
 f893 Slime hp=0.000 mp=20.429 en=0.000
@@ -3288,7 +3288,7 @@ f3670 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f3671 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3671 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f3671 PULSA 🔥 ¡Lanzar Eclipse!
-f3672 LOG … 561.02 de daño en total.
+f3672 LOG 🗣️ Frases: «Luz y oscuridad» ✓ · «Oscuridad y luz» ✓ · «Feliz aniversario 20» ✓ · «Kingdom Hearts» ✓
 f3672 Agirato ochinan hp=184.684 mp=17.173 en=177.425
 f3672 Rey Slime hp=87.519 mp=21.188 en=0.000
 f3672 Slime de fuego hp=0.000 mp=20.891 en=0.000

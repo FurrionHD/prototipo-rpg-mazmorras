@@ -187,7 +187,7 @@ func _mostrar_test(idx: int) -> void:
 	if dueno != 0:
 		_pantalla._ocultar_cajas()
 		_pantalla._set_log("🔮 %s recita %s (%d/%d). Esperando..." % [
-			_pantalla._player.nombre, _pantalla._cast_spell.nombre, idx + 1, _pantalla._cast_spell.longitud()])
+			_pantalla._player.nombre, _pantalla._cast_spell.nombre, idx + 1, _pantalla._cast_spell.longitud()], "a")
 		_pantalla.espejo._pedir_a_remoto(dueno, {"tipo": "frase", "idx": idx, "opciones": opciones,
 			"nombre": _pantalla._cast_spell.nombre, "largo": _pantalla._cast_spell.longitud(),
 			"apuntar": _ruta_si_falta_sitio()})
@@ -220,7 +220,7 @@ func _ruta_si_falta_sitio() -> String:
 
 func _pedir_sitio(spell: SpellData, al_elegir: Callable) -> void:
 	_pantalla._ocultar_cajas()
-	_pantalla._set_log("🔮 Elige dónde cae %s." % spell.nombre)
+	_pantalla._set_log("🔮 Elige dónde cae %s." % spell.nombre, "a")
 	_pantalla.turno_mapa.apuntar_sitio(spell, _pantalla._player, al_elegir)
 
 
@@ -267,7 +267,7 @@ func _pintar_test(idx: int, opciones: Array, nombre: String, largo: int, correct
 		alto += 12.0 + _pantalla.ALTO_BOTON_VOLVER
 	_pantalla._alto_panel(alto)
 	_pantalla._cast_box.visible = true
-	_pantalla._set_log("🔮 %s — recita la frase %d/%d:" % [nombre, idx + 1, largo])
+	_pantalla._set_log("🔮 %s — recita la frase %d/%d:" % [nombre, idx + 1, largo], "a")
 	_pantalla._ocultar_log()   # las frases ocupan el sitio del historial
 
 
@@ -329,6 +329,8 @@ func _responder_frase(elegida: String, correcta: String) -> void:
 		# LA FRASE QUE SE HA DICHO, al registro: en el de todos, porque esto corre en quien lleva la pelea
 		# (tambien cuando la eligio otro desde su espejo) y le llega a los demas con la instantanea.
 		_pantalla._set_log("🗣️ %s recita: «%s» ✓" % [_pantalla._player.nombre, elegida])
+		# (06/11) Y se guarda: la ficha del registro de cuando se lance (o se pierda) dice las frases que dijo.
+		_dichas[_pantalla._player] = (_dichas.get(_pantalla._player, []) as Array) + [elegida]
 		# La Magia NO se entrena por frase (solo al LANZAR, en _disparar_hechizo), para
 		# que la ganancia sea predecible y no se cuente doble.
 		_pantalla._cast_index += 1
@@ -336,9 +338,9 @@ func _responder_frase(elegida: String, correcta: String) -> void:
 		# tiene el turno en este instante, y _player se presta y se devuelve en otras ramas.
 		Game.contar_frase_recitada(_pantalla._pj_de_magia(_pantalla._player, "recitar " + _pantalla._cast_spell.nombre))
 		if _pantalla._cast_index < _pantalla._cast_spell.longitud():
-			_pantalla._set_log("✓ Frase correcta. Continua el proximo turno...")
+			_pantalla._set_log("✓ Frase correcta. Continua el proximo turno...", "x")
 		else:
-			_pantalla._set_log("✓ ¡Encantamiento completo! El proximo turno lo lanzas.")
+			_pantalla._set_log("✓ ¡Encantamiento completo! El proximo turno lo lanzas.", "x")
 		_pantalla._player.regen_energy(_pantalla.ATTACK_ENERGY_REGEN)   # recitar es un turno basico: regenera energia (KAN-57)
 		# Repinta el bloque: sin esto el chip del conjuro (ver _chips_de) se quedaba una frase
 		# atrasado, porque los chips solo se rehacen desde aqui.
@@ -422,7 +424,7 @@ func _mostrar_disparo() -> void:
 		return
 	if dueno != 0:
 		_pantalla._ocultar_cajas()
-		_pantalla._set_log("%s tiene el conjuro listo. Esperando..." % _pantalla._player.nombre)
+		_pantalla._set_log("%s tiene el conjuro listo. Esperando..." % _pantalla._player.nombre, "a")
 		_pantalla.espejo._pedir_a_remoto(dueno, {"tipo": "disparo", "nombre": _pantalla._cast_spell.nombre,
 			"reelegir": _aliado_huyo(), "apuntar": _ruta_si_falta_sitio()})
 		return
@@ -471,7 +473,7 @@ func _pintar_disparo(nombre: String, reelegir: bool = false) -> void:
 		if reelegir and listo[0] is SpellData:
 			var se_fue = (_pantalla._casteos.get(_pantalla._player, {}) as Dictionary).get("aliado")
 			_pantalla._set_log("%s ya no está en la pelea: elige a otro de los tuyos para %s." % [
-				(se_fue as Combatant).nombre if se_fue is Combatant else "Tu aliado", nombre])
+				(se_fue as Combatant).nombre if se_fue is Combatant else "Tu aliado", nombre], "a")
 			_pantalla.turno_mapa.reelegir_aliado(listo[0], _pantalla._player)
 			return
 		if listo[0] is SpellData and listo[1] is Vector2:
@@ -488,7 +490,7 @@ func _pintar_disparo(nombre: String, reelegir: bool = false) -> void:
 	_pantalla._alto_panel(_pantalla.ALTO_BOTON_ACCION)
 	_pantalla._cast_box.visible = true
 	_pantalla._set_log("El conjuro está listo. ¡Lánzalo!%s" % (
-		"  (Puedes arrastrar su huella un poco antes.)" if _pantalla.tactico and _pantalla.turno_mapa.recolocando() else ""))
+		"  (Puedes arrastrar su huella un poco antes.)" if _pantalla.tactico and _pantalla.turno_mapa.recolocando() else ""), "a")
 	_pantalla._ocultar_log()   # el boton de disparo ocupa el sitio del historial
 
 
@@ -549,6 +551,7 @@ func _disparar_hechizo(aliado_nuevo: Combatant = null) -> void:
 	if not ya_pagado:
 		if not _pantalla._player.has_mana(coste):
 			_pantalla._set_log("%s se queda sin maná y el conjuro se le deshace. 💨" % _pantalla._player.nombre)
+			_log_frases(_pantalla._player)
 			_limpiar_casteo()
 			_pantalla._update_hp()
 			_pantalla._fin_de_eleccion()
@@ -563,6 +566,7 @@ func _disparar_hechizo(aliado_nuevo: Combatant = null) -> void:
 	_pantalla._player.regen_energy(_pantalla.ATTACK_ENERGY_REGEN)   # lanzar es un turno basico: regenera energia (KAN-57)
 	if _pantalla.tactico:
 		_pantalla.turno_mapa.circulo_acaba(_pantalla._player, true)   # el circulo se cierra en un fogonazo
+	_log_frases(_pantalla._player)
 	_limpiar_casteo()
 	_pantalla._update_hp()
 	_pantalla._fin_de_eleccion()
@@ -1665,6 +1669,7 @@ func _backfire(elegida: String = "", correcta: String = "") -> void:
 	var spell := _pantalla._cast_spell
 	if elegida != "":
 		_pantalla._set_log("🗣️ %s recita «%s»… pero era «%s»." % [_pantalla._player.nombre, elegida, correcta])
+	var mana_perdido: float = minf(_coste_efectivo(spell), _pantalla._player.current_mp)
 	_pantalla._player.spend_mana(_coste_efectivo(spell))
 	# Por TU VIDA MAXIMA, no por el daño del hechizo: asi fallar duele lo mismo el primer dia que
 	# con 500 de vida (ver StatsMath.backfire_damage). Y puede tumbarte: el KO se resuelve abajo.
@@ -1672,8 +1677,9 @@ func _backfire(elegida: String = "", correcta: String = "") -> void:
 	_pantalla._player.take_damage(dmg)
 	print("[magia] BACKFIRE %s | frase %d/%d | dano propio:%.2f" % [
 		spell.nombre, _pantalla._cast_index + 1, spell.longitud(), dmg])
-	_pantalla._set_log("💥 %s recita mal el conjuro y se descontrola: %.2f de daño. El hechizo se pierde."
-		% [_pantalla._player.nombre, dmg])
+	_pantalla._set_log("💥 %s recita mal el conjuro y se descontrola: recibe %.2f de daño y pierde %.2f de maná. El hechizo se pierde."
+		% [_pantalla._player.nombre, dmg, mana_perdido])
+	_log_frases(_pantalla._player, "«%s» ✗ (era «%s»)" % [elegida, correcta] if elegida != "" else "")
 	_pantalla._player.regen_energy(_pantalla.ATTACK_ENERGY_REGEN)   # aun fallando, es un turno sin gasto de energia (KAN-57)
 	if _pantalla.tactico:
 		_pantalla.turno_mapa.circulo_acaba(_pantalla._player, false)   # el circulo se agrieta y se rompe
@@ -1688,6 +1694,31 @@ func _backfire(elegida: String = "", correcta: String = "") -> void:
 	_pantalla._state = _pantalla.State.ADVANCING
 
 
+# (06/11) LAS FRASES DEL CONJURO EN CURSO de cada uno (las que ha dicho bien): van a la ficha del registro cuando se
+# lanza, se pierde por un fallo o se lo cortan (CombatPantalla.interrumpir) o acaba la pelea (_end).
+var _dichas: Dictionary = {}   # Combatant -> Array de frases
+
+
+func frases_txt(c: Combatant, fallo: String = "") -> String:
+	var partes: Array = []
+	for f in _dichas.get(c, []):
+		partes.append("«%s» ✓" % f)
+	if fallo != "":
+		partes.append(fallo)
+	return " · ".join(partes)
+
+
+func _log_frases(c: Combatant, fallo: String = "") -> void:
+	var t: String = frases_txt(c, fallo)
+	if t != "":
+		_pantalla._log_extra("🗣️ Frases: " + t)
+
+
+func olvidar_frases(c: Combatant) -> void:
+	_dichas.erase(c)
+
+
 func _limpiar_casteo() -> void:
+	_dichas.erase(_pantalla._player)
 	_pantalla._cast_spell = null
 	_pantalla._cast_index = 0

@@ -137,6 +137,21 @@ func _correr() -> void:
 	_ver(ms < 40.0, "rehacerlo con 600 frases cuesta poco (%.1f ms)" % ms)
 	reg.rehacer(cod)
 
+	print("4c) EL CONJURO CORTADO: lo que llevaba recitado y que no cuesta mana")
+	var sp: SpellData = null
+	for fs in DirAccess.get_files_at("res://resources/spells"):
+		if fs.ends_with(".tres"):
+			sp = load("res://resources/spells/" + fs) as SpellData
+			if sp != null:
+				break
+	combat._casteos[yo] = {"spell": sp, "idx": 2}
+	combat.magia._dichas[yo] = ["Ignis", "Vortex"]
+	var corte: String = combat.interrumpir(yo, null, true)
+	_ver(corte.contains("«Ignis» ✓ · «Vortex» ✓") and corte.contains("Sin coste de maná"),
+		"al cortarlo dice las frases que llevaba y que no cuesta maná: '%s'" % corte)
+	_ver(combat.magia.frases_txt(yo) == "", "y las olvida")
+	_ver(combat.magia.frases_txt(yo, "«Lux» ✗ (era «Nox»)") == "«Lux» ✗ (era «Nox»)", "el fallo sale con la frase que era")
+
 	print("5) LA FICHA")
 	var g: String = String(reg.meta[1][0])
 	reg._mostrar_ficha(g)
