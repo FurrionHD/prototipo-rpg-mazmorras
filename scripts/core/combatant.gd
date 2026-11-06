@@ -899,44 +899,75 @@ func imbue_resumen() -> String:
 		var dn: String = str(StatusEffects.def(imbue_estado).get("nombre", "?"))
 		lineas.append("%s Arma emponzoñada (%s)" % [
 			str(StatusEffects.def(imbue_estado).get("icono", "")), dn])
-		lineas.append("Cada golpe que acierta puede dejar %s (%d%% base; la probabilidad real depende de tu %s contra su Resistencia)."
-			% [dn, roundi(imbue_prob * 100.0), "Destreza" if imbue_por_destreza else "Magia"])
+		lineas.append("Cada golpe que acierta tiene un %d %% de probabilidad base de causar %s." % [
+			roundi(imbue_prob * 100.0), dn])
 		if not imbue_reparto.is_empty():
 			lineas.append("Al causarlo, suma %s (según el tier del arma)." % AbilityData.texto_reparto(imbue_reparto))
 		if imbue_tope >= 0:
-			lineas.append("Como mucho deja %d dosis." % imbue_tope)
+			lineas.append("Hasta un máximo de %d acumulaciones." % imbue_tope)
 		if imbue_extra_estado >= 0:
 			lineas.append(_texto_extra())
-		lineas.append("Le quedan %d ataque%s (se gasta al ATACAR, no con los turnos)." % [
+		lineas.append("Quedan %d ataque%s. Se gasta al atacar, no cuando pasan los turnos." % [
 			imbue_usos, "" if imbue_usos == 1 else "s"])
 		return "\n".join(lineas)
 	var elem: String = Elementos.nombre(imbue_elemento)
 	lineas.append("%s Imbuición de %s (%s)" % [
 		Elementos.icono(imbue_elemento), elem, "cuerpo" if imbue_cuerpo else "arma"])
-	lineas.append("Tus golpes añaden un %d%% de daño de %s (ajustado por lo que resista o sufra el rival)."
-		% [roundi(imbue_pct * 100.0), elem])
+	# (06/11, pase de textos) en tercera persona: el chip lo llevan tambien los compañeros.
+	lineas.append("Los golpes infligen un daño adicional de %s equivalente al %d %% del daño del golpe." % [
+		elem, roundi(imbue_pct * 100.0)])
 	if imbue_cuerpo:
-		lineas.append("Al llevarlo ENCIMA, adoptas la afinidad de %s: sus resistencias, sus debilidades y sus inmunidades." % elem)
+		lineas.append(_texto_afinidad_imbue())
 	if imbue_estado >= 0 and imbue_prob > 0.0:
 		# El prismatico cambia de estado con el elemento: nombrar el del ultimo golpe seria mentir.
 		var deja: String = "el estado del elemento que salga" if imbue_prisma \
 			else str(StatusEffects.def(imbue_estado).get("nombre", "?"))
-		lineas.append("Cada golpe que acierta puede dejar %s (%d%% base; la probabilidad real depende de tu Magia contra su Resistencia)."
-			% [deja, roundi(imbue_prob * 100.0)])
+		lineas.append("Cada golpe que acierta tiene un %d %% de probabilidad base de causar %s." % [
+			roundi(imbue_prob * 100.0), deja])
 	if imbue_extra_estado >= 0:
 		lineas.append(_texto_extra())
 	if imbue_spd_mult > 1.0:
-		lineas.append("Y mientras la lleves, te mueves un %d%% más rápido." % roundi((imbue_spd_mult - 1.0) * 100.0))
+		lineas.append("Velocidad +%d %%" % roundi((imbue_spd_mult - 1.0) * 100.0))
 	# Se gasta por ATAQUE, no por turno: es la diferencia que hay que entender para no
 	# fundirsela recitando un conjuro largo.
-	lineas.append("Le quedan %d ataque%s (se gasta al ATACAR, no con los turnos)." % [
+	lineas.append("Quedan %d ataque%s. Se gasta al atacar, no cuando pasan los turnos." % [
 		imbue_usos, "" if imbue_usos == 1 else "s"])
 	return "\n".join(lineas)
 
 
 func _texto_extra() -> String:
-	return "Y cuando prende, un %d%% de dejar también %s." % [roundi(imbue_extra_prob * 100.0),
+	return "Cuando lo causa, tiene además un %d %% de probabilidad base de causar %s." % [roundi(imbue_extra_prob * 100.0),
 		str(StatusEffects.def(imbue_extra_estado).get("nombre", "?"))]
+
+
+# LA AFINIDAD DEL CUERPO IMBUIDO, con sus numeros (06/11): lo mismo que dice la ficha del Manto (SpellData._texto_afinidad),
+# pero con la intensidad que lleva puesta ESTE combatiente. El prismatico cambia de elemento en cada golpe.
+func _texto_afinidad_imbue() -> String:
+	if imbue_prisma:
+		return "En cada golpe que recibe, se defiende como el elemento que salga."
+	var menos: Array = []
+	var mas: Array = []
+	var perfil: Dictionary = Elementos.PERFIL_DEFECTO.get(imbue_elemento, {})
+	for e in perfil:
+		var m: float = Elementos.escalar_intensidad(float(perfil[e]), elemento_intensidad)
+		var txt: String = "un %d %% %s de Daño de %s" % [absi(roundi((1.0 - m) * 100.0)), "menos" if m < 1.0 else "más",
+			Elementos.nombre(int(e))]
+		if m < 1.0:
+			menos.append(txt)
+		elif m > 1.0:
+			mas.append(txt)
+	var partes: Array = menos + mas
+	var s: String = "Tiene la afinidad de %s" % Elementos.nombre(imbue_elemento)
+	if not partes.is_empty():
+		s += ": recibe " + (String(partes[0]) if partes.size() == 1
+			else ", ".join(partes.slice(0, partes.size() - 1)) + " y " + String(partes[partes.size() - 1]))
+	var inmune: Array = []
+	for id in Elementos.inmunidades_de(imbue_elemento):
+		inmune.append(str(StatusEffects.def(int(id)).get("nombre", "?")))
+	if not inmune.is_empty():
+		s += "%s y es inmune a %s" % ["," if partes.size() > 1 else "",
+			String(inmune[0]) if inmune.size() == 1 else ", ".join(inmune.slice(0, inmune.size() - 1)) + " y " + String(inmune[inmune.size() - 1])]
+	return s + "."
 
 
 # Tira el ESTADO de la imbuicion tras un golpe que ACIERTA. Devuelve su nombre si prende, ""

@@ -893,7 +893,7 @@ func resumen(manos: int = 1) -> String:
 			for t in imbue_escalera.size():
 				l.append("   · T%d%s: %s" % [t + 1, " o más" if t == imbue_escalera.size() - 1 else "",
 					texto_reparto(imbue_escalera[t])])
-		l.append("Se gasta al atacar, no con los turnos, y se conserva de un combate al siguiente.")
+		l.append("Se gasta al atacar, no cuando pasan los turnos, y se conserva de un combate al siguiente.")
 		if imbue_por_destreza:
 			l.append("La probabilidad sube con la Destreza de quien la usa frente a la Resistencia del enemigo.")
 	if limpia_debuffs > 0:
@@ -1068,6 +1068,10 @@ func _y(cosas) -> String:
 func _efecto_partes(a) -> Array:
 	var id_est: int = int(a.estado)
 	var nom: String = String(StatusEffects.def(id_est).get("nombre", "?"))
+	# Varias de una tirada, en el propio nombre (06/11, el jefe: "suma 2 acumulaciones de una vez" sonaba mal): "causar
+	# 2 acumulaciones de Pegajoso al objetivo".
+	if int(a.stacks) > 1:
+		nom = "%d acumulaciones de %s" % [int(a.stacks), nom]
 	var turnos: int = int(a.turns) if int(a.turns) > 0 else int(StatusEffects.def(id_est).get("turns", 0))
 	var det: String = ""
 	if turnos > 0:
@@ -1076,8 +1080,6 @@ func _efecto_partes(a) -> Array:
 	var que_hace: String = StatusEffects.efecto_legible(id_est, float(a.mult))
 	if que_hace != "":
 		extras.append(que_hace)
-	if int(a.stacks) > 1:
-		extras.append("%d acumulaciones de golpe" % int(a.stacks))
 	if id_est == StatusEffects.Id.ATURDIDO and a.en_objetivo:
 		extras.append("se suma al aturdimiento propio del arma")
 	if not extras.is_empty():

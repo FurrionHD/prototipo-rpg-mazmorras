@@ -774,7 +774,7 @@ func _texto_afinidad() -> String:
 	s += "."
 	var stun: float = Elementos.stun_taken_por_afinidad(elemento)
 	if stun < 1.0:
-		s += " La probabilidad de que lo aturdan baja un %s." % _pct(1.0 - stun)
+		s += " La probabilidad de quedar Aturdido se reduce en un %s." % _pct(1.0 - stun)
 	return s
 
 
