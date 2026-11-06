@@ -1113,7 +1113,23 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		msg = _pantalla.magia._log_desglose(titulo, rastro, tocados, dano_por_obj, total, sin_dar,
 			_pantalla.magia._desglose_imbue(total, total_imbue, mult_imbue))
 	else:
-		msg = "%s usa %s." % [_pantalla._player.nombre, ab.nombre]
+		# Lo que se echa encima, en la misma frase: "usa Grito de aliento y recibe Ánimo" (06/11, igual que los bichos;
+		# antes "usa Grito de aliento.  Daniel recibe Ánimo.").
+		# Solo si es SOLO suyo: un buff de grupo va entero en una frase ("Daniel, Dasui y Coco reciben Furia").
+		var yo_recibo: String = "%s recibe " % _pantalla._player.nombre
+		var propios: Array = []
+		var otros_reciben: bool = false
+		for s in estados_log:
+			if String(s).begins_with(yo_recibo):
+				propios.append(String(s).trim_prefix(yo_recibo))
+			elif String(s).contains(" recibe "):
+				otros_reciben = true
+		if otros_reciben:
+			propios.clear()
+		else:
+			estados_log = estados_log.filter(func(s): return not String(s).begins_with(yo_recibo))
+		msg = "%s usa %s%s." % [_pantalla._player.nombre, ab.nombre,
+			"" if propios.is_empty() else " y recibe " + ", ".join(propios)]
 	if mana_ganado > 0.0:
 		msg += "  Recupera %s de maná. 🔷" % _pantalla._n(mana_ganado)
 	if not estados_log.is_empty():

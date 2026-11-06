@@ -3272,11 +3272,12 @@ static func _n(x: float) -> String:
 
 # LOS ESTADOS DE UNA ACCION, EN FRASES (06/11, pase de textos). Las entradas que empiezan por "·" son estados causados
 # a quien recibe el golpe y se juntan en "Causa Veneno, Pegajoso ×2"; las demas ya son frases ("Daniel recibe Furia")
-# y van cada una con su punto.
+# y van cada una con su punto. Los "<quien> recibe <estado>" del mismo estado se juntan: "Daniel, Dasui y Coco reciben Furia".
 static func _frase_estados(lista: Array) -> String:
 	var causa: Array = []
 	var cuenta: Dictionary = {}
 	var frases: Array = []
+	var reciben: Dictionary = {}   # estado -> [quien, ...] en orden
 	for s in lista:
 		var t: String = String(s)
 		if t.begins_with("·"):
@@ -3285,6 +3286,14 @@ static func _frase_estados(lista: Array) -> String:
 				causa.append(t)
 				cuenta[t] = 0
 			cuenta[t] = int(cuenta[t]) + 1
+		elif t.contains(" recibe "):
+			var quien: String = t.get_slice(" recibe ", 0)
+			var que: String = t.substr(quien.length() + " recibe ".length())
+			if not reciben.has(que):
+				reciben[que] = []
+				frases.append("\u0001" + que)   # su sitio en el orden; se escribe abajo
+			if not (reciben[que] as Array).has(quien):
+				(reciben[que] as Array).append(quien)
 		elif t != "" and not frases.has(t):
 			frases.append(t.substr(0, 1).to_upper() + t.substr(1))
 	var out: String = ""
@@ -3293,6 +3302,14 @@ static func _frase_estados(lista: Array) -> String:
 		for c in causa:
 			nombres.append(c if int(cuenta[c]) == 1 else "%s ×%d" % [c, int(cuenta[c])])
 		out += "  Causa %s." % ", ".join(nombres)
+	for i in frases.size():
+		var f: String = String(frases[i])
+		if f.begins_with("\u0001"):
+			var que2: String = f.substr(1)
+			var q: Array = reciben[que2]
+			var lista_q: String = String(q[0]) if q.size() == 1 \
+				else ", ".join(q.slice(0, q.size() - 1)) + " y " + String(q[q.size() - 1])
+			frases[i] = "%s %s %s" % [lista_q, "recibe" if q.size() == 1 else "reciben", que2]
 	for f in frases:
 		out += "  %s." % f
 	return out
