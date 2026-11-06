@@ -6,7 +6,8 @@
 #
 #  SE DIBUJA EN LOS INDICES DE TONO DEL JUEGO, no en colores: el mismo papel por tono que ArmaSprites.ROLES y
 #  ArmaduraSprites.ROLES, asi que en el juego lo seguira tiñendo paleta_equipo.gdshader con su tier y su +N. Aqui se
-#  tiñe con las paletas DE VERDAD, volcadas del juego a tools/salida/paletas_equipo.json.
+#  tiñe con las paletas DE VERDAD, volcadas del juego a tools/paletas_equipo.json
+#  (PaletaEquipo.colores_de, tiers 1-3 a +0/+5/+12: si se retoca la tabla de PaletaEquipo, volcarlas otra vez).
 #
 #  Cada pieza es una funcion de coordenadas NORMALIZADAS (0..1), asi que sale a 32 y a 24 px con el mismo dibujo.
 #  Las armas van en diagonal (pomo abajo a la izquierda, punta arriba a la derecha) y la luz viene de arriba a la
@@ -309,7 +310,7 @@ def teñir(cv, paleta):
 
 def main():
     salida = sys.argv[1] if len(sys.argv) > 1 else "equipo_lamina.png"
-    with open(os.path.join(AQUI, "salida", "paletas_equipo.json"), encoding="utf-8") as f:
+    with open(os.path.join(AQUI, "paletas_equipo.json"), encoding="utf-8") as f:
         PAL = json.load(f)
     try:
         f1 = ImageFont.truetype("arial.ttf", 20)
