@@ -239,7 +239,8 @@ def hoz_ref(cv):
     # palo. El FILO va por dentro (la parte concava).
     n = cv.n
     C, R = (0.56, 0.44), 0.38                      # el circulo de fuera
-    C2, R2 = (0.43, 0.30), 0.32                    # el de dentro, corrido hacia la boca: la hoja adelgaza hacia la punta
+    # (06/11) la hoja FINA: el jefe prefirio esta a la engordada ("asi mejor")
+    C2, R2 = (0.47, 0.35), 0.33                    # el de dentro, corrido hacia la boca: la hoja adelgaza hacia la punta
     ini, fin = math.radians(-152), math.radians(96)   # de junto al mango (abajo-izquierda) hasta la punta (arriba)
     for y in range(n):
         for x in range(n):
@@ -263,7 +264,7 @@ def hoz_ref(cv):
     # el mango: de abajo a la izquierda hasta el arranque de la hoja, con la virola y las rayas torneadas
     ax = C[0] + R * math.cos(ini) + 0.02
     ay = C[1] - R * math.sin(ini) - 0.01
-    bx, by = 0.03, 0.93
+    bx, by = 0.06, 0.88
     largo = math.hypot(ax - bx, ay - by)
     for y in range(n):
         for x in range(n):
@@ -339,8 +340,8 @@ def cuchillo(cv):
 
 
 # (06/11) EL PICO: el de ARCO GRANDE (lo eligio el jefe; los otros se leian como punta de flecha). LA HOZ: abierta, con
-# la punta lejos del palo (cerrada sobre el mango "es muy cerrado hacia el palo"); A y B a la espera de que elija.
-HERRAMIENTAS = [("Pico (arco grande)", pico_d), ("Hacha de talar", hacha_grande_talar), ("Hoz (la de la foto)", hoz_ref), ("Hoz A: abierta", hoz_b), ("Caña", cana), ("Cuchillo", cuchillo)]
+# la punta lejos del palo (cerrada sobre el mango "es muy cerrado hacia el palo"): la de SU FOTO, con la hoja fina.
+HERRAMIENTAS = [("Pico (arco grande)", pico_d), ("Hacha de talar", hacha_grande_talar), ("Hoz", hoz_ref), ("Caña", cana), ("Cuchillo", cuchillo)]
 
 
 def main():
