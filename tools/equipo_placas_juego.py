@@ -112,7 +112,7 @@ def escarpes(cv):
 
 PIEZAS = [
     ("Casco: armet", V.yelmo_b),
-    ("Pecho: lamas", V.peto_b),
+    ("Pecho: caballero", V.peto_c),   # (06/11) el jefe: "de pecho prefiero el C, el B es muy extravagante"
     ("Manos: guanteletes", guanteletes),
     ("Pantalones: grebas", grebas),
     ("Botas: escarpes", escarpes),
@@ -136,7 +136,7 @@ def main():
     h = 80 + fila * len(PIEZAS)
     lam = Image.new("RGBA", (w, h), (16, 16, 20, 255))
     d = ImageDraw.Draw(lam)
-    d.text((16, 12), "JUEGO DE PLACAS (estilo B): 32 px, x4 y tamano real", fill=(240, 190, 100), font=f1)
+    d.text((16, 12), "JUEGO DE PLACAS (armet + peto C): 32 px, x4 y tamano real", fill=(240, 190, 100), font=f1)
     for i, (_t, _m, nom) in enumerate(EP.COLUMNAS):
         d.text((x0 + i * cw, 52), nom, fill=(200, 200, 210), font=f2)
     for j, (nombre, fn) in enumerate(PIEZAS):
