@@ -142,6 +142,44 @@ static func tema_botones() -> Theme:
 	_tema.set_constant("icon_max_width", "Button", 24)
 	return _tema
 
+# ------------------------------------------------------------
+#  EL TEMA DE TODOS LOS MENUS (06/11: "quiero ponerle esos estilos a todos los menus"). Lo devuelve
+#  MenuScaffold.tema(), que es el que Game le pone a cada pantalla al nacer. Marco FINO (un pixel de hierro, sin
+#  remaches) en botones y campos, para que las listas no crezcan; el GRUESO con remaches, en los paneles.
+# ------------------------------------------------------------
+static func tema_menus() -> Theme:
+	var t := Theme.new()
+	var n = CajaPixel.new()
+	n.grueso = 1
+	n.con_remaches = false
+	n.fondo = Color(0.12, 0.12, 0.14)
+	var hover = n.con({"hierro": Color(0.38, 0.38, 0.42), "brillo": Color(0.56, 0.55, 0.56), "fondo": Color(0.16, 0.16, 0.18)})
+	var pulsado = n.con({"brillo": Color(0.16, 0.16, 0.19), "sombra": Color(0.42, 0.43, 0.47), "fondo": Color(0.08, 0.08, 0.09)})
+	var apagado = n.con({"hierro": Color(0.15, 0.15, 0.17), "brillo": Color(0.19, 0.19, 0.21), "sombra": Color(0.11, 0.11, 0.12),
+		"fondo": Color(0.07, 0.07, 0.08)})
+	for tipo in ["Button", "OptionButton", "MenuButton"]:
+		t.set_stylebox("normal", tipo, n)
+		t.set_stylebox("hover", tipo, hover)
+		t.set_stylebox("pressed", tipo, pulsado)
+		t.set_stylebox("hover_pressed", tipo, pulsado)
+		t.set_stylebox("disabled", tipo, apagado)
+		t.set_stylebox("focus", tipo, StyleBoxEmpty.new())
+		t.set_color("font_disabled_color", tipo, Color(0.38, 0.38, 0.40))
+	var panel = CajaPixel.new()
+	panel.fondo = Color(0.07, 0.07, 0.09)
+	t.set_stylebox("panel", "PanelContainer", panel)
+	t.set_stylebox("panel", "Panel", panel)
+	t.set_stylebox("panel", "PopupMenu", panel)
+	t.set_stylebox("panel", "TooltipPanel", panel.con({"con_remaches": false, "grueso": 1}))
+	var campo = n.con({"fondo": Color(0.06, 0.06, 0.07)})
+	t.set_stylebox("normal", "LineEdit", campo)
+	t.set_stylebox("focus", "LineEdit", campo.con({"hierro": Color(0.45, 0.42, 0.34), "brillo": Color(0.62, 0.56, 0.40)}))
+	t.set_stylebox("read_only", "LineEdit", apagado)
+	t.set_stylebox("background", "ProgressBar", caja_barra_fondo())
+	t.set_stylebox("fill", "ProgressBar", caja_barra_relleno())
+	return t
+
+
 # Muy redondeado: en el anillo los botones son cuadrados y salen circulos; en las listas de los submenus, pildoras.
 static func _redondo(fondo: Color, borde: Color) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()

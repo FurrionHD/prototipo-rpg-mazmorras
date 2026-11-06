@@ -35,8 +35,10 @@ func _margenes() -> void:
 	var m: float = P * float(2 + grueso)
 	content_margin_left = m + 4.0
 	content_margin_right = m + 4.0
-	content_margin_top = m + 2.0
-	content_margin_bottom = m + 2.0
+	# Con el marco fino (el de los menus) sin aire de mas arriba y abajo: los botones de las listas no crecen.
+	var v: float = m + (2.0 if grueso >= 2 else 0.0)
+	content_margin_top = v
+	content_margin_bottom = v
 
 
 func _rect(ci: RID, r: Rect2, c: Color) -> void:

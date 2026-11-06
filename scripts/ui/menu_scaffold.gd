@@ -24,6 +24,7 @@ extends RefCounted
 class_name MenuScaffold
 
 const RetratoPieza = preload("res://scripts/ui/retrato_pieza.gd")
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 const AMBAR := Color(0.95, 0.72, 0.36)
 const GRIS := Color(0.6, 0.63, 0.7)
@@ -94,6 +95,11 @@ static func repintar_pendientes() -> void:
 
 static func tema() -> Theme:
 	if _tema != null:
+		return _tema
+	# (06/11) EL ESTILO PIXEL DE MAZMORRA, el del HUD, en todos los menus (ver hud_estilo.gd). Lo de abajo es el de antes,
+	# y se queda para el estilo moderno.
+	if HudEstilo.es_pixel():
+		_tema = HudEstilo.tema_menus()
 		return _tema
 	_tema = Theme.new()
 	# normal / hover / pressed / disabled / focus: los cinco estados que pinta un Button. Si falta
@@ -2508,6 +2514,11 @@ static func estilo_pastilla(b: Button, principal: bool = true) -> Button:
 	b.custom_minimum_size = Vector2(0, ALTO_PASTILLA)
 	b.add_theme_font_size_override("font_size", 13)
 	var r: int = int(ALTO_PASTILLA * 0.5)
+	# (06/11) EN EL ESTILO PIXEL: la principal, de BRONCE (que destaque, como la blanca de antes) y la secundaria, de
+	# hierro. Marco fino, para que siga siendo baja.
+	if HudEstilo.es_pixel():
+		_pastilla_pixel(b, principal)
+		return b
 	# Los CINCO estados, como en tema(): si falta uno, Godot lo rellena con su gris por defecto y el
 	# boton cambia de aspecto justo al tocarlo.
 	if principal:
@@ -2525,6 +2536,34 @@ static func estilo_pastilla(b: Button, principal: bool = true) -> Button:
 		_pastilla(b, "focus", Color(1, 1, 1, 0.14), Color(0.92, 0.94, 0.97), r)
 	_pastilla(b, "disabled", Color(1, 1, 1, 0.05), Color(0.45, 0.47, 0.52), r)
 	return b
+
+
+static func _pastilla_pixel(b: Button, principal: bool) -> void:
+	var base = HudEstilo.CajaPixel.new()
+	base.grueso = 1
+	base.con_remaches = false
+	if principal:
+		base.hierro = Color(0.55, 0.40, 0.20)
+		base.brillo = Color(0.80, 0.62, 0.32)
+		base.sombra = Color(0.32, 0.22, 0.11)
+		base.fondo = Color(0.42, 0.30, 0.15)
+	else:
+		base.fondo = Color(0.12, 0.12, 0.14)
+	var estados := {
+		"normal": base,
+		"hover": base.con({"fondo": base.fondo.lightened(0.15), "hierro": base.hierro.lightened(0.15), "brillo": base.brillo.lightened(0.15)}),
+		"pressed": base.con({"fondo": base.fondo.darkened(0.25), "brillo": base.sombra, "sombra": base.brillo}),
+		"focus": StyleBoxEmpty.new(),
+		"disabled": base.con({"hierro": Color(0.15, 0.15, 0.17), "brillo": Color(0.19, 0.19, 0.21), "sombra": Color(0.11, 0.11, 0.12),
+			"fondo": Color(0.07, 0.07, 0.08)}),
+	}
+	var letra: Color = Color(1.0, 0.95, 0.84) if principal else Color(0.88, 0.88, 0.86)
+	for e in estados:
+		var sb: StyleBox = estados[e]
+		sb.content_margin_left = 14
+		sb.content_margin_right = 14
+		b.add_theme_stylebox_override(e, sb)
+		b.add_theme_color_override(String(_CLAVE_LETRA.get(e, "font_color")), Color(0.40, 0.40, 0.42) if e == "disabled" else letra)
 
 
 const _CLAVE_LETRA := {"normal": "font_color", "hover": "font_hover_color",
@@ -2617,6 +2656,10 @@ static func modal(root: Control, titulo: String, ancho: float = ANCHO_MODAL,
 	sb.set_border_width_all(1)
 	sb.set_corner_radius_all(10)
 	panel.add_theme_stylebox_override("panel", sb)
+	if HudEstilo.es_pixel():   # (06/11) el marco de hierro con remaches, como los paneles del HUD
+		var px = HudEstilo.CajaPixel.new()
+		px.fondo = Color(0.08, 0.08, 0.10)
+		panel.add_theme_stylebox_override("panel", px)
 	centro.add_child(panel)
 
 	var col := VBoxContainer.new()
@@ -2654,6 +2697,8 @@ static func modal(root: Control, titulo: String, ancho: float = ANCHO_MODAL,
 	sb2.content_margin_right = 18
 	sb2.content_margin_top = 12
 	sb2.content_margin_bottom = 12
+	if HudEstilo.es_pixel():
+		sb2.set_corner_radius_all(0)
 	pie.add_theme_stylebox_override("panel", sb2)
 	col.add_child(pie)
 	var acciones := HBoxContainer.new()
@@ -2706,6 +2751,9 @@ static func estilo_chip(b: Button, marcada: bool) -> void:
 	b.custom_minimum_size = Vector2(0, 32)
 	b.add_theme_font_size_override("font_size", 13)
 	var r := 8
+	if HudEstilo.es_pixel():   # (06/11) marcada = de bronce (como la pastilla principal), sin marcar = de hierro
+		_pastilla_pixel(b, marcada)
+		return
 	if marcada:
 		_pastilla(b, "normal", AMBAR, Color(0.08, 0.07, 0.05), r)
 		_pastilla(b, "hover", AMBAR.lightened(0.15), Color(0.08, 0.07, 0.05), r)
@@ -2836,7 +2884,18 @@ static func _retrato(fila: HBoxContainer, pj: PersonajeData, i: int, elegido: bo
 		# redondo), asi que con el cuadro redondo las esquinas del muñeco se salian por fuera y el
 		# circulo dejaba de leerse. Ademas es la misma forma que las celdas del inventario.
 		sb.set_corner_radius_all(10)
-		b.draw_style_box(sb, Rect2(Vector2.ZERO, Vector2(w, lado)))
+		var caja: StyleBox = sb
+		if HudEstilo.es_pixel():   # (06/11) marco de pixel; el elegido, de bronce
+			var px = HudEstilo.CajaPixel.new()
+			px.grueso = 1
+			px.con_remaches = false
+			px.fondo = sb.bg_color
+			if elegido:
+				px.hierro = Color(0.62, 0.45, 0.22)
+				px.brillo = Color(0.92, 0.72, 0.38)
+				px.sombra = Color(0.36, 0.25, 0.12)
+			caja = px
+		b.draw_style_box(caja, Rect2(Vector2.ZERO, Vector2(w, lado)))
 		var f: Font = b.get_theme_font(&"font")
 		# EL NOMBRE DEBAJO, recortado si no cabe. Es lo que de verdad distingue a uno de otro: con
 		# cuatro muñecos del mismo tamaño y la misma pose, el color del pelo no llega.
