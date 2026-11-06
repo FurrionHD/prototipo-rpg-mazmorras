@@ -404,6 +404,9 @@ func _montar_log() -> void:
 	_pantalla._boton_detalle.pressed.connect(_pantalla.figuras._abrir_detalle.bind(null))
 	_log_fila.add_child(_pantalla._boton_detalle)
 
+	# (06/11) Los FILTROS del registro (Todo / Lo mio / Me hacen / Estados) y la ficha del desglose: combat_registro.gd.
+	_pantalla.registro.montar(vb)
+
 	_log_scroll = ScrollContainer.new()
 	_log_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_log_scroll.custom_minimum_size = Vector2(0, ALTO_LINEA_LOG * float(LOG_LINEAS))
@@ -419,9 +422,11 @@ func _montar_log() -> void:
 	_pantalla._log.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_pantalla._log.fit_content = true
 	_pantalla._log.scroll_active = false
-	_pantalla._log.bbcode_enabled = false
+	_pantalla._log.bbcode_enabled = true   # (06/11) las filas del registro llevan su [url] para la ficha (combat_registro.gd)
 	_pantalla._log.add_theme_font_size_override("normal_font_size", 18)
-	_pantalla._log.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# PASS y no IGNORE (06/11): pasar el raton por una fila abre su desglose (combat_registro.gd); la rueda sigue
+	# llegando al scroll de fuera.
+	_pantalla._log.mouse_filter = Control.MOUSE_FILTER_PASS
 
 
 # Lo que ocupa la zona de botones de abajo, para no meterse debajo de ella al estirar el registro.
