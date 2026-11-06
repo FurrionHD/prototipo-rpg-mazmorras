@@ -129,7 +129,7 @@ func _correr() -> void:
 	await _esperar(60)   # que acabe el salto del Vuelo corto
 	var set_seg: RunaSetData = Runas.set_por_id(&"segadora")
 	_ver(set_seg != null and set_seg.tipo == RunaSetData.Tipo.ARMA and set_seg.efecto == &"filo_aire", "el set existe y es de arma")
-	_ver(Runas.descripcion_set(set_seg).contains("Solo con golpes de arma"), "su texto dice que solo va con armas")
+	_ver(Runas.descripcion_set(set_seg).contains("No funciona con la magia"), "su texto dice que la magia no lo activa")
 	yo.runa_filo_dano = 0.3
 	yo.runa_filo_mas = 0.3
 	yo.runa_filo_linea = 0.4

@@ -193,8 +193,8 @@ func _combate() -> void:
 	Game.meta_de(espada)["runas"] = {"set": "rata", "subs": []}
 	Game.meta_de(esp2)["runas"] = {"set": "rata", "subs": []}
 	var c4: Combatant = Game.crear_player_combatant(pj)
-	_ok(is_equal_approx(c4.runa_alcantarilla_prob, 0.05) and is_equal_approx(c4.runa_alcantarilla_dano, 0.05),
-		"2 armas de Alcantarilla: +5 %% prob. y +5 %% del golpe (%.2f, %.2f)" % [c4.runa_alcantarilla_prob, c4.runa_alcantarilla_dano])
+	_ok(is_equal_approx(c4.runa_alcantarilla_prob, 0.1) and is_equal_approx(c4.runa_alcantarilla_dano, 0.05),
+		"2 armas de Alcantarilla: +10 %% prob. y +5 %% del golpe (%.2f, %.2f)" % [c4.runa_alcantarilla_prob, c4.runa_alcantarilla_dano])
 	# Hilo conductor (03/11, las arañas): los numeros llegan al combatiente (el rebote lo mira prueba_tactico_turno).
 	Game.meta_de(espada)["runas"] = {"set": "arana", "subs": []}
 	Game.meta_de(esp2)["runas"] = {"set": "arana", "subs": []}

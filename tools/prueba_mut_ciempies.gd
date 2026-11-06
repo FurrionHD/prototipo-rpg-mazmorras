@@ -187,6 +187,10 @@ func _pelea() -> void:
 	print("7) LA CABEZA LIBRE")
 	if al.size() >= 2:
 		var otro: Combatant = al[1]
+		# (06/11) TODOS lejos, no solo 'otro', antes de nada: los demas aliados quedaban donde cayeran y, si uno caia cerca de la presa,
+		# la cabeza libre lo tenia a tiro (fallaba 1 de cada pocas).
+		for i in range(2, al.size()):
+			_poner(tm, al[i], ps + Vector2(0, -200 - 60 * i))
 		_poner(tm, otro, ps + Vector2(-40, 0))
 		tm.empezar_enrosque(bi, yo)
 		_ver(tm.a_tiro_de_la_libre(bi) == otro, "tiene a otro a tiro")
