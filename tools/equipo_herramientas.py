@@ -155,6 +155,47 @@ def hoz(cv):
     diag(cv, f)
 
 
+def hacha_grande_talar(cv):
+    # EL HACHA DE TALAR A LO GRANDE: una CUÑA ancha que sale del asta hacia la luz (arriba a la izquierda) y se abre EN
+    # CURVA hasta el FILO, con su talon detras. La primera, encajada en la esquina, salia "escuchimizada"; la segunda
+    # se salia por arriba del lienzo y se cortaba (el jefe, 06/11): la cabeza va mas abajo y todo cabe dentro.
+    n = cv.n
+    hx, hy = 0.60, 0.42                                   # donde va la cabeza, en lo alto del asta
+    fin_asta = ((hx - hy) * n / 2.0) + 2.2                # el asta asoma solo un poco por encima de la cabeza
+    def asta_f(s, p, e):
+        if -15 * e <= s < -11 * e:
+            return puno(s, p, -15 * e, -11 * e, -1, 0)
+        if -11 * e <= s <= fin_asta and -1 <= p <= 0:
+            return MAD_L if p == -1 else MAD_S
+        return 0
+    EP.diag(cv, asta_f)
+    d = (0.7071, -0.7071)                                 # a lo largo del asta, hacia la punta
+    nn = (-0.7071, -0.7071)                               # hacia la luz: alli va el filo
+    E = 0.86                                              # el tamaño de la cabeza
+    for y in range(n):
+        for x in range(n):
+            rx, ry = (x + 0.5) / n - hx, (y + 0.5) / n - hy
+            u = rx * d[0] + ry * d[1]
+            v = rx * nn[0] + ry * nn[1]
+            if 0.0 <= v <= 0.40 * E:
+                semi = (0.065 + 0.165 * min(1.0, max(0.0, (v / E - 0.05) / 0.27)) ** 1.8) * E
+                borde = (0.32 + 0.07 * math.sqrt(max(0.0, 1.0 - (u / (0.22 * E)) ** 2))) * E
+                if abs(u) <= semi and v <= borde:
+                    if v >= borde - 0.045:
+                        t = BRI if u > -0.05 else MET_L            # el FILO
+                    elif u < -semi + 0.04:
+                        t = HON                                     # el canto de abajo, en sombra
+                    elif u > semi - 0.04:
+                        t = MET_L                                   # el de arriba, a la luz
+                    elif u < -0.02:
+                        t = MET_S
+                    else:
+                        t = MET
+                    cv.pon(x, y, t)
+            elif -0.08 <= v < 0.0 and abs(u) <= 0.055:             # el TALON, del otro lado del asta
+                cv.pon(x, y, MET_S if u > 0 else HON)
+
+
 def hoz_abierta(cv, R=0.27, fin=-0.15):
     # LA HOZ ABIERTA: la hoja sale de lo alto del mango, sube por encima en arco y acaba con la PUNTA LEJOS del palo,
     # a la derecha. Cerrada sobre el mango (la primera) se leia como un gancho (el jefe, 06/11).
@@ -189,6 +230,59 @@ def hoz_abierta(cv, R=0.27, fin=-0.15):
         return 0
     EP.diag(cv, f)
     cv.pon(int(hx * n), int(hy * n), MET_S)                     # la virola
+
+
+def hoz_ref(cv):
+    # LA HOZ DE LA REFERENCIA DEL JEFE (06/11, foto de una hoz de verdad), en espejo para que el mango vaya abajo a la
+    # izquierda como el resto: mango corto de madera torneada con sus RAYAS y la VIROLA de metal; la hoja arranca ANCHA
+    # junto al mango, da la vuelta en MEDIA LUNA por abajo y por la derecha y acaba en una PUNTA FINA arriba, lejos del
+    # palo. El FILO va por dentro (la parte concava).
+    n = cv.n
+    C, R = (0.56, 0.44), 0.38                      # el circulo de fuera
+    C2, R2 = (0.43, 0.30), 0.32                    # el de dentro, corrido hacia la boca: la hoja adelgaza hacia la punta
+    ini, fin = math.radians(-152), math.radians(96)   # de junto al mango (abajo-izquierda) hasta la punta (arriba)
+    for y in range(n):
+        for x in range(n):
+            fx, fy = (x + 0.5) / n, (y + 0.5) / n
+            d1 = math.hypot(fx - C[0], fy - C[1])
+            d2 = math.hypot(fx - C2[0], fy - C2[1])
+            if d1 > R or d2 < R2:
+                continue
+            ang = math.atan2(-(fy - C[1]), fx - C[0])
+            if not (ini <= ang <= fin):
+                continue
+            k = (ang - ini) / (fin - ini)                   # 0 junto al mango, 1 en la punta
+            if d2 < R2 + 1.3 / n:
+                t = BRI if 0.15 < k < 0.85 else MET_L       # el FILO, por dentro
+            elif d1 > R - 1.2 / n:
+                t = HON if ang < math.radians(30) else MET_S   # el lomo de fuera; abajo en sombra
+            else:
+                luz = -(fx - C[0]) * 0.6 - (fy - C[1]) * 0.8
+                t = MET_L if luz > 0.12 else (MET if luz > -0.15 else MET_S)
+            cv.pon(x, y, t)
+    # el mango: de abajo a la izquierda hasta el arranque de la hoja, con la virola y las rayas torneadas
+    ax = C[0] + R * math.cos(ini) + 0.02
+    ay = C[1] - R * math.sin(ini) - 0.01
+    bx, by = 0.03, 0.93
+    largo = math.hypot(ax - bx, ay - by)
+    for y in range(n):
+        for x in range(n):
+            fx, fy = (x + 0.5) / n, (y + 0.5) / n
+            t_ = ((fx - bx) * (ax - bx) + (fy - by) * (ay - by)) / (largo * largo)
+            if not (0.0 <= t_ <= 1.0):
+                continue
+            px_, py_ = bx + (ax - bx) * t_, by + (ay - by) * t_
+            dd = math.hypot(fx - px_, fy - py_)
+            grueso = 0.045 if t_ > 0.08 else 0.06        # el remate del final, mas gordo
+            if dd <= grueso and cv.get(x, y) == 0:
+                lado = (fx - px_) * (ay - by) - (fy - py_) * (ax - bx)
+                if t_ > 0.86:
+                    t = MET_L if lado < 0 else MET_S        # la VIROLA
+                elif abs(t_ - 0.30) < 0.03 or abs(t_ - 0.38) < 0.03 or abs(t_ - 0.70) < 0.03:
+                    t = MAD_S                                # las rayas del torneado
+                else:
+                    t = MAD_L if lado < 0 else MAD
+                cv.pon(x, y, t)
 
 
 def hoz_b(cv):
@@ -246,8 +340,7 @@ def cuchillo(cv):
 
 # (06/11) EL PICO: el de ARCO GRANDE (lo eligio el jefe; los otros se leian como punta de flecha). LA HOZ: abierta, con
 # la punta lejos del palo (cerrada sobre el mango "es muy cerrado hacia el palo"); A y B a la espera de que elija.
-HERRAMIENTAS = [("Pico (arco grande)", pico_d), ("Hacha de talar", hacha_talar), ("Hoz A: abierta", hoz_b),
-                ("Hoz B: mas grande", hoz_c), ("Caña", cana), ("Cuchillo", cuchillo)]
+HERRAMIENTAS = [("Pico (arco grande)", pico_d), ("Hacha de talar", hacha_grande_talar), ("Hoz (la de la foto)", hoz_ref), ("Hoz A: abierta", hoz_b), ("Caña", cana), ("Cuchillo", cuchillo)]
 
 
 def main():
