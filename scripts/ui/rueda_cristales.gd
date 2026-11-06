@@ -10,6 +10,7 @@
 # ============================================================
 
 extends CanvasLayer
+const HudEstilo = preload("res://scripts/ui/hud_estilo.gd")
 
 const RADIO := 150.0        # del corro, en unidades logicas de 1280
 const LADO_ICONO := 60.0
@@ -152,16 +153,29 @@ func _soltar(i: int, n: int) -> void:
 func _pintar() -> void:
 	var c := _centro()
 	_root.draw_rect(Rect2(Vector2.ZERO, _root.size), Color(0, 0, 0, 0.35))
-	_root.draw_circle(c, RADIO + RADIO_HUECO + 14.0, Color(MenuScaffold.FONDO, 0.82))
-	_root.draw_arc(c, RADIO + RADIO_HUECO + 14.0, 0.0, TAU, 96, Color(MenuScaffold.AMBAR, 0.35), 2.0)
+	# (06/11, rework visual: "el menu de la G, pixel art, no redondo como ahora") EN PIXEL: el fondo, un disco a escalones
+	# con su aro de hierro, y cada hueco un recuadro de pixel (el elegido, de bronce).
+	var px: bool = HudEstilo.es_pixel()
+	if px:
+		HudEstilo.disco_px(_root, c, RADIO + RADIO_HUECO + 14.0, Color(MenuScaffold.FONDO, 0.88), 4.0)
+		HudEstilo.aro_px(_root, c, RADIO + RADIO_HUECO + 14.0, 4.0, Color(0.32, 0.33, 0.37), 4.0)
+		HudEstilo.aro_px(_root, c, RADIO + RADIO_HUECO + 10.0, 2.0, Color(0.48, 0.48, 0.52), 2.0)
+	else:
+		_root.draw_circle(c, RADIO + RADIO_HUECO + 14.0, Color(MenuScaffold.FONDO, 0.82))
+		_root.draw_arc(c, RADIO + RADIO_HUECO + 14.0, 0.0, TAU, 96, Color(MenuScaffold.AMBAR, 0.35), 2.0)
 	var f: Font = ThemeDB.fallback_font
 	for i in _grupos.size():
 		var g: Dictionary = _grupos[i]
 		var p := _pos_hueco(i)
 		var elegido: bool = i == _sel
-		_root.draw_circle(p, RADIO_HUECO, Color(1, 1, 1, 0.16) if elegido else Color(1, 1, 1, 0.06))
-		if elegido:
-			_root.draw_arc(p, RADIO_HUECO, 0.0, TAU, 48, MenuScaffold.AMBAR, 2.0)
+		if px:
+			var lado: float = RADIO_HUECO * 2.0
+			_root.draw_style_box(HudEstilo.marco_px(Color(0.16, 0.16, 0.19) if elegido else Color(0.10, 0.10, 0.12), elegido),
+				Rect2((p - Vector2(lado, lado) * 0.5).floor(), Vector2(lado, lado)))
+		else:
+			_root.draw_circle(p, RADIO_HUECO, Color(1, 1, 1, 0.16) if elegido else Color(1, 1, 1, 0.06))
+			if elegido:
+				_root.draw_arc(p, RADIO_HUECO, 0.0, TAU, 48, MenuScaffold.AMBAR, 2.0)
 		IconoItem.pintar(_root, p - Vector2(0, 4), LADO_ICONO, g["modelo"], true)
 		var txt := "Cat %d · x%d" % [int(g["modelo"].categoria), int(g["n"])]
 		var tam := f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 14)

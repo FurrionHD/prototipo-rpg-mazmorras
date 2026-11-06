@@ -240,7 +240,7 @@ func _montar_abanico(padre: Control) -> void:
 		return
 	var titulo := Label.new()
 	titulo.text = "TAMBIÉN DESTACAN"
-	titulo.position = Vector2(22, 250)
+	titulo.position = Vector2(22, 232)   # (06/11) 18 px mas arriba, con las cartas: ver abajo
 	titulo.add_theme_font_size_override("font_size", 11)
 	titulo.add_theme_color_override("font_color", AMBAR)
 	padre.add_child(titulo)
@@ -248,7 +248,9 @@ func _montar_abanico(padre: Control) -> void:
 	# TRES COMO MUCHO: es un adorno que dice "de esta banda hay varios", no un catalogo. La lista
 	# entera esta en el modal de detalles, que es donde se va a mirar.
 	var cuantos: int = mini(3, epicos.size())
-	var centro := Vector2(120, 350)
+	# (06/11) 18 px mas arriba: las laterales, giradas, bajaban justo hasta el borde del lienzo (430) y con el marco de
+	# pixel se salian por debajo (lo vio el jefe). Asi acaban a ~412, dentro del marco.
+	var centro := Vector2(120, 332)
 	for i in cuantos:
 		var s: SpellData = epicos[i]
 		var mini_c := Control.new()
