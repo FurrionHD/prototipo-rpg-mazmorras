@@ -172,15 +172,15 @@ func _ficha(vb: VBoxContainer) -> void:
 		cols.add_child(col)
 		HerreriaForjar.ingrediente(t, col, par[0], par[1], int(par[2]) * cuantas, t.rebuild)
 	if tipo == ToolData.Tipo.LAMPARA:
-		t.note(vb, "El farolillo no lleva mango sino armazón, así que pide HEBILLAS en vez de tablón. Lo que sube no son golpes ahorrados sino el ALCANCE de la luz, que se encoge cuanto más hondo bajas.")
+		t.note(vb, "El farolillo no lleva mango sino armazón, así que pide hebillas en vez de tablón. Lo que sube no son golpes ahorrados sino el alcance de la luz, que se encoge cuanto más hondo bajas.")
 	else:
-		t.note(vb, "Cuenta el TIER del metal y también su VETA: las dos suben lo que te ayuda, y la veta además te ahorra golpes. El mango va a juego con la veta; no se elige.")
+		t.note(vb, "Cuenta el tier del metal y también su veta: las dos suben lo que te ayuda, y la veta además te ahorra golpes. El mango va a juego con la veta; no se elige.")
 
 	vb.add_child(HSeparator.new())
 	_rareza(vb, tipo, lingote, tab, cst, piezas, tier, banda, base_t)
 	vb.add_child(HSeparator.new())
 	if tipo == ToolData.Tipo.LAMPARA:
-		t.row(vb, "Llevas ahora", "alcance %.1f casillas" % Game.radio_lampara())
+		t.row(vb, "Llevas ahora", "alcance %s casillas" % StatusEffects.num(snappedf(Game.radio_lampara(), 0.1)))
 	else:
 		t.row(vb, "Llevas ahora", MenuScaffold.texto_efecto_herramienta(base_t,
 			Game.tool_mods(Game.herramienta_de_tipo(tipo))))
@@ -201,19 +201,19 @@ func _rareza(vb: VBoxContainer, tipo: int, lingote: MaterialData, tab: MaterialD
 			materiales.append(Game.score_uds(lote))
 		var tramos: Array = MenuScaffold.tramos_por_calidad(materiales, MAX_COLUMNAS_RAREZA)
 		if tramos.size() > 1:
-			MenuScaffold.titulo(vb, "RAREZA QUE PUEDE SALIR  ·  %d herramientas" % piezas, 13)
+			MenuScaffold.titulo(vb, "PROBABILIDAD DE CADA RAREZA  ·  %d herramientas" % piezas, 13)
 			HerreriaForjar.rejilla_rareza(t, vb, materiales, tramos,
 				Forge.bonus_herreria(Game.herreria_activa()), Forge.bonus_metal_veta(lingote),
 				efectos, "aporta")
 			return
-	MenuScaffold.titulo(vb, "RAREZA QUE PUEDE SALIR  ·  %s" % lingote.nombre, 13)
+	MenuScaffold.titulo(vb, "PROBABILIDAD DE CADA RAREZA  ·  %s" % lingote.nombre, 13)
 	var probs: Array = Forge.probs_rareza(Game.score_herramienta(lingote, _sel_met, _sel_tab))
 	# Cada rareza con lo que DA: con eso se ve para que sirve gastar metal bueno.
 	for i in probs.size():
 		var p: float = float(probs[i])
 		if p <= 0.0:
 			continue
-		t.row(vb, Upgrades.rareza_nombre(i), "%s%%   →  %s" % [str(snappedf(p * 100.0, 0.1)), efectos[i]],
+		t.row(vb, Upgrades.rareza_nombre(i), "%s %%   →  %s" % [StatusEffects.num(snappedf(p * 100.0, 0.1)), efectos[i]],
 			Upgrades.rareza_color(i))
 
 
@@ -221,8 +221,8 @@ func _rareza(vb: VBoxContainer, tipo: int, lingote: MaterialData, tab: MaterialD
 func _efecto(tipo: int, tier: int, banda: int, rareza: int, base_t: ToolData) -> String:
 	if tipo == ToolData.Tipo.LAMPARA:
 		var piso: int = maxi(1, Game.current_floor)
-		return "alcance %.1f casillas (piso %d)" % [
-			Lampara.radio(Lampara.potencia(tier, rareza, banda, 0), piso), piso]
+		return "alcance %s casillas (piso %d)" % [
+			StatusEffects.num(snappedf(Lampara.radio(Lampara.potencia(tier, rareza, banda, 0), piso), 0.1)), piso]
 	return MenuScaffold.texto_efecto_herramienta(base_t, Upgrades.tool_mods(tipo, tier, rareza, banda))
 
 

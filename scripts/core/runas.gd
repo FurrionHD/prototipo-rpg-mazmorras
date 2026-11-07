@@ -248,10 +248,10 @@ static func _gastar_runa(item: Resource) -> String:
 
 static func subir(item: Resource) -> String:
 	if subs_de(item).size() >= MAX_SUBS:
-		return "Ya tiene %d sub-stats." % MAX_SUBS
+		return "Ya tiene %d atributos secundarios." % MAX_SUBS
 	var clave: String = elegir_sub(item)
 	if clave == "":
-		return "No queda ninguna sub-stat posible."
+		return "No queda ningún atributo secundario posible."
 	var err: String = _gastar_runa(item)
 	if err != "":
 		return err
@@ -261,10 +261,10 @@ static func subir(item: Resource) -> String:
 static func cambiar(item: Resource, i: int) -> String:
 	var lista: Array = subs_de(item)
 	if i < 0 or i >= lista.size():
-		return "Elige una sub-stat."
+		return "Elige un atributo secundario."
 	var clave: String = elegir_sub(item, str(lista[i]["s"]))
 	if clave == "":
-		return "No hay otra sub-stat posible."
+		return "No hay otro atributo secundario posible."
 	var err: String = _gastar_runa(item)
 	if err != "":
 		return err
@@ -274,7 +274,7 @@ static func cambiar(item: Resource, i: int) -> String:
 static func retirar(item: Resource, i: int) -> String:
 	var lista: Array = subs_de(item)
 	if i < 0 or i >= lista.size():
-		return "Elige una sub-stat."
+		return "Elige un atributo secundario."
 	var err: String = _gastar_runa(item)
 	if err != "":
 		return err

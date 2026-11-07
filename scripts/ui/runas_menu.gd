@@ -55,7 +55,7 @@ const ORDENES := [
 	{"campo": "", "nombre": "Predeterminado"},
 	{"campo": "rareza", "nombre": "Rareza"},
 	{"campo": "tier", "nombre": "Tier"},
-	{"campo": "subs", "nombre": "Sub-stats"},
+	{"campo": "subs", "nombre": "Atributos secundarios"},
 	{"campo": "nombre", "nombre": "Nombre"},
 ]
 var _orden: Array = [{"campo": "", "desc": true}, {"campo": "", "desc": true}]
@@ -166,7 +166,7 @@ func _ficha_sin_set(vb: VBoxContainer, item: Resource) -> void:
 	MenuScaffold.titulo(vb, sd.nombre.to_upper(), 13)
 	note(vb, Runas.descripcion_set(sd))
 	if Runas.dos_manos(item):
-		note(vb, "Arma a dos manos: cuenta como 2 piezas del set y sus sub-stats valen el doble.")
+		note(vb, "Arma a dos manos: cuenta como 2 piezas del set y sus atributos secundarios valen el doble.")
 	vb.add_child(HSeparator.new())
 	MenuScaffold.titulo(vb, "LO QUE CUESTA ACTIVARLO", 13)
 	var fila := HFlowContainer.new()
@@ -175,7 +175,7 @@ func _ficha_sin_set(vb: VBoxContainer, item: Resource) -> void:
 	vb.add_child(fila)
 	_coste(fila, sd.material, sd.coste_material, Game.unidades_material_en_hogar(sd.material), " uds")
 	_coste(fila, sd.nucleo, sd.coste_nucleo, Game.nucleos_en_hogar(sd.nucleo), "")
-	note(vb, "Con el set activo, cada %s le pone una sub-stat (hasta %d), cambia una o re-tira su valor." % [
+	note(vb, "Con el set activo, cada %s le añade un atributo secundario (hasta %d), cambia uno o vuelve a tirar su valor." % [
 		sd.runa.nombre if sd.runa != null else "runa", Runas.MAX_SUBS])
 	var puede: bool = Runas.puede_activar(item, sd)
 	var pie: VBoxContainer = acciones()
@@ -192,7 +192,7 @@ func _ficha_con_set(vb: VBoxContainer, item: Resource, s: RunaSetData) -> void:
 	note(vb, Runas.descripcion_set(s))
 	var subs: Array = Runas.subs_de(item)
 	vb.add_child(HSeparator.new())
-	MenuScaffold.titulo(vb, "SUB-STATS  %d de %d" % [subs.size(), Runas.MAX_SUBS], 13)
+	MenuScaffold.titulo(vb, "ATRIBUTOS SECUNDARIOS  %d de %d" % [subs.size(), Runas.MAX_SUBS], 13)
 	if subs.is_empty():
 		note(vb, "Aún ninguna: cada runa le pone una al azar.")
 	else:
@@ -218,14 +218,14 @@ func _ficha_con_set(vb: VBoxContainer, item: Resource, s: RunaSetData) -> void:
 	var pie: VBoxContainer = acciones()
 	pie.add_child(HSeparator.new())
 	var lleno: bool = subs.size() >= Runas.MAX_SUBS
-	MenuScaffold.pastilla(pie, "Añadir sub-stat" if not lleno else "Ya tiene %d sub-stats" % Runas.MAX_SUBS,
-		func() -> void: _hacer(func() -> String: return Runas.subir(item), "Nueva sub-stat."), true, hay and not lleno)
+	MenuScaffold.pastilla(pie, "Añadir atributo secundario" if not lleno else "Ya tiene %d atributos secundarios" % Runas.MAX_SUBS,
+		func() -> void: _hacer(func() -> String: return Runas.subir(item), "Nuevo atributo secundario."), true, hay and not lleno)
 	if not subs.is_empty():
 		var i: int = _sub_idx
 		MenuScaffold.pastilla(pie, "Cambiar la elegida por otra",
-			func() -> void: _hacer(func() -> String: return Runas.cambiar(item, i), "Sub-stat cambiada."), false, hay)
-		MenuScaffold.pastilla(pie, "Re-tirar su valor",
-			func() -> void: _hacer(func() -> String: return Runas.retirar(item, i), "Valor re-tirado."), false, hay)
+			func() -> void: _hacer(func() -> String: return Runas.cambiar(item, i), "Atributo secundario cambiado."), false, hay)
+		MenuScaffold.pastilla(pie, "Volver a tirar su valor",
+			func() -> void: _hacer(func() -> String: return Runas.retirar(item, i), "Valor vuelto a tirar."), false, hay)
 	MenuScaffold.pastilla(pie, "Desencantar (las runas no vuelven)",
 		func() -> void: _hacer(func() -> String: return Runas.desencantar(item), "La pieza queda limpia."), false, true)
 
@@ -265,7 +265,7 @@ func _grupos() -> Array:
 		rarezas.append({"nombre": Upgrades.RAREZA_NOMBRE[r], "valor": r})
 	return [
 		{"clave": "set", "titulo": "SET", "opciones": sets},
-		{"clave": "subs", "titulo": "SUB-STATS", "opciones": [{"nombre": "Ninguna", "valor": 0}, {"nombre": "Una", "valor": 1},
+		{"clave": "subs", "titulo": "ATRIBUTOS SECUNDARIOS", "opciones": [{"nombre": "Ninguno", "valor": 0}, {"nombre": "Uno", "valor": 1},
 			{"nombre": "Dos", "valor": 2}, {"nombre": "Tres", "valor": 3}, {"nombre": "Cuatro", "valor": 4}]},
 		{"clave": "rareza", "titulo": "RAREZA", "opciones": rarezas},
 		{"clave": "tier", "titulo": "TIER", "opciones": [{"nombre": "T1", "valor": 1}, {"nombre": "T2", "valor": 2},

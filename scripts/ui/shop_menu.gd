@@ -653,7 +653,7 @@ func ficha_objeto(vb: VBoxContainer, m: Resource, cantidad: int = 0) -> void:
 	var pie: String = ("× %d" % cantidad) if cantidad > 1 else ""
 	if m is Cristal:
 		var c := m as Cristal
-		MenuScaffold.titulo(vb, "Cristal Cat %d (%s)" % [c.categoria, c.calidad_texto()], 16, AMBAR)
+		MenuScaffold.titulo(vb, "Cristal de categoría %d (%s)" % [c.categoria, c.calidad_texto()], 16, AMBAR)
 		MenuScaffold.banner_item(vb, c, pie, "Cristal")
 		row(vb, "Categoría", str(c.categoria))
 		row(vb, "Calidad", c.calidad_texto())
@@ -721,8 +721,8 @@ func _ficha_equipo(vb: VBoxContainer, m: Resource) -> void:
 		var wd := m as WandData
 		MenuScaffold.banner_item(vb, wd, "", "Varita")
 		var mg: Dictionary = Upgrades.magic_mods(wd.magic_amp, Game.tier_mult(tier), rareza, meta["mejoras"])
-		row(vb, "Amplificación mágica", "×%.2f" % float(mg["magic_amp"]))
-		row(vb, "Velocidad de recitado", "×%.2f" % (wd.cast_vel_mult + float(mg["cast_vel_add"])))
+		row(vb, "Amplificación mágica", "×%s" % StatusEffects.num(float(mg["magic_amp"])))
+		row(vb, "Velocidad de recitado", "×%s" % StatusEffects.num(wd.cast_vel_mult + float(mg["cast_vel_add"])))
 		for fila in MenuScaffold.filas_critico_magico(mg, wd.crit_bonus):
 			row(vb, fila[0], fila[1])
 	elif m is ArmorData:
@@ -903,7 +903,7 @@ func _preview_recompra(vb: VBoxContainer) -> void:
 	ficha_objeto(vb, s["modelo"])
 	vb.add_child(HSeparator.new())
 	row(vb, "Precio", "%d monedas" % precio, AMBAR)
-	note(vb, "Vuelve tal y como estaba, con su tier y sus mejoras, por lo mismo que te pagó. Al pasarse de %d, lo más viejo se pierde." % Game.RECOMPRA_MAX)
+	note(vb, "Vuelve tal y como estaba, con su tier y sus mejoras, por lo mismo que te pagó el tendero. Solo guarda las últimas %d piezas: las más viejas se pierden." % Game.RECOMPRA_MAX)
 	if not llego:
 		note(vb, "No te llega.")
 	var botones := HBoxContainer.new()

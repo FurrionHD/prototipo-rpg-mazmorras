@@ -140,7 +140,7 @@ func _ficha(vb: VBoxContainer) -> void:
 		col.add_theme_constant_override("separation", 2)
 		cols.add_child(col)
 		_ingrediente(col, mats[i], sels[i], int(uds[i]) * cuantas)
-	t.note(vb, "Puro = 4 unidades · intacto = 3 · normal = 2 · dañado = 1. Meter buen material no abarata la mochila: mejora la RAREZA, y con ella lo que te cabe dentro.")
+	t.note(vb, "Puro = 4 unidades · intacto = 3 · normal = 2 · dañado = 1. Meter buen material no abarata la mochila: mejora la rareza, y con ella lo que te cabe dentro.")
 
 	_rarezas(vb, heb, tier, mats, sels, uds, piezas)
 	_pie(heb, piezas)
@@ -172,16 +172,16 @@ func _ingrediente(vb: VBoxContainer, mat: MaterialData, sel: Dictionary, necesit
 	fila.add_child(col)
 	vb.add_child(fila)
 
-	# Si te pasas, decir lo que se gasta DE VERDAD (el resto se queda en el Hogar).
+	# Si te pasas, decir lo que se gasta DE VERDAD (el resto se queda en el hogar).
 	if puestas >= necesita and necesita > 0:
 		var gasto: Dictionary = Game.recortar_seleccion(sel, necesita)
 		var gastadas: int = Game.uds_seleccion(gasto)
 		var sobra: int = gastadas - necesita
 		var partes: PackedStringArray = []
 		if puestas > gastadas:
-			partes.append("se gastan %d uds y el resto se queda en el Hogar" % gastadas)
+			partes.append("se gastan %d unidades y el resto se queda en el hogar" % gastadas)
 		if sobra > 0:
-			partes.append("sobran %d uds del recorte: vuelven como %d dañado(s)" % [sobra, sobra])
+			partes.append("sobran %d unidades del recorte: vuelven como material dañado" % sobra)
 		if not partes.is_empty():
 			t.note(vb, "   " + "; ".join(partes) + ".")
 
@@ -204,7 +204,7 @@ func _ingrediente(vb: VBoxContainer, mat: MaterialData, sel: Dictionary, necesit
 			func(n: int) -> void: _set_sel(sel, ci, disp, n, false))
 		vb.add_child(r)
 	if not hubo:
-		t.note(vb, "   No tienes %s en el Hogar." % mat.nombre.to_lower())
+		t.note(vb, "   No tienes %s en el hogar." % mat.nombre.to_lower())
 
 
 # ============================================================
@@ -225,7 +225,7 @@ func _rarezas(vb: VBoxContainer, heb: MaterialData, tier: int, mats: Array, sels
 			materiales.append(Game.score_uds(lote))
 	var tramos: Array = MenuScaffold.tramos_por_calidad(materiales, MAX_COLUMNAS_RAREZA)
 	if piezas > 1 and tramos.size() > 1:
-		MenuScaffold.titulo(vb, "RAREZA QUE PUEDE SALIR  ·  %d mochilas, cada una con su material" % piezas, 13)
+		MenuScaffold.titulo(vb, "PROBABILIDAD DE CADA RAREZA  ·  %d mochilas, cada una con su material" % piezas, 13)
 		# La carga de cada rareza va en la ULTIMA columna de la misma rejilla, no en una tabla aparte
 		# debajo: separada, la lista de rarezas salia dos veces en la misma pantalla.
 		var cargas: Array = []
@@ -234,15 +234,15 @@ func _rarezas(vb: VBoxContainer, heb: MaterialData, tier: int, mats: Array, sels
 		_rejilla(vb, materiales, tramos, heb, cargas)
 		return
 	var score: float = Game.score_mochila(heb, _sel_heb, _sel_cor, _sel_cue)
-	MenuScaffold.titulo(vb, "RAREZA QUE PUEDE SALIR%s" % (
+	MenuScaffold.titulo(vb, "PROBABILIDAD DE CADA RAREZA%s" % (
 		"" if piezas <= 1 else "  ·  %d mochilas con el mismo material" % piezas), 13)
 	var probs: Array = Forge.probs_rareza(score)
 	for i in probs.size():
 		var p: float = float(probs[i])
 		if p <= 0.0:
 			continue
-		t.row(vb, Upgrades.rareza_nombre(i), "%s%%   →  +%.0f de carga" % [
-			str(snappedf(p * 100.0, 0.1)), _carga_de(tier, i)], Upgrades.rareza_color(i))
+		t.row(vb, Upgrades.rareza_nombre(i), "%s %%   →  +%.0f de carga" % [
+			StatusEffects.num(snappedf(p * 100.0, 0.1)), _carga_de(tier, i)], Upgrades.rareza_color(i))
 
 
 # La rejilla de una tanda: una columna por tramo de piezas iguales, una fila por rareza. Misma forma
@@ -265,7 +265,7 @@ func _rejilla(vb: VBoxContainer, materiales: Array, tramos: Array, heb: Material
 		# tope de score_final no le deja sumar), es siempre cero.
 		var p_t: int = roundi((Forge.score_final(mat_c, oficio, bono_metal)
 			- Forge.score_final(mat_c, oficio, 0.0)) * 100.0)
-		tier_pct.append("%+d%%" % p_t)
+		tier_pct.append("%+d %%" % p_t)
 		aporta = aporta or p_t != 0
 		var probs: Array = Forge.probs_rareza(Forge.score_final(mat_c, oficio, bono_metal))
 		probs_col.append(probs)
@@ -274,7 +274,7 @@ func _rejilla(vb: VBoxContainer, materiales: Array, tramos: Array, heb: Material
 				sale[i] = true
 	var filas: Array = [{"etiqueta": "calidad", "color": t.GRIS, "valores": calidad}]
 	if aporta:
-		filas.append({"etiqueta": "categoría", "color": t.GRIS, "valores": tier_pct})
+		filas.append({"etiqueta": "tier", "color": t.GRIS, "valores": tier_pct})
 	var rarezas: Array = sale.keys()
 	rarezas.sort()
 	for r in rarezas:
@@ -314,12 +314,12 @@ func _pie(heb: MaterialData, piezas: int) -> void:
 	MenuScaffold.stepper(fila, _cantidad, 1, 99, func(v: int) -> void: _cantidad = v)
 	var auto_mej := Button.new()
 	auto_mej.text = "Auto ▲"
-	auto_mej.tooltip_text = "Rellena empezando por el MEJOR material que tengas (puro, intacto...). Sube la rareza que puede salir."
+	auto_mej.tooltip_text = "Rellena empezando por el mejor material que tengas (puro, intacto...). Sube la rareza que puede salir."
 	auto_mej.pressed.connect(_on_auto.bind(true))
 	fila.add_child(auto_mej)
 	var auto_peor := Button.new()
 	auto_peor.text = "Auto ▼"
-	auto_peor.tooltip_text = "Rellena empezando por el PEOR material que tengas (dañado, normal...). Para gastar lo que sobra sin tocar lo bueno."
+	auto_peor.tooltip_text = "Rellena empezando por el peor material que tengas (dañado, normal...). Para gastar lo que sobra sin tocar lo bueno."
 	auto_peor.pressed.connect(_on_auto.bind(false))
 	fila.add_child(auto_peor)
 	var limpiar := Button.new()

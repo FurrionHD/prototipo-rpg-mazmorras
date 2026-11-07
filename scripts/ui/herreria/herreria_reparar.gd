@@ -73,11 +73,13 @@ func _ficha(vb: VBoxContainer, pj: PersonajeData) -> void:
 	var frac: float = Game.durabilidad_slot(slot, pj)
 	var maxd: float = Game.max_durabilidad(slot, pj)
 	# % (lo que manda para el precio) y los PUNTOS: el maximo sube con tier/rareza/mejoras.
-	t.row(vb, "Estado", "ROTO  (0 / %.1f)" % maxd if frac <= 0.0
-		else "%d%%  (%.1f / %.1f)" % [roundi(frac * 100.0), frac * maxd, maxd], Game.durabilidad_color(item))
+	t.row(vb, "Durabilidad", "%d %%  (%s / %s)" % [roundi(frac * 100.0), StatusEffects.num(snappedf(frac * maxd, 0.1)),
+		StatusEffects.num(snappedf(maxd, 0.1))], Game.durabilidad_color(item))
 	var precio: int = Game.precio_reparar(slot, pj)
 	t.row(vb, "Reparar", "%d monedas" % precio if precio > 0 else "A punto")
-	t.note(vb, "Gastado pega o protege menos, y roto se va a los suelos. La mejora de Durabilidad hace que aguante más y no encarece reparar.")
+	t.note(vb, ("Con la durabilidad baja, el arma inflige menos daño y la armadura protege menos: hasta un %d %% menos, "
+		+ "y un %d %% menos si llega a 0 %%. La mejora de Durabilidad hace que aguante más y no encarece reparar.") % [
+		roundi(Game.PENAL_MAX * 100.0), roundi(Game.PENAL_ROTO * 100.0)])
 	_pie(pj, p)
 
 

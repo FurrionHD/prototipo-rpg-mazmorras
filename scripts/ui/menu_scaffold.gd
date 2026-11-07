@@ -636,7 +636,7 @@ static func bloque_runas(vb: VBoxContainer, item: Resource, compacto: bool = fal
 		_linea_color(vb, "En el baúl: el set cuenta cuando alguien se la pone.", RUNA_GRIS, 11)
 	var subs: Array = Runas.subs_de(item)
 	if subs.is_empty():
-		_linea_color(vb, "Sin sub-stats todavía.", RUNA_GRIS, 11)
+		_linea_color(vb, "Sin atributos secundarios todavía.", RUNA_GRIS, 11)
 		return
 	# Las sub-stats: una por fila, o en DOS COLUMNAS si la ficha es ancha ('compacto', la herreria). La etiqueta con
 	# sitio para la mas larga ("Daño a mutantes y jefes") y SIN partir: partida en dos lineas se leia fatal.

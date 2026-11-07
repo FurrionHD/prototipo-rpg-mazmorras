@@ -86,7 +86,7 @@ func build() -> void:
 	for r in lista:
 		var rec: RecipeData = r as RecipeData
 		var llevas: int = int(Game.consumables.get(rec.resultado, 0))
-		# EL NUMERO ES CUANTAS PUEDES HACER con lo que hay en el Hogar, no cuantas llevas (lo pidio el
+		# EL NUMERO ES CUANTAS PUEDES HACER con lo que hay en el hogar, no cuantas llevas (lo pidio el
 		# usuario, igual en todos los talleres). A 0, apagada pero se puede elegir.
 		var salen: int = _cuantas_salen(rec)
 		piezas.append({"item": rec.resultado, "pie": "x%d" % salen,
@@ -302,16 +302,16 @@ func _ingrediente(vb: VBoxContainer, i: int, mat: MaterialData, necesita: int) -
 	fila.add_child(col)
 	vb.add_child(fila)
 
-	# Si te pasas, decir lo que se gasta DE VERDAD (el resto se queda en el Hogar).
+	# Si te pasas, decir lo que se gasta DE VERDAD (el resto se queda en el hogar).
 	if puestas >= necesita and necesita > 0:
 		var gasto: Dictionary = Game.recortar_seleccion(sel, necesita)
 		var gastadas: int = Game.uds_seleccion(gasto)
 		var sobra: int = gastadas - necesita
 		var partes: PackedStringArray = []
 		if puestas > gastadas:
-			partes.append("se gastan %d uds y el resto se queda en el Hogar" % gastadas)
+			partes.append("se gastan %d unidades y el resto se queda en el hogar" % gastadas)
 		if sobra > 0:
-			partes.append("sobran %d uds del recorte: vuelven como %d dañado(s)" % [sobra, sobra])
+			partes.append("sobran %d unidades del recorte: vuelven como material dañado" % sobra)
 		if not partes.is_empty():
 			t.note(vb, "; ".join(partes) + ".")
 
@@ -334,7 +334,7 @@ func _ingrediente(vb: VBoxContainer, i: int, mat: MaterialData, necesita: int) -
 			func(n: int) -> void: _set_sel(i, ci, n, false))
 		vb.add_child(r)
 	if not hubo:
-		t.note(vb, "No tienes en el Hogar.")
+		t.note(vb, "No tienes ninguno en el hogar.")
 
 
 # ============================================================
@@ -351,20 +351,20 @@ func _doble(vb: VBoxContainer, r: RecipeData, hornadas: int) -> void:
 	var pieza: String = t.pieza_txt()
 	if probs.size() <= 1:
 		var prob: float = float(probs[0]) if probs.size() == 1 else Game.prob_doble_desde_seleccion(r, gasto)
-		MenuScaffold.titulo(vb, "SALE DOBLE", 13)
+		MenuScaffold.titulo(vb, "PROBABILIDAD DE QUE SALGA DOBLE", 13)
 		var l := Label.new()
-		l.text = "%d%%  por %s" % [roundi(prob * 100.0), pieza]
+		l.text = "%d %%  por %s" % [roundi(prob * 100.0), pieza]
 		l.add_theme_color_override("font_color", t.VERDE if prob > 0.0 else t.GRIS)
 		vb.add_child(l)
 		return
-	MenuScaffold.titulo(vb, "SALE DOBLE  ·  cada %s con su material" % pieza, 13)
+	MenuScaffold.titulo(vb, "PROBABILIDAD DE QUE SALGA DOBLE  ·  cada %s con su material" % pieza, 13)
 	var claves: Array = []
 	for p in probs:
 		claves.append(roundi(float(p) * 100.0))
 	for tramo in MenuScaffold.tramos_iguales(claves):
 		var p2: float = float(probs[int(tramo["i"])])
 		var l2 := Label.new()
-		l2.text = "%s  ·  %d%%" % [
+		l2.text = "%s  ·  %d %%" % [
 			MenuScaffold.etiqueta_tramo(tramo, pieza.capitalize(), t.pieza_txt(2).capitalize()),
 			roundi(p2 * 100.0)]
 		l2.add_theme_color_override("font_color", t.VERDE if p2 > 0.0 else t.GRIS)
@@ -387,12 +387,12 @@ func _pie(r: RecipeData, hornadas: int) -> void:
 	MenuScaffold.stepper(fila, _cantidad, 1, 99, func(v: int) -> void: _cantidad = v)
 	var auto_mej := Button.new()
 	auto_mej.text = "Auto ▲"
-	auto_mej.tooltip_text = "Rellena empezando por el MEJOR material que tengas (puro, intacto...). Más probabilidad de que salga doble."
+	auto_mej.tooltip_text = "Rellena empezando por el mejor material que tengas (puro, intacto...). Más probabilidad de que salga doble."
 	auto_mej.pressed.connect(_on_auto.bind(true))
 	fila.add_child(auto_mej)
 	var auto_peor := Button.new()
 	auto_peor.text = "Auto ▼"
-	auto_peor.tooltip_text = "Rellena empezando por el PEOR material que tengas (dañado, normal...). Para gastar lo que sobra sin tocar lo bueno."
+	auto_peor.tooltip_text = "Rellena empezando por el peor material que tengas (dañado, normal...). Para gastar lo que sobra sin tocar lo bueno."
 	auto_peor.pressed.connect(_on_auto.bind(false))
 	fila.add_child(auto_peor)
 	var limpiar := Button.new()

@@ -64,7 +64,7 @@ func _correr() -> void:
 		var p: Node2D = suelo[0]
 		_ok(p.global_position.y > yo.global_position.y + 20.0, "cae DELANTE (mira abajo): %s" % p.global_position)
 		var txt: String = load("res://scripts/actors/player/player.gd").texto_interaccion(p)
-		_ok(txt == "Recoger Cristal Cat 1 (Normal)", "el cartel dice: '%s'" % txt)
+		_ok(txt == "Recoger Cristal de categoría 1 (Normal)", "el cartel dice: '%s'" % txt)
 	r._soltar(r._grupos.find_custom(func(g): return g["n"] == 6), 5)
 	_ok(Game.cristales.total() == 4, "mayus+clic suelta cinco")
 	while r.abierta():

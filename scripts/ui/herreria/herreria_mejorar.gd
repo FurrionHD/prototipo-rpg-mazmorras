@@ -210,10 +210,10 @@ func _ficha(vb: VBoxContainer) -> void:
 		var n_dur: int = int(mj.get(Upgrades.DURABILIDAD, 0))
 		var nuevo_max: float = maxd / (1.0 + float(n_dur) * Game.DURABILIDAD_MEJORA_PCT) \
 			* (1.0 + float(n_dur + 1) * Game.DURABILIDAD_MEJORA_PCT)
-		delta = "+%d pts máx" % round(nuevo_max - maxd)
-	_atributo(rejilla, "Durabilidad", "%d/%d (%d%%)" % [round(frac * maxd), round(maxd), round(frac * 100.0)], delta)
+		delta = "+%d de durabilidad máxima" % round(nuevo_max - maxd)
+	_atributo(rejilla, "Durabilidad", "%d / %d (%d %%)" % [round(frac * maxd), round(maxd), round(frac * 100.0)], delta)
 	MenuScaffold.bloque_runas(vb, item, true)   # sus runas (mejorar no las toca), compactas
-	t.note(vb, "El núcleo lo elige el sistema por el nivel de la pieza, y dentro de su tramo cada mejora cuesta uno más. Gasta también material de su tier, del peor que tengas: la rareza ya está echada.")
+	t.note(vb, "El núcleo que pide depende del nivel de la pieza, y dentro de su tramo cada mejora cuesta uno más. Gasta también material de su tier, del peor que tengas: la rareza ya está echada.")
 
 	var puede: bool = nucleo != null and Game.puede_mejorar(item, nucleo)
 	var txt: String = "Al máximo que permite la rareza (+%d)" % por_rareza
@@ -288,13 +288,13 @@ func _farol(vb: VBoxContainer, item: Resource, nucleo: MaterialData, al_tope: bo
 	var ahora: float = Lampara.radio(Lampara.potencia(tier, rar, banda, mej), piso)
 	var luego: float = Lampara.radio(Lampara.potencia(tier, rar, banda, mej + 1), piso)
 	vb.add_child(HSeparator.new())
-	_atributo(vb, "Luz", "%.1f casillas en el piso %d" % [ahora, piso],
-		"" if al_tope else "→ %.1f" % luego)
-	t.note(vb, "El farolillo se mejora A SECAS: cada mejora sube la potencia de la luz. Pide UN núcleo de cada rama de la banda que le toque, más un poco de metal, y el coste no sube con el nivel.")
+	_atributo(vb, "Luz", "%s casillas en el piso %d" % [StatusEffects.num(snappedf(ahora, 0.1)), piso],
+		"" if al_tope else "→ %s" % StatusEffects.num(snappedf(luego, 0.1)))
+	t.note(vb, "El farolillo se mejora a secas: cada mejora sube la potencia de la luz. Pide un núcleo de cada rama de la banda que le toque, más un poco de metal, y el coste no sube con el nivel.")
 	var puede: bool = nucleo != null and Game.puede_mejorar(item, nucleo)
 	var txt: String = "Al máximo que permite la rareza (+%d)" % Upgrades.rareza_slots(rar)
 	if not al_tope:
-		txt = "Mejorar  →  %.1f casillas" % luego if puede else "Te falta material o alguno de los dos núcleos"
+		txt = "Mejorar  →  %s casillas" % StatusEffects.num(snappedf(luego, 0.1)) if puede else "Te falta material o alguno de los dos núcleos"
 	var pie: VBoxContainer = t.acciones()
 	pie.add_child(HSeparator.new())
 	MenuScaffold.pastilla(pie, txt, func() -> void: _mejorar(item, Upgrades.LUMINOSIDAD), true, puede)
@@ -322,7 +322,7 @@ func _on_cat(i: int) -> void:
 func _mejorar(item: Resource, cat: String) -> void:
 	var nucleo: MaterialData = Game.nucleo_auto(item)
 	if nucleo == null:
-		t.decir("No se pudo mejorar.", false)
+		t.decir("No se ha podido mejorar.", false)
 		return
 	if not await Net.hogar.abrir_taller():
 		t.ocupado()
@@ -332,9 +332,9 @@ func _mejorar(item: Resource, cat: String) -> void:
 	Net.hogar.cerrar_taller()
 	if ok:
 		if cat == Upgrades.LUMINOSIDAD:
-			t.decir("El %s alumbra más: %.1f casillas." % [str(item.get("nombre")).to_lower(), Game.radio_lampara()])
+			t.decir("El %s alumbra más: %s casillas." % [str(item.get("nombre")).to_lower(), StatusEffects.num(snappedf(Game.radio_lampara(), 0.1))])
 		else:
 			t.decir("%s ahora es %s." % [Upgrades.cat_nombre(cat), Game.item_display_name(item)])
 	else:
-		t.decir("No se pudo mejorar.", false)
+		t.decir("No se ha podido mejorar.", false)
 	t.rebuild()

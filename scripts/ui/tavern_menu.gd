@@ -11,11 +11,11 @@
 #  Los siguientes llegan A CERO y DESNUDOS: nivel 1, las cinco habilidades a 0 y sin equipo.
 #
 #  REHECHA el 16/09/2026 con la cara del inventario, sobre la base de los talleres (taller_menu.gd):
-#  arriba los retratos de TU GENTE (quien baja y quien se queda en el Hogar), en la rejilla las armas
+#  arriba los retratos de TU GENTE (quien baja y quien se queda en el hogar), en la rejilla las armas
 #  a elegir cuando toca regalo, y en la ficha el trato con el boton en el pie.
 #
 #  Aqui NO se despide a nadie: quien ficha se queda para siempre en la PLANTILLA. Quien BAJA
-#  contigo (como mucho Game.PARTY_MAX) se decide en el Hogar, en el gestor de equipo.
+#  contigo (como mucho Game.PARTY_MAX) se decide en el hogar, en el gestor de equipo.
 # ============================================================
 
 extends "res://scripts/ui/taller_menu.gd"
@@ -70,7 +70,7 @@ func _pintar() -> void:
 		grid_detail(piezas, _ficha_gratis)
 	else:
 		stacks = []
-		MenuScaffold.nota(_lista, "El arma de regalo era para el primero. Los que vengan ahora llegan sin nada: equípalos desde el menú de personaje (C).")
+		MenuScaffold.nota(_lista, "El arma de regalo era para el primero. Los que vengan ahora llegan sin nada: equípalos desde el menú de personaje [C].")
 		_cols_pintadas = _columnas()
 		_ficha_pago(_content)
 
@@ -81,7 +81,7 @@ func _pintar() -> void:
 
 func _ficha_gratis(vb: VBoxContainer) -> void:
 	var base: Resource = stacks[sel]
-	MenuScaffold.titulo_item(vb, "Tu primer compañero  ·  GRATIS", AMBAR)
+	MenuScaffold.titulo_item(vb, "Tu primer compañero  ·  gratis", AMBAR)
 	MenuScaffold.banner_item(vb, _vitrina(base), "", "Trae de regalo")
 	vb.add_child(HSeparator.new())
 	row(vb, "Cuesta", "Nada: el primero es gratis", VERDE)
@@ -89,7 +89,7 @@ func _ficha_gratis(vb: VBoxContainer) -> void:
 		Upgrades.rareza_nombre(Upgrades.Rareza.COMUN)])
 	_filas_comunes(vb)
 	note(vb, "Elige su arma aquí al lado: así no baja a puños. Después eliges su nombre y su aspecto.")
-	note(vb, "Los siguientes ya se pagan: el segundo cuesta %d monedas, y cada uno cuesta el doble que el anterior. Se paga UNA vez: no hay sueldos ni cuotas." % roundi(Game.PRECIO_FICHAR_BASE * Game.PRECIO_FICHAR_MULT))
+	note(vb, "Los siguientes ya se pagan: el segundo cuesta %d monedas, y cada uno cuesta el doble que el anterior. Se paga una vez: no hay sueldos ni cuotas." % roundi(Game.PRECIO_FICHAR_BASE * Game.PRECIO_FICHAR_MULT))
 	var pie: VBoxContainer = acciones()
 	pie.add_child(HSeparator.new())
 	MenuScaffold.pastilla(pie, "Contratar gratis con %s" % str(base.get("nombre")).to_lower(),
@@ -103,8 +103,8 @@ func _ficha_pago(vb: VBoxContainer) -> void:
 	row(vb, "Cuesta", "%d monedas" % precio, VERDE if Game.puede_pagar(precio) else ROJO)
 	row(vb, "Tienes", "%d monedas" % Game.money)
 	_filas_comunes(vb)
-	note(vb, "Cada contrato cuesta el doble que el anterior. Se paga UNA vez: no hay sueldos ni cuotas, pero armar y reparar a tres cuesta lo que cuesta.")
-	note(vb, "Llega a nivel 1, con las cinco habilidades a 0 y sin nada equipado. Se le pone equipo desde el menú de personaje (C) y sube sus habilidades peleando, como tú.")
+	note(vb, "Cada contrato cuesta el doble que el anterior. Se paga una vez: no hay sueldos ni cuotas, pero armar y reparar a tres cuesta lo que cuesta.")
+	note(vb, "Llega a nivel 1, con las cinco habilidades a 0 y sin nada equipado. Se le pone equipo desde el menú de personaje [C] y sube sus habilidades peleando, como tú.")
 	var pie: VBoxContainer = acciones()
 	pie.add_child(HSeparator.new())
 	var txt: String = "Contratar por %d monedas" % precio
@@ -118,7 +118,7 @@ func _filas_comunes(vb: VBoxContainer) -> void:
 	row(vb, "En plantilla", "%d" % Game.plantilla.size())
 	row(vb, "Bajan contigo", "%d de %d" % [Game.party.size(), Game.PARTY_MAX])
 	if Game.party.size() >= Game.PARTY_MAX:
-		note(vb, "Tu equipo ya va lleno: quien contrates ahora se queda en el Hogar hasta que lo metas en el equipo desde allí.")
+		note(vb, "Tu equipo ya va lleno: quien contrates ahora se queda en el hogar hasta que lo metas en el equipo desde allí.")
 
 
 func _abrir_creador(arma: Resource) -> void:
@@ -137,7 +137,7 @@ func _abrir_creador(arma: Resource) -> void:
 				decir("%s se une al grupo%s. Baja contigo desde ya." % [pj.nombre,
 					" con su arma puesta" if pj.equipped_main != null else ""])
 			else:
-				decir("%s se une, pero tu equipo va lleno: te espera en el Hogar." % pj.nombre)
+				decir("%s se une, pero tu equipo va lleno: te espera en el hogar." % pj.nombre)
 			sel = 0
 			_rebuild())
 

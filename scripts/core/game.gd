@@ -13614,7 +13614,7 @@ func _sacar_de_bolsa(modelo: Resource) -> Resource:
 func _nombre_item(item: Resource) -> String:
 	if item is Cristal:
 		var c := item as Cristal
-		return "Cristal Cat %d (%s)" % [c.categoria, c.calidad_texto()]
+		return "Cristal de categoría %d (%s)" % [c.categoria, c.calidad_texto()]
 	if item is MaterialItem:
 		var m := item as MaterialItem
 		return "%s (%s)" % [m.nombre(), m.calidad_texto()]

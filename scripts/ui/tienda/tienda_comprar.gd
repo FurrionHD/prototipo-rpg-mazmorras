@@ -212,7 +212,7 @@ func _ficha(vb: VBoxContainer) -> void:
 		SUB_MOCHILAS:
 			t.note(vb, "La única que se compra hecha: las buenas (más carga) se cosen en la peletería.")
 		SUB_CONSUMIBLES:
-			t.note(vb, "Comprarlas sale caro: si puedes, fabrícalas en la Boticaria con lo que traigas de la mazmorra.")
+			t.note(vb, "Comprarlas sale caro: si puedes, fabrícalas en la boticaria con lo que traigas de la mazmorra.")
 	var tope: int = TOPE_PUNADO if (base is ConsumableData or base is MaterialData) else TOPE_EQUIPO
 	t.fila_accion(tope, precio, "Comprar",
 		func(n: int): _comprar([{"base": base, "tier": int(s["tier"]), "n": n}], n, nombre_de(s)),
@@ -281,7 +281,7 @@ func _comprar(entradas: Array, n: int, nombre: String) -> void:
 		t.decir("No te llega para %s." % nombre, false)
 	else:
 		var equipo: bool = not (entradas[0]["base"] is ConsumableData or entradas[0]["base"] is MaterialData)
-		t.decir(("Compras %d x %s por %d monedas." % [n, nombre, cobrado] if n > 1
+		t.decir(("Compras %s ×%d por %d monedas." % [nombre, n, cobrado] if n > 1
 			else "Compras %s por %d monedas." % [nombre, cobrado])
 			+ (" Está en tu baúl: equípalo en el menú de personaje [C]." if equipo else ""))
 	t.cant = -1

@@ -120,10 +120,10 @@ func _primero_util(montones: Array) -> int:
 
 func _vacio(modo: int) -> String:
 	if modo == Modo.HILAR:
-		return "No tienes plantas guardadas en el Hogar. Se recogen con la hoz en la mazmorra."
+		return "No tienes plantas guardadas en el hogar. Se recogen con la hoz en la mazmorra."
 	if modo != Modo.CURTIR:
 		return "No tienes cuero curtido. Cúrtelo primero en la pestaña Curtir."
-	return "No tienes pieles guardadas en el Hogar. Las sueltan los bichos con pelo; guárdalas al volver."
+	return "No tienes pieles guardadas en el hogar. Las sueltan los bichos con pelo; guárdalas al volver."
 
 
 # ============================================================
@@ -318,7 +318,7 @@ func _refinar(modo: int, s: Dictionary) -> void:
 	Net.hogar.cerrar_taller()
 	if n > 0:
 		t.decir("Sacas %d %s de calidad %s." % [n,
-			["cuero(s)", "correa(s)", "cuerda(s)", "tela(s)"][modo], t.cal_txt(int(s["cal"])).to_lower()])
+			(["cuero", "correa", "cuerda", "tela"][modo] + ("" if n == 1 else "s")), t.cal_txt(int(s["cal"])).to_lower()])
 	else:
 		t.decir("No te llega el material.", false)
 	# El montón se ha encogido (o ha desaparecido): la cantidad vuelve a salir del nuevo máximo.

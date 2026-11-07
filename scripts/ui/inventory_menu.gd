@@ -591,7 +591,7 @@ func _clave_item(it: Resource) -> String:
 func _nombre_item(it: Resource) -> String:
 	if it is Cristal:
 		var c := it as Cristal
-		return "Cristal Cat %d\n(%s)" % [c.categoria, c.calidad_texto()]
+		return "Cristal de categoría %d\n(%s)" % [c.categoria, c.calidad_texto()]
 	if it is MaterialItem:
 		var m := it as MaterialItem
 		# nombre_mostrado() lleva ya la talla y la corona del record; en todo lo que no es pescado

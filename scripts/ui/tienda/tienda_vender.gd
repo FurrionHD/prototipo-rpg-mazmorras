@@ -201,7 +201,7 @@ func _pieza(s: Dictionary) -> Dictionary:
 		marca = "Cesta %d" % apuntado if n > 1 else "Cesta"
 	elif m is ConsumableData and Game.cebo_activo == m:
 		marca = "PUESTO"
-	return t.pieza(m, pie, "%s  x%d" % [nombre_de(s), n] if n > 1 else nombre_de(s), marca)
+	return t.pieza(m, pie, "%s  ×%d" % [nombre_de(s), n] if n > 1 else nombre_de(s), marca)
 
 
 # Una pieza de equipo (cualquiera de las seis clases).
@@ -224,11 +224,11 @@ func _ficha(vb: VBoxContainer) -> void:
 		"cofre", "cofre_c":
 			t.note(vb, "Sale del cofre del hogar." + (" Lo concede el anfitrión: se cobra al llegar." if Net._soy_cliente() else ""))
 		"hogar":
-			t.note(vb, "Sale del baúl del hogar. Lo que vendas hoy te tocará farmearlo mañana para craftear.")
+			t.note(vb, "Sale del baúl del hogar. Lo que vendas hoy tendrás que bajar a buscarlo mañana para fabricar.")
 		"equipo":
 			t.note(vb, "Si te arrepientes, lo recompras por lo mismo en la pestaña Recomprar (guarda los últimos %d)." % Game.RECOMPRA_MAX)
 	if m is ConsumableData and (m as ConsumableData).es_grimorio():
-		t.note(vb, "Ojo: el tendero no vende grimorios. Uno que sueltes aquí no se recupera.")
+		t.note(vb, "Ojo: el tendero no vende grimorios. Uno que vendas aquí no se recupera.")
 	t.fila_accion(n, precio, "Vender",
 		func(cuantas: int): _vender_uno(s, cuantas),
 		func(cuantas: int):
@@ -391,7 +391,7 @@ func nombre_de(s: Dictionary) -> String:
 	var m: Resource = s["modelo"]
 	if m is Cristal:
 		var c := m as Cristal
-		return "Cristal Cat %d (%s)" % [c.categoria, c.calidad_texto()]
+		return "Cristal de categoría %d (%s)" % [c.categoria, c.calidad_texto()]
 	if m is MaterialItem:
 		var mi := m as MaterialItem
 		return "%s (%s)" % [mi.nombre_mostrado(), mi.calidad_texto()]
@@ -405,7 +405,7 @@ func nombre_corto(s: Dictionary) -> String:
 	if m is MaterialItem and (m as MaterialItem).data != null:
 		return (m as MaterialItem).nombre_mostrado()
 	if m is Cristal:
-		return "Cristal Cat %d" % (m as Cristal).categoria
+		return "Cristal de categoría %d" % (m as Cristal).categoria
 	var n: Variant = m.get("nombre")
 	return str(n) + Game.item_plus(m) if n != null else nombre_de(s)
 
@@ -520,7 +520,7 @@ func pie_extra(barra: HBoxContainer) -> void:
 	var total: int = 0
 	for c in Game.cristales.montones():
 		total += Game.precio_venta_item(c) * int(c.n)
-	MenuScaffold.pastilla(barra, "Vender cristales (%d → %d)" % [Game.cristales.total(), total], func():
+	MenuScaffold.pastilla(barra, "Vender los %d cristales por %d monedas" % [Game.cristales.total(), total], func():
 		var n: int = Game.cristales.total()
 		var cobrado: int = Game.vender_todos_cristales()
 		t.decir("Vendes %d cristales por %d monedas." % [n, cobrado])
@@ -536,7 +536,7 @@ func _vender_uno(s: Dictionary, n: int) -> void:
 	var nombre: String = nombre_de(s)
 	var cobrado: int = await _vender(s, n)
 	if cobrado > 0:
-		t.decir("Vendes %d x %s por %d monedas." % [n, nombre, cobrado] if n > 1 else "Vendes %s por %d monedas." % [nombre, cobrado])
+		t.decir("Vendes %s ×%d por %d monedas." % [nombre, n, cobrado] if n > 1 else "Vendes %s por %d monedas." % [nombre, cobrado])
 	elif cobrado == 0:
 		t.decir("No se ha podido vender %s." % nombre, false)
 	t.cant = -1
