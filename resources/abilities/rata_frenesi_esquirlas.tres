@@ -11,7 +11,7 @@ prob = 0.45
 [resource]
 script = ExtResource("1")
 nombre = "Frenesí de esquirlas"
-descripcion = "ATAQUE DE CARGA: se lanza encima y, al caer, le revientan los cristales del lomo en un anillo de esquirlas. Menos mordiscos, pero cada uno corta más. Aturdirla mientras se prepara corta el frenesí."
+descripcion = "Ataque de carga: se lanza encima y, al caer, le revientan los cristales del lomo en un anillo de esquirlas. Menos mordiscos, pero cada uno corta más. Aturdirla mientras se prepara corta el frenesí."
 coste_energia = 0.0
 golpes_min = 4
 golpes_max = 4

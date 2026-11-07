@@ -24,7 +24,7 @@ elemento_req = 3
 [resource]
 script = ExtResource("1")
 nombre = "Tormenta"
-frases = Array[String](["Fulgor, desciende del cielo", "Truenos, romped el silencio", "El viento aullara conmigo"])
+frases = Array[String](["Fulgor, desciende del cielo", "Truenos, romped el silencio", "El viento aullará conmigo"])
 rareza = 4
 coste_mana = 15
 dano_base = 51.84
@@ -37,7 +37,7 @@ elemento_mix = {
 alcance = 1
 dano_salpicon = 1.0
 dispersa = true
-descripcion = "Se abre el cielo. La lluvia cae a cántaros sobre TODOS y, entre ella, los rayos saltan sin rumbo buscando lo que ya está empapado. Nadie elige dónde cae cada gota ni cada trueno."
+descripcion = "Se abre el cielo. La lluvia cae a cántaros sobre todos y, entre ella, los rayos saltan sin rumbo buscando lo que ya está empapado. Nadie elige dónde cae cada gota ni cada trueno."
 efectos = [SubResource("SA_mojado"), SubResource("SA_electrizado"), SubResource("SA_stun")]
 ; LA FORMA EN EL MAPA (26/09, su decision): circulo r110 LIBRE con la nube encima: los 20 golpes caen al azar
 ; entre los de DENTRO, y los rayos salpican a los que esten a forma_salpicon px del que reciben.

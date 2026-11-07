@@ -249,7 +249,7 @@ func comprobar_steam(tengo_mundos: bool, steam_falso := 0, nombre_falso := "") -
 		steam_nombre = String(st.getPersonaName())
 	var r: Dictionary = await Nube.vinculo_leer(steam_id)
 	if not r.get("ok", false):
-		return {"caso": "sin_red", "mensaje": String(r.get("mensaje", "No se pudo mirar tu cuenta de Steam."))}
+		return {"caso": "sin_red", "mensaje": String(r.get("mensaje", "No se ha podido mirar tu cuenta de Steam."))}
 	vinculo = String(r.get("id", ""))
 	_clave_vinculo = String(r.get("clave", ""))
 	if vinculo == id:

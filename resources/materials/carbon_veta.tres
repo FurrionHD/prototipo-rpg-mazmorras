@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1")
 id = &"carbon_veta"
-nombre = "Carbon de veta"
-descripcion = "Madera de veta quemada despacio. La veta apretada aguanta mas la brasa: medio minuto mas de luz por trozo, que en un pasillo largo se agradece."
+nombre = "Carbón de veta"
+descripcion = "Madera de veta quemada despacio. La veta apretada aguanta más la brasa: medio minuto más de luz por trozo, que en un pasillo largo se agradece."
 familia = 0
 tipo = 11
 tier = 1

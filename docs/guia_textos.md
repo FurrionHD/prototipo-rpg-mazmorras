@@ -17,6 +17,8 @@ Si una frase se puede leer de dos maneras, está mal.
    - **En habilidades, «quien la usa»** (HSR pone el nombre del personaje; nosotros no tenemos uno
      fijo): «Quien la usa obtiene Fortaleza durante 3 turnos (Ataque +25 %)». El daño, «del daño
      de un ataque básico». Nada de «CD»: «se recarga en 3 turnos».
+   - **En pasivas y desarrollos, «quien la tiene»** (decidido 07/11; salen también en la ficha de los
+     compañeros): «Quien la tiene esquiva mejor en combate».
    - **A quien se le echa, como HSR: «un aliado» y después «ese aliado»** (decidido 06/11 tras
      contarlo en los textos oficiales, ver sección 4): «Otorga Fortaleza a un aliado durante 3
      turnos», «Los golpes de ese aliado infligen…». «Todos los aliados» si va a todos. A un
@@ -146,3 +148,5 @@ probabilidad base de causarla. El daño de las Quemaduras que causa el portador 
 | Estados (ficha del chip en tercera persona, coletillas, chip de la imbuición, sabor) | Hecho 06/11 |
 | Menús y avisos (todos los menús, avisos del HUD y de la red, chips de estado, barras con coma; revisor `tools/volcar_cadenas_ui.py --revisar`) | Hecho 07/11 |
 | Log de combate (frases; números con coma y sin ceros: `CombatPantalla._n`) | Hecho 06/11 |
+| Fuera de `scripts/ui` (pasivas y desarrollos con «quien la tiene», slayers sacados de `dmg_vs`/`dmg_from`, pesos y tallas con coma, «versión del juego» en vez de «build», «No se ha podido») | Hecho 07/11 |
+| Tildes del sabor (grimorios, carbones, flechas y virotes, materiales), «Ataque de carga:» sin gritar, nombres (Carbón…, Micónido) y frases mágicas con tilde (se comparan con `SpellBook.normalizar`, que las quita) | Hecho 07/11 |

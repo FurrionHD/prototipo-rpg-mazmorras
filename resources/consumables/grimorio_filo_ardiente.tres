@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1")
 nombre = "Grimorio: Filo ardiente"
-descripcion = "Un tomo con las paginas marcadas por lineas de hollin, como tajos. Estudialo y aprenderas Filo ardiente."
+descripcion = "Un tomo con las páginas marcadas por líneas de hollín, como tajos. Estúdialo y aprenderás Filo ardiente."
 cura_total = 0.0
 turnos = 1
 segundos = 1.0

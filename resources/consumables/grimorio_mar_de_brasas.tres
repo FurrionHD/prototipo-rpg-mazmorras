@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1_qu7wy")
 nombre = "Grimorio: Mar de brasas"
-descripcion = "Un tomo con las tapas requemadas por abajo, como si lo hubieran dejado sobre un rescoldo. El calor sube por las paginas y no llega arriba. Estudialo y aprenderas Mar de brasas."
+descripcion = "Un tomo con las tapas requemadas por abajo, como si lo hubieran dejado sobre un rescoldo. El calor sube por las páginas y no llega arriba. Estúdialo y aprenderás Mar de brasas."
 cura_total = 0.0
 turnos = 1
 segundos = 1.0

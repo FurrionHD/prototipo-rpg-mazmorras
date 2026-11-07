@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1_6fwq0")
 nombre = "Grimorio: Manto prismático"
-descripcion = "Un tomo cuyas tapas cambian de color segun quien lo tenga en la mano, y nunca dos veces el mismo. La primera pagina esta en blanco a proposito: hay un hueco donde deberia decir de que es. Estudialo y aprenderas Manto prismatico."
+descripcion = "Un tomo cuyas tapas cambian de color según quien lo tenga en la mano, y nunca dos veces el mismo. La primera página está en blanco a propósito: hay un hueco donde debería decir de qué es. Estúdialo y aprenderás Manto prismático."
 cura_total = 0.0
 turnos = 1
 segundos = 1.0

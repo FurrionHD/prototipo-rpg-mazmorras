@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = &"hierro_templado"
 nombre = "Hierro templado"
-descripcion = "Hierro que ya nacio a medio templar, cocido por el calor que sube de las simas. Suena distinto al picarlo: mas seco, mas corto."
+descripcion = "Hierro que ya nació a medio templar, cocido por el calor que sube de las simas. Suena distinto al picarlo: más seco, más corto."
 familia = 0
 tipo = 2
 tier = 2

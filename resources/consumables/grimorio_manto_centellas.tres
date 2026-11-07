@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1")
 nombre = "Grimorio: Manto de centellas"
-descripcion = "Un tomo con las paginas separadas, que crepitan al pasarlas. Estudialo y aprenderas Manto de centellas."
+descripcion = "Un tomo con las páginas separadas, que crepitan al pasarlas. Estúdialo y aprenderás Manto de centellas."
 cura_total = 0.0
 turnos = 1
 segundos = 1.0

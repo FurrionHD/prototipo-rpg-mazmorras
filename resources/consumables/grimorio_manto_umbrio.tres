@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1_coatf")
 nombre = "Grimorio: Manto umbrío"
-descripcion = "Un tomo que se lee bien sin luz y mal con ella. Los que lo han intentado a mediodia dicen que las letras se corren. Estudialo y aprenderas Manto umbrio."
+descripcion = "Un tomo que se lee bien sin luz y mal con ella. Los que lo han intentado a mediodía dicen que las letras se corren. Estúdialo y aprenderás Manto umbrío."
 cura_total = 0.0
 turnos = 1
 segundos = 1.0

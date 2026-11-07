@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = &"nucleo_miconido"
-nombre = "Núcleo de miconido"
+nombre = "Núcleo de micónido"
 descripcion = "El bulbo del que sale todo el hongo. Late despacio, y mientras late la placa que sujeta no se agrieta."
 familia = 1
 tipo = 4

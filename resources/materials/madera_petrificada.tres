@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = &"madera_petrificada"
 nombre = "Madera petrificada"
-descripcion = "A medio camino de ser piedra. Todavia se trabaja como madera, pero ya no arde y ya no se pudre. Lo que la mazmorra no se ha llevado, se lo ha quedado."
+descripcion = "A medio camino de ser piedra. Todavía se trabaja como madera, pero ya no arde y ya no se pudre. Lo que la mazmorra no se ha llevado, se lo ha quedado."
 familia = 0
 tipo = 6
 tier = 2

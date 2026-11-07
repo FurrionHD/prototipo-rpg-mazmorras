@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1_n4jx8")
 nombre = "Grimorio: Eclipse"
-descripcion = "Dos tomos cosidos en uno, uno claro y otro oscuro, y no hay forma de saber donde acaba el primero. La costura esta hecha por dentro. Estudialo y aprenderas Eclipse."
+descripcion = "Dos tomos cosidos en uno, uno claro y otro oscuro, y no hay forma de saber dónde acaba el primero. La costura está hecha por dentro. Estúdialo y aprenderás Eclipse."
 cura_total = 0.0
 turnos = 1
 segundos = 1.0

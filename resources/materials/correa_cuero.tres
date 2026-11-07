@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = &"correa_cuero"
 nombre = "Correa de cuero"
-descripcion = "Tira larga, cosida y engrasada. De aqui salen los tirantes que te dejan andar con veinte kilos a la espalda."
+descripcion = "Tira larga, cosida y engrasada. De aquí salen los tirantes que te dejan andar con veinte kilos a la espalda."
 familia = 0
 tipo = 3
 tier = 1

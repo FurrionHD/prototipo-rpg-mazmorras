@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = &"pan"
 nombre = "Hogaza de pan"
-descripcion = "Corteza dura y miga tierna, del horno del pueblo. La mitad de las recetas de mano empiezan aqui."
+descripcion = "Corteza dura y miga tierna, del horno del pueblo. La mitad de las recetas de mano empiezan aquí."
 familia = 0
 tipo = 10
 tier = 1

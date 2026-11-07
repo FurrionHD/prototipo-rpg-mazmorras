@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = &"tablon_de_veta"
 nombre = "Tablón de veta"
-descripcion = "Aserrada a escuadra y puesta a secar. Deja de ser un palo arrancado del muro y pasa a tener caras planas y una veta que sabes por donde va a ceder."
+descripcion = "Aserrada a escuadra y puesta a secar. Deja de ser un palo arrancado del muro y pasa a tener caras planas y una veta que sabes por dónde va a ceder."
 familia = 0
 tipo = 7
 tier = 1

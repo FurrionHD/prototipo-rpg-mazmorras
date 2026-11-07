@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = &"curtido_reforzado"
 nombre = "Cuero reforzado"
-descripcion = "La piel de las simas, ya raspada y puesta a secar. Cuesta mas de tratar que cualquier piel de arriba, y por eso el peletero lo cobra distinto."
+descripcion = "La piel de las simas, ya raspada y puesta a secar. Cuesta más de tratar que cualquier piel de arriba, y por eso el peletero lo cobra distinto."
 familia = 0
 tipo = 3
 tier = 2

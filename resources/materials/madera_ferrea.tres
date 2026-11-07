@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = &"madera_ferrea"
 nombre = "Madera férrea"
-descripcion = "Tan apretada que el hacha rebota si no entras con el filo justo. Pesa como si llevara metal dentro, y por eso se llama asi."
+descripcion = "Tan apretada que el hacha rebota si no entras con el filo justo. Pesa como si llevara metal dentro, y por eso se llama así."
 familia = 0
 tipo = 6
 tier = 2

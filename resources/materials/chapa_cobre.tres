@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = &"chapa_cobre"
 nombre = "Chapa de cobre"
-descripcion = "Lingote batido hasta dejarlo en placa. Se dobla facil: mejor para forrar que para parar un hacha."
+descripcion = "Lingote batido hasta dejarlo en placa. Se dobla fácil: mejor para forrar que para parar un hacha."
 familia = 0
 tipo = 5
 tier = 1

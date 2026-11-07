@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1_11oac")
 nombre = "Grimorio: Tormenta"
-descripcion = "Un volumen que hay que sujetar con las dos manos y que nunca se deja abrir del todo por la misma pagina. Las tapas estan alabeadas, como si dentro hiciera su propio tiempo. Estudialo y aprenderas Tormenta."
+descripcion = "Un volumen que hay que sujetar con las dos manos y que nunca se deja abrir del todo por la misma página. Las tapas están alabeadas, como si dentro hiciera su propio tiempo. Estúdialo y aprenderás Tormenta."
 cura_total = 0.0
 turnos = 1
 segundos = 1.0

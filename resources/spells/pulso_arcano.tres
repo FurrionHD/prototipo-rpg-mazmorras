@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 nombre = "Pulso arcano"
-frases = Array[String](["Sello roto, poder liberado", "El vacio escucha mi llamada"])
+frases = Array[String](["Sello roto, poder liberado", "El vacío escucha mi llamada"])
 rareza = 1
 coste_mana = 8
 dano_base = 22.34

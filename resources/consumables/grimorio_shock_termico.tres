@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1_cmymt")
 nombre = "Grimorio: Shock térmico fulminante"
-descripcion = "Un tomo que quema por una tapa y hiela por la otra, y que en el medio esta a temperatura de sala. Nadie ha conseguido dejarlo apoyado del lado frio mas de un rato. Estudialo y aprenderas Shock termico fulminante."
+descripcion = "Un tomo que quema por una tapa y hiela por la otra, y que en el medio está a temperatura de sala. Nadie ha conseguido dejarlo apoyado del lado frío más de un rato. Estúdialo y aprenderás Shock térmico fulminante."
 cura_total = 0.0
 turnos = 1
 segundos = 1.0

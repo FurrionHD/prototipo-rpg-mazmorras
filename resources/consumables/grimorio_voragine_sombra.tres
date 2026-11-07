@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1_l6ybx")
 nombre = "Grimorio: Vorágine de sombra"
-descripcion = "Un tomo que pesa mas de lo que deberia por su tamaño, y que si lo dejas en una mesa acaba en el borde. Nadie recuerda haberlo movido. Estudialo y aprenderas Voragine de sombra."
+descripcion = "Un tomo que pesa más de lo que debería por su tamaño, y que si lo dejas en una mesa acaba en el borde. Nadie recuerda haberlo movido. Estúdialo y aprenderás Vorágine de sombra."
 cura_total = 0.0
 turnos = 1
 segundos = 1.0

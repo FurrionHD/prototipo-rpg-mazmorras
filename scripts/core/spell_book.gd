@@ -30,11 +30,11 @@ const REPOSITORIO: Array[String] = [
 	"Soy la hoguera, y la hoguera no arde",
 	# Rayo (descarga / rayo / tormenta / filo_fulgurante / manto_centellas)
 	"Centella, salta ya",
-	"Relampago, parte el aire",
+	"Relámpago, parte el aire",
 	"Que el cielo descargue su furia",
 	"Fulgor, desciende del cielo",
 	"Truenos, romped el silencio",
-	"El viento aullara conmigo",
+	"El viento aullará conmigo",
 	"Que el rayo duerma en mi acero",
 	"Chispa, salta al golpear",
 	"Tormenta, hazme tu cauce",
@@ -44,11 +44,11 @@ const REPOSITORIO: Array[String] = [
 	# elementos DISTINTOS: el agua apaga el fuego, pero el hielo se derrite con el.
 	"Gota, hiere al caer",
 	"Que la corriente me responda",
-	"Rompete contra mi enemigo",
-	"Que el rio rompa su cauce",
+	"Rómpete contra mi enemigo",
+	"Que el río rompa su cauce",
 	"Arrasa cuanto se te ponga delante",
-	"Que el rio abrace mi acero",
-	"Torrente, muerde por mi",
+	"Que el río abrace mi acero",
+	"Torrente, muerde por mí",
 	"Aguas profundas, cubridme",
 	"Que la marea sea mi piel",
 	"Soy el mar, y el mar no arde",
@@ -61,12 +61,12 @@ const REPOSITORIO: Array[String] = [
 	"Sombras, tejed vuestro manto",
 	# Tierra
 	"Terra, alza tu ira",
-	"Piedra viva, escudame",
+	"Piedra viva, escúdame",
 	# Luz / sanacion
 	"Lumen, cierra esta herida",
 	"Luz sagrada, restáurame",
 	# Potenciacion propia (buff: Fortaleza)
-	"Vigor, colma mis musculos",
+	"Vigor, colma mis músculos",
 	"Furia ancestral, empúñame",
 	# Debilitamiento (debuff: Debil)
 	"Languidez, quiebra su fuerza",
@@ -78,8 +78,8 @@ const REPOSITORIO: Array[String] = [
 	"Que se cumpla mi voluntad",          # Pulso menor
 	"Silencio, criatura del abismo",
 	"Vientos del norte, acudid",
-	"Sangre y raiz, respondedme",
-	"El vacio escucha mi llamada",        # Pulso arcano
+	"Sangre y raíz, respondedme",
+	"El vacío escucha mi llamada",        # Pulso arcano
 	"Sello roto, poder liberado",         # Pulso arcano
 ]
 

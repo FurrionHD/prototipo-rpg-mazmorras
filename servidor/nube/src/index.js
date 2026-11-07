@@ -454,7 +454,7 @@ export class Mundo extends DurableObject {
 		const b = mundo.sello_build || "";
 		if (b !== "" && p.sello_build && b !== p.sello_build && !p.forzar_build) {
 			return fallo("build_distinto",
-				`Este mundo se guardó con el build ${b} y tú tienes el ${p.sello_build}. Tienen que ser el mismo.`);
+				`Este mundo se guardó con la versión ${b} del juego y tú tienes la ${p.sello_build}. Tienen que ser la misma.`);
 		}
 		await this.limpiarLegado(mundo);
 

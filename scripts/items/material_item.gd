@@ -54,7 +54,7 @@ func nombre_mostrado() -> String:
 	var n: String = nombre()
 	if cm <= 0.0:
 		return n
-	n = "%s (%.1f cm)" % [n, cm]
+	n = "%s (%s cm)" % [n, StatusEffects.num(snappedf(cm, 0.1))]
 	var g: String = MaterialData.corona_glifo(corona())
 	return (g + " " + n) if g != "" else n
 

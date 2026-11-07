@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1_0qrjc")
 nombre = "Grimorio: Venablo de tormenta"
-descripcion = "Un tomo con una sola raja de arriba abajo, muy recta, que no atraviesa del todo. No se abre por ahi. Estudialo y aprenderas Venablo de tormenta."
+descripcion = "Un tomo con una sola raja de arriba abajo, muy recta, que no atraviesa del todo. No se abre por ahí. Estúdialo y aprenderás Venablo de tormenta."
 cura_total = 0.0
 turnos = 1
 segundos = 1.0

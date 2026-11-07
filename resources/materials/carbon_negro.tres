@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1")
 id = &"carbon_negro"
-nombre = "Carbon negro"
-descripcion = "De madera negra. Es el techo de lo que se puede fabricar: cuatro minutos y medio de llama quieta. Para mas hay que bajar a picar la veta."
+nombre = "Carbón negro"
+descripcion = "De madera negra. Es el techo de lo que se puede fabricar: cuatro minutos y medio de llama quieta. Para más hay que bajar a picar la veta."
 familia = 0
 tipo = 11
 tier = 3

@@ -11,7 +11,7 @@ prob = 0.35
 [resource]
 script = ExtResource("1")
 nombre = "Rayo"
-frases = Array[String](["Relampago, parte el aire", "Que el cielo descargue su furia"])
+frases = Array[String](["Relámpago, parte el aire", "Que el cielo descargue su furia"])
 rareza = 1
 coste_mana = 11
 dano_base = 8.96

@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1_xwi66")
 nombre = "Grimorio: Luz restauradora"
-descripcion = "Un tomo claro que no coge polvo. Da igual donde lo dejes y cuanto tiempo pase. Estudialo y aprenderas Luz restauradora."
+descripcion = "Un tomo claro que no coge polvo. Da igual dónde lo dejes y cuánto tiempo pase. Estúdialo y aprenderás Luz restauradora."
 cura_total = 0.0
 turnos = 1
 segundos = 1.0

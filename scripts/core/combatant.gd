@@ -1012,7 +1012,7 @@ func roll_imbue(target: Combatant) -> String:
 		# duracion/magnitud por defecto del catalogo; el tope, el de la imbuicion
 		target.apply_status(imbue_estado, runa_turnos(imbue_estado, -1), runa_mag(imbue_estado, StatusEffects.magnitud_de(imbue_estado, atk(), atk(), target, motion_value), target), 1, false, imbue_tope)
 	var nom: String = String(StatusEffects.def(imbue_estado).get("nombre", "?"))
-	var txt: String = nom if stacks == 1 else "%s x%d" % [nom, stacks]
+	var txt: String = nom if stacks == 1 else "%s ×%d" % [nom, stacks]
 	# EL SEGUNDO ESTADO (unturas): solo si el primero ha entrado, y con su propia tirada contra su Resistencia.
 	if imbue_extra_estado >= 0 and imbue_extra_prob > 0.0 and target.is_alive() 			and not target.es_inmune(imbue_extra_estado):
 		var pe: float = StatusEffects.prob_final(
