@@ -219,7 +219,7 @@ func _crear_boton_velocidad() -> void:
 	b.custom_minimum_size = Vector2(48, 28)
 	b.flat = true
 	b.focus_mode = Control.FOCUS_NONE
-	b.tooltip_text = "Velocidad del combate: toda la pelea, barra de acción incluida"
+	b.tooltip_text = "Velocidad del combate: afecta a toda la pelea, también a la barra de turno"
 	# El dibujo va en un hijo que solo pinta: asi el Button conserva su hover y su pulsacion.
 	var icono := Control.new()
 	icono.mouse_filter = Control.MOUSE_FILTER_IGNORE

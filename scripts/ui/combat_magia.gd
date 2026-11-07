@@ -43,7 +43,7 @@ func _accion_magia() -> void:
 		var b := TooltipButton.new()
 		var coste: float = _coste_efectivo(spell)
 		# A media anchura no cabe el numero de frases; va en el tooltip (descripcion_mecanica).
-		b.text = "%s  (%.2f MP)" % [spell.nombre, coste]
+		b.text = "%s  (%s de maná)" % [spell.nombre, StatusEffects.num(coste)]
 		# Tooltip: datos DERIVADOS de los campos (resumen) + el sabor de la descripcion.
 		# Igual que las habilidades (ver _accion_habilidad): la magia lo tenia todo escrito
 		# en SpellData.resumen() y no lo enseñaba nadie.
@@ -113,8 +113,8 @@ func _elegir_objetivo_aliado(spell: SpellData) -> void:
 		var b := TooltipButton.new()
 		var actual: String = al.imbue_etiqueta()
 		b.text = "%s%s" % [al.nombre, "   (%s)" % actual if actual != "" else ""]
-		b.tooltip_text = "%s le echa %s a %s.%s" % [_pantalla._player.nombre, spell.nombre, al.nombre,
-			"\n\nOJO: ya lleva una imbuición puesta y la nueva la sustituye." if actual != "" else ""]
+		b.tooltip_text = "%s lanza %s a %s.%s" % [_pantalla._player.nombre, spell.nombre, al.nombre,
+			"\n\nOjo: ya lleva una imbuición puesta y la nueva la sustituye." if actual != "" else ""]
 		b.pressed.connect(_elegir_hechizo.bind(spell, al))
 		_pantalla._celda_submenu(b)
 		grid.add_child(b)

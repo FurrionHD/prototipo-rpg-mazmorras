@@ -2403,7 +2403,7 @@ func _refrescar_barras() -> void:
 		var escudo_c: float = c.agua_vista() if c != null else 0.0
 		# Y LA CAPA DE AMBAR (set Ambar, 03/11): su tramo dorado, como la costra del Tocon.
 		var costra_c: float = c.costra_vista() if c != null else 0.0
-		(fila["hp_lbl"] as Label).text = "%.1f/%.1f" % [hp_c, maxhp_c] \
+		(fila["hp_lbl"] as Label).text = ("%.1f/%.1f" % [hp_c, maxhp_c]).replace(".", ",") \
 			+ TramoEscudo.poner(fila["hp"] as ProgressBar, hp_c, maxhp_c, escudo_c) \
 			+ TramoEscudo.poner_costra(fila["hp"] as ProgressBar, hp_c, maxhp_c, costra_c)
 		var en_bar: ProgressBar = fila["en"]
@@ -2420,7 +2420,7 @@ func _refrescar_barras() -> void:
 		var mp_c: float = c.current_mp if c != null else (pj.current_mp if pj.current_mp >= 0.0 else maxmp_c)   # = player_mp
 		mp_bar.max_value = maxf(1.0, maxmp_c)
 		mp_bar.value = mp_c
-		(fila["mp_lbl"] as Label).text = "%.2f/%.2f" % [mp_c, maxmp_c]
+		(fila["mp_lbl"] as Label).text = ("%.2f/%.2f" % [mp_c, maxmp_c]).replace(".", ",")
 		para_red.append([String(pj.uid), pj.nombre, pj.color, snappedf(hp_c, 0.1), snappedf(maxhp_c, 0.1),
 			snappedf(en_c, 1.0), snappedf(maxen_c, 1.0), snappedf(mp_c, 0.01), snappedf(maxmp_c, 0.01), pj == lider_red])
 		# Los estados que lleva encima fuera del combate (y las cargas de Foco), como chips.

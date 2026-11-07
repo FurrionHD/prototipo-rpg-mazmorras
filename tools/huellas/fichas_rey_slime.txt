@@ -10,7 +10,7 @@ f1 Slime venenoso hp=39.250 mp=20.495 en=0.000
 f29 LOG Turno de Agirato ochinan. Esperando su acción...
 f29 Agirato ochinan hp=198.795 mp=14.485 en=177.425
 f31 998 PULSA Magia
-f34 998 PULSA _spell_box: Shock térmico fulminante  (14.06 MP)
+f34 998 PULSA _spell_box: Shock térmico fulminante  (14,06 de maná)
 f35 LOG 🔮 Agirato ochinan recita Shock térmico fulminante (1/3). Esperando...
 f37 998 PULSA frase Arde hasta el hueso
 f38 LOG ✓ Frase correcta. Sigue en el próximo turno.
@@ -181,7 +181,7 @@ f2052 LOG ⏳ Daniel prepara Golpe demoledor. Si queda Aturdido, se interrumpe.
 f2052 Daniel hp=178.876 mp=20.000 en=139.025
 f2054 LOG Turno de Agirato ochinan. Esperando su acción...
 f2056 998 PULSA Magia
-f2059 998 PULSA _spell_box: Eclipse  (19.33 MP)
+f2059 998 PULSA _spell_box: Eclipse  (19,33 de maná)
 f2060 LOG 🔮 Agirato ochinan recita Eclipse (1/4). Esperando...
 f2062 998 PULSA frase Luz y oscuridad
 f2063 LOG ✓ Frase correcta. Sigue en el próximo turno.
@@ -292,7 +292,7 @@ f3334 998 PULSA _ability_box: Bastonazo  (26 EN)
 f3335 LOG Turno de Dasui. Esperando su acción...
 f3335 Agirato ochinan hp=198.305 mp=27.388 en=151.425
 f3337 999 PULSA Habilidad
-f3340 999 PULSA _ability_box: atras (apagados: Tajo devastador  (72 EN)  ⏳1 [⛔ En cooldown: 1 turno])
+f3340 999 PULSA _ability_box: atras (apagados: Tajo devastador  (72 EN)  ⏳1 [⛔ Se recarga en 1 turno])
 f3343 999 PULSA Atacar
 f3344 LOG 1. Rey Slime esquiva el golpe de Dasui. 💨
 f3344 Dasui hp=199.186 mp=20.000 en=163.300
@@ -327,7 +327,7 @@ f3650 LOG ⏳ Catalardio prepara Golpe sísmico. Si queda Aturdido, se interrump
 f3650 Catalardio hp=191.823 mp=24.620 en=121.275
 f3661 LOG Turno de Agirato ochinan. Esperando su acción...
 f3663 998 PULSA Magia
-f3666 998 PULSA _spell_box: Eclipse  (19.33 MP)
+f3666 998 PULSA _spell_box: Eclipse  (19,33 de maná)
 f3667 LOG 🔮 Agirato ochinan recita Eclipse (1/4). Esperando...
 f3669 998 PULSA frase Luz y oscuridad
 f3670 LOG ✓ Frase correcta. Sigue en el próximo turno.
@@ -1958,7 +1958,7 @@ f4475 Slime de fuego hp=0.000 mp=20.891 en=0.000
 f4475 Slime de fuego hp=34.674 mp=20.891 en=0.000
 f4476 Slime de fuego hp=0.000 mp=20.891 en=0.000
 f4476 Slime de fuego hp=34.674 mp=20.891 en=0.000
-f4476 998 PULSA _ability_box: atras (apagados: Golpe sísmico  (60 EN)  ⏳1 [⛔ En cooldown: 1 turno])
+f4476 998 PULSA _ability_box: atras (apagados: Golpe sísmico  (60 EN)  ⏳1 [⛔ Se recarga en 1 turno])
 f4477 Slime de fuego hp=0.000 mp=20.891 en=0.000
 f4477 Slime de fuego hp=34.674 mp=20.891 en=0.000
 f4478 Slime de fuego hp=0.000 mp=20.891 en=0.000

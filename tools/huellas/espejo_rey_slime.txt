@@ -9,7 +9,7 @@ f1 Slime hp=32.650 mp=20.429 en=0.000
 f1 Slime venenoso hp=39.250 mp=20.495 en=0.000
 f29 Agirato ochinan hp=198.795 mp=14.485 en=177.425
 f31 PULSA Magia
-f34 PULSA _spell_box: Shock térmico fulminante  (14.06 MP)
+f34 PULSA _spell_box: Shock térmico fulminante  (14,06 de maná)
 f37 PULSA frase Arde hasta el hueso
 f38 LOG ✓ Frase correcta. Sigue en el próximo turno.
 f68 PULSA Atacar
@@ -762,7 +762,7 @@ f1080 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1080 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1081 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1081 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f1081 PULSA _spell_box: Eclipse  (19.33 MP)
+f1081 PULSA _spell_box: Eclipse  (19,33 de maná)
 f1082 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1082 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1083 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -1470,7 +1470,7 @@ f1421 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1421 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1422 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1422 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f1422 PULSA _ability_box: atras (apagados: Tajo devastador  (72 EN)  ⏳3 [⛔ En cooldown: 3 turnos])
+f1422 PULSA _ability_box: atras (apagados: Tajo devastador  (72 EN)  ⏳3 [⛔ Se recarga en 3 turnos])
 f1423 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1423 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1424 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -2209,7 +2209,7 @@ f1777 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1777 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1778 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1778 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f1778 PULSA _ability_box: atras (apagados: Tajo devastador  (72 EN)  ⏳2 [⛔ En cooldown: 2 turnos])
+f1778 PULSA _ability_box: atras (apagados: Tajo devastador  (72 EN)  ⏳2 [⛔ Se recarga en 2 turnos])
 f1779 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1779 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1780 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -4306,7 +4306,7 @@ f2789 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2789 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2790 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2790 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2790 PULSA _spell_box: Eclipse  (19.33 MP)
+f2790 PULSA _spell_box: Eclipse  (19,33 de maná)
 f2791 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2791 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2792 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -4786,7 +4786,7 @@ f3021 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3021 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3022 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3022 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f3022 PULSA _ability_box: atras (apagados: Golpe sísmico  (60 EN)  ⏳1 [⛔ En cooldown: 1 turno])
+f3022 PULSA _ability_box: atras (apagados: Golpe sísmico  (60 EN)  ⏳1 [⛔ Se recarga en 1 turno])
 f3023 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3023 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3024 Slime venenoso hp=0.000 mp=20.495 en=0.000

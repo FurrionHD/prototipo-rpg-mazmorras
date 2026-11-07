@@ -177,13 +177,13 @@ func _accion_habilidad() -> void:
 			b.tooltip_text = "⛔ Ya te has preparado este turno: solo la otra preparación\n\n%s" % b.tooltip_text
 		elif cd_left > 0:
 			b.disabled = true
-			b.tooltip_text = "⛔ En cooldown: %d turno%s\n\n%s" % [cd_left, "" if cd_left == 1 else "s", b.tooltip_text]
+			b.tooltip_text = "⛔ Se recarga en %d turno%s\n\n%s" % [cd_left, "" if cd_left == 1 else "s", b.tooltip_text]
 		elif ab.foco_cargas > 0 and _pantalla._player.foco_cargas > 0:
 			b.disabled = true
 			b.tooltip_text = "⛔ Aún te quedan %d cargas de Foco arcano: gástalas antes\n\n%s" % [_pantalla._player.foco_cargas, b.tooltip_text]
 		elif es_conv and _pantalla._player.current_energy < ab.energia_a_mana:
 			b.disabled = true
-			b.tooltip_text = "⛔ Necesitas al menos %.0f EN\n\n%s" % [ab.energia_a_mana, b.tooltip_text]
+			b.tooltip_text = "⛔ Necesitas al menos %.0f de energía\n\n%s" % [ab.energia_a_mana, b.tooltip_text]
 		elif not es_conv and not _pantalla._player.has_energy(coste):
 			b.disabled = true
 			b.tooltip_text = "⛔ Sin energía suficiente\n\n%s" % b.tooltip_text
@@ -246,7 +246,7 @@ func _elegir_municion(ab: AbilityData) -> void:
 	for fila in lista:
 		var md: MunicionData = fila["md"]
 		var b := TooltipButton.new()
-		b.text = "%s  x%d  (+%d%%)" % [md.nombre, int(fila["n"]), roundi(md.dano_bonus * 100.0)]
+		b.text = "%s  ×%d  (+%d %% de daño)" % [md.nombre, int(fila["n"]), roundi(md.dano_bonus * 100.0)]
 		b.tooltip_text = "Carga hasta %d. Se cargan primero las de mejor calidad.\n\n%s" % [ab.cargar_municion, md.descripcion]
 		b.pressed.connect(_cargar.bind(ab, md))
 		_pantalla._celda_submenu(b)
@@ -311,7 +311,7 @@ func _elegir_untura(ab: AbilityData) -> void:
 	for fila in lista:
 		var cons: ConsumableData = fila["c"]
 		var b := TooltipButton.new()
-		b.text = "%s  x%d" % [cons.nombre, int(fila["n"])]
+		b.text = "%s  ×%d" % [cons.nombre, int(fila["n"])]
 		b.tooltip_text = cons.resumen_untura()
 		if _pantalla._player.tiene_imbue():
 			b.tooltip_text += "\n\nSustituye a lo que lleves puesto en el arma."
@@ -653,18 +653,19 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		# una pantalla que miente, en que campo.
 		var motivo: String = ""
 		if not _pantalla._player.ability_ready(ab):
-			motivo = "le quedan %d turno(s) de cooldown" % _pantalla._player.ability_cd_left(ab)
+			var cd: int = _pantalla._player.ability_cd_left(ab)
+			motivo = "aún se está recargando (%d turno%s)" % [cd, "" if cd == 1 else "s"]
 		elif ab.foco_cargas > 0 and _pantalla._player.foco_cargas > 0:
 			motivo = "aún le quedan %d cargas de Foco por gastar" % _pantalla._player.foco_cargas
 		elif es_conversion:
 			if _pantalla._player.current_energy < ab.energia_a_mana:
-				motivo = "necesita %.0f EN y tiene %.0f" % [ab.energia_a_mana, _pantalla._player.current_energy]
+				motivo = "necesita %.0f de energía y tiene %.0f" % [ab.energia_a_mana, _pantalla._player.current_energy]
 		elif not _pantalla._player.has_energy(coste):
-			motivo = "cuesta %.0f EN a %d mano(s) y tiene %.0f" % [coste, manos, _pantalla._player.current_energy]
+			motivo = "necesita %.0f de energía y tiene %.0f" % [coste, _pantalla._player.current_energy]
 		if motivo != "":
 			print("[habilidad] %s no puede lanzar %s (%s): ataca de basico" % [
 				_pantalla._player.nombre, ab.nombre, motivo])
-			_pantalla._set_log("%s no puede usar %s: %s. Ataca normal." % [_pantalla._player.nombre, ab.nombre, motivo])
+			_pantalla._set_log("%s no puede usar %s: %s. Hace un ataque básico." % [_pantalla._player.nombre, ab.nombre, motivo])
 			_pantalla._accion_atacar()
 			return
 		# ATAQUE DE CARGA: si la habilidad tarda turnos en soltarse, este turno se va en ANUNCIARLA.
@@ -1139,7 +1140,7 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	if ab.postura_contraataque:
 		msg += "  🤺 En guardia (contraataque al esquivar)."
 	if ab.foco_cargas > 0:
-		msg += "  🔮 Foco arcano: %d cargas (+%d%% daño a tus próximos hechizos)." % [
+		msg += "  🔮 Foco arcano: %d cargas (+%d%% de daño a los próximos hechizos)." % [
 			_pantalla._player.foco_cargas, roundi(Combatant.FOCO_BONUS * 100.0)]
 	if ab.provoca_turnos > 0:
 		msg += "  🎯 Provocas %d turnos: los enemigos irán más a por ti." % ab.provoca_turnos

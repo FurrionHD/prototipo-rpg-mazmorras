@@ -2032,13 +2032,13 @@ func _ayuda_accion(id: int) -> String:
 		Action.ATTACK:
 			if _pasa_el_turno() and not tactico:
 				return "Estás enraizado y no llegas a golpear: cedes el turno. Los hechizos, Defender, los objetos y huir sí te quedan."
-			return "Golpe básico con lo que lleves en las manos. No cuesta energía: la RECUPERA, así que es lo que te permite volver a lanzar habilidades."
+			return "Golpe básico con lo que lleves en las manos. No cuesta energía: la recupera, así que es lo que te permite volver a lanzar habilidades."
 		Action.HABILIDAD:
 			return "Técnicas que te dan tus armas. Cuestan energía y tienen enfriamiento."
 		Action.MAGIC:
 			return "Recitas un hechizo, frase a frase. Cuesta maná (se paga al empezar) y fallar una frase lo malogra: cuantas más frases, más potente y más te expones."
 		Action.DEFEND:
-			return "Te cubres: encajas mucho menos daño en el próximo golpe y entrenas Resistencia. Cuesta %.0f de energía." % DEFEND_ENERGY_COST
+			return "Te cubres: recibes mucho menos daño en el próximo golpe y entrenas Resistencia. Cuesta %.0f de energía." % DEFEND_ENERGY_COST
 		Action.OBJETO:
 			return "Una poción, para ti o para quien elijas del grupo. Empieza a curar en este mismo turno, pero el resto llega poco a poco: te toca aguantar mientras hace efecto."
 		Action.FLEE:
@@ -2101,7 +2101,7 @@ func _motivo_bloqueo(id: int) -> String:
 		return "Fuera de alcance: acércate o elige a otro"
 	match id:
 		Action.MAGIC: return "No tienes hechizos equipados"
-		Action.DEFEND: return "Sin energía (ataca para regenerar)"
+		Action.DEFEND: return "Sin energía (el ataque básico la recupera)"
 		Action.HABILIDAD: return "Tu equipo no aporta habilidades"
 		Action.OBJETO: return "No tienes objetos"
 	return ""

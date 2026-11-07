@@ -2212,7 +2212,7 @@ func _refrescar_apunte(raton: Vector2) -> void:
 		visto += 100000 * (_pantalla._aliados.find(aliados[0]) + 1)
 	if visto != _pillados_vistos and is_instance_valid(_letrero):
 		_pillados_vistos = visto
-		var pilla: String = "no pilla a nadie" if n == 0 else ("pilla a 1" if n == 1 else "pilla a %d" % n)
+		var pilla: String = "no alcanza a nadie" if n == 0 else ("alcanza a 1" if n == 1 else "alcanza a %d" % n)
 		if _apuntando.forma_a_aliados:
 			if _apuntando.objetivo_aliado == AbilityData.Objetivo.ALIADO:
 				pilla = "elige a uno de los tuyos" if n == 0 else "a %s" % (aliados[0] as Combatant).nombre

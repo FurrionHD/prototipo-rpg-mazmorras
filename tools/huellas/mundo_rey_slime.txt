@@ -10,7 +10,7 @@ f1 Slime venenoso hp=39.250 mp=20.495 en=0.000
 f30 LOG ¡Turno de Agirato ochinan! Elige una acción.
 f30 Agirato ochinan hp=198.795 mp=14.485 en=177.425
 f32 PULSA Magia
-f35 PULSA _spell_box: Shock térmico fulminante  (14.06 MP)
+f35 PULSA _spell_box: Shock térmico fulminante  (14,06 de maná)
 f36 LOG 🔮 Shock térmico fulminante — recita la frase 1/3:
 f38 PULSA frase Arde hasta el hueso
 f39 LOG ✓ Frase correcta. Sigue en el próximo turno.
@@ -500,7 +500,7 @@ f2325 Slime de fuego hp=42.011 mp=20.891 en=0.000
 f2325 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f2326 Slime de fuego hp=42.011 mp=20.891 en=0.000
 f2326 Slime de fuego hp=42.797 mp=20.891 en=0.000
-f2326 PULSA _spell_box: Eclipse  (19.33 MP)
+f2326 PULSA _spell_box: Eclipse  (19,33 de maná)
 f2327 LOG 🔮 Eclipse — recita la frase 1/4:
 f2327 Slime de fuego hp=42.011 mp=20.891 en=0.000
 f2327 Slime de fuego hp=42.797 mp=20.891 en=0.000
@@ -2928,7 +2928,7 @@ f3496 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3496 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f3497 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3497 Slime de fuego hp=42.797 mp=20.891 en=0.000
-f3497 PULSA _ability_box: atras (apagados: Tajo devastador  (72 EN)  ⏳2 [⛔ En cooldown: 2 turnos])
+f3497 PULSA _ability_box: atras (apagados: Tajo devastador  (72 EN)  ⏳2 [⛔ Se recarga en 2 turnos])
 f3498 Slime de fuego hp=37.456 mp=20.891 en=0.000
 f3498 Slime de fuego hp=42.797 mp=20.891 en=0.000
 f3499 Slime de fuego hp=37.456 mp=20.891 en=0.000
@@ -3358,7 +3358,7 @@ f4325 LOG Dasui se pone en guardia: recibe menos daño hasta su próximo turno. 
 f4325 Dasui hp=196.620 mp=20.000 en=136.300
 f4344 LOG ¡Turno de Agirato ochinan! Elige una acción.
 f4346 PULSA Habilidad
-f4349 PULSA _ability_box: atras (apagados: Bastonazo  (26 EN)  ⏳1 [⛔ En cooldown: 1 turno])
+f4349 PULSA _ability_box: atras (apagados: Bastonazo  (26 EN)  ⏳1 [⛔ Se recarga en 1 turno])
 f4352 PULSA Atacar
 f4353 LOG ¡Crítico! Agirato ochinan golpea con Baston e inflige 9,58 de daño. 💥
 f4353 Rey Slime hp=29.846 mp=21.188 en=0.000
