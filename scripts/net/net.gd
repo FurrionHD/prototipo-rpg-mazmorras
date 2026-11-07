@@ -186,7 +186,9 @@ const MAX_CONEXIONES := 32
 #   69 = (05/11) los de la Segadora: la HUELLA lleva el abanico (Forma.abanico y su angulo, dos floats mas: FLOATS_HUELLA
 #     17) para que el Vendaval de cortes se vea en tres lineas en los espejos; el elemento VIENTO y su estado.
 #   70 = (06/11) el REGISTRO agrupado: cada frase del log viaja con su grupo delante (combat_registro.codificar).
-const PROTOCOLO := 70
+#   71 = (07/11) ANIMS_SUELTAS crece con los anim_basico de los enemigos (golpe_6_8...): el codigo negativo de
+#     MARCA_ANIM ya no significa lo mismo en una 0.15.7.
+const PROTOCOLO := 71
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

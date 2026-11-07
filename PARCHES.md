@@ -2,6 +2,29 @@
 
 ---
 
+# v0.15.8
+
+## 📜 Registro de la pelea
+
+- **Filtros con nombres claros**: Todo, Aliados, Enemigos y Estados.
+- **Quien entra detrás tiene su propia fila.** El golpe de Escolta u Oportunista ya no sale metido dentro de la acción
+  del aliado al que sigue.
+- **El aviso de inicio sale una sola vez** cuando te unes a la pelea de otro jugador, y dice quién tiene de verdad la
+  iniciativa: antes te decía «¡Ataque por la espalda!» aunque el bicho te hubiera sorprendido.
+
+## 🎨 Más pixel art
+
+- **La mochila y el farolillo** de la esquina del HUD, en pixel: el agua de la carga se mece a saltos y la llama del
+  farol mengua y titila según se gasta el carbón.
+
+## 🔧 Arreglos
+
+- En multijugador, el ataque básico de slimes, trents, gárgolas, gólems, colosos y minotauros llega a los demás
+  jugadores con su animación.
+- Fuera un error que saltaba en cada pelea al pasar el ratón por algunos botones.
+
+---
+
 # v0.15.7
 
 ## 🧬 Más mutantes
