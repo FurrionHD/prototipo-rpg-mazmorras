@@ -4,7 +4,7 @@
 #   1. UNA FILA POR ACCION: todo lo que pasa dentro de una accion (el corte del Filo de aire, el rebote, el sangrado
 #      nuevo, las frases del conjuro...) va DENTRO de su fila, no en una fila suelta por cosa.
 #   2. LA FICHA AL PASAR EL RATON (o al tocar la fila en el movil): el desglose de esa accion, linea a linea.
-#   3. FILTROS POCOS Y DE COLOR FIJO: Todo / Lo mio / Me hacen / Estados.
+#   3. FILTROS POCOS Y DE COLOR FIJO: Todo / Aliados / Enemigos / Estados (07/11: antes "Lo mio" / "Me hacen", que en multi no valian).
 #
 #  EL TEXTO NO CAMBIA: _pantalla._log_lines sigue siendo la lista plana de frases de siempre (la leen las pruebas y las
 #  huellas, que la comparan letra a letra). Lo nuevo va APARTE, en 'meta' (paralela a _log_lines): de que GRUPO
@@ -23,8 +23,8 @@ var _pantalla: Pantalla = null
 
 const SEP := "\u001e"   # separador de la meta en la frase codificada (no sale nunca en un texto del juego)
 
-enum Filtro { TODO, MIO, ME_HACEN, ESTADOS }
-const NOMBRE_FILTRO := ["Todo", "Lo mío", "Me hacen", "Estados"]
+enum Filtro { TODO, ALIADOS, ENEMIGOS, ESTADOS }
+const NOMBRE_FILTRO := ["Todo", "Aliados", "Enemigos", "Estados"]
 # Colores FIJOS por bando (lo pidio asi: pocos y siempre los mismos).
 const COLOR_MIO := Color(0.93, 0.90, 0.84)
 const COLOR_ENEMIGO := Color(0.95, 0.62, 0.55)
@@ -40,6 +40,7 @@ var _abierto: bool = false
 var _g_abierto: String = ""
 var _bando: String = "-"
 var _tiene_principal: bool = false
+var _x_principal: bool = false   # fila aparte (abrir_aparte): la primera frase "x" es la principal
 # Los ids de grupo llevan una marca de ESTA pantalla: el espejo mezcla los grupos del anfitrion con sus propios avisos
 # y no se pueden pisar.
 var _marca: String = ""
@@ -71,10 +72,29 @@ func abrir(actor: Combatant) -> void:
 	_abierto = true
 	_bando = "e" if (actor != null and _pantalla._enemies.has(actor)) else "a"
 	_tiene_principal = false
+	_x_principal = false
 
 
 func cerrar() -> void:
 	_abierto = false
+
+
+# UNA FILA APARTE DENTRO DE LA ACCION DE OTRO (07/11, playtest del .exe): el golpe de Escolta / Oportunista salta en
+# mitad del turno de un aliado y caia en SU fila ("me sale el golpe de mi maza dentro de la habilidad de mi compa").
+# Abre una fila para 'actor' y devuelve lo que habia abierto, para volver a ello con volver_a().
+func abrir_aparte(actor: Combatant) -> Array:
+	var antes: Array = [_abierto, _g_abierto, _bando, _tiene_principal, _x_principal]
+	abrir(actor)
+	_x_principal = true   # su primera frase (un _log_extra) da nombre a la fila
+	return antes
+
+
+func volver_a(antes: Array) -> void:
+	_abierto = bool(antes[0])
+	_g_abierto = String(antes[1])
+	_bando = String(antes[2])
+	_tiene_principal = bool(antes[3])
+	_x_principal = bool(antes[4])
 
 
 func _nuevo_id() -> String:
@@ -88,7 +108,7 @@ func meta_nueva(tipo: String) -> Array:
 		return [_nuevo_id(), "p", "-"]
 	if tipo == "s" or tipo == "a" or not _abierto:
 		return [_nuevo_id(), "p" if tipo == "" or tipo == "x" else tipo, "s" if tipo == "s" else "-"]
-	if tipo == "" and not _tiene_principal:
+	if (tipo == "" or (tipo == "x" and _x_principal)) and not _tiene_principal:
 		_tiene_principal = true
 		return [_g_abierto, "p", _bando]
 	return [_g_abierto, "x", _bando]
@@ -158,8 +178,8 @@ func _pasa(g: String) -> bool:
 	var gr: Dictionary = _grupos[g]
 	var t: String = gr["t"]
 	match filtro:
-		Filtro.MIO: return String(gr["b"]) == "a" and t != "s" and t != "a"
-		Filtro.ME_HACEN: return String(gr["b"]) == "e" and t != "s" and t != "a"
+		Filtro.ALIADOS: return String(gr["b"]) == "a" and t != "s" and t != "a"
+		Filtro.ENEMIGOS: return String(gr["b"]) == "e" and t != "s" and t != "a"
 		Filtro.ESTADOS: return t == "s"
 	return true
 

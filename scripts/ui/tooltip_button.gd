@@ -76,7 +76,9 @@ func _make_custom_tooltip(for_text: String) -> Object:
 
 	# EL CHIP DE UN ESTADO (StatusChip.de_par) trae su icono en pixel: va delante, al doble, y se quita el emoji con el
 	# que empieza el texto ("☠  Veneno  ·  3 turnos").
-	var tex = get_meta(&"icono_px", null)
+	# has_meta delante (07/11, log del .exe): get_meta con null por defecto IMPRIME un ERROR si no esta, y el chip de
+	# estado es el unico que la pone: salia uno por cada boton sin icono al pasar el raton.
+	var tex = get_meta(&"icono_px") if has_meta(&"icono_px") else null
 	if tex is Texture2D:
 		var emoji: String = String(get_meta(&"emoji_px", ""))
 		if emoji != "" and for_text.begins_with(emoji):

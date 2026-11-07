@@ -1385,7 +1385,10 @@ func _apuntar_lanza_red(c: Combatant) -> void:
 const MARCA_ANIM := -11
 # LAS ANIMACIONES QUE SE PIDEN SIN HABILIDAD (un golpe que no sale de una AbilityData): por la red van por su puesto
 # aqui. Una nueva se APUNTA AQUI (al final, sin mover las demas): si no, cod_anim da error y no viaja.
-const ANIMS_SUELTAS := [&"lanzar_puas"]   # las puas de la pasiva de espinas (combat._espinas)
+# (07/11, log de la sala del .exe: "la animacion 'golpe_6_8' no esta en ANIMS_SUELTAS") TAMBIEN los EnemyData.anim_basico:
+# el basico de un bicho no sale de una AbilityData y pide su animacion por el nombre. Lo vigila test_anims_sueltas.gd.
+const ANIMS_SUELTAS := [&"lanzar_puas",   # las puas de la pasiva de espinas (combat._espinas)
+	&"golpe_6_8", &"golpe_5_8", &"golpe_4_6", &"golem_golpe", &"coloso_golpe", &"mino_hachazo"]   # anim_basico
 var _ult_anim_red: Dictionary = {}   # codigo del atacante -> [codigo de la animacion, gesto] lo ultimo que se le mando
 
 # El numero de la animacion de un golpe (ver MARCA_ANIM). 'anim_de' es lo que recibe _fx_golpe.
