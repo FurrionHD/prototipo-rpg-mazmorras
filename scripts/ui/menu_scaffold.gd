@@ -2911,7 +2911,7 @@ static func _retrato(fila: HBoxContainer, pj: PersonajeData, i: int, elegido: bo
 	# personaje, los talleres, el maestro) ya le cierra lo que no se puede hacer con alguien fuera.
 	var fuera: bool = Game.esta_de_encargo(pj)
 	if fuera:
-		b.tooltip_text += "\n✕ Está de encargo: vuelve cuando lo recojas"
+		b.tooltip_text += "\n✕ Está de encargo: volverá cuando recojas el encargo"
 	for estado in ["normal", "hover", "pressed", "focus", "disabled"]:
 		b.add_theme_stylebox_override(estado, StyleBoxEmpty.new())
 	b.pressed.connect(pulsado.bind(i))

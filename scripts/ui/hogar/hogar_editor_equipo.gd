@@ -112,7 +112,7 @@ func _ocupados() -> int:
 # --- IZQUIERDA: MIS PERSONAJES ---
 func _pintar_lista() -> void:
 	MenuScaffold.titulo(hogar._lista, "Mis personajes", 15)
-	MenuScaffold.nota(hogar._lista, "Toca a uno para añadirlo al equipo o enviarlo a casa.")
+	MenuScaffold.nota(hogar._lista, "Pulsa a uno para añadirlo al equipo o enviarlo a casa.")
 	var fila: HBoxContainer = null
 	var n: int = 0
 	for pj in Game.plantilla:
@@ -131,10 +131,10 @@ func _pintar_lista() -> void:
 		if de_encargo:
 			b.disabled = true
 
-			b.tooltip_text = "%s está de encargo: vuelve cuando lo recojas." % pj.nombre
+			b.tooltip_text = "%s está de encargo: volverá cuando recojas el encargo." % pj.nombre
 		else:
-			b.tooltip_text = ("%s  ·  puesto %d. Tócalo para enviarlo a casa." % [pj.nombre, pos + 1]) if pos >= 0 \
-				else "%s  ·  en casa. Tócalo para añadirlo al equipo." % pj.nombre
+			b.tooltip_text = ("%s  ·  puesto %d. Púlsalo para enviarlo a casa." % [pj.nombre, pos + 1]) if pos >= 0 \
+				else "%s  ·  en casa. Púlsalo para añadirlo al equipo." % pj.nombre
 		_marca_retrato(b, pos)
 
 	# RECOGER EL EQUIPO de los que se quedan en casa: libera sus piezas para otros.

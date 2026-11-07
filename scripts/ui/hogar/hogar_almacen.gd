@@ -305,7 +305,7 @@ func _pintar_barra() -> void:
 	hogar._header.add_child(fila)
 
 	var l := Label.new()
-	l.text = "Arrastra un objeto de un lado al otro, o tócalo para ver su ficha."
+	l.text = "Arrastra un objeto de un lado al otro, o púlsalo para ver su ficha."
 	l.add_theme_font_size_override("font_size", 12)
 	l.add_theme_color_override("font_color", GRIS)
 	fila.add_child(l)
@@ -527,7 +527,7 @@ func _soltar(data: Variant, destino: int) -> void:
 		return
 	var s: Dictionary = st[i]
 	if bool(s["encargo"]):
-		_decir("Está prestado a un encargo: vuelve cuando lo recojas.", false)
+		_decir("Está prestado a un encargo: volverá cuando recojas el encargo.", false)
 		return
 	if int(s["lado"]) == LADO_ENCIMA and str(s["dueno"]) != "":
 		_decir("Lo lleva %s: quítaselo antes de guardarlo." % s["dueno"], false)
@@ -596,7 +596,7 @@ func _nombre(it: Resource) -> String:
 func _ficha() -> void:
 	var vb: VBoxContainer = hogar._content
 	if _sel < 0 or _sel >= (_stacks[_sel_lado] as Array).size():
-		MenuScaffold.nota(vb, "Toca un objeto de cualquiera de los dos lados para ver su ficha.")
+		MenuScaffold.nota(vb, "Pulsa un objeto de cualquiera de los dos lados para ver su ficha.")
 		return
 	var s: Dictionary = (_stacks[_sel_lado] as Array)[_sel]
 	var m: Resource = s["modelo"]
@@ -628,7 +628,7 @@ func _acciones(vb: VBoxContainer, s: Dictionary) -> void:
 	var n: int = int(s["cantidad"])
 	var a_casa: bool = int(s["lado"]) == LADO_ENCIMA
 	if bool(s["encargo"]):
-		MenuScaffold.nota(vb, "Está prestado a un encargo: vuelve a casa cuando lo recojas.")
+		MenuScaffold.nota(vb, "Está prestado a un encargo: volverá cuando recojas el encargo.")
 		return
 	if a_casa and str(s["dueno"]) != "":
 		MenuScaffold.nota(vb, "Lo lleva %s. Quítaselo en su ficha antes de guardarlo." % s["dueno"])
@@ -688,20 +688,20 @@ func _mover(s: Dictionary, cuantos: int) -> void:
 		CAT_MATERIALES:
 			var movidos: int = 0
 			if not await Net.hogar.abrir_taller():
-				_decir("Tu compañero está usando el baúl justo ahora: prueba otra vez.", false)
+				_decir("Tu compañero está usando el baúl justo ahora: inténtalo de nuevo.", false)
 				return
 			movidos = Game.mover_monton_material(m, a_casa, cuantos)
 			Net.hogar.cerrar_taller()
 			if movidos <= 0:
 				_decir("No se ha podido mover.", false)
 				return
-			_decir("%s %d × %s." % ["Guardas" if a_casa else "Sacas", movidos, nombre], true)
+			_decir("%s %s ×%d." % ["Guardas" if a_casa else "Sacas", nombre, movidos], true)
 		CAT_CONSUMIBLES:
 			if a_casa:
 				Net.hogar.meter_consumible_cofre(str(s["ruta"]), cuantos)
 			else:
 				Net.hogar.sacar_consumible_cofre(str(s["ruta"]), cuantos)
-			_decir("%s %d × %s." % ["Guardas" if a_casa else "Sacas", cuantos, nombre], true)
+			_decir("%s %s ×%d." % ["Guardas" if a_casa else "Sacas", nombre, cuantos], true)
 		_:
 			if a_casa:
 				if Game.item_equipado(m):
@@ -720,7 +720,7 @@ func _mover(s: Dictionary, cuantos: int) -> void:
 # Una accion sobre el baul de materiales con el PERMISO del host alrededor (en multi; en solitario, a secas).
 func _con_permiso(accion: Callable) -> void:
 	if not await Net.hogar.abrir_taller():
-		_decir("Tu compañero está usando el baúl justo ahora: prueba otra vez.", false)
+		_decir("Tu compañero está usando el baúl justo ahora: inténtalo de nuevo.", false)
 		return
 	accion.call()
 	Net.hogar.cerrar_taller()

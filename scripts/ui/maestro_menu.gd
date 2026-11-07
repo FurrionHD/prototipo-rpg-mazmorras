@@ -285,7 +285,7 @@ func _pj() -> PersonajeData:
 func _de_encargo_avisa(pj: PersonajeData) -> bool:
 	if not Game.esta_de_encargo(pj):
 		return false
-	_aviso = "%s está de encargo: vuelve cuando lo recojas." % pj.nombre
+	_aviso = "%s está de encargo: volverá cuando recojas el encargo." % pj.nombre
 	_aviso_ok = false
 	_rebuild()
 	return true
@@ -2572,7 +2572,7 @@ func _pintar_ficha(pj: PersonajeData) -> void:
 	var sabida: bool = ab.inicial or Game.habilidad_desbloqueada(ab, pj)
 	var fuera: bool = Game.esta_de_encargo(pj)
 	if fuera:
-		MenuScaffold.nota(_content, "%s está de encargo: vuelve cuando lo recojas." % pj.nombre)
+		MenuScaffold.nota(_content, "%s está de encargo: volverá cuando recojas el encargo." % pj.nombre)
 	elif sabida:
 		MenuScaffold.nota(_content, ("%s ya se la sabe. Los cuatro huecos se ordenan en su ficha "
 			+ "[C], arrastrando.") % pj.nombre)

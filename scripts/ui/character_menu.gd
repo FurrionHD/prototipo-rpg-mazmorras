@@ -1870,7 +1870,7 @@ func _se_puede_tocar() -> bool:
 # La nota que explica por que no se puede tocar. 'fuera_del_pueblo' es la de cada seccion.
 func _nota_no_se_toca(fuera_del_pueblo: String) -> void:
 	if Game.esta_de_encargo(_pj()):
-		_note("Está de encargo: no se le puede cambiar nada hasta que lo recojas.")
+		_note("Está de encargo: no se le puede cambiar nada hasta que recojas el encargo.")
 	elif not Game.en_pueblo():
 		_note(fuera_del_pueblo)
 

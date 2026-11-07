@@ -126,7 +126,7 @@ func _build_encargos_curso() -> void:
 	MenuScaffold.titulo(hogar._lista, "En marcha (%d)" % lista.size(), 14)
 	if lista.is_empty():
 		MenuScaffold.nota(hogar._lista, "No hay nadie fuera. En «Mandar uno» eliges a quién mandas, a qué "
-			+ "piso y cuánto tiempo. Cuentan por reloj real, así que siguen aunque cierres el juego.")
+			+ "piso y cuánto tiempo. El tiempo corre de verdad, así que siguen aunque cierres el juego.")
 		return
 	# El elegido: el que estaba, si sigue; si no, el primero (los que ya han vuelto van antes).
 	var elegido: Dictionary = {}
@@ -198,7 +198,7 @@ func _celdas_objetivo(padre: Control, e: Dictionary, lado: float) -> void:
 		c.custom_minimum_size = Vector2(lado, lado)
 		c.toggle_mode = false
 		c.mouse_filter = Control.MOUSE_FILTER_PASS
-		c.tooltip_text = "%s  %d%%" % [String(Encargos.NOMBRE_GRUPO.get(g, "?")), int(grupos[g])]
+		c.tooltip_text = "%s: %d %% del reparto" % [String(Encargos.NOMBRE_GRUPO.get(g, "?")), int(grupos[g])]
 		flujo.add_child(c)
 		c.configurar(_icono_grupo(g, Encargos.opciones(g, int(e.get("piso", 1)))),
 			"%d%%" % int(grupos[g]) if lado >= 56.0 else "", "", 0)
@@ -266,7 +266,7 @@ func _detalle_encargo(e: Dictionary) -> void:
 			hogar._aviso = "Vuelven a casa con lo que llevaban. Recógelo aquí mismo."
 			hogar._aviso_ok = true
 			hogar._rebuild())
-		traer.tooltip_text = "Los hace volver YA, con lo que lleven hasta ahora: el trabajo hecho no se pierde."
+		traer.tooltip_text = "Los hace volver ya, con lo que lleven hasta ahora: el trabajo hecho no se pierde."
 		return
 
 	# --- HAN VUELTO: lo que traen, antes de recogerlo.
@@ -277,8 +277,9 @@ func _detalle_encargo(e: Dictionary) -> void:
 	res.add_theme_color_override("font_color", [VERDE, AMBAR, Color(0.90, 0.45, 0.40)][clampi(des, 0, 2)])
 	hogar._content.add_child(res)
 	if des != Encargos.EXITO:
-		MenuScaffold.nota(hogar._content, "Pierden un %d%% de lo que traían de cada cosa, y aprenden eso menos." %
-			int(round(100.0 * float(Encargos.PERDIDA[des]))))
+		var perd: int = int(round(100.0 * float(Encargos.PERDIDA[des])))
+		MenuScaffold.nota(hogar._content, "Pierden un %d %% de lo que traían de cada cosa, y ganan un %d %% menos de experiencia." % [
+			perd, perd])
 
 	var piezas: Array = []
 	for b in (e.get("botin", []) as Array):
@@ -313,7 +314,7 @@ func _detalle_encargo(e: Dictionary) -> void:
 	if dinero > 0:
 		MenuScaffold.fila(hogar._content, "Cristales vendidos", "%d monedas a la hucha" % dinero)
 	if int(e.get("rotos", 0)) > 0:
-		MenuScaffold.fila(hogar._content, "Se rompieron", "%d" % int(e["rotos"]))
+		MenuScaffold.fila(hogar._content, "Salieron rotos", "%d material%s" % [int(e["rotos"]), "" if int(e["rotos"]) == 1 else "es"])
 	if int(e.get("perdido", 0)) > 0:
 		MenuScaffold.fila(hogar._content, "Se dejaron por peso", "%d  (mándales mejores mochilas)" % int(e["perdido"]))
 	if int(e.get("peleas", 0)) > 0:
@@ -347,7 +348,7 @@ func _texto_informe(inf: Dictionary) -> String:
 	if int(inf.get("dinero", 0)) > 0:
 		t += " y %d monedas en cristales para la hucha" % int(inf["dinero"])
 	if int(inf.get("rotos", 0)) > 0:
-		t += "; rompieron %d" % int(inf["rotos"])
+		t += "; %d material%s salieron rotos" % [int(inf["rotos"]), "" if int(inf["rotos"]) == 1 else "es"]
 	if int(inf.get("perdido", 0)) > 0:
 		t += "; se dejaron %d por peso" % int(inf["perdido"])
 	return t + ". Está en el almacén; lo aprendido, en el altar."
@@ -473,8 +474,8 @@ func _tooltip_grupo(g: int, pool: Array) -> String:
 	orden.sort_custom(func(a, b): return float(a["peso"]) > float(b["peso"]))
 	var lineas: PackedStringArray = [nombre]
 	for i in mini(orden.size(), 6):
-		lineas.append("  %s  %s%%" % [(orden[i]["material"] as MaterialData).nombre,
-			snappedf(100.0 * float(orden[i]["peso"]) / maxf(0.001, total), 0.1)])
+		lineas.append("  %s: %s %% de lo que sale" % [(orden[i]["material"] as MaterialData).nombre,
+			StatusEffects.num(snappedf(100.0 * float(orden[i]["peso"]) / maxf(0.001, total), 0.1))])
 	if orden.size() > 6:
 		lineas.append("  y %d más" % (orden.size() - 6))
 	if Encargos.es_de_caza(g):
@@ -528,7 +529,8 @@ func _build_reparto() -> void:
 		fila.add_child(pct)
 		_desliz[g] = {"s": s, "l": pct}
 		s.value_changed.connect(func(v: float): _mover_reparto(g, int(round(v))))
-	MenuScaffold.nota(hogar._lista, "Si la mochila se llena, cada cosa ocupa su parte, y como mucho un 10% más si sobra sitio.")
+	MenuScaffold.nota(hogar._lista, ("Si la mochila se llena, cada cosa ocupa la parte que le hayas dado; si sobra sitio, cada "
+		+ "una puede pasarse como mucho un %d %% de la capacidad de la mochila.") % roundi(Encargos.EXTRA_RECORTE * 100.0))
 
 
 func _mover_reparto(g: int, v: int) -> void:
@@ -656,7 +658,7 @@ func _tarjeta_persona(ficha: Dictionary) -> void:
 	var panel := PanelContainer.new()
 	panel.add_theme_stylebox_override("panel", _fondo_persona(va))
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	panel.tooltip_text = "Ya van cuatro: quita a alguien antes." if lleno else (
+	panel.tooltip_text = ("Ya van %d: quita a alguien antes." % Encargos.MIEMBROS_MAX) if lleno else (
 		"Pulsa para que se quede en casa." if va else "Pulsa para que vaya.")
 	hogar._content.add_child(panel)
 	var alternar := func():
@@ -1007,7 +1009,7 @@ func _build_encargo_pronostico(libres: Array) -> void:
 		if motivo.is_empty():
 			_enc_sub = 0
 			hogar._aviso = "En marcha. Vuelven en %d h." % (dur / 3600) if not Net._soy_cliente() \
-				else "Pedido al anfitrión…"
+				else "Pidiéndoselo al anfitrión…"
 			hogar._aviso_ok = true
 		else:
 			# NO HA SALIDO: se dice por que y se devuelve la seleccion, para no tener que rehacerla.

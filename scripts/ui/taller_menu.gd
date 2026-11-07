@@ -427,7 +427,7 @@ func _on_artesano(i: int) -> void:
 	if _oficio_artesano == "" or i < 0 or i >= gente.size():
 		return
 	if Game.esta_de_encargo(gente[i] as PersonajeData):
-		_aviso = "%s está de encargo: vuelve cuando lo recojas." % (gente[i] as PersonajeData).nombre
+		_aviso = "%s está de encargo: volverá cuando recojas el encargo." % (gente[i] as PersonajeData).nombre
 		_aviso_ok = false
 		_rebuild()
 		return
