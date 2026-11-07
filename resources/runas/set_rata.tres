@@ -17,5 +17,5 @@ coste_nucleo = 3
 runa = ExtResource("4_runa")
 bonus_2p = {}
 efecto = &"alcantarilla"
-params = {"prob": 0.05, "dano": 0.05}
+params = {"prob": 0.1, "dano": 0.05}
 metadata/_custom_type_script = "res://scripts/items/runa_set_data.gd"

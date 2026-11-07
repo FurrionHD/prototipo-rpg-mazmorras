@@ -339,20 +339,20 @@ func convertir_a_mundo(slot: int) -> Dictionary:
 		return {"ok": false, "mensaje": "Esa ranura está vacía."}
 	_asegurar_migrada(slot)
 	if not usa_bd(slot):
-		return {"ok": false, "mensaje": "No se pudo preparar la partida: %s" % String(_no_migradas.get(slot, "?"))}
+		return {"ok": false, "mensaje": "No se ha podido preparar la partida: %s" % String(_no_migradas.get(slot, "?"))}
 	if es_mundo(slot):
 		return {"ok": true, "ya": true}
 	_cerrar_bd()   # cerrada antes de copiar: asi el WAL queda volcado en el fichero
 	var respaldo: String = _respaldar_ranura(slot)
 	if respaldo == "":
-		return {"ok": false, "mensaje": "No se pudo hacer la copia de seguridad: la partida no se toca."}
+		return {"ok": false, "mensaje": "No se ha podido hacer la copia de seguridad: la partida no se toca."}
 	if not _abrir_bd(slot):
-		return {"ok": false, "mensaje": "No se pudo abrir la partida."}
+		return {"ok": false, "mensaje": "No se ha podido abrir la partida."}
 	var ids := BDFilas.Ids.new()
 	var datos: SaveData = _inspeccionar_bd(slot, ids).get("datos")
 	if datos == null:
 		_cerrar_bd()
-		return {"ok": false, "mensaje": "No se pudo leer la partida."}
+		return {"ok": false, "mensaje": "No se ha podido leer la partida."}
 	_ids = ids   # con los ids de esta lectura: solo se escribe lo nuevo
 	# Tu ficha sale del estado vivo (plantilla, grupo, bolsa...), asi que primero se carga la partida en Game.
 	Game.importar_partida(datos)
@@ -390,7 +390,7 @@ func convertir_a_mundo(slot: int) -> Dictionary:
 	_cerrar_bd()
 	ranura_actual = 0   # la lleva su sala a partir de ahora, no este juego
 	if not ok:
-		return {"ok": false, "respaldo": respaldo, "mensaje": "No se pudo guardar la partida convertida (tienes la copia)."}
+		return {"ok": false, "respaldo": respaldo, "mensaje": "No se ha podido guardar la partida convertida (la copia de seguridad sigue ahí)."}
 	print("[perfil] ranura %d en formato de mundo (copia en %s)" % [slot, respaldo])
 	return {"ok": true, "ya": false, "respaldo": respaldo}
 
@@ -734,7 +734,7 @@ func _poner_conexion(r: Dictionary) -> void:
 	sin_conexion = sin_red
 	conexion_cambiada.emit(sin_red)
 	if sin_red:
-		_avisar_hud("Sin conexión: tu partida se subirá luego")
+		_avisar_hud("Sin conexión: tu partida se subirá cuando vuelva la conexión")
 
 
 func _avisar_hud(texto: String) -> void:

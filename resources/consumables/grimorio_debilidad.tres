@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1")
 nombre = "Grimorio: Debilidad"
-descripcion = "Un tomo de tinta palida que cuesta leer sin cansarse la vista. Estudialo y aprenderas Debilidad."
+descripcion = "Un tomo de tinta pálida que cuesta leer sin cansarse la vista. Estúdialo y aprenderás Debilidad."
 cura_total = 0.0
 turnos = 1
 segundos = 1.0

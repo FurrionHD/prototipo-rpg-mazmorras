@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1")
 id = &"carbon_mineral"
-nombre = "Carbon mineral"
-descripcion = "Vetas negras y lustrosas en la roca. Arde el doble de rato que el vegetal y con una llama mas quieta, que es lo que se le pide a algo de lo que depende que veas."
+nombre = "Carbón mineral"
+descripcion = "Vetas negras y lustrosas en la roca. Arde el doble de rato que el vegetal y con una llama más quieta, que es lo que se le pide a algo de lo que depende que veas."
 familia = 0
 tipo = 11
 tier = 1

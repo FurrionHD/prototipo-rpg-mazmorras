@@ -11,5 +11,5 @@ mana_total = 8.0
 mana_pct = 0.10
 turnos = 3
 segundos = 6.0
-descripcion = "Restaura 8 + 10% de tu maná máximo, repartido en el tiempo. Sostén de casteo: la regen pasiva es un goteo, esto es el empujón."
+descripcion = "La regeneración de siempre es un goteo; esto es el empujón."
 valor_base = 250

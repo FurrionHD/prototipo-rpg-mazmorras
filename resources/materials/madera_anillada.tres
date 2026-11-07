@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = &"madera_anillada"
 nombre = "Madera anillada"
-descripcion = "Crecio a tirones, un anillo por cada temporada que la mazmorra la dejo en paz. Los anillos apretados son los años malos, y son los que la hacen dura."
+descripcion = "Creció a tirones, un anillo por cada temporada que la mazmorra la dejó en paz. Los anillos apretados son los años malos, y son los que la hacen dura."
 familia = 0
 tipo = 6
 tier = 1

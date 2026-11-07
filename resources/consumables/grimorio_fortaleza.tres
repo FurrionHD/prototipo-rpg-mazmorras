@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1")
 nombre = "Grimorio: Fortaleza"
-descripcion = "Un tomo macizo, con tapas de madera y esquinas de metal. Pesa como un ladrillo. Estudialo y aprenderas Fortaleza."
+descripcion = "Un tomo macizo, con tapas de madera y esquinas de metal. Pesa como un ladrillo. Estúdialo y aprenderás Fortaleza."
 cura_total = 0.0
 turnos = 1
 segundos = 1.0

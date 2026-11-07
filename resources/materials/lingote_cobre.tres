@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = &"lingote_cobre"
 nombre = "Lingote de cobre"
-descripcion = "Un ladrillo rojizo, todavia tibio. La primera cosa util que sale de la mazmorra sin que la haya hecho un bicho."
+descripcion = "Un ladrillo rojizo, todavía tibio. La primera cosa útil que sale de la mazmorra sin que la haya hecho un bicho."
 familia = 0
 tipo = 5
 tier = 1

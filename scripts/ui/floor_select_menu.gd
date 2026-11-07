@@ -95,7 +95,7 @@ func _rebuild_real() -> void:
 		b.pressed.connect(_bajar.bind(piso))
 		_content.add_child(b)
 
-	MenuScaffold.nota(_content, "La mazmorra sigue como la dejaste: los mismos bichos y lo que se te cayó por el suelo. Sólo morir (o cerrar el juego) la reinicia.")
+	MenuScaffold.nota(_content, "La mazmorra sigue como la dejaste: los mismos bichos y lo que se te cayó por el suelo. Solo morir (o cerrar el juego) la reinicia.")
 
 
 func _bajar(piso: int) -> void:

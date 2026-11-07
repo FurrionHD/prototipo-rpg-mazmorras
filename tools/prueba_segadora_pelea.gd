@@ -129,7 +129,7 @@ func _correr() -> void:
 	await _esperar(60)   # que acabe el salto del Vuelo corto
 	var set_seg: RunaSetData = Runas.set_por_id(&"segadora")
 	_ver(set_seg != null and set_seg.tipo == RunaSetData.Tipo.ARMA and set_seg.efecto == &"filo_aire", "el set existe y es de arma")
-	_ver(Runas.descripcion_set(set_seg).contains("Solo con golpes de arma"), "su texto dice que solo va con armas")
+	_ver(Runas.descripcion_set(set_seg).contains("No funciona con la magia"), "su texto dice que la magia no lo activa")
 	yo.runa_filo_dano = 0.3
 	yo.runa_filo_mas = 0.3
 	yo.runa_filo_linea = 0.4
@@ -152,6 +152,16 @@ func _correr() -> void:
 	_ver(combat.log_entero().size() == log1, "a quien ya toco la forma normal, nada")
 	var ven2: AbilityData = load("res://resources/abilities/vendaval_cortes.tres")
 	_ver(combat.habilidades.filo_de_aire(yo, ven2, [], a_e).is_empty(), "la magia no lo activa")
+	# (06/11) El corte sale de LO QUE LA HABILIDAD LE HARIA, no de un basico: una de x3 da un corte ~x3.
+	var fuerte := AbilityData.new()
+	fuerte.dano_mult = 3.0
+	var s_b: float = 0.0
+	var s_f: float = 0.0
+	for _k in 40:
+		s_b += maxf(0.0, combat.habilidades.dano_de_habilidad_contra(yo, null, b_e))
+		s_f += maxf(0.0, combat.habilidades.dano_de_habilidad_contra(yo, fuerte, b_e))
+	_ver(s_b > 0.0 and s_f > s_b * 2.0, "una habilidad de x3 alarga un corte mucho mas fuerte que el basico (%.1f / %.1f)" % [s_f, s_b])
+	_ver(Runas.efecto_txt(set_seg).contains("les habría infligido"), "y su texto lo dice")
 	yo.runa_filo_dano = 0.0
 	_ver(combat.habilidades.filo_de_aire(yo, null, [a_e], a_e).is_empty(), "sin el set, nada")
 

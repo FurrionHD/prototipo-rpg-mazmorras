@@ -132,7 +132,7 @@ func _ready() -> void:
 	# se guardaria nunca. Ver Mundos.abandonar().
 	var colgado: String = Mundos.abandonar()
 	if colgado != "":
-		_aviso.text = "El mundo compartido se cerró sin guardar. Sigue reservado a tu nombre unos minutos."
+		_aviso.text = "El mundo compartido se cerró sin guardar. Sigue reservado a tu nombre durante unos minutos."
 
 	# La primera vez con la BASE DE DATOS, las partidas viejas se pasan a ella (ver Perfil): con un
 	# baul grande son unos segundos, asi que con la capa de Cargando delante y no con el menu congelado.
@@ -148,7 +148,7 @@ func _ready() -> void:
 	if await Perfil.mirar_nube() and is_inside_tree():
 		_pintar()
 	elif Perfil.sin_conexion and _aviso.text == "":
-		_aviso.text = "Sin conexión: juegas con lo de este PC y se subirá luego."
+		_aviso.text = "Sin conexión: juegas con lo guardado en este PC y se subirá a la nube cuando vuelva la conexión."
 
 
 # ============================================================
@@ -245,7 +245,7 @@ func _pintar() -> void:
 			continue
 
 		# La ficha va en DOS lineas: arriba lo que identifica la partida, y debajo en gris el resto.
-		var titulo: String = "%s  ·  Nv.%d" % [datos.nombre, datos.cab_nivel]
+		var titulo: String = "%s  ·  Nv. %d" % [datos.nombre, datos.cab_nivel]
 		if slot == ultima:
 			titulo += "   ◄"   # la mas reciente
 		if Perfil.sin_subir(slot):
@@ -259,8 +259,8 @@ func _pintar() -> void:
 	# Las que estan en tu cuenta de la nube y no en este PC (jugadas en otro).
 	for e in nube:
 		var m: Dictionary = e["meta"]
-		var b: Button = _boton_ranura("%s  ·  Nv.%d   (en la nube)" % [String(m.get("nombre", "Partida")),
-			int(m.get("cab_nivel", 0))], ["Tócala para traerla a este PC  ·  %d monedas" % int(m.get("cab_dinero", 0)),
+		var b: Button = _boton_ranura("%s  ·  Nv. %d   (en la nube)" % [String(m.get("nombre", "Partida")),
+			int(m.get("cab_nivel", 0))], ["Púlsala para descargarla en este PC  ·  %d monedas" % int(m.get("cab_dinero", 0)),
 			String(m.get("fecha", ""))], Color(0.55, 0.75, 0.98))
 		b.pressed.connect(_traer.bind(String(e["id"])))
 		filas.add_child(b)
@@ -327,7 +327,7 @@ func _cargar(slot: int) -> void:
 			return
 		if not prep.get("ok", false):
 			Cargando.ocultar()
-			_aviso.text = "No se pudo traer lo último de la nube. Vuelve a probar."
+			_aviso.text = "No se ha podido descargar la última versión de la nube. Inténtalo de nuevo."
 			return
 		# La primera vez, al formato de mundo (con su copia de seguridad intacta).
 		if not Perfil.es_mundo(slot):
@@ -360,7 +360,7 @@ func _no_me_reconoce(_nombre: String) -> void:
 	_entrando = false
 	Net.desconectar()
 	Cargando.ocultar()
-	_aviso.text = "Esta partida es de otra identidad de jugador: no se puede abrir con la tuya."
+	_aviso.text = "Esta partida es de otro jugador y no se puede abrir con tu cuenta."
 
 
 func _al_estado_red(t: String) -> void:
@@ -381,11 +381,11 @@ func _nueva() -> void:
 
 # Traer a este PC una partida que solo esta en la nube, y jugarla.
 func _traer(pid: String) -> void:
-	await Cargando.mostrar("Trayendo tu partida de la nube...")
+	await Cargando.mostrar("Descargando tu partida de la nube...")
 	var slot: int = await Perfil.bajar_de_nube(pid)
 	if slot <= 0:
 		Cargando.ocultar()
-		_aviso.text = "No se pudo traer la partida de la nube. Mira tu conexión."
+		_aviso.text = "No se ha podido descargar la partida de la nube. Comprueba tu conexión."
 		return
 	_pintar()
 	_cargar(slot)
@@ -411,24 +411,24 @@ func _preguntar_conflicto(slot: int, prep: Dictionary) -> void:
 	center.add_child(vb)
 
 	var tit := Label.new()
-	tit.text = "ESTA PARTIDA CAMBIÓ EN DOS SITIOS"
+	tit.text = "HAY DOS VERSIONES DE ESTA PARTIDA"
 	tit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	tit.add_theme_font_size_override("font_size", 24)
 	tit.add_theme_color_override("font_color", AMBAR)
 	vb.add_child(tit)
 	var expl := Label.new()
-	expl.text = "Se jugó en este PC y en otro sin llegar a subirse. ¿Con cuál sigues?
-La otra no se pierde: queda guardada aparte."
+	expl.text = "Se ha jugado en este PC y en otro sin que llegara a subirse. ¿Con cuál quieres seguir?
+La otra no se pierde: se guarda aparte."
 	expl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vb.add_child(expl)
 
 	var resumen := func(m: Dictionary) -> Array:
-		return ["%s  ·  Nv.%d  ·  %d monedas" % [String(m.get("nombre", "?")), int(m.get("cab_nivel", 0)),
+		return ["%s  ·  Nv. %d  ·  %d monedas" % [String(m.get("nombre", "?")), int(m.get("cab_nivel", 0)),
 			int(m.get("cab_dinero", 0))], "%s  ·  %s" % [String(m.get("cab_lugar", "")), String(m.get("fecha", ""))]]
-	var aqui: Button = _boton_ranura("La de ESTE PC", resumen.call(prep.get("aqui", {})), AMBAR)
+	var aqui: Button = _boton_ranura("La de este PC", resumen.call(prep.get("aqui", {})), AMBAR)
 	aqui.custom_minimum_size.x = ANCHO_TOTAL
 	vb.add_child(aqui)
-	var nube: Button = _boton_ranura("La de la NUBE", resumen.call(prep.get("nube", {})), Color(0.55, 0.75, 0.98))
+	var nube: Button = _boton_ranura("La de la nube", resumen.call(prep.get("nube", {})), Color(0.55, 0.75, 0.98))
 	nube.custom_minimum_size.x = ANCHO_TOTAL
 	vb.add_child(nube)
 	var cancelar := Button.new()
@@ -443,7 +443,7 @@ La otra no se pierde: queda guardada aparte."
 			_cargar(slot)
 		else:
 			Cargando.ocultar()
-			_aviso.text = "No se pudo hablar con la nube. Vuelve a probar."
+			_aviso.text = "No se ha podido conectar con la nube. Inténtalo de nuevo."
 	aqui.pressed.connect(elegir.bind("aqui"))
 	nube.pressed.connect(elegir.bind("nube"))
 
@@ -577,7 +577,7 @@ func _borrar(slot: int) -> void:
 func _borrar_a_ciegas(slot: int) -> void:
 	if _confirmar_borrado != slot:
 		_confirmar_borrado = slot
-		_aviso.text = "Esa partida no la puede leer este build. Pulsa otra vez «Borrar» para tirarla."
+		_aviso.text = "Esta versión del juego no puede leer esa partida. Pulsa otra vez «Borrar» para eliminarla."
 		return
 	_confirmar_borrado = 0
 	Perfil.borrar(slot)

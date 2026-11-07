@@ -115,31 +115,31 @@ func _mirar_steam() -> void:
 	var cuenta: String = "«%s»" % Identidad.steam_nombre
 	match caso:
 		"adoptado":
-			_decir("Tu Steam %s te ha reconocido: eres tú, con tus personajes. (La identidad que tenía "
-				% cuenta + "este PC queda guardada en «TÚ Y TU CONEXIÓN» por si quieres volver.)")
+			_decir("Tu cuenta de Steam (%s) te ha reconocido: eres tú, con tus personajes. La identidad que tenía "
+				% cuenta + "este PC queda guardada en «CUENTA Y CONEXIÓN» por si quieres volver a ella.")
 		"sin_vinculo":
-			_elegir("TU CUENTA DE STEAM", "Tu Steam %s todavía no sabe qué jugador eres.\n\n" % cuenta
-				+ "Si lo vinculas con la identidad de este PC (con sus personajes), cualquier PC donde "
-				+ "abras tu Steam te reconocerá.\n\nSi este no es el PC donde juegas normalmente, mejor "
-				+ "hazlo desde ese. Se puede cambiar después en «TÚ Y TU CONEXIÓN».", [
-					["Sí, vincular mi Steam con este PC", _vincular_este_pc],
+			_elegir("TU CUENTA DE STEAM", "Tu cuenta de Steam (%s) todavía no está vinculada a ningún jugador.\n\n" % cuenta
+				+ "Si la vinculas a la identidad de este PC (con sus personajes), te reconocerá cualquier PC "
+				+ "en el que abras Steam.\n\nSi no es el PC en el que juegas normalmente, mejor "
+				+ "hazlo desde ese. Puedes cambiarlo después en «CUENTA Y CONEXIÓN».", [
+					["Sí, vincular mi cuenta de Steam a este PC", _vincular_este_pc],
 					["Todavía no: este no es mi PC principal", func():
 						Identidad.steam_ahora_no()
 						_pintar()],
 				])
 		"distinto":
-			_elegir("TU CUENTA DE STEAM", ("Tu Steam %s es el jugador %s.\nEste PC era el jugador %s.\n\n"
+			_elegir("TU CUENTA DE STEAM", ("Tu cuenta de Steam (%s) es el jugador %s.\nEste PC era el jugador %s.\n\n"
 				% [cuenta, Identidad.vinculo, Identidad.id])
-				+ "Cada uno tiene sus propios personajes en los mundos. ¿Quién eres aquí? (Se puede "
-				+ "cambiar después en «TÚ Y TU CONEXIÓN».)", [
-					["Usar el de mi Steam", func():
+				+ "Cada uno tiene sus propios personajes en los mundos. ¿Con cuál quieres jugar aquí? Puedes "
+				+ "cambiarlo después en «CUENTA Y CONEXIÓN».", [
+					["Usar el de mi cuenta de Steam", func():
 						Identidad.usar_la_de_steam()
-						_decir("Ahora eres el jugador de tu Steam.")
+						_decir("Ahora eres el jugador de tu cuenta de Steam.")
 						_pintar()],
 					["Seguir con el de este PC, solo aquí", func():
 						Identidad.steam_ahora_no()
 						_pintar()],
-					["Seguir con el de este PC, y que mi Steam use ESTE", _vincular_este_pc],
+					["Seguir con el de este PC y vincularlo a mi cuenta de Steam", _vincular_este_pc],
 				])
 	_pintar()
 
@@ -147,9 +147,9 @@ func _mirar_steam() -> void:
 func _vincular_este_pc() -> void:
 	var r: Dictionary = await Identidad.vincular_este_pc()
 	if r.get("ok", false):
-		_decir("Tu Steam «%s» ya es este jugador en cualquier PC." % Identidad.steam_nombre)
+		_decir("Tu cuenta de Steam «%s» ya es este jugador en cualquier PC." % Identidad.steam_nombre)
 	else:
-		_decir(String(r.get("mensaje", "No se pudo vincular tu Steam.")), false)
+		_decir(String(r.get("mensaje", "No se ha podido vincular tu cuenta de Steam.")), false)
 	_pintar()
 
 
@@ -178,12 +178,12 @@ func _pintar() -> void:
 	MenuScaffold.vaciar(header)
 	MenuScaffold.vaciar(lista)
 
-	MenuScaffold.pestanas(header, ["MIS MUNDOS", "DE OTRAS PERSONAS", "TÚ Y TU CONEXIÓN"],
+	MenuScaffold.pestanas(header, ["MIS MUNDOS", "DE OTRAS PERSONAS", "CUENTA Y CONEXIÓN"],
 		_pestana, _on_pestana, 150)
 
 	# Quien soy: hace falta que se vea, porque es la llave de tus personajes en todos los mundos.
 	var quien := Label.new()
-	quien.text = "Eres «%s»  ·  id %s%s" % [Identidad.nombre, Identidad.id, _linea_steam()]
+	quien.text = "Eres «%s»  ·  ID %s%s" % [Identidad.nombre, Identidad.id, _linea_steam()]
 	quien.add_theme_font_size_override("font_size", 11)
 	quien.add_theme_color_override("font_color", MenuScaffold.GRIS)
 	header.add_child(quien)
@@ -305,8 +305,8 @@ func _pintar_direcciones(lista: VBoxContainer) -> void:
 
 	var dirs: Array = Nube.direcciones_locales()
 	if dirs.is_empty():
-		MenuScaffold.nota(lista, "No se ve ninguna dirección utilizable. Si usas Hamachi o similar, "
-			+ "enciéndelo y vuelve a entrar aquí.")
+		MenuScaffold.nota(lista, "No se encuentra ninguna dirección válida. Si usas Hamachi o un programa parecido, "
+			+ "enciéndelo y vuelve a esta pestaña.")
 	for ip in dirs:
 		var s: String = String(ip)
 		var b := Button.new()
@@ -326,7 +326,7 @@ func _pintar_direcciones(lista: VBoxContainer) -> void:
 		quitar.text = "Quitar la elección (publicar todas)"
 		quitar.pressed.connect(func():
 			Identidad.poner_direccion("")
-			_decir("Se publicarán todas y el que entre probará en orden.")
+			_decir("Se publicarán todas, y quien entre las probará por orden.")
 			_pintar())
 		lista.add_child(quitar)
 
@@ -336,7 +336,7 @@ func _pintar_yo() -> void:
 	MenuScaffold.vaciar(vb)
 
 	MenuScaffold.titulo(vb, "QUIÉN ERES", 20, AMBAR)
-	MenuScaffold.nota(vb, "Esto es de la PERSONA, no de una partida: es lo que permite que un mundo "
+	MenuScaffold.nota(vb, "Esto va contigo, no con una partida: es lo que permite que un mundo "
 		+ "recuerde qué personaje es tuyo, lo abra quien lo abra.")
 
 	var l1 := Label.new()
@@ -355,31 +355,31 @@ func _pintar_yo() -> void:
 		_decir("Ahora eres «%s»." % Identidad.nombre)
 		_pintar())
 	vb.add_child(guardar)
-	MenuScaffold.nota(vb, "Cambiarlo NO te convierte en otra persona: tus personajes van atados a tu "
-		+ "id, no a tu nombre.")
+	MenuScaffold.nota(vb, "Cambiar el nombre no te convierte en otra persona: tus personajes van ligados a tu "
+		+ "ID, no a tu nombre.")
 
-	MenuScaffold.fila(vb, "Tu id", Identidad.id, 60)
-	MenuScaffold.nota(vb, "Guárdalo en algún sitio. Si pierdes este ordenador (o el fichero de "
-		+ "identidad) es lo ÚNICO que te devuelve tus personajes en los mundos de otros.")
+	MenuScaffold.fila(vb, "Tu ID", Identidad.id, 60)
+	MenuScaffold.nota(vb, "Apúntalo en algún sitio. Si pierdes este ordenador (o el archivo de "
+		+ "identidad), es lo único que te devolverá tus personajes en los mundos de otros.")
 	var otro := Button.new()
-	otro.text = "Pegar otro id..."
+	otro.text = "Pegar otro ID..."
 	otro.pressed.connect(func():
 		_dialogo("PEGAR UN ID", "Solo si estás recuperando tu identidad de otro ordenador. "
-			+ "Son 24 caracteres. Con el id de otra persona no consigues nada: sus personajes "
-			+ "están en SU mundo, no aquí.",
-			[{"etiqueta": "Id (24 caracteres)", "valor": ""}],
+			+ "Son 24 caracteres. Con el ID de otra persona no consigues nada: sus personajes "
+			+ "están en su mundo, no aquí.",
+			[{"etiqueta": "ID (24 caracteres)", "valor": ""}],
 			func(v: Array):
 				if Identidad.poner_id(v[0]):
 					_decir("Identidad cambiada.")
 				else:
-					_decir("Ese id no vale (tienen que ser 24 caracteres hexadecimales).", false)
+					_decir("Ese ID no es válido (tiene que tener 24 caracteres hexadecimales).", false)
 				_pintar()))
 	vb.add_child(otro)
 
 	MenuScaffold.titulo(vb, "TU CUENTA DE STEAM", 18, AMBAR)
 	if Identidad.steam_id == 0:
-		MenuScaffold.nota(vb, "Steam no está abierto (o aún no se ha mirado). Sin Steam se juega como "
-			+ "siempre: con el id de este PC y por Hamachi.")
+		MenuScaffold.nota(vb, "Steam no está abierto (o todavía no se ha comprobado). Sin Steam se juega igual, con el ID "
+			+ "de este PC, pero para jugar de casa a casa hace falta Hamachi.")
 	else:
 		var bien: bool = Identidad.vinculo == Identidad.id
 		MenuScaffold.fila(vb, "Cuenta", "«%s»" % Identidad.steam_nombre, 90)
@@ -387,12 +387,12 @@ func _pintar_yo() -> void:
 			90, VERDE if bien else null)
 		if not bien:
 			var usar := Button.new()
-			usar.text = "Usar la identidad de este PC para mi Steam"
+			usar.text = "Vincular mi cuenta de Steam a la identidad de este PC"
 			usar.pressed.connect(func():
-				_elegir("¿CAMBIAR TU STEAM?", ("Tu Steam «%s» pasará a ser el jugador de este PC (%s). "
+				_elegir("¿CAMBIAR TU CUENTA DE STEAM?", ("Tu cuenta de Steam «%s» pasará a ser el jugador de este PC (%s). "
 					% [Identidad.steam_nombre, Identidad.id])
-					+ "En cualquier otro PC donde abras tu Steam serás este jugador, con sus personajes."
-					+ ("\n\nAhora es el jugador %s: queda apuntado aquí para poder volver." % Identidad.vinculo
+					+ "En cualquier otro PC en el que abras Steam serás este jugador, con sus personajes."
+					+ ("\n\nAhora es el jugador %s: queda apuntado aquí por si quieres volver." % Identidad.vinculo
 						if Identidad.vinculo != "" else ""), [
 						["Sí, cambiarlo", _vincular_este_pc],
 						["No, dejarlo como está", func(): pass],
@@ -411,12 +411,12 @@ func _pintar_yo() -> void:
 
 	MenuScaffold.titulo(vb, "TU DIRECCIÓN", 18, AMBAR)
 	var pref: String = Identidad.direccion_preferida
-	MenuScaffold.fila(vb, "Publicas", pref if pref != "" else "todas (el que entre prueba en orden)", 90,
+	MenuScaffold.fila(vb, "Publicas", pref if pref != "" else "todas (quien entre las prueba por orden)", 90,
 		VERDE if pref != "" else null)
-	MenuScaffold.nota(vb, "Elígela en la lista de la izquierda. Es la que tendrán que poner tus "
-		+ "compañeros para entrar, junto con la contraseña del mundo.\n\n"
-		+ "⚠️ El juego reparte la dirección, pero no puede hacer que se pueda llegar a ella: para "
-		+ "jugar de casa a casa sigue haciendo falta Hamachi (o abrir el puerto 24567 UDP). Si usas "
+	MenuScaffold.nota(vb, "Elígela en la lista de la izquierda. Se publica sola al abrir un mundo, y con el código "
+		+ "del mundo tus compañeros la encuentran sin tener que escribirla.\n\n"
+		+ "⚠️ Si los dos tenéis Steam abierto, no hace falta nada más. Sin Steam, para "
+		+ "jugar de casa a casa hace falta Hamachi (o abrir el puerto 24567 UDP); si usas "
 		+ "Hamachi, la buena es la que empieza por 25.")
 
 
@@ -434,10 +434,10 @@ func _pintar_detalle() -> void:
 	MenuScaffold.vaciar(vb)
 
 	if _sel == "":
-		MenuScaffold.nota(vb, "Elige un mundo de la lista, o crea uno nuevo.\n\n"
-			+ "Un mundo compartido guarda dentro a todos los que juegan en él: tu personaje vive en "
-			+ "el mundo, no en tu disco, y te lo encuentras igual lo abra quien lo abra. "
-			+ "Solo puede tenerlo abierto uno a la vez.")
+		MenuScaffold.nota(vb, "Elige un mundo de la lista o crea uno nuevo.\n\n"
+			+ "Un mundo compartido guarda a todos los que juegan en él: tu personaje vive en "
+			+ "el mundo, no en tu disco, y lo encontrarás igual lo abra quien lo abra. "
+			+ "Solo una persona puede tenerlo abierto a la vez; los demás se unen a ella.")
 		return
 
 	var e: Dictionary = Mundos.entrada(_sel)
@@ -455,20 +455,20 @@ func _pintar_detalle() -> void:
 		var pub: String = String(e.get("publicada", ""))
 		var dirs: Array = Nube.direcciones_locales()
 		var va_a_publicar: String = pref if pref != "" else (String(dirs[0]) if not dirs.is_empty() else "")
-		MenuScaffold.fila(vb, "Tus compañeros ponen", "el código del mundo + la contraseña", 110, VERDE)
+		MenuScaffold.fila(vb, "Para entrar", "el código del mundo y la contraseña", 110, VERDE)
 		MenuScaffold.fila(vb, "Tu dirección", va_a_publicar if va_a_publicar != "" \
-			else "(no tienes dirección utilizable)", 110, null if va_a_publicar != "" else ROJO)
+			else "(ninguna válida)", 110, null if va_a_publicar != "" else ROJO)
 		if pub != "" and pub != va_a_publicar:
 			MenuScaffold.fila(vb, "La última vez", pub, 110)
-		MenuScaffold.nota(vb, "Con el código, el juego les lleva solo a quien tenga el mundo abierto, y "
-			+ "si no hay nadie lo pueden abrir ellos. Tu dirección se publica sola cada vez que abres "
-			+ "(se elige en «TÚ Y TU CONEXIÓN»); para jugar de casa a casa sigue haciendo falta Hamachi.")
+		MenuScaffold.nota(vb, "Con el código, el juego los lleva solo hasta quien tenga el mundo abierto, y "
+			+ "si no hay nadie, pueden abrirlo ellos. Tu dirección se publica sola cada vez que abres el mundo "
+			+ "(se elige en «CUENTA Y CONEXIÓN»). Sin Steam, para jugar de casa a casa hace falta Hamachi.")
 	else:
 		MenuScaffold.fila(vb, "Su dirección", String(e.get("direccion", "—")), 110)
 
 	var motivo: String = String(e.get("motivo", ""))
 	if motivo != "":
-		MenuScaffold.fila(vb, "Ojo", motivo, 110, ROJO)
+		MenuScaffold.fila(vb, "Aviso", motivo, 110, ROJO)
 	# LA SALA DE ESTE MUNDO SIGUE ABIERTA EN ESTE PC (la dejaste con alguien dentro al cerrar el juego):
 	# "Entrar" te vuelve a meter en ella en vez de abrir otra.
 	var sala: Dictionary = Mundos.sala_en_este_pc(_sel)
@@ -579,7 +579,7 @@ func _pedir_contrasena(nombre: String, color: Color, png: PackedByteArray) -> vo
 func _crear_de_verdad(nombre: String, color: Color, png: PackedByteArray, pass_: String) -> void:
 	var r: Dictionary = await Mundos.alta_propio(nombre, pass_, png, color)
 	if not r.get("ok", false):
-		_decir(String(r.get("mensaje", "No se pudo crear el mundo.")), false)
+		_decir(String(r.get("mensaje", "No se ha podido crear el mundo.")), false)
 		return
 	_sel = String(r["clave"])
 	_pintar()
@@ -593,23 +593,23 @@ func _crear_de_verdad(nombre: String, color: Color, png: PackedByteArray, pass_:
 # ------------------------------------------------------------
 func _anadir_ajeno() -> void:
 	_dialogo("AÑADIR EL MUNDO DE OTRA PERSONA",
-		"Los datos los tiene esa persona: los ve en su pantalla del mundo. Con el CÓDIGO DEL MUNDO "
-		+ "el juego encuentra su dirección solo, y además puedes abrir el mundo tú cuando no esté. "
-		+ "La dirección es la suya (la de Hamachi si es lo que usáis), no la tuya: con el código "
+		"Esa persona tiene los datos en la ficha de su mundo. Con el código del mundo, "
+		+ "el juego encuentra su dirección solo, y además podrás abrir el mundo tú cuando ella no esté. "
+		+ "La dirección es la suya (la de Hamachi, si es lo que usáis), no la tuya; si pones el código, "
 		+ "puedes dejarla en blanco.",
 		[
-			{"etiqueta": "Cómo quieres verlo en TU lista (p.ej. «la casa de Nacho»)", "valor": ""},
-			{"etiqueta": "SU dirección (IP) — opcional si pones el código", "valor": ""},
+			{"etiqueta": "Nombre en tu lista (p. ej., «La casa de Nacho»)", "valor": ""},
+			{"etiqueta": "Su dirección IP (opcional si pones el código)", "valor": ""},
 			{"etiqueta": "Contraseña del mundo", "secreto": true},
 			{"etiqueta": "Código del mundo", "valor": ""},
 		],
 		func(v: Array):
 			var r: Dictionary = await Mundos.alta_ajeno(v[0], v[3], v[2], v[1])
 			if not r.get("ok", false):
-				_decir(String(r.get("mensaje", "No se pudo añadir.")), false)
+				_decir(String(r.get("mensaje", "No se ha podido añadir.")), false)
 				return
 			_sel = String(r["clave"])
-			_decir("Añadido «%s» a tu lista." % v[0])
+			_decir("«%s» se ha añadido a tu lista." % v[0])
 			_pintar())
 
 
@@ -640,7 +640,7 @@ func _entrar(clave: String, pass_: String, forzar_build := false, token := "") -
 	if not r.get("ok", false):
 		_entrando = false
 		Cargando.ocultar()
-		_decir(String(r.get("mensaje", "No se pudo abrir.")), false)
+		_decir(String(r.get("mensaje", "No se ha podido abrir.")), false)
 		# BUILD DISTINTO no es una perdida de datos segura, solo un riesgo (los saves llevan rutas
 		# res:// dentro): lo normal es que dos builds tengan las mismas rutas y cargue perfecto. Si se
 		# rechazara a secas, subir el numero de version del juego dejaria tus mundos inaccesibles para
@@ -654,7 +654,7 @@ func _entrar(clave: String, pass_: String, forzar_build := false, token := "") -
 			b.pressed.connect(func(): _entrar(clave, pass_, true))
 			vb.add_child(b)
 			MenuScaffold.nota(vb, "Si al entrar falta algo (un arma, un material), cierra sin guardar "
-				+ "y vuelve al build con el que se guardó.")
+				+ "y vuelve a la versión del juego con la que se guardó.")
 			return
 		_pintar()
 		return
@@ -663,8 +663,8 @@ func _entrar(clave: String, pass_: String, forzar_build := false, token := "") -
 	if String(r.get("direccion", "")) == "127.0.0.1":
 		var dirs: Array = r.get("direcciones", [])
 		if dirs.is_empty():
-			_decir("Mundo abierto, pero SIN dirección publicada: nadie podrá entrar desde otra casa. "
-				+ "Enciende Hamachi y elige tu dirección en «TÚ Y TU CONEXIÓN».", false)
+			_decir("Mundo abierto, pero sin ninguna dirección publicada: nadie podrá entrar desde otra casa. "
+				+ "Abre Steam, o enciende Hamachi y elige tu dirección en «CUENTA Y CONEXIÓN».", false)
 		else:
 			# Sin Hamachi, la unica publicada puede ser la de Steam ("steam:<numero>"): eso no se enseña.
 			var ips: Array = dirs.filter(func(d): return not String(d).begins_with(Net.Tunel.PREFIJO))
@@ -674,7 +674,7 @@ func _entrar(clave: String, pass_: String, forzar_build := false, token := "") -
 			else:
 				_decir("Mundo abierto en %s%s. Entrando..." % [String(ips[0]), " y por Steam" if por_steam else ""])
 	else:
-		_decir("Conectando a %s..." % String(r.get("direccion", "")))
+		_decir("Conectando con %s..." % String(r.get("direccion", "")))
 
 
 # UNIRSE POR IP a la partida de alguien de tu LAN (viene del panel de LAN, ver Mundos.union_ip). Se entra como a
@@ -688,7 +688,7 @@ func _unirse_por_ip() -> void:
 	if Net.unirse(ip, String(u.get("codigo", "")), Net.PUERTO, true) != OK:
 		_entrando = false
 		Cargando.ocultar()
-		_decir("No se pudo conectar a %s." % ip, false)
+		_decir("No se ha podido conectar con %s." % ip, false)
 
 
 # Lo que cuenta la red mientras entras va en la capa de carga; si la conexion se cae (o te rechazan),
@@ -724,7 +724,7 @@ func atender_invitacion() -> void:
 		_entrar_invitado(String(inv["id_nube"]), inv)
 		return
 	_elegir("TE INVITAN A «%s»" % nombre, ("%s te ha invitado por Steam a su mundo.\n\n" % de)
-		+ "¿Lo añades a tus mundos DE OTRAS PERSONAS? Así podrás volver a entrar cuando quieras, con la "
+		+ "¿Quieres añadirlo a «De otras personas»? Así podrás volver a entrar cuando quieras, con la "
 		+ "contraseña ya puesta.", [
 			["Sí, añadirlo a mi lista y entrar", func():
 				_entrar_invitado(Mundos.apuntar_invitacion(inv, true), inv)],
@@ -736,7 +736,7 @@ func atender_invitacion() -> void:
 
 func _entrar_invitado(clave: String, inv: Dictionary) -> void:
 	if clave == "":
-		_decir("No se pudo apuntar ese mundo.", false)
+		_decir("No se ha podido añadir ese mundo a tu lista.", false)
 		return
 	var e: Dictionary = Mundos.entrada(clave)
 	if not bool(e.get("temporal", false)):
@@ -765,9 +765,9 @@ func _crear_mi_personaje_en_mundo_ajeno(nombre_mundo: String) -> void:
 			"fn": func(creador): _elegir_ranura_a_importar(creador, _mudar_personaje),
 		}]
 	CreadorPersonaje.abrir(_encima, "TU PERSONAJE EN EL MUNDO DE %s" % nombre_mundo.to_upper(),
-		"Es tu primera vez aquí. Este personaje se queda a vivir DENTRO de este mundo, a tu nombre: "
+		"Es tu primera vez aquí. Este personaje se queda a vivir dentro de este mundo, a tu nombre: "
 		+ "la próxima vez que entres, entrarás con él.\n"
-		+ "O puedes IMPORTAR uno de tus partidas, con sus acompañantes y lo que lleve en la bolsa.",
+		+ "O puedes importar el de una de tus partidas, con sus acompañantes y lo que lleve en la bolsa.",
 		"Entrar en el mundo", previo,
 		func(n: String, asp: Dictionary):
 			# Se arma un PersonajeData con lo elegido y se manda: el ANFITRION es quien lo guarda en
@@ -821,8 +821,8 @@ func _elegir_ranura_a_importar(creador: Node, al_elegir: Callable) -> void:
 	centro.add_child(vb)
 
 	MenuScaffold.titulo(vb, "¿A QUIÉN TE TRAES?", 20)
-	MenuScaffold.nota(vb, "Viene con sus acompañantes, el equipo que lleven PUESTO, su dinero, sus "
-		+ "oficios y todo lo que tenga en la BOLSA.")
+	MenuScaffold.nota(vb, "Viene con sus acompañantes, el equipo que lleven puesto, su dinero, sus "
+		+ "oficios y todo lo que tenga en la bolsa.")
 
 	# Con scroll: las partidas ya no tienen tope (se ven unas pocas y el resto bajando).
 	var importables: Array = _ranuras_importables()
@@ -837,15 +837,15 @@ func _elegir_ranura_a_importar(creador: Node, al_elegir: Callable) -> void:
 	for e in importables:
 		var d: SaveData = e["datos"]
 		var b := Button.new()
-		b.text = "%s  ·  Nv.%d  ·  %d monedas" % [d.nombre, d.cab_nivel, d.cab_dinero]
+		b.text = "%s  ·  Nv. %d  ·  %d monedas" % [d.nombre, d.cab_nivel, d.cab_dinero]
 		b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 		var s: int = int(e["slot"])
 		b.pressed.connect(func(): al_elegir.call(s, capa, creador))
 		filas.add_child(b)
 
-	MenuScaffold.nota(vb, "Tu partida NO se borra: es una copia. Lo que SÍ se queda allí es el baúl "
-		+ "de armas sueltas y el almacén de casa, porque aquí esas cosas son del mundo y son comunes. "
-		+ "Si quieres llevarte materiales, recógelos a la bolsa ANTES de venir.")
+	MenuScaffold.nota(vb, "Tu partida no se borra: es una copia. Lo que se queda allí es el baúl "
+		+ "de armas y el almacén de casa, porque aquí esas cosas son del mundo y las comparten todos. "
+		+ "Si quieres llevarte materiales, mételos en la bolsa antes de venir.")
 
 	var volver := Button.new()
 	volver.text = "Volver"
@@ -858,13 +858,13 @@ func _mudar_personaje(slot: int, capa: Control, creador: Node) -> void:
 	var jd: JugadorData = Game.jugador_data_desde_ranura(slot)
 	if jd == null:
 		# La lista se queda abierta a proposito: asi se puede probar con otra.
-		_decir("Esa partida no se puede leer: no se ha traído nada.", false)
+		_decir("No se puede leer esa partida: no se ha importado nada.", false)
 		return
 	capa.queue_free()
 	if is_instance_valid(creador):
 		creador.queue_free()   # ya no hay nada que crear
 	Net.partida.mandar_alta_jugador(jd)
-	_decir("Trayendo a %s al mundo..." % jd.resumen())
+	_decir("Importando a %s al mundo..." % jd.resumen())
 
 
 # Ya tengo mi personaje del mundo: a mi sitio (ver Mundos.entrar_al_mundo, que lo comparte con el menu principal).
@@ -879,7 +879,7 @@ var _confirmar_borrado := ""
 func _borrar(clave: String) -> void:
 	if _confirmar_borrado != clave:
 		_confirmar_borrado = clave
-		_decir("Pulsa otra vez «Borrar de mi lista» para quitar este mundo de ESTE ordenador.", false)
+		_decir("Pulsa otra vez «Borrar de mi lista» para quitar este mundo de este ordenador.", false)
 		return
 	_confirmar_borrado = ""
 	Mundos.borrar(clave)

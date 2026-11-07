@@ -11,6 +11,6 @@ mana_total = 34.0
 mana_pct = 0.12
 turnos = 4
 segundos = 8.0
-descripcion = "Restaura 34 + 12% de tu maná máximo, repartido en el tiempo. Un paso más en la segunda ley: más maná, un turno más de sostener."
+descripcion = "Un paso más: más maná y un trago más largo."
 valor_base = 1300
 tier = 2

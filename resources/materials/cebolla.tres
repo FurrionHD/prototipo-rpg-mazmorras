@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = &"cebolla"
 nombre = "Cebolla"
-descripcion = "De las de fuera, trenzadas en ristra detras del mostrador. Base de casi todo lo que se guisa."
+descripcion = "De las de fuera, trenzadas en ristra detrás del mostrador. Base de casi todo lo que se guisa."
 familia = 0
 tipo = 10
 tier = 1

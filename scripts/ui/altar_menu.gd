@@ -142,8 +142,8 @@ func abrir() -> void:
 		if quedan.size() != pj.estados.size():
 			pj.estados = quedan
 			Game.refrescar_cache_estados(pj)
-	_aviso = ("Descansas: vida, maná y aguante a tope." if Game.party.size() == 1
-		else "Descansa el grupo (%d): vida, maná y aguante a tope." % Game.party.size())
+	_aviso = ("Descansas: vida, maná y aguante al máximo." if Game.party.size() == 1
+		else "Descansa el grupo (%d): vida, maná y aguante al máximo." % Game.party.size())
 	if quitados > 0:
 		_aviso += "  El altar te limpia %d estado%s negativo%s." % [quitados, "" if quitados == 1 else "s",
 			"" if quitados == 1 else "s"]
@@ -281,7 +281,7 @@ func _pintar_lateral(pj: PersonajeData) -> void:
 		# Los de casa SI pueden consolidar (es como se cobra lo que ganan en los encargos), pero ni
 		# descansan ni suben de nivel: para eso hay que bajarlos a la mazmorra.
 		var fuera: bool = Game.esta_de_encargo(pj)
-		MenuScaffold.titulo(_side, "De encargo" if fuera else "En el Hogar", 13, GRIS)
+		MenuScaffold.titulo(_side, "De encargo" if fuera else "En el hogar", 13, GRIS)
 		MenuScaffold.nota(_side, "Consolida aquí lo que ha aprendido. Para descansar o subir de "
 			+ "nivel tiene que bajar contigo.")
 		return

@@ -346,7 +346,7 @@ static var _defs: Dictionary = {
 		"descripcion": "La poción hace su trabajo poco a poco: te cura mientras aguantas, no antes.",
 	},
 	Id.REGEN_MANA: {   # MANÁ por turno (pociones de maná, KAN-56/57). magnitud = maná/turno.
-		"id": Id.REGEN_MANA, "nombre": "Regen. maná", "icono": "🔷", "color": Color(0.4, 0.6, 1.0),
+		"id": Id.REGEN_MANA, "nombre": "Regeneración de maná", "icono": "🔷", "color": Color(0.4, 0.6, 1.0),
 		"mana_heal": true, "turns": 3, "mana_default": 4.0,
 		"descripcion": "El pozo se va llenando solo, gota a gota.",
 	},
@@ -402,7 +402,7 @@ static var _defs: Dictionary = {
 	Id.ENRAIZADO: {
 		"id": Id.ENRAIZADO, "nombre": "Enraizado", "icono": "🌱", "color": Color(0.45, 0.62, 0.3),
 		"turns": 2, "enraiza": true, "debuff": true,
-		"descripcion": "Las raíces te agarran los pies. Los brazos los tienes libres; los pies, no.",
+		"descripcion": "Las raíces te agarran hasta los codos. No hay forma de golpear, pero la voz sigue libre para recitar.",
 	},
 	# EL ANTIDOTO, y es un BUFF, no una curacion. Un antidoto que solo te quitara el veneno no
 	# valdria de nada donde hace falta: en los pisos donde TODO lo que hay te envenena, te lo
@@ -501,7 +501,7 @@ static var _defs: Dictionary = {
 	Id.AVIVADO: {
 		"id": Id.AVIVADO, "nombre": "Brasas avivadas", "icono": "♨", "color": Color(1.0, 0.45, 0.2),
 		"turns": 3, "golpe_estado": Id.QUEMADURA, "golpe_prob": 0.5,
-		"descripcion": "Ha soplado sus brasas: sus golpes te pueden quemar. El agua lo apaga.",
+		"descripcion": "Ha soplado sus brasas: sus golpes pueden causar Quemadura. El agua lo apaga.",
 	},
 	Id.AFILADO: {
 		"id": Id.AFILADO, "nombre": "Afilado", "icono": "🗡", "color": Color(0.55, 0.5, 0.7),
@@ -516,7 +516,7 @@ static var _defs: Dictionary = {
 		"id": Id.DECRETO, "nombre": "Decreto", "icono": "👑", "color": Color(0.55, 0.9, 1.0),
 		"turns": 2,
 		"debuff": true,
-		"descripcion": "El rey te ha señalado: todos sus súbditos van a por ti, y con ganas.",
+		"descripcion": "Señalado por el rey: todos sus súbditos van a por quien lo lleva, y con ganas.",
 	},
 	# EL SIGILO DE VERDAD DE LOS ENEMIGOS (30/10, la rata sombria; diseño del jefe). No es el Sigilo de los tuyos (que solo
 	# INCLINA a quien van): este te lo QUITA DE LA VISTA. Sin cuerpo, sin barra y sin huellas, solo una ondulacion del
@@ -592,7 +592,7 @@ static var _defs: Dictionary = {
 	Id.IMANTADO: {   # lo deja el Pulso: pegado a el, sin poder andar (dos porque se le tira en el turno del bicho: es tu turno entero)
 		"id": Id.IMANTADO, "nombre": "Imantado", "icono": "🧲", "color": Color(0.8, 0.19, 0.13),
 		"turns": 2, "enraiza": true, "debuff": true,
-		"descripcion": "Te has quedado pegado a la herradura. Los brazos los tienes libres; los pies, no.",
+		"descripcion": "Te has quedado pegado a la herradura. No hay forma de golpear, pero la voz sigue libre para recitar.",
 	},
 	Id.ADHERIDO: {   # Adherencia: tu turno empieza a su lado: mueves la mitad, como el hielo
 		"id": Id.ADHERIDO, "nombre": "Adherido", "icono": "🧲", "color": Color(0.6, 0.62, 0.68),
@@ -661,7 +661,7 @@ static var _defs: Dictionary = {
 		"id": Id.PLATO_GUARDIA, "nombre": "Aguante", "icono": "🛡", "color": Color(0.55, 0.7, 0.95),
 		"turns": PLATO_TURNOS, "familia": "plato", "tiempo_real": true,
 		"hab_mult": {"resistencia": 1.10}, "dmg_taken_mult": 0.95,
-		"descripcion": "Comida de verdad, de la que se queda en el cuerpo. Encajas lo que te echen.",
+		"descripcion": "Comida de verdad, de la que se queda en el cuerpo. Aguantas lo que te echen.",
 	},
 	Id.PLATO_BRIO: {
 		"id": Id.PLATO_BRIO, "nombre": "Reflejos", "icono": "💨", "color": Color(0.5, 0.9, 0.8),
@@ -691,7 +691,7 @@ static var _defs: Dictionary = {
 		"id": Id.PLATO_REMEDIO, "nombre": "Remedios", "icono": "💚", "color": Color(0.5, 0.9, 0.5),
 		"turns": PLATO_TURNOS, "familia": "plato", "tiempo_real": true,
 		"heal_recv_mult": 1.15,
-		"descripcion": "Pescado y verdura, comida de convaleciente. El frasco te dura más.",
+		"descripcion": "Pescado y verdura, comida de convaleciente. Las curas te entran mejor.",
 	},
 	Id.PLATO_ESTOMAGO: {
 		"id": Id.PLATO_ESTOMAGO, "nombre": "Estómago", "icono": "🧄", "color": Color(0.85, 0.8, 0.5),
@@ -934,8 +934,8 @@ class Instance extends RefCounted:
 		# de un vistazo en mitad de un turno, no es documentacion.
 		var lineas: PackedStringArray = []
 		if usos > 0:
-			lineas.append("%s  %s  ·  %d entrada%s" % [
-				str(d.get("icono", "?")), str(d.get("nombre", "?")), usos, "" if usos == 1 else "s"])
+			lineas.append("%s  %s  ·  queda%s %d uso%s" % [
+				str(d.get("icono", "?")), str(d.get("nombre", "?")), "" if usos == 1 else "n", usos, "" if usos == 1 else "s"])
 		elif es_tiempo_real():
 			lineas.append("%s  %s  ·  quedan %s" % [
 				str(d.get("icono", "?")), str(d.get("nombre", "?")), tiempo_restante()])
@@ -943,106 +943,72 @@ class Instance extends RefCounted:
 			lineas.append("%s  %s  ·  %d turno%s" % [
 				str(d.get("icono", "?")), str(d.get("nombre", "?")), turns, "" if turns == 1 else "s"])
 
-		# Que te HACE, con la magnitud REAL de esta instancia (stacks ya dentro).
-		# Las tres van en "por turno" y con el mismo verbo a proposito: son la misma familia (algo que
-		# te pasa cada turno) y antes decian "cada turno" con tres verbos distintos.
+		# QUE LE HACE, con la magnitud REAL de esta instancia (stacks ya dentro). EN TERCERA PERSONA (06/11, pase de
+		# textos): el chip lo llevan tambien los enemigos y los compañeros, asi que "Te quita..." mentia en cuanto no
+		# eras tu. Como HSR: "reciben un Daño de Rayo con el tiempo... al comienzo de cada turno", "no puede actuar".
 		if dot_damage() > 0.0:
-			lineas.append("Te quita %.1f de vida por turno." % dot_damage())
+			lineas.append("Recibe %s de daño al comienzo de cada turno." % StatusEffects.num(dot_damage()))
 		if heal_amount() > 0.0:
-			lineas.append("Te recupera %.1f de vida por turno." % heal_amount())
+			lineas.append("Recupera %s de vida al comienzo de cada turno." % StatusEffects.num(heal_amount()))
 		if mana_amount() > 0.0:
-			lineas.append("Te recupera %.1f de maná por turno." % mana_amount())
-		# HABILIDADES BASE (platos): van primero porque es lo gordo que hace el plato.
+			lineas.append("Recupera %s de maná al comienzo de cada turno." % StatusEffects.num(mana_amount()))
+		# LOS BONUS, en el formato corto de la guia ("Ataque -20 %"), con la magnitud de ESTA instancia. Salen de la misma
+		# tabla que las fichas de habilidades y platos (BONUS_MULT / BONUS_FLAT): asi no se vuelven a separar.
 		for clave in (d.get("hab_mult", {}) as Dictionary):
-			var hm: float = hab_mult(str(clave))
-			lineas.append("%s %+d%%." % [StatusEffects.NOMBRE_HABILIDAD.get(clave, str(clave)),
-				roundi((hm - 1.0) * 100.0)])
-		# UNA FRASE POR SIGNO, no un "más/menos" pegado a un tronco comun. Con el tronco salian cosas
-		# como "Haces un 20% menos." (¿menos QUE?) o "Aguantas un 25% más.", que es la queja que abrio
-		# esta revision: el jugador no tiene por que reconstruir la frase.
-		#
-		# Y hacen falta las dos versiones porque el MISMO campo lo usan un buff y un debuff (def_mult
-		# es Baluarte y Vulnerable; spd_mult es Presteza, Lento y Pegajoso), y en castellano no siempre
-		# se dicen con la misma estructura: "más rápido" / "más lento", no "más/menos rápido".
-		for par in [
-				["atk_mult", "Haces un %d%% más de daño.", "Haces un %d%% menos de daño."],
-				["def_mult", "Aumenta tu defensa un %d%%.", "Tu defensa baja un %d%%."],
-				["spd_mult", "Te mueves un %d%% más rápido.", "Te mueves un %d%% más lento."],
-				# La vida maxima va ANTES del daño recibido: en Guardia de carne son las dos caras del
-				# mismo trato y se lee mejor la ganancia y luego el precio.
-				["hp_mult", "Aumenta tu vida máxima un %d%%.", "Tu vida máxima baja un %d%%."],
-				["dmg_taken_mult", "Recibes un %d%% más de daño.", "Recibes un %d%% menos de daño."],
-				["heal_recv_mult", "Recibes un %d%% más de curación.",
-					"Recibes un %d%% menos de curación."],
-				["def_flat_mult", "Tu armadura protege un %d%% más.",
-					"Tu armadura protege un %d%% menos."],
-				["aggro_mult", "Es un %d%% más probable que te ataquen.",
-					"Es un %d%% menos probable que te ataquen."],
-				["dmg_dealt_mult", "Tus golpes hacen un %d%% más de daño.",
-					"Tus golpes hacen un %d%% menos de daño."],
-				["mana_coste_mult", "Los hechizos cuestan un %d%% más.",
-					"Los hechizos cuestan un %d%% menos."],
-				["mp_kill_mult", "Te recupera un %d%% más de maná por enemigo muerto en combate.",
-					"Te recupera un %d%% menos de maná por enemigo muerto en combate."],
-				["mp_regen_mult", "Recuperas un %d%% más de maná por turno.",
-					"Recuperas un %d%% menos de maná por turno."],
-				["dot_taken_mult", "El daño en el tiempo te hace un %d%% más de daño.",
-					"El daño en el tiempo te hace un %d%% menos de daño."],
-				["drop_mult", "Los enemigos te sueltan botín un %d%% más a menudo.",
-					"Los enemigos te sueltan botín un %d%% menos a menudo."]]:
-			if not d.has(par[0]):
-				continue
-			var m: float = mult_de(str(par[0]))
-			var pct: int = roundi((m - 1.0) * 100.0)
-			if pct == 0:
-				continue
-			lineas.append(str(par[1] if pct > 0 else par[2]) % absi(pct))
-		# Los ADITIVOS (puntos porcentuales, no multiplicadores).
-		# La ceguera es el unico de estos que va en NEGATIVO, asi que su frase ya lo dice: pasarla
-		# por "Aciertas un -12% mas" seria ilegible.
-		if d.has("precision_flat"):
-			lineas.append("Fallas un %d%% más a menudo." % absi(roundi(flat_de("precision_flat") * 100.0)))
-		for par in [["crit_flat", "Criticas un %d%% más a menudo."],
-				["evade_flat", "Esquivas un %d%% más a menudo."],
-				["status_resist_flat", "Resistes un %d%% más los estados alterados."],
-				["drop_doble_flat", "Un %d%% del botín sale doble."]]:
-			if d.has(par[0]):
-				lineas.append(str(par[1]) % roundi(flat_de(str(par[0])) * 100.0))
+			var pct_h: int = roundi((hab_mult(str(clave)) - 1.0) * 100.0)
+			if pct_h != 0:
+				lineas.append("%s %+d %%" % [StatusEffects.NOMBRE_HABILIDAD.get(clave, str(clave)), pct_h])
+		for e in StatusEffects.BONUS_MULT:
+			if d.has(e[0]):
+				var pct: int = roundi((mult_de(str(e[0])) - 1.0) * 100.0)
+				if pct != 0:
+					lineas.append("%s %+d %%" % [e[1], pct])
+		for e in StatusEffects.BONUS_FLAT:
+			if d.has(e[0]):
+				var pct_f: int = roundi(flat_de(str(e[0])) * 100.0)
+				if pct_f != 0:
+					lineas.append("%s %+d %%" % [e[1], pct_f])
 		if d.has("mochila_extra"):
-			# "Cargas con 10 más" no decia mas de QUE: son unidades de PESO de la mochila.
-			lineas.append("Cargas con %d más de peso." % roundi(flat_de("mochila_extra")))
+			lineas.append("Carga %+d" % roundi(flat_de("mochila_extra")))
 		if is_stun():
-			lineas.append("No puedes actuar.")
-		# SILENCIO no decia NADA: lo veias puesto y no habia forma de saber que hacia.
+			lineas.append("No puede actuar.")
 		if bool(d.get("silencia", false)):
-			lineas.append("Impide tirar habilidades y hechizos.")
+			lineas.append("No puede usar habilidades ni hechizos.")
 		if bool(d.get("enraiza", false)):
-			lineas.append("Impide atacar y tirar habilidades. Los hechizos sí salen.")
+			lineas.append("No puede atacar ni usar habilidades, pero sí lanzar hechizos.")
 		if bool(d.get("enrosca", false)):
-			lineas.append("No te mueves ni puedes hacer nada más que pasar.")
+			lineas.append("No puede moverse ni hacer nada más que pasar el turno.")
 		if bool(d.get("pega", false)):
-			lineas.append("Te chupa cada turno suyo hasta que se la quitan.")
+			lineas.append("Pierde vida en cada turno hasta que se la quitan de encima.")
 		if float(d.get("paralisis", 0.0)) > 0.0:
-			lineas.append("Al empezar cada turno tienes un %d %% de perderlo." % roundi(float(d["paralisis"]) * 100.0))
+			lineas.append("Al comienzo de cada turno, tiene un %d %% de probabilidad de perderlo." % roundi(float(d["paralisis"]) * 100.0))
 		if float(d.get("picor", 0.0)) > 0.0:
-			lineas.append("Al empezar tu turno pierdes el %d %% de la energía que te quede." % roundi(float(d["picor"]) * 100.0))
+			lineas.append("Al comienzo de su turno, pierde un %d %% de la energía que le quede." % roundi(float(d["picor"]) * 100.0))
 		if bool(d.get("sin_objetos", false)):
-			lineas.append("Impide usar objetos.")
-		# LO QUE ANDAS en tu turno (el Congelado: 05/11, el jefe, "no tiene descripcion": salia mudo en la ficha).
+			lineas.append("No puede usar objetos.")
+		# LO QUE ANDA en su turno (el Congelado: 05/11, el jefe, "no tiene descripcion": salia mudo en la ficha).
 		if d.has("mov_mult") and float(d["mov_mult"]) < 1.0:
-			lineas.append("En tu turno solo andas el %d%% del camino." % roundi(float(d["mov_mult"]) * 100.0))
+			lineas.append("En su turno, solo recorre un %d %% de la distancia normal." % roundi(float(d["mov_mult"]) * 100.0))
 		# ESCOLTA, igual: era un chip mudo.
 		if float(d.get("seguimiento_pct", 0.0)) > 0.0:
-			lineas.append("Atacas detrás de un compañero.")
-		if stun_prob_mult() != 1.0:
-			lineas.append("Te aturden más fácil.")
+			lineas.append("Se suma al ataque de cada aliado con un %d %% del daño de un ataque básico." % roundi(
+				float(d["seguimiento_pct"]) * 100.0))
+		var stun_m: float = stun_prob_mult()
+		if not is_equal_approx(stun_m, 1.0):
+			lineas.append("La probabilidad de quedar Aturdido %s en un %d %%." % [
+				"aumenta" if stun_m > 1.0 else "se reduce", absi(roundi((stun_m - 1.0) * 100.0))])
+		var inm: Array = []
 		for id_inm in (d.get("inmune", []) as Array):
-			lineas.append("No te puede afectar: %s." % str(StatusEffects.def(id_inm).get("nombre", "?")))
+			inm.append(str(StatusEffects.def(id_inm).get("nombre", "?")))
+		if inm.size() == 1:
+			lineas.append("Es inmune %s." % StatusEffects.con_articulo(String(inm[0]), true))
+		elif inm.size() > 1:
+			lineas.append("Es inmune a estos estados: %s y %s." % [", ".join(inm.slice(0, inm.size() - 1)), String(inm[inm.size() - 1])])
 
 		# Stacks: solo el contador, si de verdad apila. El COMO apila es cocina interna.
 		var maxs: int = int(d.get("max_stacks", 1))
 		if maxs > 1:
-			lineas.append("Acumulado %d de %d." % [stacks, maxs])
+			lineas.append("Acumulaciones: %d de %d." % [stacks, maxs])
 
 		# La frase de SABOR ('descripcion' del catalogo) NO se pinta aqui: en mitad de un turno lo
 		# que hace falta es saber que te esta pasando, no leerse un parrafo. Se queda en el catalogo
@@ -1138,73 +1104,135 @@ static func instancia_de_dict(d: Dictionary):
 	return inst
 
 
-# QUE hace un estado, en una frase corta y con el NOMBRE de lo que toca ("−25% defensa"), para las
+# LA TABLA DE BONUS (06/11, pase de textos): [clave, etiqueta, articulo]. La comparten la ficha del chip
+# (Instance.resumen), el formato corto (efecto_legible) y la frase de los platos (efecto_frase).
+const BONUS_MULT := [
+	["atk_mult", "Ataque", "el"], ["def_mult", "Defensa", "la"], ["spd_mult", "Velocidad", "la"],
+	["hp_mult", "Vida máxima", "la"],
+	["dmg_taken_mult", "Daño recibido", "el"], ["heal_recv_mult", "Curación recibida", "la"],
+	["def_flat_mult", "Armadura", "la"], ["aggro_mult", "Atención de los enemigos", "la"],
+	["dmg_dealt_mult", "Daño infligido", "el"], ["spell_dmg_mult", "Daño mágico", "el"],
+	["mana_coste_mult", "Coste de los hechizos", "el"], ["mp_kill_mult", "Maná al derrotar a un enemigo", "el"],
+	["mp_regen_mult", "Regeneración de maná", "la"], ["dot_taken_mult", "Daño con el tiempo recibido", "el"],
+	["drop_mult", "Probabilidad de botín", "la"],
+]
+# Los ADITIVOS: puntos porcentuales, no multiplicadores. Un "+5% crítico" no es un x1.05, y pasarlo por la formula de
+# los multiplicadores lo pintaria como "-95%".
+const BONUS_FLAT := [
+	["crit_flat", "Probabilidad de crítico", "la"], ["evade_flat", "Esquiva", "la"],
+	["precision_flat", "Acierto", "el"],
+	["status_resist_flat", "Resistencia a estados", "la"],
+	["drop_doble_flat", "Probabilidad de botín doble", "la"],
+]
+
+
+# Un numero para leer: coma decimal, hasta 2 decimales, sin ceros de mas (igual que el registro de la pelea).
+static func num(x: float) -> String:
+	var s: String = ("%.2f" % x).rstrip("0").rstrip(".")
+	return ("0" if s == "-0" else s).replace(".", ",")
+
+
+# "el Veneno" / "la Quemadura"; con 'a' delante, "al Veneno" / "a la Quemadura". Los nombres de estado que acaban en -a
+# son femeninos (Quemadura, Ceguera, Marca); el resto, masculinos (Veneno, Sangrado, Mojado).
+static func con_articulo(nombre: String, con_a: bool) -> String:
+	var fem: bool = nombre.ends_with("a")
+	if con_a:
+		return ("a la " if fem else "al ") + nombre
+	return ("la " if fem else "el ") + nombre
+
+
+# LOS BONUS DE UN ESTADO, en piezas: [[etiqueta, valor, es_porcentaje, articulo]], en el orden en que se leen (las
+# habilidades base primero: es lo mas gordo que hacen los platos). Lo comparten el formato corto (efecto_legible) y la
+# frase al estilo de Genshin (efecto_frase).
+# 'mult' = el nivel concreto de esta aplicacion (StatusApplication.mult), o 0 para el del catalogo.
+# 'escala' = el tier del plato (1.2 = el T2, que aprieta un 20% mas).
+static func _bonus(id: int, mult: float = 0.0, escala: float = 1.0) -> Array:
+	var d: Dictionary = def(id)
+	var etiquetas: Array = BONUS_MULT
+	var etiquetas_flat: Array = BONUS_FLAT
+	var out: Array = []
+	for clave in (d.get("hab_mult", {}) as Dictionary):
+		out.append([str(NOMBRE_HABILIDAD.get(clave, clave)), (float(d["hab_mult"][clave]) - 1.0) * 100.0 * escala, true, "la"])
+	for e in etiquetas:
+		if d.has(e[0]):
+			var m: float = mult if mult > 0.0 else float(d[e[0]])
+			out.append([e[1], (m - 1.0) * 100.0 * escala, true, e[2]])
+	for e in etiquetas_flat:
+		if d.has(e[0]):
+			out.append([e[1], float(d[e[0]]) * 100.0 * escala, true, e[2]])
+	if d.has("mochila_extra"):
+		out.append(["Carga", float(d["mochila_extra"]) * escala, false, "la"])
+	return out
+
+
+# EL MISMO EFECTO EN UNA FRASE, al estilo de la comida de Genshin (06/11, lo eligio el jefe): "aumenta la Agilidad de
+# quien se lo come en un 12 %, su Probabilidad de crítico en un 6 % y su Esquiva en un 6 %". 'quien' = "quien se lo
+# come", "quien lo bebe"... "" si el estado no mueve ningun numero (entonces lo cuenta su descripcion).
+static func efecto_frase(id: int, quien: String, escala: float = 1.0) -> String:
+	var bonus: Array = _bonus(id, 0.0, escala)
+	if bonus.is_empty():
+		return ""
+	var trozos: Array = []
+	var signo_antes: int = 0
+	for i in bonus.size():
+		var p: Array = bonus[i]
+		var v: float = float(p[1])
+		var signo: int = 1 if v >= 0.0 else -1
+		var cuanto: String = ("en un %d %%" if bool(p[2]) else "en %d") % absi(roundi(v))
+		var art: String = String(p[3])
+		var s: String
+		if i == 0:
+			# "aumenta la Agilidad de quien se lo come en un 12 %"
+			s = "%s %s %s de %s %s" % ["aumenta" if signo > 0 else "reduce", art, String(p[0]), quien, cuanto]
+		elif signo != signo_antes:
+			s = "%s su %s %s" % ["aumenta" if signo > 0 else "reduce", String(p[0]), cuanto]
+		else:
+			s = "su %s %s" % [String(p[0]), cuanto]
+		trozos.append(s)
+		signo_antes = signo
+	if trozos.size() == 1:
+		return String(trozos[0])
+	return ", ".join(trozos.slice(0, trozos.size() - 1)) + " y " + String(trozos[trozos.size() - 1])
+
+
+# QUE hace un estado, en una frase corta y con el NOMBRE de lo que toca ("Defensa -25 %"), para las
 # fichas. Sin el nombre, un "(30%, -25%)" no dice si el -25% es probabilidad, daño o duracion.
 # 'mult' = el nivel concreto de esta aplicacion (StatusApplication.mult), o 0 para el del catalogo.
 # 'escala' = el tier del plato (1.2 = el T2, que aprieta un 20% mas). Escala el BONUS, igual que
 # Instance.escala, para que la ficha del plato T2 diga +12% y no +10%.
 static func efecto_legible(id: int, mult: float = 0.0, escala: float = 1.0) -> String:
 	var d: Dictionary = def(id)
-	var etiquetas: Dictionary = {
-		"atk_mult": "ataque", "def_mult": "defensa", "spd_mult": "velocidad",
-		"dmg_taken_mult": "daño recibido", "heal_recv_mult": "curación recibida",
-		"def_flat_mult": "armadura", "aggro_mult": "de atención de los enemigos",
-		"hp_mult": "vida máxima",
-		"dmg_dealt_mult": "daño hecho", "spell_dmg_mult": "daño mágico",
-		"mana_coste_mult": "coste de los hechizos", "mp_kill_mult": "maná por enemigo",
-		"mp_regen_mult": "regeneración de maná", "dot_taken_mult": "daño por turno recibido",
-		"drop_mult": "probabilidad de botín",
-	}
-	# Los ADITIVOS: puntos porcentuales, no multiplicadores. Un "+5% crítico" no es un x1.05, y
-	# pasarlo por la formula de arriba lo pintaria como "-95%".
-	var etiquetas_flat: Dictionary = {
-		"crit_flat": "crítico", "evade_flat": "esquiva",
-		"precision_flat": "acierto",
-		"status_resist_flat": "resistencia a estados",
-		"drop_doble_flat": "de que el botín salga doble",
-	}
 	var partes: Array = []
-	# Las HABILIDADES BASE (platos) van primero: es lo mas gordo que hacen.
-	for clave in (d.get("hab_mult", {}) as Dictionary):
-		partes.append("%+d%% %s" % [roundi((float(d["hab_mult"][clave]) - 1.0) * 100.0 * escala),
-			str(NOMBRE_HABILIDAD.get(clave, clave))])
-	for clave in etiquetas:
-		if not d.has(clave):
-			continue
-		var m: float = mult if mult > 0.0 else float(d[clave])
-		partes.append("%+d%% %s" % [roundi((m - 1.0) * 100.0 * escala), str(etiquetas[clave])])
-	for clave in etiquetas_flat:
-		if d.has(clave):
-			partes.append("%+d%% %s" % [roundi(float(d[clave]) * 100.0 * escala),
-				str(etiquetas_flat[clave])])
-	if d.has("mochila_extra"):
-		partes.append("+%d de carga" % roundi(float(d["mochila_extra"]) * escala))
+	for p in _bonus(id, mult, escala):
+		partes.append(("%s %+d %%" if bool(p[2]) else "%s %+d") % [String(p[0]), roundi(float(p[1]))])
+	# Formato corto de la guia de textos (06/11): "Agilidad +12 % · Esquiva +6 %". Si se acumula, lo de aqui es POR
+	# acumulacion (el chip ya enseña el total): sin decirlo, la ficha ponia -5 % y el chip -10 % del mismo Pegajoso.
 	if not partes.is_empty():
-		return " y ".join(partes)
+		return " · ".join(partes) + (" por acumulación" if int(d.get("max_stacks", 1)) > 1 else "")
 	if bool(d.get("is_stun", false)):
-		return "le hace perder el turno"
+		return "no puede actuar"
 	if bool(d.get("dot", false)):
-		return "le hace daño cada turno"
+		return "recibe daño al comienzo de cada turno"
 	if bool(d.get("heal", false)):
-		return "le cura cada turno"
+		return "recupera vida al comienzo de cada turno"
 	if bool(d.get("mana_heal", false)):
-		return "le devuelve maná cada turno"
+		return "recupera maná al comienzo de cada turno"
 	if bool(d.get("silencia", false)):
-		return "le corta hechizos y habilidades"
+		return "no puede usar habilidades ni hechizos"
 	if bool(d.get("enraiza", false)):
-		return "le clava al suelo: no puede atacar ni usar habilidades (los hechizos sí)"
+		return "no puede atacar ni usar habilidades, pero sí lanzar hechizos"
 	if bool(d.get("enrosca", false)):
-		return "le enrosca: no se mueve ni puede hacer nada más que pasar"
+		return "no puede moverse ni hacer nada más que pasar el turno"
 	if bool(d.get("pega", false)):
-		return "se le pega encima y le chupa cada turno"
+		return "se le pega y le quita vida en cada turno"
 	if float(d.get("paralisis", 0.0)) > 0.0:
-		return "puede hacerle perder cada turno suyo"
+		return "puede perder cada uno de sus turnos"
 	if float(d.get("picor", 0.0)) > 0.0:
-		return "le quita energía al empezar cada turno suyo"
+		return "pierde energía al comienzo de cada turno"
 	if bool(d.get("sin_objetos", false)):
-		return "no le deja usar objetos"
+		return "no puede usar objetos"
 	if float(d.get("seguimiento_pct", 0.0)) > 0.0:
-		return "pegas detrás de cada aliado realizando un %d%% del daño básico" % roundi(
+		return "se suma al ataque de cada aliado con un %d %% del daño de un ataque básico" % roundi(
 			float(d["seguimiento_pct"]) * 100.0)
 	return ""
 

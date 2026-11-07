@@ -595,7 +595,7 @@ func _espinas(obj: Combatant, quien: Combatant) -> void:
 		efectos._fx_golpe(obj, v, dano, false, false, obj.elemento_ataque, CombatFX.Estilo.SLIME_GOLPE, 1.0,
 			false, "", AbilityData.Gesto.AUTO, &"lanzar_puas" if i == 0 else &"")
 	_update_hp()
-	_log_extra("🦔 %s suelta sus púas: %.2f a %s" % [_etq(obj), dano, ", ".join(nombres)])
+	_log_extra("🦔 %s suelta sus púas: %s de daño a %s" % [_etq(obj), _n(dano), ", ".join(nombres)])
 
 
 # DEVOLVER LOS CORTES (06/10, la obsidiana: "como es debil a contundente, tiene prob de reflejar los ataques de corte y
@@ -611,7 +611,7 @@ func _devolver_corte(obj: Combatant, quien: Combatant, dmg: float) -> void:
 	efectos._fx_golpe(obj, quien, vuelta, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.PASIVA_DESTELLO, 0.8,
 		false)
 	_update_hp()
-	_log_extra("🪞 Las aristas de %s le devuelven el corte a %s: %.2f" % [_etq(obj), quien.nombre, vuelta])
+	_log_extra("🪞 Las aristas de %s le devuelven el corte a %s y le infligen %s de daño" % [_etq(obj), quien.nombre, _n(vuelta)])
 
 
 # VUELO CORTO (05/11, el Vendaval rojo, ver MutacionData): al encajar un golpe CUERPO A CUERPO, a veces (30 %) bate las
@@ -631,7 +631,7 @@ func _vuelo_corto(obj: Combatant, quien: Combatant) -> void:
 	var d: float = enemigos.corte_viento(obj, quien, obj.cortes_viento if obj.cortes_viento > 0.0 else 0.5)
 	_update_hp()
 	_log_extra("💨 %s bate las alas, salta atrás y le suelta un corte a %s%s" % [_etq(obj), quien.nombre,
-		": %.2f" % d if d > 0.0 else ", que lo esquiva"])
+		" y le inflige %s de daño" % _n(d) if d > 0.0 else ", que lo esquiva"])
 
 
 # ACIDO EN LA PIEL (06/10, el slime pestilente, ver MutacionData): al que le pega CUERPO A CUERPO, a veces (acido_prob,
@@ -732,7 +732,7 @@ func _reventon_garrapata(e: Combatant) -> void:
 			altas._caer_aliado(v)
 	_update_hp()
 	_log_extra("💥 %s revienta de lo llena que iba%s" % [_etq(e),
-		(": %.2f a %s." % [dano, ", ".join(nombres)]) if not nombres.is_empty() else "."])
+		(": %s de daño a %s." % [_n(dano), ", ".join(nombres)]) if not nombres.is_empty() else "."])
 
 
 # DIVIDIRSE AL MORIR (06/10, el slime brotado y el brotado punzante, ver MutacionData): se encoge (su muerte) y le salen
@@ -807,7 +807,7 @@ func _reflejo(obj: Combatant, quien: Combatant) -> void:
 	quien.take_damage(dmg)
 	efectos._fx_golpe(obj, quien, dmg, r.crit, false, obj.elemento_ataque, estilo)
 	_update_hp()
-	_log_extra("%s le devuelve el golpe a %s: %.2f%s" % [_etq(obj), quien.nombre, dmg, " 💥" if r.crit else ""])
+	_log_extra("%s le devuelve el golpe a %s y le inflige %s de daño%s" % [_etq(obj), quien.nombre, _n(dmg), " 💥" if r.crit else ""])
 
 
 # REY DE LA CAMADA (el rey rata, 30/09, EnemyData.camada_salto): cuando EL le pega a 'victima', las ratas de su familia
@@ -854,7 +854,7 @@ func _camada_salta(rey: Combatant, victima: Combatant) -> String:
 		var dmg: float = float(r.damage) * rey.camada_salto * rata.dummy_dmg_out_mult
 		victima.take_damage(dmg)
 		efectos._fx_golpe(rata, victima, dmg, r.crit, false, rata.elemento_ataque, estilo)
-		partes.append("%s %.2f" % [rata.nombre, dmg])
+		partes.append("%s %s" % [rata.nombre, _n(dmg)])
 	_update_hp()
 	if partes.is_empty():
 		return ""
@@ -937,7 +937,7 @@ func escudo_carne(obj: Combatant, dmg: float, quien: Combatant, estilo: int) -> 
 	efectos._fx_golpe(quien, rata, parte, false, false, Elementos.Elemento.NINGUNO, estilo, 1.0, false, "",
 		AbilityData.Gesto.QUIETO, null)
 	_apuntar_dano(rata, parte, quien)
-	_log_extra("🐀 %s se mete en medio y se lleva %.2f del golpe a %s" % [_etq(rata), parte, _etq(obj)])
+	_log_extra("🐀 %s se mete en medio y se lleva %s de daño del golpe a %s" % [_etq(rata), _n(parte), _etq(obj)])
 	return dmg - parte
 
 
@@ -971,7 +971,7 @@ func _tributo(muerto: Combatant) -> void:
 		rey.heal(cura)
 		efectos._fx_golpe(muerto, rey, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.REY_TRIBUTO, 1.0, true)
 		_update_hp()
-		_log_extra("👑 %s se queda el cristal de %s: +%.2f de vida" % [_etq(rey), muerto.nombre, cura])
+		_log_extra("👑 %s se queda el cristal de %s y recupera %s de vida" % [_etq(rey), muerto.nombre, _n(cura)])
 
 
 # El empujon del Rey de la camada a 'atacante' (1 si no es de ninguna camada con rey vivo).
@@ -1882,7 +1882,7 @@ func _begin_player_turn() -> void:
 		_player.heal(_player.max_hp * AUTORREGEN_PCT * autoreg)
 		var curado: float = _player.current_hp - antes
 		if curado > 0.0:
-			_set_log("%s se regenera (+%.1f). ♻" % [_player.nombre, curado], "s")
+			_set_log("%s recupera %s de vida por su regeneración. ♻" % [_player.nombre, _n(curado)], "s")
 			_update_hp()
 	if ev.stunned:
 		# Aturdirte mientras CARGAS te interrumpe, igual que a los bichos (ver el mismo bloque en
@@ -1895,10 +1895,10 @@ func _begin_player_turn() -> void:
 			if tactico:
 				turno_mapa.olvidar_carga(_player)
 			print("[habilidad] %s ATURDIDO: se le INTERRUMPE %s" % [_player.nombre, interrumpida])
-			_set_log("%s está %s: se le interrumpe %s. 💫" % [_player.nombre,
-				"paralizado" if ev.paralizado else "aturdido", interrumpida], "s")
+			_set_log("A %s se le interrumpe %s: está %s. 💫" % [_player.nombre, interrumpida,
+				"Paralizado" if ev.paralizado else "Aturdido"], "s")
 		else:
-			_set_log("%s está %s y pierde el turno. 💫" % [_player.nombre, "paralizado" if ev.paralizado else "aturdido"], "s")
+			_set_log("%s pierde el turno: está %s. 💫" % [_player.nombre, "Paralizado" if ev.paralizado else "Aturdido"], "s")
 		_pausa_lectura()
 		return
 
@@ -2001,15 +2001,19 @@ func seguir_tras_preparacion(ab: AbilityData) -> void:
 # estados que se disipan. No hace nada si el turno no traia eventos.
 func _log_tick(c: Combatant, ev: Dictionary) -> void:
 	if float(ev.damage) > 0.0:
-		_set_log("%s sufre %s (%.2f)." % [c.nombre, ", ".join(ev.dot), float(ev.damage)], "s")
+		_set_log("%s sufre %s de daño por %s." % [c.nombre, _n(float(ev.damage)), ", ".join(ev.dot)], "s")
 	if float(ev.get("heal", 0.0)) > 0.0:
-		_set_log("%s se cura %s (%.2f). ✚" % [c.nombre, ", ".join(ev.get("heal_labels", [])), float(ev.heal)], "s")
+		_set_log("%s recupera %s de vida por %s. ✚" % [c.nombre, _n(float(ev.heal)), ", ".join(ev.get("heal_labels", []))], "s")
 	if float(ev.get("mana", 0.0)) > 0.0:
-		_set_log("%s recupera %.2f de maná. 🔷" % [c.nombre, float(ev.mana)], "s")
+		_set_log("%s recupera %s de maná. 🔷" % [c.nombre, _n(float(ev.mana))], "s")
 	if float(ev.get("energia", 0.0)) > 0.0:
-		_set_log("A %s el picor le quita %.2f de energía. 🦟" % [c.nombre, float(ev.energia)], "s")
+		_set_log("A %s el picor le quita %s de energía. 🦟" % [c.nombre, _n(float(ev.energia))], "s")
 	if not (ev.expired as Array).is_empty():
-		_set_log("A %s se le disipa: %s." % [c.nombre, ", ".join(ev.expired)], "s")
+		var acabados: Array = []   # dos Pegajosos que se acaban a la vez salen una vez
+		for x in ev.expired:
+			if not acabados.has(x):
+				acabados.append(x)
+		_set_log("A %s se le %s %s." % [c.nombre, "acaba" if acabados.size() == 1 else "acaban", ", ".join(acabados)], "s")
 
 
 # Muestra la barra de acciones normales (Atacar/Magia/Defender/Huir).
@@ -2028,13 +2032,13 @@ func _ayuda_accion(id: int) -> String:
 		Action.ATTACK:
 			if _pasa_el_turno() and not tactico:
 				return "Estás enraizado y no llegas a golpear: cedes el turno. Los hechizos, Defender, los objetos y huir sí te quedan."
-			return "Golpe básico con lo que lleves en las manos. No cuesta energía: la RECUPERA, así que es lo que te permite volver a lanzar habilidades."
+			return "Golpe básico con lo que lleves en las manos. No cuesta energía: la recupera, así que es lo que te permite volver a lanzar habilidades."
 		Action.HABILIDAD:
 			return "Técnicas que te dan tus armas. Cuestan energía y tienen enfriamiento."
 		Action.MAGIC:
 			return "Recitas un hechizo, frase a frase. Cuesta maná (se paga al empezar) y fallar una frase lo malogra: cuantas más frases, más potente y más te expones."
 		Action.DEFEND:
-			return "Te cubres: encajas mucho menos daño en el próximo golpe y entrenas Resistencia. Cuesta %.0f de energía." % DEFEND_ENERGY_COST
+			return "Te cubres: recibes mucho menos daño en el próximo golpe y entrenas Resistencia. Cuesta %.0f de energía." % DEFEND_ENERGY_COST
 		Action.OBJETO:
 			return "Una poción, para ti o para quien elijas del grupo. Empieza a curar en este mismo turno, pero el resto llega poco a poco: te toca aguantar mientras hace efecto."
 		Action.FLEE:
@@ -2097,7 +2101,7 @@ func _motivo_bloqueo(id: int) -> String:
 		return "Fuera de alcance: acércate o elige a otro"
 	match id:
 		Action.MAGIC: return "No tienes hechizos equipados"
-		Action.DEFEND: return "Sin energía (ataca para regenerar)"
+		Action.DEFEND: return "Sin energía (el ataque básico la recupera)"
 		Action.HABILIDAD: return "Tu equipo no aporta habilidades"
 		Action.OBJETO: return "No tienes objetos"
 	return ""
@@ -2320,6 +2324,8 @@ func _accion_atacar() -> void:
 	var pj_atacante: PersonajeData = Game.pj_de_combatant(_player)
 	Game.ganar_golpe(_reto(obj, pj_atacante) * arma_factor, pj_atacante, _player)
 	var con_arma: String = _player.current_hand_name()
+	if con_arma == "":
+		con_arma = "los puños"   # sin arma salia "golpea con  e inflige" (pase de textos 06/11)
 	# EL GESTO DEL ARMA. Sale por el mismo camino que el basico de un bicho: sin habilidad, manda
 	# como pega el que pega (Combatant.fx_basico), que en el jugador lo pone la MANO ACTIVA. Por eso
 	# en dual cada golpe se ve con su arma sin tener que preguntarlo aqui.
@@ -2401,7 +2407,7 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 		var fc: CombatFormas.Forma = turno_mapa.forma_corte(_player, obj, bool(result.evaded))
 		efectos.fijar_suelo(SueloRoto.Tipo.TAJO, fc, (randi() & 0x3FFFFFFF) | 1, 0.0)
 	if result.evaded:
-		_set_log("%s esquiva tu ataque (%s)%s. 💨" % [_etq(obj), con_arma, de_nota])
+		_set_log("%s esquiva el golpe de %s. 💨" % [_etq(obj), _player.nombre])
 		efectos._fx_golpe(_player, obj, 0.0, false, true, Elementos.Elemento.NINGUNO, estilo_bas, 1.0, false, "",
 			AbilityData.Gesto.AUTO, null, semilla_fx)
 		if corte_mapa:
@@ -2427,7 +2433,7 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 		_dps_add("Básico (%s)" % con_arma, result.damage)
 		var txt: String
 		if result.crit:
-			txt = "¡CRITICO! %s golpea con %s%s e inflige %.2f de daño. 💥" % [_player.nombre, con_arma, de_nota, result.damage]
+			txt = "¡Crítico! %s golpea con %s%s e inflige %s de daño. 💥" % [_player.nombre, con_arma, de_nota, _n(result.damage)]
 			# Excelia: clavar un critico entrena Agilidad (encontraste el hueco). Escala con el
 			# PESO del arma (motion_value): un arma pesada critea poco, asi que cuando SI lo clava
 			# entrena mas Agilidad; una ligera critea a menudo y aporta menos por golpe. El factor
@@ -2437,7 +2443,7 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 			Game.ganar("agilidad", _reto(obj, pj_atacante) * agi_factor, Game.GAIN_AGILIDAD_CRITICO,
 				Game.RETO_MAX_FISICO, pj_atacante)
 		else:
-			txt = "%s golpea con %s%s e inflige %.2f de daño." % [_player.nombre, con_arma, de_nota, result.damage]
+			txt = "%s golpea con %s%s e inflige %s de daño." % [_player.nombre, con_arma, de_nota, _n(result.damage)]
 		# Cuanto de ese daño lo ha puesto la IMBUICION, y si el objetivo era debil/resistente
 		# a ella. Sin esto el bonus elemental era invisible: el daño total no lo delata.
 		txt += magia._imbue_dmg_txt(result)
@@ -2447,16 +2453,16 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 			txt += _aplicar_aturdir(obj, result.crit)
 		# Estados "al golpear" del jugador (arma; futuro: sangrado de cortantes).
 		for nom in _player.roll_on_hit(obj):
-			txt += "  Le infliges %s." % nom
+			txt += "  Causa %s a %s." % [nom, _etq(obj)]
 		# IMBUICION (KAN-58): el elemento de tus golpes puede prender su estado.
 		var imb: String = _player.roll_imbue(obj)
 		if imb != "":
-			txt += "  ⚡ Le infliges %s." % imb
+			txt += "  ⚡ Causa %s a %s." % [imb, _etq(obj)]
 		# El golpe que conecta REPONE maná (no los que fallan: hay que acertar).
 		if principal:
 			var mp: float = _ganar_mana_golpe()
 			if mp > 0.0:
-				txt += "  🔷 +%.1f MP." % mp
+				txt += "  Recupera %s de maná. 🔷" % _n(mp)
 		_set_log(txt)
 		return true
 
@@ -2542,7 +2548,7 @@ func _accion_defender() -> void:
 		if _fx != null:
 			_fx.arrancar_cola()
 		espejo._soltar_impactos_red()
-	_set_log("%s se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)" % _player.nombre)
+	_set_log("%s se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️" % _player.nombre)
 	_update_hp()
 	_fin_de_eleccion()
 	_state = State.ADVANCING
@@ -2613,8 +2619,8 @@ func _accion_huir() -> void:
 		_end(false, true)  # huida: no ganas, pero tampoco es derrota
 	else:
 		# Se nombra al mas rapido: es quien explica el numero que acabas de ver.
-		_set_log("%s intenta huir pero %s se lo impide. (%.0f%%)" % [
-			_player.nombre, perseguidor.nombre, chance * 100.0])
+		_set_log("%s intenta huir, pero %s se lo impide (tenía un %s %% de probabilidad de huir)." % [
+			_player.nombre, perseguidor.nombre, _n(roundf(chance * 100.0))])
 		_state = State.ADVANCING
 
 
@@ -2998,8 +3004,8 @@ func _disparar_seguimientos(obj: Combatant) -> void:
 			# arma que el basico (ver _accion_atacar).
 			var mv: float = esc.motion_value
 			Game.ganar_golpe(_reto(obj, pj_esc) * mv, pj_esc, esc)
-			var linea: String = "%s entra detrás con %s: %.2f%s" % [
-				esc.nombre, arma, dmg, " 💥" if r.crit else ""]
+			var linea: String = "%s entra detrás con %s e inflige %s de daño%s" % [
+				esc.nombre, arma, _n(dmg), " 💥" if r.crit else ""]
 			if r.crit:
 				var agi: float = minf(mv, Game.GAIN_AGILIDAD_CRIT_MV_MAX)
 				Game.ganar("agilidad", _reto(obj, pj_esc) * agi, Game.GAIN_AGILIDAD_CRITICO,
@@ -3011,10 +3017,10 @@ func _disparar_seguimientos(obj: Combatant) -> void:
 				magia._gastar_amplificadores(obj, esc.imbue_elemento)
 				imbuido = true
 			for nom in esc.roll_on_hit(obj):
-				linea += "  Le inflige %s." % nom
+				linea += "  Causa %s a %s." % [nom, _etq(obj)]
 			var imb: String = esc.roll_imbue(obj)
 			if imb != "":
-				linea += "  ⚡ Le inflige %s." % imb
+				linea += "  ⚡ Causa %s a %s." % [imb, _etq(obj)]
 				imbuido = true
 			_log_extra(linea)
 			# DURABILIDAD: el arma que entra se gasta, como en cualquier golpe.
@@ -3197,8 +3203,8 @@ func _end(player_won: bool, fled: bool = false) -> void:
 			_update_hp()
 		var caidos: String = _enemies[0].nombre if _enemies.size() == 1 \
 			else "%d enemigos" % _enemies.size()
-		_set_log("¡GANASTE el combate contra " + caidos + "! 🎉"
-			+ ("" if mp_vic <= 0.0 else "  🔷 +%.1f MP." % mp_vic), "f")
+		_set_log("¡Victoria contra " + caidos + "! 🎉"
+			+ ("" if mp_vic <= 0.0 else "  Recupera %s de maná. 🔷" % _n(mp_vic)), "f")
 	elif fled:
 		# Al huir se dice a cuantos dejas atras: si te llevaste a alguno por delante, cuenta.
 		var quedan: int = _vivos().size()
@@ -3252,6 +3258,61 @@ func _set_log(texto: String, tipo: String = "") -> void:
 	if _log_lines.size() > 0 and _log_lines[_log_lines.size() - 1] == texto:
 		return
 	registro.apuntar(texto, registro.meta_nueva(tipo))
+
+
+# UN NUMERO DEL REGISTRO (06/11, pase de textos; lo eligio el jefe): coma decimal, hasta 2 decimales y sin los ceros
+# que sobran. 5.69 -> "5,69", 4.10 -> "4,1", 3.00 -> "3".
+static func _n(x: float) -> String:
+	var s: String = "%.2f" % x
+	s = s.rstrip("0").rstrip(".")
+	if s == "-0":
+		s = "0"
+	return s.replace(".", ",")
+
+
+# LOS ESTADOS DE UNA ACCION, EN FRASES (06/11, pase de textos). Las entradas que empiezan por "·" son estados causados
+# a quien recibe el golpe y se juntan en "Causa Veneno, Pegajoso ×2"; las demas ya son frases ("Daniel recibe Furia")
+# y van cada una con su punto. Los "<quien> recibe <estado>" del mismo estado se juntan: "Daniel, Dasui y Coco reciben Furia".
+static func _frase_estados(lista: Array) -> String:
+	var causa: Array = []
+	var cuenta: Dictionary = {}
+	var frases: Array = []
+	var reciben: Dictionary = {}   # estado -> [quien, ...] en orden
+	for s in lista:
+		var t: String = String(s)
+		if t.begins_with("·"):
+			t = t.substr(1)
+			if not cuenta.has(t):
+				causa.append(t)
+				cuenta[t] = 0
+			cuenta[t] = int(cuenta[t]) + 1
+		elif t.contains(" recibe "):
+			var quien: String = t.get_slice(" recibe ", 0)
+			var que: String = t.substr(quien.length() + " recibe ".length())
+			if not reciben.has(que):
+				reciben[que] = []
+				frases.append("\u0001" + que)   # su sitio en el orden; se escribe abajo
+			if not (reciben[que] as Array).has(quien):
+				(reciben[que] as Array).append(quien)
+		elif t != "" and not frases.has(t):
+			frases.append(t.substr(0, 1).to_upper() + t.substr(1))
+	var out: String = ""
+	if not causa.is_empty():
+		var nombres: Array = []
+		for c in causa:
+			nombres.append(c if int(cuenta[c]) == 1 else "%s ×%d" % [c, int(cuenta[c])])
+		out += "  Causa %s." % ", ".join(nombres)
+	for i in frases.size():
+		var f: String = String(frases[i])
+		if f.begins_with("\u0001"):
+			var que2: String = f.substr(1)
+			var q: Array = reciben[que2]
+			var lista_q: String = String(q[0]) if q.size() == 1 \
+				else ", ".join(q.slice(0, q.size() - 1)) + " y " + String(q[q.size() - 1])
+			frases[i] = "%s %s %s" % [lista_q, "recibe" if q.size() == 1 else "reciben", que2]
+	for f in frases:
+		out += "  %s." % f
+	return out
 
 
 # Una frase que llega del anfitrion (el espejo), CODIFICADA con su grupo (combat_registro.codificar).
@@ -3386,7 +3447,7 @@ func interrumpir(c: Combatant, quien: Combatant = null, por_control: bool = fals
 func _aplicar_aturdir(objetivo: Combatant, es_crit: bool) -> String:
 	if es_crit:
 		objetivo.apply_status(StatusEffects.Id.ATURDIDO)
-		return "  ¡ATURDIDO! 💫 (pierde el turno)"
+		return "  %s queda Aturdido y pierde su próximo turno. 💫" % _etq(objetivo)
 	objetivo.frenar_carga()   # retrasada: una carga menos (la arañas mutantes; aturdida ya va por apply_status)
 	var f: float = randf_range(ATB_STUN_MIN, ATB_STUN_MAX)
 	# Sin recorte a 0: si la barra ya estaba baja, el retraso debe notarse igual
@@ -3396,7 +3457,7 @@ func _aplicar_aturdir(objetivo: Combatant, es_crit: bool) -> String:
 	# reaparecia en la barra de accion. Un mazazo al cadaver no lo devuelve a la pelea.
 	if _gauge.has(objetivo):
 		_gauge[objetivo] -= UMBRAL * f
-	return "  ¡Retrasado! 💫"
+	return "  Retrasa a %s en la barra de turno. 💫" % _etq(objetivo)
 
 
 # Log de DESARROLLO (consola): probabilidades reales de esquiva/crit/aturdir de

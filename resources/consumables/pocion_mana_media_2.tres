@@ -11,6 +11,6 @@ mana_total = 42.0
 mana_pct = 0.12
 turnos = 5
 segundos = 10.0
-descripcion = "Restaura 42 + 12% de tu maná máximo, repartido en el tiempo. Casi el techo de la segunda ley: mucho maná, pero hay que sostenerlo 5 turnos."
+descripcion = "Casi lo mejor de la baba profunda: mucho maná, pero lento."
 valor_base = 1800
 tier = 2

@@ -53,7 +53,7 @@ func _ficha(vb: VBoxContainer) -> void:
 		MenuScaffold.bloque_runas(vb, item)
 		# Fundirla se lleva sus runas por delante: que se sepa ANTES de pulsar.
 		if not Runas.runas_de(item).is_empty():
-			MenuScaffold._linea_color(vb, "⚠ Al fundirla PIERDES su set y sus sub-stats de runas (las runas no vuelven).",
+			MenuScaffold._linea_color(vb, "⚠ Al fundirla pierdes su set y los atributos secundarios de sus runas (las runas no vuelven).",
 				Color(0.95, 0.55, 0.45), 12)
 
 	var d: Dictionary = Game.fundir_devuelve(item)
@@ -66,7 +66,7 @@ func _ficha(vb: VBoxContainer) -> void:
 	var algo: bool = false
 	for m in (d["materiales"] as Array):
 		MenuScaffold.celda_suelta(fila, MaterialItem.crear(m["material"] as MaterialData, MaterialItem.Calidad.NORMAL),
-			LADO_CELDA_DEVUELVE, "%d uds" % int(m["uds"]))
+			LADO_CELDA_DEVUELVE, "%d unidades" % int(m["uds"]))
 		algo = true
 	var nucleos: Dictionary = d["nucleos"]
 	for n in nucleos:
@@ -74,7 +74,7 @@ func _ficha(vb: VBoxContainer) -> void:
 		algo = true
 	if not algo:
 		t.note(vb, "De esta no sale nada aprovechable.")
-	t.note(vb, "Vuelve como material NORMAL: es chatarra reaprovechable, no material de primera. Y solo la mitad: la otra mitad se queda en el suelo de la fragua.")
+	t.note(vb, "Vuelve como material de calidad normal: es chatarra reaprovechable, no material de primera. Y solo la mitad: la otra mitad se queda en el suelo de la fragua.")
 
 	var pie: VBoxContainer = t.acciones()
 	pie.add_child(HSeparator.new())

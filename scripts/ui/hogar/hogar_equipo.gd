@@ -253,7 +253,7 @@ func _acciones() -> void:
 	var guardar: Button = MenuScaffold.pastilla(fila, "Guardar materiales", _guardar_materiales, false,
 		not Game.bolsa.esta_vacio())
 	guardar.custom_minimum_size = Vector2(200, MenuScaffold.ALTO_BOTON)
-	guardar.tooltip_text = "Deja en el cofre de casa todos los materiales que llevas. Los cristales no: esos se venden en la tienda."
+	guardar.tooltip_text = "Deja en casa todos los materiales que llevas. Los cristales no: esos se venden en la tienda."
 
 
 func _guardar_materiales() -> void:

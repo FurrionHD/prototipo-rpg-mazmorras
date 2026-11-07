@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1_m01do")
 nombre = "Grimorio: Filo umbrío"
-descripcion = "Un tomo negro que no refleja la vela: la apaga a medias. Si lo miras un rato de cerca, tardas en volver a ver bien el resto de la estanteria. Estudialo y aprenderas Filo umbrio."
+descripcion = "Un tomo negro que no refleja la vela: la apaga a medias. Si lo miras un rato de cerca, tardas en volver a ver bien el resto de la estantería. Estúdialo y aprenderás Filo umbrío."
 cura_total = 0.0
 turnos = 1
 segundos = 1.0

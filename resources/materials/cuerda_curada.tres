@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = &"cuerda_curada"
 nombre = "Cuerda curada"
-descripcion = "Del cuero curado, mas apretada y mas fina. Aguanta mas tirones antes de deshilacharse."
+descripcion = "Del cuero curado, más apretada y más fina. Aguanta más tirones antes de deshilacharse."
 familia = 0
 tipo = 3
 tier = 1

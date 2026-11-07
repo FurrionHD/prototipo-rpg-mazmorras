@@ -250,7 +250,7 @@ func _draw() -> void:
 	var estado: String
 	var col: Color = MedidorFaena.TEXTO_SUAVE
 	if _state == READY:
-		estado = "ESPACIO: empezar"
+		estado = "[Espacio]: empezar"
 	elif _state == RUNNING:
 		estado = _ultimo if _ultimo_t > 0.0 else "Mantén y suelta"
 		if _ultimo_t > 0.0:

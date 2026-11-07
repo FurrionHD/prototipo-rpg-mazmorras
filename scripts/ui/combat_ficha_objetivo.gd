@@ -138,7 +138,7 @@ func refrescar() -> void:
 	# Lo que SE VE (la barra de su ficha, que espera al golpe), no lo ya resuelto.
 	var hp_v: float = c.vida_vista()
 	_hp.value = hp_v
-	_hp_lbl.text = "%.2f / %.2f" % [hp_v, c.max_hp] \
+	_hp_lbl.text = ("%.2f / %.2f" % [hp_v, c.max_hp]).replace(".", ",") \
 		+ TramoEscudo.poner_costra(_hp, hp_v, c.max_hp, c.costra_vista())   # la costra de ambar (el Tocon ambarino)
 
 	# LOS CHIPS se borran y se recrean enteros, asi que solo cuando cambian de verdad: si no, esto

@@ -163,7 +163,7 @@ func _menu_hechizos() -> void:
 			continue
 		var b := Button.new()
 		var coste: float = _coste(sp)
-		b.text = "%s  (%.2f MP)" % [sp.nombre, coste]
+		b.text = "%s  (%s de maná)" % [sp.nombre, StatusEffects.num(coste)]
 		b.tooltip_text = sp.descripcion_mecanica(sp.dano_mostrado() * Game.poder_magico(_pj), Game.cura_magica_de(sp, _pj))
 		if Game.player_mp(_pj) < coste:
 			b.disabled = true
@@ -177,7 +177,7 @@ func _menu_hechizos() -> void:
 			# pueblo. Lo unico que hace falta es que haya a quien echarsela.
 			if _candidatos_imbue(sp).is_empty():
 				b.disabled = true
-				b.tooltip_text = "⛔ No hay nadie a quien echárselo\n\n%s" % b.tooltip_text
+				b.tooltip_text = "⛔ No hay nadie a quien lanzárselo\n\n%s" % b.tooltip_text
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.custom_minimum_size = Vector2(0, ALTO_BOTON)
 		b.clip_text = true
@@ -458,7 +458,7 @@ func _backfire(correcta: String = "") -> void:
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud != null and hud.has_method("mostrar_toast"):
 		var era: String = " Era «%s»." % correcta if correcta != "" else ""
-		hud.mostrar_toast("💥 El conjuro se te descontrola: %.0f de daño.%s" % [dano, era])
+		hud.mostrar_toast("💥 El conjuro se te descontrola y recibes %s de daño.%s" % [StatusEffects.num(roundf(dano)), era])
 	# El estallido: ruido a saco (aunque el panel ya se cierre) y alboroto de golpe.
 	if is_instance_valid(_jugador) and _jugador.has_method("hacer_ruido"):
 		_jugador.hacer_ruido(RUIDO_ESTALLIDO, RUIDO_ESTALLIDO_DUR)

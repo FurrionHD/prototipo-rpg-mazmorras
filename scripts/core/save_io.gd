@@ -63,9 +63,9 @@ static func inspeccionar_ruta(ruta: String) -> Dictionary:
 static func motivo_texto(info: Dictionary) -> String:
 	match int(info.get("estado", VACIA)):
 		MAS_NUEVA:
-			return "partida de una versión MÁS NUEVA (v%d) · actualiza el juego" % _version_mostrada(info)
+			return "partida de una versión más nueva (v%d) · actualiza el juego" % _version_mostrada(info)
 		MAS_VIEJA:
-			return "partida de una versión anterior (v%d) · este build ya no puede abrirla" % int(info.get("version", 0))
+			return "partida de una versión anterior (v%d) · esta versión del juego ya no puede abrirla" % int(info.get("version", 0))
 		ILEGIBLE:
 			return "el fichero está dañado o incompleto"
 		_:

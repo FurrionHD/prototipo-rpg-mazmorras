@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1_ukcre")
 nombre = "Grimorio: Vendaje de luz"
-descripcion = "Un cuadernillo de tapas blandas con una cruz cosida en el lomo. Se le nota el uso: alguien lo ha abierto muchas veces y siempre por la misma pagina. Estudialo y aprenderas Vendaje de luz."
+descripcion = "Un cuadernillo de tapas blandas con una cruz cosida en el lomo. Se le nota el uso: alguien lo ha abierto muchas veces y siempre por la misma página. Estúdialo y aprenderás Vendaje de luz."
 cura_total = 0.0
 turnos = 1
 segundos = 1.0

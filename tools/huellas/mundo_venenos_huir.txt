@@ -11,32 +11,32 @@ f30 LOG ¡Turno de Agirato ochinan! Elige una acción.
 f30 Agirato ochinan hp=198.795 mp=14.485 en=177.425
 f32 PULSA Habilidad
 f35 PULSA _ability_box: Bastonazo  (26 EN)
-f36 LOG ⏳ Agirato ochinan prepara Bastonazo. (si le aturden, se interrumpe)
+f36 LOG ⏳ Agirato ochinan prepara Bastonazo. Si queda Aturdido, se interrumpe.
 f36 Agirato ochinan hp=198.795 mp=14.485 en=151.425
-f62 LOG ⏳ 1. Araña de las simas prepara Telaraña. ¡Apártate! (aturdirlo lo interrumpe)
+f62 LOG ⏳ 1. Araña de las simas prepara Telaraña. ¡Apártate! Si queda Aturdido, se interrumpe.
 f95 LOG ¡Turno de Daniel! Elige una acción.
 f97 PULSA Atacar
-f98 LOG Daniel golpea con Maza pequeña e inflige 5.44 de daño.  ¡Retrasado! 💫
+f98 LOG Daniel golpea con Maza pequeña e inflige 5,44 de daño.  Retrasa a 1. Araña de las simas en la barra de turno. 💫
 f98 Araña de las simas hp=50.611 mp=20.429 en=0.000
-f149 LOG Bastonazo está lista. Elige a quién y suéltala.
+f149 LOG Ya se puede soltar Bastonazo: elige el objetivo.
 f151 PULSA ⚡ ¡Soltar Bastonazo!
-f152 LOG … 12.29 de daño (1 de 1 golpes).  +0.2 MP.  ✨Lento.
+f152 LOG … 12,29 de daño.  Recupera 0,2 de maná. 🔷  Causa Lento.
 f152 Agirato ochinan hp=198.795 mp=14.685 en=151.425
 f152 Araña de las simas hp=38.320 mp=20.429 en=0.000
 f204 LOG ¡Turno de Dasui! Elige una acción.
 f206 PULSA Defender
-f207 LOG Dasui se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
+f207 LOG Dasui se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️
 f207 Dasui hp=199.642 mp=20.000 en=166.300
 f209 LOG ¡Turno de Catalardio! Elige una acción.
 f211 PULSA Objeto
 f214 PULSA _objeto_box: Poción de maná media  x3
 f217 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  15/37 🔷)
-f218 LOG Catalardio le da Poción de maná media a Agirato ochinan. 🔷 29 de maná (10 ya), repartido en 3 turnos.
+f218 LOG Catalardio le da Poción de maná media a Agirato ochinan. 🔷 29 de maná: 10 ahora y 19 durante los 2 turnos siguientes.
 f218 Agirato ochinan hp=198.795 mp=24.479 en=151.425
-f219 LOG ⏳ 3. Jabalí prepara Embestida. ¡Apártate! (aturdirlo lo interrumpe)
-f280 LOG 2. Trent ataca a Daniel y le inflige 0.45 de daño.  Le inflige Veneno.
+f219 LOG ⏳ 3. Jabalí prepara Embestida. ¡Apártate! Si queda Aturdido, se interrumpe.
+f280 LOG 2. Trent ataca a Daniel y le inflige 0,45 de daño.  Causa Veneno a Daniel.
 f280 Daniel hp=190.537 mp=20.000 en=181.025
-f337 LOG … no te ha dado con ninguno de los 1 golpe.
+f337 LOG … falla el golpe.
 f409 LOG ¡Turno de Agirato ochinan! Elige una acción.
 f409 Agirato ochinan hp=198.795 mp=34.694 en=151.425
 f411 PULSA Huir

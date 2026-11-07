@@ -115,7 +115,7 @@ func _construir() -> void:
 		_boton(vb, "Multijugador (LAN)", _abrir_multi)
 	# INVITAR POR STEAM: solo dentro de un mundo compartido y con Steam (ver invitaciones_steam.gd). Se
 	# decide al abrir la pausa y no aqui: al invitado la pausa le nace antes de terminar de entrar.
-	_btn_invitar = _boton(vb, "Invitar amigos (Steam)", _invitar)
+	_btn_invitar = _boton(vb, "Invitar a amigos (Steam)", _invitar)
 	_btn_invitar.visible = false
 	_boton(vb, "Guardar", _guardar)
 	_boton(vb, "Guardar y salir al menú", _guardar_y_salir)
@@ -125,7 +125,7 @@ func _construir() -> void:
 	# guardando: un despiste ahi cuesta la sesion entera, y no gana nada que no gane recargar la
 	# ranura desde el menu principal.
 	var n := Label.new()
-	n.text = "Al salir siempre se guarda."
+	n.text = "La partida se guarda siempre al salir."
 	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	n.custom_minimum_size = Vector2(ANCHO_BOTON, 0)
 	n.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -281,7 +281,7 @@ func _cerrar_ajustes() -> void:
 # ------------------------------------------------------------
 func _invitar() -> void:
 	var motivo: String = Net.invitaciones.invitar()
-	_aviso.text = motivo if motivo != "" else "Elige a quién invitar. Tiene que tener el juego abierto."
+	_aviso.text = motivo if motivo != "" else "Elige a quién quieres invitar. Tiene que tener el juego abierto."
 
 
 func _montar_amigos() -> void:
@@ -306,14 +306,14 @@ func _montar_amigos() -> void:
 	panel.add_child(vb)
 
 	var tit := Label.new()
-	tit.text = "INVITAR AMIGOS"
+	tit.text = "INVITAR A AMIGOS"
 	tit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	tit.add_theme_font_size_override("font_size", 24)
 	tit.add_theme_color_override("font_color", Color(0.95, 0.72, 0.36))
 	vb.add_child(tit)
 
 	var n := Label.new()
-	n.text = "Les llega la invitación por Steam. Para entrar tienen que tener el juego ABIERTO."
+	n.text = "La invitación les llega por Steam. Para unirse, tienen que tener el juego abierto."
 	n.custom_minimum_size = Vector2(ANCHO_BOTON, 0)
 	n.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	n.add_theme_font_size_override("font_size", 11)
@@ -348,7 +348,7 @@ func _abrir_amigos(cadena: String) -> void:
 		fila.add_theme_constant_override("separation", 8)
 		_lista_amigos.add_child(fila)
 		var l := Label.new()
-		l.text = String(a["nombre"]) + ("  · jugando" if bool(a["jugando"]) else "")
+		l.text = String(a["nombre"]) + ("  · en el juego" if bool(a["jugando"]) else "")
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		l.clip_text = true
 		l.add_theme_color_override("font_color",
@@ -363,7 +363,7 @@ func _abrir_amigos(cadena: String) -> void:
 				b.text = "Invitado ✓"
 				b.disabled = true
 			else:
-				b.text = "No se pudo")
+				b.text = "Ha fallado")
 		fila.add_child(b)
 	_menu.visible = false
 	_amigos.visible = true
@@ -381,7 +381,7 @@ func _cerrar_amigos() -> void:
 func _abrir_multi() -> void:
 	var panel: Node = get_tree().get_first_node_in_group("multiplayer_panel")
 	if panel == null:
-		_aviso.text = "No esta el panel de multijugador."
+		_aviso.text = "El multijugador no está disponible."
 		return
 	_set_open(false)
 	panel.abrir()
@@ -391,7 +391,7 @@ func _abrir_multi() -> void:
 # lo PIDE, y la sala guarda el mundo y, con el, a todos los que estan en el.
 func _guardar() -> void:
 	Net.partida.pedir_guardar_todos()
-	_aviso.text = "Guardando: se lo pides al anfitrión y quedáis todos a salvo."
+	_aviso.text = "Pidiendo al anfitrión que guarde la partida de todos..."
 
 
 func _guardar_y_salir() -> void:
@@ -409,7 +409,7 @@ func _guardar_y_salir() -> void:
 		get_tree().change_scene_to_file(menu)
 		return
 	Net.partida.pedir_guardar_todos(true)
-	_aviso.text = "Guardando y cerrando: se lo pides al anfitrión."
+	_aviso.text = "Pidiendo al anfitrión que guarde antes de salir..."
 
 
 func _salir() -> void:

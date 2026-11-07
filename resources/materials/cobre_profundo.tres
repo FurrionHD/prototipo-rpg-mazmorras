@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = &"cobre_profundo"
 nombre = "Cobre profundo"
-descripcion = "Cobre apretado por el peso de la piedra hasta perder el brillo. Sale casi negro y se aclara al frotarlo. Los ultimos pisos antes del rey lo dan a puñados, si puedes con el."
+descripcion = "Cobre apretado por el peso de la piedra hasta perder el brillo. Sale casi negro y se aclara al frotarlo. Los últimos pisos antes del rey lo dan a puñados, si puedes con él."
 familia = 0
 tipo = 2
 tier = 1

@@ -164,7 +164,7 @@ func abrir(id: String, contrasena: String, direcciones: Array, sello_version: in
 		# siempre por haberle subido el numero de version al juego -- que durante el desarrollo pasa
 		# cada dos por tres.
 		return _fallo("build_distinto",
-			"Este mundo se guardó con el build %s y tú tienes el %s. Tienen que ser el mismo." % [b, sello_build])
+			"Este mundo se guardó con la versión %s del juego y tú tienes la %s. Tienen que ser la misma." % [b, sello_build])
 
 	# Test-and-set: el token sube SIEMPRE en cada apertura, y ese es el vallado. Se escribe primero
 	# el contador del mundo y solo despues el cerrojo, para que un corte a media no deje un cerrojo
@@ -254,7 +254,7 @@ func subir(id: String, token: int, save: PackedByteArray, meta: Dictionary,
 
 	var f := FileAccess.open(_ruta_save(id), FileAccess.WRITE)
 	if f == null:
-		return _fallo("subida_fallida", "No se pudo subir la partida.")
+		return _fallo("subida_fallida", "No se ha podido subir la partida.")
 	f.store_buffer(save)
 	f.close()
 

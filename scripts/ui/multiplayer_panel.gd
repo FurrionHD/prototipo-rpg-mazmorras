@@ -79,14 +79,14 @@ func _construir() -> void:
 	_estado.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vb.add_child(_estado)
 
-	_ip = _campo(vb, "IP del host (para unirse)", "127.0.0.1")
-	_codigo = _campo(vb, "Codigo de sala", "")
+	_ip = _campo(vb, "IP del anfitrión (para unirse)", "127.0.0.1")
+	_codigo = _campo(vb, "Código de sala", "")
 
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", 10)
 	hb.alignment = BoxContainer.ALIGNMENT_CENTER
 	vb.add_child(hb)
-	_boton(hb, "Hostear", _hostear)
+	_boton(hb, "Ser anfitrión", _hostear)
 	_boton(hb, "Unirse", _unirse)
 
 	_boton(vb, "Desconectar", _desconectar)
@@ -136,11 +136,11 @@ func _en_mi_partida() -> bool:
 func _refrescar_estado_inicial() -> void:
 	if _en_mi_partida():
 		_estado.text = ("Tu partida está abierta a la LAN." if Net.lan_abierta
-			else "Pon un código y pulsa Hostear para que tus amigos de casa entren en tu partida.")
+			else "Pon un código y pulsa «Ser anfitrión» para que tus amigos de casa entren en tu partida.")
 	elif Net.activo:
-		_estado.text = "Sesion en marcha (%s)." % ("host" if Net.es_host else "cliente")
+		_estado.text = "Sesión en marcha (%s)." % ("host" if Net.es_host else "cliente")
 	else:
-		_estado.text = "Sin conexion. Unete a una partida por IP."
+		_estado.text = "Sin conexión. Únete a una partida por IP."
 
 
 func _hostear() -> void:
@@ -153,14 +153,14 @@ func _hostear() -> void:
 		Net.abrir_lan(cod)
 		return
 	# Paso 7: tu juego ya no hace de anfitrion. Solo se abre a la LAN TU partida, que la lleva tu sala.
-	_estado.text = ("Ya hay una sesion en marcha. Desconecta primero." if Net.activo
-		else "Para abrir a la LAN, entra en tu partida desde el menu principal.")
+	_estado.text = ("Ya hay una sesión en marcha. Desconéctate primero." if Net.activo
+		else "Para abrir a la LAN, entra en tu partida desde el menú principal.")
 
 
 func _unirse() -> void:
 	var ip := _ip.text.strip_edges()
 	if ip.is_empty():
-		_estado.text = "Pon la IP del host."
+		_estado.text = "Escribe la IP del anfitrión."
 		return
 	if _en_mi_partida():
 		# Para entrar en la de otro hay que salir de la mia: se guarda (lo hace mi sala) y se sigue en la pantalla de
@@ -175,7 +175,7 @@ func _unirse() -> void:
 		get_tree().change_scene_to_file(Mundos.MENU_MULTI)
 		return
 	if Net.activo:
-		_estado.text = "Ya hay una sesion en marcha. Desconecta primero."
+		_estado.text = "Ya hay una sesión en marcha. Desconéctate primero."
 		return
 	Net.unirse(ip, _codigo.text.strip_edges())
 
@@ -185,7 +185,7 @@ func _desconectar() -> void:
 		Net.abrir_lan("")   # en mi partida no me desconecto de mi sala: se cierra la puerta a la LAN
 		return
 	if not Net.activo:
-		_estado.text = "No hay sesion que cerrar."
+		_estado.text = "No hay ninguna sesión que cerrar."
 		return
 	Net.desconectar()
 	_estado.text = "Desconectado."

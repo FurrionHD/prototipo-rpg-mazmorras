@@ -173,7 +173,7 @@ func _ficha(vb: VBoxContainer) -> void:
 					t.note(vb, "No existe material a este nivel: esta pieza no se puede reforzar más.")
 				continue
 			var necesita: int = Game.LAMPARA_MEJORA_METAL if es_farol else int(cmat[clave])
-			_coste(fila, m, necesita, Game.disponible_unidades_material_en_hogar(m), " uds")
+			_coste(fila, m, necesita, Game.disponible_unidades_material_en_hogar(m), " unidades")
 
 	if es_farol:
 		_farol(vb, item, nucleo, al_tope)
@@ -197,7 +197,7 @@ func _ficha(vb: VBoxContainer) -> void:
 	# EN DOS COLUMNAS (08/10/2026, lo pidio el usuario: era un scroll largo con medio panel vacio a la derecha).
 	var rejilla := GridContainer.new()
 	rejilla.columns = 2
-	rejilla.add_theme_constant_override("h_separation", 28)
+	rejilla.add_theme_constant_override("h_separation", 20)
 	rejilla.add_theme_constant_override("v_separation", 2)
 	vb.add_child(rejilla)
 	for f in MenuScaffold.filas_mejora(item, int(meta["tier"]), rareza, mj, cat_sel):
@@ -210,10 +210,14 @@ func _ficha(vb: VBoxContainer) -> void:
 		var n_dur: int = int(mj.get(Upgrades.DURABILIDAD, 0))
 		var nuevo_max: float = maxd / (1.0 + float(n_dur) * Game.DURABILIDAD_MEJORA_PCT) \
 			* (1.0 + float(n_dur + 1) * Game.DURABILIDAD_MEJORA_PCT)
-		delta = "+%d pts máx" % round(nuevo_max - maxd)
-	_atributo(rejilla, "Durabilidad", "%d/%d (%d%%)" % [round(frac * maxd), round(maxd), round(frac * 100.0)], delta)
+		delta = "+%d" % round(nuevo_max - maxd)
+	_atributo(rejilla, "Durabilidad", "%d / %d (%d %%)" % [round(frac * maxd), round(maxd), round(frac * 100.0)], "")
+	# El "+N" va en su PROPIA fila: con la etiqueta delante dice de que es (sube el maximo, no la actual), y en la
+	# columna del delta (76 px) no cabe una explicacion.
+	if delta != "":
+		_atributo(rejilla, "Durabilidad máxima", "%d" % round(maxd), delta)
 	MenuScaffold.bloque_runas(vb, item, true)   # sus runas (mejorar no las toca), compactas
-	t.note(vb, "El núcleo lo elige el sistema por el nivel de la pieza, y dentro de su tramo cada mejora cuesta uno más. Gasta también material de su tier, del peor que tengas: la rareza ya está echada.")
+	t.note(vb, "El núcleo que pide depende del nivel de la pieza, y dentro de su tramo cada mejora cuesta uno más. Gasta también material de su tier, del peor que tengas: la rareza ya está echada.")
 
 	var puede: bool = nucleo != null and Game.puede_mejorar(item, nucleo)
 	var txt: String = "Al máximo que permite la rareza (+%d)" % por_rareza
@@ -256,20 +260,22 @@ func _atributo(vb: Container, etiqueta: String, valor: String, delta: String) ->
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var k := Label.new()
 	k.text = etiqueta
-	k.custom_minimum_size = Vector2(150, 0)
+	# 200 / 95 / 76 (06/11, pase de textos, MEDIDO con la fuente del juego): caben los nombres completos ("Probabilidad
+	# de crítico mágico", 197 px) y las dos columnas siguen entrando en el panel (~800 px).
+	k.custom_minimum_size = Vector2(200, 0)
 	k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
 	row.add_child(k)
 	# Con ANCHO fijo el valor y el delta: sin eso el autowrap de la ficha los dejaba a ancho cero y salian
 	# letra a letra (visto en captura). El delta va pegado al valor, no al otro extremo de la fila.
 	var v := Label.new()
-	v.text = valor
-	v.custom_minimum_size = Vector2(120, 0)
+	v.text = MenuScaffold.valor_es(valor)
+	v.custom_minimum_size = Vector2(95, 0)
 	row.add_child(v)
 	# El hueco del delta SIEMPRE (vacio si no sube): asi las dos columnas de la rejilla no bailan segun la mejora
 	# elegida, y las runas de debajo (MenuScaffold.bloque_runas compacto, que deja el mismo hueco) caen alineadas.
 	var d := Label.new()
-	d.text = delta
-	d.custom_minimum_size = Vector2(70, 0)
+	d.text = MenuScaffold.valor_es(delta)
+	d.custom_minimum_size = Vector2(76, 0)
 	d.add_theme_color_override("font_color", t.VERDE)
 	row.add_child(d)
 	vb.add_child(row)
@@ -286,13 +292,13 @@ func _farol(vb: VBoxContainer, item: Resource, nucleo: MaterialData, al_tope: bo
 	var ahora: float = Lampara.radio(Lampara.potencia(tier, rar, banda, mej), piso)
 	var luego: float = Lampara.radio(Lampara.potencia(tier, rar, banda, mej + 1), piso)
 	vb.add_child(HSeparator.new())
-	_atributo(vb, "Luz", "%.1f casillas en el piso %d" % [ahora, piso],
-		"" if al_tope else "→ %.1f" % luego)
-	t.note(vb, "El farolillo se mejora A SECAS: cada mejora sube la potencia de la luz. Pide UN núcleo de cada rama de la banda que le toque, más un poco de metal, y el coste no sube con el nivel.")
+	_atributo(vb, "Luz", "%s casillas en el piso %d" % [StatusEffects.num(snappedf(ahora, 0.1)), piso],
+		"" if al_tope else "→ %s" % StatusEffects.num(snappedf(luego, 0.1)))
+	t.note(vb, "El farolillo se mejora a secas: cada mejora sube la potencia de la luz. Pide un núcleo de cada rama de la banda que le toque, más un poco de metal, y el coste no sube con el nivel.")
 	var puede: bool = nucleo != null and Game.puede_mejorar(item, nucleo)
 	var txt: String = "Al máximo que permite la rareza (+%d)" % Upgrades.rareza_slots(rar)
 	if not al_tope:
-		txt = "Mejorar  →  %.1f casillas" % luego if puede else "Te falta material o alguno de los dos núcleos"
+		txt = "Mejorar  →  %s casillas" % StatusEffects.num(snappedf(luego, 0.1)) if puede else "Te falta material o alguno de los dos núcleos"
 	var pie: VBoxContainer = t.acciones()
 	pie.add_child(HSeparator.new())
 	MenuScaffold.pastilla(pie, txt, func() -> void: _mejorar(item, Upgrades.LUMINOSIDAD), true, puede)
@@ -320,7 +326,7 @@ func _on_cat(i: int) -> void:
 func _mejorar(item: Resource, cat: String) -> void:
 	var nucleo: MaterialData = Game.nucleo_auto(item)
 	if nucleo == null:
-		t.decir("No se pudo mejorar.", false)
+		t.decir("No se ha podido mejorar.", false)
 		return
 	if not await Net.hogar.abrir_taller():
 		t.ocupado()
@@ -330,9 +336,9 @@ func _mejorar(item: Resource, cat: String) -> void:
 	Net.hogar.cerrar_taller()
 	if ok:
 		if cat == Upgrades.LUMINOSIDAD:
-			t.decir("El %s alumbra más: %.1f casillas." % [str(item.get("nombre")).to_lower(), Game.radio_lampara()])
+			t.decir("El %s alumbra más: %s casillas." % [str(item.get("nombre")).to_lower(), StatusEffects.num(snappedf(Game.radio_lampara(), 0.1))])
 		else:
 			t.decir("%s ahora es %s." % [Upgrades.cat_nombre(cat), Game.item_display_name(item)])
 	else:
-		t.decir("No se pudo mejorar.", false)
+		t.decir("No se ha podido mejorar.", false)
 	t.rebuild()

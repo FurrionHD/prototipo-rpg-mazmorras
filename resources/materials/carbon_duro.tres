@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1")
 id = &"carbon_duro"
-nombre = "Carbon duro"
-descripcion = "Ya no es lena de pasillo: madera dura de los pisos hondos, hecha brasa. Pesa lo mismo que la de arriba y alumbra la mitad de rato mas."
+nombre = "Carbón duro"
+descripcion = "Ya no es leña de pasillo: madera dura de los pisos hondos, hecha brasa. Pesa lo mismo que la de arriba y alumbra la mitad de rato más."
 familia = 0
 tipo = 11
 tier = 2

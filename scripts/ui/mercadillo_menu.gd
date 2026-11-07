@@ -265,10 +265,10 @@ func _comprar(md: MaterialData) -> void:
 	var cobrado: int = Game.comprar_lote([{"base": md, "tier": 1, "n": n}])
 	if cobrado <= 0:
 		_aviso.add_theme_color_override("font_color", Color(0.9, 0.5, 0.5))
-		_aviso.text = "No te llega para %d x %s." % [n, md.nombre]
+		_aviso.text = "No te llega para %s ×%d." % [md.nombre, n]
 	else:
 		_aviso.add_theme_color_override("font_color", Color(0.55, 0.85, 0.55))
-		_aviso.text = "Compras %d x %s por %d monedas." % [n, md.nombre, cobrado] if n > 1 \
+		_aviso.text = "Compras %s ×%d por %d monedas." % [md.nombre, n, cobrado] if n > 1 \
 			else "Compras %s por %d monedas." % [md.nombre, cobrado]
 	_cant = 1
 	_pintar()

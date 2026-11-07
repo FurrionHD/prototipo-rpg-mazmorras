@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = &"madera_de_veta"
 nombre = "Madera de veta"
-descripcion = "Enredadera vieja, con la fibra corrida en lineas largas y limpias. Se raja por donde quiere ella, no por donde quieres tu."
+descripcion = "Enredadera vieja, con la fibra corrida en líneas largas y limpias. Se raja por donde quiere ella, no por donde quieres tú."
 familia = 0
 tipo = 6
 tier = 1

@@ -506,7 +506,7 @@ func _apoyarte(hechizo: int, idx: int, nombre: String, lanzador: String, cura: f
 	# Metido en una pelea, la ficha la lleva el combate y la pisaria al cerrarse. No deberia llegar aqui
 	# (quien lanza te ve peleando y entra en tu pelea en vez de mandar esto), pero la carrera existe.
 	if Game.hay_pelea_en_pantalla():
-		Net._toast("✨ %s intentó echarte %s, pero estabas peleando." % [lanzador, sp.nombre])
+		Net._toast("✨ %s ha intentado lanzarte %s, pero estabas en una pelea." % [lanzador, sp.nombre])
 		return
 	var mios: Array = [Game.lider()]
 	mios.append_array(Game.companeros())
@@ -526,7 +526,7 @@ func _apoyarte(hechizo: int, idx: int, nombre: String, lanzador: String, cura: f
 		if hecho != "":
 			partes.append("%s: %s" % ["tú" if pj == Game.lider() else (pj as PersonajeData).nombre, hecho])
 	if not partes.is_empty():
-		Net._toast("✨ %s te echa %s.  %s" % [lanzador, sp.nombre, "  ·  ".join(partes)])
+		Net._toast("✨ %s te lanza %s.  %s" % [lanzador, sp.nombre, "  ·  ".join(partes)])
 
 
 # --- LOS EFECTOS DE UNA CURA DE AREA, para que los vean los demas -----------------------------

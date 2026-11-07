@@ -133,10 +133,10 @@ func _rebuild_real() -> void:
 	MenuScaffold.vaciar(_side)
 
 	_titulo_nivel.text = "NIVEL %d → %d" % [Game.player_level, Game.player_level + 1]
-	MenuScaffold.nota(_side, "Tu poder se graba en tu base (+%d%%) y las básicas vuelven a rango I."
+	MenuScaffold.nota(_side, "Su poder se graba en sus atributos base (+%d %%) y sus básicas vuelven a rango I."
 		% roundi(Game.NIVEL_SPIKE * 100.0))
-	MenuScaffold.nota(_side, "Esc: volver al altar sin subir." if _desde_altar
-		else "Esc: aplazar la subida.")
+	MenuScaffold.nota(_side, "[Esc]: volver al altar sin subir." if _desde_altar
+		else "[Esc]: aplazar la subida.")
 
 	var disp: Array = Game.desarrollos_disponibles()
 	if disp.is_empty():

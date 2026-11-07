@@ -1561,7 +1561,7 @@ func _tick_ataque(delta: float) -> void:
 				# Toque corto a distancia de CONJURO: no ha llegado el espadazo, pero algo se puede
 				# hacer. Se dice, que si no el boton esta encendido y parece que no responde.
 				if Game.lleva_arma_magica(Game.lider()) and not _enemigos_a_tiro(RANGO_CASTEO).is_empty():
-					_toast("Está lejos: MANTÉN para recitar un hechizo.")
+					_toast("Está demasiado lejos: mantén pulsado para recitar un hechizo.")
 		_atk_hold = 0.0
 	# El ESPACIO que no encontro a nadie se RECUERDA y se reintenta (ver ATK_BUFFER). Ojo: esto corre
 	# tambien mientras mantienes, y es lo que quieres — si el bicho llega hasta ti a mitad del
@@ -1842,7 +1842,7 @@ func _soltar_apoyo(spell: SpellData, d: Dictionary) -> void:
 		_toast("⚔ Entras en la pelea con %s listo." % spell.nombre)
 		return
 	Net.jugadores.apoyo_a_otro(spell, peer, int(d.get("idx", 0)), nombre, grupo)
-	_toast("✨ Le echas %s a %s." % [spell.nombre, nombre])
+	_toast("✨ Lanzas %s a %s." % [spell.nombre, nombre])
 
 
 # LA CURA DE GRUPO EN EL MAPA (decision del usuario, 21/09/2026). Antes te hacia elegir "tu grupo" o
@@ -2403,7 +2403,7 @@ func _refrescar_barras() -> void:
 		var escudo_c: float = c.agua_vista() if c != null else 0.0
 		# Y LA CAPA DE AMBAR (set Ambar, 03/11): su tramo dorado, como la costra del Tocon.
 		var costra_c: float = c.costra_vista() if c != null else 0.0
-		(fila["hp_lbl"] as Label).text = "%.1f/%.1f" % [hp_c, maxhp_c] \
+		(fila["hp_lbl"] as Label).text = ("%.1f/%.1f" % [hp_c, maxhp_c]).replace(".", ",") \
 			+ TramoEscudo.poner(fila["hp"] as ProgressBar, hp_c, maxhp_c, escudo_c) \
 			+ TramoEscudo.poner_costra(fila["hp"] as ProgressBar, hp_c, maxhp_c, costra_c)
 		var en_bar: ProgressBar = fila["en"]
@@ -2420,7 +2420,7 @@ func _refrescar_barras() -> void:
 		var mp_c: float = c.current_mp if c != null else (pj.current_mp if pj.current_mp >= 0.0 else maxmp_c)   # = player_mp
 		mp_bar.max_value = maxf(1.0, maxmp_c)
 		mp_bar.value = mp_c
-		(fila["mp_lbl"] as Label).text = "%.2f/%.2f" % [mp_c, maxmp_c]
+		(fila["mp_lbl"] as Label).text = ("%.2f/%.2f" % [mp_c, maxmp_c]).replace(".", ",")
 		para_red.append([String(pj.uid), pj.nombre, pj.color, snappedf(hp_c, 0.1), snappedf(maxhp_c, 0.1),
 			snappedf(en_c, 1.0), snappedf(maxen_c, 1.0), snappedf(mp_c, 0.01), snappedf(maxmp_c, 0.01), pj == lider_red])
 		# Los estados que lleva encima fuera del combate (y las cargas de Foco), como chips.

@@ -39,13 +39,13 @@ const ELEM_ID := {"fuego": 1, "agua": 2, "rayo": 3, "luz": 4, "oscuridad": 5}   
 const _BASE := {
 	"ataque_pct": ["Ataque", 0.03, 0.06, "tier", [100, 0, 0]],
 	"dano_magico_pct": ["Daño mágico", 0.03, 0.06, "tier", [0, 100, 0]],
-	"crit": ["Prob. de crítico", 0.03, 0.06, "fijo", [50, 0, 0]],
+	"crit": ["Probabilidad de crítico", 0.03, 0.06, "fijo", [50, 0, 0]],
 	"crit_dmg": ["Daño crítico", 0.06, 0.12, "tier", [50, 0, 0]],
-	"crit_mag": ["Prob. de crítico mágico", 0.03, 0.06, "fijo", [0, 50, 0]],
+	"crit_mag": ["Probabilidad de crítico mágico", 0.03, 0.06, "fijo", [0, 50, 0]],
 	"crit_dmg_mag": ["Daño crítico mágico", 0.06, 0.12, "tier", [0, 50, 0]],
 	"dano_hab": ["Daño de habilidades", 0.04, 0.08, "tier", [60, 60, 0]],
 	"eficacia": ["Eficacia", 0.04, 0.08, "tier", [60, 60, 0]],
-	"penetracion": ["Penetración", 0.08, 0.12, "fijo", [50, 0, 0]],
+	"penetracion": ["Ignora Defensa", 0.08, 0.12, "fijo", [50, 0, 0]],
 	"dano_jefes": ["Daño a mutantes y jefes", 0.05, 0.10, "tier", [40, 40, 0]],
 	"velocidad": ["Velocidad", 0.10, 0.20, "vel", [30, 30, 30]],
 	"dano_todos": ["Daño de todos los elementos", 0.04, 0.08, "tier", [5, 5, 0]],
@@ -57,8 +57,8 @@ const _BASE := {
 	"resist_estados": ["Resistencia a estados", 0.04, 0.08, "tier", [0, 0, 70]],
 	"resist_crit": ["Resistencia a críticos", 0.02, 0.04, "fijo", [0, 0, 50]],
 	"cura_recibida": ["Curación recibida", 0.04, 0.08, "tier", [0, 0, 50]],
-	"menos_dot": ["Menos daño de estados", 0.04, 0.08, "tier", [0, 0, 50]],
-	"evasion": ["Evasión", 0.01, 0.03, "fijo", [0, 0, 40]],
+	"menos_dot": ["Menos daño con el tiempo", 0.04, 0.08, "tier", [0, 0, 50]],
+	"evasion": ["Esquiva", 0.01, 0.03, "fijo", [0, 0, 40]],
 }
 # Daño de UN elemento (arma) y resistencia a UN elemento (armadura): el peso de 60 repartido entre los cinco.
 const PESO_ELEM_DANO := 12
@@ -75,9 +75,9 @@ static func subs() -> Dictionary:
 		var b: Array = _BASE[k]
 		_cache_subs[k] = {"nombre": b[0], "min": b[1], "max": b[2], "escala": b[3], "pesos": b[4]}
 	for e in ELEMENTOS:
-		_cache_subs["dano_" + e] = {"nombre": "Daño de %s" % e, "min": 0.05, "max": 0.10, "escala": "tier",
+		_cache_subs["dano_" + e] = {"nombre": "Daño de %s" % e.capitalize(), "min": 0.05, "max": 0.10, "escala": "tier",
 			"pesos": [PESO_ELEM_DANO, PESO_ELEM_DANO, 0]}
-		_cache_subs["res_" + e] = {"nombre": "Resistencia a %s" % e, "min": 0.03, "max": 0.06, "escala": "fijo",
+		_cache_subs["res_" + e] = {"nombre": "Resistencia a %s" % e.capitalize(), "min": 0.03, "max": 0.06, "escala": "fijo",
 			"pesos": [0, 0, PESO_ELEM_RES]}
 	return _cache_subs
 
@@ -85,21 +85,19 @@ static func subs() -> Dictionary:
 static func nombre_sub(clave: String) -> String:
 	return str(subs().get(clave, {}).get("nombre", clave))
 
-# EL NOMBRE CORTO, el de las fichas: cabe en la columna de etiquetas (150) para que el valor quede ALINEADO con los
-# de encima (lo pidio el usuario: "todo en la misma linea"). Los mismos recortes que ya usa el juego ("Resist.",
-# "crít."). El completo, en el Taller y al pasar el raton.
+# EL NOMBRE DE LAS FICHAS: cabe en la columna de etiquetas (200 desde el 06/11, medido) para que el valor quede ALINEADO con los
+# de encima (lo pidio el usuario: "todo en la misma linea"). Desde el pase de textos van COMPLETOS (sin "Resist.",
+# "crít.", que el jefe pidio nombres enteros y una columna mas ancha).
 const _CORTOS := {
-	"crit": "Prob. crítico", "crit_mag": "Prob. crít. mágico", "crit_dmg_mag": "Daño crít. mágico",
-	"dano_hab": "Daño habilidades", "dano_jefes": "Daño a jefes", "dano_todos": "Daño elemental",
-	"resist_estados": "Resist. estados", "resist_crit": "Resist. crítico", "menos_dot": "Menos daño estados",
-	"cura_recibida": "Cura recibida",
+	"crit": "Probabilidad de crítico", "crit_mag": "Probabilidad de crítico mágico", "crit_dmg_mag": "Daño crítico mágico",
+	"dano_hab": "Daño de habilidades", "dano_jefes": "Daño a mutantes y jefes", "dano_todos": "Daño elemental",
+	"resist_estados": "Resistencia a estados", "resist_crit": "Resistencia a críticos", "menos_dot": "Menos daño con el tiempo",
+	"cura_recibida": "Curación recibida",
 }
 
 static func nombre_corto(clave: String) -> String:
 	if _CORTOS.has(clave):
 		return _CORTOS[clave]
-	if clave.begins_with("res_"):
-		return "Resist. " + clave.trim_prefix("res_")
 	return nombre_sub(clave)
 
 
@@ -250,10 +248,10 @@ static func _gastar_runa(item: Resource) -> String:
 
 static func subir(item: Resource) -> String:
 	if subs_de(item).size() >= MAX_SUBS:
-		return "Ya tiene %d sub-stats." % MAX_SUBS
+		return "Ya tiene %d atributos secundarios." % MAX_SUBS
 	var clave: String = elegir_sub(item)
 	if clave == "":
-		return "No queda ninguna sub-stat posible."
+		return "No queda ningún atributo secundario posible."
 	var err: String = _gastar_runa(item)
 	if err != "":
 		return err
@@ -263,10 +261,10 @@ static func subir(item: Resource) -> String:
 static func cambiar(item: Resource, i: int) -> String:
 	var lista: Array = subs_de(item)
 	if i < 0 or i >= lista.size():
-		return "Elige una sub-stat."
+		return "Elige un atributo secundario."
 	var clave: String = elegir_sub(item, str(lista[i]["s"]))
 	if clave == "":
-		return "No hay otra sub-stat posible."
+		return "No hay otro atributo secundario posible."
 	var err: String = _gastar_runa(item)
 	if err != "":
 		return err
@@ -276,7 +274,7 @@ static func cambiar(item: Resource, i: int) -> String:
 static func retirar(item: Resource, i: int) -> String:
 	var lista: Array = subs_de(item)
 	if i < 0 or i >= lista.size():
-		return "Elige una sub-stat."
+		return "Elige un atributo secundario."
 	var err: String = _gastar_runa(item)
 	if err != "":
 		return err
@@ -300,20 +298,45 @@ static func _tier(item: Resource) -> int:
 # ------------------------------------------------------------
 static func valor_txt(clave: String, v: float) -> String:
 	if clave == "velocidad":
-		return "+%.2f" % v
-	return "+%.1f %%" % (v * 100.0)
+		return "+" + ("%.2f" % v).replace(".", ",")
+	return "+%s %%" % num_txt(v * 100.0)
+
+# UN NUMERO PARA LEER (06/11, pase de textos): con coma y sin el ",0" que sobra ("12 %", no "12.0 %").
+static func num_txt(x: float) -> String:
+	if absf(x - roundf(x)) < 0.05:
+		return str(roundi(x))
+	return ("%.1f" % x).replace(".", ",")
+
+# Un % de un parametro (0.25 -> "25 %").
+static func _pct(p: Dictionary, k: String, def: float) -> String:
+	return "%s %%" % num_txt(float(p.get(k, def)) * 100.0)
+
+# DISTANCIAS SIN PX (06/11, decision del jefe: en palabras, sin frases forzadas). Un cuerpo de personaje son ~24 px.
+# 'de_el' = la frase va del portador ("pegados a él") y no del objetivo ("pegado al objetivo").
+static func cerca_txt(px: float, de_el: bool) -> String:
+	if px <= 45.0:
+		return "pegados a él" if de_el else "pegado al objetivo"
+	if px <= 90.0:
+		return "cerca de él" if de_el else "cerca del objetivo"
+	return "a media distancia de él" if de_el else "a media distancia del objetivo"
+
+static func tramo_txt(px: float) -> String:
+	return "un tramo corto" if px <= 60.0 else "un buen tramo"
+
+static func _turnos(n: int) -> String:
+	return "%d turno%s" % [n, "" if n == 1 else "s"]
 
 static func sub_txt(s: Dictionary) -> String:
 	return "%s %s" % [nombre_sub(str(s["s"])), valor_txt(str(s["s"]), float(s["v"]))]
 
-# DE CUANTO A CUANTO puede salir 'clave' en esta pieza (su tier y si es a dos manos): "3,0 – 6,0 %". Lo enseña el
+# DE CUANTO A CUANTO puede salir 'clave' en esta pieza (su tier y si es a dos manos): "3 – 6 %". Lo enseña el
 # Taller junto a cada sub-stat, para saber si merece la pena re-tirarla.
 static func rango_txt(clave: String, item: Resource) -> String:
 	var lo: float = tirar_valor(clave, _tier(item), dos_manos(item), 0.0)
 	var hi: float = tirar_valor(clave, _tier(item), dos_manos(item), 1.0)
 	if clave == "velocidad":
-		return "%.2f – %.2f" % [lo, hi]
-	return "%.1f – %.1f %%" % [lo * 100.0, hi * 100.0]
+		return ("%.2f – %.2f" % [lo, hi]).replace(".", ",")
+	return "%s – %s %%" % [num_txt(lo * 100.0), num_txt(hi * 100.0)]
 
 static func bonus_txt(b: Dictionary) -> String:
 	var partes: PackedStringArray = []
@@ -322,55 +345,54 @@ static func bonus_txt(b: Dictionary) -> String:
 	return ", ".join(partes)
 
 # Lo que hace el efecto especial de un set, con sus numeros.
+# (06/11, pase de textos al estilo de las fichas de Honkai: Star Rail) Se habla del PORTADOR; cada % dice DE QUE es; lo
+# que solo mejora algo que ya existe lo dice ("que ya pueden causar..."); y los limites van en su propia frase.
+# Contrastado contra el codigo, no de memoria (ver docs/guia_textos.md).
 static func efecto_txt(s: RunaSetData) -> String:
 	var p: Dictionary = s.params
 	match s.efecto:
 		&"masa":
-			return "El primer golpe de la pelea que te haga más del %d %% de tu vida máxima de daño te hace un %d %% menos (una vez por pelea). Y a quien te pega cuerpo a cuerpo le deja Pegajoso (%d %% de probabilidad)." % [
-				roundi(float(p.get("umbral", 0.2)) * 100.0), roundi(float(p.get("reduce", 0.4)) * 100.0),
-				roundi(float(p.get("pegajoso", 0.25)) * 100.0)]
+			return "La primera vez en cada combate que el portador recibe un golpe que le inflige un %s o más de su vida máxima, ese golpe le inflige un %s menos de daño (el daño con el tiempo no cuenta). Además, los enemigos que atacan al portador cuerpo a cuerpo tienen un %s de probabilidad base de quedar Pegajosos." % [
+				_pct(p, "umbral", 0.2), _pct(p, "reduce", 0.4), _pct(p, "pegajoso", 0.25)]
 		&"marea":
-			return "Empiezas la pelea con un escudo de agua que aguanta el %d %% de tu vida máxima en daño. Mientras dura no te pueden dejar Lento ni Congelado, y al romperse empapa (Mojado) a quien lo rompió." % [
-				roundi(float(p.get("escudo", 0.15)) * 100.0)]
+			return "Al empezar el combate, el portador obtiene un escudo de agua que absorbe daño equivalente al %s de su vida máxima (no absorbe el daño con el tiempo). Mientras el escudo dure, el portador no puede quedar Lento ni sufrir Congelación. Cuando el escudo se rompe, el enemigo que lo rompió queda Mojado." % [
+				_pct(p, "escudo", 0.15)]
 		&"corona":
-			return "Los aliados pegados a ti reciben un %d %% menos de daño; si uno baja del %d %% de su vida máxima, provocas a los enemigos durante %d turno para que vayan a por ti (una vez por pelea)." % [
-				roundi(float(p.get("aliados", 0.1)) * 100.0), roundi(float(p.get("umbral", 0.3)) * 100.0),
-				int(p.get("turnos", 1))]
+			return "Los aliados que están cuerpo a cuerpo con el portador reciben un %s menos de daño. Cuando un aliado baja del %s de su vida máxima, el portador provoca a todos los enemigos durante %s. Este efecto solo se puede activar 1 vez por combate." % [
+				_pct(p, "aliados", 0.1), _pct(p, "umbral", 0.3), _turnos(int(p.get("turnos", 1)))]
 		&"ignicion":
-			return "+%d %% de prender Quemadura, y tus Quemaduras pegan un %d %% más." % [
-				roundi(float(p.get("prob", 0.10)) * 100.0), roundi(float(p.get("dano", 0.25)) * 100.0)]
+			return "Los ataques y habilidades del portador que ya pueden causar Quemadura suman un %s a su probabilidad base de causarla. El daño de las Quemaduras que causa el portador aumenta en un %s." % [
+				_pct(p, "prob", 0.10), _pct(p, "dano", 0.25)]
 		&"alcantarilla":
-			return "+%d %% de abrir Sangrado, y tus Sangrados sangran un %d %% más del golpe que los abre." % [
-				roundi(float(p.get("prob", 0.05)) * 100.0), roundi(float(p.get("dano", 0.05)) * 100.0)]
+			return "Los ataques y habilidades del portador que ya pueden causar Sangrado suman un %s a su probabilidad base de causarlo. Además, los Sangrados que causa el portador infligen en cada turno un daño adicional equivalente al %s del daño del golpe que los causó." % [
+				_pct(p, "prob", 0.10), _pct(p, "dano", 0.05)]
 		&"hilo_conductor":
-			return "Cada golpe tiene un %d %% de saltar a un enemigo a %d px con un rebote de rayo: el %d %% del golpe, y deja Electrizado. Si el golpeado ya está Electrizado, el rebote sale siempre." % [
-				roundi(float(p.get("prob", 0.25)) * 100.0), roundi(float(p.get("radio", 60.0))),
-				roundi(float(p.get("dano", 0.4)) * 100.0)]
+			return "Cada golpe del portador tiene un %s de probabilidad de rebotar a otro enemigo que esté %s. El rebote inflige como Daño de Rayo un %s del daño de ese golpe y tiene un 100 %% de probabilidad base de dejar Electrizado al enemigo alcanzado. Si el objetivo ya está Electrizado, el rebote se produce siempre." % [
+				_pct(p, "prob", 0.25), cerca_txt(float(p.get("radio", 60.0)), false), _pct(p, "dano", 0.4)]
 		&"musgo_viejo":
-			return "Los golpes de área te hacen un %d %% menos, salvo mientras estás Quemado (el musgo arde)." % [
-				roundi(float(p.get("reduce", 0.2)) * 100.0)]
+			return "Los ataques en área (círculos, conos y ataques a varios objetivos) infligen al portador un %s menos de daño. Este efecto no funciona mientras el portador está Quemado." % [
+				_pct(p, "reduce", 0.2)]
 		&"dos_mentes":
-			return "El primer aturdimiento que te entra no te para: lo aguanta tu otra cabeza. Se recarga a los %d turnos tuyos." % [
-				int(p.get("turnos", 4))]
+			return "La primera vez que el portador fuera a quedar Aturdido, no queda Aturdido. Este efecto se puede volver a activar tras %s del portador." % [
+				_turnos(int(p.get("turnos", 4)))]
 		&"campo_magnetico":
-			return "Cada %d turnos tuyos, los enemigos pegados a ti pierden un %d %% de su barra de turno." % [
-				int(p.get("cada", 3)), roundi(float(p.get("barra", 0.25)) * 100.0)]
+			return "Cada %s del portador, la barra de turno de los enemigos que estén %s retrocede un %s." % [
+				_turnos(int(p.get("cada", 3))), cerca_txt(float(p.get("radio", 40.0)), true), _pct(p, "barra", 0.25)]
 		&"ambar":
-			return "Empiezas la pelea con una capa de ámbar que aguanta el %d %% de tu vida máxima en daño. Si te la rompen, vuelve entera a los %d turnos tuyos." % [
-				roundi(float(p.get("capa", 0.08)) * 100.0), int(p.get("turnos", 3))]
+			return "Al empezar el combate, el portador obtiene una capa de ámbar que absorbe daño equivalente al %s de su vida máxima. Si se rompe, vuelve a aparecer completa tras %s del portador." % [
+				_pct(p, "capa", 0.08), _turnos(int(p.get("turnos", 3)))]
 		&"sangre_real":
-			return "+%d %% de daño por cada carga de Sangrado que lleven entre todos los enemigos de la pelea, hasta +%d %%." % [
-				roundi(float(p.get("por_carga", 0.02)) * 100.0), roundi(float(p.get("max", 0.16)) * 100.0)]
+			return "El daño que inflige el portador aumenta en un %s por cada acumulación de Sangrado que tengan los enemigos del combate (se suman las de todos), hasta un máximo de un %s." % [
+				_pct(p, "por_carga", 0.02), _pct(p, "max", 0.16)]
 		&"miasma":
-			return "+%d %% de daño por cada carga de veneno del objetivo (hasta %d), y tu veneno dura %d turno más." % [
-				roundi(float(p.get("por_carga", 0.04)) * 100.0), int(p.get("max", 5)), int(p.get("turnos", 1))]
+			return "El daño que inflige el portador a un enemigo aumenta en un %s por cada acumulación de Veneno que tenga ese enemigo, hasta un máximo de %d acumulaciones. Además, los Venenos que causa el portador duran %s más." % [
+				_pct(p, "por_carga", 0.04), int(p.get("max", 5)), _turnos(int(p.get("turnos", 1)))]
 		&"filo_aire":
-			return "Solo con golpes de arma: cada habilidad o golpe se alarga con un corte de viento que hace el %d %% del golpe a quien la forma normal no ha tocado (los conos y los círculos llegan un %d %% más lejos, las líneas un %d %% más largas, y un golpe a uno sigue %d px por detrás). Una vez por habilidad; la magia no." % [
-				roundi(float(p.get("dano", 0.3)) * 100.0), roundi(float(p.get("mas", 0.3)) * 100.0),
-				roundi(float(p.get("linea", 0.4)) * 100.0), roundi(float(p.get("detras", 50.0)))]
+			return "Los ataques con arma del portador se alargan con un corte de viento: los conos y los círculos llegan un %s más lejos, las líneas son un %s más largas y los ataques a un solo objetivo siguen %s por detrás de él. Los enemigos a los que solo alcanza el corte reciben como Daño de Viento un %s del daño que esa habilidad o ataque les habría infligido. Se activa 1 vez por habilidad. No funciona con la magia." % [
+				_pct(p, "mas", 0.3), _pct(p, "linea", 0.4), tramo_txt(float(p.get("detras", 50.0))), _pct(p, "dano", 0.3)]
 		&"cielo":
-			return "+%d %% de daño de luz y oscuridad, y tus críticos tienen un %d %% de dejar Ceguera." % [
-				roundi(float(p.get("dano", 0.20)) * 100.0), roundi(float(p.get("ciego", 0.20)) * 100.0)]
+			return "El Daño de Luz y el Daño de Oscuridad del portador aumentan en un %s. Cuando el portador asesta un golpe crítico, tiene un %s de probabilidad base de causar Ceguera al objetivo." % [
+				_pct(p, "dano", 0.20), _pct(p, "ciego", 0.20)]
 	return ""
 
 static func descripcion_set(s: RunaSetData) -> String:

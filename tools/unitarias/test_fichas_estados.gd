@@ -14,7 +14,7 @@ func test_cada_estado_dice_que_hace() -> void:
 		var lineas: PackedStringArray = String(c.statuses[0].resumen()).split("\n")
 		var utiles: int = 0
 		for l in lineas.slice(1):
-			if not l.begins_with("Acumulado"):
+			if not l.begins_with("Acumulaciones"):
 				utiles += 1
 		if utiles == 0:
 			mudos.append(String(StatusEffects.def(int(id)).get("nombre", str(id))))
@@ -25,4 +25,4 @@ func test_el_congelado_dice_que_andas_la_mitad() -> void:
 	var c := Combatant.new("Prueba", 1, Abilities.new(), 100.0, 1.0, 1.0, 1.0)
 	c.apply_status(StatusEffects.Id.CONGELACION, 1)
 	var r: String = c.statuses[0].resumen()
-	cierto(r.contains("andas el %d%%" % roundi(StatusEffects.CONGELACION_MOV * 100.0)), "la ficha dice cuanto andas: " + r)
+	cierto(r.contains("recorre un %d %%" % roundi(StatusEffects.CONGELACION_MOV * 100.0)), "la ficha dice cuanto anda: " + r)

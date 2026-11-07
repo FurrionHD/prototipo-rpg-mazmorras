@@ -105,10 +105,10 @@ static func _arma_de(que: int) -> int:
 
 func _vacio(que: int) -> String:
 	match que:
-		Que.FUNDIR: return "No tienes mineral en el Hogar. Pica vetas en la mazmorra y guárdalo al volver."
+		Que.FUNDIR: return "No tienes mineral en el hogar. Pica vetas en la mazmorra y guárdalo al volver."
 		Que.CHAPAS, Que.HEBILLAS: return "No tienes lingotes. Fúndelos primero en la pestaña Fundir."
 		Que.FLECHAS, Que.VIROTES: return "No tienes lingotes. Fúndelos en la herrería y tráete también tablones."
-		_: return "No tienes madera en el Hogar. Tala árboles y enredaderas en la mazmorra y guárdala al volver."
+		_: return "No tienes madera en el hogar. Tala árboles y enredaderas en la mazmorra y guárdala al volver."
 
 
 # ============================================================
@@ -211,7 +211,7 @@ func _ficha(vb: VBoxContainer, que: int) -> void:
 			tab.nombre.to_lower() if tab else "tablón", tablones], t.VERDE if tablones > 0 else t.ROJO)
 		t.row(vb, "Salen", "%d por tanda" % int(Forge.MUNICION_POR_TANDA.get(_arma_de(que), 1)))
 		if mun != null:
-			t.row(vb, "Daño", "+%d%% al disparo" % roundi(mun.dano_bonus * 100.0))
+			t.row(vb, "Daño", "+%d %% por disparo" % roundi(mun.dano_bonus * 100.0))
 	if que == Que.CARBON:
 		# LA DURACION ES DE ESTA CALIDAD, no la base: el mismo carbon dura mas si es intacto.
 		t.row(vb, "Llama", "%s por carbón" % _mmss(Lampara.duracion_de(destino, cal)))
@@ -225,17 +225,17 @@ func _ficha(vb: VBoxContainer, que: int) -> void:
 func _nota(que: int, por_uno: int) -> String:
 	match que:
 		Que.CHAPAS:
-			return "Las chapas son lo que pide la ARMADURA; el arma se golpea del lingote directamente."
+			return "Las chapas son lo que pide la armadura; el arma se golpea del lingote directamente."
 		Que.HEBILLAS:
-			return "Salen caras en metal (son muchos herrajes pequeños). Sujetan una MOCHILA y una ARMADURA DE CUERO: las dos se cosen en la peletería."
+			return "Salen caras en metal (son muchos herrajes pequeños). Sujetan una mochila y una armadura de cuero: las dos se cosen en la peletería."
 		Que.TABLONES:
 			return "El tablón es el mango del arma; la madera cruda no va directa a la forja. Solo la Carpintería puede regalarte un escalón."
 		Que.CARBON:
 			return "Cuanto más densa la madera, más rato aguanta la brasa. El carbón no va al almacén: va con el farolillo, y no pesa."
 		Que.FLECHAS, Que.VIROTES:
-			return "Se ponen con la habilidad Cargar. Cuanto mejor el metal, más pegan y menos se rompen al clavarse; las que no se rompen se pueden recoger tras la pelea."
+			return "Se ponen con la habilidad Cargar. Cuanto mejor el metal, más daño infligen y menos se rompen al clavarse; las que no se rompen se pueden recoger tras la pelea."
 		_:
-			return "%d minerales de la MISMA calidad dan un lingote de esa calidad: juntando dañados no sale un normal. Solo la Herrería puede regalarte un escalón." % por_uno
+			return "%d minerales de la misma calidad dan un lingote de esa calidad: juntando dañados no sale un normal. Solo la Herrería puede regalarte un escalón." % por_uno
 
 
 # LO QUE YA TIENES DE ESO, en celdas: cuanto llevo ya, y de que calidad.

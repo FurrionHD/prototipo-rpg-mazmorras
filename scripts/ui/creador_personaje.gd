@@ -395,7 +395,7 @@ func _pagina_quien(previo: Dictionary) -> Control:
 	_nombre.custom_minimum_size = Vector2(0, 40)
 	_nombre.text = str(previo.get("nombre", ""))
 	v.add_child(_nombre)
-	MenuScaffold.nota(v, "Hasta 16 letras. Si lo dejas en blanco se queda con el de la muestra.")
+	MenuScaffold.nota(v, "Hasta %d caracteres. Si lo dejas en blanco, se usará el nombre de ejemplo." % _nombre.max_length)
 	return v
 
 
@@ -409,7 +409,7 @@ func _pagina_piezas(sec: int) -> Control:
 	if sec == SEC_CARA:
 		# LOS RASGOS SOLO SE VEN SIN FOTO, y hay que decirlo aqui: si no, eliges unos ojos, pones tu
 		# imagen encima y parece que el selector no hace nada.
-		MenuScaffold.nota(v, "Los ojos y la boca solo se ven si no pones imagen.")
+		MenuScaffold.nota(v, "Los ojos y la boca solo se ven si no pones una imagen.")
 		v.add_child(HSeparator.new())
 		_bloque_imagen(v)
 	return v
@@ -438,7 +438,7 @@ func _bloque_pieza(v: VBoxContainer, pieza: String) -> void:
 	var opciones: Array = []
 	for mm in (cat.get("modelos", {}) as Dictionary):
 		opciones.append({"m": String(mm), "n": String(cat["modelos"][mm]["nombre"])})
-	opciones.append({"m": "", "n": String(cat.get("sin_nada", "Sin nada"))})
+	opciones.append({"m": "", "n": String(cat.get("sin_nada", "Ninguno"))})
 
 	var grid := GridContainer.new()
 	grid.columns = 3
@@ -626,7 +626,7 @@ func _pintar_muestras_simple(muestras: Array) -> void:
 # LA MUESTRA SIGUE SIENDO UN ColorRect y no el muñeco: aqui se esta ENCUADRANDO una foto, y para eso
 # hace falta verla entera y grande. Como se le queda en la cabeza se ve al lado, en la vista previa.
 func _bloque_imagen(v: VBoxContainer) -> void:
-	MenuScaffold.titulo(v, "Tu imagen", 14)
+	MenuScaffold.titulo(v, "Imagen", 14)
 
 	# OJO con el SHRINK_CENTER: un Control dentro de un VBoxContainer se estira a lo ANCHO de la
 	# columna, y custom_minimum_size solo pone un minimo -> sin esto la muestra sale rectangular por
@@ -641,7 +641,7 @@ func _bloque_imagen(v: VBoxContainer) -> void:
 	fila_img.alignment = BoxContainer.ALIGNMENT_CENTER
 	fila_img.add_theme_constant_override("separation", 8)
 	v.add_child(fila_img)
-	var poner: Button = MenuScaffold.pastilla(fila_img, "Poner una imagen…", Callable(), false)
+	var poner: Button = MenuScaffold.pastilla(fila_img, "Elegir imagen…", Callable(), false)
 	var quitar: Button = MenuScaffold.pastilla(fila_img, "Quitar", Callable(), false, _tex != null)
 
 	# LOS MANDOS DEL ENCUADRE. Arrastrar y acercar no bastaban: una foto que entra tumbada no habia
@@ -695,7 +695,7 @@ func _bloque_imagen(v: VBoxContainer) -> void:
 	aviso_img.text = ("Ya tiene imagen. Muévela arrastrando la muestra y ajústala con la barra, "
 		+ "«Girar» y «Espejo»."
 		if _tex != null
-		else "Opcional. Se guarda dentro de la partida (encogida), así que puedes mover o borrar el "
+		else "Opcional. Se guarda una copia reducida dentro de la partida, así que puedes mover o borrar el "
 			+ "archivo original.")
 	v.add_child(aviso_img)
 
@@ -770,7 +770,7 @@ func _bloque_imagen(v: VBoxContainer) -> void:
 		_centro = Vector2(0.5, 0.5)
 		_giro = 0
 		_espejo = false
-		aviso_img.text = "Sin imagen: se le ve la cara del color de su piel."
+		aviso_img.text = "Sin imagen: se ven la cara, los ojos y la boca elegidos."
 		refrescar.call())
 
 	poner.pressed.connect(func() -> void:

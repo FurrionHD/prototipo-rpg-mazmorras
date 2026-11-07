@@ -187,8 +187,8 @@ func _montar_texto(padre: Control) -> void:
 		# mundo; eso lo cuenta la linea de encima de los botones (ver maestro_menu._texto_pity).
 		var free: int = int(_ficha.get("gratis", 0))
 		if free > 0:
-			var txt: String = "La primera meditación es GRATIS" if free == 1 \
-				else "Las %d primeras meditaciones son GRATIS" % free
+			var txt: String = "La primera meditación es gratis" if free == 1 \
+				else "Las %d primeras meditaciones son gratis" % free
 			if int(_ficha.get("gratis_garantiza", -1)) >= 0:
 				txt += ", y cae grimorio seguro"
 			_linea(col, txt + ".", AMBAR, 13)

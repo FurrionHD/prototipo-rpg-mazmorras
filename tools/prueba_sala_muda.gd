@@ -156,7 +156,7 @@ func _correr() -> void:
 
 	_modo_a_medias = "jugador"
 	var antes_llegadas: int = _llegadas_a_medias
-	await _caso("D) no me presenta", PUERTO_A_MEDIAS, "a mitad de la entrada", 40.0)
+	await _caso("D) no me presenta", PUERTO_A_MEDIAS, "mientras entrabas", 40.0)
 	ok(_llegadas_a_medias - antes_llegadas == 2, "dos entradas: la primera y el reintento (%d)" % (_llegadas_a_medias - antes_llegadas))
 	var escena: Node = get_tree().current_scene
 	ok(escena != null and escena.scene_file_path == Mundos.MENU_MULTI,

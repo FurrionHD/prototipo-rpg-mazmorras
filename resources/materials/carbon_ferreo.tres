@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1")
 id = &"carbon_ferreo"
-nombre = "Carbon ferreo"
-descripcion = "La madera ferrea deja un carbon que suena a metal al partirlo. Arde con una llama corta y azulada que casi no parpadea."
+nombre = "Carbón férreo"
+descripcion = "La madera férrea deja un carbón que suena a metal al partirlo. Arde con una llama corta y azulada que casi no parpadea."
 familia = 0
 tipo = 11
 tier = 2

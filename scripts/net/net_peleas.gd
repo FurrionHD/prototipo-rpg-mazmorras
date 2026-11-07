@@ -813,7 +813,7 @@ func _retirar_sus_combatientes(peer: int, pe: PeleaViva = null) -> void:
 	if not p.tiene_en_pie_a(peer):
 		return   # ya estaban fuera (la huida individual los retira ella misma antes de llamar aqui)
 	var quien: String = String((Net._peers.get(peer, {}) as Dictionary).get("nombre", "Tu compañero"))
-	p.sacar_a(peer, "%s deja la pelea y sus personajes salen con él." % quien)
+	p.sacar_a(peer, "%s deja la pelea y se lleva a sus personajes." % quien)
 
 
 # ME SALGO YO del espejo, por mi cuenta: he pulsado "Continuar" con la pelea ya terminada y no
@@ -1001,7 +1001,7 @@ func ocupado_en_pelea() -> bool:
 		# Y SE DICE. El sintoma de este atasco es "no me entra en combate", que desde el mando no se
 		# distingue de un juego roto: sin una linea que lo explique se pierde la tarde buscando el bug
 		# en el sitio equivocado (que es justo lo que paso).
-		Net._toast("Se perdio lo de tu ultima pelea, pero ya puedes volver a pelear.")
+		Net._toast("Se ha perdido el resultado de tu última pelea, pero ya puedes volver a pelear.")
 		return false
 	return true
 

@@ -285,7 +285,7 @@ func _pj() -> PersonajeData:
 func _de_encargo_avisa(pj: PersonajeData) -> bool:
 	if not Game.esta_de_encargo(pj):
 		return false
-	_aviso = "%s está de encargo: vuelve cuando lo recojas." % pj.nombre
+	_aviso = "%s está de encargo: volverá cuando recojas el encargo." % pj.nombre
 	_aviso_ok = false
 	_rebuild()
 	return true
@@ -889,7 +889,7 @@ func _refrescar_botones_med() -> void:
 		if gratis > 0:
 			coletilla = "  (%s gratis)" % ("1" if gratis == 1 else str(gratis))
 		elif c10 == int(b["precio_x10"]):
-			coletilla = "  (pagas 9)"
+			coletilla = "  (pagas %d)" % roundi(float(b["precio_x10"]) / maxf(1.0, float(b["precio"])))
 		_bt_x10.text = "Meditar ×10     %s%s" % [_precio_txt(c10), coletilla]
 		_bt_x10.disabled = agotado or not Game.puede_pagar(c10)
 
@@ -946,8 +946,8 @@ func _texto_pity(pj: PersonajeData) -> String:
 		if free > 0:
 			var seguro: bool = int(Game.banner(_banner_idx).get("gratis_garantiza", -1)) >= 0
 			if free == 1:
-				return "La primera tirada es GRATIS%s" % ("  ·  y asegura grimorio" if seguro else "")
-			return "Las %d primeras tiradas son GRATIS%s" % [
+				return "La primera tirada es gratis%s" % ("  ·  y asegura grimorio" if seguro else "")
+			return "Las %d primeras tiradas son gratis%s" % [
 				free, "  ·  y aseguran grimorio" if seguro else ""]
 		var g: int = int(Game.banner(_banner_idx).get("cupo_garantiza", -1))
 		var txt: String = "Quedan %d de %d tiradas en este mundo" % [quedan, cupo]
@@ -1591,7 +1591,7 @@ func _pintar_carta_res(t: Dictionary) -> void:
 	pie.offset_top = -70.0
 	pie.offset_bottom = -40.0
 	pie.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	pie.text = "%d de %d      ·      toca para seguir" % [_res_idx + 1, _revelado.size()]
+	pie.text = "%d de %d      ·      pulsa para seguir" % [_res_idx + 1, _revelado.size()]
 	pie.add_theme_font_size_override("font_size", 12)
 	pie.add_theme_color_override("font_color", GRIS)
 	_zona_res.add_child(pie)
@@ -1885,8 +1885,8 @@ func _tabla_probs(pj: PersonajeData, vb: VBoxContainer) -> void:
 		var pct := Label.new()
 		# El total de la BANDA y, entre parentesis, lo que sale CADA UNO: es la cuenta que hay que
 		# ver junta, porque una banda gorda repartida entre muchos da hechizos individuales raros.
-		pct.text = "%.1f%%   (cada uno %.2f%%)" % [
-			float(d2["total"]) * 100.0, float(d2["total"]) / float(d2["cuantos"]) * 100.0]
+		pct.text = "%s %%   (cada uno, %s %%)" % [
+			StatusEffects.num(float(d2["total"]) * 100.0), StatusEffects.num(float(d2["total"]) / float(d2["cuantos"]) * 100.0)]
 		fila.add_child(pct)
 		var cuantos := Label.new()
 		var n: int = int(d2["cuantos"])
@@ -2064,10 +2064,10 @@ func _pintar_detalles_probs(pj: PersonajeData, vb: VBoxContainer) -> void:
 		for r in Game._pity_por_rareza(b.get("pity", {})):
 			MenuScaffold.nota(vb, "Cada %d tiradas, un grimorio %s o mejor."
 				% [int(b["pity"][r]), _nombre_rareza(int(r)).to_lower()])
-		MenuScaffold.nota(vb, "Se cuentan TIRADAS, no la racha: que te salga uno bueno por suerte no "
-			+ "retrasa el garantizado. Van por personaje Y POR RITO: meditar aquí no acerca los "
+		MenuScaffold.nota(vb, "Se cuentan tiradas, no la racha: que te salga uno bueno por suerte no "
+			+ "retrasa el garantizado. Van por personaje y por rito: meditar aquí no acerca los "
 			+ "garantizados del de al lado.")
-		MenuScaffold.nota(vb, "Y si vencen varios en la misma tirada, se cobran TODOS: el mejor cae "
+		MenuScaffold.nota(vb, "Y si vencen varios en la misma tirada, se cobran todos: el mejor cae "
 			+ "ahí y los demás en las siguientes tiradas, aunque las tires otro día.")
 
 
@@ -2572,10 +2572,10 @@ func _pintar_ficha(pj: PersonajeData) -> void:
 	var sabida: bool = ab.inicial or Game.habilidad_desbloqueada(ab, pj)
 	var fuera: bool = Game.esta_de_encargo(pj)
 	if fuera:
-		MenuScaffold.nota(_content, "%s está de encargo: vuelve cuando lo recojas." % pj.nombre)
+		MenuScaffold.nota(_content, "%s está de encargo: volverá cuando recojas el encargo." % pj.nombre)
 	elif sabida:
-		MenuScaffold.nota(_content, ("%s ya se la sabe. Los cuatro huecos se ordenan en su ficha "
-			+ "[C], arrastrando.") % pj.nombre)
+		MenuScaffold.nota(_content, ("%s ya se la sabe. Los %d huecos se ordenan en su ficha "
+			+ "[C], arrastrando.") % [pj.nombre, Game.MAX_HABILIDADES])
 	elif not Game.puede_pagar(ab.precio):
 		MenuScaffold.nota(_content, "Te faltan %d monedas." % (ab.precio - Game.money))
 	var fila := HBoxContainer.new()

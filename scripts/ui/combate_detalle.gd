@@ -94,7 +94,7 @@ func _construir() -> void:
 	_titulo_lbl.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_titulo_lbl.position = Vector2(24 + Tactil.borde.x, 18 + Tactil.borde.y)
 	add_child(_titulo_lbl)
-	MenuScaffold.equis_cerrar(self, cerrar, "Cerrar  (C / Esc)")
+	MenuScaffold.equis_cerrar(self, cerrar, "Cerrar  [C / Esc]")
 
 	var hb := HBoxContainer.new()
 	hb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -627,7 +627,7 @@ func _tab_detalles(c: Combatant) -> void:
 	var elem: String = ""
 	if c.elemento != Elementos.Elemento.NINGUNO:
 		elem = "  %s %s" % [Elementos.icono(c.elemento), Elementos.nombre(c.elemento)]
-	MenuScaffold.titulo(_panel, "%s   ·   Niv. %d%s" % [c.nombre, c.level, elem], 18)
+	MenuScaffold.titulo(_panel, "%s   ·   Nv. %d%s" % [c.nombre, c.level, elem], 18)
 
 	# Vida, energia y maná: las tres arriba y grandes, que es donde se miran.
 	_barras(c)
@@ -799,15 +799,15 @@ func _rejilla_stats(c: Combatant) -> void:
 	MenuScaffold.fila(_panel, "Defensa", "%.0f" % float(n[2]))
 	MenuScaffold.fila(_panel, "Defensa mágica", "%.0f" % float(n[3]))
 	MenuScaffold.fila(_panel, "Velocidad", "%.0f" % float(n[4]))
-	MenuScaffold.fila(_panel, "Vel. recitado", "%.1f" % float(n[5]))
+	MenuScaffold.fila(_panel, "Velocidad de recitado", "%.1f" % float(n[5]))
 	# CRITICO FISICO Y MAGICO POR SEPARADO: son cuatro campos distintos en Combatant y el arma
 	# magica solo toca los suyos. Con uno solo, un mago no tenia forma de ver su critico de verdad.
-	MenuScaffold.fila(_panel, "Prob. crítico", _pct(float(n[6])))
+	MenuScaffold.fila(_panel, "Probabilidad de crítico", _pct(float(n[6])))
 	MenuScaffold.fila(_panel, "Daño crítico", _crit_dmg_txt(float(n[7])))
-	MenuScaffold.fila(_panel, "Prob. crít. mágico", _pct(float(n[8])))
-	MenuScaffold.fila(_panel, "Daño crít. mágico", _crit_dmg_txt(float(n[9])))
+	MenuScaffold.fila(_panel, "Probabilidad de crítico mágico", _pct(float(n[8])))
+	MenuScaffold.fila(_panel, "Daño crítico mágico", _crit_dmg_txt(float(n[9])))
 	if float(n[10]) > 0.0:
-		MenuScaffold.fila(_panel, "Regen maná", "%.2f/turno" % float(n[10]))
+		MenuScaffold.fila(_panel, "Regeneración de maná", "%.2f/turno" % float(n[10]))
 	# Sus SETS DE RUNAS (en verde los que funcionan). Solo si es uno de los MIOS: de los demas no tengo la ficha.
 	var pj_c: PersonajeData = Game.pj_de_combatant(c)
 	# Y lo de las runas que no tiene fila propia (daño de habilidades, de un elemento...), solo si lo lleva.
@@ -924,7 +924,7 @@ func _tab_habilidades(c: Combatant) -> void:
 	# ALIADO: basico + habilidades de arma + hechizos, con la elegida en detalle.
 	var kit: Array = []
 	kit.append({"nombre": "Ataque básico", "txt":
-		"Golpe con lo que lleves en las manos. No cuesta energía: la recupera."})
+		"Golpea con lo que lleve en las manos. No cuesta energía: la recupera."})
 	for hab in c.abilities_combate:
 		if hab != null:
 			kit.append({"nombre": str(hab.nombre),
@@ -1123,52 +1123,52 @@ func _abrir_modal_atributos(c: Combatant) -> void:
 	# rejilla de fuera se quedo con el total pelado.
 	var pj_l: PersonajeData = Game.pj_de_combatant(c)
 	MenuScaffold.titulo(vb, "Básicos", 14, GRIS)
-	_fila_modal(vb, "PV", "%d" % roundi(c.max_hp), 0.0)
-	_fila_modal(vb, "ATQ", "%d" % roundi(_atk_total(c)), _atk_arma(c),
-		"El raw antes del motion value: cada golpe le aplica su %. Tu Fuerza lo multiplica, "
-		+ "así que el arma pone más de lo que dice su ficha.")
+	_fila_modal(vb, "Vida máxima", "%d" % roundi(c.max_hp), 0.0)
+	_fila_modal(vb, "Ataque", "%d" % roundi(_atk_total(c)), _atk_arma(c),
+		"El ataque antes del multiplicador de cada golpe: cada habilidad aplica su porcentaje sobre este número. "
+		+ "La Fuerza lo multiplica, así que el arma aporta más de lo que dice su ficha.")
 	if pj_l != null:
-		_fila_modal(vb, "ATQ mágico", "%d" % roundi(MenuScaffold.dano_magico(pj_l)), 0.0,
+		_fila_modal(vb, "Ataque mágico", "%d" % roundi(MenuScaffold.dano_magico(pj_l)), 0.0,
 			"Medido con el hechizo más básico, para que se pueda comparar con el ataque físico. "
 			+ "Un hechizo mejor pega más, en la misma proporción.")
 	# El bonus va medido POR DIFERENCIA (lo que de verdad aporta el equipo), no leyendo el campo
 	# crudo: la Resistencia multiplica tambien la defensa de la armadura. Ver _def_del_equipo.
-	_fila_modal(vb, "DEF", "%d" % roundi(c.def_value()), _def_del_equipo(c),
-		"Tu Resistencia multiplica TODA la defensa, la de la armadura incluida.")
-	_fila_modal(vb, "DEF mágica", "%d" % roundi(c.mdef_value()), 0.0,
-		"Tu Voluntad multiplica TODA la defensa mágica, la de la armadura incluida.")
-	_fila_modal(vb, "VEL", "%d" % roundi(c.spd()), 0.0)
-	_fila_modal(vb, "VEL recitado", "%.1f" % c.cast_spd(), 0.0,
-		"Lo rápido que recitas, que no es lo rápido que blandes.")
+	_fila_modal(vb, "Defensa", "%d" % roundi(c.def_value()), _def_del_equipo(c),
+		"La Resistencia multiplica toda la defensa, la de la armadura incluida.")
+	_fila_modal(vb, "Defensa mágica", "%d" % roundi(c.mdef_value()), 0.0,
+		"La Voluntad multiplica toda la defensa mágica, la de la armadura incluida.")
+	_fila_modal(vb, "Velocidad", "%d" % roundi(c.spd()), 0.0)
+	_fila_modal(vb, "Velocidad de recitado", "%.1f" % c.cast_spd(), 0.0,
+		"Lo rápido que recita sus conjuros, que no es lo rápido que ataca.")
 	vb.add_child(HSeparator.new())
 	MenuScaffold.titulo(vb, "Atributos avanzados", 14, GRIS)
 	# FISICO Y MAGICO POR SEPARADO, y con el MISMO formato que la rejilla de fuera: antes esta
 	# lupa decia "68.8%" y la rejilla "×1.69" del mismo numero.
-	_fila_modal(vb, "Prob. CRIT", _pct(_crit_fisico(c)), 0.0,
-		"Tu Destreza contra la Agilidad de quien recibe el golpe.")
-	_fila_modal(vb, "Daño CRIT", _crit_dmg_txt(c.crit_dmg), 0.0)
-	_fila_modal(vb, "Prob. CRIT mágico", _pct(_crit_magico(c)), 0.0,
-		"El mismo duelo, pero con el crítico que pone tu arma mágica (bastón o varita).")
-	_fila_modal(vb, "Daño CRIT mágico", _crit_dmg_txt(c.crit_dmg_magico), 0.0)
+	_fila_modal(vb, "Probabilidad de crítico", _pct(_crit_fisico(c)), 0.0,
+		"La Destreza de quien ataca contra la Agilidad de quien recibe el golpe.")
+	_fila_modal(vb, "Daño crítico", _crit_dmg_txt(c.crit_dmg), 0.0)
+	_fila_modal(vb, "Probabilidad de crítico mágico", _pct(_crit_magico(c)), 0.0,
+		"El mismo duelo, pero con el crítico que pone su arma mágica (bastón o varita).")
+	_fila_modal(vb, "Daño crítico mágico", _crit_dmg_txt(c.crit_dmg_magico), 0.0)
 	_fila_modal(vb, "Reducción de daño", _pct(c.armor_reduction), 0.0,
-		"Se resta SIEMPRE, aparte de la Defensa. Se promedia por la cobertura de cada pieza, "
+		"Se resta siempre, aparte de la Defensa. Se promedia por la cobertura de cada pieza, "
 		+ "así que un set incompleto reduce mucho menos, y el desgaste la baja.")
 	if c.crit_resist > 0.001:
-		_fila_modal(vb, "Resist. crítico", _pct(c.crit_resist), 0.0)
+		_fila_modal(vb, "Resistencia a críticos", _pct(c.crit_resist), 0.0)
 	# Ver la nota de character_menu: es un cociente, no un "% de veces que resistes".
-	_fila_modal(vb, "Resist. estados", "%s (×%.2f)" % [
+	_fila_modal(vb, "Resistencia a estados", "%s (×%.2f)" % [
 		_pct(c.resist_estados()), 1.0 / (1.0 + c.resist_estados())], 0.0)
 	if c.eficacia_estados() > 0.001:
-		_fila_modal(vb, "Eficacia (estados)", "%s (×%.2f)" % [
+		_fila_modal(vb, "Eficacia", "%s (×%.2f)" % [
 			_pct(c.eficacia_estados()), 1.0 + c.eficacia_estados()], 0.0)
 	# El multiplicador crudo se queda SOLO aqui: fuera se enseña ya convertido a daño (ATQ mágico).
 	if pj_l != null:
 		_fila_modal(vb, "Poder mágico", "×%.2f" % Game.poder_magico(pj_l), 0.0,
 			"El multiplicador en crudo. Es lo que convierte el daño de la ficha de un hechizo "
-			+ "en el que haces tú.")
+			+ "en el daño que inflige este personaje.")
 	if c.max_mp > 0.0:
 		_fila_modal(vb, "Maná máximo", "%.0f" % c.max_mp, 0.0)
-	_fila_modal(vb, "Regen. maná", "%.2f/turno" % c.mp_regen_turno, 0.0,
+	_fila_modal(vb, "Regeneración de maná", "%.2f/turno" % c.mp_regen_turno, 0.0,
 		"Solo con arma mágica o pociones: el maná no se regenera solo.")
 	_fila_modal(vb, "Energía máxima", "%d" % roundi(c.max_energy), 0.0,
 		"Las habilidades y Defender la gastan; el ataque básico la recupera.")
@@ -1184,7 +1184,7 @@ func _fila_modal(vb: VBoxContainer, etiqueta: String, valor: String, bonus: floa
 	k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
 	row.add_child(k)
 	var v := Label.new()
-	v.text = valor
+	v.text = MenuScaffold.valor_es(valor)   # coma decimal y espacio antes del % (pase de textos 06/11)
 	row.add_child(v)
 	if absf(bonus) >= 0.5:
 		var bl := Label.new()

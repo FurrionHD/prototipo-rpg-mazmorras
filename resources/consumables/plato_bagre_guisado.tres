@@ -17,5 +17,5 @@ turnos = 0
 segundos = 0.0
 efectos = [SubResource("SA_plato")]
 escala_efecto = 1.2
-descripcion = "Un guiso espeso de los que reposan toda la noche. Lo que te tomes después te dura el doble."
+descripcion = "Un guiso espeso de los que reposan toda la noche. Después, cualquier cura te entra mejor."
 valor_base = 640

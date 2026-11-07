@@ -653,7 +653,7 @@ func ficha_objeto(vb: VBoxContainer, m: Resource, cantidad: int = 0) -> void:
 	var pie: String = ("× %d" % cantidad) if cantidad > 1 else ""
 	if m is Cristal:
 		var c := m as Cristal
-		MenuScaffold.titulo(vb, "Cristal Cat %d (%s)" % [c.categoria, c.calidad_texto()], 16, AMBAR)
+		MenuScaffold.titulo(vb, "Cristal de categoría %d (%s)" % [c.categoria, c.calidad_texto()], 16, AMBAR)
 		MenuScaffold.banner_item(vb, c, pie, "Cristal")
 		row(vb, "Categoría", str(c.categoria))
 		row(vb, "Calidad", c.calidad_texto())
@@ -685,12 +685,14 @@ func ficha_objeto(vb: VBoxContainer, m: Resource, cantidad: int = 0) -> void:
 		MenuScaffold.banner_item(vb, cd, pie, _clase_consumible(cd))
 		if cd.es_grimorio():
 			row(vb, "Enseña", cd.spell.nombre)
-		elif cd.es_plato():
+		elif cd.es_plato() or cd.es_brebaje_de_estado():
 			note(vb, cd.resumen_plato())
 		elif cd.es_cebo():
 			row(vb, "Atracción", cd.resumen(0.0, 0.0))
 		elif not cd.es_tocho():
-			row(vb, "Efecto", cd.resumen(Game.player_max_hp(), Game.player_max_mp()))
+			row(vb, "Efecto", cd.resumen(Game.player_max_hp(), Game.player_max_mp(), Game.lider().nombre))
+			if cd.cura_hp() or cd.da_mana():
+				row(vb, "Se reparte en", cd.reparto_txt())
 		row(vb, "Tienes", "%d en la bolsa" % int(Game.consumables.get(cd, 0)))
 		if cd.descripcion != "":
 			note(vb, cd.descripcion)
@@ -719,8 +721,8 @@ func _ficha_equipo(vb: VBoxContainer, m: Resource) -> void:
 		var wd := m as WandData
 		MenuScaffold.banner_item(vb, wd, "", "Varita")
 		var mg: Dictionary = Upgrades.magic_mods(wd.magic_amp, Game.tier_mult(tier), rareza, meta["mejoras"])
-		row(vb, "Amplif. magia", "×%.2f" % float(mg["magic_amp"]))
-		row(vb, "Vel. casteo", "×%.2f" % (wd.cast_vel_mult + float(mg["cast_vel_add"])))
+		row(vb, "Amplificación mágica", "×%s" % StatusEffects.num(float(mg["magic_amp"])))
+		row(vb, "Velocidad de recitado", "×%s" % StatusEffects.num(wd.cast_vel_mult + float(mg["cast_vel_add"])))
 		for fila in MenuScaffold.filas_critico_magico(mg, wd.crit_bonus):
 			row(vb, fila[0], fila[1])
 	elif m is ArmorData:
@@ -771,12 +773,12 @@ func row(vb: VBoxContainer, etiqueta: String, valor: String, color_valor: Varian
 	r.add_theme_constant_override("separation", 8)
 	var k := Label.new()
 	k.text = etiqueta
-	k.custom_minimum_size = Vector2(150, 0)
+	k.custom_minimum_size = Vector2(200, 0)   # 200: cabe "Penalización a la esquiva" en una línea (medido, 06/11)
 	k.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
 	r.add_child(k)
 	var v := Label.new()
-	v.text = valor
+	v.text = MenuScaffold.valor_es(valor)   # coma decimal y espacio antes del % (pase de textos 06/11)
 	if color_valor is Color:
 		v.add_theme_color_override("font_color", color_valor)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -901,7 +903,7 @@ func _preview_recompra(vb: VBoxContainer) -> void:
 	ficha_objeto(vb, s["modelo"])
 	vb.add_child(HSeparator.new())
 	row(vb, "Precio", "%d monedas" % precio, AMBAR)
-	note(vb, "Vuelve tal y como estaba, con su tier y sus mejoras, por lo mismo que te pagó. Al pasarse de %d, lo más viejo se pierde." % Game.RECOMPRA_MAX)
+	note(vb, "Vuelve tal y como estaba, con su tier y sus mejoras, por lo mismo que te pagó el tendero. Solo guarda las últimas %d piezas: las más viejas se pierden." % Game.RECOMPRA_MAX)
 	if not llego:
 		note(vb, "No te llega.")
 	var botones := HBoxContainer.new()

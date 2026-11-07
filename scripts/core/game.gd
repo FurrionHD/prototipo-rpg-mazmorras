@@ -6045,7 +6045,7 @@ func _tick_encargos(delta: float) -> void:
 func _avisar_encargos_listos() -> void:
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud != null and hud.has_method("mostrar_toast"):
-		hud.mostrar_toast("Un encargo ha vuelto: pásate por el Hogar a recogerlo.")
+		hud.mostrar_toast("Han vuelto de un encargo: pásate por el hogar a recoger lo que traen.")
 
 # Suelta las piezas del cofre marcadas para un encargo que ya no existe. Un cierre sucio (o un save
 # de una version anterior) dejaria un pico bloqueado PARA SIEMPRE, sin forma de que el jugador lo
@@ -7011,9 +7011,10 @@ func _desgastar_slot(slot: String, puntos: float, pj: PersonajeData = null) -> v
 # encima, ahora por debajo). Como reparar deja la pieza a 1.0, el siguiente desgaste vuelve a
 # cruzarlo y vuelve a avisar, que es lo que se quiere.
 const DUR_AVISO_GASTADA := 0.25   # pildora discreta en la esquina
-const DUR_NOMBRES := {
-	"main": "arma", "off": "mano secundaria", "casco": "casco", "pecho": "peto",
-	"manos": "guanteletes", "pantalones": "grebas", "botas": "botas"}
+# Con su "de" + articulo, para "Durabilidad del peto de Dasui" (el % tiene que decir de que es).
+const DUR_DE := {
+	"main": "del arma", "off": "de la mano secundaria", "casco": "del casco", "pecho": "del peto",
+	"manos": "de los guanteletes", "pantalones": "de las grebas", "botas": "de las botas"}
 
 func _avisar_durabilidad(slot: String, p: PersonajeData, antes: float, ahora: float) -> void:
 	if ahora >= antes:
@@ -7026,18 +7027,18 @@ func _avisar_durabilidad(slot: String, p: PersonajeData, antes: float, ahora: fl
 	var hud: Node = get_tree().get_first_node_in_group("hud") if is_inside_tree() else null
 	if hud == null:
 		return
-	var pieza: String = String(DUR_NOMBRES.get(slot, slot))
+	var pieza: String = String(DUR_DE.get(slot, "de " + slot))
 	if ahora <= 0.0 and antes > 0.0:
 		# Sin articulos ni participios concordados: por aqui pasan el peto, las grebas y el arma, y
 		# "ROTA" quedaba mal en la mitad. El 0% ya lo dice todo.
 		if hud.has_method("mostrar_toast"):
-			hud.mostrar_toast("💥 %s — %s al 0%%. Así no sirve: toca reparar." % [
-				p.nombre, pieza.capitalize()])
+			hud.mostrar_toast("💥 Durabilidad %s de %s: 0 %%. Rinde un %d %% menos hasta que se repare." % [
+				pieza, p.nombre, roundi(PENAL_ROTO * 100.0)])
 		print("[durabilidad] ROTA: %s de %s" % [pieza, p.nombre])
 	elif ahora <= DUR_AVISO_GASTADA and antes > DUR_AVISO_GASTADA:
 		if hud.has_method("mostrar_aviso_esquina"):
-			hud.mostrar_aviso_esquina("%s: %s al %d%%" % [
-				p.nombre, pieza.capitalize(), roundi(ahora * 100.0)], 3.0)
+			hud.mostrar_aviso_esquina("Durabilidad %s de %s: %d %%" % [
+				pieza, p.nombre, roundi(ahora * 100.0)], 3.0)
 		print("[durabilidad] %s de %s al %d%%" % [pieza, p.nombre, roundi(ahora * 100.0)])
 
 # Desgasta el ARMA de la mano indicada ("main"/"off") por un golpe dado. Los puños (sin arma)
@@ -7390,7 +7391,7 @@ func tick_hechizo_de_entrada(delta: float) -> void:
 		spell.nombre, devuelto])
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud != null and hud.has_method("mostrar_toast"):
-		hud.mostrar_toast("El conjuro se disipa: no ha llegado a ninguna pelea. (Maná devuelto)")
+		hud.mostrar_toast("El conjuro se disipa sin llegar a ninguna pelea. Se te devuelve el maná.")
 
 
 # Se lo pasa a la pantalla de combate y lo borra. El bicho viaja como INDICE dentro de los enemigos
@@ -8294,9 +8295,9 @@ func refrescar_cache_estados(p: PersonajeData) -> void:
 	# menos falta hace acordarse.
 	if p.foco_cargas > 0:
 		# Munición, no estado: no lleva turnos ni caduca (ver PersonajeData.foco_cargas).
-		partes.append("🔮x%d" % p.foco_cargas)
-		chips.append(["🔮x%d" % p.foco_cargas,
-			"Foco arcano: %d carga%s\nCada hechizo OFENSIVO gasta una y pega más.\nNo caduca con el tiempo." % [
+		partes.append("🔮×%d" % p.foco_cargas)
+		chips.append(["🔮×%d" % p.foco_cargas,
+			"Foco arcano: %d carga%s\nCada hechizo de ataque gasta una e inflige más daño.\nNo caduca con el tiempo." % [
 				p.foco_cargas, "" if p.foco_cargas == 1 else "s"],
 			"🔮", Color(0.55, 0.7, 1.0)])
 	# IMBUICION. Aguanta ENTRE combates (se gasta por ataques, no por turnos), asi que por el mapa la
@@ -13613,7 +13614,7 @@ func _sacar_de_bolsa(modelo: Resource) -> Resource:
 func _nombre_item(item: Resource) -> String:
 	if item is Cristal:
 		var c := item as Cristal
-		return "Cristal Cat %d (%s)" % [c.categoria, c.calidad_texto()]
+		return "Cristal de categoría %d (%s)" % [c.categoria, c.calidad_texto()]
 	if item is MaterialItem:
 		var m := item as MaterialItem
 		return "%s (%s)" % [m.nombre(), m.calidad_texto()]
@@ -14206,32 +14207,32 @@ const PASIVAS_RNG: Array = [
 	# Slayer (familia = EnemyData.Familia). dmg_vs = daño que HACES; dmg_from = daño que ENCAJAS.
 	{"id": "slayer_slime", "nombre": "Cazador de slimes", "tipo": "slayer", "familia": 1,
 		"dmg_vs": 1.25, "dmg_from": 0.90,
-		"desc": "Haces un 25% más de daño a los slimes y recibes un 10% menos del suyo."},
+		"contra": "a los slimes", "desc": ""},
 	{"id": "slayer_roedor", "nombre": "Cazador de alimañas", "tipo": "slayer", "familia": 2,
 		"dmg_vs": 1.25, "dmg_from": 0.90,
-		"desc": "Haces un 25% más de daño a los roedores y recibes un 10% menos del suyo."},
+		"contra": "a los roedores", "desc": ""},
 	{"id": "slayer_insecto", "nombre": "Exterminador", "tipo": "slayer", "familia": 3,
 		"dmg_vs": 1.25, "dmg_from": 0.90,
-		"desc": "Haces un 25% más de daño a los insectos y recibes un 10% menos del suyo."},
+		"contra": "a los insectos", "desc": ""},
 	{"id": "slayer_piedra", "nombre": "Rompepiedras", "tipo": "slayer", "familia": 4,
 		"dmg_vs": 1.25, "dmg_from": 0.90,
-		"desc": "Haces un 25% más de daño a las criaturas de piedra y recibes un 10% menos del suyo."},
+		"contra": "a las criaturas de piedra", "desc": ""},
 	# Recoleccion (reco = qué minijuego). Cada una da +1 pieza al botin de LO SUYO. Las tres de
 	# MATERIAL llevan ademas "puro": ver PASIVA_RECO_PURO. La de extraccion no, y no es un olvido —
 	# un Cristal no tiene escalon PURO en su calidad (ver cristal.gd), asi que no hay a que subirlo.
 	{"id": "reco_mineria", "nombre": "Buen ojo para el mineral", "tipo": "reco", "reco": "mineria",
-		"puro": true, "desc": "Sacas una pieza de más cada vez que picas una veta."},
+		"puro": true, "desc": "Quien la tiene saca una pieza de más de cada veta que pica."},
 	{"id": "reco_herboristeria", "nombre": "Mano de herbolario", "tipo": "reco", "reco": "herboristeria",
-		"puro": true, "desc": "Recoges una planta de más cada vez que cosechas."},
+		"puro": true, "desc": "Quien la tiene recoge una planta de más cada vez que cosecha."},
 	{"id": "reco_talado", "nombre": "Leñador nato", "tipo": "reco", "reco": "talado",
-		"puro": true, "desc": "Sacas una madera de más cada vez que talas."},
+		"puro": true, "desc": "Quien la tiene saca una madera de más cada vez que tala."},
 	# La de PESCA no lleva "puro" y no es un olvido: un pez no tiene calidad que subir (sale siempre
 	# NORMAL), su eje es el TAMAÑO. Por eso su pieza extra no pasa por _botin_extra_reco sino por
 	# cobrar_pesca, que le sortea su propia talla — y esa talla puede batirte el record.
 	{"id": "reco_pesca", "nombre": "Muñeca de pescador", "tipo": "reco", "reco": "pesca",
-		"desc": "Sacas un pez de más cada vez que cobras una pieza."},
+		"desc": "Quien la tiene saca un pez de más cada vez que cobra una pieza."},
 	{"id": "reco_extraccion", "nombre": "Pulso de joyero", "tipo": "reco", "reco": "extraccion",
-		"joyero": true, "desc": "Extraes un cristal de más de cada cadáver."},
+		"joyero": true, "desc": "Quien la tiene extrae un cristal de más de cada cadáver."},
 ]
 
 # La pieza EXTRA de una pasiva de recoleccion puede salir PURA, pero solo si la recogida ha salido
@@ -14256,10 +14257,16 @@ const PASIVA_JOYERO_NUCLEO := 0.05   # nucleo
 # el jugador y no queden dos numeros distintos diciendo lo mismo.
 func pasiva_desc(d: Dictionary) -> String:
 	var t: String = str(d.get("desc", ""))
+	# SLAYER: la frase entera sale de dmg_vs/dmg_from, que son los que de verdad aplica el combate.
+	if str(d.get("tipo", "")) == "slayer":
+		t = "Quien la tiene inflige un %d %% más de daño %s y recibe un %d %% menos de daño de ellos." % [
+			roundi((float(d.get("dmg_vs", 1.0)) - 1.0) * 100.0), str(d.get("contra", "")),
+			roundi((1.0 - float(d.get("dmg_from", 1.0))) * 100.0)]
 	if bool(d.get("puro", false)):
-		t += " Si la recogida sale perfecta, esa pieza de más tiene un %d%% de salir PURA." % roundi(PASIVA_RECO_PURO * 100.0)
+		t += " Si la recogida sale perfecta, esa pieza de más tiene un %d %% de probabilidad de salir pura." % roundi(PASIVA_RECO_PURO * 100.0)
 	if bool(d.get("joyero", false)):
-		t += " Sube un %d%% la probabilidad de que el cuerpo suelte su material y un %d%% la de su núcleo, y con una extracción perfecta cada pieza que suelte tiene un %d%% de salir PURA." % [
+		# SUMA (no multiplica): ver la tirada de extraccion, `mas` y `mas_n`.
+		t += " Suma un %d %% a la probabilidad de que el cuerpo suelte su material y un %d %% a la de que suelte su núcleo. Con una extracción perfecta, cada pieza que suelte tiene un %d %% de probabilidad de salir pura." % [
 			roundi(PASIVA_JOYERO_DROP * 100.0), roundi(PASIVA_JOYERO_NUCLEO * 100.0),
 			roundi(PASIVA_RECO_PURO * 100.0)]
 	return t
@@ -14416,33 +14423,33 @@ const LETRAS_RANGO := ["I", "H", "G", "F", "E", "D", "C", "B", "A", "S"]
 # golpe del piso 13 vale muchisimo mas que uno del 1, asi que su contador se acelera solo.
 const DESARROLLOS: Array = [
 	{"id": "peleteria", "nombre": "Peletería", "tipo": "oficio",
-		"desc": "Al curtir piel, tira por subir un escalón la calidad.",
+		"desc": "Al curtir piel, quien la tiene puede subirle la calidad un escalón.",
 		"req": "exp", "contador": "peleteria_exp", "umbral": 100.0},
 	{"id": "herreria", "nombre": "Herrería", "tipo": "oficio",
-		"desc": "Al fundir y batir metal sube su calidad, y al forjar empuja la rareza.",
+		"desc": "Al fundir y batir metal, quien la tiene le sube la calidad; al forjar, tiene más probabilidad de sacar una rareza mejor.",
 		"req": "exp", "contador": "herreria_exp", "umbral": 60.0},
 	{"id": "carpinteria", "nombre": "Carpintería", "tipo": "oficio",
-		"desc": "Al aserrar tablones sube su calidad, y al forjar armas mágicas empuja su rareza.",
+		"desc": "Al aserrar tablones, quien la tiene les sube la calidad; al forjar armas mágicas, tiene más probabilidad de sacar una rareza mejor.",
 		"req": "exp", "contador": "carpinteria_exp", "umbral": 120.0},
 	{"id": "mezcla", "nombre": "Mezcla", "tipo": "oficio",
-		"desc": "Al fabricar pociones, tira por doblarlas y por subirlas de escalón.",
+		"desc": "Al fabricar pociones, quien la tiene puede sacarlas dobles y subirlas de escalón.",
 		"req": "exp", "contador": "mezcla_exp", "umbral": 500.0},
 	# COCINA: el hermano de Mezcla en el otro fogón. Umbral mas bajo que el de la boticaria porque un
 	# plato se hace de uno en uno y rinde dos raciones, mientras que las pociones salen a tandas.
 	{"id": "cocina", "nombre": "Cocina", "tipo": "oficio",
-		"desc": "Al cocinar, tira por sacar ración doble, y lo que preparas alimenta más.",
+		"desc": "Al cocinar, quien la tiene puede sacar ración doble, y lo que prepara alimenta más.",
 		"req": "exp", "contador": "cocina_exp", "umbral": 250.0},
 	# CAZADOR y AUTORREGEN: solo se DESBLOQUEAN a nivel 1 (solo_nivel_1). Su contador va por DAÑO
 	# (hecho / encajado); una vez tuyos, suben de rango con el daño acumulado como los demas.
 	{"id": "cazador", "nombre": "Cazador", "tipo": "combate", "solo_nivel_1": true,
-		"desc": "Todo lo que entrenas cunde un poco más.",
+		"desc": "Todo lo que entrena quien la tiene cunde un poco más.",
 		"req": "exp", "contador": "dano_infligido_exp", "umbral": 150000.0},
 	{"id": "reflejos", "nombre": "Reflejos", "tipo": "combate",
-		"desc": "Esquivas mejor en combate.",
+		"desc": "Quien la tiene esquiva mejor en combate.",
 		"req": "exp", "contador": "esquivas_exp", "umbral": 1000.0,
 		"rango_mult": RANGO_MULT_COMBATE},
 	{"id": "erudito", "nombre": "Erudito", "tipo": "combate",
-		"desc": "Tus hechizos pegan más fuerte.",
+		"desc": "Los hechizos de quien la tiene infligen más daño.",
 		"req": "exp", "contador": "hechizos_exp", "umbral": 1000.0,
 		"rango_mult": RANGO_MULT_COMBATE},
 	# El de recitado va mas alto que el de hechizos porque su contador corre MUCHO mas rapido: cada
@@ -14450,13 +14457,13 @@ const DESARROLLOS: Array = [
 	# asi que con conjuros de 3-4 lineas sube 3-4 veces mas deprisa. Con el mismo umbral, este perk
 	# saldria siempre antes que Erudito.
 	{"id": "encantamiento_rapido", "nombre": "Encantamiento rápido", "tipo": "combate",
-		"desc": "Recitas los conjuros más rápido.",
+		"desc": "Quien la tiene recita los conjuros más rápido.",
 		"req": "exp", "contador": "recitado_exp", "umbral": 1500.0,
 		"rango_mult": RANGO_MULT_COMBATE},
 	# Va por daño BLOQUEADO (lo que paras defendiendo), no por daño encajado: es el perk del tanque y
 	# tiene que ganarselo levantando la guardia. Ver contar_dano_bloqueado.
 	{"id": "autorregeneracion", "nombre": "Autorregeneración", "tipo": "combate", "solo_nivel_1": true,
-		"desc": "Recuperas algo de vida al principio de cada turno.",
+		"desc": "Quien la tiene recupera algo de vida al principio de cada turno.",
 		"req": "exp", "contador": "dano_bloqueado_exp", "umbral": 20000.0},
 ]
 
@@ -16471,7 +16478,7 @@ func _embolsar_pez(data: MaterialData, cm: float) -> void:
 	apuntar_corona(data.id, corona)
 	guardar_material(item)
 	descubrir(data)
-	_aviso_recogida(item.nombre(), 1, "%.1f cm" % cm)
+	_aviso_recogida(item.nombre(), 1, "%s cm" % StatusEffects.num(snappedf(cm, 0.1)))
 	if corona != MaterialData.Corona.NINGUNA:
 		print("[pesca] %s: %s (%.1f cm)" % [data.nombre, MaterialData.corona_texto(corona), cm])
 		_aviso_recogida(item.nombre(), 1, "¡%s%s!" % [

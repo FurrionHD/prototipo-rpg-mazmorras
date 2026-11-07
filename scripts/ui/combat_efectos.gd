@@ -93,7 +93,7 @@ func _fijar_barra_num(bloque: Dictionary, clave: String, valor: float, maximo: f
 	bloque[clave + "_fmt"] = fmt
 	_fijar_barra(bloque, clave, valor)
 	if bloque.has(clave + "_lbl"):
-		bloque[clave + "_lbl"].text = fmt % [bloque[clave].value, maximo]
+		bloque[clave + "_lbl"].text = (fmt % [bloque[clave].value, maximo]).replace(".", ",")   # decimales con coma
 
 
 # EL UNICO ENGANCHE DE ANIMACION. Lo llaman los seis sitios donde se aplica daño (los basicos de
@@ -240,7 +240,7 @@ func _al_entrar_viento(atacante: Combatant, victima: Combatant, dmg: float, elem
 			_pantalla._caidos_de_rebote.append(v)
 		elif not v.is_alive():
 			_pantalla.altas._caer_aliado(v)
-		_pantalla._log_extra("🔥 El viento aviva las llamas de %s y saltan a %s: %.2f" % [_pantalla._etq(victima), _pantalla._etq(v), d])
+		_pantalla._log_extra("🔥 El viento aviva las llamas de %s, que saltan a %s y le infligen %s de daño" % [_pantalla._etq(victima), _pantalla._etq(v), _pantalla._n(d)])
 
 
 # EL SET HILO CONDUCTOR (03/11, las arañas mutantes): el golpe puede saltar en rayo a otro enemigo cercano. Va detras del
@@ -275,8 +275,8 @@ func _rebote_hilo(atacante: Combatant, victima: Combatant, dmg: float) -> void:
 	if v.is_alive() and randf() < StatusEffects.prob_final(1.0, atacante, v, StatusEffects.Id.RAYO):
 		v.apply_status(StatusEffects.Id.RAYO)
 	_pantalla._caidos_de_rebote.append(v)
-	_pantalla._log_extra("⚡ El hilo de %s salta de %s a %s: %.2f" % [atacante.nombre, _pantalla._etq(victima),
-		_pantalla._etq(v), d])
+	_pantalla._log_extra("⚡ El hilo de %s salta de %s a %s y le inflige %s de daño" % [atacante.nombre,
+		_pantalla._etq(victima), _pantalla._etq(v), _pantalla._n(d)])
 
 
 # EL REBOTE DE LA ARAÑA TORMENTOSA (03/11): UN golpe, UN rebote, siempre (basico, habilidades, areas: uno por cada golpeado).
@@ -312,7 +312,7 @@ func _rebote_tormenta(e: Combatant, golpeado: Combatant) -> void:
 			v.apply_status(StatusEffects.Id.RAYO)
 		if not v.is_alive():
 			_pantalla.altas._caer_aliado(v)
-		_pantalla._log_extra("⚡ El rayo de %s salta a %s: %.2f" % [_pantalla._etq(e), v.nombre, d])
+		_pantalla._log_extra("⚡ El rayo de %s salta a %s y le inflige %s de daño" % [_pantalla._etq(e), v.nombre, _pantalla._n(d)])
 		desde = v
 		if not sigue:
 			break
@@ -713,7 +713,7 @@ func _chips_de(c: Combatant) -> Array:
 			out.append(["⏳", "PREPARANDO: %s\nSale cuando vuelva a llegar a la barra.\nAturdirlo lo interrumpe." % \
 				c.charging.nombre])
 		elif c.charge_left <= 0:
-			out.append(["⚡!", "%s: LISTA.\nSolo falta elegir a quién." % c.charging.nombre])
+			out.append(["⚡!", "%s: lista.\nSolo falta elegir a quién." % c.charging.nombre])
 		else:
 			out.append(["⏳%dt" % c.charge_left,
 				"CARGANDO: %s\nSe dispara en %d turno%s.\nAturdirlo lo interrumpe." % [
@@ -729,16 +729,16 @@ func _chips_de(c: Combatant) -> Array:
 			var total: int = sp.longitud()
 			if i >= total:
 				out.append(["🔮▶",
-					"%s: LISTO\nEl conjuro esta recitado entero: el proximo turno se lanza." % sp.nombre])
+					"%s: listo.\nEl conjuro está recitado entero: se lanza en el próximo turno." % sp.nombre])
 			else:
 				out.append(["🔮%d/%d" % [i + 1, total],
-					("%s: recitando\nFrase %d de %d. Fallar una descontrola el conjuro"
-					+ " (daño propio) y te cuesta el maná igual.") % [sp.nombre, i + 1, total]])
+					("%s: recitando\nFrase %d de %d. Fallar una descontrola el conjuro:"
+					+ " quien lo recita recibe daño y pierde el maná igual.") % [sp.nombre, i + 1, total]])
 	# PROVOCANDO (taunt de escudo): sin esto no habia forma de saber si te quedaba taunt ni cuanto.
 	# Va en los chips como todo lo demas, asi que sirve igual para ti y para un companero.
 	if c.provocar_turnos > 0:
 		out.append(["🎯%dt" % c.provocar_turnos,
-			"Provocación (%d turno%s)\nLos enemigos que pillaste van a por ti con todo, si te alcanzan." % [
+			"Provocación (%d turno%s)\nLos enemigos provocados atacan a este personaje con todo, si llegan hasta él." % [
 				c.provocar_turnos, "" if c.provocar_turnos == 1 else "s"]])
 	# PROVOCADO (10/10, el jefe: "no tiene un icono de provocado, no se puede saber si esta haciendo efecto"): en el
 	# ENEMIGO, con los turnos que le quedan y quien le tiene provocado. Viaja a los espejos con el resto de chips.
@@ -746,7 +746,7 @@ func _chips_de(c: Combatant) -> Array:
 	if prov != null:
 		out.append(["💢%dt" % prov.provocar_turnos,
 			"Provocado por %s (%d turno%s)
-Solo tiene ojos para él: todo lo que haga va a por él, si le alcanza." % [
+Solo tiene ojos para quien lo provocó: todo lo que haga irá contra ese personaje, si llega hasta él." % [
 				prov.nombre, prov.provocar_turnos, "" if prov.provocar_turnos == 1 else "s"],
 			"💢", Color(1.0, 0.45, 0.35)])
 	# COBERTURA (escudo grande). Va en los DOS: quien cubre y a quien cubren. Sin el segundo chip,
@@ -754,13 +754,13 @@ Solo tiene ojos para él: todo lo que haga va a por él, si le alcanza." % [
 	# le acabe, tampoco sabra por que ha vuelto a llover. La flecha dice el sentido.
 	if c.proteger_turnos > 0 and c.protegiendo_a != null:
 		out.append(["🛡→%dt" % c.proteger_turnos,
-			("Cubres a %s (%d turno%s)\nLos golpes que le busquen a él te llegan a ti, con tu"
-			+ " bloqueo y tu defensa. Mientras dure, cuentas como si estuvieras defendiendo.") % [
+			("Cubre a %s (%d turno%s)\nLos golpes dirigidos a %s los recibe este personaje, con su"
+			+ " bloqueo y su defensa. Mientras dure, cuenta como si estuviera defendiendo.") % [
 				c.protegiendo_a.nombre, c.proteger_turnos,
-				"" if c.proteger_turnos == 1 else "s"]])
+				"" if c.proteger_turnos == 1 else "s", c.protegiendo_a.nombre]])
 	if c.protegido_por != null and c.protegido_por.proteger_turnos > 0:
 		out.append(["🛡←",
-			"Te cubre %s\nSe ha puesto delante: los golpes que te buscaban van a él." % \
+			"Lo cubre %s\nSe ha puesto delante y recibe los golpes dirigidos a este personaje." % \
 				c.protegido_por.nombre])
 	var imb: String = c.imbue_etiqueta()
 	if imb != "":
@@ -772,24 +772,24 @@ Solo tiene ojos para él: todo lo que haga va a por él, si le alcanza." % [
 	# mucho y te sube la esquiva, y hasta ahora solo se anunciaba UNA vez en el log y desaparecia de
 	# la vista. Igual que Defender y el agotamiento, aqui abajo.
 	if c.en_guardia:
-		out.append(["🤺", "En guardia (postura de contraataque)\nTe mueves un %d%% más lento, esquivas un %d%% más y devuelves el golpe al esquivar.\nDura hasta tu próxima acción."
+		out.append(["🤺", "En guardia (postura de contraataque)\nVelocidad -%d %%, Esquiva +%d %%; devuelve el golpe al esquivar.\nDura hasta su próxima acción."
 			% [roundi((1.0 - c.guardia_spd_mult) * 100.0), roundi(c.evasion_bonus * 100.0)],
 			"🤺", Color(0.85, 0.8, 0.5)])
 	# DEFENDIENDO: reduce el daño hasta su próximo turno. Vale para ti y para los compañeros.
 	if bool(_pantalla._defendiendo.get(c, false)) or (c == _pantalla._player and _pantalla._player_defending):
-		out.append(["🛡", "Defendiendo\nEl daño que te entra se recorta hasta tu próximo turno, y los críticos en tu contra se quedan a la mitad.",
+		out.append(["🛡", "Defendiendo\nRecibe menos daño hasta su próximo turno, y su probabilidad de recibir un crítico baja a la mitad.",
 			"🛡", Color(0.6, 0.75, 0.95)])
 	# AGOTAMIENTO: entraste sin fuelle y tus primeras acciones van a medio ritmo. Solo salia en la
 	# linea de intro del log, que a los tres turnos ya nadie recuerda.
 	var lentas: int = int(_pantalla._lentas.get(c, 0))
 	if lentas > 0:
-		out.append(["😮x%d" % lentas,
-			"Sin fuelle\nEntraste agotado: tus próximas %d acción%s van a medio ritmo." % [
+		out.append(["😮×%d" % lentas,
+			"Sin fuelle\nEntró agotado: sus próximas %d acción%s van a medio ritmo." % [
 				lentas, "" if lentas == 1 else "es"],
 			"😮", Color(0.8, 0.6, 0.45)])
 	if c.foco_cargas > 0:
-		out.append(["🔮x%d" % c.foco_cargas,
-			"Foco arcano: %d carga%s\nCada hechizo OFENSIVO gasta una y pega un %d%% más.\nNo caduca con los turnos." % [
+		out.append(["🔮×%d" % c.foco_cargas,
+			"Foco arcano: %d carga%s\nCada hechizo de ataque gasta una y su daño aumenta un %d %%.\nNo caduca con los turnos." % [
 				c.foco_cargas, "" if c.foco_cargas == 1 else "s", roundi(Combatant.FOCO_BONUS * 100.0)],
 			"🔮", Color(0.55, 0.7, 1.0)])
 	# UN chip por estado, no uno por instancia: los 'independent' (Pegajoso, Sangrado) apilan

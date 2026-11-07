@@ -11,7 +11,7 @@ prob = 0.45
 [resource]
 script = ExtResource("1")
 nombre = "Frenesí de dentelladas"
-descripcion = "ATAQUE DE CARGA: se agazapa un instante y se lanza hecha una furia, mordiendo una y otra vez por todo el cuerpo. Cada bocado abre una herida nueva. Aturdirla mientras se prepara corta el frenesí."
+descripcion = "Ataque de carga: se agazapa un instante y se lanza hecha una furia, mordiendo una y otra vez por todo el cuerpo. Cada bocado abre una herida nueva. Aturdirla mientras se prepara corta el frenesí."
 coste_energia = 0.0
 golpes_min = 5
 golpes_max = 6

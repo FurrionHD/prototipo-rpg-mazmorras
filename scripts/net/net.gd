@@ -308,7 +308,7 @@ var _muertos: Dictionary = {}
 # fuera de su disco y el arrendamiento corre. Se PAUSA a todos ("Sin conexión, reconectando…") hasta que
 # vuelva; lo jugado mientras tanto ya estaba en su disco y sube en cuanto hay red.
 var pausa_red := false
-const TEXTO_PAUSA_RED := "Sin conexión con la nube, reconectando…"
+const TEXTO_PAUSA_RED := "Sin conexión con la nube. Reconectando…"
 
 
 func _pausa_por_nube(hay_red: bool) -> void:
@@ -429,9 +429,9 @@ func _lan_respuesta(abierta: bool, direcciones: Array, motivo: String) -> void:
 	elif not abierta:
 		estado_cambiado.emit("Tu partida ya no admite a nadie más por la LAN.")
 	elif direcciones.is_empty():
-		estado_cambiado.emit("Abierta a la LAN, pero no encuentro tu IP: mírala en tu PC (ipconfig).")
+		estado_cambiado.emit("Partida abierta a la LAN, pero no se encuentra tu IP: búscala en tu PC (ipconfig).")
 	else:
-		estado_cambiado.emit("Abierta a la LAN. Tus amigos se unen a %s con tu código." % " o ".join(
+		estado_cambiado.emit("Partida abierta a la LAN. Tus amigos pueden unirse a %s con tu código." % " o ".join(
 			direcciones.map(func(d): return String(d))))
 
 
@@ -701,12 +701,12 @@ func _en_el_pueblo() -> bool:
 # de anfitrion, entra en su sala como un jugador mas.
 func hostear(codigo: String, puerto: int = PUERTO) -> int:
 	if not soy_sala:
-		estado_cambiado.emit("La sesion la abre la sala.")
+		estado_cambiado.emit("La sesión la abre la sala.")
 		return ERR_UNAVAILABLE
 	var peer := ENetMultiplayerPeer.new()
 	var err := peer.create_server(puerto, MAX_CONEXIONES)
 	if err != OK:
-		estado_cambiado.emit("No se pudo abrir el servidor (puerto %d ocupado?)" % puerto)
+		estado_cambiado.emit("No se ha podido abrir la partida (¿está ocupado el puerto %d?)" % puerto)
 		return err
 	multiplayer.multiplayer_peer = peer
 	_codigo = codigo
@@ -719,7 +719,7 @@ func hostear(codigo: String, puerto: int = PUERTO) -> int:
 	if mundo_compartido:
 		pisos.sembrar_sesion(Game.sesion_guardada)
 	Game._refrescar_pausa()   # regimen multi: los menus dejan de pausar el arbol
-	estado_cambiado.emit("Servidor abierto. Esperando a que se unan...")
+	estado_cambiado.emit("Partida abierta. Esperando a que se unan...")
 	return OK
 
 
@@ -735,7 +735,7 @@ func unirse(ip: String, codigo: String, puerto: int = PUERTO, compartido := fals
 	var peer := ENetMultiplayerPeer.new()
 	var err := peer.create_client(ip, puerto)
 	if err != OK:
-		estado_cambiado.emit("No se pudo conectar a %s" % ip)
+		estado_cambiado.emit("No se ha podido conectar con %s" % ip)
 		return err
 	multiplayer.multiplayer_peer = peer
 	_codigo = codigo
@@ -752,7 +752,7 @@ func unirse(ip: String, codigo: String, puerto: int = PUERTO, compartido := fals
 	if not _en_reintento:
 		_reintentada = false   # una entrada nueva trae su reintento
 	fase_entrada("conectando")
-	estado_cambiado.emit("Conectando a %s..." % ip)
+	estado_cambiado.emit("Conectando con %s..." % ip)
 	return OK
 
 
@@ -1100,9 +1100,9 @@ func _aplicar_cupo() -> void:
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud != null and hud.has_method("mostrar_toast"):
 		if Game.party.size() < antes:
-			hud.mostrar_toast("Cupo de sesion: tus acompanantes esperan en el hogar.")
+			hud.mostrar_toast("La partida en grupo está llena: tus acompañantes te esperan en el hogar.")
 		else:
-			hud.mostrar_toast("Tus acompanantes han vuelto al equipo.")
+			hud.mostrar_toast("Tus acompañantes han vuelto al equipo.")
 
 
 # Solo host: suelta todos los locks de un peer que se va (salida o desconexion a mitad de
@@ -1128,7 +1128,7 @@ func peer_de_identidad(identidad: String) -> int:
 
 # Cliente: nada mas conectar, se presenta al host (id 1) con el codigo, su aspecto y su lugar.
 func _on_connected_to_server() -> void:
-	estado_cambiado.emit("Conectado. Validando codigo...")
+	estado_cambiado.emit("Conectado. Comprobando el código...")
 	if not mundo_compartido:
 		# LAN de siempre: tengo mi propia partida cargada y hay que protegerla del mundo del host.
 		# Guardo MI baul de materiales antes de que el host me mande el suyo (lo recupero al salir).
@@ -1202,8 +1202,8 @@ func _entrada_atascada(fase: String) -> void:
 			else "No se ha encontrado ninguna partida en esa dirección.",
 		"saludo": "La sala no contesta (puede que sea de otra versión del juego).",
 		"alta": "La sala no ha contestado con tu personaje.",
-		"presentacion": "La sala ha dejado de contestar a mitad de la entrada.",
-	}.get(fase, "La entrada se ha atascado.")
+		"presentacion": "La sala ha dejado de contestar mientras entrabas.",
+	}.get(fase, "Algo ha fallado al entrar.")
 	print("[entrada] atascada en '%s'%s" % [fase, "" if _reintentada else ": la reintento"])
 	var reintento: Callable = _reintento
 	var puedo: bool = not _reintentada and reintento.is_valid()
@@ -1233,15 +1233,15 @@ func _saludar(codigo: String, protocolo: int, identidad: String, nombre_visible:
 		piezas: Dictionary = {}, invitacion: String = "", sello_ids: int = 0) -> void:
 	var quien := multiplayer.get_remote_sender_id()
 	if codigo != _codigo and (_codigo_lan == "" or codigo != _codigo_lan):
-		estado_cambiado.emit("Rechazado un intento con codigo incorrecto.")
-		await _echar(quien, "No hay ninguna sala con ese codigo en esa IP.")
+		estado_cambiado.emit("Se ha rechazado un intento de entrar con un código incorrecto.")
+		await _echar(quien, "No hay ninguna sala con ese código en esa IP.")
 		return
 	# Y LA TABLA DE IDS (IdsRed): con el mismo protocolo, dos builds con distintos .tres numerarian distinto y se
 	# entenderian mal sin dar ningun error. Su sello lo delata.
 	if protocolo != PROTOCOLO or sello_ids != IdsRed.sello():
-		estado_cambiado.emit("Rechazado: version de juego distinta (la suya %d, la mia %d%s)." % [
-			protocolo, PROTOCOLO, "" if protocolo != PROTOCOLO else ", otros recursos"])
-		await _echar(quien, "No coincide la versión del juego: tenéis que tener el mismo build.")
+		estado_cambiado.emit("Se ha rechazado a alguien con otra versión del juego (la suya %d, la tuya %d%s)." % [
+			protocolo, PROTOCOLO, "" if protocolo != PROTOCOLO else ", con otros recursos"])
+		await _echar(quien, "La versión del juego no coincide: tenéis que tener la misma.")
 		return
 	# EL TOPE DE HUMANOS. Antes lo ponia ENet de rebote (create_server con MAX_JUGADORES); ahora ENet
 	# deja sitio de sobra (ver MAX_CONEXIONES) y la cuenta se hace aqui: yo, los que ya estan y los que estan en
@@ -1251,14 +1251,14 @@ func _saludar(codigo: String, protocolo: int, identidad: String, nombre_visible:
 		if not _en_la_puerta.has(pid):
 			humanos += 1
 	if humanos >= MAX_JUGADORES:
-		estado_cambiado.emit("Rechazado: la sala ya tiene %d jugadores." % MAX_JUGADORES)
+		estado_cambiado.emit("Se ha rechazado a alguien: la sala ya tiene %d jugadores." % MAX_JUGADORES)
 		await _echar(quien, "La sala está llena.")
 		return
 
 	if mundo_compartido:
 		# En un mundo compartido la identidad no es un adorno: es la llave de SU personaje.
 		if identidad.strip_edges() == "":
-			await _echar(quien, "Tu juego no dice quién eres: actualízalo.")
+			await _echar(quien, "Tu versión del juego no envía tu identidad: actualízala.")
 			return
 		# La MISMA identidad dos veces a la vez no puede ser (un identidad.cfg copiado en dos
 		# maquinas). Se permite usarla por turnos —eso es tu personaje en otro PC— pero no a la vez:
@@ -1572,7 +1572,7 @@ func _presentarse(color: Color, metal: float, nombre: String, lugar: String, sem
 var _fui_rechazado := false
 
 @rpc("any_peer", "call_remote", "reliable", Canal.CONTROL)
-func _rechazado(motivo: String = "No hay ninguna sala con ese codigo en esa IP.") -> void:
+func _rechazado(motivo: String = "No hay ninguna sala con ese código en esa IP.") -> void:
 	_fui_rechazado = true
 	fase_entrada("")   # me han dicho que no: eso no se reintenta
 	_motivo_rechazo = motivo
@@ -1585,7 +1585,7 @@ func _rechazado(motivo: String = "No hay ninguna sala con ese codigo en esa IP."
 
 # Se guarda para que la desconexion posterior repita el MISMO motivo en vez de pisarlo con un
 # "el host ha cerrado" que no cuenta la verdad.
-var _motivo_rechazo := "No hay ninguna sala con ese codigo en esa IP."
+var _motivo_rechazo := "No hay ninguna sala con ese código en esa IP."
 
 
 # --- AVATARES -------------------------------------------------------------------------------
@@ -1831,7 +1831,7 @@ func _on_connection_failed() -> void:
 		estado_cambiado.emit("No se ha podido llegar por Steam a quien tiene el mundo abierto.")
 	else:
 		# IP mal escrita, host sin abrir, o no hay red: para el jugador es lo mismo.
-		estado_cambiado.emit("No se encontro ninguna partida en esa IP.")
+		estado_cambiado.emit("No se ha encontrado ninguna partida en esa IP.")
 	desconectar()
 
 
@@ -1844,7 +1844,7 @@ func _on_server_disconnected() -> void:
 		_fui_rechazado = false
 		estado_cambiado.emit(_motivo_rechazo)
 	else:
-		estado_cambiado.emit("El host ha cerrado la partida.")
+		estado_cambiado.emit("El anfitrión ha cerrado la partida.")
 	# MUNDO COMPARTIDO: mi personaje vive en el mundo del host, asi que aqui no me queda nada que
 	# jugar -- ni pueblo propio al que volver. Al menu de multijugador, y lo que hubiera sin guardar
 	# se queda en el ultimo guardado del host (el suyo autoguarda cada minuto).

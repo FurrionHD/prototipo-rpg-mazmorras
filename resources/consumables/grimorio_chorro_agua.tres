@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1")
 nombre = "Grimorio: Chorro de agua"
-descripcion = "Un tomo hinchado por la humedad, con las paginas onduladas y frias al tacto. Estudialo y aprenderas Chorro de agua."
+descripcion = "Un tomo hinchado por la humedad, con las páginas onduladas y frías al tacto. Estúdialo y aprenderás Chorro de agua."
 cura_total = 0.0
 turnos = 1
 segundos = 1.0

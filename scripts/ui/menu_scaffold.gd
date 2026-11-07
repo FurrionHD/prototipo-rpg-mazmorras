@@ -257,7 +257,7 @@ static func construir(capa: CanvasLayer, titulo: String, nota: String,
 	var margen_x: float = 16.0 + Tactil.borde.x
 	var margen_y: float = 16.0 + Tactil.borde.y
 	if con_lateral:
-		equis_cerrar(root, al_cerrar, "Cerrar  (Esc)")
+		equis_cerrar(root, al_cerrar, "Cerrar  [Esc]")
 
 	# Monedas arriba a la derecha (donde el jugador ya las busca), DEBAJO de la ✕: comparten esquina
 	# y antes se pisaban. Grandes a proposito: es el numero que se mira antes de cada compra.
@@ -616,7 +616,7 @@ static func bloque_runas(vb: VBoxContainer, item: Resource, compacto: bool = fal
 	vb.add_child(HSeparator.new())
 	var s: RunaSetData = Runas.set_de(item)
 	if s == null:
-		_linea_color(vb, "Runas: sin set (se activan en el Taller de runas).", RUNA_GRIS)
+		_linea_color(vb, "Runas: sin set (se activan en el taller de runas).", RUNA_GRIS)
 		return
 	var duenno: PersonajeData = Game.quien_lleva(item)
 	var n: int = Runas.piezas_de_set(duenno, s) if duenno != null else -1
@@ -636,7 +636,7 @@ static func bloque_runas(vb: VBoxContainer, item: Resource, compacto: bool = fal
 		_linea_color(vb, "En el baúl: el set cuenta cuando alguien se la pone.", RUNA_GRIS, 11)
 	var subs: Array = Runas.subs_de(item)
 	if subs.is_empty():
-		_linea_color(vb, "Sin sub-stats todavía.", RUNA_GRIS, 11)
+		_linea_color(vb, "Sin atributos secundarios todavía.", RUNA_GRIS, 11)
 		return
 	# Las sub-stats: una por fila, o en DOS COLUMNAS si la ficha es ancha ('compacto', la herreria). La etiqueta con
 	# sitio para la mas larga ("Daño a mutantes y jefes") y SIN partir: partida en dos lineas se leia fatal.
@@ -644,11 +644,11 @@ static func bloque_runas(vb: VBoxContainer, item: Resource, compacto: bool = fal
 	if compacto:
 		var g := GridContainer.new()
 		g.columns = 2
-		g.add_theme_constant_override("h_separation", 28)
+		g.add_theme_constant_override("h_separation", 20)
 		g.add_theme_constant_override("v_separation", 2)
 		vb.add_child(g)
 		cont = g
-	# El MISMO ancho de etiqueta que las filas de las fichas (150) y el nombre CORTO: asi los valores caen en la misma
+	# El MISMO ancho de etiqueta que las filas de las fichas (200 desde el 06/11) y su nombre: asi los valores caen en la misma
 	# columna que Ataque, Critico... de encima (lo pidio el usuario). El nombre completo, al pasar el raton.
 	for sub in subs:
 		var row := HBoxContainer.new()
@@ -657,7 +657,7 @@ static func bloque_runas(vb: VBoxContainer, item: Resource, compacto: bool = fal
 		k.text = Runas.nombre_corto(str(sub["s"]))
 		k.tooltip_text = Runas.nombre_sub(str(sub["s"]))
 		k.mouse_filter = Control.MOUSE_FILTER_STOP
-		k.custom_minimum_size = Vector2(150, 0)
+		k.custom_minimum_size = Vector2(200, 0)
 		k.autowrap_mode = TextServer.AUTOWRAP_OFF
 		k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
 		row.add_child(k)
@@ -666,12 +666,12 @@ static func bloque_runas(vb: VBoxContainer, item: Resource, compacto: bool = fal
 		v.autowrap_mode = TextServer.AUTOWRAP_OFF
 		# Con ancho: los talleres parten las etiquetas sin ancho (taller_menu._partir_lineas) y en la rejilla el valor
 		# salia letra a letra. 120 = el de los atributos de la herreria, para que caigan en su misma columna.
-		v.custom_minimum_size = Vector2(120 if compacto else 70, 0)
+		v.custom_minimum_size = Vector2(95 if compacto else 70, 0)   # 95: el de los atributos de la herreria (medido 06/11)
 		row.add_child(v)
 		if compacto:
 			# El mismo hueco que el "lo que sube" de los atributos de la herreria: asi las columnas caen alineadas.
 			var hueco := Control.new()
-			hueco.custom_minimum_size = Vector2(70, 0)
+			hueco.custom_minimum_size = Vector2(76, 0)
 			row.add_child(hueco)
 			row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		cont.add_child(row)
@@ -702,7 +702,7 @@ static func filas_runas(vb: VBoxContainer, pj: PersonajeData, ancho: int = 170, 
 	for e in Runas.ELEMENTOS:
 		lineas.append(["Resistencia a " + e, float(t.get("res_" + e, 0.0))])
 	lineas.append(["Curación recibida", float(t.get("cura_recibida", 0.0))])
-	lineas.append(["Menos daño de estados", float(t.get("menos_dot", 0.0))])
+	lineas.append(["Menos daño con el tiempo", float(t.get("menos_dot", 0.0))])
 	var n: int = 0
 	for l in lineas:
 		if float(l[1]) > 0.0001:
@@ -745,7 +745,37 @@ static func resumen_sets(vb: VBoxContainer, pj: PersonajeData, tipo: int = -1, c
 		flujo.add_child(l)
 
 
-static func fila(vb: VBoxContainer, etiqueta: String, valor: String, ancho: int = 170,
+# EL VALOR DE UNA FILA, en castellano (06/11, pase de textos; docs/guia_textos.md): coma decimal y sin los ceros que
+# sobran ("×1.50" -> "×1,5", "3.00" -> "3"), espacio antes del % ("+5%" -> "+5 %") y "por turno" en vez de "/turno".
+# Va AQUI, en la puerta por la que pasan todas las filas, y no en los cien sitios que montan el numero con "%.2f": asi
+# no se escapa ninguno, ni los que se añadan mañana.
+static func valor_es(s: String) -> String:
+	if _re_dec == null:
+		_re_dec = RegEx.new()
+		_re_dec.compile("(\\d+)\\.(\\d+)")
+		_re_pct = RegEx.new()
+		_re_pct.compile("(\\d)%")
+	var out: String = ""
+	var pos: int = 0
+	for m in _re_dec.search_all(s):
+		# Una IP o una version ("192.168.1.10", "0.15.6") no es un decimal: si el numero va pegado a otro punto, se deja.
+		var antes_punto: bool = m.get_start() > 0 and s[m.get_start() - 1] == "."
+		var despues_punto: bool = m.get_end() < s.length() and s[m.get_end()] == "."
+		if antes_punto or despues_punto:
+			continue
+		out += s.substr(pos, m.get_start() - pos)
+		var dec: String = m.get_string(2).rstrip("0")
+		out += m.get_string(1) + ("," + dec if dec != "" else "")
+		pos = m.get_end()
+	out += s.substr(pos)
+	out = _re_pct.sub(out, "$1 %", true)
+	return out.replace("/turno", " por turno").replace(" /turno", " por turno")
+
+static var _re_dec: RegEx = null
+static var _re_pct: RegEx = null
+
+
+static func fila(vb: VBoxContainer, etiqueta: String, valor: String, ancho: int = 200,
 		color_valor: Variant = null) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
@@ -755,7 +785,7 @@ static func fila(vb: VBoxContainer, etiqueta: String, valor: String, ancho: int 
 	k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
 	row.add_child(k)
 	var v := Label.new()
-	v.text = valor
+	v.text = valor_es(valor)
 	if color_valor is Color:
 		v.add_theme_color_override("font_color", color_valor)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1062,7 +1092,7 @@ static func icono_de_arma(item: Resource) -> String:
 #  Upgrades.weapon_mods, la misma math que usa el combate, asi que lo que ves es lo que tienes.
 # ============================================================
 const WEAPON_TIPO_LABELS := ["Puños", "Daga", "Espada corta", "Espada larga", "Mandoble",
-	"Estoque", "Hacha grande", "Maza pequeña", "Martillo grande", "Bastón"]
+	"Estoque", "Hacha grande", "Maza pequeña", "Martillo grande", "Bastón", "Arco", "Ballesta"]
 
 # 'pj' opcional. CON DUEÑO el "Ataque" es el DAÑO APLICADO por golpe: el raw del arma ya
 # multiplicado por su Fuerza y por el motion value. Es lo que de verdad pega, y por eso el motion
@@ -1084,21 +1114,21 @@ static func filas_arma(w: WeaponData, tier: int, rareza: int, mejoras: Dictionar
 		# puede aplicar aqui es la Fuerza, asi que se queda el raw y su motion value aparte.
 		filas.append(["Ataque", "%.1f" % (float(m["raw"])
 			* Game.durabilidad_mult(clampf(durabilidad, 0.0, 1.0)))])
-		filas.append(["Motion value", "×%.2f" % w.motion_value])
+		filas.append(["Multiplicador de daño", "×%.2f" % w.motion_value])
 	filas.append(["Velocidad", "×%.2f" % (w.velocidad_mult * float(m["vel_mult"]))])
 	if float(m["crit"]) != 0.0:
-		filas.append(["Crítico", "%+.0f%%" % (float(m["crit"]) * 100.0)])
+		filas.append(["Probabilidad de crítico", "%+.0f%%" % (float(m["crit"]) * 100.0)])
 	# Daño critico: el multiplicador REAL de esta arma (base + su crit_dmg, que ya lleva rareza y
 	# Precision dentro). Se enseña siempre: toda arma critica por algo, y es lo que sube Precision.
 	filas.append(["Daño crítico", "×%.2f" % (StatsMath.CRIT_MULT + float(m["crit_dmg"]))])
 	if float(m["precision"]) > 0.0:
-		filas.append(["Precisión", "+%.0f%%" % (float(m["precision"]) * 100.0)])
+		filas.append(["Acierto", "+%.0f%%" % (float(m["precision"]) * 100.0)])
 	if float(m["evasion"]) > 0.0:
-		filas.append(["Evasión", "+%.0f%%" % (float(m["evasion"]) * 100.0)])
+		filas.append(["Esquiva", "+%.0f%%" % (float(m["evasion"]) * 100.0)])
 	if float(m["aturdir"]) > 0.0:
-		filas.append(["Aturdir", "%.0f%%" % (float(m["aturdir"]) * 100.0)])
+		filas.append(["Probabilidad de aturdir", "%.0f%%" % (float(m["aturdir"]) * 100.0)])
 	if Upgrades.penetracion_arma(w) > 0.0:
-		filas.append(["Ignora defensa", "%.0f%%" % (Upgrades.penetracion_arma(w) * 100.0)])
+		filas.append(["Ignora Defensa", "%.0f%%" % (Upgrades.penetracion_arma(w) * 100.0)])
 	if float(m["bloqueo"]) > 0.0:
 		filas.append(["Bloqueo", "+%.2f" % float(m["bloqueo"])])
 	if w.es_magica:
@@ -1111,9 +1141,9 @@ static func filas_arma(w: WeaponData, tier: int, rareza: int, mejoras: Dictionar
 		if pj != null:
 			filas.append(["Ataque mágico", "%.1f" % dano_magico(pj, float(mg["magic_amp"]))])
 		else:
-			filas.append(["Amplif. magia", "×%.2f" % float(mg["magic_amp"])])
-		filas.append(["Regen maná", "%.2f/turno" % (w.mp_regen_turno * float(mg["regen_mult"]))])
-		filas.append(["Vel. casteo", "×%.2f" % (w.cast_vel_mult + float(mg["cast_vel_add"]))])
+			filas.append(["Amplificación mágica", "×%.2f" % float(mg["magic_amp"])])
+		filas.append(["Regeneración de maná", "%.2f/turno" % (w.mp_regen_turno * float(mg["regen_mult"]))])
+		filas.append(["Velocidad de recitado", "×%.2f" % (w.cast_vel_mult + float(mg["cast_vel_add"]))])
 		if float(mg["mana_reduccion"]) > 0.0:
 			filas.append(["Coste de maná", "-%.0f%%" % (float(mg["mana_reduccion"]) * 100.0)])
 		filas += filas_critico_magico(mg, w.crit_bonus)
@@ -1129,7 +1159,7 @@ static func filas_critico_magico(mg: Dictionary, crit_base: float = 0.0) -> Arra
 	var crit: float = crit_base + float(mg["crit_magico"])
 	if crit != 0.0:
 		filas.append(["Crítico mágico", "%+.0f%%" % (crit * 100.0)])
-	filas.append(["Daño crít. mágico", "×%.2f" % (StatsMath.CRIT_MULT + float(mg["crit_dmg_magico"]))])
+	filas.append(["Daño crítico mágico", "×%.2f" % (StatsMath.CRIT_MULT + float(mg["crit_dmg_magico"]))])
 	return filas
 
 
@@ -1185,7 +1215,7 @@ static func filas_herramienta(t: ToolData) -> Array:
 # la regla de no hardcodear numeros en los textos).
 static func _filas_farolillo(t: ToolData, meta: Dictionary) -> Array:
 	if not Game.es_herramienta_forjada(t):
-		return [["Luz", "ninguna: no esta forjado"]]
+		return [["Luz", "ninguna: no está forjado"]]
 	var mejoras: int = int((meta.get("mejoras", {}) as Dictionary).get(Upgrades.LUMINOSIDAD, 0))
 	var pot: float = Lampara.potencia(int(meta.get("tier", 1)),
 		int(meta.get("rareza", Upgrades.Rareza.COMUN)), int(meta.get("banda", 0)), mejoras)
@@ -1194,11 +1224,11 @@ static func _filas_farolillo(t: ToolData, meta: Dictionary) -> Array:
 		["Metal", "T%d  ·  %s" % [int(meta.get("tier", 1)),
 			TOOL_VETA[Upgrades.banda_columna(int(meta.get("banda", 0)))]]],
 		["Potencia", "%.0f  (tier, rareza, veta y mejoras)" % pot],
-		["Alcance aqui", "%.1f casillas  (piso %d)" % [Lampara.radio(pot, piso), piso]],
-		["Alcance 5 pisos mas abajo", "%.1f casillas" % Lampara.radio(pot, piso + 5)],
+		["Alcance aquí", "%.1f casillas  (piso %d)" % [Lampara.radio(pot, piso), piso]],
+		["Alcance 5 pisos más abajo", "%.1f casillas" % Lampara.radio(pot, piso + 5)],
 	]
 	# El suelo duro merece decirse: es la promesa de que la oscuridad no te deja ciego del todo.
-	filas.append(["Sin carbón", "%.1f casillas (el minimo, siempre)" % Vision.RADIO_MINIMO])
+	filas.append(["Sin carbón", "%.1f casillas (el mínimo, siempre)" % Vision.RADIO_MINIMO])
 	if Game.equipped_lampara == t:
 		filas.append(["Llama", "%d:%02d restantes" % [int(Game.lampara_llama) / 60,
 			int(Game.lampara_llama) % 60]])
@@ -1258,11 +1288,11 @@ static func filas_escudo(sh: ShieldData, tier: int, rareza: int, mejoras: Dictio
 	]
 	filas.append(["Bloqueo", "%.0f%%" % (float(m["bloqueo"]) * 100.0)])
 	if float(m.get("eficacia", 0.0)) > 0.001:
-		filas.append(["Eficacia (estados)", "+%.0f%%" % (float(m["eficacia"]) * 100.0)])
+		filas.append(["Eficacia", "+%.0f%%" % (float(m["eficacia"]) * 100.0)])
 	if float(m["resist_estados"]) > 0.0:
-		filas.append(["Resist. estados", "+%.0f%%" % (float(m["resist_estados"]) * 100.0)])
+		filas.append(["Resistencia a estados", "+%.0f%%" % (float(m["resist_estados"]) * 100.0)])
 	filas.append(["Velocidad", "×%.2f" % float(m["vel_mult"])])
-	filas.append(["Penal. esquiva", "-%.0f%%" % (float(m["evasion_penal"]) * 100.0)])
+	filas.append(["Penalización a la esquiva", "-%.0f%%" % (float(m["evasion_penal"]) * 100.0)])
 	# EL PAPEL DEL ESCUDO, derivado de los mismos numeros que lo producen. Es la unica traduccion
 	# numero -> palabra del escudo y vive aqui, no en las tres pantallas que llaman a esta funcion.
 	# Sin estas filas, elegir escudo volvia a ser mirar cual tiene la defensa mas alta.
@@ -1275,7 +1305,7 @@ static func filas_escudo(sh: ShieldData, tier: int, rareza: int, mejoras: Dictio
 		filas.append(["Genera amenaza", "×%.2f" % float(m["amenaza_mult"])])
 	# Solo si de verdad ripostea: el escudo grande no lo hace y una fila con "0%" no dice nada.
 	if float(m.get("contra_prob", 0.0)) > 0.0:
-		filas.append(["Respuesta al bloquear", "%d%% de devolver el golpe, al %d%% de daño" % [
+		filas.append(["Respuesta al bloquear", "%d%% de probabilidad de devolver el golpe con un %d%% del daño" % [
 			roundi(float(m["contra_prob"]) * 100.0), roundi(float(m["contra_mult"]) * 100.0)]])
 	return filas
 
@@ -1352,14 +1382,14 @@ static func filas_armadura(a: ArmorData, tier: int, rareza: int, mejoras: Dictio
 
 	filas.append(["Velocidad", "×%.2f" % float(mods["vel_mult"])])
 	if float(mods["evasion"]) > 0.0:
-		filas.append(["Evasión", "+%s" % _pct(float(mods["evasion"]))])
+		filas.append(["Esquiva", "+%s" % _pct(float(mods["evasion"]))])
 	if float(mods["crit_resist"]) > 0.0:
-		filas.append(["Resist. crítico", "+%s" % _pct(float(mods["crit_resist"]))])
+		filas.append(["Resistencia a críticos", "+%s" % _pct(float(mods["crit_resist"]))])
 	if float(mods["resist_estados"]) > 0.0:
 		# PONDERADA POR COBERTURA, por lo mismo que la reduccion de arriba: lo que esta pieza le
 		# suma al conjunto es su parte, no el numero entero (que es "lo que daria si te cubriera de
 		# arriba abajo" y no se lo lleva nadie con una sola pieza). Ver Upgrades.resist_de_armadura.
-		filas.append(["Resist. estados", "+%s" % _pct1(float(mods["resist_estados"]) * cob)])
+		filas.append(["Resistencia a estados", "+%s" % _pct1(float(mods["resist_estados"]) * cob)])
 	filas.append(["Mejoras", "%d / %d" % [
 		Upgrades.total_mejoras(mejoras), Upgrades.rareza_slots(rareza)]])
 	return filas
@@ -1519,23 +1549,23 @@ static func filas_mejora(item: Resource, tier: int, rareza: int, mejoras: Dictio
 		_attr(filas, "Velocidad", "×%.2f" % (w.velocidad_mult * float(a["vel_mult"])),
 			_d(w.velocidad_mult * float(a["vel_mult"]), w.velocidad_mult * float(b["vel_mult"]), "+%.2f"))
 		if float(a["crit"]) != 0.0 or float(b["crit"]) != 0.0:
-			_attr(filas, "Crítico", "%+.0f%%" % (float(a["crit"]) * 100.0),
+			_attr(filas, "Probabilidad de crítico", "%+.0f%%" % (float(a["crit"]) * 100.0),
 				_d(float(a["crit"]) * 100.0, float(b["crit"]) * 100.0, "+%.0f%%"))
 		_attr(filas, "Daño crítico", "×%.2f" % (StatsMath.CRIT_MULT + float(a["crit_dmg"])),
 			_d(StatsMath.CRIT_MULT + float(a["crit_dmg"]), StatsMath.CRIT_MULT + float(b["crit_dmg"]), "+%.2f"))
 		if float(a["precision"]) > 0.0 or float(b["precision"]) > 0.0:
-			_attr(filas, "Precisión", "+%.0f%%" % (float(a["precision"]) * 100.0),
+			_attr(filas, "Acierto", "+%.0f%%" % (float(a["precision"]) * 100.0),
 				_d(float(a["precision"]) * 100.0, float(b["precision"]) * 100.0, "+%.0f%%"))
 		if float(a["aturdir"]) > 0.0 or float(b["aturdir"]) > 0.0:
-			_attr(filas, "Aturdir", "%.0f%%" % (float(a["aturdir"]) * 100.0),
+			_attr(filas, "Probabilidad de aturdir", "%.0f%%" % (float(a["aturdir"]) * 100.0),
 				_d(float(a["aturdir"]) * 100.0, float(b["aturdir"]) * 100.0, "+%.0f%%"))
 		# TODO LO QUE TIENE, no solo lo que sube (08/10/2026, lo pidio el usuario: "¿que eficacia tiene si la quiero
 		# poner?"): la Eficacia siempre (es una mejora), y la Evasion y la Penetracion si las lleva.
 		if float(a.get("evasion", 0.0)) > 0.0:
-			_attr(filas, "Evasión", "+%.0f%%" % (float(a["evasion"]) * 100.0),
+			_attr(filas, "Esquiva", "+%.0f%%" % (float(a["evasion"]) * 100.0),
 				_d(float(a["evasion"]) * 100.0, float(b["evasion"]) * 100.0, "+%.0f%%"))
 		if Upgrades.penetracion_arma(w) > 0.0:
-			_attr(filas, "Ignora defensa", "%.0f%%" % (Upgrades.penetracion_arma(w) * 100.0), "")
+			_attr(filas, "Ignora Defensa", "%.0f%%" % (Upgrades.penetracion_arma(w) * 100.0), "")
 		if w.es_magica:
 			_filas_mejora_magia(filas, w.magic_amp, w.mp_regen_turno, w.cast_vel_mult, tm, rareza, mejoras, despues)
 		_fila_eficacia(filas, rareza, mejoras, despues)
@@ -1551,11 +1581,11 @@ static func filas_mejora(item: Resource, tier: int, rareza: int, mejoras: Dictio
 		_attr(filas, "Bloqueo", "%.0f%%" % (float(a["bloqueo"]) * 100.0),
 			_d(float(a["bloqueo"]) * 100.0, float(b["bloqueo"]) * 100.0, "+%.0f%%"))
 		if float(a["resist_estados"]) > 0.0 or float(b["resist_estados"]) > 0.0:
-			_attr(filas, "Resist. estados", "+%.0f%%" % (float(a["resist_estados"]) * 100.0),
+			_attr(filas, "Resistencia a estados", "+%.0f%%" % (float(a["resist_estados"]) * 100.0),
 				_d(float(a["resist_estados"]) * 100.0, float(b["resist_estados"]) * 100.0, "+%.0f%%"))
 		_attr(filas, "Velocidad", "×%.2f" % float(a["vel_mult"]), "")
 		if float(a.get("evasion_penal", 0.0)) > 0.0:
-			_attr(filas, "Penal. esquiva", "-%.0f%%" % (float(a["evasion_penal"]) * 100.0), "")
+			_attr(filas, "Penalización a la esquiva", "-%.0f%%" % (float(a["evasion_penal"]) * 100.0), "")
 	elif item is ArmorData:
 		var ar := item as ArmorData
 		var a := Upgrades.armor_piece_mods(ar, tm, rareza, mejoras, tier)
@@ -1563,20 +1593,20 @@ static func filas_mejora(item: Resource, tier: int, rareza: int, mejoras: Dictio
 		_attr(filas, "Defensa", "%.1f" % float(a["def"]), _d(float(a["def"]), float(b["def"]), "+%.1f"))
 		# La defensa MAGICA (la sube la misma Dureza) y las reducciones y la velocidad de su clase: todo lo que tiene.
 		_attr(filas, "Defensa mágica", "%.1f" % float(a["mdef"]), _d(float(a["mdef"]), float(b["mdef"]), "+%.1f"))
-		_attr(filas, "Reducción", "%.1f%%" % (float(a["reduccion"]) * 100.0), "")
+		_attr(filas, "Reducción de daño", "%.1f%%" % (float(a["reduccion"]) * 100.0), "")
 		_attr(filas, "Reducción mágica", "%.1f%%" % (float(a["reduccion_magica"]) * 100.0), "")
 		_attr(filas, "Velocidad", "×%.2f" % float(a["vel_mult"]), "")
 		if float(a["evasion"]) > 0.0 or float(b["evasion"]) > 0.0:
-			_attr(filas, "Evasión", "+%.0f%%" % (float(a["evasion"]) * 100.0),
+			_attr(filas, "Esquiva", "+%.0f%%" % (float(a["evasion"]) * 100.0),
 				_d(float(a["evasion"]) * 100.0, float(b["evasion"]) * 100.0, "+%.0f%%"))
 		if float(a["crit_resist"]) > 0.0 or float(b["crit_resist"]) > 0.0:
-			_attr(filas, "Resist. crítico", "+%.0f%%" % (float(a["crit_resist"]) * 100.0),
+			_attr(filas, "Resistencia a críticos", "+%.0f%%" % (float(a["crit_resist"]) * 100.0),
 				_d(float(a["crit_resist"]) * 100.0, float(b["crit_resist"]) * 100.0, "+%.0f%%"))
 		if float(a["resist_estados"]) > 0.0 or float(b["resist_estados"]) > 0.0:
 			# Ponderada por la cobertura de SU slot, como en filas_armadura: si no, el herrero
 			# prometeria una subida mucho mayor que la que se va a notar.
 			var cob_r: float = Game.cobertura_de_pieza(ar)
-			_attr(filas, "Resist. estados", "+%.1f%%" % (float(a["resist_estados"]) * cob_r * 100.0),
+			_attr(filas, "Resistencia a estados", "+%.1f%%" % (float(a["resist_estados"]) * cob_r * 100.0),
 				_d(float(a["resist_estados"]) * cob_r * 100.0,
 					float(b["resist_estados"]) * cob_r * 100.0, "+%.1f%%"))
 	return filas
@@ -1592,10 +1622,10 @@ static func _filas_mejora_magia(filas: Array, base_amp: float, mp_regen: float, 
 		tm: float, rareza: int, mejoras: Dictionary, despues: Dictionary) -> void:
 	var a := Upgrades.magic_mods(base_amp, tm, rareza, mejoras)
 	var b := Upgrades.magic_mods(base_amp, tm, rareza, despues)
-	_attr(filas, "Amplif. magia", "×%.2f" % float(a["magic_amp"]), _d(float(a["magic_amp"]), float(b["magic_amp"]), "+%.2f"))
-	_attr(filas, "Regen maná", "%.2f/turno" % (mp_regen * float(a["regen_mult"])),
+	_attr(filas, "Amplificación mágica", "×%.2f" % float(a["magic_amp"]), _d(float(a["magic_amp"]), float(b["magic_amp"]), "+%.2f"))
+	_attr(filas, "Regeneración de maná", "%.2f/turno" % (mp_regen * float(a["regen_mult"])),
 		_d(mp_regen * float(a["regen_mult"]), mp_regen * float(b["regen_mult"]), "+%.2f"))
-	_attr(filas, "Vel. casteo", "×%.2f" % (cast_base + float(a["cast_vel_add"])),
+	_attr(filas, "Velocidad de recitado", "×%.2f" % (cast_base + float(a["cast_vel_add"])),
 		_d(cast_base + float(a["cast_vel_add"]), cast_base + float(b["cast_vel_add"]), "+%.2f"))
 	if float(a["mana_reduccion"]) > 0.0 or float(b["mana_reduccion"]) > 0.0:
 		_attr(filas, "Coste de maná", "-%.0f%%" % (float(a["mana_reduccion"]) * 100.0),
@@ -1605,7 +1635,7 @@ static func _filas_mejora_magia(filas: Array, base_amp: float, mp_regen: float, 
 	if float(a["crit_magico"]) > 0.0 or float(b["crit_magico"]) > 0.0:
 		_attr(filas, "Crítico mágico", "%+.0f%%" % (float(a["crit_magico"]) * 100.0),
 			_d(float(a["crit_magico"]) * 100.0, float(b["crit_magico"]) * 100.0, "+%.0f%%"))
-	_attr(filas, "Daño crít. mágico", "×%.2f" % (StatsMath.CRIT_MULT + float(a["crit_dmg_magico"])),
+	_attr(filas, "Daño crítico mágico", "×%.2f" % (StatsMath.CRIT_MULT + float(a["crit_dmg_magico"])),
 		_d(StatsMath.CRIT_MULT + float(a["crit_dmg_magico"]),
 			StatsMath.CRIT_MULT + float(b["crit_dmg_magico"]), "+%.2f"))
 
@@ -2881,7 +2911,7 @@ static func _retrato(fila: HBoxContainer, pj: PersonajeData, i: int, elegido: bo
 	# personaje, los talleres, el maestro) ya le cierra lo que no se puede hacer con alguien fuera.
 	var fuera: bool = Game.esta_de_encargo(pj)
 	if fuera:
-		b.tooltip_text += "\n✕ Está de encargo: vuelve cuando lo recojas"
+		b.tooltip_text += "\n✕ Está de encargo: volverá cuando recojas el encargo"
 	for estado in ["normal", "hover", "pressed", "focus", "disabled"]:
 		b.add_theme_stylebox_override(estado, StyleBoxEmpty.new())
 	b.pressed.connect(pulsado.bind(i))

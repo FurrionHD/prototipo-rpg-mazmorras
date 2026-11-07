@@ -79,7 +79,7 @@ enum UsoMejora { CUALQUIERA, ARMA, ARMADURA }
 # Como se ESCRIBE un peso en todos los menus: con dos decimales por debajo del kilo (si no, un polvo
 # saldria "0.0") y con uno por encima.
 static func texto_peso(kg: float) -> String:
-	return ("%.2f kg" if kg < 1.0 else "%.1f kg") % kg
+	return (("%.2f kg" if kg < 1.0 else "%.1f kg") % kg).replace(".", ",")
 @export var valor_base: int = 20
 
 # --- SOLO para la familia NUCLEO: hasta donde deja subir el equipo ---
@@ -462,7 +462,7 @@ func resumen() -> String:
 			or (tipo == Tipo.DESPENSA and exigencia > 0.0):
 		partes.append("exigencia %d" % roundi(exigencia))
 	if es_pescado() and cm_max > 0.0:
-		partes.append("talla %.1f-%.1f cm" % [cm_min, cm_max])
+		partes.append("talla %s–%s cm" % [StatusEffects.num(snappedf(cm_min, 0.1)), StatusEffects.num(snappedf(cm_max, 0.1))])
 	if mejora_equipo():
 		var uso: String = uso_mejora_texto()
 		if tier_equipo > 0:

@@ -35,7 +35,7 @@ enum Rareza { COMUN, POCO_COMUN, RARO, EPICO, LEGENDARIO, MITICO, OBRA_MAESTRA, 
 # Metalurgia alta. Es la punta de una cadena entera de oficio, y por eso se nota.
 const RAREZA_MULT := [1.00, 1.08, 1.16, 1.25, 1.35, 1.45, 1.55, 1.75]
 const RAREZA_SLOTS := [3, 4, 5, 6, 8, 10, 12, 15]
-const RAREZA_NOMBRE := ["Comun", "Poco comun", "Raro", "Epico", "Legendario", "Mitico", "Obra maestra", "Pristino"]
+const RAREZA_NOMBRE := ["Común", "Poco común", "Raro", "Épico", "Legendario", "Mítico", "Obra maestra", "Prístino"]
 
 # COLOR de cada rareza, alineado 1:1 con RAREZA_NOMBRE. Tiñe el texto de rareza en los menus y
 # alimenta los destellos de la ficha del objeto (ver Particulas.destellos).
@@ -103,10 +103,10 @@ const LUMINOSIDAD := "luminosidad"
 
 # Nombres legibles para la UI.
 const CAT_NOMBRE := {
-	"agudeza": "Agudeza", "precision": "Precision", "peso": "Peso", "rapidez": "Rapidez",
-	"potencia": "Potencia", "eficiencia": "Eficiencia", "celeridad": "Celeridad", "regeneracion": "Regeneracion",
-	"dureza": "Dureza", "evasion": "Evasion", "resist_crit": "Resist. criticos",
-	"resistencia": "Resistencia (estados)", "eficacia": "Eficacia (estados)",
+	"agudeza": "Agudeza", "precision": "Precisión", "peso": "Peso", "rapidez": "Rapidez",
+	"potencia": "Potencia", "eficiencia": "Eficiencia", "celeridad": "Celeridad", "regeneracion": "Regeneración",
+	"dureza": "Dureza", "evasion": "Evasión", "resist_crit": "Resistencia a críticos",
+	"resistencia": "Resistencia a estados", "eficacia": "Eficacia",
 	"durabilidad": "Durabilidad",
 	"refuerzo": "Refuerzo (bloqueo)",
 	"luminosidad": "Luminosidad",

@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1")
 nombre = "Grimorio: Bola de Fuego"
-descripcion = "Un tomo pesado, encuadernado en piel curtida que aun huele a humo. Estudialo y aprenderas Bola de Fuego."
+descripcion = "Un tomo pesado, encuadernado en piel curtida que aún huele a humo. Estúdialo y aprenderás Bola de Fuego."
 cura_total = 0.0
 turnos = 1
 segundos = 1.0

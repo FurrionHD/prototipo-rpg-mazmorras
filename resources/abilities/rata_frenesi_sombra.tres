@@ -11,7 +11,7 @@ prob = 0.45
 [resource]
 script = ExtResource("1")
 nombre = "Frenesí en la sombra"
-descripcion = "ATAQUE DE CARGA: salta de muy lejos, dejando jirones de sombra por el aire, y cae mordiendo sin parar. Escondida, ni la ves agazaparse. Aturdirla mientras se prepara corta el frenesí."
+descripcion = "Ataque de carga: salta de muy lejos, dejando jirones de sombra por el aire, y cae mordiendo sin parar. Escondida, ni la ves agazaparse. Aturdirla mientras se prepara corta el frenesí."
 coste_energia = 0.0
 golpes_min = 5
 golpes_max = 6

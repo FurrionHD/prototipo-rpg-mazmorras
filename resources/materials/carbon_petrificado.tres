@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1")
 id = &"carbon_petrificado"
-nombre = "Carbon petrificado"
-descripcion = "Madera a medio hacerse piedra. Cuesta prenderla y no hay corriente que la apague; es lo mas cerca del carbon de veta que se puede llegar quemando lena."
+nombre = "Carbón petrificado"
+descripcion = "Madera a medio hacerse piedra. Cuesta prenderla y no hay corriente que la apague; es lo más cerca del carbón de veta que se puede llegar quemando leña."
 familia = 0
 tipo = 11
 tier = 2

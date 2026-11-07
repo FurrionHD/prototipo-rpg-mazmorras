@@ -9,5 +9,5 @@ cura_total = 85.0
 cura_pct = 0.08
 turnos = 5
 segundos = 10.0
-descripcion = "Cura 85 + 8% de tu vida máxima, repartido en el tiempo. El techo de las menores: sale de la baba abisal y cunde algo más por turno que la +2, sin alargar la espera."
+descripcion = "Lleva baba abisal: cunde algo más por trago que la +2 sin hacerte esperar más."
 valor_base = 700

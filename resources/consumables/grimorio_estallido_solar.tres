@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1_lqibh")
 nombre = "Grimorio: Estallido solar"
-descripcion = "Un tomo de tapas palidas que cuesta mirar de frente si le da la luz de una vela. Las paginas estan gastadas justo por el centro, como si alguien hubiera leido siempre el mismo parrafo. Estudialo y aprenderas Estallido solar."
+descripcion = "Un tomo de tapas pálidas que cuesta mirar de frente si le da la luz de una vela. Las páginas están gastadas justo por el centro, como si alguien hubiera leído siempre el mismo párrafo. Estúdialo y aprenderás Estallido solar."
 cura_total = 0.0
 turnos = 1
 segundos = 1.0

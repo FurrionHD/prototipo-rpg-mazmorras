@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1_k30k8")
 nombre = "Grimorio: Manto áureo"
-descripcion = "Un tomo tibio, del calor justo de una manta recien quitada. Lleva asi desde que lo trajeron y nadie sabe de donde saca el calor. Estudialo y aprenderas Manto aureo."
+descripcion = "Un tomo tibio, del calor justo de una manta recién quitada. Lleva así desde que lo trajeron y nadie sabe de dónde saca el calor. Estúdialo y aprenderás Manto áureo."
 cura_total = 0.0
 turnos = 1
 segundos = 1.0

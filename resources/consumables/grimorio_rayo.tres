@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1")
 nombre = "Grimorio: Rayo"
-descripcion = "Un tomo que zumba bajito al abrirlo y te eriza el vello de los brazos. Estudialo y aprenderas Rayo."
+descripcion = "Un tomo que zumba bajito al abrirlo y te eriza el vello de los brazos. Estúdialo y aprenderás Rayo."
 cura_total = 0.0
 turnos = 1
 segundos = 1.0

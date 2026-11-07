@@ -30,6 +30,11 @@ func _ready() -> void:
 	menu.mejorar._on_cat(3)   # Eficacia: tiene que verse cuanta tiene y lo que sube
 	await _esperar()
 	get_viewport().get_texture().get_image().save_png("%s/10_herreria_mejorar.png" % CARPETA)
+	# Pase de textos 07/11: con DURABILIDAD elegida sale la fila "Durabilidad maxima" con su +N.
+	var cats: Array = menu.mejorar.categorias(d1)
+	menu.mejorar._on_cat(maxi(0, cats.find(Upgrades.DURABILIDAD)))
+	await _esperar()
+	get_viewport().get_texture().get_image().save_png("%s/11_herreria_mejorar_durabilidad.png" % CARPETA)
 	print("[capturas] en ", CARPETA)
 	get_tree().quit()
 

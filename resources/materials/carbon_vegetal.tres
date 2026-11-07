@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1")
 id = &"carbon_vegetal"
-nombre = "Carbon vegetal"
-descripcion = "Lena quemada despacio y sin aire. Prende facil y se apaga igual de facil: es el carbon que se hace uno mismo cuando no hay veta a mano."
+nombre = "Carbón vegetal"
+descripcion = "Leña quemada despacio y sin aire. Prende fácil y se apaga igual de fácil: es el carbón que se hace uno mismo cuando no hay veta a mano."
 familia = 0
 tipo = 11
 tier = 1

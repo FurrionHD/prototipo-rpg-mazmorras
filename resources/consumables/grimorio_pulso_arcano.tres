@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1")
 nombre = "Grimorio: Pulso arcano"
-descripcion = "El mismo cuadernillo de siempre, pero con la segunda mitad escrita por otra mano y mucho mas apretada. Estudialo y aprenderas Pulso arcano."
+descripcion = "El mismo cuadernillo de siempre, pero con la segunda mitad escrita por otra mano y mucho más apretada. Estúdialo y aprenderás Pulso arcano."
 cura_total = 0.0
 turnos = 1
 segundos = 1.0

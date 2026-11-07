@@ -125,7 +125,7 @@ func arrancar(args: PackedStringArray) -> void:
 	var r: Dictionary = await Mundos.abrir(clave, contrasena, OS.get_cmdline_user_args().has("forzar_build"))
 	if not r.get("ok", false):
 		_acabar({"estado": "error", "error": String(r.get("error", "")),
-			"mensaje": String(r.get("mensaje", "No se pudo abrir el mundo."))})
+			"mensaje": String(r.get("mensaje", "No se ha podido abrir el mundo."))})
 		return
 	match String(r.get("resultado", "")):
 		"unirse":
@@ -140,11 +140,11 @@ func arrancar(args: PackedStringArray) -> void:
 			Game.plantilla.clear()
 			Game.party.clear()
 			if not Mundos.estrenar(clave):
-				_acabar({"estado": "error", "mensaje": "No se pudo guardar el mundo nuevo."})
+				_acabar({"estado": "error", "mensaje": "No se ha podido guardar el mundo nuevo."})
 				return
 		_:
 			if not Mundos.cargar(clave):
-				_acabar({"estado": "error", "mensaje": "No se pudo cargar el mundo."})
+				_acabar({"estado": "error", "mensaje": "No se ha podido cargar el mundo."})
 				return
 	# Mi LUGAR no es ninguno de los del juego: asi ningun "¿estoy yo en ese piso?" del anfitrion me cuenta,
 	# y a los clientes no les sale mi cuerpo (me presento con este lugar y nadie esta nunca en el).
@@ -155,7 +155,7 @@ func arrancar(args: PackedStringArray) -> void:
 	Net.add_child(Net.servidor)
 	if Net.hostear(contrasena, puerto) != OK:
 		await Mundos.cerrar_y_subir()
-		_acabar({"estado": "error", "mensaje": "No se pudo abrir el puerto %d (¿otro juego abierto?)." % puerto})
+		_acabar({"estado": "error", "mensaje": "No se ha podido abrir el puerto %d (¿otro juego abierto?)." % puerto})
 		return
 	if id_steam != 0:
 		Net.tunel.abrir_sala(_TUNEL.TransporteSteam.new(Engine.get_singleton("SteamServer")), puerto)

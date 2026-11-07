@@ -16,7 +16,7 @@ frases = Array[String](["Languidez, quiebra su fuerza", "Flaqueza, muerde sus hu
 rareza = 2
 coste_mana = 7
 dano_base = 0.0
-descripcion = "Le pesan los brazos. Cada golpe suyo llega mas blando que el anterior."
+descripcion = "Le pesan los brazos. Cada golpe suyo llega más blando que el anterior."
 efectos = [SubResource("SA_debil")]
 ; LA FORMA EN EL MAPA (26/09, su decision): un circulo MEDIANO a cierta distancia; tira contra cada uno de dentro.
 forma = 1

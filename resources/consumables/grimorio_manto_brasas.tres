@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1")
 nombre = "Grimorio: Manto de brasas"
-descripcion = "Un tomo caliente al tacto, como si acabara de salir de la lumbre. Estudialo y aprenderas Manto de brasas."
+descripcion = "Un tomo caliente al tacto, como si acabara de salir de la lumbre. Estúdialo y aprenderás Manto de brasas."
 cura_total = 0.0
 turnos = 1
 segundos = 1.0

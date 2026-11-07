@@ -97,7 +97,7 @@ func _veta_concedida(celda: Vector2i) -> void:
 func _veta_ocupada() -> void:
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud != null and hud.has_method("mostrar_toast"):
-		hud.mostrar_toast("Esta ocupado: tu companero ya lo esta trabajando.")
+		hud.mostrar_toast("Está ocupado: tu compañero ya lo está trabajando.")
 
 
 # La llama Game._cerrar_recoleccion (rama multi) al terminar el minijuego de una celda.

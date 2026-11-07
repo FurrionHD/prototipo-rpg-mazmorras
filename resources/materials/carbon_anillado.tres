@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1")
 id = &"carbon_anillado"
-nombre = "Carbon anillado"
-descripcion = "De madera anillada, la mas densa que da el primer tramo. Prende peor y por eso mismo dura mas: la llama va lenta y no se altera con la corriente."
+nombre = "Carbón anillado"
+descripcion = "De madera anillada, la más densa que da el primer tramo. Prende peor y por eso mismo dura más: la llama va lenta y no se altera con la corriente."
 familia = 0
 tipo = 11
 tier = 1

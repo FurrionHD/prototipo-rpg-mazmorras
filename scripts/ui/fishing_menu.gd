@@ -157,7 +157,7 @@ func _ficha(cebos: Array) -> void:
 		MenuScaffold.nota(_content, "El anzuelo desnudo no llama a nadie: pican los peces que se "
 			+ "cruzan con él. Elige bien dónde cae el corcho.")
 		if cebos.is_empty():
-			MenuScaffold.nota(_content, "Los cebos los vende el Pescador, en el pueblo.")
+			MenuScaffold.nota(_content, "Los cebos los vende el pescador, en el pueblo.")
 		return
 
 	var c: ConsumableData = cebos[_sel]
@@ -166,7 +166,7 @@ func _ficha(cebos: Array) -> void:
 	# este texto mintiendo.
 	MenuScaffold.fila(_content, "Atracción", c.resumen(0.0, 0.0), 140, VERDE)
 	MenuScaffold.fila(_content, "Te quedan", str(int(Game.consumables.get(c, 0))), 140)
-	MenuScaffold.fila(_content, "Se gasta", "%d%% de las piezas que cobres"
+	MenuScaffold.fila(_content, "Se gasta", "un %d %% de las veces que cobras una pieza"
 		% int(round(Game.CEBO_GASTO * 100.0)), 140)
 	_content.add_child(HSeparator.new())
 	MenuScaffold.nota(_content, c.descripcion)

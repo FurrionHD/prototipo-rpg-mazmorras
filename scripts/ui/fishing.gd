@@ -279,7 +279,7 @@ func _draw() -> void:
 
 	var nombre: String = _data.nombre if _data != null else "algo"
 	MedidorFaena.texto(self, 25.0, 8.0, size.x - 16.0, nombre, 16)
-	var estado: String = "SUELTA para empezar" if _state == READY else ("MANTÉN ESPACIO" if _state == RUNNING
+	var estado: String = "Suelta para empezar" if _state == READY else ("Mantén [Espacio]" if _state == RUNNING
 		else ("¡LO TIENES!" if _logrado else "Se ha soltado"))
 	var col_e: Color = MedidorFaena.TEXTO
 	if _state != READY and _state != RUNNING:

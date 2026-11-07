@@ -74,9 +74,9 @@ const CARPETA_ICONOS := "res://assets/ui/estados/"
 const CHIP_NEUTRO := Color(0.78, 0.80, 0.86)
 
 # Los chips que NO salen del catalogo (no traen clave): se reconocen por como empieza su etiqueta. El orden importa:
-# los prefijos largos antes que los cortos ("🛡→" antes que "🛡", "🔮x" antes que "🔮").
+# los prefijos largos antes que los cortos ("🛡→" antes que "🛡", "🔮×" antes que "🔮").
 const PREFIJOS := [
-	["⚡!", "carga_lista"], ["⏳", "cargando"], ["🔮x", "foco"], ["🔮", "recitando"], ["🎯", "provocando"],
+	["⚡!", "carga_lista"], ["⏳", "cargando"], ["🔮×", "foco"], ["🔮", "recitando"], ["🎯", "provocando"],
 	["💢", "provocado"], ["🛡→", "cubriendo"], ["🛡←", "cubierto"], ["🛡", "defendiendo"], ["🤺", "en_guardia"],
 	["😮", "sin_fuelle"], ["✚", "pocion_vida"], ["🔷", "pocion_mana"],
 ]

@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 nombre = "Pisotón atronador"
-descripcion = "Alza la pezuña y la estampa contra el suelo con todo su peso. La sacudida golpea a TODO tu grupo a la vez: no hay dónde apartarse."
+descripcion = "Alza la pezuña y la estampa contra el suelo con todo su peso. La sacudida golpea a todo tu grupo a la vez: no hay dónde apartarse."
 coste_energia = 0.0
 golpes_min = 1
 golpes_max = 1

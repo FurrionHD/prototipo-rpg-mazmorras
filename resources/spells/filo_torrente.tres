@@ -6,7 +6,7 @@
 script = ExtResource("1")
 nombre = "Filo de torrente"
 tipo = 1
-frases = Array[String](["Que el rio abrace mi acero", "Torrente, muerde por mi"])
+frases = Array[String](["Que el río abrace mi acero", "Torrente, muerde por mí"])
 rareza = 2
 coste_mana = 8
 dano_base = 0.0

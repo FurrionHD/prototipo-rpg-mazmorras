@@ -142,13 +142,13 @@ func _ficha_pez(vb: VBoxContainer) -> void:
 	_fila_talla(vb, "El más pequeño", d, float(f["cm_min"]), conocido)
 	if conocido:
 		# La horquilla de la ESPECIE, para que sepas cuanto te queda hasta el ejemplar de museo.
-		row(vb, "Talla de la especie", "%.1f - %.1f cm" % [d.cm_min, d.cm_max])
+		row(vb, "Talla de la especie", "%s - %s cm" % [StatusEffects.num(snappedf(d.cm_min, 0.1)), StatusEffects.num(snappedf(d.cm_max, 0.1))])
 		row(vb, "Valor base", "%d monedas" % d.valor_base)
 		_coronas(vb, d)
 	vb.add_child(HSeparator.new())
 	if conocido:
 		note(vb, d.descripcion)
-		note(vb, "Los ejemplares grandes se pagan mejor: uno en el máximo de su especie vale el cuádruple que uno en el mínimo.")
+		note(vb, "Los ejemplares grandes se pagan mejor: uno en el máximo de su especie vale %s veces lo que uno en el mínimo." % StatusEffects.num(MaterialItem.VALOR_TALLA_MAX / MaterialItem.VALOR_TALLA_MIN))
 	else:
 		note(vb, "Todavía no has sacado ninguno. Búscalo en los estanques de la mazmorra.")
 
@@ -160,7 +160,7 @@ func _fila_talla(vb: VBoxContainer, etiqueta: String, d: MaterialData, cm: float
 		return
 	var c: int = d.corona_de(cm)
 	var g: String = MaterialData.corona_glifo(c)
-	row(vb, etiqueta, "%.1f cm%s" % [cm, ("   " + g + " " + MaterialData.corona_texto(c)) if g != "" else ""],
+	row(vb, etiqueta, "%s cm%s" % [StatusEffects.num(snappedf(cm, 0.1)), ("   " + g + " " + MaterialData.corona_texto(c)) if g != "" else ""],
 		MaterialData.corona_color(c) if c != MaterialData.Corona.NINGUNA else AMBAR)
 
 
@@ -261,7 +261,7 @@ func _ficha_cebo(vb: VBoxContainer) -> void:
 	row(vb, "Llevas", str(int(Game.consumables.get(c, 0))))
 	vb.add_child(HSeparator.new())
 	note(vb, c.descripcion)
-	note(vb, "Se gasta el %d%% de las veces que cobras una pieza. Si el pez se escapa o recoges el sedal, no pagas nada."
+	note(vb, "Se gasta el %d %% de las veces que cobras una pieza. Si el pez se escapa o recoges el sedal, no pagas nada."
 		% int(round(Game.CEBO_GASTO * 100.0)))
 
 	# EL PIE: cantidad (arranca en 1; el maximo es lo que te llega) y comprar.
@@ -294,8 +294,8 @@ func _ficha_cebo(vb: VBoxContainer) -> void:
 func _comprar(c: ConsumableData) -> void:
 	var n: int = _cuantas
 	if Game.comprar_consumible(c, n):
-		decir("Compras %d × %s. Se pone en el estanque, con [F] sobre el agua." % [n, c.nombre])
+		decir("Compras %s ×%d. Se pone en el estanque, con [F] sobre el agua." % [c.nombre, n])
 	else:
-		decir("No te llega para %d × %s." % [n, c.nombre], false)
+		decir("No te llega para %s ×%d." % [c.nombre, n], false)
 	_cuantas = 1
 	rebuild()

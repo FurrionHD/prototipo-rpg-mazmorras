@@ -36,7 +36,7 @@ func _pedir_soltar_carga(ab: AbilityData) -> void:
 		return
 	if dueno != 0:
 		_pantalla._ocultar_cajas()
-		_pantalla._set_log("%s tiene %s lista. Esperando su objetivo..." % [_pantalla._player.nombre, ab.nombre])
+		_pantalla._set_log("%s ya puede soltar %s. Esperando su objetivo..." % [_pantalla._player.nombre, ab.nombre])
 		_pantalla.espejo._pedir_a_remoto(dueno, {"tipo": "soltar", "nombre": ab.nombre})
 		return
 	_pintar_soltar(ab.nombre)
@@ -61,7 +61,7 @@ func _pintar_soltar(nombre: String) -> void:
 	_pantalla._cast_box.add_child(b)
 	_pantalla._alto_panel(_pantalla.ALTO_BOTON_ACCION)
 	_pantalla._cast_box.visible = true
-	_pantalla._set_log("%s está lista. Elige a quién y suéltala." % nombre)
+	_pantalla._set_log("Ya se puede soltar %s: elige el objetivo." % nombre)
 	_pantalla._ocultar_log()   # el boton ocupa el sitio del historial, igual que el de disparo
 
 
@@ -177,13 +177,13 @@ func _accion_habilidad() -> void:
 			b.tooltip_text = "⛔ Ya te has preparado este turno: solo la otra preparación\n\n%s" % b.tooltip_text
 		elif cd_left > 0:
 			b.disabled = true
-			b.tooltip_text = "⛔ En cooldown: %d turno%s\n\n%s" % [cd_left, "" if cd_left == 1 else "s", b.tooltip_text]
+			b.tooltip_text = "⛔ Se recarga en %d turno%s\n\n%s" % [cd_left, "" if cd_left == 1 else "s", b.tooltip_text]
 		elif ab.foco_cargas > 0 and _pantalla._player.foco_cargas > 0:
 			b.disabled = true
 			b.tooltip_text = "⛔ Aún te quedan %d cargas de Foco arcano: gástalas antes\n\n%s" % [_pantalla._player.foco_cargas, b.tooltip_text]
 		elif es_conv and _pantalla._player.current_energy < ab.energia_a_mana:
 			b.disabled = true
-			b.tooltip_text = "⛔ Necesitas al menos %.0f EN\n\n%s" % [ab.energia_a_mana, b.tooltip_text]
+			b.tooltip_text = "⛔ Necesitas al menos %.0f de energía\n\n%s" % [ab.energia_a_mana, b.tooltip_text]
 		elif not es_conv and not _pantalla._player.has_energy(coste):
 			b.disabled = true
 			b.tooltip_text = "⛔ Sin energía suficiente\n\n%s" % b.tooltip_text
@@ -246,7 +246,7 @@ func _elegir_municion(ab: AbilityData) -> void:
 	for fila in lista:
 		var md: MunicionData = fila["md"]
 		var b := TooltipButton.new()
-		b.text = "%s  x%d  (+%d%%)" % [md.nombre, int(fila["n"]), roundi(md.dano_bonus * 100.0)]
+		b.text = "%s  ×%d  (+%d %% de daño)" % [md.nombre, int(fila["n"]), roundi(md.dano_bonus * 100.0)]
 		b.tooltip_text = "Carga hasta %d. Se cargan primero las de mejor calidad.\n\n%s" % [ab.cargar_municion, md.descripcion]
 		b.pressed.connect(_cargar.bind(ab, md))
 		_pantalla._celda_submenu(b)
@@ -311,7 +311,7 @@ func _elegir_untura(ab: AbilityData) -> void:
 	for fila in lista:
 		var cons: ConsumableData = fila["c"]
 		var b := TooltipButton.new()
-		b.text = "%s  x%d" % [cons.nombre, int(fila["n"])]
+		b.text = "%s  ×%d" % [cons.nombre, int(fila["n"])]
 		b.tooltip_text = cons.resumen_untura()
 		if _pantalla._player.tiene_imbue():
 			b.tooltip_text += "\n\nSustituye a lo que lleves puesto en el arma."
@@ -572,7 +572,7 @@ func _empezar_carga_jugador(ab: AbilityData) -> void:
 	_pantalla._player.charge_left = ab.carga_turnos
 	print("[habilidad] %s empieza a cargar %s (%d turno%s)" % [
 		_pantalla._player.nombre, ab.nombre, ab.carga_turnos, "" if ab.carga_turnos == 1 else "s"])
-	_pantalla._set_log("⚡ %s se prepara para %s. (si te aturden, se interrumpe)" % [_pantalla._player.nombre, ab.nombre])
+	_pantalla._set_log("⚡ %s se prepara para %s. Si queda Aturdido, se interrumpe." % [_pantalla._player.nombre, ab.nombre])
 	# CON ARCO O BALLESTA, en el mapa se ve TENSAR: el aire se aprieta hacia el que carga (DistanciaAire.TENSA).
 	if _pantalla.tactico and _pantalla._player.a_distancia:
 		_pantalla.efectos._fx_golpe(_pantalla._player, _pantalla._player, 0.0, false, false, Elementos.Elemento.NINGUNO,
@@ -589,7 +589,7 @@ func _empezar_retraso_jugador(ab: AbilityData) -> void:
 	_pantalla._player.retrasando = true
 	_pantalla.echar_atras(_pantalla._player)
 	print("[habilidad] %s prepara %s: sale al volver a llegar a la barra" % [_pantalla._player.nombre, ab.nombre])
-	_pantalla._set_log("⏳ %s prepara %s. (si le aturden, se interrumpe)" % [_pantalla._player.nombre, ab.nombre])
+	_pantalla._set_log("⏳ %s prepara %s. Si queda Aturdido, se interrumpe." % [_pantalla._player.nombre, ab.nombre])
 	_pantalla._fin_de_eleccion()   # cierra la accion: oculta las cajas y repinta (aqui sale el chip ⏳)
 	_pantalla._tras_accion_jugador_varios([])
 
@@ -653,18 +653,19 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		# una pantalla que miente, en que campo.
 		var motivo: String = ""
 		if not _pantalla._player.ability_ready(ab):
-			motivo = "le quedan %d turno(s) de cooldown" % _pantalla._player.ability_cd_left(ab)
+			var cd: int = _pantalla._player.ability_cd_left(ab)
+			motivo = "aún se está recargando (%d turno%s)" % [cd, "" if cd == 1 else "s"]
 		elif ab.foco_cargas > 0 and _pantalla._player.foco_cargas > 0:
 			motivo = "aún le quedan %d cargas de Foco por gastar" % _pantalla._player.foco_cargas
 		elif es_conversion:
 			if _pantalla._player.current_energy < ab.energia_a_mana:
-				motivo = "necesita %.0f EN y tiene %.0f" % [ab.energia_a_mana, _pantalla._player.current_energy]
+				motivo = "necesita %.0f de energía y tiene %.0f" % [ab.energia_a_mana, _pantalla._player.current_energy]
 		elif not _pantalla._player.has_energy(coste):
-			motivo = "cuesta %.0f EN a %d mano(s) y tiene %.0f" % [coste, manos, _pantalla._player.current_energy]
+			motivo = "necesita %.0f de energía y tiene %.0f" % [coste, _pantalla._player.current_energy]
 		if motivo != "":
 			print("[habilidad] %s no puede lanzar %s (%s): ataca de basico" % [
 				_pantalla._player.nombre, ab.nombre, motivo])
-			_pantalla._set_log("%s no puede usar %s: %s. Ataca normal." % [_pantalla._player.nombre, ab.nombre, motivo])
+			_pantalla._set_log("%s no puede usar %s: %s. Hace un ataque básico." % [_pantalla._player.nombre, ab.nombre, motivo])
 			_pantalla._accion_atacar()
 			return
 		# ATAQUE DE CARGA: si la habilidad tarda turnos en soltarse, este turno se va en ANUNCIARLA.
@@ -905,7 +906,7 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 				# varios, al final se le pega la etiqueta de a quien fue), y su daño a la cuenta
 				# del objetivo para el reparto.
 				rastro.append({"t": "falla" if r.evaded
-					else ("💥%.2f" % r.dmg if r.crit else "%.2f" % r.dmg), "c": r.c})
+					else ("💥" + _pantalla._n(r.dmg) if r.crit else _pantalla._n(r.dmg)), "c": r.c})
 				dano_por_obj[r.c] = float(dano_por_obj.get(r.c, 0.0)) + r.dmg
 				print("        " + r.linea)
 			# Fin de la habilidad si, sin área ni redirección, el objetivo ya cayó (los que
@@ -1056,7 +1057,7 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		for al in a_defender:
 			_pantalla._poner_en_defensa(al)
 		if not a_defender.is_empty():
-			estados_log.append("en defensa: %s" % ", ".join(a_defender.map(func(x): return x.nombre)))
+			estados_log.append("en guardia: %s" % ", ".join(a_defender.map(func(x): return x.nombre)))
 	# CIERRAN FILAS (Muro de aliados): los de la huella se arriman un paso al que la lanza.
 	if ab.junta_aliados > 0.0 and _aliados_mapa != null:
 		for al in _aliados_mapa:
@@ -1071,7 +1072,7 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 			ab.imbue_estado, ab.imbue_prob, Elementos.INTENSIDAD_IMBUIDO,
 			ab.imbue_prob_doble, ab.imbue_por_destreza, 1.0, false,
 			ab.imbue_tope(_tier_arma_activa()), ab.imbue_reparto(_tier_arma_activa()))
-		estados_log.append("%s en el arma (%d ataques)" % [
+		estados_log.append("el arma puede causar %s durante %d ataques" % [
 			str(StatusEffects.def(ab.imbue_estado).get("nombre", "?")), ab.imbue_usos])
 	# LIMPIAR DEBUFFS: a un aliado elegido (Purificar) o a todo el grupo (el area del baston).
 	if ab.limpia_debuffs > 0:
@@ -1092,8 +1093,9 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# RECORTE DE COOLDOWNS: a las OTRAS habilidades, nunca a la suya (ver AbilityData).
 	if ab.reduce_cooldowns > 0:
 		var destrabadas: int = _pantalla._player.reducir_cooldowns(ab.reduce_cooldowns, ab)
-		estados_log.append("cooldowns −%dt%s" % [ab.reduce_cooldowns,
-			"" if destrabadas == 0 else " (%d lista%s)" % [destrabadas, "" if destrabadas == 1 else "s"]])
+		estados_log.append("las demás habilidades se recargan %d turno%s antes%s" % [ab.reduce_cooldowns,
+			"" if ab.reduce_cooldowns == 1 else "s",
+			"" if destrabadas == 0 else " (%d ya disponible%s)" % [destrabadas, "" if destrabadas == 1 else "s"]])
 
 	# ---- Mensaje al jugador ----
 	# Con daño van DOS lineas: el RASTRO (que hizo cada golpe) y el REPARTO (cuanto se llevo cada
@@ -1108,22 +1110,37 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 			else "%s usa %s, pero no hay ningún enemigo a su alcance.") % [_pantalla._player.nombre, ab.nombre]
 	elif ab.dano_mult > 0.0:
 		var titulo: String = ab.nombre if tocados.size() > 1 else "%s → %s" % [ab.nombre, _pantalla._etq(obj)]
-		var sin_dar: String = "… no le has dado con ninguno de los %d golpe%s." % [
-			rastro.size(), "" if rastro.size() == 1 else "s"]
+		var sin_dar: String = "… falla el golpe." if rastro.size() == 1 else "… falla los %d golpes." % rastro.size()
 		msg = _pantalla.magia._log_desglose(titulo, rastro, tocados, dano_por_obj, total, sin_dar,
 			_pantalla.magia._desglose_imbue(total, total_imbue, mult_imbue))
 	else:
-		msg = "%s usa %s." % [_pantalla._player.nombre, ab.nombre]
+		# Lo que se echa encima, en la misma frase: "usa Grito de aliento y recibe Ánimo" (06/11, igual que los bichos;
+		# antes "usa Grito de aliento.  Daniel recibe Ánimo.").
+		# Solo si es SOLO suyo: un buff de grupo va entero en una frase ("Daniel, Dasui y Coco reciben Furia").
+		var yo_recibo: String = "%s recibe " % _pantalla._player.nombre
+		var propios: Array = []
+		var otros_reciben: bool = false
+		for s in estados_log:
+			if String(s).begins_with(yo_recibo):
+				propios.append(String(s).trim_prefix(yo_recibo))
+			elif String(s).contains(" recibe "):
+				otros_reciben = true
+		if otros_reciben:
+			propios.clear()
+		else:
+			estados_log = estados_log.filter(func(s): return not String(s).begins_with(yo_recibo))
+		msg = "%s usa %s%s." % [_pantalla._player.nombre, ab.nombre,
+			"" if propios.is_empty() else " y recibe " + ", ".join(propios)]
 	if mana_ganado > 0.0:
-		msg += "  +%.1f MP." % mana_ganado
+		msg += "  Recupera %s de maná. 🔷" % _pantalla._n(mana_ganado)
 	if not estados_log.is_empty():
-		msg += "  ✨%s." % ", ".join(estados_log)
+		msg += _pantalla._frase_estados(estados_log)
 	if ab.bloqueo_turnos > 0:
 		msg += "  🛡️ En guardia."
 	if ab.postura_contraataque:
 		msg += "  🤺 En guardia (contraataque al esquivar)."
 	if ab.foco_cargas > 0:
-		msg += "  🔮 Foco arcano: %d cargas (+%d%% daño a tus próximos hechizos)." % [
+		msg += "  🔮 Foco arcano: %d cargas (+%d%% de daño a los próximos hechizos)." % [
 			_pantalla._player.foco_cargas, roundi(Combatant.FOCO_BONUS * 100.0)]
 	if ab.provoca_turnos > 0:
 		msg += "  🎯 Provocas %d turnos: los enemigos irán más a por ti." % ab.provoca_turnos
@@ -1207,6 +1224,31 @@ static func forma_alargada(f, p: Combatant):
 		f2.cunas = f.cunas
 	return f2
 
+# LO QUE LA HABILIDAD 'ab' DE 'p' LE HARIA A 'v' si fuera su objetivo (06/11, el Filo de aire): sus golpes contra UNO,
+# con el plan de manos y de escudo, cada uno con su esquiva y su critico, x dano_mult, el multiplicador del golpe, la
+# municion y el Daño de habilidades (lo mismo que _resolver_golpe_hab, sin escudos de subditos ni efectos). Sin habilidad
+# (el basico), un golpe de arma. -1 si los esquiva todos.
+func dano_de_habilidad_contra(p: Combatant, ab: AbilityData, v: Combatant) -> float:
+	if ab == null:
+		var rb: Dictionary = StatsMath.resolve_attack(p, v, false)
+		return -1.0 if rb.get("evaded", false) else float(rb["damage"])
+	var idxs: Array = p.ability_hand_indices(ab)
+	var manos: int = maxi(1, idxs.size())
+	var golpes: int = ab.num_golpes(manos, 1)
+	var plan: Array = ab.plan_golpes(golpes, manos)
+	var total: float = 0.0
+	var alguno: bool = false
+	for i in golpes:
+		if not idxs.is_empty():
+			p.set_active_hand(idxs[mini(int(plan[i]["hand"]), idxs.size() - 1)])
+		var atk_ov: float = p.atk_escudo() if ab.golpe_es_de_escudo(i) else -1.0
+		var r: Dictionary = StatsMath.resolve_attack(p, v, false, atk_ov, ab.crit_extra, ab.penetracion_extra)
+		if r.get("evaded", false):
+			continue
+		alguno = true
+		total += float(r["damage"]) * ab.dano_mult * float(plan[i]["mult"]) * _mult_mun * (1.0 + p.runa_dano_hab)
+	return total if alguno else -1.0
+
 func filo_de_aire(p: Combatant, ab: AbilityData, ya: Array, obj: Combatant) -> Array:
 	var out: Array = []
 	if p == null or p.runa_filo_dano <= 0.0 or not _pantalla.tactico or _pantalla._espejo \
@@ -1231,19 +1273,21 @@ func filo_de_aire(p: Combatant, ab: AbilityData, ya: Array, obj: Combatant) -> A
 	var est: int = _pantalla.efectos._estilo_de_habilidad(ab, p)
 	for e in nuevos:
 		var v: Combatant = e
-		var r: Dictionary = StatsMath.resolve_attack(p, v, false)
-		if r.get("evaded", false):
+		# (06/11, lo pidio el jefe) De LO QUE LA HABILIDAD LE HARIA, no de un basico: una habilidad cara y fuerte
+		# alarga un corte fuerte.
+		var base: float = dano_de_habilidad_contra(p, ab, v)
+		if base < 0.0:
 			_pantalla.efectos._fx_golpe(p, v, 0.0, false, true, Elementos.Elemento.VIENTO, est, 0.7, false)
 			partes.append("%s lo esquiva" % _pantalla._etq(v))
 			continue
 		var mult: float = Elementos.mult_recibido(Elementos.Elemento.VIENTO, v)
-		var d: float = maxf(0.1, float(r["damage"]) * p.runa_filo_dano * mult)
+		var d: float = maxf(0.1, base * p.runa_filo_dano * mult)
 		v.take_damage(d)
 		_pantalla.efectos._fx_golpe(p, v, d, false, false, Elementos.Elemento.VIENTO, est, 0.7, false,
 			"", AbilityData.Gesto.AUTO, null, 0, mult)
 		_pantalla._apuntar_dano(v, d, p)
 		out.append(v)
-		partes.append("%s %.2f" % [_pantalla._etq(v), d])
+		partes.append("%s %s" % [_pantalla._etq(v), _pantalla._n(d)])
 	if not partes.is_empty():
 		_pantalla._update_hp()
 		_pantalla._log_extra("💨 Filo de aire: el corte de %s sigue de largo (%s)" % [p.nombre, ", ".join(partes)])
@@ -1317,5 +1361,10 @@ func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico:
 			d.aturdir_en_area = ab != null and (ab.es_area() or (ab.forma >= 0 and not ab.forma_solo_primero))
 			for _s in maxi(1, a.stacks):
 				d.apply_status(a.estado, _pantalla._player.runa_turnos(a.estado, a.turns), _pantalla._player.runa_mag(a.estado, mag, d), 1, false, a.cap, a.mult)
-			out.append(nom if al_enemigo else "%s (%s)" % [nom, d.nombre])
+			# "·" = causado al golpeado (CombatPantalla._frase_estados lo junta en "Causa X"). El buff que se pone el que la
+			# usa y se llama como ella (Guardia de carne) no se repite: "usa Guardia de carne" ya lo dice.
+			if al_enemigo:
+				out.append("·" + nom)
+			elif not (d == _pantalla._player and ab != null and nom == ab.nombre):
+				out.append("%s recibe %s" % [d.nombre, nom])
 	return out

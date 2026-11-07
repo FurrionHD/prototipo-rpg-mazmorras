@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = &"nucleo_rey_slime"
 nombre = "Núcleo de rey slime"
-descripcion = "Del tamaño de un puño y todavía latiendo. Pesa mucho más de lo que deberia y, si lo miras fijamente, notas que el te esta mirando a ti."
+descripcion = "Del tamaño de un puño y todavía latiendo. Pesa mucho más de lo que debería y, si lo miras fijamente, notas que él te está mirando a ti."
 familia = 1
 tipo = 4
 tier = 4

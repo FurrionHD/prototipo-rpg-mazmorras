@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = &"cobre_veteado"
 nombre = "Cobre veteado"
-descripcion = "El mismo cobre, pero cruzado de vetas mas claras que lo recorren como nervios. Cuesta mas sacarlo entero: la veta manda por donde se parte, y no siempre coincide con donde golpeas."
+descripcion = "El mismo cobre, pero cruzado de vetas más claras que lo recorren como nervios. Cuesta más sacarlo entero: la veta manda por donde se parte, y no siempre coincide con donde golpeas."
 familia = 0
 tipo = 2
 tier = 1

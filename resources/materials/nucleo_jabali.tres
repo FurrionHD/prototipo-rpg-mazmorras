@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = &"nucleo_jabali"
 nombre = "Núcleo de jabalí"
-descripcion = "Pesa como una piedra y suena hueco al golpearlo. Una armadura que lo lleve dentro aguanta embestidas que no deberia aguantar."
+descripcion = "Pesa como una piedra y suena hueco al golpearlo. Una armadura que lo lleve dentro aguanta embestidas que no debería aguantar."
 familia = 1
 tipo = 4
 tier = 3

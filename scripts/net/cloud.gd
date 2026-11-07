@@ -264,7 +264,7 @@ func subir(save: PackedByteArray, meta: Dictionary = {}) -> Dictionary:
 func _subir(save: PackedByteArray, meta: Dictionary, soltando: bool) -> Dictionary:
 	if estado == PERDIDO:
 		var r_perdido := {"ok": false, "error": "token_viejo",
-			"mensaje": "El mundo lo tiene otro: esta partida no se puede subir."}
+			"mensaje": "Otra persona tiene el mundo abierto: esta partida no se puede subir."}
 		_olvidar()
 		return r_perdido
 	if estado != HOST and estado != PENDIENTE_SUBIR:
@@ -294,7 +294,7 @@ func sincronizar(p: Dictionary, meta: Dictionary = {}) -> Dictionary:
 	if estado == PERDIDO:
 		_olvidar()
 		return {"ok": false, "error": "token_viejo",
-			"mensaje": "El mundo lo tiene otro: esta partida no se puede subir."}
+			"mensaje": "Otra persona tiene el mundo abierto: esta partida no se puede subir."}
 	if estado != HOST and estado != PENDIENTE_SUBIR:
 		return {"ok": false, "error": "sin_cerrojo", "mensaje": "No tienes ningún mundo abierto."}
 	var id := mundo_id
@@ -358,7 +358,7 @@ func _tras_subir(r: Dictionary, id: String, token: int, soltando: bool, que: Str
 	mundo_id = id
 	_token = token
 	_cambiar(PENDIENTE_SUBIR)
-	subida_pendiente.emit(String(r.get("mensaje", "No se pudo subir la partida.")))
+	subida_pendiente.emit(String(r.get("mensaje", "No se ha podido subir la partida.")))
 	return r
 
 
@@ -411,26 +411,26 @@ func _clave_cuenta() -> String:
 
 func cuenta_lista() -> Dictionary:
 	if _clave_cuenta() == "":
-		return {"ok": false, "error": "sin_clave", "mensaje": "Sin clave no hay nube."}
+		return {"ok": false, "error": "sin_clave", "mensaje": "Falta tu clave: no se puede usar la nube."}
 	return await almacen.cuenta_lista(_cuenta(), _clave_cuenta())
 
 
 # p = {base, completa, filas, foto, foto_antes}. r["rev"] = el rev de la nube tras subir.
 func partida_sync(partida: String, p: Dictionary, meta: Dictionary) -> Dictionary:
 	if _clave_cuenta() == "":
-		return {"ok": false, "error": "sin_clave", "mensaje": "Sin clave no hay nube."}
+		return {"ok": false, "error": "sin_clave", "mensaje": "Falta tu clave: no se puede usar la nube."}
 	return await almacen.p_sync(_cuenta(), _clave_cuenta(), partida, p, meta)
 
 
 func partida_bajar(partida: String, desde: int) -> Dictionary:
 	if _clave_cuenta() == "":
-		return {"ok": false, "error": "sin_clave", "mensaje": "Sin clave no hay nube."}
+		return {"ok": false, "error": "sin_clave", "mensaje": "Falta tu clave: no se puede usar la nube."}
 	return await almacen.p_bajar(_cuenta(), _clave_cuenta(), partida, desde)
 
 
 func partida_borrar(partida: String) -> Dictionary:
 	if _clave_cuenta() == "":
-		return {"ok": false, "error": "sin_clave", "mensaje": "Sin clave no hay nube."}
+		return {"ok": false, "error": "sin_clave", "mensaje": "Falta tu clave: no se puede usar la nube."}
 	return await almacen.p_borrar(_cuenta(), _clave_cuenta(), partida)
 
 
@@ -476,11 +476,11 @@ func _rango(ip: String) -> int:
 func etiqueta_direccion(ip: String) -> String:
 	match _rango(ip):
 		0:
-			return "LAN virtual (Hamachi) — la buena para jugar de casa a casa"
+			return "LAN virtual (Hamachi): la buena para jugar de casa a casa"
 		1:
 			return "LAN virtual (Tailscale)"
 		2:
-			return "tu red local — solo sirve si estáis en la misma casa"
+			return "Tu red local: solo sirve si estáis en la misma casa"
 		_:
 			return "otra red"
 

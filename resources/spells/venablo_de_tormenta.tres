@@ -22,7 +22,7 @@ coste_mana = 15
 dano_base = 47.66
 elemento = 3
 hits = 2
-descripcion = "El rayo de siempre va saltando de uno a otro y se gasta por el camino. Este no salta: baja entero sobre UNO y baja dos veces. Lo normal es que se quede quieto un rato despues."
+descripcion = "El rayo de siempre va saltando de uno a otro y se gasta por el camino. Este no salta: baja entero sobre UNO y baja dos veces. Lo normal es que se quede quieto un rato después."
 efectos = [SubResource("SA_rayo"), SubResource("SA_aturde")]
 ; LA FORMA EN EL MAPA (26/09, su decision): JABALINA de rayo desde la mano en linea recta al primero; son dos lanzas
 ; y si la primera lo mata, la segunda sigue al de detras (fila_del_proyectil).

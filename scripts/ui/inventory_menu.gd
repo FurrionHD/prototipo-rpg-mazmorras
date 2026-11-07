@@ -408,12 +408,12 @@ func _row(vb: VBoxContainer, etiqueta: String, valor: String, color_valor: Varia
 	row.add_theme_constant_override("separation", 8)
 	var k := Label.new()
 	k.text = etiqueta
-	k.custom_minimum_size = Vector2(150, 0)
+	k.custom_minimum_size = Vector2(200, 0)   # 200: cabe "Penalización a la esquiva" en una línea (medido, 06/11)
 	k.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
 	row.add_child(k)
 	var v := Label.new()
-	v.text = valor
+	v.text = MenuScaffold.valor_es(valor)   # coma decimal y espacio antes del % (pase de textos 06/11)
 	if color_valor is Color:
 		v.add_theme_color_override("font_color", color_valor)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -550,7 +550,7 @@ func _piezas_stacks(stacks: Array) -> Array:
 	for s in stacks:
 		var n: int = int(s["cantidad"])
 		out.append(_pieza(s["modelo"], "x%d" % n,
-			"%s  x%d" % [_nombre_item(s["modelo"]).replace("\n", " "), n]))
+			"%s  ×%d" % [_nombre_item(s["modelo"]).replace("\n", " "), n]))
 	return out
 
 
@@ -591,7 +591,7 @@ func _clave_item(it: Resource) -> String:
 func _nombre_item(it: Resource) -> String:
 	if it is Cristal:
 		var c := it as Cristal
-		return "Cristal Cat %d\n(%s)" % [c.categoria, c.calidad_texto()]
+		return "Cristal de categoría %d\n(%s)" % [c.categoria, c.calidad_texto()]
 	if it is MaterialItem:
 		var m := it as MaterialItem
 		# nombre_mostrado() lleva ya la talla y la corona del record; en todo lo que no es pescado
@@ -723,7 +723,7 @@ func _preview_mochila(vb: VBoxContainer) -> void:
 	_titulo_rareza(vb, m, "   [puesta]" if puesta else "")
 	_banner(vb, m, 0, "Mochila del equipo")
 	_row(vb, "Capacidad", "+%.0f de carga" % Game.capacidad_mochila(m))
-	_row(vb, "Llevaríais", "%.0f  (ahora: %.0f)" % [
+	_row(vb, "Carga máxima con esta", "%.0f  (ahora: %.0f)" % [
 		Game.capacidad_con_mochila(m), Game.capacidad_carga()])
 	if m.descripcion != "":
 		_note(vb, m.descripcion)
@@ -733,9 +733,9 @@ func _preview_mochila(vb: VBoxContainer) -> void:
 		Game.equipar_mochila(null if puesta else m)
 		_rebuild(), not puesta, Game.en_pueblo())
 	if not Game.en_pueblo():
-		_note(vb, "Cambios de equipo solo en el pueblo.")
+		_note(vb, "El equipo solo se puede cambiar en el pueblo.")
 	if puesta:
-		_note(vb, "Al quitarla os quedáis con el zurrón de serie (25 de carga).")
+		_note(vb, "Al quitarla os quedáis con el zurrón de serie (%d de carga)." % roundi(Game.base_capacity))
 
 
 # --- HERRAMIENTAS: pico, hoz, hacha y caña. Del grupo, como la mochila. ---
@@ -807,7 +807,7 @@ func _build_farolillo() -> void:
 			# diria cuanto tienes pero no cual es mejor, que es a lo que se viene aqui.
 			var m := modelo as MaterialItem
 			piezas.append(_pieza(m, _mmss(Lampara.duracion(m)),
-				"%s  x%d  (%s · %s cada uno)" % [m.data.nombre, int(s["cantidad"]),
+				"%s  ×%d  (%s · %s cada uno)" % [m.data.nombre, int(s["cantidad"]),
 					m.calidad_texto(), _mmss(Lampara.duracion(m))]))
 	_grid_detail(piezas, _preview_farolillo)
 
@@ -868,7 +868,7 @@ func _preview_herramienta(vb: VBoxContainer) -> void:
 			Game.equipar_herramienta(t)
 		_rebuild(), not puesta, Game.en_pueblo())
 	if not Game.en_pueblo():
-		_note(vb, "Cambios de equipo solo en el pueblo.")
+		_note(vb, "El equipo solo se puede cambiar en el pueblo.")
 	if puesta:
 		if t.es_cana():
 			_note(vb, "Sin caña no puedes pescar: no hay una de serie a la que volver.")
@@ -894,7 +894,7 @@ func _build_consumibles() -> void:
 	for s in _stacks:
 		var cd := s["modelo"] as ConsumableData
 		var n: int = int(s["cantidad"])
-		piezas.append(_pieza(cd, "x%d" % n, "%s  x%d" % [cd.nombre, n],
+		piezas.append(_pieza(cd, "x%d" % n, "%s  ×%d" % [cd.nombre, n],
 			"PUESTO" if Game.cebo_activo == cd else ""))
 	_grid_detail(piezas, _preview_consumible)
 
@@ -939,9 +939,10 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 		_row(vb, "Hechizos", "%d sabidos  ·  lleva %d / %d" % [
 			Game.hechizos_sabidos(Game.lider()).size(),
 			Game.hechizos_equipados(Game.lider()).size(), Game.MAX_HECHIZOS])
-	elif cons.es_plato():
+	elif cons.es_plato() or cons.es_brebaje_de_estado():
 		# La ficha del plato ya trae QUE hace y CUANTO dura, todo derivado de sus efectos: aqui no se
-		# escribe ni un numero (ver ConsumableData.resumen_plato).
+		# escribe ni un numero (ver ConsumableData.resumen_plato). El ANTIDOTO tambien (06/11: salia por la rama de
+		# las pociones y decia "cura 30 · 0 s · 0 turnos").
 		_note(vb, cons.resumen_plato())
 	elif cons.es_untura():
 		_note(vb, cons.resumen_untura())
@@ -949,9 +950,10 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 		_row(vb, "Atracción", cons.resumen(0.0, 0.0))
 		_row(vb, "Puesto", "sí" if Game.cebo_activo == cons else "no")
 	else:
-		_row(vb, "Efecto", cons.resumen(Game.player_max_hp(), Game.player_max_mp()))
-		_row(vb, "Duración", "%.0f s (fuera de combate)" % cons.segundos)
-		_row(vb, "En combate", "%d turnos" % cons.turnos)
+		_row(vb, "Efecto", cons.resumen(Game.player_max_hp(), Game.player_max_mp(), Game.lider().nombre))
+		# Solo lo que se reparte (las pociones): la piedra de retorno decia "En combate: 1 turnos".
+		if cons.cura_hp() or cons.da_mana():
+			_row(vb, "Se reparte en", cons.reparto_txt())
 	if cons.descripcion != "":
 		_note(vb, cons.descripcion)
 
@@ -978,7 +980,7 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 		_note(vb, "Los cebos se ponen en el estanque: ponte en la orilla y pulsa [F].")
 	elif cons.es_untura():
 		# Una untura tampoco se bebe: se unta en combate con el arco o la ballesta (la habilidad Untar).
-		_note(vb, "Se unta en combate: con arco o ballesta, la habilidad Untar.")
+		_note(vb, "Se usa en combate con la habilidad Untar, con arco o ballesta.")
 	# El GRIMORIO siempre por el modal, aunque solo haya uno: es donde se pregunta si estas seguro.
 	elif a_alguien and (_candidatos_uso(cons).size() > 1 or cons.es_grimorio()):
 		MenuScaffold.pastilla(vb, _verbo_usar(cons), _abrir_modal_usar.bind(cons))
@@ -1188,9 +1190,9 @@ func _preview_arma(vb: VBoxContainer) -> void:
 		var meta_w: Dictionary = Game.meta_de(wd)
 		var mg: Dictionary = Upgrades.magic_mods(wd.magic_amp, Game.tier_mult(int(meta_w["tier"])),
 			int(meta_w["rareza"]), meta_w["mejoras"])
-		_row(vb, "Amplif. magia", "×%.2f" % float(mg["magic_amp"]))
-		_row(vb, "Regen maná", "%.2f/turno" % (wd.mp_regen_turno * float(mg["regen_mult"])))
-		_row(vb, "Vel. casteo", "×%.2f" % (wd.cast_vel_mult + float(mg["cast_vel_add"])))
+		_row(vb, "Amplificación mágica", "×%.2f" % float(mg["magic_amp"]))
+		_row(vb, "Regeneración de maná", "%.2f/turno" % (wd.mp_regen_turno * float(mg["regen_mult"])))
+		_row(vb, "Velocidad de recitado", "×%.2f" % (wd.cast_vel_mult + float(mg["cast_vel_add"])))
 		if float(mg["mana_reduccion"]) > 0.0:
 			_row(vb, "Coste de maná", "-%.0f%%" % (float(mg["mana_reduccion"]) * 100.0))
 		for fila in MenuScaffold.filas_critico_magico(mg, wd.crit_bonus):
@@ -1230,10 +1232,10 @@ func _preview_armadura(vb: VBoxContainer) -> void:
 	var a: ArmorData = _stacks[_sel]["modelo"]
 	_titulo_rareza(vb, a, _marca_dueno(a))
 	_banner(vb, a, 0, ARMOR_SLOT_LABELS[clampi(int(a.slot), 0, 4)])
-	_row(vb, "Slot", ARMOR_SLOT_LABELS[clampi(int(a.slot), 0, 4)])
+	_row(vb, "Ranura", ARMOR_SLOT_LABELS[clampi(int(a.slot), 0, 4)])
 	_row(vb, "Tipo", ARMOR_TIPO_LABELS[clampi(int(a.tipo), 0, ARMOR_TIPO_LABELS.size() - 1)])
 	_row(vb, "Defensa base", "%.2f" % (a.defensa_base * a.motion_def))
-	_row(vb, "Reducción", "%.0f%%" % (a.reduccion * 100.0))
+	_row(vb, "Reducción de daño", "%.0f%%" % (a.reduccion * 100.0))
 	_row(vb, "Velocidad", "×%.2f" % a.velocidad_mult)
 	_row(vb, "Durabilidad", Game.durabilidad_txt_item(a), Game.durabilidad_color(a))
 	MenuScaffold.bloque_runas(vb, a)
@@ -1950,8 +1952,8 @@ func _motivo_bloqueo(c: ConsumableData, pj: PersonajeData) -> String:
 	if sirve or not (c.cura_hp() or c.da_mana()):
 		return ""
 	if c.cura_hp() and c.da_mana():
-		return "%s está a tope de vida y de maná." % pj.nombre
-	return "%s está a tope de %s." % [pj.nombre, "vida" if c.cura_hp() else "maná"]
+		return "%s ya tiene la vida y el maná al máximo." % pj.nombre
+	return "%s ya tiene %s al máximo." % [pj.nombre, "la vida" if c.cura_hp() else "el maná"]
 
 
 # Lo que conviene saber aunque NO bloquee (el plato que va a pisar al que lleva puesto).
@@ -2122,9 +2124,9 @@ func _franja(vb: VBoxContainer, texto: String, bloquea: bool) -> void:
 func _texto_efecto(c: ConsumableData) -> String:
 	if c.es_grimorio():
 		return "Enseña %s  ·  %d de maná por lanzamiento." % [c.spell.nombre, c.spell.coste_mana]
-	if c.es_plato():
+	if c.es_plato() or c.es_brebaje_de_estado():
 		return c.resumen_plato()
-	return c.resumen(Game.player_max_hp(), Game.player_max_mp())
+	return c.resumen(Game.player_max_hp(), Game.player_max_mp(), Game.lider().nombre)
 
 
 const ANCHO_TARJETA := 116.0

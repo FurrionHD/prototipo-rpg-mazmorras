@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1")
 nombre = "Grimorio: Descarga"
-descripcion = "Un tomo fino, con las hojas chamuscadas por los bordes. Estudialo y aprenderas Descarga."
+descripcion = "Un tomo fino, con las hojas chamuscadas por los bordes. Estúdialo y aprenderás Descarga."
 cura_total = 0.0
 turnos = 1
 segundos = 1.0

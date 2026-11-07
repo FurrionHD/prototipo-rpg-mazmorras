@@ -179,7 +179,7 @@ func _bajar_paginas(op: String, id: String, contrasena: String, cab: Dictionary,
 			intentos += 1
 			if intentos > INTENTOS_PAGINAS:
 				return {"ok": false, "error": "cambiando",
-					"mensaje": "La partida está cambiando en la nube mientras se baja. Prueba otra vez."}
+					"mensaje": "La partida está cambiando en la nube mientras se descarga. Inténtalo de nuevo."}
 			filas.clear()
 			tras = 0
 			rev0 = -1
@@ -271,7 +271,7 @@ func _peticion(op: String, id: String, contrasena: String, cabeceras: Dictionary
 		HTTPClient.METHOD_POST, cuerpo)
 	if err != OK:
 		h.queue_free()
-		return _fallo("sin_red", "No se pudo hablar con la nube (error %d)." % err)
+		return _fallo("sin_red", "No se ha podido conectar con la nube (error %d)." % err)
 	var res: Array = await h.request_completed   # [resultado, codigo HTTP, cabeceras, cuerpo]
 	h.queue_free()
 	var resultado: int = int(res[0])
@@ -279,14 +279,14 @@ func _peticion(op: String, id: String, contrasena: String, cabeceras: Dictionary
 	var bytes: PackedByteArray = res[3]
 	if resultado != HTTPRequest.RESULT_SUCCESS:
 		push_warning("[nube-http] %s: sin respuesta (resultado %d)" % [op, resultado])
-		return _fallo("sin_red", "No hay conexión con la nube. Mira tu internet y vuelve a probar.")
+		return _fallo("sin_red", "No hay conexión con la nube. Comprueba tu conexión a internet e inténtalo de nuevo.")
 	if binario and codigo == 200:
 		return {"ok": true, "bytes": bytes}
 	var d = JSON.parse_string(bytes.get_string_from_utf8())
 	if d is Dictionary and (d as Dictionary).has("ok"):
 		return d
 	push_warning("[nube-http] %s: respuesta rara (HTTP %d)" % [op, codigo])
-	return _fallo("respuesta_mala", "La nube ha contestado algo raro (HTTP %d)." % codigo)
+	return _fallo("respuesta_mala", "La nube ha dado una respuesta inesperada (HTTP %d)." % codigo)
 
 
 func _json(d: Dictionary) -> PackedByteArray:

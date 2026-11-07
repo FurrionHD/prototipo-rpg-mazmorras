@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1_3q8nd")
 nombre = "Grimorio: Filo radiante"
-descripcion = "Un tomo estrecho, de canto tan afilado que hay que cogerlo por las tapas. No proyecta sombra sobre la mesa. Estudialo y aprenderas Filo radiante."
+descripcion = "Un tomo estrecho, de canto tan afilado que hay que cogerlo por las tapas. No proyecta sombra sobre la mesa. Estúdialo y aprenderás Filo radiante."
 cura_total = 0.0
 turnos = 1
 segundos = 1.0

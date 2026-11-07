@@ -271,21 +271,31 @@ func es_cebo() -> bool:
 func es_untura() -> bool:
 	return untura_usos > 0
 
-# La ficha de la untura, todo sacado de los campos.
+# La ficha de la untura, todo sacado de los campos (06/11, pase de textos: al estilo de docs/guia_textos.md).
 func resumen_untura() -> String:
 	var l: PackedStringArray = []
 	var nom_est: String = str(StatusEffects.def(untura_estado).get("nombre", "?")) if untura_estado >= 0 else ""
 	if untura_elemento != Elementos.Elemento.NINGUNO:
-		l.append("Tus disparos añaden un %d%% de daño de %s." % [roundi(untura_pct * 100.0), Elementos.nombre(untura_elemento)])
+		l.append("Los disparos infligen un daño adicional de %s equivalente al %d %% del daño del disparo." % [
+			Elementos.nombre(untura_elemento), roundi(untura_pct * 100.0)])
 	if untura_estado >= 0:
-		l.append("Cada golpe que acierta puede dejar %s (%d%% base, según tu Destreza contra su Resistencia)." % [
-			nom_est, roundi(untura_prob * 100.0)])
+		l.append("Cada disparo que acierta tiene un %d %% de probabilidad base de causar %s." % [
+			roundi(untura_prob * 100.0), nom_est])
 	if not untura_reparto.is_empty():
-		l.append("Si prende, suma: %s (como mucho %d)." % [AbilityData.texto_reparto(untura_reparto), untura_reparto.size()])
+		var partes: Array = []
+		for i in untura_reparto.size():
+			partes.append("%d (%d %%)" % [i + 1, roundi(float(untura_reparto[i]) * 100.0)])
+		# "suma 1 acumulación (60 %), 2 (30 %) o 3 (10 %)"; con una sola fila, "suma 1 acumulación".
+		if partes.size() == 1:
+			l.append("Al causarlo, suma 1 acumulación.")
+		else:
+			partes[0] = "1 acumulación (%d %%)" % roundi(float(untura_reparto[0]) * 100.0)
+			l.append("Al causarlo, suma %s o %s." % [", ".join(partes.slice(0, partes.size() - 1)),
+				String(partes[partes.size() - 1])])
 	if untura_extra_estado >= 0:
-		l.append("Y cuando prende, un %d%% de dejar también %s." % [roundi(untura_extra_prob * 100.0),
-			str(StatusEffects.def(untura_extra_estado).get("nombre", "?"))])
-	l.append("Se unta al arco o a la ballesta con Untar y dura %d ataques." % untura_usos)
+		l.append("Cuando causa %s, tiene además un %d %% de probabilidad base de causar %s." % [nom_est,
+			roundi(untura_extra_prob * 100.0), str(StatusEffects.def(untura_extra_estado).get("nombre", "?"))])
+	l.append("Se aplica al arco o a la ballesta con Untar. Dura %d ataques." % untura_usos)
 	return "\n".join(l)
 
 # ¿Esta poción cura VIDA? ¿da MANÁ? (para el menu y el uso).
@@ -308,28 +318,59 @@ func mana_por_turno(max_mp: float) -> float:
 func mana_por_segundo(max_mp: float) -> float:
 	return mana_efectivo(max_mp) / maxf(0.1, segundos)
 
-# Resumen corto del efecto para menus/HUD, p.ej. "cura 27" / "maná 10" / "cura 27 + maná 10".
-# El alcance de la vuelta sale del CAMPO, nunca de la descripcion: si cambias piso_max_vuelta en el
-# .tres, el texto se entera solo.
-func resumen(max_hp: float, max_mp: float) -> String:
+# El efecto para menus y HUD (06/11, pase de textos): "Restaura 90 de vida + 12 % de la vida máxima de quien la bebe
+# (114 para Dasui)". 'quien' = el nombre para el numero de ejemplo ("" = sin ejemplo). El alcance de la vuelta sale del
+# CAMPO, nunca de la descripcion: si cambias piso_max_vuelta en el .tres, el texto se entera solo.
+func resumen(max_hp: float, max_mp: float, quien: String = "") -> String:
 	if es_vuelta_pueblo():
-		return "vuelve al pueblo (hasta el piso %d)" % piso_max_vuelta
+		return "Devuelve al pueblo desde el piso %d o más arriba." % piso_max_vuelta
 	if es_cebo():
-		return "atrae peces a %.0f px del corcho" % cebo_radio
+		return atraccion_txt().capitalize()   # va en la fila "Atracción": "Corta"
 	if es_untura():
 		return resumen_untura()
-	if es_plato():
+	if es_plato() or es_brebaje_de_estado():
 		return resumen_plato()
 	# El tocho no dice cuanta excelia da EN NUMERO: la que recibes depende de lo lejos que estes de
 	# tu base de nivel (Game.ganar), asi que un numero aqui mentiria a la mitad del grupo.
 	if es_tocho():
-		return "se lee una vez" if not es_tomo_sabio() else "se lee una vez · enseña algo de magia"
+		return "Se lee una vez." if not es_tomo_sabio() else "Se lee una vez. Enseña algo de magia."
+	# Como la comida de Genshin (06/11, lo eligio el jefe): "Restaura un 22 % de la Vida Máx. y 1200 pts. de Vida al
+	# personaje seleccionado" -> "Restaura un 12 % de la vida máxima y 90 de vida a quien la bebe (114 para Dasui)."
 	var p: Array = []
+	var ejemplo: Array = []
 	if cura_hp():
-		p.append("cura %.0f" % cura_efectiva(max_hp))
+		p.append(_restaura("vida", cura_total, cura_pct))
+		ejemplo.append("%d de vida" % roundi(cura_efectiva(max_hp)))
 	if da_mana():
-		p.append("maná %.0f" % mana_efectivo(max_mp))
-	return " + ".join(p)
+		p.append(_restaura("maná", mana_total, mana_pct))
+		ejemplo.append("%d de maná" % roundi(mana_efectivo(max_mp)))
+	var s: String = "Restaura " + " y ".join(p) + " a quien la bebe"
+	# El ejemplo solo si hay un % (si es fijo, el numero ya esta dicho).
+	if quien != "" and (cura_pct > 0.0 or mana_pct > 0.0):
+		var solo_num: bool = ejemplo.size() == 1
+		s += " (%s para %s)" % [ejemplo[0].split(" ")[0] if solo_num else " y ".join(ejemplo), quien]
+	return s + "."
+
+# "un 12 % de la vida máxima y 90 de vida" (primero el %, luego lo fijo, como Genshin).
+static func _restaura(que: String, plano: float, pct: float) -> String:
+	var de_max: String = "un %d %% %s" % [roundi(pct * 100.0), "de la vida máxima" if que == "vida" else "del maná máximo"]
+	if pct <= 0.0:
+		return "%d de %s" % [roundi(plano), que]
+	if plano <= 0.0:
+		return de_max
+	return "%s y %d de %s" % [de_max, roundi(plano), que]
+
+# Cuanto se reparte una pocion: "3 turnos en combate · 6 s fuera de combate".
+func reparto_txt() -> String:
+	return "%d turno%s en combate · %d s fuera de combate" % [turnos, "" if turnos == 1 else "s", roundi(segundos)]
+
+# LA ATRACCION DE UN CEBO, sin pixeles (06/11, decision del jefe: comparar en palabras, no "26 px").
+func atraccion_txt() -> String:
+	if cebo_radio < 40.0:
+		return "corta"
+	if cebo_radio < 80.0:
+		return "media"
+	return "larga"
 
 
 # FICHA de un plato: QUE te da y CUANTO dura, TODO derivado de los efectos y del catalogo de
@@ -339,20 +380,9 @@ func resumen(max_hp: float, max_mp: float) -> String:
 # Se enseña ANTES de cocinar (en el menu del Cocinero) y tambien en el inventario: hay que poder
 # decidir si merece la pena gastar los ingredientes sin haber hecho el plato una vez.
 func resumen_plato() -> String:
-	var lineas: PackedStringArray = []
-	for ap in efectos:
-		if ap == null:
-			continue
-		var d: Dictionary = StatusEffects.def(int(ap.estado))
-		if d.is_empty():
-			continue
-		# efecto_legible sabe traducir NUMEROS (un +12% de defensa, un 6 de daño por turno), asi que
-		# con un estado que no mueve ninguna cifra -el Resguardo solo limpia y hace inmune- devuelve
-		# vacio y quedaba un "🧪 Resguardo:" sin decir nada. Ahi lo que lo cuenta es su descripcion.
-		var que: String = StatusEffects.efecto_legible(int(ap.estado), 0.0, escala_efecto)
-		if que.strip_edges() == "":
-			que = str(d.get("descripcion", ""))
-		lineas.append("%s %s: %s" % [str(d.get("icono", "")), str(d.get("nombre", "?")), que])
+	# Como la comida de Genshin (06/11, lo eligio el jefe): una frase con la duracion dentro. "Aumenta la Prob. CRIT de
+	# todos los miembros del equipo en un 9 % durante 300 s" -> "💨 Reflejos: aumenta la Agilidad de quien se lo come
+	# en un 12 %, su Probabilidad de crítico en un 6 % y su Esquiva en un 6 % durante 20 minutos."
 	var turnos: int = StatusEffects.PLATO_TURNOS
 	for ap in efectos:
 		if ap != null and int(ap.turns) > 0:
@@ -360,8 +390,53 @@ func resumen_plato() -> String:
 			break
 	# UN PLATO se mide en MINUTOS (dura 20 y lo llevas puesto por el mapa); un brebaje de combate,
 	# en TURNOS. Con la cuenta del plato, un antidoto de 3 turnos anunciaba "dura 0 minutos".
-	if es_comida:
-		lineas.append("Dura %d minutos." % int(round(float(turnos) * 5.0 / 60.0)))
-	else:
-		lineas.append("Dura %d turno%s." % [turnos, "" if turnos == 1 else "s"])
+	var durante: String = ("durante %d minutos" % int(round(float(turnos) * 5.0 / 60.0))) if es_comida \
+		else ("durante %d turno%s" % [turnos, "" if turnos == 1 else "s"])
+	var quien: String = "quien se lo come" if es_comida else "quien lo bebe"
+	var lineas: PackedStringArray = []
+	for ap in efectos:
+		if ap == null:
+			continue
+		var d: Dictionary = StatusEffects.def(int(ap.estado))
+		if d.is_empty():
+			continue
+		var que: String = StatusEffects.efecto_frase(int(ap.estado), quien, escala_efecto)
+		if que != "":
+			lineas.append("%s %s: %s %s." % [str(d.get("icono", "")), str(d.get("nombre", "?")), que, durante])
+			continue
+		# Sin numeros (el Resguardo solo limpia y hace inmune): la frase sale de 'limpia' e 'inmune' del catalogo.
+		# "Elimina el Veneno de quien lo bebe y, durante 3 turnos, es inmune al Veneno."
+		var limpia: Array = []
+		for id in (d.get("limpia", []) as Array):
+			limpia.append(_con_articulo(str(StatusEffects.def(int(id)).get("nombre", "?")), false))
+		var inmune: Array = []
+		for id in (d.get("inmune", []) as Array):
+			inmune.append(_con_articulo(str(StatusEffects.def(int(id)).get("nombre", "?")), true))
+		if not limpia.is_empty() or not inmune.is_empty():
+			var s: String
+			if not limpia.is_empty() and not inmune.is_empty():
+				s = "Elimina %s de %s y, %s, es inmune %s" % [_y(limpia), quien, durante, _y(inmune)]
+			elif not limpia.is_empty():
+				s = "Elimina %s de %s" % [_y(limpia), quien]
+			else:
+				s = "%s es inmune %s %s" % [quien.capitalize(), _y(inmune), durante]
+			lineas.append("%s %s: %s." % [str(d.get("icono", "")), str(d.get("nombre", "?")), s])
+		else:
+			lineas.append("%s %s: %s" % [str(d.get("icono", "")), str(d.get("nombre", "?")), str(d.get("descripcion", ""))])
 	return "\n".join(lineas)
+
+
+# "el Veneno" / "la Quemadura"; con 'a' delante, "al Veneno" / "a la Quemadura". Los nombres de estado que acaban en
+# -a son femeninos (Quemadura, Ceguera, Marca); el resto, masculinos (Veneno, Sangrado, Mojado).
+static func _con_articulo(nombre: String, con_a: bool) -> String:
+	var fem: bool = nombre.ends_with("a")
+	if con_a:
+		return ("a la " if fem else "al ") + nombre
+	return ("la " if fem else "el ") + nombre
+
+
+# "a", "a y b", "a, b y c".
+static func _y(lista: Array) -> String:
+	if lista.size() <= 1:
+		return "" if lista.is_empty() else String(lista[0])
+	return ", ".join(lista.slice(0, lista.size() - 1)) + " y " + String(lista[lista.size() - 1])

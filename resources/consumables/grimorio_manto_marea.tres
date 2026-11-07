@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1")
 nombre = "Grimorio: Manto de marea"
-descripcion = "Un tomo que gotea aunque lleve dias cerrado. Estudialo y aprenderas Manto de marea."
+descripcion = "Un tomo que gotea aunque lleve días cerrado. Estúdialo y aprenderás Manto de marea."
 cura_total = 0.0
 turnos = 1
 segundos = 1.0

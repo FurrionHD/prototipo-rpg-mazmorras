@@ -23,7 +23,7 @@ dano_salpicon = 0.5
 rebotes = 3
 dano_rebote = 0.55
 efectos = [SubResource("SA_electrizado")]
-descripcion = "Hechizo corto de rayo. La centella salta de un cuerpo a otro sin preguntar a donde va: cae donde le da la gana, y a veces se ensaña con el mismo. Puede dejar electrizado (mas facil de aturdir)."
+descripcion = "Hechizo corto de rayo. La centella salta de un cuerpo a otro sin preguntar a dónde va: cae donde le da la gana, y a veces se ensaña con el mismo. Lo electrizado se aturde con más facilidad."
 ; LA FORMA EN EL MAPA (26/09, su decision): le da a UNO donde apuntes y la centella salta en CADENA al
 ; enemigo mas cercano de cada uno (hasta 60 px) que aun no haya recibido.
 forma = 0
