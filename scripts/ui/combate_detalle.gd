@@ -1159,7 +1159,7 @@ func _abrir_modal_atributos(c: Combatant) -> void:
 	_fila_modal(vb, "Resistencia a estados", "%s (×%.2f)" % [
 		_pct(c.resist_estados()), 1.0 / (1.0 + c.resist_estados())], 0.0)
 	if c.eficacia_estados() > 0.001:
-		_fila_modal(vb, "Eficacia (estados)", "%s (×%.2f)" % [
+		_fila_modal(vb, "Eficacia", "%s (×%.2f)" % [
 			_pct(c.eficacia_estados()), 1.0 + c.eficacia_estados()], 0.0)
 	# El multiplicador crudo se queda SOLO aqui: fuera se enseña ya convertido a daño (ATQ mágico).
 	if pj_l != null:

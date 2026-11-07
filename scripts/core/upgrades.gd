@@ -106,7 +106,7 @@ const CAT_NOMBRE := {
 	"agudeza": "Agudeza", "precision": "Precisión", "peso": "Peso", "rapidez": "Rapidez",
 	"potencia": "Potencia", "eficiencia": "Eficiencia", "celeridad": "Celeridad", "regeneracion": "Regeneración",
 	"dureza": "Dureza", "evasion": "Evasión", "resist_crit": "Resistencia a críticos",
-	"resistencia": "Resistencia (estados)", "eficacia": "Eficacia (estados)",
+	"resistencia": "Resistencia a estados", "eficacia": "Eficacia",
 	"durabilidad": "Durabilidad",
 	"refuerzo": "Refuerzo (bloqueo)",
 	"luminosidad": "Luminosidad",

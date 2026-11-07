@@ -173,7 +173,7 @@ func _ficha(vb: VBoxContainer) -> void:
 					t.note(vb, "No existe material a este nivel: esta pieza no se puede reforzar más.")
 				continue
 			var necesita: int = Game.LAMPARA_MEJORA_METAL if es_farol else int(cmat[clave])
-			_coste(fila, m, necesita, Game.disponible_unidades_material_en_hogar(m), " uds")
+			_coste(fila, m, necesita, Game.disponible_unidades_material_en_hogar(m), " unidades")
 
 	if es_farol:
 		_farol(vb, item, nucleo, al_tope)

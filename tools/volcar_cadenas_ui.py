@@ -101,7 +101,7 @@ TILDES = (r"sesion|codigo|menu|conexion|companer[oa]s?|acompanantes?|ultim[oa]s?
           r"mia|alli|ahi|ademas|segun|traves|baul|cafe|pocion|curacion|mision|anadir|anade")
 GLOSARIO = (r"encaj\w*|\bpeg(a|an|as|ue|ó)\b|\bdosis\b|\bentradas?\b|\bCD\b|\bproc\b|\bstacks?\b|\bbuffs?\b|"
             r"\bdebuffs?\b|\bDoT\b|\bprob\.|\bresist\.|\bregen\b|\bcrít\.|\bpx\b|\bmv\b|motion value|\bhp\b|"
-            r"farm\w*|craft\w*|\b(sub-?)?stats?\b|\bloot\b|\bspawn\w*|\bdrop\w*|\bnerf\w*|\bcooldown\b")
+            r"\buds\b|farm\w*|craft\w*|\b(sub-?)?stats?\b|\bloot\b|\bspawn\w*|\bdrop\w*|\bnerf\w*|\bcooldown\b")
 REVISAR = [
     (re.compile(r"(\d|%[ds]|%\.\d+f)%%?(?![ds.\d])"), "% sin espacio delante (va «20 %»)"),
     (re.compile(r"%\.[1-9]f"), "decimal con punto (%.Nf): usar StatusEffects.num / MenuScaffold.valor_es"),

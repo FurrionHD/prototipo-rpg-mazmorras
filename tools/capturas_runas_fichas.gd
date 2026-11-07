@@ -51,6 +51,13 @@ func _ready() -> void:
 	await _foto("8_personaje_armadura")
 	menu._on_seccion(menu.SEC_FICHA)
 	await _foto("9_personaje_ficha")
+	# Pase de textos 07/11: la pagina de BASICAS (aportes con coma y sin abreviar) y la LUPA de atributos (columna 210).
+	menu._pagina_a(1)
+	await _foto("9b_personaje_basicas")
+	menu._pagina_a(0)
+	menu._abrir_modal_atributos()
+	await _foto("9c_personaje_lupa_atributos")
+	menu._cerrar_modal()
 	print("[capturas] en ", CARPETA)
 	get_tree().quit()
 

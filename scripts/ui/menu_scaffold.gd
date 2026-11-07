@@ -1288,7 +1288,7 @@ static func filas_escudo(sh: ShieldData, tier: int, rareza: int, mejoras: Dictio
 	]
 	filas.append(["Bloqueo", "%.0f%%" % (float(m["bloqueo"]) * 100.0)])
 	if float(m.get("eficacia", 0.0)) > 0.001:
-		filas.append(["Eficacia (estados)", "+%.0f%%" % (float(m["eficacia"]) * 100.0)])
+		filas.append(["Eficacia", "+%.0f%%" % (float(m["eficacia"]) * 100.0)])
 	if float(m["resist_estados"]) > 0.0:
 		filas.append(["Resistencia a estados", "+%.0f%%" % (float(m["resist_estados"]) * 100.0)])
 	filas.append(["Velocidad", "×%.2f" % float(m["vel_mult"])])

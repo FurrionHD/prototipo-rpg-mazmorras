@@ -173,7 +173,7 @@ func _ficha_sin_set(vb: VBoxContainer, item: Resource) -> void:
 	fila.add_theme_constant_override("h_separation", 16)
 	fila.add_theme_constant_override("v_separation", 8)
 	vb.add_child(fila)
-	_coste(fila, sd.material, sd.coste_material, Game.unidades_material_en_hogar(sd.material), " uds")
+	_coste(fila, sd.material, sd.coste_material, Game.unidades_material_en_hogar(sd.material), " unidades")
 	_coste(fila, sd.nucleo, sd.coste_nucleo, Game.nucleos_en_hogar(sd.nucleo), "")
 	note(vb, "Con el set activo, cada %s le añade un atributo secundario (hasta %d), cambia uno o vuelve a tirar su valor." % [
 		sd.runa.nombre if sd.runa != null else "runa", Runas.MAX_SUBS])
