@@ -2,7 +2,7 @@
 #   - UNA FILA POR ACCION: lo que pasa dentro de una accion (extras, segundas frases) va en su fila con "+N".
 #   - Los ESTADOS del tick y los AVISOS van aparte; el aviso de ahora se va en cuanto llega otra cosa.
 #   - El TEXTO PLANO no cambia (_log_lines): una frase por linea, como siempre (lo leen las huellas).
-#   - FILTROS: Todo / Lo mio / Me hacen / Estados.
+#   - FILTROS: Todo / Aliados / Enemigos / Estados.
 #   - CODIFICAR y REHACER (lo que viaja al espejo y a la pelea guardada) devuelve los mismos grupos.
 #   - La FICHA del desglose: la principal arriba y el resto debajo.
 #   godot --headless --path . res://tools/prueba_registro_pelea.tscn
@@ -98,17 +98,31 @@ func _correr() -> void:
 	_ver(f.size() == 3, "accion, estado y accion del enemigo: tres filas (hay %d)" % f.size())
 
 	print("3) FILTROS")
-	reg._elegir_filtro(reg.Filtro.MIO)
+	reg._elegir_filtro(reg.Filtro.ALIADOS)
 	f = _filas(combat)
-	_ver(f.size() == 1 and f[0].contains("Yo golpea"), "Lo mio: solo mi accion")
-	reg._elegir_filtro(reg.Filtro.ME_HACEN)
+	_ver(f.size() == 1 and f[0].contains("Yo golpea"), "Aliados: solo la accion del grupo")
+	reg._elegir_filtro(reg.Filtro.ENEMIGOS)
 	f = _filas(combat)
-	_ver(f.size() == 1 and f[0].contains("muerde"), "Me hacen: solo la del enemigo")
+	_ver(f.size() == 1 and f[0].contains("muerde"), "Enemigos: solo la del enemigo")
 	reg._elegir_filtro(reg.Filtro.ESTADOS)
 	f = _filas(combat)
 	_ver(f.size() == 1 and f[0].contains("Sangrado"), "Estados: solo el tick")
 	reg._elegir_filtro(reg.Filtro.TODO)
 	_ver(_filas(combat).size() == 3, "Todo: las tres")
+
+	print("3b) EL QUE ENTRA DETRAS (Escolta / Oportunista) VA EN SU FILA (07/11)")
+	var guardado: Array = combat.log_entero()
+	reg.abrir(yo)
+	combat._set_log("Yo lanza Tajo pesado al bicho por 9.")
+	var antes: Array = reg.abrir_aparte(yo)
+	combat._log_extra("Compa entra detrás con Maza e inflige 4 de daño.")
+	reg.volver_a(antes)
+	combat._log_extra("El tajo le abre un Sangrado.")
+	f = _filas(combat)
+	_ver(f.size() == 5, "la habilidad y el seguimiento: dos filas nuevas (hay %d)" % (f.size() - 3))
+	_ver(f[3].contains("Tajo pesado") and f[3].contains("+1"), "la del tajo se queda su extra: '%s'" % f[3])
+	_ver(f[4].contains("entra detrás") and not f[4].contains("+"), "y el seguimiento es fila propia: '%s'" % f[4])
+	reg.rehacer(guardado)
 
 	print("4) CODIFICAR Y REHACER (espejo y pelea guardada)")
 	var cod: Array = combat.log_entero()

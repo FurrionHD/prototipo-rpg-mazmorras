@@ -404,7 +404,7 @@ func _montar_log() -> void:
 	_pantalla._boton_detalle.pressed.connect(_pantalla.figuras._abrir_detalle.bind(null))
 	_log_fila.add_child(_pantalla._boton_detalle)
 
-	# (06/11) Los FILTROS del registro (Todo / Lo mio / Me hacen / Estados) y la ficha del desglose: combat_registro.gd.
+	# (06/11) Los FILTROS del registro (Todo / Aliados / Enemigos / Estados) y la ficha del desglose: combat_registro.gd.
 	_pantalla.registro.montar(vb)
 
 	_log_scroll = ScrollContainer.new()

@@ -1,5 +1,4 @@
 GRUPO Agirato ochinan (Baston), Catalardio (Martillo grande), Dasui (Mandobles), Daniel (Maza pequeña)
-f1 LOG ¡Ataque por la espalda! Tienes la iniciativa. 🗡️  ¡Le acompañan 2 más! ⚔️
 f1 Agirato ochinan hp=198.795 mp=14.063 en=177.425
 f1 Catalardio hp=198.733 mp=24.620 en=181.275
 f1 Dasui hp=199.642 mp=20.000 en=181.300
@@ -7,6 +6,7 @@ f1 Daniel hp=190.990 mp=20.000 en=181.025
 f1 Rey Slime hp=857.450 mp=21.188 en=0.000
 f1 Slime hp=32.650 mp=20.429 en=0.000
 f1 Slime venenoso hp=39.250 mp=20.495 en=0.000
+f29 LOG ¡Ataque por la espalda! Tienes la iniciativa. 🗡️  ¡Le acompañan 2 más! ⚔️
 f29 Agirato ochinan hp=198.795 mp=14.485 en=177.425
 f31 PULSA Magia
 f34 PULSA _spell_box: Shock térmico fulminante  (14,06 de maná)

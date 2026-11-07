@@ -1306,7 +1306,11 @@ func _ready() -> void:
 		for c in _lentas:
 			cansados.append(c.nombre)
 		intro += "  (Agotados: %s empiezan más lentos)" % ", ".join(cansados)
-	_set_log(intro, "f")
+	# EL ESPEJO NO LA ESCRIBE (07/11, playtest del .exe: "siempre sale esto dos veces"): la frase de inicio le llega del
+	# anfitrion como la primera de su registro, asi que la suya propia salia repetida. Y ademas mentia: setup_espejo
+	# pone _injected a true siempre, y al que espejaba le salia "¡Ataque por la espalda!" aunque el bicho le sorprendiera.
+	if not _espejo:
+		_set_log(intro, "f")
 
 	# Marca de INICIO en consola (para separar combates al montar los Excel). La vida y el mana con los que EMPIEZA cada
 	# uno, sobre su maximo (08/10: solo salia el maximo, y en el log parecia que cada pelea empezaba a tope).
@@ -2940,99 +2944,107 @@ func _disparar_seguimientos(obj: Combatant) -> void:
 			pct = float(oport.d.get("seguimiento_pct", 0.0))
 		if pct <= 0.0:
 			continue
-		# NO ENTRA EL QUE NO PUEDE PEGAR. Este golpe salta FUERA de tu turno, asi que no pasa por
-		# ningun tick de estados y se colaba con lo que hiciera falta: aturdido, muerto de miedo o
-		# clavado al suelo, entraba igual. Y NO GASTA CARGA, que es lo importante: no ha llegado a
-		# entrar, asi que no se le cobra la entrada.
-		if not esc.puede_atacar():
-			_log_extra("%s no llega a entrar detrás." % esc.nombre)
-			continue
-		# SE PAGA UNA CARGA POR ENTRADA. La Escolta se mide en veces que entras, no en turnos: cada
-		# entrada gasta una y, cuando se acaban, el estado se va aunque le sobren turnos. Se cobra
-		# ANTES de resolver: entrar y fallar tambien es haber entrado. Y es UNA por entrada aunque
-		# lleve dos armas y pegue dos veces -- lo que se cobra es meterse en el hueco, no el numero
-		# de tajos que quepan.
-		if inst != null and inst.gastar_uso():
-			esc.quitar_estado(inst.id())
-			_log_extra("%s se queda sin huecos que aprovechar." % esc.nombre)
-		# EL OPORTUNISTA APARECE A LA ESPALDA: del otro lado del que acaba de pegar. Se pide antes de sus
-		# golpes, que es el orden en que viaja al espejo.
-		var crit_extra: float = 0.0
-		if oport != null:
-			crit_extra = float(oport.d.get("crit_extra", 0.0))
-			if tactico:
-				turno_mapa.pedir_salto(esc, obj, quien_actuaba)
-		# _player es "quien tiene el turno" en todo el motor de golpes, asi que se le presta un
-		# momento al escolta para que el golpe salga con SUS numeros, y se devuelve al acabar. TODO
-		# lo que lea _player (la imbuicion, la excelia, el mana) tiene que quedar dentro del prestamo.
-		_player = esc
-		var pj_esc: PersonajeData = Game.pj_de_combatant(esc)
-		# CON DOS ARMAS SE ENTRA DOS VECES, una por mano. Antes pegaba un solo golpe con la mano que
-		# le hubiera quedado puesta del turno anterior, asi que el dual no se notaba en absoluto.
-		# El segundo va al DUAL_SEGUIMIENTO_MULT, igual que la mano mala de cualquier habilidad.
-		var manos: int = 2 if esc.hands.size() >= 2 else 1
-		var conecto: bool = false
-		var imbuido: bool = false
-		for i in manos:
-			if not obj.is_alive():
-				break
-			esc.set_active_hand(i)
-			# El estilo se lee DESPUES de fijar la mano: en dual, cada golpe se ve con SU arma.
-			var estilo: int = efectos._estilo_de_habilidad(null, esc)
-			# El del Oportunista es una puñalada, no su basico.
-			if oport != null:
-				estilo = CombatFX.Estilo.PUNALADA
-			var arma: String = esc.current_hand_name()
-			var m_mano: float = 1.0 if i == 0 else DUAL_SEGUIMIENTO_MULT
-			efectos._fx_tanda(i)   # los dos golpes son dos, no uno: cada uno con su tanda
-			var r := StatsMath.resolve_attack(esc, obj, false, -1.0, crit_extra)
-			_aplicar_pasivas(r, esc, obj)
-			if r.evaded:
-				_log_extra("%s entra detrás pero %s lo esquiva. 💨" % [esc.nombre, obj.nombre])
-				efectos._fx_golpe(esc, obj, 0.0, false, true, Elementos.Elemento.NINGUNO, estilo)
-				continue
-			var dmg: float = float(r.damage) * pct * m_mano
-			var elem_dmg: float = float(r.get("dmg_imbue", 0.0))
-			obj.take_damage(dmg)
-			efectos._fx_golpe(esc, obj, dmg, r.crit, false,
-				esc.imbue_elemento if elem_dmg > 0.0 else Elementos.Elemento.NINGUNO, estilo)
-			_apuntar_dano(obj, dmg, esc)
-			_pasiva_al_golpearle(obj, esc, dmg)
-			_dps_add("Seguimiento (%s)" % arma, dmg)
-			conecto = true
-			# EXCELIA. Es un golpe de verdad y entrena como tal, con el mismo reto y el mismo peso de
-			# arma que el basico (ver _accion_atacar).
-			var mv: float = esc.motion_value
-			Game.ganar_golpe(_reto(obj, pj_esc) * mv, pj_esc, esc)
-			var linea: String = "%s entra detrás con %s e inflige %s de daño%s" % [
-				esc.nombre, arma, _n(dmg), " 💥" if r.crit else ""]
-			if r.crit:
-				var agi: float = minf(mv, Game.GAIN_AGILIDAD_CRIT_MV_MAX)
-				Game.ganar("agilidad", _reto(obj, pj_esc) * agi, Game.GAIN_AGILIDAD_CRITICO,
-					Game.RETO_MAX_FISICO, pj_esc)
-			# LA IMBUICION, COMPLETA. El daño elemental ya venia dentro de 'damage' -- o sea que
-			# entraba gratis --, pero lo demas no estaba: ni se gastaban los amplificadores, ni se
-			# tiraban los estados, asi que el veneno del Filo emponzoñado NO PRENDIA NUNCA por aqui.
-			if elem_dmg > 0.0:
-				magia._gastar_amplificadores(obj, esc.imbue_elemento)
-				imbuido = true
-			for nom in esc.roll_on_hit(obj):
-				linea += "  Causa %s a %s." % [nom, _etq(obj)]
-			var imb: String = esc.roll_imbue(obj)
-			if imb != "":
-				linea += "  ⚡ Causa %s a %s." % [imb, _etq(obj)]
-				imbuido = true
-			_log_extra(linea)
-			# DURABILIDAD: el arma que entra se gasta, como en cualquier golpe.
-			Game.desgastar_arma(esc.current_hand_slot(), pj_esc)
-		# UNA carga de imbuicion por ENTRADA, no por golpe: la misma regla que las habilidades ("una
-		# habilidad = un uso, traiga los golpes que traiga"). Solo si de verdad ha entrado algo.
-		if conecto and imbuido:
-			magia._gastar_imbue()
-		_player = quien_actuaba
+		# SU FILA EN EL REGISTRO (07/11): lo que haga el que entra detras no va en la fila del que actuaba.
+		var reg_antes: Array = registro.abrir_aparte(esc)
+		_disparar_un_seguimiento(esc, obj, pct, inst, oport, quien_actuaba)
+		registro.volver_a(reg_antes)
 	_player = quien_actuaba
 	_en_seguimiento = false
 	_update_hp()
+
+
+func _disparar_un_seguimiento(esc: Combatant, obj: Combatant, pct: float, inst, oport,
+		quien_actuaba: Combatant) -> void:
+	# NO ENTRA EL QUE NO PUEDE PEGAR. Este golpe salta FUERA de tu turno, asi que no pasa por
+	# ningun tick de estados y se colaba con lo que hiciera falta: aturdido, muerto de miedo o
+	# clavado al suelo, entraba igual. Y NO GASTA CARGA, que es lo importante: no ha llegado a
+	# entrar, asi que no se le cobra la entrada.
+	if not esc.puede_atacar():
+		_log_extra("%s no llega a entrar detrás." % esc.nombre)
+		return
+	# SE PAGA UNA CARGA POR ENTRADA. La Escolta se mide en veces que entras, no en turnos: cada
+	# entrada gasta una y, cuando se acaban, el estado se va aunque le sobren turnos. Se cobra
+	# ANTES de resolver: entrar y fallar tambien es haber entrado. Y es UNA por entrada aunque
+	# lleve dos armas y pegue dos veces -- lo que se cobra es meterse en el hueco, no el numero
+	# de tajos que quepan.
+	if inst != null and inst.gastar_uso():
+		esc.quitar_estado(inst.id())
+		_log_extra("%s se queda sin huecos que aprovechar." % esc.nombre)
+	# EL OPORTUNISTA APARECE A LA ESPALDA: del otro lado del que acaba de pegar. Se pide antes de sus
+	# golpes, que es el orden en que viaja al espejo.
+	var crit_extra: float = 0.0
+	if oport != null:
+		crit_extra = float(oport.d.get("crit_extra", 0.0))
+		if tactico:
+			turno_mapa.pedir_salto(esc, obj, quien_actuaba)
+	# _player es "quien tiene el turno" en todo el motor de golpes, asi que se le presta un
+	# momento al escolta para que el golpe salga con SUS numeros, y se devuelve al acabar. TODO
+	# lo que lea _player (la imbuicion, la excelia, el mana) tiene que quedar dentro del prestamo.
+	_player = esc
+	var pj_esc: PersonajeData = Game.pj_de_combatant(esc)
+	# CON DOS ARMAS SE ENTRA DOS VECES, una por mano. Antes pegaba un solo golpe con la mano que
+	# le hubiera quedado puesta del turno anterior, asi que el dual no se notaba en absoluto.
+	# El segundo va al DUAL_SEGUIMIENTO_MULT, igual que la mano mala de cualquier habilidad.
+	var manos: int = 2 if esc.hands.size() >= 2 else 1
+	var conecto: bool = false
+	var imbuido: bool = false
+	for i in manos:
+		if not obj.is_alive():
+			break
+		esc.set_active_hand(i)
+		# El estilo se lee DESPUES de fijar la mano: en dual, cada golpe se ve con SU arma.
+		var estilo: int = efectos._estilo_de_habilidad(null, esc)
+		# El del Oportunista es una puñalada, no su basico.
+		if oport != null:
+			estilo = CombatFX.Estilo.PUNALADA
+		var arma: String = esc.current_hand_name()
+		var m_mano: float = 1.0 if i == 0 else DUAL_SEGUIMIENTO_MULT
+		efectos._fx_tanda(i)   # los dos golpes son dos, no uno: cada uno con su tanda
+		var r := StatsMath.resolve_attack(esc, obj, false, -1.0, crit_extra)
+		_aplicar_pasivas(r, esc, obj)
+		if r.evaded:
+			_log_extra("%s entra detrás pero %s lo esquiva. 💨" % [esc.nombre, obj.nombre])
+			efectos._fx_golpe(esc, obj, 0.0, false, true, Elementos.Elemento.NINGUNO, estilo)
+			continue
+		var dmg: float = float(r.damage) * pct * m_mano
+		var elem_dmg: float = float(r.get("dmg_imbue", 0.0))
+		obj.take_damage(dmg)
+		efectos._fx_golpe(esc, obj, dmg, r.crit, false,
+			esc.imbue_elemento if elem_dmg > 0.0 else Elementos.Elemento.NINGUNO, estilo)
+		_apuntar_dano(obj, dmg, esc)
+		_pasiva_al_golpearle(obj, esc, dmg)
+		_dps_add("Seguimiento (%s)" % arma, dmg)
+		conecto = true
+		# EXCELIA. Es un golpe de verdad y entrena como tal, con el mismo reto y el mismo peso de
+		# arma que el basico (ver _accion_atacar).
+		var mv: float = esc.motion_value
+		Game.ganar_golpe(_reto(obj, pj_esc) * mv, pj_esc, esc)
+		var linea: String = "%s entra detrás con %s e inflige %s de daño%s" % [
+			esc.nombre, arma, _n(dmg), " 💥" if r.crit else ""]
+		if r.crit:
+			var agi: float = minf(mv, Game.GAIN_AGILIDAD_CRIT_MV_MAX)
+			Game.ganar("agilidad", _reto(obj, pj_esc) * agi, Game.GAIN_AGILIDAD_CRITICO,
+				Game.RETO_MAX_FISICO, pj_esc)
+		# LA IMBUICION, COMPLETA. El daño elemental ya venia dentro de 'damage' -- o sea que
+		# entraba gratis --, pero lo demas no estaba: ni se gastaban los amplificadores, ni se
+		# tiraban los estados, asi que el veneno del Filo emponzoñado NO PRENDIA NUNCA por aqui.
+		if elem_dmg > 0.0:
+			magia._gastar_amplificadores(obj, esc.imbue_elemento)
+			imbuido = true
+		for nom in esc.roll_on_hit(obj):
+			linea += "  Causa %s a %s." % [nom, _etq(obj)]
+		var imb: String = esc.roll_imbue(obj)
+		if imb != "":
+			linea += "  ⚡ Causa %s a %s." % [imb, _etq(obj)]
+			imbuido = true
+		_log_extra(linea)
+		# DURABILIDAD: el arma que entra se gasta, como en cualquier golpe.
+		Game.desgastar_arma(esc.current_hand_slot(), pj_esc)
+	# UNA carga de imbuicion por ENTRADA, no por golpe: la misma regla que las habilidades ("una
+	# habilidad = un uso, traiga los golpes que traiga"). Solo si de verdad ha entrado algo.
+	if conecto and imbuido:
+		magia._gastar_imbue()
+	_player = quien_actuaba
 
 
 # Una linea suelta al log sin tocar el mensaje principal de la accion.
