@@ -8,34 +8,34 @@
 #  quedar a oscuras habia que abrir un menu y leer. Un farol que se va apagando se lee de reojo
 #  mientras andas, que es cuando importa.
 #
-#  LA LLAMA NO ES NUEVA: es exactamente la de la Quemadura (CapaEstado.pintar_fuego), metida dentro
-#  del cristal. Ya son lenguas sueltas con su nucleo caliente y su bamboleo, y reusarla es ademas lo
-#  que hace que el fuego del juego se vea IGUAL en todas partes.
+#  EN PIXEL (07/11, playtest del .exe: "esto no tiene pixel art"): era un farol de lineas suavizadas con la llama
+#  vectorial de la Quemadura. Ahora es un dibujo de LADO x LADO (como la mochila, ver cuadro_carga.gd) ampliado sin
+#  suavizar: asa, sombrero, cristal con sus dos montantes y base, y dentro UNA llama de pixel (cuerpo, nucleo casi
+#  blanco y punta) que MENGUA con el carbon y titila a saltos. El resplandor son dos anillos escalonados, no un degradado.
 # ============================================================
 
 extends Control
 class_name CuadroFarol
 
+const LADO := 16
+const PASOS_SEG := 8.0
 # El color del fuego segun lo que quede del carbon en curso: de dorado vivo a un rojo mortecino. No
 # es adorno -- el COLOR es lo que se lee de lejos, antes que el tamaño de la llama.
 const COLOR_VIVA := Color(1.0, 0.78, 0.30)
 const COLOR_MURIENDO := Color(0.85, 0.30, 0.10)
+const NUCLEO := Color(1.0, 0.96, 0.70)
 # Por debajo de esto el farol PARPADEA: es el aviso de que se acaba, y llega antes que quedarse a
 # oscuras de golpe.
 const UMBRAL_AGONIA := 0.22
-const PARPADEO_VEL := 9.0
-# Lo que MIDE la llama, en fraccion del cuadro, de recien prendida a agonizando. El ancho encoge
-# menos que el alto a proposito: una llama que mengua igual por los dos lados parece la misma llama
-# vista de lejos, y lo que se quiere leer es "queda poca mecha".
-const ALTO_MAX := 0.66
-const ALTO_MIN := 0.16
-const ANCHO_MAX := 0.46
-const ANCHO_MIN := 0.22
-const BASE_LLAMA := 0.79   # donde se apoya, justo encima de la tapa de abajo del farol
-# FRANJAS RESERVADAS arriba y abajo, por si algun dia los numeros vuelven a ir DENTRO del cuadro.
-# Hoy van fuera (a la derecha, como en el boceto del usuario) y esto es 0: metidos dentro, en 64 px
-# se comian el farol entero y la llama -- que es lo que hay que ver de un vistazo-- quedaba en nada.
-const BANDA_TEXTO := 0.0
+# La llama, en filas del dibujo: de un cabo de mecha a casi llenar el cristal.
+const ALTO_MIN := 2
+const ALTO_MAX := 6
+
+const FONDO := Color(0.10, 0.11, 0.14, 0.85)
+const MARCO := Color(0.75, 0.78, 0.85, 0.9)
+const METAL := Color(0.72, 0.74, 0.80)
+const METAL_OSC := Color(0.45, 0.47, 0.54)
+const CRISTAL := Color(0.16, 0.17, 0.21)
 
 # Lo que se pinta, refrescado por el HUD cada frame (ver hud._process, que es quien sabe de Game).
 #   llama  = fraccion del carbon EN CURSO que queda (1 recien prendido, 0 agotado)
@@ -43,108 +43,111 @@ const BANDA_TEXTO := 0.0
 var llama: float = 0.0
 var hay_luz: bool = false
 
-var _fuego: CapaEstado = null
+var _img: Image = null
+var _tex: ImageTexture = null
+var _firma: String = ""
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS   # es un indicador, pero con tooltip
-	# La llama vive en su propio Control, mas estrecho que el farol y pegado al fondo del cristal:
-	# CapaEstado dibuja el fuego naciendo de SU borde inferior y ocupando SU ancho, asi que el tamaño
-	# de este hijo ES el tamaño de la hoguera. A lo ancho del farol entero saldria una fogata, no la
-	# llama de una lampara.
-	_fuego = CapaEstado.new()
-	_fuego.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_fuego)
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
 
 func _process(_delta: float) -> void:
-	_colocar_llama()
+	var paso: int = int(float(Time.get_ticks_msec()) / 1000.0 * PASOS_SEG)
+	var firma: String = "%d|%.3f|%s" % [paso, llama, hay_luz]
+	if firma == _firma:
+		return
+	_firma = firma
+	_img = imagen(llama if hay_luz else 0.0, hay_luz, paso, _img)
+	if _tex == null:
+		_tex = ImageTexture.create_from_image(_img)
+	else:
+		_tex.update(_img)
 	queue_redraw()
 
 
-# UNA SOLA LLAMA QUE ENCOGE. Lo que cuenta cuanto queda es el TAMAÑO, no la transparencia: una llama
-# que se desvanece se lee como "esto se esta apagando en la pantalla" (un fallo de dibujo), y una que
-# MENGUA se lee como "queda poca mecha". Por eso el nivel se aplica al tamaño del Control -- CapaEstado
-# dibuja la llama a lo alto y ancho del suyo, asi que su tamaño ES el de la llama -- y la opacidad se
-# queda casi fija.
-#
-# Se recoloca cada frame porque el HUD reescala el cuadro con la fila del grupo (ver hud.recolocar).
-func _colocar_llama() -> void:
-	if _fuego == null:
-		return
-	_fuego.fuego_unica = true   # un farol tiene UNA mecha, no una hoguera de trece lenguas
-	if not hay_luz:
-		_fuego.size = Vector2.ZERO
-		_fuego.pintar_fuego(COLOR_MURIENDO, 0.0)
-		return
-	var q: float = clampf(llama, 0.0, 1.0)
-	# De casi llenar el cristal (recien prendido) a un cabo de mecha. No baja de ALTO_MIN: una llama
-	# de un pixel no se ve, y mientras quede carbon SIGUE dando luz -- de que se acaba avisa el
-	# parpadeo, no la desaparicion.
-	var caja: Rect2 = _caja_farol()
-	var alto: float = caja.size.y * lerpf(ALTO_MIN, ALTO_MAX, q)
-	var ancho: float = caja.size.x * lerpf(ANCHO_MIN, ANCHO_MAX, q)
-	_fuego.size = Vector2(ancho, alto)
-	_fuego.position = Vector2(caja.position.x + (caja.size.x - ancho) * 0.5,
-		caja.position.y + caja.size.y * BASE_LLAMA - alto)
-	var fuerza: float = 1.0
-	if q < UMBRAL_AGONIA:
-		var t: float = float(Time.get_ticks_msec()) / 1000.0
-		fuerza = 0.55 + 0.45 * absf(sin(t * PARPADEO_VEL))
-	_fuego.pintar_fuego(COLOR_MURIENDO.lerp(COLOR_VIVA, q), fuerza)
-
-
-# EL FAROL: la caja de cristal con su asa arriba y su base. Se dibuja a mano, como el deposito de la
-# mochila, para que los dos cuadros del HUD se lean como pareja.
-#
-# El farol ocupa SOLO la banda de en medio del cuadro: arriba y abajo quedan libres para los dos
-# numeros que el HUD pinta encima (ver BANDA_TEXTO).
-func _caja_farol() -> Rect2:
-	var margen: float = size.y * BANDA_TEXTO
-	return Rect2(Vector2(0.0, margen), Vector2(size.x, maxf(1.0, size.y - margen * 2.0)))
-
-
 func _draw() -> void:
-	var caja: Rect2 = _caja_farol()
-	var w: float = caja.size.x
-	var h: float = caja.size.y
-	var y0: float = caja.position.y
-	# El cristal: mas oscuro apagado que encendido, para que el farol muerto no parezca lleno de luz.
-	var q: float = clampf(llama, 0.0, 1.0) if hay_luz else 0.0
-	# El fondo SI cubre el cuadro entero: es el recuadro del indicador, hermano del de la mochila, y
-	# es lo que hace legibles los numeros de las franjas.
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.10, 0.11, 0.14, 0.85), true)
-	# El RESPLANDOR dentro del cristal, detras de la llama: es lo que hace que el farol ILUMINE en vez
-	# de tener un fuego pegado.
-	#
-	# NO es un draw_circle: un circulo tiene BORDE, y un borde duro no es un resplandor -- se lee como
-	# un disco de pintura marron detras del fuego (probado, y cantaba muchisimo). El degradado se hace
-	# a mano, con anillos concentricos que van sumando alfa hacia el centro. Es la unica forma de tener
-	# caida suave sin meter una textura ni un shader por un adorno de 64 px.
-	if hay_luz and q > 0.0:
-		var centro := Vector2(w * 0.5, y0 + h * 0.60)
-		var r: float = minf(w, h) * (0.30 + 0.16 * q)
-		var col: Color = COLOR_MURIENDO.lerp(COLOR_VIVA, q)
-		var capas := 7
-		for i in capas:
-			# De fuera adentro. El alfa por anillo es bajo a proposito: se ACUMULAN, y la suma de los
-			# de dentro es lo que da el nucleo brillante.
-			var u: float = 1.0 - float(i) / float(capas)
-			draw_circle(centro, r * u, Color(col.r, col.g, col.b, 0.045 + 0.030 * q))
+	if _tex != null:
+		draw_texture_rect(_tex, Rect2(Vector2.ZERO, size), false)
 
-	# EL ASA, arriba: un arco de dos trazos. Sin ella el cuadro es una caja con fuego, no un farol.
-	# Las piezas de metal van FINAS: con tapas gordas el farol se leia como una estanteria.
-	var metal := Color(0.72, 0.74, 0.80, 0.9)
-	var asa_y: float = y0 + h * 0.12
-	var grosor: float = maxf(1.0, h * 0.022)
-	draw_line(Vector2(w * 0.36, asa_y), Vector2(w * 0.5, y0 + h * 0.04), metal, grosor, true)
-	draw_line(Vector2(w * 0.5, y0 + h * 0.04), Vector2(w * 0.64, asa_y), metal, grosor, true)
-	# El SOMBRERO y la BASE: las dos tapas metalicas entre las que va el cristal.
-	draw_rect(Rect2(Vector2(w * 0.20, asa_y), Vector2(w * 0.60, h * 0.05)), metal, true)
-	draw_rect(Rect2(Vector2(w * 0.16, y0 + h * 0.80), Vector2(w * 0.68, h * 0.06)), metal, true)
+
+# EL DIBUJO, LADO x LADO. Estatico para la lamina (tools/lamina_cuadros_hud.gd). 'paso' = el fotograma (8 por segundo).
+static func imagen(q: float, luz: bool, paso: int, img: Image = null) -> Image:
+	if img == null:
+		img = Image.create(LADO, LADO, false, Image.FORMAT_RGBA8)
+	img.fill(FONDO)
+	q = clampf(q, 0.0, 1.0) if luz else 0.0
+	var col: Color = COLOR_MURIENDO.lerp(COLOR_VIVA, q)
+	# Un azar fijo por fotograma: el titileo no se repite con un ritmo que se pille.
+	var azar := RandomNumberGenerator.new()
+	azar.seed = paso * 7919 + 13
+	# AGONIA: la llama se queda sin fuerza uno de cada dos o tres fotogramas.
+	var fuerza: float = 1.0
+	if luz and q < UMBRAL_AGONIA and azar.randf() < 0.4:
+		fuerza = 0.45
+
+	# EL RESPLANDOR, dentro del cristal (x 5..10, y 4..11): dos anillos escalonados alrededor de la llama.
+	var cx: float = 7.5
+	var cy: float = 9.0
+	for y in range(4, 12):
+		for x in range(5, 11):
+			var c: Color = CRISTAL
+			if luz and q > 0.0:
+				var d: float = Vector2(float(x) - cx, (float(y) - cy) * 0.8).length()
+				var r: float = 2.0 + 2.0 * q
+				if d <= r * 0.55:
+					c = CRISTAL.lerp(col, 0.38 * fuerza)
+				elif d <= r:
+					c = CRISTAL.lerp(col, 0.18 * fuerza)
+			img.set_pixel(x, y, c)
+
+	# EL ASA (arco de pixeles), EL SOMBRERO y LA BASE: las tapas SOBRESALEN del cristal, que es lo que hace "farol".
+	for p in [Vector2i(7, 1), Vector2i(8, 1), Vector2i(6, 2), Vector2i(9, 2)]:
+		img.set_pixel(p.x, p.y, METAL)
+	for x in range(4, 12):
+		img.set_pixel(x, 3, METAL)
+	for x in range(3, 13):
+		img.set_pixel(x, 12, METAL)
+	for x in range(4, 12):
+		img.set_pixel(x, 13, METAL_OSC)
 	# Los dos MONTANTES del cristal, de tapa a tapa.
-	var barra := Color(0.55, 0.57, 0.63, 0.8)
-	draw_line(Vector2(w * 0.24, y0 + h * 0.17), Vector2(w * 0.24, y0 + h * 0.80), barra, 1.0, true)
-	draw_line(Vector2(w * 0.76, y0 + h * 0.17), Vector2(w * 0.76, y0 + h * 0.80), barra, 1.0, true)
-	# Y el marco del cuadro al final, encima de todo, igual que en el deposito de la mochila.
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.75, 0.78, 0.85, 0.9), false, 1.0)
+	for y in range(4, 12):
+		img.set_pixel(4, y, METAL_OSC)
+		img.set_pixel(11, y, METAL_OSC)
+
+	# LA LLAMA: de la mecha (fila 11) hacia arriba. Ancha abajo, afilada arriba; la punta se mece un pixel.
+	if luz and q > 0.0:
+		var alto: int = roundi(lerpf(float(ALTO_MIN), float(ALTO_MAX), q))
+		alto = clampi(alto + azar.randi_range(-1, 0), ALTO_MIN - 1, ALTO_MAX)
+		if fuerza < 1.0:
+			alto = maxi(1, alto - 2)
+		var vaiven: int = azar.randi_range(-1, 1)
+		for k in alto:
+			var y: int = 11 - k
+			var u: float = float(k) / float(maxi(1, alto - 1))   # 0 abajo, 1 punta
+			var x0: int = 7
+			var x1: int = 8
+			if u < 0.45 and alto >= 3:
+				x0 = 6
+				x1 = 9
+			elif u > 0.7:
+				x0 = 7 + (vaiven if vaiven > 0 else 0)
+				x1 = x0
+				if vaiven < 0:
+					x0 = 7
+					x1 = 7
+			for x in range(x0, x1 + 1):
+				var c: Color = col
+				if k == alto - 1 and alto > 1:
+					c = col.darkened(0.25)          # la punta, mas roja
+				elif u <= 0.5 and (x == 7 or x == 8):
+					c = NUCLEO.lerp(col, 0.25 * (1.0 - fuerza))   # el nucleo casi blanco
+				img.set_pixel(x, y, c)
+
+	for i in LADO:
+		img.set_pixel(i, 0, MARCO)
+		img.set_pixel(i, LADO - 1, MARCO)
+		img.set_pixel(0, i, MARCO)
+		img.set_pixel(LADO - 1, i, MARCO)
+	return img
