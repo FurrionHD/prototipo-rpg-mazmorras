@@ -538,8 +538,8 @@ func _crear_mira() -> void:
 	# Las cuatro, no A/D: la mira va hacia donde pulses, y cual manda depende de donde estes plantado
 	# (ver _paso_apuntando). Decir "A/D" mandaba a pelearse con la tecla que no hacia nada.
 	# Y en tactil no se dice ninguna tecla, que ahi no hay: se toca el agua y se mantiene Lanzar.
-	_mira_lbl.text = "Toca el agua  ·  MANTÉN LANZAR" if Tactil.activo \
-		else "WASD apunta  ·  MANTÉN ESPACIO  ·  F o ESC salen"
+	_mira_lbl.text = "Toca el agua  ·  Mantén «Lanzar»" if Tactil.activo \
+		else "WASD: apuntar  ·  Mantén Espacio: lanzar  ·  F o Esc: salir"
 	_mira_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_mira_lbl.add_theme_font_size_override("font_size", 9)
 	_mira_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))

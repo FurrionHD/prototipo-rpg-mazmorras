@@ -92,6 +92,75 @@ def cadenas_del_texto(texto: str):
         i += 1
 
 
+# --revisar: los fallos que se repiten en el pase de textos (07/11, "cometes el mismo error una y otra vez").
+# Reglas de docs/guia_textos.md y de lo acordado con el jefe. Lo que no se puede mirar a maquina (¿de que es este
+# numero?, ¿"tu" en algo que lleva un enemigo?) se marca igual como RECORDATORIO para leerlo a mano.
+TILDES = (r"sesion|codigo|menu|conexion|companer[oa]s?|acompanantes?|ultim[oa]s?|version|aqui|asi|tambien|despues|"
+          r"todavia|facil|rapid[oa]|pagina|numero|minimo|maximo|energia|musica|encontro|perdio|cerro|recoleccion|"
+          r"formacion|extraccion|direccion|contrasena|opcion|accion|dano|ningun|algun|tenia|habia|podia|dia|"
+          r"mia|alli|ahi|ademas|segun|traves|baul|cafe|pocion|curacion|mision|anadir|anade")
+GLOSARIO = (r"encaj\w*|\bpeg(a|an|as|ue|ó)\b|\bdosis\b|\bentradas?\b|\bCD\b|\bproc\b|\bstacks?\b|\bbuffs?\b|"
+            r"\bdebuffs?\b|\bDoT\b|\bprob\.|\bresist\.|\bregen\b|\bcrít\.|\bpx\b|\bmv\b|motion value|\bhp\b|"
+            r"farm\w*|craft\w*|\b(sub-?)?stats?\b|\bloot\b|\bspawn\w*|\bdrop\w*|\bnerf\w*|\bcooldown\b")
+REVISAR = [
+    (re.compile(r"(\d|%[ds]|%\.\d+f)%%?(?![ds.\d])"), "% sin espacio delante (va «20 %»)"),
+    (re.compile(r"%\.[1-9]f"), "decimal con punto (%.Nf): usar StatusEffects.num / MenuScaffold.valor_es"),
+    (re.compile(r"%%|\d ?%(?![sd.])"), "RECORDATORIO: ¿la frase dice DE QUÉ es este %? (ley)"),
+    (re.compile(r"\bNo se pudo\b"), "«No se pudo» -> «No se ha podido»"),
+    (re.compile(r"\bbuild\b|\bhost\b|\bhostear\b", re.I), "jerga: build/host"),
+    (re.compile(GLOSARIO, re.I), "palabra del glosario prohibido (guia_textos.md, sección 3)"),
+    (re.compile(r"\bech(a|as|an|ar|arle|arte|ártelo|árselo|es)\b|\bechó\b|\bintentó echar", re.I),
+     "magias: «lanzar», no «echar»"),
+    (re.compile(r"(?<![%\w])x%d|(?<![\w])x\d|(%d|\d) x (%s|\w)"), "«x3» / «3 x algo»: el signo es «×»"),
+    (re.compile(r"%ds\b"), "«%ds»: con espacio, «%d s»"),
+    (re.compile(r"\b(" + TILDES + r")\b", re.I), "¿tilde comida?"),
+]
+# Mayusculas de grito: palabra en MAYUSCULAS despues de texto en minusculas del mismo trozo, fuera de «».
+SIGLAS = {"PC", "IP", "ID", "LAN", "UDP", "HTTP", "PNG", "JPG", "FPS", "DPS", "HSR", "OK", "NO", "MP", "VS", "UI", "IA"}
+GRITO = re.compile(r"\b[A-ZÁÉÍÓÚÑ]{3,}\b")
+_EMOJIS = None
+
+
+def _emojis_pixel() -> set:
+    global _EMOJIS
+    if _EMOJIS is None:
+        ruta = os.path.join(RAIZ, "scripts", "ui", "fuente_iconos_tabla.gd")
+        with open(ruta, encoding="utf-8") as f:
+            _EMOJIS = set(re.findall(r'^\s*"([^"]+)":', f.read(), re.M))
+    return _EMOJIS
+
+
+def _fuera_de_la_fuente(texto: str) -> list:
+    """Simbolos raros que no estan en la fuente de iconos pixel (regla TODO EN PIXEL)."""
+    malos = []
+    for c in texto:
+        o = ord(c)
+        if o < 0x2000 or c in "–—…‘’“”«»·•×÷−→←↓" or c == "\ufe0f" or c == "⏎":
+            continue
+        if c not in _emojis_pixel() and (c + "\ufe0f") not in _emojis_pixel():
+            malos.append(c)
+    return malos
+
+
+def revisar(salida: list) -> list:
+    marcas = []
+    for linea in salida:
+        _ref, _tab, texto = linea.partition("\t")
+        motivos = [m for rx, m in REVISAR if rx.search(texto)]
+        for trozo in texto.split("  |  "):
+            limpio = re.sub(r"«[^»]*»", "", trozo)
+            for m in GRITO.finditer(limpio):
+                if m.group(0) not in SIGLAS and re.search(r"[a-záéíóúñ]", limpio[:m.start()]):
+                    motivos.append("MAYÚSCULAS de grito a mitad de frase (%s)" % m.group(0))
+                    break
+        raros = _fuera_de_la_fuente(texto)
+        if raros:
+            motivos.append("símbolo fuera de la fuente pixel: %s (TODO EN PIXEL)" % " ".join(sorted(set(raros))))
+        if motivos:
+            marcas.append(linea + "".join("\n    -> " + m for m in motivos))
+    return marcas
+
+
 def volcar(ruta: str, salida: list) -> None:
     rel = os.path.relpath(ruta, RAIZ).replace("\\", "/")
     with open(ruta, encoding="utf-8") as f:
@@ -113,6 +182,7 @@ def volcar(ruta: str, salida: list) -> None:
 def main() -> None:
     args = sys.argv[1:]
     destino = None
+    args = [a for a in args if a != "--revisar"]
     if "--salida" in args:
         i = args.index("--salida")
         destino = args[i + 1]
@@ -129,6 +199,8 @@ def main() -> None:
                         volcar(os.path.join(base, nombre), salida)
         else:
             volcar(a, salida)
+    if "--revisar" in sys.argv:
+        salida = revisar(salida)
     texto = "\n".join(salida) + "\n"
     if destino:
         with open(destino, "w", encoding="utf-8") as f:

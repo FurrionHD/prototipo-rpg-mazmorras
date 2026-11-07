@@ -750,8 +750,8 @@ func _refrescar_farol() -> void:
 	_farol_lbl.text = "x%d\n%s" % [carbon, _texto_luz(total)]
 	_farol_lbl.add_theme_color_override("font_color",
 		Color(1.0, 0.55, 0.45) if total < AVISO_LUZ else Color.WHITE)
-	_farol_lbl.tooltip_text = "Luz restante: %s\nCarbón: %d trozo%s\nAlcance: %.1f casillas" % [
-		_texto_luz(total), carbon, "" if carbon == 1 else "s", radio]
+	_farol_lbl.tooltip_text = "Luz restante: %s\nCarbón: %d trozo%s\nAlcance: %s casillas" % [
+		_texto_luz(total), carbon, "" if carbon == 1 else "s", StatusEffects.num(snappedf(radio, 0.1))]
 
 
 # Menos de esto y el numero se pone rojo: es lo que tarda en amargarte quedarte a oscuras hondo.
@@ -797,7 +797,7 @@ func _process(_delta: float) -> void:
 	if firma != _firma_peso:
 		_firma_peso = firma
 		_peso_lbl.text = "%d/%d" % [roundi(peso), roundi(cap)]
-		_peso_box.tooltip_text = "Carga %d/%d  (%d%%)%s" % [roundi(peso), roundi(cap), roundi(ratio * 100.0),
-			"\nVas SOBRECARGADO: andas más lento." if ratio >= Game.overload_threshold else ""]   # = esta_sobrecargado
+		_peso_box.tooltip_text = "Carga %d/%d  (%d %%)%s" % [roundi(peso), roundi(cap), roundi(ratio * 100.0),
+			"\nVas sobrecargado: andas más despacio." if ratio >= Game.overload_threshold else ""]   # = esta_sobrecargado
 
 	_refrescar_farol()

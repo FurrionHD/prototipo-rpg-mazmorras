@@ -227,7 +227,7 @@ func _cerrar() -> void:
 			p.refrescar_lider()
 		var hud: Node = get_tree().get_first_node_in_group("hud")
 		if hud != null and hud.has_method("mostrar_toast"):
-			hud.mostrar_toast("No dejaste a nadie en el equipo: %s baja contigo." % solo.nombre)
+			hud.mostrar_toast("No has dejado a nadie en el equipo: %s baja contigo." % solo.nombre)
 	if almacen.has_method("al_cerrar"):
 		almacen.al_cerrar()
 	_root.visible = false

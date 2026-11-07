@@ -141,7 +141,7 @@ func _soltar(i: int, n: int) -> void:
 	var g: Dictionary = _grupos[i]
 	var hechos: int = Game.soltar_item(g["modelo"], mini(n, int(g["n"])), true)
 	if hechos > 0:
-		Net._toast("Sueltas %s%s" % [Game._nombre_item(g["modelo"]), "" if hechos == 1 else " x%d" % hechos])
+		Net._toast("Sueltas %s%s" % [Game._nombre_item(g["modelo"]), "" if hechos == 1 else " ×%d" % hechos])
 	_rehacer_grupos()
 	if _grupos.is_empty():
 		_cerrar()
@@ -177,14 +177,14 @@ func _pintar() -> void:
 			if elegido:
 				_root.draw_arc(p, RADIO_HUECO, 0.0, TAU, 48, MenuScaffold.AMBAR, 2.0)
 		IconoItem.pintar(_root, p - Vector2(0, 4), LADO_ICONO, g["modelo"], true)
-		var txt := "Cat %d · x%d" % [int(g["modelo"].categoria), int(g["n"])]
+		var txt := "Cat. %d · ×%d" % [int(g["modelo"].categoria), int(g["n"])]
 		var tam := f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 14)
 		var tp := p + Vector2(-tam.x * 0.5, RADIO_HUECO - 4)
 		_root.draw_string_outline(f, tp, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, 4, Color(0, 0, 0, 0.85))
 		_root.draw_string(f, tp, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
 	# En medio: lo elegido, o la ayuda.
 	var l1: String = "Soltar cristal"
-	var l2: String = "clic: 1   ·   mayús+clic: %d" % DE_GOLPE
+	var l2: String = "Clic: 1   ·   Mayús + clic: %d" % DE_GOLPE
 	if _sel >= 0:
 		l1 = Game._nombre_item(_grupos[_sel]["modelo"])
 	for k in 2:

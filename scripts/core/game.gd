@@ -6045,7 +6045,7 @@ func _tick_encargos(delta: float) -> void:
 func _avisar_encargos_listos() -> void:
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud != null and hud.has_method("mostrar_toast"):
-		hud.mostrar_toast("Un encargo ha vuelto: pásate por el Hogar a recogerlo.")
+		hud.mostrar_toast("Han vuelto de un encargo: pásate por el hogar a recoger lo que traen.")
 
 # Suelta las piezas del cofre marcadas para un encargo que ya no existe. Un cierre sucio (o un save
 # de una version anterior) dejaria un pico bloqueado PARA SIEMPRE, sin forma de que el jugador lo
@@ -7011,9 +7011,10 @@ func _desgastar_slot(slot: String, puntos: float, pj: PersonajeData = null) -> v
 # encima, ahora por debajo). Como reparar deja la pieza a 1.0, el siguiente desgaste vuelve a
 # cruzarlo y vuelve a avisar, que es lo que se quiere.
 const DUR_AVISO_GASTADA := 0.25   # pildora discreta en la esquina
-const DUR_NOMBRES := {
-	"main": "arma", "off": "mano secundaria", "casco": "casco", "pecho": "peto",
-	"manos": "guanteletes", "pantalones": "grebas", "botas": "botas"}
+# Con su "de" + articulo, para "Durabilidad del peto de Dasui" (el % tiene que decir de que es).
+const DUR_DE := {
+	"main": "del arma", "off": "de la mano secundaria", "casco": "del casco", "pecho": "del peto",
+	"manos": "de los guanteletes", "pantalones": "de las grebas", "botas": "de las botas"}
 
 func _avisar_durabilidad(slot: String, p: PersonajeData, antes: float, ahora: float) -> void:
 	if ahora >= antes:
@@ -7026,18 +7027,18 @@ func _avisar_durabilidad(slot: String, p: PersonajeData, antes: float, ahora: fl
 	var hud: Node = get_tree().get_first_node_in_group("hud") if is_inside_tree() else null
 	if hud == null:
 		return
-	var pieza: String = String(DUR_NOMBRES.get(slot, slot))
+	var pieza: String = String(DUR_DE.get(slot, "de " + slot))
 	if ahora <= 0.0 and antes > 0.0:
 		# Sin articulos ni participios concordados: por aqui pasan el peto, las grebas y el arma, y
 		# "ROTA" quedaba mal en la mitad. El 0% ya lo dice todo.
 		if hud.has_method("mostrar_toast"):
-			hud.mostrar_toast("💥 %s — %s al 0%%. Así no sirve: toca reparar." % [
-				p.nombre, pieza.capitalize()])
+			hud.mostrar_toast("💥 Durabilidad %s de %s: 0 %%. Rinde un %d %% menos hasta que se repare." % [
+				pieza, p.nombre, roundi(PENAL_ROTO * 100.0)])
 		print("[durabilidad] ROTA: %s de %s" % [pieza, p.nombre])
 	elif ahora <= DUR_AVISO_GASTADA and antes > DUR_AVISO_GASTADA:
 		if hud.has_method("mostrar_aviso_esquina"):
-			hud.mostrar_aviso_esquina("%s: %s al %d%%" % [
-				p.nombre, pieza.capitalize(), roundi(ahora * 100.0)], 3.0)
+			hud.mostrar_aviso_esquina("Durabilidad %s de %s: %d %%" % [
+				pieza, p.nombre, roundi(ahora * 100.0)], 3.0)
 		print("[durabilidad] %s de %s al %d%%" % [pieza, p.nombre, roundi(ahora * 100.0)])
 
 # Desgasta el ARMA de la mano indicada ("main"/"off") por un golpe dado. Los puños (sin arma)
@@ -7390,7 +7391,7 @@ func tick_hechizo_de_entrada(delta: float) -> void:
 		spell.nombre, devuelto])
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud != null and hud.has_method("mostrar_toast"):
-		hud.mostrar_toast("El conjuro se disipa: no ha llegado a ninguna pelea. (Maná devuelto)")
+		hud.mostrar_toast("El conjuro se disipa sin llegar a ninguna pelea. Se te devuelve el maná.")
 
 
 # Se lo pasa a la pantalla de combate y lo borra. El bicho viaja como INDICE dentro de los enemigos

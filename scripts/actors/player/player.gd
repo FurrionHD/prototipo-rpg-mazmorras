@@ -1561,7 +1561,7 @@ func _tick_ataque(delta: float) -> void:
 				# Toque corto a distancia de CONJURO: no ha llegado el espadazo, pero algo se puede
 				# hacer. Se dice, que si no el boton esta encendido y parece que no responde.
 				if Game.lleva_arma_magica(Game.lider()) and not _enemigos_a_tiro(RANGO_CASTEO).is_empty():
-					_toast("Está lejos: MANTÉN para recitar un hechizo.")
+					_toast("Está demasiado lejos: mantén pulsado para recitar un hechizo.")
 		_atk_hold = 0.0
 	# El ESPACIO que no encontro a nadie se RECUERDA y se reintenta (ver ATK_BUFFER). Ojo: esto corre
 	# tambien mientras mantienes, y es lo que quieres — si el bicho llega hasta ti a mitad del
@@ -1842,7 +1842,7 @@ func _soltar_apoyo(spell: SpellData, d: Dictionary) -> void:
 		_toast("⚔ Entras en la pelea con %s listo." % spell.nombre)
 		return
 	Net.jugadores.apoyo_a_otro(spell, peer, int(d.get("idx", 0)), nombre, grupo)
-	_toast("✨ Le echas %s a %s." % [spell.nombre, nombre])
+	_toast("✨ Lanzas %s a %s." % [spell.nombre, nombre])
 
 
 # LA CURA DE GRUPO EN EL MAPA (decision del usuario, 21/09/2026). Antes te hacia elegir "tu grupo" o

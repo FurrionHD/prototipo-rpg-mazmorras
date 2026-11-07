@@ -23,7 +23,9 @@ Si una frase se puede leer de dos maneras, está mal.
      enemigo, «el objetivo seleccionado».
    - **Los números, de los datos y concretos:** nada de «resiste lo mismo que el fuego»; «recibe
      un 20 % menos de Daño de Fuego y un 20 % más de Daño de Agua».
-2. **Cada porcentaje dice de qué es.** Nunca «el 30 %» a secas.
+2. **Cada porcentaje (y cada número) dice de qué es. LEY PARA TODO: fichas, avisos, HUD, menús y log.** Nunca «el 30 %»
+   ni «al 20 %» a secas.
+   - Mal: «Dasui: peto al 20 %». Bien: «Durabilidad del peto de Dasui: 20 %».
    - Mal: «hace el 30 % a quien la forma normal no tocaba».
    - Bien: «reciben como Daño de Viento un 30 % del daño que esa habilidad les habría infligido».
 3. **Si solo mejora algo que ya existe, se dice.** «Los ataques y habilidades del portador que ya

@@ -157,7 +157,7 @@ func _retiro_ok(n: int) -> void:
 func _retiro_fallido() -> void:
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud != null and hud.has_method("mostrar_toast"):
-		hud.mostrar_toast("No hay tanto en el bote del hogar.")
+		hud.mostrar_toast("No hay tanto dinero en el bote del hogar.")
 
 
 # El host le dice a UN cliente por que no ha podido hacer algo. Generico a proposito: el motivo lo
@@ -488,7 +488,7 @@ func solicitar_encargo(piso: int, grupos: Dictionary, duracion: int, uids: Array
 			_difundir_hogar()
 			return motivo
 	if Game.enviar_encargo(piso, grupos, duracion, uids, cofre_ids, faenas, clases) == 0:
-		return Game.motivo_encargo if not Game.motivo_encargo.is_empty() else "No se pudo mandar ese encargo."
+		return Game.motivo_encargo if not Game.motivo_encargo.is_empty() else "No se ha podido mandar ese encargo."
 	_difundir_hogar()
 	return ""
 
@@ -511,7 +511,7 @@ func _pedir_encargo(piso: int, grupos: Dictionary, duracion: int, uids: Array, c
 	var id: int = Game.enviar_encargo(piso, grupos, duracion, uids, cofre_ids, faenas, clases)
 	if id == 0:
 		_aviso_remoto.rpc_id(quien, Game.motivo_encargo if not Game.motivo_encargo.is_empty()
-			else "No se pudo mandar ese encargo.")
+			else "No se ha podido mandar ese encargo.")
 		return
 	# Quien lo manda es el que lo pidio, no el host: es quien puede traerlos de vuelta.
 	var e: Dictionary = Game.encargo_por_id(id)
@@ -971,7 +971,7 @@ func _recibir_consumible(ruta: String, n: int, vender: bool) -> void:
 		return
 	var cobrado: int = Game.precio_venta_consumible(c) * n
 	Game.ingresar(cobrado)
-	Net.venta_cofre.emit("Vendes %d x %s por %d monedas." % [n, (c as ConsumableData).nombre, cobrado])
+	Net.venta_cofre.emit("Vendes %s ×%d por %d monedas." % [(c as ConsumableData).nombre, n, cobrado])
 
 
 func _difundir_cofre_consumibles() -> void:
@@ -1270,7 +1270,7 @@ func necesito_baul() -> bool:
 		t += get_process_delta_time()
 	if not baul_al_dia():
 		_baul_pedido = false   # que el siguiente intento lo vuelva a pedir
-		Net._toast("No llega el baúl de casa: prueba otra vez en un momento.")
+		Net._toast("El baúl de casa no responde: inténtalo de nuevo en un momento.")
 	return baul_al_dia()
 
 

@@ -113,7 +113,7 @@ func _crear_tarjeta() -> void:
 	fila.add_theme_constant_override("separation", 8)
 	vb.add_child(fila)
 	fila.add_child(_boton("Sí, volver", _aceptar))
-	fila.add_child(_boton("Esperar %ds" % int(SEGUNDOS), _minimizar))
+	fila.add_child(_boton("Esperar %d s" % int(SEGUNDOS), _minimizar))
 	fila.add_child(_boton("No", _rechazar))
 
 
@@ -237,7 +237,7 @@ func _expirar() -> void:
 	_ocultar_todo()
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud != null and hud.has_method("mostrar_toast"):
-		hud.mostrar_toast("Se te fue el viaje: la piedra de retorno ya no te espera.")
+		hud.mostrar_toast("Has dejado pasar el viaje: la piedra de retorno ya no te espera.")
 
 
 func _ocultar_todo() -> void:

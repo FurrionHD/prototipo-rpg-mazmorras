@@ -295,11 +295,11 @@ func alta_propio(nombre: String, contrasena: String, icono: PackedByteArray = Pa
 	if n == "":
 		return {"ok": false, "mensaje": "Ponle un nombre al mundo."}
 	if contrasena == "":
-		return {"ok": false, "mensaje": "Hace falta una contraseña: es la que pedirá a quien entre."}
+		return {"ok": false, "mensaje": "Hace falta una contraseña: se le pedirá a quien entre."}
 	var id: String = Nube.nuevo_id()
 	var r: Dictionary = await Nube.crear_mundo(id, contrasena)
 	if not r.get("ok", false):
-		return {"ok": false, "mensaje": String(r.get("mensaje", "No se pudo crear el mundo."))}
+		return {"ok": false, "mensaje": String(r.get("mensaje", "No se ha podido crear el mundo."))}
 	_escribir_entrada(id, {
 		"nombre": n,
 		"icono": icono,
@@ -387,7 +387,7 @@ func abrir(clave: String, contrasena: String, forzar_build := false) -> Dictiona
 	var id: String = String(e.get("id_nube", ""))
 	if id == "":
 		return {"ok": false, "error": "sin_nube",
-			"mensaje": "Ese mundo es de otra persona y solo tienes su dirección: hay que unirse, no abrirlo."}
+			"mensaje": "Ese mundo es de otra persona y solo tienes su dirección: puedes unirte, pero no abrirlo."}
 
 	var dirs: Array = []
 	if Identidad.direccion_preferida != "":
@@ -415,7 +415,7 @@ func abrir(clave: String, contrasena: String, forzar_build := false) -> Dictiona
 			r = await Nube.abrir(id, contrasena, dirs, forzar_build)
 	if not r.get("ok", false):
 		return {"ok": false, "error": String(r.get("error", "")),
-			"mensaje": String(r.get("mensaje", "No se pudo abrir el mundo."))}
+			"mensaje": String(r.get("mensaje", "No se ha podido abrir el mundo."))}
 
 	if String(r.get("resultado", "")) == "unirse":
 		return {"ok": true, "resultado": "unirse", "direcciones": r.get("direcciones", []),
@@ -462,7 +462,7 @@ func _poner_al_dia(clave: String, e: Dictionary, r: Dictionary) -> Dictionary:
 		if de_bd != null and String(de_bd.fecha) >= tres_fecha:
 			if ResourceSaver.save(de_bd, ruta(clave)) != OK:
 				Nube._olvidar()
-				return {"ok": false, "mensaje": "No se pudo escribir la copia local del mundo."}
+				return {"ok": false, "mensaje": "No se ha podido escribir la copia local del mundo."}
 			push_warning("[mundos] %s: la nube no tiene base de datos aun: la copia de la BD vuelve a .tres" % clave)
 		PartidaBD.borrar(ruta_bd(clave))
 	if formato == "bd":
@@ -488,7 +488,7 @@ func _poner_al_dia(clave: String, e: Dictionary, r: Dictionary) -> Dictionary:
 		# Manda la de la nube: se escribe como .tres (como siempre) y se migra desde ahi.
 		if not SaveIO.escribir_bytes(ruta(clave), bytes):
 			Nube._olvidar()   # el cerrojo caduca solo (y a mi me lo devuelve antes)
-			return {"ok": false, "mensaje": "No se pudo escribir la copia local del mundo."}
+			return {"ok": false, "mensaje": "No se ha podido escribir la copia local del mundo."}
 		var info: Dictionary = SaveIO.inspeccionar_ruta(ruta(clave))
 		if int(info["estado"]) != SaveIO.OK:
 			Nube._olvidar()
@@ -504,7 +504,7 @@ func _poner_al_dia(clave: String, e: Dictionary, r: Dictionary) -> Dictionary:
 			push_warning("[mundos] %s NO se pasa a la base de datos (%s): sigue con su .tres" % [clave, m["motivo"]])
 			return {"ok": true, "resultado": "host", "solo_local": manda_local}
 	if not _abrir_bd(clave):
-		return {"ok": false, "mensaje": "No se pudo abrir la base de datos del mundo."}
+		return {"ok": false, "mensaje": "No se ha podido abrir la base de datos del mundo."}
 	_bd.olvidar_nube()   # la nube no tiene estas filas: la proxima subida va entera
 	var s: Dictionary = await _subir_bd(false, _meta_de(clave))
 	if not s.get("ok", false):
@@ -519,7 +519,7 @@ func _al_dia_desde_bd(clave: String) -> Dictionary:
 	var bd := PartidaBD.new()
 	if not bd.abrir(ruta_bd(clave)):
 		Nube._olvidar()
-		return {"ok": false, "mensaje": "No se pudo abrir la base de datos del mundo."}
+		return {"ok": false, "mensaje": "No se ha podido abrir la base de datos del mundo."}
 	var mia: int = bd.rev_nube()
 	var desde: int = 0
 	if mia == _rev_nube and mia >= 0:
@@ -537,13 +537,13 @@ func _al_dia_desde_bd(clave: String) -> Dictionary:
 	if not b.get("ok", false):
 		bd.cerrar()
 		Nube._olvidar()
-		return {"ok": false, "mensaje": String(b.get("mensaje", "No se pudo bajar el mundo."))}
+		return {"ok": false, "mensaje": String(b.get("mensaje", "No se ha podido descargar el mundo."))}
 	var ok: bool = bd.aplicar(b.get("filas", []), bool(b.get("completa", desde == 0)), int(b.get("rev", _rev_nube)))
 	_rev_nube = int(b.get("rev", _rev_nube))
 	bd.cerrar()
 	if not ok:
 		Nube._olvidar()
-		return {"ok": false, "mensaje": "No se pudo escribir la copia local del mundo."}
+		return {"ok": false, "mensaje": "No se ha podido escribir la copia local del mundo."}
 	print("[mundos] %s: bajado de la nube %s (%d filas, rev %d)" % [clave,
 		"entero" if bool(b.get("completa", desde == 0)) else "lo cambiado desde el rev %d" % desde, (b.get("filas", []) as Array).size(), _rev_nube])
 	if int(inspeccionar(clave, true)["estado"]) != SaveIO.OK:
@@ -622,13 +622,13 @@ func unirse(clave: String, contrasena: String, invitacion := "") -> Dictionary:
 				uniendome = clave
 				return {"ok": true, "direccion": "Steam"}
 			Net.tunel.cerrar()
-			motivo = "No se pudo preparar la conexión por Steam."
+			motivo = "No se ha podido preparar la conexión por Steam."
 		print("[mundos] por Steam no: %s" % motivo)
 		if ips.is_empty():
 			return {"ok": false, "mensaje": motivo + " Quien tiene el mundo lo ha abierto por Steam."}
 
 	if ips.is_empty():
-		return {"ok": false, "mensaje": "No sé a qué dirección conectarme: añade la suya en la ficha "
+		return {"ok": false, "mensaje": "No hay ninguna dirección a la que conectarse: añade la suya en la ficha "
 			+ "de este mundo."}
 
 	# Se prueba la primera; si no contesta, Net avisa y el jugador puede reintentar (probar la lista
@@ -637,7 +637,7 @@ func unirse(clave: String, contrasena: String, invitacion := "") -> Dictionary:
 	var ip: String = String(ips[0])
 	var err: int = Net.unirse(ip, contrasena, Net.PUERTO, true)
 	if err != OK:
-		return {"ok": false, "mensaje": "No se pudo conectar a %s." % ip}
+		return {"ok": false, "mensaje": "No se ha podido conectar con %s." % ip}
 	# Se recuerda a quien nos estamos uniendo: al llegar el personaje hay que saber de que mundo es.
 	uniendome = clave
 	return {"ok": true, "direccion": ip}
@@ -687,7 +687,7 @@ func entrar(clave: String, contrasena: String, forzar_build := false) -> Diction
 			print("[mundos] %s no esta en la nube todavia: lo sube la sala" % clave)
 			return await _lanzar_sala(clave, contrasena, forzar_build)
 		return {"ok": false, "error": String(est.get("error", "")),
-			"mensaje": String(est.get("mensaje", "No se pudo consultar el mundo."))}
+			"mensaje": String(est.get("mensaje", "No se ha podido consultar el mundo."))}
 	if bool(est.get("abierto", false)) and not bool(est.get("caducado", false)) \
 			and not bool(est.get("es_mio", false)):
 		return await unirse(clave, contrasena)
@@ -770,7 +770,7 @@ func _lanzar_sala(clave: String, contrasena: String, forzar_build: bool) -> Dict
 	# La contraseña, por un fichero que la sala lee y borra (en la linea de ordenes la veria cualquiera).
 	var f := FileAccess.open(_SALA.ruta_pedido(clave), FileAccess.WRITE)
 	if f == null:
-		return {"ok": false, "mensaje": "No se pudo preparar la sala del mundo."}
+		return {"ok": false, "mensaje": "No se ha podido preparar la sala del mundo."}
 	f.store_string(contrasena)
 	f.close()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(_SALA.ruta_estado(clave)))
@@ -790,7 +790,7 @@ func _lanzar_sala(clave: String, contrasena: String, forzar_build: bool) -> Dict
 		args.append("forzar_build")
 	var pid := OS.create_process(OS.get_executable_path(), args)
 	if pid <= 0:
-		return {"ok": false, "mensaje": "No se pudo arrancar la sala del mundo."}
+		return {"ok": false, "mensaje": "No se ha podido arrancar la sala del mundo."}
 	print("[mundos] sala de %s lanzada (pid %d)" % [clave, pid])
 	aviso.emit("Abriendo el mundo...")
 	return await _conectar_a_mi_sala(clave, contrasena, pid)
@@ -807,19 +807,19 @@ func _conectar_a_mi_sala(clave: String, contrasena: String, pid: int) -> Diction
 			break
 		if estado == "error":
 			return {"ok": false, "error": String(est.get("error", "")),
-				"mensaje": String(est.get("mensaje", "No se pudo abrir el mundo."))}
+				"mensaje": String(est.get("mensaje", "No se ha podido abrir el mundo."))}
 		if estado == "unirse":
 			# Otro lo abrio justo a la vez: se entra con el.
 			return await unirse(clave, contrasena)
 		if pid > 0 and not OS.is_process_running(pid):
-			return {"ok": false, "mensaje": "La sala del mundo se ha cerrado al arrancar (mira logs/sala.log)."}
+			return {"ok": false, "mensaje": "La sala del mundo se ha cerrado al arrancar (los detalles están en logs/sala.log)."}
 		await get_tree().create_timer(0.2).timeout
 		t += 0.2
 	if String(est.get("estado", "")) != "lista":
 		return {"ok": false, "mensaje": "La sala del mundo no ha arrancado a tiempo."}
 	var err: int = Net.unirse("127.0.0.1", contrasena, int(est.get("puerto", Net.PUERTO)), true)
 	if err != OK:
-		return {"ok": false, "mensaje": "No se pudo conectar con la sala del mundo."}
+		return {"ok": false, "mensaje": "No se ha podido conectar con la sala del mundo."}
 	uniendome = clave
 	return {"ok": true, "resultado": "conectando", "direccion": "127.0.0.1",
 		"direcciones": est.get("direcciones", [])}
@@ -1034,7 +1034,7 @@ func _autoguardar_ya() -> bool:
 	if Net.activo and Net.es_host:
 		await Net.partida.recoger_estados()
 	if not guardar_actual():
-		_avisar_hud("No se pudo guardar")
+		_avisar_hud("No se ha podido guardar")
 		return false
 	if ranura_de(abierto) > 0:
 		_t_nube_ranura += SEG_AUTOGUARDADO_RANURA
@@ -1049,7 +1049,7 @@ func _autoguardar_ya() -> bool:
 		r = await Nube.subir(SaveIO.bytes_de_ruta(ruta(abierto)), _meta())
 	if not r.get("ok", false):
 		aviso.emit("Autoguardado: guardado en tu disco, pero sin subir (%s)." % String(r.get("mensaje", "")))
-		_avisar_hud("Guardado sin subir")
+		_avisar_hud("Guardado en este PC (sin subir)")
 		return false
 	_avisar_hud("Partida guardada")
 	return true
@@ -1079,7 +1079,7 @@ func cerrar_y_subir() -> Dictionary:
 	if Net.activo and Net.es_host:
 		await Net.partida.recoger_estados(true)
 	if not guardar_actual():
-		return {"ok": false, "mensaje": "No se pudo guardar el mundo (no se cierra)."}
+		return {"ok": false, "mensaje": "No se ha podido guardar el mundo (no se cierra)."}
 	if ranura_de(clave) > 0:
 		var rr: Dictionary = await _subir_ranura(true)
 		if not rr.get("ok", false) and not rr.get("nada", false):
@@ -1105,7 +1105,7 @@ func cerrar_y_subir() -> Dictionary:
 	_contrasena = ""
 	if not r.get("ok", false):
 		_escribir_entrada(clave, {"pendiente": true})
-		return {"ok": false, "mensaje": String(r.get("mensaje", "No se pudo subir el mundo."))}
+		return {"ok": false, "mensaje": String(r.get("mensaje", "No se ha podido subir el mundo."))}
 	_escribir_entrada(clave, {"pendiente": false})
 	return {"ok": true}
 

@@ -172,9 +172,9 @@ func _draw() -> void:
 
 
 func _actualizar_letrero() -> void:
-	var txt: String = "🔮 %s cargado · Clic: elegir dónde cae · Mantener atacar: deshacerlo" % _spell.nombre
+	var txt: String = "🔮 %s cargado · Clic: elegir dónde cae · Mantén atacar: deshacerlo" % _spell.nombre
 	if _apuntando:
-		var pilla: String = "no pilla a nadie" if _pillado == null else "pilla enemigos"
+		var pilla: String = "no alcanza a nadie" if _pillado == null else "alcanza a enemigos"
 		txt = "🔮 %s: %s · Clic: lanzarlo · Clic derecho: guardar el área" % [_spell.nombre, pilla]
 	if txt == _letrero_visto:
 		return

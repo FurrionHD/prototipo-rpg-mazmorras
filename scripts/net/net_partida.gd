@@ -946,7 +946,7 @@ func _guardar_ahora(cerrando: bool = false, barrera: int = 0) -> void:
 		if ok:
 			Net._aviso_esquina("Partida guardada")
 		else:
-			Net._toast("El anfitrión ha guardado, pero tu partida NO se pudo guardar.")
+			Net._toast("El anfitrión ha guardado, pero tu partida no se ha podido guardar.")
 		return
 	# El host cierra la sesion. Me vuelvo A MI MUNDO con lo que se acaba de guardar: se RECARGA de la
 	# ranura, que es la unica forma de garantizar que no me llevo nada del mundo del host (baul, mapa,

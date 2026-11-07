@@ -181,14 +181,14 @@ func _ir_al_menu_multi() -> void:
 			esc.atender_invitacion()
 		return
 	if Game.hay_pelea_en_pantalla() or Game.combate_activo():
-		_avisar("Te invitan a «%s»: acaba la pelea y vuelve a pulsar Unirse." % Mundos.invitacion["nombre"])
+		_avisar("Te han invitado a «%s»: termina la pelea y vuelve a pulsar «Unirse»." % Mundos.invitacion["nombre"])
 		Mundos.invitacion = {}
 		return
 	if Net.activo:
 		if not Net.mundo_compartido or Net.es_host:
 			# Una sesion LAN de las de antes, o soy yo quien la aloja: cortarla por un clic en Steam
 			# dejaria tirados a los demas.
-			_avisar("Te invitan a «%s»: sal antes de esta partida en grupo." % Mundos.invitacion["nombre"])
+			_avisar("Te han invitado a «%s»: sal primero de esta partida en grupo." % Mundos.invitacion["nombre"])
 			Mundos.invitacion = {}
 			return
 		# Estoy en el mundo compartido de OTRO: lo mismo que "Guardar y salir" de la pausa.
