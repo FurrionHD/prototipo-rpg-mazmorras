@@ -2,6 +2,60 @@
 
 ---
 
+# v0.15.7
+
+## 🧬 Más mutantes
+
+- **Escarabajo**: el Escarabajo imán, el Escarabajo saeta y el Imán errante, con el set de runas Campo magnético. El que
+  vuela cae, se queda panza arriba y tarda en darse la vuelta.
+- **Ciempiés**: el Ciempiés bicéfalo y el Nudo carmesí. Tienen dos cabezas: aturdir una solo duerme esa, y un ataque de
+  área pilla a las dos. Set de runas Dos mentes.
+- **Segadora**: la Segadora de sierra, que corta fuera de su turno a quien se quede en su zona de siega, y el Vendaval
+  rojo, una maga de viento con cortes en abanico y vuelo corto. Set de runas Filo de aire: tus golpes de arma sueltan
+  un corte de viento.
+
+## 🌪️ Elemento nuevo: Viento
+
+- **Corta y hace sangrar.** Las criaturas de piedra lo aguantan mejor y las que vuelan lo sufren más; a quien está en
+  el aire le corta lo que estaba preparando.
+- **Aviva el fuego**: las Quemaduras duelen más y las llamas pueden saltar a los que estén pegados.
+
+## 🎨 Todo en pixel art
+
+- **Letra nueva** en todo el juego y **menús con estilo de mazmorra**: paneles, botones, pestañas, barras y retratos.
+- **Iconos dibujados**: los de los menús, los estados, el registro y los avisos. Adiós a los emojis.
+- **Objetos en pixel**: armas, armaduras, escudos, herramientas, farolillos, mochilas y los 59 libros, cada uno con su
+  dibujo.
+- **Efectos en pixel**: las armas, las magias, los círculos mágicos y los ataques de todos los enemigos y sus mutantes.
+- **Minijuegos de recolección**, el gacha y la rueda de la G, también en pixel.
+
+## 📜 Registro de la pelea nuevo
+
+- **Una fila por acción**, con lo que trae dentro (cortes, rebotes, estados nuevos) en vez de una línea por cada cosa.
+- **Pasa el ratón (o toca) una fila** y sale la ficha con el detalle: golpe a golpe, a quién, cuánto y qué saltó.
+- **Filtros**: Todo, Lo mío, Me hacen y Estados.
+- **Las frases mágicas** salen en la ficha: cuáles dijiste y, si falló, por qué.
+
+## ✍️ Textos repasados de arriba abajo
+
+- **Todo el juego con el mismo estilo**: magias, habilidades, objetos, estados, equipo, menús, avisos y el registro.
+  Cada porcentaje dice de qué es, los números van con coma y nada de abreviaturas.
+- **Tildes** en las descripciones y en las frases mágicas.
+
+## ⚔️ Combate
+
+- **Conjuro cargado**: una magia de ataque recitada fuera de combate se queda cargada y la llevas encima; con el
+  primer clic eliges dónde cae y con el segundo empieza la pelea con ella.
+- **La ficha de los estados se abre en combate**, y a velocidad ×2 los personajes también andan más rápido.
+
+## 🐛 Arreglos
+
+- **La rata escondida en las sombras** ya se ve oculta para todos.
+- **Huir de un enemigo herido** ya no se queda esperando 6 segundos.
+- **Las celdas del inventario** ya no llenan el registro de errores al abrirlas.
+
+---
+
 # v0.15.6
 
 ## 🧬 Los mutantes de los primeros pisos
