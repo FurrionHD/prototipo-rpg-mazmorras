@@ -10,6 +10,9 @@ const ETIQUETAS := [
 	"Probabilidad de crítico mágico", "Daño con el tiempo recibido", "Curación recibida",
 	"Defensa mágica de la pieza", "Reducción mágica de la pieza", "Respuesta al bloquear", "Alcance 5 pisos más abajo",
 	"Defensa al bloquear", "Ataque mágico",
+	"  Probabilidad de crítico mágico", "  Probabilidad de crítico", "  Probabilidad de esquiva", "  Resistencia a críticos",
+	"  Resistencia a estados", "  Regeneración de maná", "  Velocidad de recitado", "  Daño crítico mágico", "Velocidad de recitado",
+	"+12 de durabilidad máxima", "13 / 13 (100 %)",
 	"13/13 (100 %)", "100/100 (100 %)", "+3 pts máx", "+12 pts máx", "(+0,4)", "(+7 %)", "×1,35", "+19,7 %", "+31 %",
 ]
 

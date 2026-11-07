@@ -210,8 +210,12 @@ func _ficha(vb: VBoxContainer) -> void:
 		var n_dur: int = int(mj.get(Upgrades.DURABILIDAD, 0))
 		var nuevo_max: float = maxd / (1.0 + float(n_dur) * Game.DURABILIDAD_MEJORA_PCT) \
 			* (1.0 + float(n_dur + 1) * Game.DURABILIDAD_MEJORA_PCT)
-		delta = "+%d de durabilidad máxima" % round(nuevo_max - maxd)
-	_atributo(rejilla, "Durabilidad", "%d / %d (%d %%)" % [round(frac * maxd), round(maxd), round(frac * 100.0)], delta)
+		delta = "+%d" % round(nuevo_max - maxd)
+	_atributo(rejilla, "Durabilidad", "%d / %d (%d %%)" % [round(frac * maxd), round(maxd), round(frac * 100.0)], "")
+	# El "+N" va en su PROPIA fila: con la etiqueta delante dice de que es (sube el maximo, no la actual), y en la
+	# columna del delta (76 px) no cabe una explicacion.
+	if delta != "":
+		_atributo(rejilla, "Durabilidad máxima", "%d" % round(maxd), delta)
 	MenuScaffold.bloque_runas(vb, item, true)   # sus runas (mejorar no las toca), compactas
 	t.note(vb, "El núcleo que pide depende del nivel de la pieza, y dentro de su tramo cada mejora cuesta uno más. Gasta también material de su tier, del peor que tengas: la rareza ya está echada.")
 

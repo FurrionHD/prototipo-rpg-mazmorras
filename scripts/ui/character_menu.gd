@@ -635,12 +635,12 @@ func _pagina_a(i: int) -> void:
 func _pagina_atributos(c: Combatant) -> void:
 	var pj: PersonajeData = _pj()
 	var magico: bool = Game.lleva_arma_magica(pj)
-	_row("Vida máx.", "%.0f" % c.max_hp)
+	_row("Vida máxima", "%.0f" % c.max_hp)
 	# MANA Y ENERGIA aqui, con el resto de numeros: son atributos como los demas y las barras de
 	# debajo del muñeco se fueron (ver _sec_detalles). El maná solo si lo tiene.
 	if c.max_mp > 0.0:
-		_row("Maná máx.", "%.0f" % c.max_mp)
-	_row("Energía máx.", "%.0f" % _energia_max(pj))
+		_row("Maná máximo", "%.0f" % c.max_mp)
+	_row("Energía máxima", "%.0f" % _energia_max(pj))
 	if magico:
 		_row("Ataque mágico", "%.0f" % MenuScaffold.dano_magico(pj))
 	else:
@@ -648,12 +648,12 @@ func _pagina_atributos(c: Combatant) -> void:
 	_row("Defensa", "%.0f" % c.def_value())
 	_row("Defensa mágica", "%.0f" % c.mdef_value())
 	if magico:
-		_row("Vel. recitado", "%.1f" % c.cast_spd())
-		_row("Prob. crít. mágico", _fmt_pct(_crit_magico(c)))
+		_row("Velocidad de recitado", "%.1f" % c.cast_spd())
+		_row("Probabilidad de crítico mágico", _fmt_pct(_crit_magico(c)))
 		_row("Daño crítico mágico", _crit_dmg_txt(c.crit_dmg_magico))
 	else:
 		_row("Velocidad", "%.0f" % c.spd())
-		_row("Prob. crítico", _fmt_pct(_crit_fisico(c)))
+		_row("Probabilidad de crítico", _fmt_pct(_crit_fisico(c)))
 		_row("Daño crítico", _crit_dmg_txt(c.crit_dmg))
 	if c.mp_regen_turno > 0.0:
 		_row("Regeneración de maná", "%.2f/turno" % c.mp_regen_turno)
@@ -697,7 +697,7 @@ func _pagina_habilidades(c: Combatant) -> void:
 	# total tiene por encima del raw pelado (base + arma).
 	_fila_habilidad("Fuerza", "fuerza", ab)
 	var atk_sin: float = (c.base_ataque() + c.ataque_arma) * c.status_atk_mult()
-	_aporte("+%.1f ataque" % (_ataque_total(c) - atk_sin))
+	_aporte("+%.1f de ataque" % (_ataque_total(c) - atk_sin))
 
 	# RESISTENCIA -> vida y defensa.
 	_fila_habilidad("Resistencia", "resistencia", ab)
@@ -706,13 +706,13 @@ func _pagina_habilidades(c: Combatant) -> void:
 	var def_base: float = c.base_defense + c.extra_defense
 	var def_de_res: float = (StatsMath.defense_jugador(ab, def_base)
 		- StatsMath.defense_jugador(ab_sin_res, def_base)) * c.status_def_mult()
-	_aporte("+%.1f vida  ·  +%.1f defensa" % [hp_de_res, def_de_res])
+	_aporte("+%.1f de vida  ·  +%.1f de defensa" % [hp_de_res, def_de_res])
 
 	# DESTREZA -> critico. Es un DUELO (tu Destreza contra la Agilidad del que recibe el golpe), asi
 	# que sin rival delante se mide contra un maniqui con tus mismas stats.
 	# Y la EFICACIA (que prendan tus estados): la de este nivel, sin la grabada al ascender.
 	_fila_habilidad("Destreza", "destreza", ab)
-	_aporte("~%s de crítico  ·  +%s de eficacia" % [_fmt_pct(StatsMath.crit_chance(float(ab.destreza),
+	_aporte("%s de probabilidad de crítico  ·  +%s de eficacia" % [_fmt_pct(StatsMath.crit_chance(float(ab.destreza),
 		float(ab.agilidad))), _fmt_pct(StatsMath.eficacia_de_destreza(float(ab.destreza)))])
 
 	# AGILIDAD -> esquiva (el duelo espejo del critico) y velocidad de turno.
@@ -724,13 +724,13 @@ func _pagina_habilidades(c: Combatant) -> void:
 	var spd_con: float = StatsMath.speed_jugador(ab, c.base_speed)
 	var spd_sin: float = StatsMath.speed_jugador(_sin_habilidad(ab, "agilidad"), c.base_speed)
 	var vel_de_agi: float = c.spd() * (1.0 - (spd_sin / spd_con if spd_con > 0.0 else 1.0))
-	_aporte("~%s de esquiva  ·  +%.1f velocidad" % [_fmt_pct(evade_espejo), vel_de_agi])
+	_aporte("%s de probabilidad de esquiva  ·  +%.1f de velocidad" % [_fmt_pct(evade_espejo), vel_de_agi])
 
 	# MAGIA -> daño de hechizos y maná. La defensa magica ya no es suya: es de la Voluntad.
 	_fila_habilidad("Magia", "magia", ab)
 	var ab_sin_mag: Abilities = _sin_habilidad(ab, "magia")
 	var mp_de_mag: float = c.max_mp - StatsMath.max_mp_jugador(ab_sin_mag, _pj().base_mp)
-	_aporte("×%.2f a los hechizos  ·  +%.1f maná" % [
+	_aporte("×%.2f al daño de los hechizos  ·  +%.1f de maná" % [
 		StatsMath.magia_factor(float(ab.magia)), mp_de_mag])
 
 	# VOLUNTAD -> defensa magica y resistencia a efectos (a todos por igual).
@@ -739,7 +739,7 @@ func _pagina_habilidades(c: Combatant) -> void:
 	var mdef_base: float = c.base_magic + c.extra_magic_def   # la armadura tambien la multiplica
 	var mdef_de_vol: float = StatsMath.magic_jugador(ab, mdef_base) \
 		- StatsMath.magic_jugador(ab_sin_vol, mdef_base)
-	_aporte("+%.1f def. mágica  ·  +%s resist. a efectos" % [
+	_aporte("+%.1f de defensa mágica  ·  +%s de resistencia a estados" % [
 		mdef_de_vol, _fmt_pct(StatsMath.resist_de_voluntad(float(ab.voluntad)))])
 
 
@@ -748,7 +748,7 @@ func _pagina_habilidades(c: Combatant) -> void:
 # las otras cien: lo que se viene a mirar aqui es el numero.
 func _aporte(txt: String) -> void:
 	var l := Label.new()
-	l.text = txt
+	l.text = MenuScaffold.valor_es(txt)   # coma decimal y espacio antes del %
 	l.add_theme_color_override("font_color", Color(0.55, 0.78, 0.6))
 	l.add_theme_font_size_override("font_size", 12)
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -861,54 +861,54 @@ func _abrir_modal_atributos() -> void:
 	scroll.add_child(vb)
 
 	MenuScaffold.titulo(vb, "Atributos base", 13, GRIS)
-	MenuScaffold.fila(vb, "  Vida máxima", "%.0f" % c.max_hp, 200)
-	MenuScaffold.fila(vb, "  Ataque", "%.0f" % _ataque_total(c), 200)
-	MenuScaffold.fila(vb, "  Ataque mágico", "%.0f" % MenuScaffold.dano_magico(pj), 200)
-	MenuScaffold.fila(vb, "  Defensa", "%.0f" % c.def_value(), 200)
+	MenuScaffold.fila(vb, "  Vida máxima", "%.0f" % c.max_hp, 210)
+	MenuScaffold.fila(vb, "  Ataque", "%.0f" % _ataque_total(c), 210)
+	MenuScaffold.fila(vb, "  Ataque mágico", "%.0f" % MenuScaffold.dano_magico(pj), 210)
+	MenuScaffold.fila(vb, "  Defensa", "%.0f" % c.def_value(), 210)
 	MenuScaffold.fila(vb, "  Defensa mágica",
-		"%.0f" % c.mdef_value(), 200)
-	MenuScaffold.fila(vb, "  Velocidad", "%.0f" % c.spd(), 200)
-	MenuScaffold.fila(vb, "  Vel. recitado", "%.1f" % c.cast_spd(), 200)
+		"%.0f" % c.mdef_value(), 210)
+	MenuScaffold.fila(vb, "  Velocidad", "%.0f" % c.spd(), 210)
+	MenuScaffold.fila(vb, "  Velocidad de recitado", "%.1f" % c.cast_spd(), 210)
 	if c.max_mp > 0.0:
-		MenuScaffold.fila(vb, "  Maná máximo", "%.0f" % c.max_mp, 200)
+		MenuScaffold.fila(vb, "  Maná máximo", "%.0f" % c.max_mp, 210)
 	# Por _energia_max y NO por c.max_energy: el combatiente recien creado la trae a cero (se la
 	# inyecta _abrir_pelea), asi que esta fila ponia "0" siempre.
-	MenuScaffold.fila(vb, "  Energía máxima", "%.0f" % _energia_max(pj), 200)
+	MenuScaffold.fila(vb, "  Energía máxima", "%.0f" % _energia_max(pj), 210)
 
 	vb.add_child(HSeparator.new())
 	MenuScaffold.titulo(vb, "Atributos avanzados", 13, GRIS)
-	MenuScaffold.fila(vb, "  Prob. crítico", _fmt_pct(_crit_fisico(c)), 200)
-	MenuScaffold.fila(vb, "  Daño crítico", _crit_dmg_txt(c.crit_dmg), 200)
-	MenuScaffold.fila(vb, "  Prob. crít. mágico", _fmt_pct(_crit_magico(c)), 200)
-	MenuScaffold.fila(vb, "  Daño crít. mágico", _crit_dmg_txt(c.crit_dmg_magico), 200)
+	MenuScaffold.fila(vb, "  Probabilidad de crítico", _fmt_pct(_crit_fisico(c)), 210)
+	MenuScaffold.fila(vb, "  Daño crítico", _crit_dmg_txt(c.crit_dmg), 210)
+	MenuScaffold.fila(vb, "  Probabilidad de crítico mágico", _fmt_pct(_crit_magico(c)), 210)
+	MenuScaffold.fila(vb, "  Daño crítico mágico", _crit_dmg_txt(c.crit_dmg_magico), 210)
 	# La esquiva contra el mismo espejo, con su tope: con bonus de esquiva el techo sube
 	# (StatsMath.EVADE_MAX_BUFF), y sin decirlo el numero parecia clavado.
 	var cap: float = StatsMath.EVADE_MAX_BUFF if c.evasion_bonus > 0.0 else StatsMath.EVADE_MAX
 	var evade: float = clampf(StatsMath.evade_chance(float(c.abilities.agilidad),
 		float(c.abilities.destreza)) - c.evasion_penal + c.evasion_bonus, 0.0, cap)
-	MenuScaffold.fila(vb, "  Prob. esquiva", _fmt_pct(evade), 200)
+	MenuScaffold.fila(vb, "  Probabilidad de esquiva", _fmt_pct(evade), 210)
 	# El aporte del EQUIPO a la esquiva: va en evasion_penal (negativo = bonus de daga/estoque o de
 	# armadura ligera; positivo = lo que estorba un escudo). Sin esta linea se fundia en el total.
 	if absf(c.evasion_penal) > 0.001:
-		MenuScaffold.fila(vb, "     · del equipo", "%+.0f%%" % (-c.evasion_penal * 100.0), 200)
-	MenuScaffold.fila(vb, "  Reducción de daño", _fmt_pct(c.armor_reduction), 200)
+		MenuScaffold.fila(vb, "     · del equipo", "%+.0f%%" % (-c.evasion_penal * 100.0), 210)
+	MenuScaffold.fila(vb, "  Reducción de daño", _fmt_pct(c.armor_reduction), 210)
 	if c.crit_resist > 0.001:
-		MenuScaffold.fila(vb, "  Resist. crítico", _fmt_pct(c.crit_resist), 200)
+		MenuScaffold.fila(vb, "  Resistencia a críticos", _fmt_pct(c.crit_resist), 210)
 	# OJO con la unidad: NO es "el % de veces que resistes". La formula es un cociente (ver
 	# StatusEffects.prob_final), asi que 100% quiere decir "me entran a la mitad" y puede pasar del
 	# 100% sin volverte inmune nunca. Por eso va el "×" al lado: es lo que multiplica.
-	MenuScaffold.fila(vb, "  Resist. estados", "%s   (los recibes ×%.2f)" % [
-		_fmt_pct(c.resist_estados()), 1.0 / (1.0 + c.resist_estados())], 200)
-	MenuScaffold.fila(vb, "  Eficacia (estados)", "%s   (los aplicas ×%.2f)" % [
-		_fmt_pct(c.eficacia_estados()), 1.0 + c.eficacia_estados()], 200)
-	MenuScaffold.fila(vb, "  Regen maná", "%.2f/turno" % c.mp_regen_turno, 200)
+	MenuScaffold.fila(vb, "  Resistencia a estados", "%s   (probabilidad de sufrirlos ×%.2f)" % [
+		_fmt_pct(c.resist_estados()), 1.0 / (1.0 + c.resist_estados())], 210)
+	MenuScaffold.fila(vb, "  Eficacia", "%s   (probabilidad de causarlos ×%.2f)" % [
+		_fmt_pct(c.eficacia_estados()), 1.0 + c.eficacia_estados()], 210)
+	MenuScaffold.fila(vb, "  Regeneración de maná", "%.2f/turno" % c.mp_regen_turno, 210)
 	# El COSTE DE MANA se queda (es un numero que te cambia lo que puedes lanzar), pero el bloque de
 	# "Poder mágico" y su desglose se fueron: el ataque mágico ya sale arriba en la misma moneda que
 	# el físico, y el multiplicador en crudo solo servia para explicar de donde salia ese numero.
 	var lm: Dictionary = Game.loadout_mods(pj)
 	if float(lm["mana_reduccion"]) > 0.0:
 		MenuScaffold.fila(vb, "  Coste de maná",
-			"-%.0f%%" % (float(lm["mana_reduccion"]) * 100.0), 200)
+			"-%.0f%%" % (float(lm["mana_reduccion"]) * 100.0), 210)
 	# Lo de las runas que no tiene fila propia (solo si lo llevas; lo demas ya va sumado arriba).
 	MenuScaffold.filas_runas(vb, pj, 200, "  ")
 
@@ -961,7 +961,7 @@ func _sec_arma() -> void:
 	var lm: Dictionary = Game.loadout_mods(pj)
 	MenuScaffold.fila(_lista, "Velocidad del conjunto", "×%.2f" % float(lm["velocidad_mult"]))
 	if pj.equipped_off is WeaponData:
-		MenuScaffold.nota(_lista, "Vas a dos armas: se alternan golpe a golpe, cada una con su daño "
+		MenuScaffold.nota(_lista, "Lleva dos armas: se alternan golpe a golpe, cada una con su daño "
 			+ "y su crítico. La mejora de Rapidez de la secundaria cuenta la mitad que la de la "
 			+ "principal.")
 	# Los SETS DE RUNAS de las armas que llevas (2/2 en verde si esta activo).
@@ -973,7 +973,7 @@ func _sec_arma() -> void:
 	var item: Resource = pj.equipped_main if es_main else pj.equipped_off
 	if item == null:
 		_title("Principal" if es_main else "Secundaria")
-		_note("Sin arma: peleas a puños (poco daño, pero rápido y sin peso)." if es_main
+		_note("Sin arma: pelea a puños (poco daño, pero rápido y sin peso)." if es_main
 			else "Sin mano secundaria. Ahí caben otra arma, un escudo o una varita.")
 	else:
 		MenuScaffold.titulo_item(_content, Game.item_display_name(item),
@@ -990,7 +990,7 @@ func _sec_arma() -> void:
 	if not es_main and dos_manos:
 		_note("El arma principal es a dos manos: no admite secundaria.")
 		return
-	_nota_no_se_toca("Cambios de equipo solo en el pueblo. Aquí es solo consulta.")
+	_nota_no_se_toca("El equipo solo se puede cambiar en el pueblo; aquí solo se consulta.")
 	var fila := HBoxContainer.new()
 	fila.alignment = BoxContainer.ALIGNMENT_CENTER
 	_content.add_child(fila)
@@ -1154,19 +1154,19 @@ func _cambiar_arma() -> void:
 	# Los avisos de "esto ya lo llevas" / "esto no encaja", que es lo que explica el boton de abajo.
 	if item == _equipado():
 		if es_armadura:
-			_note("Ya la llevas puesta: al quitarla vas ligero (+velocidad, 0 defensa).")
+			_note("Ya la lleva puesta: al quitarla, irá ligero (más velocidad y ninguna defensa).")
 		elif _sel == 0:
-			_note("Ya la llevas puesta: al desequiparla pelearás a puños.")
+			_note("Ya la lleva puesta: al quitarla, peleará a puños.")
 		else:
-			_note("Ya la llevas puesta: al desequiparla te quedas con la mano libre.")
+			_note("Ya la lleva puesta: al quitarla, se quedará con la mano libre.")
 	elif not es_armadura and _sel == 1:
 		if item == pj.equipped_main:
-			_note("Ya la llevas en la mano principal: necesitas otra igual para el dual.")
+			_note("Ya la lleva en la mano principal: para llevar dos hace falta otra igual.")
 		elif not Game._secundaria_valida(pj.equipped_main, item):
-			_note("No compatible con el arma principal actual.")
+			_note("No es compatible con el arma principal que lleva.")
 
 	var pueblo: bool = _se_puede_tocar()
-	_nota_no_se_toca("Cambios de equipo solo en el pueblo. Aquí es solo consulta.")
+	_nota_no_se_toca("El equipo solo se puede cambiar en el pueblo; aquí solo se consulta.")
 	_content.add_child(HSeparator.new())
 	var fila := HBoxContainer.new()
 	fila.add_theme_constant_override("separation", 8)
@@ -1360,15 +1360,15 @@ func _kit_habilidades(pj: PersonajeData) -> void:
 	# LA FICHA. El ataque basico va SIEMPRE arriba: no ocupa hueco y es lo que haces cuando no haces
 	# nada, asi que callarlo dejaba la pantalla sin la mitad de lo que puedes hacer.
 	_title("Ataque básico")
-	_note("Golpe con lo que lleves en las manos. No cuesta energía: la recupera.")
+	_note("Golpea con lo que lleve en las manos. No cuesta energía: la recupera.")
 	_content.add_child(HSeparator.new())
 	_ficha_kit(pj, false)
 
 
 func _kit_magias(pj: PersonajeData) -> void:
 	MenuScaffold.titulo(_kit_fijo, "Magias", 15)
-	MenuScaffold.nota(_kit_fijo, "Se lanzan RECITANDO su encantamiento: una frase por turno. Si fallas "
-		+ "una, el hechizo se te vuelve en contra.")
+	MenuScaffold.nota(_kit_fijo, "Se lanzan recitando su encantamiento, una frase por turno. Si se falla "
+		+ "una, el hechizo se vuelve contra quien lo recita.")
 	_pista_arrastre()
 	# CON LOS HUECOS, por lo mismo que las habilidades: la ranura donde sueltas es la ranura donde
 	# se guarda (ver Game._set_hechizos). Con la lista compacta de antes, soltar en la 2 con la 1
@@ -1526,7 +1526,7 @@ func _nombre_kit(it: Resource) -> String:
 	if it == null:
 		return ""
 	if it is SpellData:
-		return "%s\n%d MP" % [it.nombre, (it as SpellData).coste_mana]
+		return "%s\n%d de maná" % [it.nombre, (it as SpellData).coste_mana]
 	return str(it.get("nombre"))
 
 
@@ -1565,7 +1565,7 @@ func _ficha_kit(pj: PersonajeData, es_magia: bool) -> void:
 		_nota_no_se_toca("Solo se cambia en el pueblo. Aquí es solo consulta.")
 	elif not puesto and lleno:
 		# El motivo, no un boton apagado a secas: con las ranuras llenas hay que decir QUE hacer.
-		_note("No le quedan ranuras libres: quítale una de arriba para poder poner ésta.")
+		_note("No le quedan ranuras libres: quítale una de arriba para poder poner esta.")
 	var fila := HBoxContainer.new()
 	fila.alignment = BoxContainer.ALIGNMENT_CENTER
 	_content.add_child(fila)
@@ -1611,12 +1611,12 @@ func _ficha_hechizo(s: SpellData) -> void:
 	# reparte el hechizo (la Andanada pone 43 y luego dice 150% + 75%, que suman bastante mas).
 	var ref: float = s.dano_mostrado() * Game.poder_magico(_pj())
 	if s.tipo == SpellData.TipoEfecto.ATAQUE and s.dano_base > 0.0:
-		_row("Daño (100%)", "%.0f" % ref)
+		_row("Daño base (100 %)", "%.0f" % ref)
 	# CURA: lo que pone ESTE personaje (su Magia y su baston), aparte del % de vida. La cura no escala
 	# como el daño (ver StatsMath.resolve_heal), por eso no sale de 'ref'.
 	var cura_magica: float = Game.cura_magica_de(s, _pj())
 	if s.tipo == SpellData.TipoEfecto.CURACION:
-		_row("Cura", "%s de la vida + %.0f" % [s._pct(s.cura_pct), cura_magica])
+		_row("Cura", "%s de la vida máxima + %.0f" % [s._pct(s.cura_pct), cura_magica])
 
 	var mecanica: String = s.descripcion_mecanica(ref, cura_magica)
 	if mecanica != "":
@@ -1658,9 +1658,9 @@ func _ficha_hechizo(s: SpellData) -> void:
 		_content.add_child(HSeparator.new())
 		# Se habla de "el arma" y no del nombre para lo demas: en femenino (Varita) y en masculino
 		# (Baston) tiene que leerse igual, y encadenar generos aqui es como suenan las traducciones malas.
-		_note("Viene de serie con tu %s: puedes lanzarlo mientras el arma siga en tus manos, pero no "
+		_note("Viene de serie con su %s: puede lanzarlo mientras lleve el arma, pero no "
 			% (str(fuente.nombre) if fuente != null else "arma")
-			+ "te lo has aprendido. Si la sueltas se va; su grimorio te lo dejaria para siempre.")
+			+ "lo ha aprendido. Si la suelta, lo pierde; su grimorio se lo dejaría para siempre.")
 
 
 # Lo que te da y lo que te cuesta la afinidad de un imbue de CUERPO. Los % se DERIVAN de la tabla y
@@ -1675,9 +1675,9 @@ func _afinidad_hechizo(s: SpellData) -> void:
 		if m < 0.99:
 			resiste.append("%s (%d%% de resistencia)" % [Elementos.nombre(e), roundi((1.0 - m) * 100.0)])
 		elif m > 1.01:
-			debil.append("%s (+%d%% de daño)" % [Elementos.nombre(e), roundi((m - 1.0) * 100.0)])
+			debil.append("%s (+%d%% de daño recibido)" % [Elementos.nombre(e), roundi((m - 1.0) * 100.0)])
 	if not resiste.is_empty():
-		_row("🛡 Resistes", ", ".join(resiste))
+		_row("🛡 Resiste", ", ".join(resiste))
 	var inm: Array = []
 	for id in Elementos.inmunidades_de(s.elemento):
 		inm.append(String(StatusEffects.def(id).get("nombre", "?")))
@@ -1685,7 +1685,7 @@ func _afinidad_hechizo(s: SpellData) -> void:
 		_row("Inmune a", ", ".join(inm))
 	var st: float = Elementos.stun_taken_por_afinidad(s.elemento)
 	if st < 0.99:
-		_row("Aturdimiento", "te aturden un %d%% menos" % roundi((1.0 - st) * 100.0))
+		_row("Aturdimiento", "%d%% menos de probabilidad de quedar Aturdido" % roundi((1.0 - st) * 100.0))
 	if not debil.is_empty():
 		_row("⚠ Débil a", ", ".join(debil))
 
@@ -1718,7 +1718,7 @@ func _sec_armadura() -> void:
 	var actual: Resource = pj.get("equipped_" + slot_sel) as Resource
 	if actual == null:
 		_title(ARMOR_SLOT_LABELS[slot_sel])
-		_note("Sin pieza. Vas ligero: más velocidad y ninguna defensa en esta ranura.")
+		_note("Sin pieza. Va ligero: más velocidad y ninguna defensa en esta ranura.")
 	else:
 		MenuScaffold.titulo_item(_content, Game.item_display_name(actual),
 			Game.color_rareza_de(actual), Game.intensidad_rareza_de(actual), 17)
@@ -1728,7 +1728,7 @@ func _sec_armadura() -> void:
 
 	var pueblo: bool = _se_puede_tocar()
 	_content.add_child(HSeparator.new())
-	_nota_no_se_toca("Cambios de equipo solo en el pueblo. Aquí es solo consulta.")
+	_nota_no_se_toca("El equipo solo se puede cambiar en el pueblo; aquí solo se consulta.")
 	var fila := HBoxContainer.new()
 	fila.alignment = BoxContainer.ALIGNMENT_CENTER
 	_content.add_child(fila)
@@ -1766,7 +1766,7 @@ func _sec_desarrollo() -> void:
 
 	if _sub == 1:
 		_lista_desarrollo(pasivas, "HABILIDADES PASIVAS",
-			"No se eligen: aparecen solas al actualizar tu estado en el altar.",
+			"No se eligen: aparecen solas al actualizar el estado en el altar.",
 			"Ninguna. Caen por sí solas, muy de vez en cuando, haciendo lo que sea que las despierta.")
 		return
 	_lista_desarrollo(desarrollos, "HABILIDADES DE DESARROLLO",
@@ -2015,8 +2015,8 @@ func _magic_stats(vb: VBoxContainer, mg: Dictionary, mgb: Dictionary, regen_base
 	var regen_b: float = regen_base * float(mgb["regen_mult"])
 	var regen_t: float = regen_base * float(mg["regen_mult"])
 	_row_en(vb, "Regeneración de maná", _con_mejoras("%.2f", regen_b, regen_t) + " /turno")
-	MenuScaffold.nota(vb, "Gotea también mientras recitas: un conjuro corto tarda 2 turnos, así que "
-		+ "se paga %.2f de su maná él solo." % (regen_t * 2.0))
+	MenuScaffold.nota(vb, "La regeneración sigue mientras recita: un conjuro corto tarda 2 turnos, así que "
+		+ "en ese tiempo recupera %s de maná." % StatusEffects.num(regen_t * 2.0))
 	_row_en(vb, "Velocidad de recitado", _con_mejoras("×%.2f",
 		cast_base + float(mgb["cast_vel_add"]), cast_base + float(mg["cast_vel_add"])))
 	if float(mg["mana_reduccion"]) > 0.0:

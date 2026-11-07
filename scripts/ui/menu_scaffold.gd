@@ -257,7 +257,7 @@ static func construir(capa: CanvasLayer, titulo: String, nota: String,
 	var margen_x: float = 16.0 + Tactil.borde.x
 	var margen_y: float = 16.0 + Tactil.borde.y
 	if con_lateral:
-		equis_cerrar(root, al_cerrar, "Cerrar  (Esc)")
+		equis_cerrar(root, al_cerrar, "Cerrar  [Esc]")
 
 	# Monedas arriba a la derecha (donde el jugador ya las busca), DEBAJO de la ✕: comparten esquina
 	# y antes se pisaban. Grandes a proposito: es el numero que se mira antes de cada compra.
@@ -616,7 +616,7 @@ static func bloque_runas(vb: VBoxContainer, item: Resource, compacto: bool = fal
 	vb.add_child(HSeparator.new())
 	var s: RunaSetData = Runas.set_de(item)
 	if s == null:
-		_linea_color(vb, "Runas: sin set (se activan en el Taller de runas).", RUNA_GRIS)
+		_linea_color(vb, "Runas: sin set (se activan en el taller de runas).", RUNA_GRIS)
 		return
 	var duenno: PersonajeData = Game.quien_lleva(item)
 	var n: int = Runas.piezas_de_set(duenno, s) if duenno != null else -1
@@ -702,7 +702,7 @@ static func filas_runas(vb: VBoxContainer, pj: PersonajeData, ancho: int = 170, 
 	for e in Runas.ELEMENTOS:
 		lineas.append(["Resistencia a " + e, float(t.get("res_" + e, 0.0))])
 	lineas.append(["Curación recibida", float(t.get("cura_recibida", 0.0))])
-	lineas.append(["Menos daño de estados", float(t.get("menos_dot", 0.0))])
+	lineas.append(["Menos daño con el tiempo", float(t.get("menos_dot", 0.0))])
 	var n: int = 0
 	for l in lineas:
 		if float(l[1]) > 0.0001:
@@ -1305,7 +1305,7 @@ static func filas_escudo(sh: ShieldData, tier: int, rareza: int, mejoras: Dictio
 		filas.append(["Genera amenaza", "×%.2f" % float(m["amenaza_mult"])])
 	# Solo si de verdad ripostea: el escudo grande no lo hace y una fila con "0%" no dice nada.
 	if float(m.get("contra_prob", 0.0)) > 0.0:
-		filas.append(["Respuesta al bloquear", "%d%% de devolver el golpe, al %d%% de daño" % [
+		filas.append(["Respuesta al bloquear", "%d%% de probabilidad de devolver el golpe con un %d%% del daño" % [
 			roundi(float(m["contra_prob"]) * 100.0), roundi(float(m["contra_mult"]) * 100.0)]])
 	return filas
 
@@ -1593,7 +1593,7 @@ static func filas_mejora(item: Resource, tier: int, rareza: int, mejoras: Dictio
 		_attr(filas, "Defensa", "%.1f" % float(a["def"]), _d(float(a["def"]), float(b["def"]), "+%.1f"))
 		# La defensa MAGICA (la sube la misma Dureza) y las reducciones y la velocidad de su clase: todo lo que tiene.
 		_attr(filas, "Defensa mágica", "%.1f" % float(a["mdef"]), _d(float(a["mdef"]), float(b["mdef"]), "+%.1f"))
-		_attr(filas, "Reducción", "%.1f%%" % (float(a["reduccion"]) * 100.0), "")
+		_attr(filas, "Reducción de daño", "%.1f%%" % (float(a["reduccion"]) * 100.0), "")
 		_attr(filas, "Reducción mágica", "%.1f%%" % (float(a["reduccion_magica"]) * 100.0), "")
 		_attr(filas, "Velocidad", "×%.2f" % float(a["vel_mult"]), "")
 		if float(a["evasion"]) > 0.0 or float(b["evasion"]) > 0.0:

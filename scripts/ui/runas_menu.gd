@@ -194,7 +194,7 @@ func _ficha_con_set(vb: VBoxContainer, item: Resource, s: RunaSetData) -> void:
 	vb.add_child(HSeparator.new())
 	MenuScaffold.titulo(vb, "ATRIBUTOS SECUNDARIOS  %d de %d" % [subs.size(), Runas.MAX_SUBS], 13)
 	if subs.is_empty():
-		note(vb, "Aún ninguna: cada runa le pone una al azar.")
+		note(vb, "Aún ninguno: cada runa le añade uno al azar.")
 	else:
 		_sub_idx = clampi(_sub_idx, 0, subs.size() - 1)
 		# En DOS columnas (lo pidio el usuario: que entre todo sin bajar) y con su RANGO debajo: de cuanto a cuanto
@@ -202,7 +202,7 @@ func _ficha_con_set(vb: VBoxContainer, item: Resource, s: RunaSetData) -> void:
 		var opciones: Array = []
 		for sub in subs:
 			opciones.append({"nombre": "%s\n%s" % [Runas.sub_txt(sub), Runas.rango_txt(str(sub["s"]), item)]})
-		MenuScaffold.chips(vb, "ELIGE UNA PARA CAMBIARLA O RE-TIRARLA  ·  debajo, de cuánto a cuánto puede salir",
+		MenuScaffold.chips(vb, "ELIGE UNO PARA CAMBIARLO O VOLVER A TIRARLO  ·  debajo, el valor mínimo y máximo que puede salir",
 			opciones, [_sub_idx], _on_sub, 2)
 		# Las dos columnas al mismo ancho (chips las deja a lo que mida su texto).
 		var rejilla: Node = vb.get_child(vb.get_child_count() - 1)
@@ -222,7 +222,7 @@ func _ficha_con_set(vb: VBoxContainer, item: Resource, s: RunaSetData) -> void:
 		func() -> void: _hacer(func() -> String: return Runas.subir(item), "Nuevo atributo secundario."), true, hay and not lleno)
 	if not subs.is_empty():
 		var i: int = _sub_idx
-		MenuScaffold.pastilla(pie, "Cambiar la elegida por otra",
+		MenuScaffold.pastilla(pie, "Cambiar el elegido por otro",
 			func() -> void: _hacer(func() -> String: return Runas.cambiar(item, i), "Atributo secundario cambiado."), false, hay)
 		MenuScaffold.pastilla(pie, "Volver a tirar su valor",
 			func() -> void: _hacer(func() -> String: return Runas.retirar(item, i), "Valor vuelto a tirar."), false, hay)

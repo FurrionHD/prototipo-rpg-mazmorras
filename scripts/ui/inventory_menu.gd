@@ -550,7 +550,7 @@ func _piezas_stacks(stacks: Array) -> Array:
 	for s in stacks:
 		var n: int = int(s["cantidad"])
 		out.append(_pieza(s["modelo"], "x%d" % n,
-			"%s  x%d" % [_nombre_item(s["modelo"]).replace("\n", " "), n]))
+			"%s  ×%d" % [_nombre_item(s["modelo"]).replace("\n", " "), n]))
 	return out
 
 
@@ -723,7 +723,7 @@ func _preview_mochila(vb: VBoxContainer) -> void:
 	_titulo_rareza(vb, m, "   [puesta]" if puesta else "")
 	_banner(vb, m, 0, "Mochila del equipo")
 	_row(vb, "Capacidad", "+%.0f de carga" % Game.capacidad_mochila(m))
-	_row(vb, "Llevaríais", "%.0f  (ahora: %.0f)" % [
+	_row(vb, "Carga máxima con esta", "%.0f  (ahora: %.0f)" % [
 		Game.capacidad_con_mochila(m), Game.capacidad_carga()])
 	if m.descripcion != "":
 		_note(vb, m.descripcion)
@@ -733,9 +733,9 @@ func _preview_mochila(vb: VBoxContainer) -> void:
 		Game.equipar_mochila(null if puesta else m)
 		_rebuild(), not puesta, Game.en_pueblo())
 	if not Game.en_pueblo():
-		_note(vb, "Cambios de equipo solo en el pueblo.")
+		_note(vb, "El equipo solo se puede cambiar en el pueblo.")
 	if puesta:
-		_note(vb, "Al quitarla os quedáis con el zurrón de serie (25 de carga).")
+		_note(vb, "Al quitarla os quedáis con el zurrón de serie (%d de carga)." % roundi(Game.base_capacity))
 
 
 # --- HERRAMIENTAS: pico, hoz, hacha y caña. Del grupo, como la mochila. ---
@@ -807,7 +807,7 @@ func _build_farolillo() -> void:
 			# diria cuanto tienes pero no cual es mejor, que es a lo que se viene aqui.
 			var m := modelo as MaterialItem
 			piezas.append(_pieza(m, _mmss(Lampara.duracion(m)),
-				"%s  x%d  (%s · %s cada uno)" % [m.data.nombre, int(s["cantidad"]),
+				"%s  ×%d  (%s · %s cada uno)" % [m.data.nombre, int(s["cantidad"]),
 					m.calidad_texto(), _mmss(Lampara.duracion(m))]))
 	_grid_detail(piezas, _preview_farolillo)
 
@@ -868,7 +868,7 @@ func _preview_herramienta(vb: VBoxContainer) -> void:
 			Game.equipar_herramienta(t)
 		_rebuild(), not puesta, Game.en_pueblo())
 	if not Game.en_pueblo():
-		_note(vb, "Cambios de equipo solo en el pueblo.")
+		_note(vb, "El equipo solo se puede cambiar en el pueblo.")
 	if puesta:
 		if t.es_cana():
 			_note(vb, "Sin caña no puedes pescar: no hay una de serie a la que volver.")
@@ -894,7 +894,7 @@ func _build_consumibles() -> void:
 	for s in _stacks:
 		var cd := s["modelo"] as ConsumableData
 		var n: int = int(s["cantidad"])
-		piezas.append(_pieza(cd, "x%d" % n, "%s  x%d" % [cd.nombre, n],
+		piezas.append(_pieza(cd, "x%d" % n, "%s  ×%d" % [cd.nombre, n],
 			"PUESTO" if Game.cebo_activo == cd else ""))
 	_grid_detail(piezas, _preview_consumible)
 
@@ -980,7 +980,7 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 		_note(vb, "Los cebos se ponen en el estanque: ponte en la orilla y pulsa [F].")
 	elif cons.es_untura():
 		# Una untura tampoco se bebe: se unta en combate con el arco o la ballesta (la habilidad Untar).
-		_note(vb, "Se unta en combate: con arco o ballesta, la habilidad Untar.")
+		_note(vb, "Se usa en combate con la habilidad Untar, con arco o ballesta.")
 	# El GRIMORIO siempre por el modal, aunque solo haya uno: es donde se pregunta si estas seguro.
 	elif a_alguien and (_candidatos_uso(cons).size() > 1 or cons.es_grimorio()):
 		MenuScaffold.pastilla(vb, _verbo_usar(cons), _abrir_modal_usar.bind(cons))
@@ -1232,10 +1232,10 @@ func _preview_armadura(vb: VBoxContainer) -> void:
 	var a: ArmorData = _stacks[_sel]["modelo"]
 	_titulo_rareza(vb, a, _marca_dueno(a))
 	_banner(vb, a, 0, ARMOR_SLOT_LABELS[clampi(int(a.slot), 0, 4)])
-	_row(vb, "Slot", ARMOR_SLOT_LABELS[clampi(int(a.slot), 0, 4)])
+	_row(vb, "Ranura", ARMOR_SLOT_LABELS[clampi(int(a.slot), 0, 4)])
 	_row(vb, "Tipo", ARMOR_TIPO_LABELS[clampi(int(a.tipo), 0, ARMOR_TIPO_LABELS.size() - 1)])
 	_row(vb, "Defensa base", "%.2f" % (a.defensa_base * a.motion_def))
-	_row(vb, "Reducción", "%.0f%%" % (a.reduccion * 100.0))
+	_row(vb, "Reducción de daño", "%.0f%%" % (a.reduccion * 100.0))
 	_row(vb, "Velocidad", "×%.2f" % a.velocidad_mult)
 	_row(vb, "Durabilidad", Game.durabilidad_txt_item(a), Game.durabilidad_color(a))
 	MenuScaffold.bloque_runas(vb, a)
@@ -1952,8 +1952,8 @@ func _motivo_bloqueo(c: ConsumableData, pj: PersonajeData) -> String:
 	if sirve or not (c.cura_hp() or c.da_mana()):
 		return ""
 	if c.cura_hp() and c.da_mana():
-		return "%s está a tope de vida y de maná." % pj.nombre
-	return "%s está a tope de %s." % [pj.nombre, "vida" if c.cura_hp() else "maná"]
+		return "%s ya tiene la vida y el maná al máximo." % pj.nombre
+	return "%s ya tiene %s al máximo." % [pj.nombre, "la vida" if c.cura_hp() else "el maná"]
 
 
 # Lo que conviene saber aunque NO bloquee (el plato que va a pisar al que lleva puesto).

@@ -39,9 +39,9 @@ const ELEM_ID := {"fuego": 1, "agua": 2, "rayo": 3, "luz": 4, "oscuridad": 5}   
 const _BASE := {
 	"ataque_pct": ["Ataque", 0.03, 0.06, "tier", [100, 0, 0]],
 	"dano_magico_pct": ["Daño mágico", 0.03, 0.06, "tier", [0, 100, 0]],
-	"crit": ["Prob. de crítico", 0.03, 0.06, "fijo", [50, 0, 0]],
+	"crit": ["Probabilidad de crítico", 0.03, 0.06, "fijo", [50, 0, 0]],
 	"crit_dmg": ["Daño crítico", 0.06, 0.12, "tier", [50, 0, 0]],
-	"crit_mag": ["Prob. de crítico mágico", 0.03, 0.06, "fijo", [0, 50, 0]],
+	"crit_mag": ["Probabilidad de crítico mágico", 0.03, 0.06, "fijo", [0, 50, 0]],
 	"crit_dmg_mag": ["Daño crítico mágico", 0.06, 0.12, "tier", [0, 50, 0]],
 	"dano_hab": ["Daño de habilidades", 0.04, 0.08, "tier", [60, 60, 0]],
 	"eficacia": ["Eficacia", 0.04, 0.08, "tier", [60, 60, 0]],
@@ -57,7 +57,7 @@ const _BASE := {
 	"resist_estados": ["Resistencia a estados", 0.04, 0.08, "tier", [0, 0, 70]],
 	"resist_crit": ["Resistencia a críticos", 0.02, 0.04, "fijo", [0, 0, 50]],
 	"cura_recibida": ["Curación recibida", 0.04, 0.08, "tier", [0, 0, 50]],
-	"menos_dot": ["Menos daño de estados", 0.04, 0.08, "tier", [0, 0, 50]],
+	"menos_dot": ["Menos daño con el tiempo", 0.04, 0.08, "tier", [0, 0, 50]],
 	"evasion": ["Esquiva", 0.01, 0.03, "fijo", [0, 0, 40]],
 }
 # Daño de UN elemento (arma) y resistencia a UN elemento (armadura): el peso de 60 repartido entre los cinco.
@@ -90,8 +90,8 @@ static func nombre_sub(clave: String) -> String:
 # "crít.", que el jefe pidio nombres enteros y una columna mas ancha).
 const _CORTOS := {
 	"crit": "Probabilidad de crítico", "crit_mag": "Probabilidad de crítico mágico", "crit_dmg_mag": "Daño crítico mágico",
-	"dano_hab": "Daño habilidades", "dano_jefes": "Daño a jefes", "dano_todos": "Daño elemental",
-	"resist_estados": "Resistencia a estados", "resist_crit": "Resistencia a críticos", "menos_dot": "Daño con el tiempo recibido",
+	"dano_hab": "Daño de habilidades", "dano_jefes": "Daño a mutantes y jefes", "dano_todos": "Daño elemental",
+	"resist_estados": "Resistencia a estados", "resist_crit": "Resistencia a críticos", "menos_dot": "Menos daño con el tiempo",
 	"cura_recibida": "Curación recibida",
 }
 
