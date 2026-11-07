@@ -81,6 +81,17 @@ Veneno, Electrizado, Mojado, Pegajoso, Aturdido, Lento, Congelación, Ceguera.
 forzadas del tipo «el doble de lejos que el gusano». Primer caso, los cebos: «Atracción: Corta /
 Media / Larga». Pendiente de aplicar igual a Hilo conductor, Filo de aire y Campo magnético.
 
+## 2c. Decidido en el pase de menús (07/11)
+
+- **«No se ha podido…»**, no «No se pudo…». **«Pulsa»**, no «Toca». Teclas entre corchetes: «[Esc]», «[C]», «[Espacio]».
+- **«Nv. 5»** con espacio. **«×3»** con el signo ×, detrás del nombre: «Compras Hierro ×3».
+- **«Cristal de categoría 3»**, **«atributo secundario»** (no sub-stat), **«tu cuenta de Steam»**, **«ID»**.
+- Sitios del pueblo en minúscula (el hogar, la herrería, la boticaria); oficios con mayúscula («Tiene Herrería»).
+- Las magias se **lanzan** (no «echar»). Fichas de personaje, chips y la ficha de detalle del combate, en **tercera
+  persona** (enseñan compañeros y enemigos); las instrucciones al jugador, en «tú».
+- Barras de vida, energía y maná: con decimales y **coma** («12,50 / 30,00»).
+- Antes de cada tabla, `python -I tools/volcar_cadenas_ui.py --revisar <archivos>`.
+
 ## 2b. Pociones y objetos (al estilo de la comida de Genshin, 06/11)
 
 - **Efecto:** «Restaura un 12 % de la vida máxima y 90 de vida a quien la bebe (114 para Dasui).»
@@ -133,5 +144,5 @@ probabilidad base de causarla. El daño de las Quemaduras que causa el portador 
 | Armas y armaduras (fichas: etiquetas completas, columna de 200 medida, números con coma vía `MenuScaffold.valor_es`) | Hecho 06/11 |
 | Objetos y consumibles (fichas, pociones, platos, unturas, cebos; sabor de pociones) | Hecho 06/11 |
 | Estados (ficha del chip en tercera persona, coletillas, chip de la imbuición, sabor) | Hecho 06/11 |
-| Menús y avisos | Pendiente |
+| Menús y avisos (todos los menús, avisos del HUD y de la red, chips de estado, barras con coma; revisor `tools/volcar_cadenas_ui.py --revisar`) | Hecho 07/11 |
 | Log de combate (frases; números con coma y sin ceros: `CombatPantalla._n`) | Hecho 06/11 |

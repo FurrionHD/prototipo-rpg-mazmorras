@@ -209,7 +209,7 @@ const VIOLETA := Color(0.70, 0.48, 0.95)
 func _draw() -> void:
 	var w: float = size.x
 	MedidorFaena.panel(self, Rect2(Vector2.ZERO, size))
-	MedidorFaena.texto(self, 25.0, 4.0, w - 8.0, "Cristal T%d" % _categoria, 16)
+	MedidorFaena.texto(self, 25.0, 4.0, w - 8.0, "Categoría %d" % _categoria, 16)
 
 	var cr: Rect2 = MedidorFaena.CARRIL
 	MedidorFaena.carril(self, cr)
@@ -231,7 +231,7 @@ func _draw() -> void:
 		estado = "¡El cuchillo salva!"
 		col = MedidorFaena.AMBAR
 	elif _state == READY:
-		estado = "ESPACIO: empezar"
+		estado = "[Espacio]: empezar"
 	elif _state == RUNNING:
 		estado = "Pulsa en la zona"
 	else:

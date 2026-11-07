@@ -8295,8 +8295,8 @@ func refrescar_cache_estados(p: PersonajeData) -> void:
 	# menos falta hace acordarse.
 	if p.foco_cargas > 0:
 		# Munición, no estado: no lleva turnos ni caduca (ver PersonajeData.foco_cargas).
-		partes.append("🔮x%d" % p.foco_cargas)
-		chips.append(["🔮x%d" % p.foco_cargas,
+		partes.append("🔮×%d" % p.foco_cargas)
+		chips.append(["🔮×%d" % p.foco_cargas,
 			"Foco arcano: %d carga%s\nCada hechizo OFENSIVO gasta una y pega más.\nNo caduca con el tiempo." % [
 				p.foco_cargas, "" if p.foco_cargas == 1 else "s"],
 			"🔮", Color(0.55, 0.7, 1.0)])
