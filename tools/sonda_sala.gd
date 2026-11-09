@@ -23,6 +23,7 @@ func _process(delta: float) -> void:
 	if delta > 0.2:
 		print("[S] tiron de %d ms (a los %d ms)" % [int(delta * 1000.0), Time.get_ticks_msec()])
 	_mirar_vuelta_desde_foto()
+	_leer_orden()
 	_t += delta
 	if _t < CADA:
 		return
@@ -126,3 +127,80 @@ func _mirar_vuelta_desde_foto() -> void:
 					en_su_sitio += 1
 					break
 		print("[S] dato vuelta_piso_%d=%d/%d" % [int(piso), en_su_sitio, pos.size()])
+
+
+# ============================================================
+#  LAS ORDENES (09/11, prueba_mut_miconido_espejo): lo que en el juego pasa a media pelea por suerte (que caiga uno
+#  infectado), la prueba se lo PIDE a la sala, que es quien lleva la pelea, y luego mira en SU espejo lo que ve el jugador.
+#  La prueba escribe "<n> <orden> [nombre]" en ORDEN; la sonda la hace una vez y contesta "[S] dato orden_<n>=<resultado>".
+# ============================================================
+const ORDEN := "user://sonda_orden.txt"
+var _orden_hecha := -1
+
+
+func _leer_orden() -> void:
+	if not FileAccess.file_exists(ORDEN):
+		return
+	var f := FileAccess.open(ORDEN, FileAccess.READ)
+	if f == null:
+		return
+	var partes: PackedStringArray = f.get_as_text().strip_edges().split(" ", false, 2)
+	f.close()
+	if partes.size() < 2 or int(partes[0]) == _orden_hecha:
+		return
+	_orden_hecha = int(partes[0])
+	var res: String = _hacer_orden(partes[1], partes[2] if partes.size() > 2 else "")
+	print("[S] dato orden_%d=%s" % [_orden_hecha, res])
+
+
+# La pantalla de la (unica) pelea que lleva la sala.
+func _pelea() -> Node:
+	for pe in Net.peleas._peleas.values():
+		if is_instance_valid(pe):
+			var p: Node = Net.peleas._pantalla_combate(pe)
+			if p != null:
+				return p
+	return null
+
+
+func _hacer_orden(orden: String, nombre: String) -> String:
+	var p: Node = _pelea()
+	if p == null:
+		return "sin_pelea"
+	match orden:
+		"preparar":
+			# Que no se acabe sola: todos con muchisima vida.
+			for c in p._aliados + p._enemies:
+				var cb: Combatant = c
+				cb.max_hp = 100000.0
+				cb.current_hp = 100000.0
+			return "ok"
+		"florecer_bicho":
+			# Un bicho que no es micónido cae infectado: tiene que levantarse con setas.
+			for c in p._enemies:
+				var e: Combatant = c
+				if e.is_alive() and e.mutacion == &"" and not e.nombre.to_lower().contains("mic"):
+					e.apply_status(StatusEffects.Id.INFECTADO)
+					e.take_damage(e.current_hp + 10.0)
+					p._morir_enemigo(e)
+					return "ok:" + e.nombre
+			return "sin_bicho"
+		"florecer_aliado":
+			for c in p._aliados:
+				var al: Combatant = c
+				if al.nombre == nombre and al.is_alive():
+					al.apply_status(StatusEffects.Id.INFECTADO)
+					al.take_damage(al.current_hp + 10.0)
+					p.altas._caer_aliado(al)
+					return "ok"
+			return "sin_aliado"
+		"tumbar":
+			# El personaje florecido (el que usa el muñeco de un caido) cae otra vez.
+			for c in p._enemies:
+				var e: Combatant = c
+				if e.is_alive() and e.nombre == nombre and e.has_status(StatusEffects.Id.FLORECIDO):
+					e.take_damage(e.current_hp + 10.0)
+					p._morir_enemigo(e)
+					return "ok"
+			return "sin_florecido"
+	return "orden_desconocida"
