@@ -15,6 +15,8 @@ nombre = "Bocanada de esporas"
 descripcion = "El sombrero se hincha y suelta una nube parda que se queda flotando a la altura de la cara. No hace falta respirarla: basta con estar dentro."
 coste_energia = 0.0
 dano_mult = 0.45
+; (09/11) MAGICA: todo lo que es esporas o luz (memoria miconido-mutante). dano_mult CALIBRADO (0,45 fisico x1,00: con F26/M22 pega igual; armadura de hierro, como ec61cebf).
+es_magico = true
 area_modo = 1
 area_secundario = 0.75
 area_efectos_secundarios = true

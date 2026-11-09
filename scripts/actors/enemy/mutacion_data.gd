@@ -211,3 +211,11 @@ class_name MutacionData
 # APRIETA MAS: +aprieta_por_turno de daño por cada turno que lleva apretando, hasta +aprieta_max.
 @export var aprieta_por_turno: float = 0.0
 @export var aprieta_max: float = 0.0
+# (09/11, los mutantes del MICONIDO; numeros provisionales, memoria miconido-mutante)
+# LUZ QUE ATRAE (la Campana palida y el Aventurero florecido): al empezar su turno, a los tuyos que esten a atrae_radio px
+# o menos los acerca atrae_px hacia el (CombatEnemigos._luz_que_atrae).
+@export var atrae_radio: float = 0.0
+@export var atrae_px: float = 15.0
+# NO SIENTE EL DOLOR (el Aventurero florecido): su aguante al control, en vez del de su ficha (EnemyData.resist_aturdir).
+# -1 = el de la ficha.
+@export var resist_aturdir: float = -1.0

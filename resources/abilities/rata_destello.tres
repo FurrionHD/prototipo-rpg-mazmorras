@@ -16,6 +16,7 @@ descripcion = "Se yergue y sus cristales ahumados sueltan un fogonazo de luz osc
 coste_energia = 0.0
 dano_mult = 0.8
 es_magico = true
+elemento_golpe = 5
 efectos = [SubResource("SA_1")]
 area_max = 99
 fx_estilo = 14

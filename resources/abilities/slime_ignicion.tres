@@ -16,6 +16,8 @@ nombre = "Ignición"
 descripcion = "El slime aviva su núcleo hasta ponerse incandescente: no golpea, pero a partir de ahora pega mucho más fuerte. Mojarlo lo apaga."
 coste_energia = 0.0
 dano_mult = 0.0
+; (09/11) ELEMENTO EXPLICITO: ya no hereda el de la ficha del enemigo (ese es solo el de su basico).
+elemento_golpe = 1
 efectos = [SubResource("SA_fort")]
 cooldown = 4
 fx_estilo_mapa = 132

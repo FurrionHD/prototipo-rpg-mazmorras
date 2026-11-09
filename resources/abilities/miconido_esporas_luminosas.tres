@@ -1,0 +1,40 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_ven"]
+script = ExtResource("2")
+estado = 0
+prob = 0.65
+cap = 3
+
+[sub_resource type="Resource" id="SA_ciega"]
+script = ExtResource("2")
+estado = 33
+prob = 0.4
+turns = 1
+
+[resource]
+script = ExtResource("1")
+nombre = "Esporas luminosas"
+descripcion = "La campana se hincha y suelta una nube que brilla por dentro. Envenena como la de siempre y, además, mirarla de cerca deja ciego un rato."
+coste_energia = 0.0
+dano_mult = 0.26
+es_magico = true
+elemento_golpe = 4
+area_modo = 1
+area_secundario = 0.75
+area_efectos_secundarios = true
+efectos = [SubResource("SA_ven"), SubResource("SA_ciega")]
+fx_estilo = 112
+fx_anim = &"esporas"
+cooldown = 3
+; (09/11) MAGICO: todo lo que es esporas o luz (memoria miconido-mutante). dano_mult CALIBRADO (0,45 fisico x0,59; armadura de hierro, como ec61cebf).
+forma = 1
+forma_apunte = 2
+forma_radio = 40.0
+charco_turnos = 2
+charco_texto = "las esporas luminosas"
+charco_estilo = 2
+fx_estilo_mapa = 157

@@ -9,6 +9,8 @@ nombre = "Salto de arco"
 descripcion = "Se lanza por un hilo hasta el que estaba más tranquilo, allá atrás, y le cae encima."
 coste_energia = 0.0
 dano_mult = 1.0
+; (09/11) ELEMENTO EXPLICITO: ya no hereda el de la ficha del enemigo (ese es solo el de su basico).
+elemento_golpe = 3
 fx_anim = &"salto"
 fx_estilo = 224
 cooldown = 6

@@ -781,6 +781,77 @@ func _dividirse(e: Combatant) -> void:
 			+ ("s" if salen > 1 else "")])
 
 
+# FLORECER (09/11, la infeccion del Aventurero florecido, memoria miconido-mutante): el enemigo que cae INFECTADO se
+# levanta en su sitio con hongos: el MISMO (su ficha y su mutacion, el mismo sprite), con FLORECIDO_VIDA de su vida
+# maxima, sin botin (entra como invocado) y con el estado FLORECIDO para siempre (si vuelve a caer, se queda en el suelo).
+# Como mucho FLORECIDOS_TOPE de pie a la vez. Solo quien lleva la pelea; el cuerpo y el estado viajan como los de una cria.
+const FLORECIDOS_TOPE := 2
+const FLORECIDO_VIDA := 0.5
+
+func _florecer(e: Combatant) -> void:
+	if e == null or _espejo or not e.has_status(StatusEffects.Id.INFECTADO) or e.has_status(StatusEffects.Id.FLORECIDO) 			or e.sprite_res == "" or not ResourceLoader.exists(e.sprite_res):
+		return
+	if _enemies.filter(func(o: Combatant) -> bool: return o.is_alive() and o.has_status(StatusEffects.Id.FLORECIDO)).size() 			>= FLORECIDOS_TOPE:
+		return
+	var data: EnemyData = load(e.sprite_res) as EnemyData
+	if data == null:
+		return
+	var mut: StringName = e.mutacion if e.mutante else &""
+	var c: Combatant = data.crear_combatant(0.5, e.mutante, e.es_jefe, mut, altas._piso())
+	c.max_hp = e.max_hp
+	c.current_hp = e.max_hp * FLORECIDO_VIDA
+	c.apply_status(StatusEffects.Id.FLORECIDO)
+	var pies := Vector2.ZERO
+	if tactico and turno_mapa.cuerpo_de(e) != null:
+		pies = turno_mapa.pies_de(e)
+	if altas._meter_enemigo(c, true) < 0:
+		return   # no cabe ninguno mas
+	if tactico:
+		# Se levanta donde cayo (un saltito en el sitio: el hongo lo pone de pie de un tiron).
+		turno_mapa.lanzar_cria(c, data, pies, pies, false, Color(0, 0, 0, 0), false, mut)
+	_update_hp()
+	print("[florecer] %s se levanta florecido (%.0f/%.0f)" % [e.nombre, c.current_hp, c.max_hp])
+	_log_extra("🌿 De %s brotan setas por la espalda... y se vuelve a poner en pie." % _etq(e))
+
+
+# TU PERSONAJE FLORECIDO (09/11, parte D, fase 1, memoria miconido-mutante): el tuyo que cae INFECTADO se levanta en el
+# bando del hongo. Es OTRO luchador hecho con su ficha (Game.crear_player_combatant: sus stats y su arma), con la vida
+# x FLORECIDO_PJ_VIDA entera, el estado FLORECIDO, sin botin (entra como invocado) y, en esta fase, solo su BASICO (el
+# de su arma). Su cuerpo es el MUÑECO del caido, prestado (CombatTactico.prestar_cuerpo). El personaje sigue caido
+# como siempre: al acabar la pelea se levanta con 1, igual que cualquier KO.
+const FLORECIDO_PJ_VIDA := 2.0
+
+func _florecer_personaje(al: Combatant) -> void:
+	if al == null or _espejo:
+		return
+	var pj: PersonajeData = Game.pj_de_combatant(al)
+	if pj == null:
+		return
+	var c: Combatant = Game.crear_player_combatant(pj)
+	if c == null:
+		return
+	c.statuses.clear()
+	c.max_hp *= FLORECIDO_PJ_VIDA
+	c.current_hp = c.max_hp
+	c.habilidades = []
+	c.prob_habilidad = 0.0
+	var w: WeaponData = pj.equipped_main as WeaponData
+	c.fx_basico = int(CombatFX.FX_ARMA.get(int(w.tipo) if w != null else 0, CombatFX.Estilo.MELEE))
+	if w != null:
+		c.alcance = w.alcance_real()
+	c.apply_status(StatusEffects.Id.FLORECIDO)
+	# El prestamo ANTES de meterlo: el roster que viaja a los espejos lleva ya su direccion (la del muñeco del caido).
+	if tactico:
+		turno_mapa.prestar_cuerpo(c, al)
+	if altas._meter_enemigo(c, true) < 0:
+		if tactico:
+			turno_mapa.devolver_cuerpo(c)
+		return   # no cabe
+	_update_hp()
+	print("[florecer] %s se levanta florecido contra los suyos (%.0f de vida)" % [al.nombre, c.max_hp])
+	_log_extra("🌿 A %s le brotan setas por la espalda... y se levanta contra los suyos." % al.nombre)
+
+
 # FILO DE REFLEJO (la segadora, 30/09, EnemyData.reflejo_prob): al que le pega CUERPO A CUERPO se lo devuelve con un
 # tajo de los suyos, a veces. Va en SU propia tanda, detras del golpe que lo provoca. Si le tumba, lo remata el cierre
 # de la accion (_tras_accion_jugador_varios).
@@ -2853,6 +2924,7 @@ func _morir_enemigo(e: Combatant) -> void:
 		Game.meter_de_la_cola(hueco, pelea)
 		# DIVIDIRSE (06/10): el que se divide suelta a los suyos al caer (despues de la cola: si entra uno, ocupa el hueco).
 		_dividirse(e)
+		_florecer(e)
 		_tributo(e)
 		_furia_rey(e)
 		if hueco >= 0 and hueco < _enemies.size() and _enemies[hueco] != e \

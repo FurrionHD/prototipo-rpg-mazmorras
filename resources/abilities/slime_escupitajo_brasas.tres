@@ -15,6 +15,8 @@ nombre = "Escupitajo de brasas"
 descripcion = "Te escupe un puñado de brasas encendidas a la cara: te prenden sin fallar."
 coste_energia = 0.0
 dano_mult = 1.2
+; (09/11) ELEMENTO EXPLICITO: ya no hereda el de la ficha del enemigo (ese es solo el de su basico).
+elemento_golpe = 1
 efectos = [SubResource("SA_q")]
 cooldown = 3
 forma = 1

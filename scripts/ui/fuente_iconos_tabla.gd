@@ -101,4 +101,6 @@ const TABLA := {
 	"💚": "plato_remedio",
 	"🧄": "plato_estomago",
 	"🍀": "plato_fortuna",
+	"🦠": "infectado",
+	"🌿": "florecido",
 }

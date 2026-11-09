@@ -1,0 +1,40 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_ven"]
+script = ExtResource("2")
+estado = 0
+prob = 0.65
+cap = 3
+
+[sub_resource type="Resource" id="SA_inf"]
+script = ExtResource("2")
+estado = 61
+prob = 0.6
+
+[resource]
+script = ExtResource("1")
+nombre = "Esporas de infección"
+descripcion = "Del cuello del muerto sale una nube naranja y brillante. Envenena y se queda dentro: si caes con ella encima, algo te sale por la espalda."
+coste_energia = 0.0
+dano_mult = 0.49
+es_magico = true
+area_modo = 1
+area_secundario = 0.75
+area_efectos_secundarios = true
+efectos = [SubResource("SA_ven"), SubResource("SA_inf")]
+; y a los SUYOS que esten dentro (sin daño): si caen asi, se levantan con hongos
+infecta_suyos = 0.6
+fx_estilo = 112
+fx_anim = &"esporas"
+cooldown = 3
+; (09/11) MAGICO. INFECTADO 60 % (tambien a los enemigos que esten dentro, infecta_suyos).
+forma = 1
+forma_apunte = 2
+forma_radio = 40.0
+charco_turnos = 2
+charco_texto = "las esporas de infección"
+charco_estilo = 2
+fx_estilo_mapa = 157

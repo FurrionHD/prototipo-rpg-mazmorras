@@ -34,3 +34,5 @@ forma_reparte = true
 fx_estilo_mapa = 130
 es_magico = true
 dano_mult = 1.41
+; (09/11) ELEMENTO EXPLICITO: ya no hereda el de la ficha del enemigo (ese es solo el de su basico).
+elemento_golpe = 5

@@ -16,6 +16,8 @@ nombre = "Presión del abismo"
 descripcion = "Se comprime y descarga toda la presión de la profundidad en un solo embate. Mientras se hincha puedes aturdirlo para cortarlo; si conecta, tu guardia se resiente y todo lo demás te entra más hondo."
 coste_energia = 0.0
 dano_mult = 2.0
+; (09/11) ELEMENTO EXPLICITO: ya no hereda el de la ficha del enemigo (ese es solo el de su basico).
+elemento_golpe = 5
 efectos = [SubResource("SA_vuln")]
 carga_turnos = 1
 cooldown = 5

@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_ciega"]
+script = ExtResource("2")
+estado = 33
+prob = 0.25
+turns = 1
+
+[resource]
+script = ExtResource("1")
+nombre = "Latigazo de filamentos"
+descripcion = "Se echa hacia atrás y los filamentos de la campana salen disparados hacia ti, encendidos. Llegan más lejos que un brazo y, si te dan en la cara, te dejan viendo puntos de luz."
+coste_energia = 0.0
+dano_mult = 1.0
+efectos = [SubResource("SA_ciega")]
+fx_estilo = 113
+; SU BASICO (09/11, miconido-mutante): sustituye al sombrero que deja caer el normal. Fisico.
+fx_anim = &"embestida"
+fx_estilo_mapa = 156

@@ -16,6 +16,8 @@ nombre = "Avivar brasas"
 descripcion = "Sopla sus brasas hasta ponerlas al rojo: durante unos turnos sus golpes te pueden quemar además de llenarte de ceniza. Mojarlo lo apaga."
 coste_energia = 0.0
 dano_mult = 0.0
+; (09/11) ELEMENTO EXPLICITO: ya no hereda el de la ficha del enemigo (ese es solo el de su basico).
+elemento_golpe = 1
 efectos = [SubResource("SA_av")]
 cooldown = 4
 fx_estilo_mapa = 132

@@ -14,6 +14,8 @@ nombre = "Descarga"
 descripcion = "Se le encienden todos los hilos a la vez y suelta de golpe lo que llevaba guardado. No avisa: el aviso eran las cuatro cargas."
 coste_energia = 0.0
 dano_mult = 1.4
+; (09/11) ELEMENTO EXPLICITO: ya no hereda el de la ficha del enemigo (ese es solo el de su basico).
+elemento_golpe = 3
 es_magico = true
 efectos = [SubResource("SA_ray")]
 forma_radio = 60.0

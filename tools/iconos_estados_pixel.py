@@ -302,6 +302,16 @@ ICONOS = [
     ("pocion_mana", "Poción de maná", (0.4, 0.7, 1.0), espejo(("....oo", "...oaa", "....ow", "...oow", "..olll",
         ".ollgg", "olgggg", "oggggg", "oggggg", "odgggg", ".oddgg", "..oooo")),
         {'a': (150, 100, 60), 'g': (70, 130, 240), 'l': (210, 225, 235), 'w': (250, 255, 255)}),
+    # (09/11, el Aventurero florecido del micónido) INFECTADO: la seta naranja del hongo, motas claras y esporas de luz.
+    ("infectado", "Infectado", (0.9, 0.5, 0.15), (
+        "..a.....a...", "....oooo..a.", "..oolwllloo.", ".olwllblllo.", "olllbllllblo", "ommmmmmmmmmo",
+        ".oooommoooo.", "....omdo....", "....omdo....", "..a.omdo.a..", "...oommdoo..", "....oooo...."),
+        {'a': (170, 255, 220), 'b': (255, 236, 190)}),
+    # (09/11) FLORECIDO: cayo infectado y se ha levantado con hongos en el bando del hongo. Calavera con la seta encima.
+    ("florecido", "Florecido", (0.9, 0.5, 0.15), (
+        "....oooo....", "..oolwlloo..", ".olwlllwllo.", ".oommmmmmoo.", "...obbbbo...", "..obbbbbbo..",
+        "..obooboobo.", "..obbbbbbo..", "...obobob...", "...oooooo...", "c.........c.", "....c......."),
+        {'b': (232, 226, 200), 'c': (170, 255, 220)}),
 ]
 
 
@@ -471,7 +481,7 @@ EMOJI = {
     "🖤": "savia_negra", "🦟": "picor", "💩": "pringado", "🫨": "paralisis", "🧲": "imantado", "⚙": "limaduras",
     "🪽": "en_vuelo", "💤": "una_cabeza", "❄": "congelacion", "🌑": "en_sombras", "🦷": "colmillos_rotos",
     "🔮": "foco", "⏳": "cargando", "🤺": "en_guardia", "😮": "sin_fuelle", "💚": "plato_remedio",
-    "🧄": "plato_estomago", "🍀": "plato_fortuna",
+    "🧄": "plato_estomago", "🍀": "plato_fortuna", "🦠": "infectado", "🌿": "florecido",
 }
 
 

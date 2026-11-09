@@ -69,6 +69,9 @@ func _enemy_turn(e: Combatant) -> void:
 	e.tick_cooldowns()   # habilidades del enemigo (KAN-58): baja 1 turno los cooldowns
 	costra_vuelve(e)
 	_chupar_enraizados(e)
+	_luz_que_atrae(e)
+	if _pantalla.tactico:
+		_pantalla.turno_mapa.nube_infecta(e)
 	# Estados alterados (KAN-58): tick al inicio del turno del enemigo.
 	var ev: Dictionary = e.tick_statuses()
 	_pantalla._log_tick(e, ev)
@@ -621,6 +624,53 @@ func _chupar_enraizados(e: Combatant) -> void:
 	_pantalla._update_hp()
 
 
+# LA INFECCION A LOS SUYOS (09/11, el Aventurero florecido): cada enemigo vivo (menos el) a forma_radio de sus pies tira
+# infecta_suyos de quedar INFECTADO. Solo en el mapa y en quien lleva la pelea (el estado viaja con los demas).
+func _infectar_suyos(e: Combatant, ab: AbilityData) -> void:
+	if not _pantalla.tactico or _pantalla._espejo:
+		return
+	var t = _pantalla.turno_mapa
+	if t.cuerpo_de(e) == null:
+		return
+	var nombres: Array = []
+	for o in _pantalla._vivos():
+		if o == e or t.cuerpo_de(o) == null or t.pies_de(o).distance_to(t.pies_de(e)) > ab.forma_radio:
+			continue
+		if infectar(o, ab.infecta_suyos):
+			nombres.append(_pantalla._etq(o))
+	if not nombres.is_empty():
+		_pantalla._log_extra("🦠 Las esporas de %s se le meten dentro a %s." % [_pantalla._etq(e), ", ".join(nombres)])
+
+
+# Tira 'prob' de dejar a 'c' INFECTADO (o le renueva los turnos). true si le entra.
+func infectar(c: Combatant, prob: float) -> bool:
+	if c == null or not c.is_alive() or randf() >= prob:
+		return false
+	c.apply_status(StatusEffects.Id.INFECTADO)
+	return c.has_status(StatusEffects.Id.INFECTADO)   # (los micónidos son inmunes: son el hongo)
+
+
+# LUZ QUE ATRAE (09/11, la Campana palida y el Aventurero florecido, ver MutacionData): al empezar su turno, a cada uno de
+# los tuyos que este a atrae_radio px o menos lo acerca atrae_px hacia el (el tiron de siempre: viaja por red). Los
+# enraizados no se mueven (pedir_desliz ya lo mira).
+func _luz_que_atrae(e: Combatant) -> void:
+	if e.atrae_radio <= 0.0 or not e.is_alive() or _pantalla._espejo or not _pantalla.tactico:
+		return
+	var t = _pantalla.turno_mapa
+	if t.cuerpo_de(e) == null:
+		return
+	var nombres: Array = []
+	for al in _pantalla._aliados_vivos():
+		if t.cuerpo_de(al) == null or t.pies_de(e).distance_to(t.pies_de(al)) > e.atrae_radio:
+			continue
+		t.pedir_juntar(al, e, e.atrae_px)
+		nombres.append(_pantalla._etq(al))
+	if nombres.is_empty():
+		return
+	print("[luz] %s atrae a %s" % [e.nombre, ", ".join(nombres)])
+	_pantalla._log_extra("☀ La luz de %s atrae a %s." % [_pantalla._etq(e), ", ".join(nombres)])
+
+
 # Y VUELVE A BROTAR ENTERA a los costra_turnos turnos suyos (al empezar el que toca). Tambien la CAPA DE AMBAR de los
 # tuyos con el set Ambar (03/11), que es la misma costra: la llama CombatPantalla al empezar su turno.
 func costra_vuelve(e: Combatant) -> void:
@@ -991,6 +1041,9 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 	elif ab.rompe_colmillos > 0 and not _pantalla._espejo:
 		e.apply_status(StatusEffects.Id.COLMILLOS_ROTOS, ab.rompe_colmillos)
 		_pantalla._log_extra("💥 A %s se le parten los colmillos de cristal en la Cornada." % _pantalla._etq(e))
+	# (09/11) LAS ESPORAS DE INFECCION tambien a los suyos que esten dentro (ver AbilityData.infecta_suyos).
+	if ab.infecta_suyos > 0.0:
+		_infectar_suyos(e, ab)
 	# (07/10) EL DECRETO del Rey tirano: no pega, señala.
 	if ab.decreto_turnos > 0:
 		_decreto(e, ab)
@@ -1384,11 +1437,13 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpes: int,
 		escala: float, permitir_contra: bool, aplicar_efectos: bool, escala_prob: float = 1.0,
 		tanda_base: int = 0) -> Dictionary:
-	if ab == null or ab.elemento_golpe < 0:
+	# (09/11, el jefe: "que el enemigo tenga un elemento no significa que sus ataques sean de ese elemento") el elemento de
+	# la FICHA es solo el de su BASICO (ab == null); una habilidad pega del que lleve ESCRITO y, si no lleva, sin elemento.
+	if ab == null:
 		return _enemy_resolver_golpes_(e, ab, t, n_golpes, escala, permitir_contra, aplicar_efectos, escala_prob,
 			tanda_base)
 	var suyo: int = e.elemento_ataque
-	e.elemento_ataque = ab.elemento_golpe
+	e.elemento_ataque = ab.elemento_golpe if ab.elemento_golpe >= 0 else Elementos.Elemento.NINGUNO
 	var r: Dictionary = _enemy_resolver_golpes_(e, ab, t, n_golpes, escala, permitir_contra, aplicar_efectos,
 		escala_prob, tanda_base)
 	e.elemento_ataque = suyo

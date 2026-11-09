@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_ciega"]
+script = ExtResource("2")
+estado = 33
+prob = 0.7
+turns = 2
+
+[resource]
+script = ExtResource("1")
+nombre = "Destello"
+descripcion = "La campana se va encendiendo turno a turno y, de golpe, se abre hacia delante. Quien la esté mirando de frente se queda en blanco un buen rato."
+coste_energia = 0.0
+dano_mult = 0.6
+es_magico = true
+elemento_golpe = 4
+efectos = [SubResource("SA_ciega")]
+area_max = 99
+fx_estilo = 14
+cooldown = 4
+carga_turnos = 1
+; EN EL MAPA (09/11): carga un turno (se va encendiendo) y suelta un cono de luz delante. Magico de LUZ.
+forma = 2
+forma_apunte = 1
+forma_radio = 60.0
+forma_apertura = 90.0
+fx_anim_carga = &"destello_carga"
+fx_anim = &"destello"
+fx_anim_interrumpe = &"idle"

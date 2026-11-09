@@ -20,6 +20,8 @@ nombre = "Red electrificada"
 descripcion = "Una red tendida con corriente. Se te pega a los pies y te prepara para lo que venga detrás."
 coste_energia = 0.0
 dano_mult = 0.6
+; (09/11) ELEMENTO EXPLICITO: ya no hereda el de la ficha del enemigo (ese es solo el de su basico).
+elemento_golpe = 3
 efectos = [SubResource("SA_peg"), SubResource("SA_ray")]
 fx_anim = &"telarana"
 fx_estilo = 29

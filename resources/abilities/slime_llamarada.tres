@@ -14,6 +14,8 @@ nombre = "Llamarada"
 descripcion = "El slime escupe una lengua de fuego que te prende sin fallar."
 coste_energia = 0.0
 dano_mult = 1.44
+; (09/11) ELEMENTO EXPLICITO: ya no hereda el de la ficha del enemigo (ese es solo el de su basico).
+elemento_golpe = 1
 efectos = [SubResource("SA_quema")]
 cooldown = 3
 forma = 3

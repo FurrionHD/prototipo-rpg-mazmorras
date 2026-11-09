@@ -949,6 +949,11 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		c.costra_tope = mdat2.costra_tope
 		c.costra_bichos = mdat2.costra_bichos.duplicate()
 		c.chupa_enraizados = mdat2.chupa_enraizados
+		# (09/11, el micónido) la luz que atrae y el no sentir el dolor.
+		c.atrae_radio = mdat2.atrae_radio
+		c.atrae_px = mdat2.atrae_px
+		if mdat2.resist_aturdir >= 0.0:
+			c.stun_resist = mdat2.resist_aturdir
 		# (03/11, las arañas) las cargas y lo que suelta al llenarse.
 		c.rebote_mult = mdat2.rebote_mult
 		c.rebote_radio = mdat2.rebote_radio

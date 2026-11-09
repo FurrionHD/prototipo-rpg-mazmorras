@@ -439,6 +439,10 @@ enum Pieza { NINGUNA, PEDAZO, ESQUIRLA }
 # MAGICA (08/10/2026, de momento solo las de los slimes): pega con la MAGIA del que la lanza contra tu DEFENSA MAGICA y
 # la reduccion magica de tu armadura; ni la guardia ni el escudo la paran. Ver StatsMath.resolve_magico_enemigo.
 @export var es_magico: bool = false
+# (09/11, las Esporas de infeccion del Aventurero florecido, memoria miconido-mutante) LA INFECCION TAMBIEN A LOS SUYOS: a
+# cada enemigo (de su bando) dentro de su area al soltarla, y a los que empiecen su turno dentro de su nube, esta prob. de
+# quedar INFECTADO (sin daño: son los suyos). Si caen asi, se levantan con hongos.
+@export var infecta_suyos: float = 0.0
 # EN ABANICO (05/11, el Vendaval de cortes del Vendaval rojo): una LINEA se lanza 'lineas_abanico' veces, repartidas en
 # 'lineas_angulo' grados (el abanico ENTERO). Quien quede donde se cruzan se come varias. 0/1 = una sola.
 @export var lineas_abanico: int = 0

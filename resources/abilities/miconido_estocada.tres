@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Estocada del muerto"
+descripcion = "Se encoge, la espada atrás, y se lanza recto con todo el cuerpo detrás. No frena: lo que haya en la línea se lo lleva por delante."
+coste_energia = 0.0
+dano_mult = 1.3
+area_max = 99
+fx_estilo = 15
+cooldown = 3
+; EN EL MAPA (09/11): una linea de 70 px al frente que ATRAVIESA. Fisico.
+forma = 3
+forma_apunte = 1
+forma_radio = 70.0
+forma_ancho = 14.0
+fx_anim = &"estocada"

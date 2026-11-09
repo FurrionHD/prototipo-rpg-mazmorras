@@ -188,7 +188,10 @@ const MAX_CONEXIONES := 32
 #   70 = (06/11) el REGISTRO agrupado: cada frase del log viaja con su grupo delante (combat_registro.codificar).
 #   71 = (07/11) ANIMS_SUELTAS crece con los anim_basico de los enemigos (golpe_6_8...): el codigo negativo de
 #     MARCA_ANIM ya no significa lo mismo en una 0.15.7.
-const PROTOCOLO := 71
+#   72 = (09/11) los mutantes del micónido: estados INFECTADO 61 y FLORECIDO 62; la cria con mutacion (dar_cuerpo_a_cria); el florecido que era uno de los tuyos viaja en el roster con
+#     la direccion de su muñeco (peer/cuerpo en vez de nid); las habilidades de enemigo ya no heredan el elemento de su
+#     ficha (solo el basico): un espejo viejo calcularia otro daño.
+const PROTOCOLO := 72
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

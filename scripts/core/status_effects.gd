@@ -55,7 +55,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	RESINADO, SAVIA_NEGRA,
 	PICOR, PRINGADO,
 	PARALISIS, ENCAPULLADO,
-	IMANTADO, ADHERIDO, LIMADURAS, EN_VUELO, ORBITA, CORAZA_IMAN, ELITROS, UNA_CABEZA }
+	IMANTADO, ADHERIDO, LIMADURAS, EN_VUELO, ORBITA, CORAZA_IMAN, ELITROS, UNA_CABEZA,
+	INFECTADO, FLORECIDO }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -614,6 +615,16 @@ static var _defs: Dictionary = {
 		"id": Id.UNA_CABEZA, "nombre": "Una cabeza aturdida", "icono": "💤", "color": Color(1.0, 0.9, 0.3),
 		"turns": 1,
 		"descripcion": "Una de sus cabezas no se entera de nada. La otra, sí. Hace falta aturdir las dos.",
+	},
+	Id.INFECTADO: {   # (09/11) las Esporas de infeccion del Aventurero florecido (memoria miconido-mutante)
+		"id": Id.INFECTADO, "nombre": "Infectado", "icono": "🦠", "color": Color(0.9, 0.5, 0.15),
+		"turns": 3,
+		"descripcion": "Lleva esporas dentro. No duele, de momento. Si cae con ellas encima, algo le sale por la espalda y se levanta en el bando del hongo.",
+	},
+	Id.FLORECIDO: {   # (09/11) cayo Infectado y se ha levantado con hongos (CombatPantalla._florecer). Para siempre.
+		"id": Id.FLORECIDO, "nombre": "Florecido", "icono": "🌿", "color": Color(0.9, 0.5, 0.15),
+		"turns": 999,
+		"descripcion": "Ya cayó una vez. Lo que lo mueve ahora no es suyo: le brotan setas por los hombros y no deja botín. Si vuelve a caer, se queda en el suelo.",
 	},
 	Id.ORBITA: {   # el Iman errante, con alguien Imantado
 		"id": Id.ORBITA, "nombre": "Órbita", "icono": "🌀", "color": Color(0.8, 0.19, 0.13),

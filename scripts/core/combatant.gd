@@ -550,6 +550,9 @@ var costra_bichos: Array = []
 var costra_rota: bool = false
 # (02/11, el Espantajo, ver MutacionData) CHUPAR A LOS ENRAIZADOS: lo que les quita de su vida maxima cada turno suyo.
 var chupa_enraizados: float = 0.0
+# (09/11, los mutantes del MICONIDO, ver MutacionData) LUZ QUE ATRAE: a quien acerca al empezar su turno, y cuanto.
+var atrae_radio: float = 0.0
+var atrae_px: float = 15.0
 # Lo que anda en el mapa en su turno, por esto (la rata acorazada: CombatTactico.radio_de).
 var mov_mult: float = 1.0
 # (06/10, los del slime ABISAL) DEJA ESTRELLAS al moverse en la pelea (las piezas de sus ataques, ver

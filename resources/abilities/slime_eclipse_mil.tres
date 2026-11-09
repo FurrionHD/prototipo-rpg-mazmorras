@@ -18,6 +18,8 @@ nombre = "Eclipse"
 descripcion = "Se hincha y se apaga entero: sus estrellas se van y una noche cerrada cae alrededor. Nadie que esté cerca ve nada durante un par de turnos. No hace daño."
 efectos = [SubResource("SA_ceg")]
 dano_mult = 0.0
+; (09/11) ELEMENTO EXPLICITO: ya no hereda el de la ficha del enemigo (ese es solo el de su basico).
+elemento_golpe = 5
 cooldown = 5
 fx_anim = &"eclipse"
 ; (06/10, el abisal) circulo alrededor suyo; su dibujo propio (AbisalAire.ECLIPSE: su noche por el suelo y la luna negra sobre el).

@@ -213,6 +213,15 @@ def anim_muerte(t):
                 mece=tramos(t, [(0.0, 0.0), (0.14, -0.6), (0.45, 0.4), (1.0, 0.7)]))
 
 
+def anim_comer(t):
+    # COMER (09/11, para mutar: memoria miconido-mutante): se inclina sobre lo que come, el sombrero lo tapa y se hincha
+    # a sorbos, con los brazos recogidos hacia la boca que no tiene.
+    sobre = tramos(t, [(0.0, 0.0), (0.2, 1.0), (0.85, 1.0), (1.0, 0.0)])
+    sorbo = 0.5 + 0.5 * math.sin(6 * math.pi * t)
+    return POSE(mece=1.6 * sobre, hunde=(0.35 + 0.15 * sorbo) * sobre, hincha=0.05 * sorbo * sobre,
+                brazos=-0.7 * sobre, avance=0.8 * sobre)
+
+
 # nombre: (fotogramas, fps, loop, direcciones, funcion) -- los del viejo.
 ANIMS = {
     'idle': (8, 3.0, True, 8, anim_idle),
@@ -222,6 +231,7 @@ ANIMS = {
     'micelio': (8, 12.0, False, 8, anim_micelio),
     'encaje': (4, 18.0, False, 8, anim_encaje),
     'muerte': (8, 10.0, False, 8, anim_muerte),
+    'comer': (10, 10.0, False, 8, anim_comer),
 }
 
 

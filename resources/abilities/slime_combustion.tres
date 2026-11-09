@@ -16,6 +16,8 @@ nombre = "Combustión"
 descripcion = "Ataque de carga: el slime se pone al rojo vivo y detona en una bola de fuego que te deja ardiendo. Aturdirlo mientras se calienta lo interrumpe."
 coste_energia = 0.0
 dano_mult = 3.33
+; (09/11) ELEMENTO EXPLICITO: ya no hereda el de la ficha del enemigo (ese es solo el de su basico).
+elemento_golpe = 1
 area_modo = 1
 area_max = 3
 area_efectos_secundarios = true

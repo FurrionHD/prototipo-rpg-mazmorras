@@ -163,6 +163,9 @@ func _correr() -> void:
 		tm.tick(1.0 / 60.0)
 		if combat._state != combat.State.PAUSED or combat._pause_left != INF:
 			break
+	if tm.estrellas_de(cielo).size() != 1:   # (09/11) el detalle si falla: fallo 2 de 39 veces, las dos con el PC a tope (horno)
+		print("  DETALLE: pies_antes %s pies_ahora %s estado %d pausa %s log: %s" % [str(pc), str(tm.pies_de(cielo)), combat._state,
+			str(combat._pause_left), " | ".join(combat.log_entero().slice(-4).map(func(l): return str(l)))])
 	_ver(tm.estrellas_de(cielo).size() == 1, "al andar en su turno deja una estrella donde estaba (%d, antes %d)"
 		% [tm.estrellas_de(cielo).size(), n0])
 	_ver(sin_estrellas.is_empty(), "(el otro aun no tiene)")

@@ -440,6 +440,9 @@ func desmontar() -> void:
 	_furias_visibles(true)
 	if _trent != null:
 		_trent.quitar()
+	if _hongos != null:
+		_hongos.quitar()
+	_prestados.clear()
 	if _arana != null:
 		_arana.quitar()
 	if _pixel != null:
@@ -697,6 +700,9 @@ func cuerpo_de(c: Combatant) -> Node2D:
 	if _pantalla._espejo:
 		return _cuerpo_en_espejo(c)
 	var i: int = _pantalla._enemies.find(c)
+	# (09/11) TU PERSONAJE FLORECIDO: su cuerpo es el muñeco del caido (prestar_cuerpo).
+	if i >= 0 and _prestados.has(c):
+		return cuerpo_de(_prestados[c])
 	if i >= 0:
 		# El orden es el mismo por construccion: Game._abrir_pelea crea un Combatant por nodo, en el
 		# orden de _active_enemies. Los invocados no tienen nodo y se quedan en null.
@@ -719,6 +725,10 @@ func _cuerpo_en_espejo(c: Combatant) -> Node2D:
 	var i: int = _pantalla._enemies.find(c)
 	if i >= 0:
 		var filas: Array = roster_red.get("enemigos", [])
+		# (09/11) TU PERSONAJE FLORECIDO: su fila trae la direccion de un personaje (el muñeco prestado), no un bicho.
+		if i < filas.size() and (filas[i] as Dictionary).has("peer"):
+			var dp: Dictionary = filas[i]
+			return Game.cuerpo_de_red(int(dp.get("peer", 0)), int(dp.get("cuerpo", -1)))
 		return _nodo_de_bicho(int((filas[i] as Dictionary).get("nid", 0))) if i < filas.size() else null
 	i = _pantalla._aliados.find(c)
 	if i >= 0:
@@ -743,6 +753,9 @@ func _nodo_de_bicho(id: int) -> Node2D:
 # LA DIRECCION DE RED de un combatiente, para el roster: con ella el espejo encuentra su cuerpo en
 # SU mundo. Aliado = {peer, cuerpo}; bicho = {nid}. Solo la pide quien lleva la pelea.
 func direccion_red(c: Combatant) -> Dictionary:
+	# (09/11) TU PERSONAJE FLORECIDO: la direccion del muñeco que usa (la del caido).
+	if _prestados.has(c):
+		return direccion_red(_prestados[c])
 	var i: int = _pantalla._enemies.find(c)
 	if i >= 0:
 		var cuerpo: Node2D = cuerpo_de(c)
@@ -805,6 +818,7 @@ func radio_de(c: Combatant) -> float:
 
 # LO DE LOS MUTANTES DEL TRENT Y SUS BICHOS encima de los cuerpos (03/11): la resina, el humo, el pringue... aparte.
 var _trent: TacticoTrent = null
+var _hongos = null   # TacticoHongos (09/11): las setas y el gris de los florecidos
 var _arana: TacticoArana = null
 var _pixel: TacticoPixel = null
 
@@ -1422,6 +1436,9 @@ func tick(delta: float) -> bool:
 	if _trent == null:
 		_trent = TacticoTrent.new(self)
 	_trent.tick()
+	if _hongos == null:
+		_hongos = TacticoHongos.new(self)
+	_hongos.tick()
 	if _arana == null:
 		_arana = TacticoArana.new(self)
 	_arana.tick()
@@ -4062,6 +4079,22 @@ func en_linea_detras(e: Combatant, t: Combatant, largo: float, ancho: float) -> 
 		if o != t and (o as Combatant).is_alive() and cuerpo_de(o) != null and f.toca(bulto_de(o)):
 			out.append(o)
 	return out
+
+
+# LA NUBE DE INFECCION (09/11, el Aventurero florecido): el enemigo que EMPIEZA SU TURNO dentro de una nube cuya habilidad
+# infecta a los suyos (AbilityData.infecta_suyos) tira esa prob. de quedar INFECTADO. A los tuyos ya les llega por el
+# charco de siempre (sus efectos).
+func nube_infecta(c: Combatant) -> void:
+	if _pantalla._espejo or c == null or not c.is_alive() or not _pantalla._enemies.has(c) or cuerpo_de(c) == null:
+		return
+	for clave in _charcos.keys():
+		var ch: Dictionary = _charcos[clave]
+		var ab: AbilityData = ch.get("ab")
+		if ab == null or ab.infecta_suyos <= 0.0 or ch.get("dueno") == c or not ch["f"].toca(bulto_de(c)):
+			continue
+		if _pantalla.enemigos.infectar(c, ab.infecta_suyos):
+			_pantalla._log_extra("🦠 %s respira las esporas y se le meten dentro." % _pantalla._etq(c))
+		return
 
 
 # Un charco que acaba de aparecer (la nube de quien revienta al morir): lo respira ya quien este dentro, con la misma
@@ -7571,7 +7604,7 @@ var _vuelo_cria: Dictionary = {}   # slot -> destino
 # 'de_grieta' (31/10, la Llamada del rey rata): no vuela ninguna bola; la rata espera escondida en la grieta y, al
 # abrirse (su REY_LLAMADA), salta fuera ella misma, a la vista (T_SALTO_GRIETA, ALTO_GRIETA). Viaja como golpes = 2.
 func lanzar_cria(cria: Combatant, data: EnemyData, origen: Vector2, hasta: Vector2, con_gota: bool = false,
-		col: Color = Color(0, 0, 0, 0), de_grieta: bool = false) -> void:
+		col: Color = Color(0, 0, 0, 0), de_grieta: bool = false, mutacion: StringName = &"") -> void:
 	if _pantalla._espejo:
 		return
 	var slot: int = _pantalla._enemies.find(cria)
@@ -7588,7 +7621,7 @@ func lanzar_cria(cria: Combatant, data: EnemyData, origen: Vector2, hasta: Vecto
 		_pantalla.espejo._apuntar_desliz_red(cria, hasta, Desliz.CRIA, 2, T_SALTO_GRIETA, ALTO_GRIETA)
 	else:
 		_pantalla.espejo._apuntar_desliz_red(cria, hasta, Desliz.CRIA, 1 if con_gota else 0, T_VUELO_CRIA, ALTO_VUELO_CRIA)
-	Game.dar_cuerpo_a_cria(slot, data, origen, 0.2, _pantalla.pelea)
+	Game.dar_cuerpo_a_cria(slot, data, origen, 0.2, _pantalla.pelea, mutacion)
 
 
 # LA GRIETA DE LA LLAMADA (31/10, los mutantes del rey rata): junto al rey, hacia los tuyos, a GRIETA_LEJOS px de su
@@ -7974,6 +8007,63 @@ func caer_en_mapa(c: Combatant) -> void:
 	(m as MunecoJugador).animar("muerte_4")
 
 
+# TU PERSONAJE FLORECIDO (09/11, CombatPantalla._florecer_personaje): el enemigo 'e' usa el muñeco del caido 'al'. Se
+# levanta (fuera la marca de caido) y se queda donde cayo. Al acabar la pelea se olvida: el caido sigue caido.
+var _prestados: Dictionary = {}   # Combatant (el florecido, enemigo) -> Combatant (el tuyo caido)
+
+func prestar_cuerpo(e: Combatant, al: Combatant) -> void:
+	var cu: Node2D = cuerpo_de(al)
+	_prestados[e] = al
+	if cu == null:
+		return
+	if cu.has_meta(MARCA_CAIDO):
+		cu.remove_meta(MARCA_CAIDO)
+	_caidos.erase(cu)
+	_pos[e] = cu.global_position
+	var m = cu.get("_muneco")
+	if m is MunecoJugador and (m as MunecoJugador).hay_dibujo():
+		(m as MunecoJugador).animar(PoseJugador.animacion(_mirada_de(cu), 1, false, false, false, 0))
+
+
+func devolver_cuerpo(e: Combatant) -> void:
+	_prestados.erase(e)
+
+
+# ¿Usa el muñeco de uno de los tuyos? En quien lleva la pelea, su tabla; en el espejo, su fila del roster (trae 'peer').
+func cuerpo_prestado(e: Combatant) -> bool:
+	if not _pantalla._espejo:
+		return _prestados.has(e)
+	var i: int = _pantalla._enemies.find(e)
+	var filas: Array = roster_red.get("enemigos", [])
+	return i >= 0 and i < filas.size() and (filas[i] as Dictionary).has("peer")
+
+
+# El muñeco prestado, de pie (en el espejo tambien: alli lo tumbo su caer_en_mapa al caer el tuyo).
+func levantar_prestado(e: Combatant) -> void:
+	var cu: Node2D = cuerpo_de(e)
+	if cu == null or not cu.has_meta(MARCA_CAIDO):
+		return
+	cu.remove_meta(MARCA_CAIDO)
+	_caidos.erase(cu)
+	var m = cu.get("_muneco")
+	if m is MunecoJugador and (m as MunecoJugador).hay_dibujo():
+		(m as MunecoJugador).animar(PoseJugador.animacion(_mirada_de(cu), 1, false, false, false, 0))
+
+
+# Lo tumbas: el muñeco vuelve a caer, sin desvanecerse como un bicho.
+func _caer_prestado(e: Combatant) -> void:
+	var cu: Node2D = cuerpo_de(e)
+	if cu == null or cu.has_meta(MARCA_CAIDO):
+		return
+	var m = cu.get("_muneco")
+	if not (m is MunecoJugador) or not (m as MunecoJugador).hay_dibujo():
+		return
+	_quitar_gesto(cu)
+	cu.set_meta(MARCA_CAIDO, true)
+	_caidos.append(cu)
+	(m as MunecoJugador).animar("muerte_4")
+
+
 func _levantar_caidos() -> void:
 	for cu in _caidos:
 		if not is_instance_valid(cu) or not cu.has_meta(MARCA_CAIDO):
@@ -7986,6 +8076,10 @@ func _levantar_caidos() -> void:
 
 
 func morir_en_mapa(c: Combatant) -> void:
+	# (09/11) el florecido que era uno de los tuyos no se desvanece como un bicho: su muñeco vuelve a caer.
+	if cuerpo_prestado(c):
+		_caer_prestado(c)
+		return
 	var cuerpo: Node2D = cuerpo_de(c)
 	if cuerpo == null or cuerpo.has_meta("muerto_en_pelea"):
 		return

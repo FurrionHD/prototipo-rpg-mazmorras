@@ -15,6 +15,7 @@ descripcion = "La jaula se pone al rojo y revienta todo lo que llevaba dentro. N
 coste_energia = 0.0
 dano_mult = 1.6
 es_magico = true
+elemento_golpe = 1
 efectos = [SubResource("SA_que")]
 forma_radio = 50.0
 fx_estilo = 225

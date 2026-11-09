@@ -15373,7 +15373,9 @@ func unir_enemigo_al_combate(nodo: Node, hueco: int = -1, pe: PeleaViva = null) 
 # Ahora nacen como enemigos DE VERDAD en el piso, en 'pos', y ocupan el hueco 'slot' del cruce por indice
 # con combat._enemies. Los crea aqui mismo quien lleva la pelea, que es quien simula el piso: la sala (sin sesion, en
 # las pruebas, esta misma maquina). Los demas los ven llegar como cualquier enemigo (Net.enemigos).
-func dar_cuerpo_a_cria(slot: int, data: EnemyData, pos: Vector2, t: float, pe: PeleaViva = null) -> void:
+# 'mutacion' (09/11, los florecidos del micónido): el cuerpo nace con esa mutacion (el mismo sprite que el que cayo).
+func dar_cuerpo_a_cria(slot: int, data: EnemyData, pos: Vector2, t: float, pe: PeleaViva = null,
+		mutacion: StringName = &"") -> void:
 	if pe == null:
 		pe = pelea
 	if not combate_activo(pe) or data == null or slot < 0:
@@ -15386,15 +15388,16 @@ func dar_cuerpo_a_cria(slot: int, data: EnemyData, pos: Vector2, t: float, pe: P
 		Net.peleas.soltar_reserva_del_cadaver(pe.enemigos[slot])
 	pe.enemigos[slot] = null
 	var lugar_cria: String = pe.piso.lugar if Net.soy_sala and is_instance_valid(pe.piso) else ""
-	_poner_cuerpo_de_cria(slot, nacer_cria_aqui(data, pos, t, multiplayer.get_unique_id(), lugar_cria), pe)
+	_poner_cuerpo_de_cria(slot, nacer_cria_aqui(data, pos, t, multiplayer.get_unique_id(), lugar_cria, mutacion), pe)
 
 
 # SOLO quien simula el piso: la cria, congelada y reservada para la pelea de 'para' (0 = la mia, en solitario).
-func nacer_cria_aqui(data: EnemyData, pos: Vector2, t: float, para: int, lugar: String = "") -> Node:
+func nacer_cria_aqui(data: EnemyData, pos: Vector2, t: float, para: int, lugar: String = "",
+		mutacion: StringName = &"") -> Node:
 	var piso: Node = Net.pisos._suelo_de(lugar)   # en la sala, el de ESE piso
 	if piso == null or not piso.has_method("crear_enemigo"):
 		return null
-	var n = piso.crear_enemigo(data, pos, 0.0, t, 0)   # mut 0: una cria no muta
+	var n = piso.crear_enemigo(data, pos, 0.0, t, 1 if mutacion != &"" else 0, false, {}, mutacion)   # una cria no muta (salvo un florecido: la suya)
 	if n == null:
 		return null
 	n.set_meta("cria_brote", true)   # si sobrevive a la pelea se deshace (enemy.reanudar_tras_combate)
