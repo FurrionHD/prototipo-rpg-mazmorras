@@ -2573,7 +2573,9 @@ func mover_enemigo(e: Combatant, ab: AbilityData, lista: Array, golpes: int) -> 
 	var dur: float = T_EMBESTIDA_BICHO
 	var arco: float = 0.0
 	_por_la_espalda.erase(e)
-	if ab.salta:
+	# (09/11) TU PERSONAJE FLORECIDO usa estas mismas: el Oportunista (salto_espalda sin 'salta') salta como el Mordisco a
+	# traicion, y la Danza de acero (avance) cruza su linea como la que recorre.
+	if ab.salta or ab.salto_espalda:
 		hasta = _sitio_libre_hacia(e, f.centro)
 		# A LA ESPALDA (30/10, el Mordisco a traicion): cae detras de su presa, del otro lado de donde venia.
 		if ab.salto_espalda and not lista.is_empty():
@@ -2587,7 +2589,7 @@ func mover_enemigo(e: Combatant, ab: AbilityData, lista: Array, golpes: int) -> 
 					_por_la_espalda[e] = presa
 		dur = T_SALTO_BICHO
 		arco = ALTO_SALTO_BICHO * clampf(radio_pisa(e) / 10.0, 1.0, 2.5)   # el Rey salta mas alto
-	elif (ab.carga or ab.recorre) and f.tipo == CombatFormas.Tipo.LINEA:
+	elif (ab.carga or ab.recorre or ab.avance) and f.tipo == CombatFormas.Tipo.LINEA:
 		# LAS EMBESTIDAS RECORREN SU LINEA ENTERA (10/10, el jefe: "se desplazara de todas formas aunque no haya nadie
 		# dentro"): con el frente hasta el final de la raya (la linea sale del borde de su cuerpo: sus pies + el largo),
 		# sin acabar encima de nadie. A los que cruza les llega el golpe cuando su frente les pasa (SueloRoto.V_EMBESTIDA).
@@ -2599,7 +2601,7 @@ func mover_enemigo(e: Combatant, ab: AbilityData, lista: Array, golpes: int) -> 
 				v = d["c"]
 		# Solo se para en alguien la de UN objetivo (forma_solo_primero: el Ensarte de la segadora, la Yugular del rey rata;
 		# "las de enemigos pequeños si que se pueden quedar para 1 objetivo").
-		if v != null and ab.forma_solo_primero and not ab.atraviesa and not ab.recorre:
+		if v != null and ab.forma_solo_primero and not ab.atraviesa and not ab.recorre and not ab.avance:
 			# EL ENSARTE se para con la CABEZA delante de su presa, no con los pies: la segadora es larga y con su
 			# radio de pisada acababa con los brazos encima de ella (30/09). Su frente real, como los conos.
 			if _marcado(e):
@@ -2630,7 +2632,7 @@ func mover_enemigo(e: Combatant, ab: AbilityData, lista: Array, golpes: int) -> 
 	else:
 		return
 	# El salto se ve aunque caiga casi en el sitio (los tuyos le tapan el hueco): bota en el aire.
-	if hasta.distance_to(pos_de(e)) < 2.0 and not ab.salta:
+	if hasta.distance_to(pos_de(e)) < 2.0 and not (ab.salta or ab.salto_espalda):
 		return
 	var desde: Vector2 = pos_de(e)
 	pedir_desliz(e, hasta, Desliz.EMBISTE if ab.carga and not ab.salta else Desliz.ANTES, maxi(1, golpes), dur, arco)

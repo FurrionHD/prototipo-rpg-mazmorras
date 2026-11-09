@@ -316,6 +316,41 @@ func _correr() -> void:
 			nuevo = " | ".join(combat.log_entero().slice(log0).map(func(l): return str(l)))
 			_ver(not nuevo.contains("Tajo pesado") and fp.current_energy > 5.0,
 				"sin energia pega el basico y la repone (5 -> %.0f)" % fp.current_energy)
+			# (tanda 2) LOS GOLPES CON DETALLES: ya entran (area, critico, penetracion, el salto, el avance...); los apoyos y
+			# las posturas aun no (el golpe de escudo deja en guardia: tanda 3).
+			var nombres_t2: Array = ["oportunista", "danza_de_acero", "molinete", "disparo_perforante", "golpe_escudo_normal"]
+			var habs_t2: Array = nombres_t2.map(func(n): return load("res://resources/abilities/%s.tres" % n))
+			fp.abilities_combate = habs_t2
+			var t2: Array = combat.habilidades_florecido(fp).map(func(a): return a.nombre)
+			fp.abilities_combate = guardadas
+			_ver(t2.size() == 4 and not t2.has("Golpe de escudo"),
+				"tanda 2: Oportunista, Danza de acero, Molinete y Disparo perforante si; el Golpe de escudo aun no (%s)" % str(t2))
+			# EL OPORTUNISTA: salta a la espalda de su presa (la huella, un circulo pequeño delante) y le pega.
+			for pr in [["oportunista", 30.0], ["danza_de_acero", 30.0]]:
+				var hab: AbilityData = load("res://resources/abilities/%s.tres" % pr[0])
+				# (en el centro de la arena: pegado a la pared, la linea de la Danza se corta en 4 px, como la tuya)
+				_poner(t, fp, t._arena().rect.get_center())
+				_poner(t, yo, t.pies_de(fp) + Vector2(-float(pr[1]), 0))
+				fp.habilidades = [hab]
+				fp.ability_cooldowns.clear()
+				fp.retrasando = false
+				fp.charging = null
+				fp.current_energy = fp.max_energy
+				var desde: Vector2 = t.pies_de(fp)
+				log0 = combat.log_entero().size()
+				# (las que se preparan salen al turno siguiente: hasta que la USA, como mucho tres turnos)
+				for _turno in 3:
+					await _turno_de(combat, t, fp, yo, yo.current_hp)
+					nuevo = " | ".join(combat.log_entero().slice(log0).map(func(l): return str(l)))
+					if nuevo.contains("usa " + hab.nombre):
+						break
+				for _k in 60:
+					await get_tree().process_frame
+					t.tick(1.0 / 60.0)
+				nuevo = " | ".join(combat.log_entero().slice(log0).map(func(l): return str(l)))
+				var anda: float = t.pies_de(fp).distance_to(desde)
+				_ver(nuevo.contains("usa " + hab.nombre) and anda > 15.0, "%s: la usa y se mueve como la tuya (%.0f px; %s)" % [
+					hab.nombre, anda, nuevo.left(110)])
 			# LO TUMBAS: su muñeco vuelve a caer (no se desvanece como un bicho).
 			fp.take_damage(fp.current_hp + 10.0)
 			t.morir_en_mapa(fp)

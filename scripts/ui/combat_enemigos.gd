@@ -1154,6 +1154,14 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 	var robado_total: float = 0.0   # lo que se ha curado chupando (AbilityData.robo_vida)
 	if ab.dano_mult > 0.0:
 		golpes = ab.num_golpes(1)   # los enemigos usan una sola "mano"
+		# (09/11) TU PERSONAJE FLORECIDO pega como pegabas tu: con SUS manos (dual, arma+escudo) y, en las que suman
+		# golpes por multitud, contando a los que pilla su huella. A la espalda (Oportunista): a uno solo, como tu.
+		if e.energia_de_jugador:
+			if lista_mapa != null and ab.salto_espalda and (lista_mapa as Array).size() > 1:
+				lista_mapa = (lista_mapa as Array).slice(0, 1)
+				lista_area = lista_mapa
+			var n_pilla: int = (lista_mapa as Array).size() if lista_mapa != null and not (lista_mapa as Array).is_empty() else 1
+			golpes = ab.num_golpes(e.ability_manos(ab), n_pilla)
 		# EN EL MAPA el salto y la embestida mueven al bicho con su gesto (antes de encolar los golpes).
 		if lista_mapa != null:
 			_pantalla.turno_mapa.mover_enemigo(e, ab, lista_mapa, golpes)
@@ -1497,31 +1505,50 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 	if ab != null and ab.extra_espalda > 0.0 and _pantalla.tactico and _pantalla.turno_mapa.por_la_espalda(e, t):
 		escala *= 1.0 + ab.extra_espalda
 		print("        [%s] por la espalda: +%d %%" % [t.nombre, roundi(ab.extra_espalda * 100.0)])
+	# (09/11) TU PERSONAJE FLORECIDO, golpe a golpe como en tu camino (CombatHabilidades._resolver_golpe_hab): cada golpe
+	# con SU mano y su multiplicador (el dual intercala, arma+escudo alterna), el de escudo con la DEFENSA (y se ve como
+	# escudazo), el critico y la penetracion que pone la habilidad, y con dos armas A LA VEZ todos en la misma tanda.
+	var como_jugador: bool = ab != null and e.energia_de_jugador
+	var manos_j: int = e.ability_manos(ab) if como_jugador else 1
+	var plan_j: Array = ab.plan_golpes(n_golpes, manos_j) if como_jugador else []
+	var idxs_j: Array = e.ability_hand_indices(ab) if como_jugador else []
 	for i in n_golpes:
-		_pantalla.efectos._fx_tanda(tanda_base + i)
+		var m_golpe: float = 1.0
+		var atk_ov: float = -1.0
+		var estilo_g: int = estilo_ab
+		if como_jugador:
+			m_golpe = float(plan_j[i]["mult"])
+			if not idxs_j.is_empty():
+				e.set_active_hand(int(idxs_j[mini(int(plan_j[i]["hand"]), idxs_j.size() - 1)]))
+			if ab.golpe_es_de_escudo(i):
+				atk_ov = e.atk_escudo()
+				if not (ab.es_toda_de_escudo() and ab.fx_estilo >= 0):
+					estilo_g = CombatFX.Estilo.ESCUDAZO
+		_pantalla.efectos._fx_tanda(tanda_base + (0 if como_jugador and ab.dual_a_la_vez and manos_j >= 2 else i))
 		# (la Mirada estelar NO FALLA: AbilityData.infalible)
 		var esquivable: bool = (ab == null or not ab.infalible) and not (desde_sombras and i == 0) \
 			and not (e.orbita and t.has_status(StatusEffects.Id.IMANTADO))
 		var result := StatsMath.resolve_magico_enemigo(e, t, esquivable) if magico \
-			else StatsMath.resolve_attack(e, t, defendiendo, -1.0, 0.0, 0.0, esquivable)
+			else StatsMath.resolve_attack(e, t, defendiendo, atk_ov, ab.crit_extra if como_jugador else 0.0,
+				ab.penetracion_extra if como_jugador else 0.0, esquivable)
 		_pantalla._aplicar_pasivas(result, e, t)
 		if result.evaded:
 			print("        [%s] golpe %d: esquivado 💨" % [t.nombre, i + 1])
 			Game.contar_esquiva(pj_t)   # contador oculto de Reflejos
 			esquivados += 1
 			rastro.append({"t": "falla", "c": t})
-			_pantalla.efectos._fx_golpe(e, t, 0.0, false, true, e.elemento_ataque, estilo_ab, 1.0, false, sfx_ab, gesto_ab, anim_ab)
+			_pantalla.efectos._fx_golpe(e, t, 0.0, false, true, e.elemento_ataque, estilo_g, 1.0, false, sfx_ab, gesto_ab, anim_ab)
 			if t.en_guardia and permitir_contra and contra == "" and _devuelve_en_guardia(t, e):
 				contra = _contraatacar(e, t)
 				if not e.is_alive():
 					break
 		else:
-			var dmg: float = result.damage * ab.dano_mult * escala * e.dummy_dmg_out_mult
+			var dmg: float = result.damage * ab.dano_mult * escala * e.dummy_dmg_out_mult * m_golpe
 			# Lo MISMO sin defensa, armadura ni bloqueo, con los MISMOS factores que 'dmg' (incluido
 			# el dummy_dmg_out_mult, o el Saco regalaria bloqueo a cada porrazo de mentira). Lo miran
 			# dos cosas: el contador de bloqueo de aqui y la excelia de Resistencia de mas abajo.
 			var dmg_bruto: float = float(result.get("dmg_sin_mitigar", result.damage)) \
-				* ab.dano_mult * escala * e.dummy_dmg_out_mult
+				* ab.dano_mult * escala * e.dummy_dmg_out_mult * m_golpe
 			dmg *= _runa_corona_mult(t)
 			dmg *= _runa_musgo_mult(t, ab)
 			dmg *= _limaduras_mult(e, ab)
@@ -1538,7 +1565,7 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 				var cur: float = dmg * ab.robo_vida
 				e.heal(cur)
 				robado += cur
-			_pantalla.efectos._fx_golpe(e, t, dmg, result.crit, false, e.elemento_ataque, estilo_ab, 1.0, false,
+			_pantalla.efectos._fx_golpe(e, t, dmg, result.crit, false, e.elemento_ataque, estilo_g, 1.0, false,
 				sfx_ab, gesto_ab, anim_ab, 0, float(result.get("mult_elem", 1.0)))
 			# Igual que en el golpe basico: si el manto ha recortado el daño, se cobra la carga.
 			# El tope por accion hace que una habilidad de cinco golpes cueste una, no cinco.

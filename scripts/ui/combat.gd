@@ -824,12 +824,17 @@ const FLORECIDO_PJ_VIDA := 2.0
 # LO QUE EL CAMINO DE LOS ENEMIGOS AUN NO SABE HACER (fase 2): los campos de AbilityData que solo resuelve el del jugador
 # (combat_habilidades). Una habilidad de su arma que use alguno (con un valor que no sea el de por defecto) no se le da
 # todavia; cada tanda que se enseña al camino enemigo, sale de esta lista. Tanda 1: solo los golpes que no usan ninguno.
+# TANDA 2 (ya resueltos): en el mapa la HUELLA decide a quien le cae, asi que area_modo, area_falloff y redirige_al_morir
+# no cuentan (en la fila, las reglas de area de los enemigos); crit_extra, penetracion_extra, escudo_desde_golpe (el golpe
+# de escudo con la DEFENSA) y dual_a_la_vez van golpe a golpe en CombatEnemigos._enemy_resolver_golpes_ (con sus manos);
+# municion_por_uso, sin gastar de tu bolsa (pega con su arma); salto_espalda y avance, con el salto y el recorrido de los
+# enemigos (CombatTactico.mover_enemigo).
 const CAMPOS_SOLO_JUGADOR := [
-	"escudo_desde_golpe", "imbue_estado", "imbue_usos", "imbue_pct", "imbue_elemento", "imbue_prob", "imbue_prob_doble",
-	"imbue_por_destreza", "limpia_debuffs", "reduce_cooldowns", "area_modo", "area_falloff", "salto_espalda", "paso",
-	"avance", "forma_a_aliados", "sigue_al_aliado", "defensa_a_aliados", "junta_aliados", "dual_a_la_vez",
-	"forma_escudo_largo", "cargar_municion", "untar", "municion_por_uso", "crit_extra", "penetracion_extra",
-	"redirige_al_morir", "bloqueo_turnos", "mana_gain", "energia_a_mana", "foco_cargas", "provoca_turnos",
+	"imbue_estado", "imbue_usos", "imbue_pct", "imbue_elemento", "imbue_prob", "imbue_prob_doble",
+	"imbue_por_destreza", "limpia_debuffs", "reduce_cooldowns", "paso",
+	"forma_a_aliados", "sigue_al_aliado", "defensa_a_aliados", "junta_aliados",
+	"forma_escudo_largo", "cargar_municion", "untar",
+	"bloqueo_turnos", "mana_gain", "energia_a_mana", "foco_cargas", "provoca_turnos",
 	"postura_contraataque", "guardia_spd_mult", "evasion_bonus", "contra_mult", "contra_con_escudo", "protege_turnos"]
 static var _ab_por_defecto: AbilityData = null
 
