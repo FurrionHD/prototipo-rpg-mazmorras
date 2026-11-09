@@ -303,10 +303,14 @@ func _correr() -> void:
 			if fp.retrasando:
 				var en_antes: float = fp.current_energy
 				log0 = combat.log_entero().size()
+				# (el 09/11 fallo una vez con el golpe fallado: aqui se FUERZA que lo esquives, para mirar ese caso siempre)
+				yo.evasion_bonus = 5.0
 				await _turno_de(combat, t, fp, yo, yo.current_hp)
+				yo.evasion_bonus = 0.0
 				nuevo = " | ".join(combat.log_entero().slice(log0).map(func(l): return str(l)))
 				_ver(nuevo.contains("Tajo pesado") and is_equal_approx(fp.current_energy, en_antes),
-					"al volver a la barra lo suelta, sin gastar mas (%s)" % nuevo.left(120))
+					"al volver a la barra lo suelta, sin gastar mas (energia %.1f -> %.1f; %s)" % [en_antes, fp.current_energy,
+					nuevo.left(120)])
 			# SIN ENERGIA, EL BASICO (y la repone).
 			fp.ability_cooldowns.clear()
 			fp.current_energy = 5.0
@@ -351,6 +355,63 @@ func _correr() -> void:
 				var anda: float = t.pies_de(fp).distance_to(desde)
 				_ver(nuevo.contains("usa " + hab.nombre) and anda > 15.0, "%s: la usa y se mueve como la tuya (%.0f px; %s)" % [
 					hab.nombre, anda, nuevo.left(110)])
+			# (tanda 3a) LOS APOYOS, a SU bando (los bichos), y lo que se hace a si mismo.
+			var cargar := func(n: String) -> AbilityData: return load("res://resources/abilities/%s.tres" % n)
+			fp.abilities_combate = ["egida_menor", "grito_de_aliento", "purificar", "filo_emponzonado", "cambio_de_ritmo",
+				"paso_ligero", "escolta"].map(func(n): return cargar.call(n))
+			var t3: Array = combat.habilidades_florecido(fp).map(func(a): return a.nombre)
+			fp.abilities_combate = guardadas
+			_ver(t3.size() == 6 and not t3.has("Escolta"), "tanda 3a: los apoyos y lo propio si; la Escolta aun no (%s)" % str(t3))
+			_poner(t, fp, t._arena().rect.get_center())
+			var suyos: Array = combat._enemies.filter(func(o): return o.is_alive() and o != fp)
+			for k in suyos.size():
+				_poner(t, suyos[k], t.pies_de(fp) + Vector2(25 + 12 * k, 20 * (k % 3) - 20))
+				suyos[k].current_hp = suyos[k].max_hp
+				suyos[k].limpiar_debuffs(99)
+			for otro in combat._aliados:
+				_poner(t, otro, t.pies_de(fp) + Vector2(-40, 0))
+			var b: Combatant = suyos[0]
+			# ÉGIDA MENOR: al que mas lo necesita de los suyos (el mas tocado), no a los tuyos.
+			var egida: AbilityData = cargar.call("egida_menor")
+			var id_egida: int = int(egida.efectos[0].estado)
+			b.current_hp = b.max_hp * 0.2
+			nuevo = await _usa_hasta(combat, t, fp, yo, egida)
+			_ver(nuevo.contains("usa Égida menor") and b.has_status(id_egida) and not combat._aliados.any(func(a): return a.has_status(id_egida)),
+				"Égida menor: al bicho mas tocado (%s), no a los tuyos (%s)" % [b.nombre, nuevo.left(110)])
+			b.current_hp = b.max_hp
+			# PURIFICAR: le quita lo malo a uno de los suyos (Lento: los micónidos son inmunes al veneno). Tiene que USARLA.
+			b.apply_status(StatusEffects.Id.LENTO, 3, 1.0)
+			_ver(b.has_status(StatusEffects.Id.LENTO), "(%s va Lento)" % b.nombre)
+			nuevo = await _usa_hasta(combat, t, fp, yo, cargar.call("purificar"))
+			_ver(nuevo.contains("usa Purificar") and not b.has_status(StatusEffects.Id.LENTO),
+				"Purificar: la usa y le quita el Lento a %s (%s)" % [b.nombre, nuevo.left(90)])
+			# GRITO DE ALIENTO: a los suyos de alrededor.
+			var grito: AbilityData = cargar.call("grito_de_aliento")
+			var id_grito: int = int(grito.efectos[0].estado)
+			nuevo = await _usa_hasta(combat, t, fp, yo, grito)
+			var con_grito: int = suyos.filter(func(o): return o.has_status(id_grito)).size()
+			_ver(nuevo.contains("usa Grito de aliento") and con_grito >= 2 and not combat._aliados.any(func(a): return a.has_status(id_grito)),
+				"Grito de aliento: a los suyos de alrededor (%d), no a los tuyos" % con_grito)
+			# FILO EMPONZOÑADO: imbuye SU arma.
+			var filo: AbilityData = cargar.call("filo_emponzonado")
+			nuevo = await _usa_hasta(combat, t, fp, yo, filo)
+			_ver(nuevo.contains("usa Filo emponzoñado") and fp.imbue_estado == filo.imbue_estado and fp.imbue_usos == filo.imbue_usos,
+				"Filo emponzoñado: su arma puede envenenar %d ataques (%s)" % [fp.imbue_usos, nuevo.left(80)])
+			# CAMBIO DE RITMO: pega y le recorta un turno la espera de las demas.
+			var cambio: AbilityData = cargar.call("cambio_de_ritmo")
+			fp.habilidades = [cambio, tajo]
+			fp.ability_cooldowns.clear()
+			fp.ability_cooldowns[tajo] = 4
+			nuevo = await _usa_hasta(combat, t, fp, yo, cambio, false)
+			_ver(nuevo.contains("usa Cambio de ritmo") and fp.ability_cd_left(tajo) <= 2,
+				"Cambio de ritmo: recorta la espera del Tajo pesado (4 -> %d)" % fp.ability_cd_left(tajo))
+			# PASO LIGERO: se planta junto a su presa y le pega.
+			_poner(t, yo, t.pies_de(fp) + Vector2(-55, 0))
+			var desde_p: Vector2 = t.pies_de(fp)
+			var paso_l: AbilityData = cargar.call("paso_ligero")
+			nuevo = await _usa_hasta(combat, t, fp, yo, paso_l)
+			_ver(nuevo.contains("usa Paso ligero") and t.pies_de(fp).distance_to(desde_p) > 10.0,
+				"Paso ligero: se planta junto a su presa (%.0f px)" % t.pies_de(fp).distance_to(desde_p))
 			# LO TUMBAS: su muñeco vuelve a caer (no se desvanece como un bicho).
 			fp.take_damage(fp.current_hp + 10.0)
 			t.morir_en_mapa(fp)
@@ -375,14 +436,38 @@ func _correr() -> void:
 		"Explosion de brasas de fuego y el Destello de la rata de oscuridad")
 
 
-# Un turno suyo entero en el mapa (hasta que pega o pasan 5 s).
-func _turno_de(combat: Node, t, e: Combatant, yo: Combatant, hp_antes: float) -> void:
+# Le deja SOLO esa habilidad (con 'sola') y energia llena, y juega sus turnos hasta que la USA (las que se preparan salen al
+# turno siguiente; como mucho tres). Devuelve el registro de esos turnos.
+func _usa_hasta(combat: Node, t, e: Combatant, yo: Combatant, ab: AbilityData, sola: bool = true) -> String:
+	if sola:
+		e.habilidades = [ab]
+		e.ability_cooldowns.clear()
+	e.retrasando = false
+	e.charging = null
+	e.current_energy = e.max_energy
+	var log0: int = combat.log_entero().size()
+	var txt: String = ""
+	for _turno in 3:
+		await _turno_de(combat, t, e, yo, yo.current_hp)
+		txt = " | ".join(combat.log_entero().slice(log0).map(func(l): return str(l)))
+		if txt.contains("usa " + ab.nombre):
+			break
+	for _k in 40:
+		await get_tree().process_frame
+		t.tick(1.0 / 60.0)
+	return " | ".join(combat.log_entero().slice(log0).map(func(l): return str(l)))
+
+
+# Un turno suyo entero en el mapa: hasta que su accion sale en el registro (o pasan 5 s). (09/11: antes esperaba a que te
+# bajara la vida, y si fallaba se quedaba los 5 s y en ese rato la barra le daba OTRO turno: un basico de mas.)
+func _turno_de(combat: Node, t, e: Combatant, yo: Combatant, _hp_antes: float) -> void:
+	var log0: int = combat.log_entero().size()
 	combat._state = combat.State.ADVANCING
 	t.turno_enemigo(e)
 	for _i in 300:
 		await get_tree().process_frame
 		t.tick(1.0 / 60.0)
-		if yo.current_hp < hp_antes and int(combat._state) != int(combat.State.ADVANCING):
+		if combat.log_entero().slice(log0).any(func(l): return str(l).contains(e.nombre)):
 			break
 	for _i in 30:
 		await get_tree().process_frame

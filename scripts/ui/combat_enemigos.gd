@@ -67,6 +67,11 @@ func _enemy_turn(e: Combatant) -> void:
 	if _pantalla.tactico:
 		_pantalla.turno_mapa.charcos_turno_enemigo(e)
 	e.tick_cooldowns()   # habilidades del enemigo (KAN-58): baja 1 turno los cooldowns
+	# (09/11) TU PERSONAJE FLORECIDO: el uso de imbuicion de su ultimo ataque se cobra ahora (blandir gasta uno, acierte o
+	# falle; se cobra al empezar el turno siguiente para que el ultimo uso cuente en el golpe que lo gasta).
+	if e.energia_de_jugador and e.get_meta(&"gasta_imbue", false):
+		e.remove_meta(&"gasta_imbue")
+		_gastar_imbue_florecido(e)
 	costra_vuelve(e)
 	_chupar_enraizados(e)
 	_luz_que_atrae(e)
@@ -208,7 +213,14 @@ func _enemy_turn(e: Combatant) -> void:
 	var decidida: AbilityData = null
 	if _pantalla.tactico:
 		decidida = _pantalla.turno_mapa.sacar_decidida(e)
-		listas = listas.filter(func(ab): return _pantalla.turno_mapa.sirve_en_mapa(e, ab, obj))
+		listas = listas.filter(func(ab):
+			if _es_apoyo_florecido(e, ab):
+				return not _destinos_apoyo(e, ab).is_empty()
+			if e.energia_de_jugador and ab.paso:
+				return _pantalla.turno_mapa.paso_llega(e, ab, obj)
+			return _pantalla.turno_mapa.sirve_en_mapa(e, ab, obj))
+	else:
+		listas = listas.filter(func(ab): return not _es_apoyo_florecido(e, ab) or not _destinos_apoyo(e, ab).is_empty())
 	if obj == null and listas.is_empty():
 		# No queda nadie de los tuyos a quien pegar -- o, en el mapa, nadie A SU ALCANCE: se ha
 		# acercado todo lo que le deja su radio y no llega, asi que pierde el ataque (la misma regla
@@ -238,6 +250,8 @@ func _enemy_turn(e: Combatant) -> void:
 	if elegida != null:
 		if e.energia_de_jugador:
 			e.spend_energy(elegida.coste(e.ability_manos(elegida)))
+			if elegida.dano_mult > 0.0:
+				e.set_meta(&"gasta_imbue", true)
 		if _pantalla.retrasa(elegida):
 			_enemy_begin_retraso(e, elegida, obj)
 		elif elegida.carga_turnos > 0:
@@ -268,6 +282,7 @@ func _enemy_turn(e: Combatant) -> void:
 	# (09/11) TU PERSONAJE FLORECIDO: el basico le REPONE energia, como a ti (acierte o falle: ha dado el golpe).
 	if e.energia_de_jugador:
 		e.regen_energy(e.energia_regen if e.energia_regen > 0.0 else _pantalla.ATTACK_ENERGY_REGEN)
+		e.set_meta(&"gasta_imbue", true)
 	var result := StatsMath.resolve_attack(e, obj, defendiendo, -1.0, 0.0, 0.0,
 		not (e.orbita and obj.has_status(StatusEffects.Id.IMANTADO)))
 	_pantalla._aplicar_pasivas(result, e, obj)
@@ -361,6 +376,11 @@ func _enemy_turn(e: Combatant) -> void:
 	# Estados "al golpear" del enemigo (pegajoso/veneno de slimes, KAN-58 Fase 3).
 	for nom in e.roll_on_hit(obj):
 		msg += "  Causa %s a %s." % [nom, obj.nombre]
+	# (09/11) TU PERSONAJE FLORECIDO: tambien su IMBUICION, como tu basico.
+	if e.energia_de_jugador and obj.is_alive():
+		var imb_b: String = e.roll_imbue(obj)
+		if imb_b != "":
+			msg += "  ⚡ Causa %s a %s." % [imb_b, obj.nombre]
 	# RIPOSTE AL BLOQUEAR (escudo pequeño): el golpe ha conectado y lo has parado con la guardia
 	# arriba, asi que puede volver. Va DESPUES del mensaje del golpe enemigo para que el log se lea
 	# en orden (primero te pegan, luego respondes); el FX lo encola _contras_pendientes y sale tras
@@ -437,6 +457,98 @@ func _enemy_turn(e: Combatant) -> void:
 # CARNE QUE SE CIERRA (la aberracion, 30/09, EnemyData.regen_turno): al empezar su turno, aturdida o no, se cura su
 # fraccion de vida maxima. Si le entro luz (Combatant.marcar_regen_cortada) gasta un turno de los que le quedan sin
 # curarse.
+# ============================================================
+#  TU PERSONAJE FLORECIDO (09/11, fase 2, tanda 3a): sus APOYOS van a SU bando (los bichos) y lo que se hace a si mismo
+#  (imbuir su arma, recortar sus esperas), como en tu camino (CombatHabilidades._usar_habilidad) pero del otro lado.
+# ============================================================
+func _es_apoyo_florecido(e: Combatant, ab: AbilityData) -> bool:
+	return e.energia_de_jugador and ab != null and ab.forma_a_aliados
+
+
+# A quien ayuda: en el mapa, los de su huella (CombatTactico.apoyo_de_enemigo); en la fila, todo su bando o el que mas lo
+# necesita. [] = no hay a quien (y no la usa).
+func _destinos_apoyo(e: Combatant, ab: AbilityData) -> Array:
+	if _pantalla.tactico:
+		return _pantalla.turno_mapa.apoyo_de_enemigo(e, ab)
+	var suyos: Array = _pantalla._vivos().filter(func(o): return not (ab.excluye_al_lanzador() and o == e))
+	if ab.limpia_debuffs > 0:
+		suyos = suyos.filter(func(o): return (o as Combatant).debuffs_count() > 0)
+	if ab.objetivo_aliado != AbilityData.Objetivo.ALIADO or suyos.is_empty():
+		return suyos
+	suyos.sort_custom(func(x, y):
+		if ab.limpia_debuffs > 0:
+			return x.debuffs_count() > y.debuffs_count()
+		return x.current_hp / maxf(1.0, x.max_hp) < y.current_hp / maxf(1.0, y.max_hp))
+	return [suyos[0]]
+
+
+func _apoyo_florecido(e: Combatant, ab: AbilityData) -> void:
+	e.start_cooldown(ab)
+	var destinos: Array = _destinos_apoyo(e, ab)
+	var de_uno: bool = ab.objetivo_aliado == AbilityData.Objetivo.ALIADO
+	var estados_log: Array = []
+	for a in ab.efectos:
+		if a == null or a.estado < 0 or a.en_objetivo:
+			continue
+		var nom: String = str(StatusEffects.def(a.estado).get("nombre", "?"))
+		var a_quien: Array = destinos if (a.a_todo_el_grupo or not de_uno) else destinos.slice(0, 1)
+		var mag: float = StatusEffects.app_magnitude(a, e.atk(), e.motion_value, e.atk())
+		var recibe: Array = []
+		for d in a_quien:
+			var dc: Combatant = d
+			if not dc.is_alive() or dc.es_inmune(a.estado):
+				continue
+			for _s in maxi(1, a.stacks):
+				dc.apply_status(a.estado, e.runa_turnos(a.estado, a.turns), e.runa_mag(a.estado, mag, dc), 1, false, a.cap,
+					a.mult)
+			recibe.append(_pantalla._etq(dc))
+		if not recibe.is_empty():
+			estados_log.append("%s %s %s" % [", ".join(recibe), "recibe" if recibe.size() == 1 else "reciben", nom])
+	if ab.limpia_debuffs > 0:
+		for d in (destinos.slice(0, 1) if de_uno else destinos):
+			var quitados: Array = (d as Combatant).limpiar_debuffs(ab.limpia_debuffs)
+			if not quitados.is_empty():
+				estados_log.append("%s se quita %s" % [_pantalla._etq(d), ", ".join(quitados)])
+	# Como se ve: el apoyo le llega a cada uno (el mismo dibujo de apoyo que los tuyos).
+	var estilo: int = _pantalla.efectos._estilo_de_habilidad(ab, e)
+	var sfx: String = _pantalla.efectos._clave_sfx(ab)
+	for k in destinos.size():
+		_pantalla.efectos._fx_tanda(0)
+		_pantalla.efectos._fx_golpe(e, destinos[k], 0.0, false, false, Elementos.Elemento.NINGUNO, estilo, 1.0, true, sfx)
+	print("[habilidad enemigo] %s usa %s (apoyo) sobre %s" % [e.nombre, ab.nombre,
+		", ".join(destinos.map(func(o): return o.nombre))])
+	var msg: String = "%s usa %s." % [_pantalla._etq(e), ab.nombre]
+	if not estados_log.is_empty():
+		msg += "  " + ".  ".join(estados_log) + "."
+	_pantalla._set_log(msg)
+	_pantalla._update_hp()
+	_pantalla._pausa_lectura()
+
+
+# Lo que se hace a si mismo al usarla: imbuir su arma (el veneno de la daga) y recortar las esperas de las OTRAS.
+func _propio_florecido(e: Combatant, ab: AbilityData) -> Array:
+	var out: Array = []
+	if ab.es_imbuicion():
+		var pj: PersonajeData = Game.pj_de_combatant(e)
+		var tier: int = maxi(1, Game.equip_tier("main", pj)) if pj != null else 1
+		e.aplicar_imbue(ab.imbue_elemento, ab.imbue_pct, ab.imbue_usos, false, ab.imbue_estado, ab.imbue_prob,
+			Elementos.INTENSIDAD_IMBUIDO, ab.imbue_prob_doble, ab.imbue_por_destreza, 1.0, false,
+			ab.imbue_tope(tier), ab.imbue_reparto(tier))
+		out.append("su arma puede causar %s durante %d ataques" % [
+			str(StatusEffects.def(ab.imbue_estado).get("nombre", "?")), ab.imbue_usos])
+	if ab.reduce_cooldowns > 0:
+		e.reducir_cooldowns(ab.reduce_cooldowns, ab)
+		out.append("sus demás habilidades se recargan %d turno%s antes" % [ab.reduce_cooldowns,
+			"" if ab.reduce_cooldowns == 1 else "s"])
+	return out
+
+
+# (09/11) La imbuicion de tu personaje florecido dura ATAQUES, como la tuya (CombatMagia._gastar_imbue): uno por ataque.
+func _gastar_imbue_florecido(e: Combatant) -> void:
+	if e.consumir_imbue():
+		_pantalla._set_log("Se agota la imbuición de %s. ✨" % _pantalla._etq(e))
+
+
 func _regenerar(e: Combatant) -> void:
 	if e.regen_turno <= 0.0 or not e.is_alive():
 		return
@@ -1053,6 +1165,10 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 	# (09/11) LAS ESPORAS DE INFECCION tambien a los suyos que esten dentro (ver AbilityData.infecta_suyos).
 	if ab.infecta_suyos > 0.0:
 		_infectar_suyos(e, ab)
+	# (09/11) LOS APOYOS DE TU PERSONAJE FLORECIDO: a los suyos (los bichos), no a los tuyos.
+	if _es_apoyo_florecido(e, ab):
+		_apoyo_florecido(e, ab)
+		return
 	# (07/10) EL DECRETO del Rey tirano: no pega, señala.
 	if ab.decreto_turnos > 0:
 		_decreto(e, ab)
@@ -1078,6 +1194,15 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 	if _pantalla.tactico and (ab.constelacion or ab.mirada):
 		lista_mapa = _pantalla.turno_mapa.reparto_rayos(e, ab, victima)
 		obj = (lista_mapa as Array)[0]["c"] if not (lista_mapa as Array).is_empty() else null
+	elif _pantalla.tactico and e.energia_de_jugador and ab.paso:
+		# (09/11) EL PASO de tu personaje florecido: su circulo es DONDE ATERRIZA, no donde pega (como tu plan_paso). Le pega
+		# al que tenia a tiro (CombatTactico.paso_llega) y el movimiento lo hace mover_enemigo.
+		var presa_p: Combatant = victima if victima != null and victima.is_alive() 			else _pantalla.objetivos._elegir_objetivo_enemigo()
+		lista_mapa = []
+		if presa_p != null and _pantalla.turno_mapa.paso_llega(e, ab, presa_p):
+			lista_mapa = [{"c": presa_p, "escala": 1.0}]
+			_pantalla.turno_mapa.ultima_forma_enemigo = _pantalla.turno_mapa.forma_de(ab, e, _pantalla.turno_mapa.pies_de(presa_p))
+		obj = presa_p if not (lista_mapa as Array).is_empty() else null
 	elif _pantalla.tactico and _pantalla.turno_mapa.usa_huella(ab):
 		lista_mapa = _pantalla.turno_mapa.reparto_enemigo(e, ab, victima)
 		con_forma = true
@@ -1331,6 +1456,8 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 	# BUFFS PROPIOS (en_objetivo=false: Furia del minotauro, Fortaleza...): UNA vez por uso, no por
 	# objetivo ni por golpe. Van aparte para que un area no los aplique varias veces.
 	estados_log += _enemy_tirar_efectos(e, ab, e, 1.0, "self")
+	if e.energia_de_jugador:
+		estados_log += _propio_florecido(e, ab)
 
 	# INVOCACION (Rey Slime): saca hasta invoca_cantidad slimes al azar del pool. Para si se queda
 	# sin hueco (sequito lleno / tope de 4). Va aparte del daño/estados: una habilidad podria pegar
@@ -1589,6 +1716,12 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 				estados += ap
 				if not ap.is_empty():
 					et += "  -> " + ", ".join(ap)
+			# (09/11) TU PERSONAJE FLORECIDO: su IMBUICION (el veneno del Filo emponzoñado), golpe a golpe como en tu camino.
+			if como_jugador and t.is_alive():
+				var imb_f: String = e.roll_imbue(t)
+				if imb_f != "":
+					estados.append(imb_f)
+					et += "  ⚡ " + imb_f
 			print("        " + et)
 			# RIPOSTE AL BLOQUEAR (escudo pequeño). La OTRA punta del de _enemy_turn. Va en el
 			# 'else' del evaded a proposito: el de esquiva es de la POSTURA y ya esta arriba.

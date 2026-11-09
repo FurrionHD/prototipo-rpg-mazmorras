@@ -829,10 +829,13 @@ const FLORECIDO_PJ_VIDA := 2.0
 # de escudo con la DEFENSA) y dual_a_la_vez van golpe a golpe en CombatEnemigos._enemy_resolver_golpes_ (con sus manos);
 # municion_por_uso, sin gastar de tu bolsa (pega con su arma); salto_espalda y avance, con el salto y el recorrido de los
 # enemigos (CombatTactico.mover_enemigo).
+# TANDA 3a (ya resueltos): los APOYOS (forma_a_aliados) van a SU bando, los bichos (CombatEnemigos._apoyo_florecido, con
+# CombatTactico.apoyo_de_enemigo: a quien mas lo necesita o donde pille a mas), con limpia_debuffs; la imbuicion de su
+# arma (imbue_*) y reduce_cooldowns, a si mismo (_propio_florecido); el paso, en mover_enemigo.
+# Quedan (3b, las DEFENSAS: tus golpes aun no miran si un enemigo defiende) y la Provocacion (tanda 4); cargar_municion y
+# untar tiran de tu bolsa, y el Foco arcano (foco_cargas, energia_a_mana, mana_gain) es de magia (fase 3).
 const CAMPOS_SOLO_JUGADOR := [
-	"imbue_estado", "imbue_usos", "imbue_pct", "imbue_elemento", "imbue_prob", "imbue_prob_doble",
-	"imbue_por_destreza", "limpia_debuffs", "reduce_cooldowns", "paso",
-	"forma_a_aliados", "sigue_al_aliado", "defensa_a_aliados", "junta_aliados",
+	"sigue_al_aliado", "defensa_a_aliados", "junta_aliados",
 	"forma_escudo_largo", "cargar_municion", "untar",
 	"bloqueo_turnos", "mana_gain", "energia_a_mana", "foco_cargas", "provoca_turnos",
 	"postura_contraataque", "guardia_spd_mult", "evasion_bonus", "contra_mult", "contra_con_escudo", "protege_turnos"]

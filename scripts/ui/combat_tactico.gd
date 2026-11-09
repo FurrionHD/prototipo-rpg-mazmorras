@@ -1989,6 +1989,50 @@ func forma_escudazo(ab: AbilityData, c: Combatant, hacia: Vector2) -> RefCounted
 # LOS TUYOS QUE PILLA LA HUELLA (AbilityData.forma_a_aliados), del mas cercano al centro al mas lejano, y a
 # igualdad por su sitio en _aliados (el mismo orden en todas las maquinas). Con el lanzador si queda dentro,
 # salvo que la habilidad no valga sobre uno mismo (el Muro).
+# (09/11) LOS APOYOS DE TU PERSONAJE FLORECIDO a SU bando (los bichos): a quien le caeria su huella apuntando a cada uno
+# de ellos, y se queda con la mejor. De UNO (Égida, Chispa, Purificar): el que mas lo necesita (para limpiar, el de mas
+# estados malos; si no, el de menos vida en proporcion), si le llega. De GRUPO (Grito de aliento, Viento limpio): donde pille
+# a mas. Devuelve los de la huella, el principal el primero ([] = no hay a quien ayudar).
+func apoyo_de_enemigo(e: Combatant, ab: AbilityData) -> Array:
+	var suyos: Array = _pantalla._enemies.filter(func(o: Combatant) -> bool:
+		return o.is_alive() and not (ab.excluye_al_lanzador() and o == e))
+	if suyos.is_empty():
+		return []
+	var de_uno: bool = ab.objetivo_aliado == AbilityData.Objetivo.ALIADO
+	var mejor: Array = []
+	var nota_mejor: float = -INF
+	for apunta in suyos:
+		var f = forma_de(ab, e, bulto_de(apunta).get_center())
+		var dentro: Array = []
+		for o in suyos:
+			if f.toca(bulto_de(o)):
+				dentro.append({"c": o, "d": bulto_de(o).get_center().distance_squared_to(f.centro_util()),
+					"i": _pantalla._enemies.find(o)})
+		dentro.sort_custom(func(x, y):
+			if is_equal_approx(float(x["d"]), float(y["d"])):
+				return int(x["i"]) < int(y["i"])
+			return float(x["d"]) < float(y["d"]))
+		var lista: Array = dentro.map(func(x): return x["c"])
+		if de_uno:
+			if not lista.has(apunta):
+				continue
+			lista.erase(apunta)
+			lista.push_front(apunta)
+		if lista.is_empty():
+			continue
+		var nota: float = float(lista.size())
+		if de_uno:
+			nota = float(apunta.debuffs_count()) if ab.limpia_debuffs > 0 \
+				else 1.0 - apunta.current_hp / maxf(1.0, apunta.max_hp)
+		if nota > nota_mejor:
+			nota_mejor = nota
+			mejor = lista
+	# Para limpiar hace falta alguien con algo que limpiar.
+	if ab.limpia_debuffs > 0 and not mejor.any(func(o): return (o as Combatant).debuffs_count() > 0):
+		return []
+	return mejor
+
+
 func aliados_de_huella(ab: AbilityData, c: Combatant) -> Array:
 	if not _hay_apunte:
 		return []
@@ -2565,6 +2609,18 @@ var _por_la_espalda: Dictionary = {}   # Combatant (el que salta a la espalda) -
 func por_la_espalda(e: Combatant, t: Combatant) -> bool:
 	return _por_la_espalda.get(e) == t
 
+# (09/11) ¿El PASO de tu personaje florecido le pone a 'obj' a tiro de su arma? Con arco desde donde esta (dispara y luego
+# salta); cuerpo a cuerpo, contando lo que da el paso (forma_rango).
+func paso_llega(e: Combatant, ab: AbilityData, obj: Combatant) -> bool:
+	if obj == null or not obj.is_alive() or cuerpo_de(e) == null:
+		return false
+	var r: Rect2 = bulto_de(obj)
+	var p: Vector2 = pies_de(e)
+	var cerca := Vector2(clampf(p.x, r.position.x, r.end.x), clampf(p.y, r.position.y, r.end.y))
+	var hueco: float = p.distance_to(cerca) - radio_pisa(e)
+	return hueco <= alcance_de(e) + (0.0 if e.a_distancia else ab.forma_rango)
+
+
 func mover_enemigo(e: Combatant, ab: AbilityData, lista: Array, golpes: int) -> void:
 	var f = ultima_forma_enemigo
 	if f == null or cuerpo_de(e) == null or _pantalla._espejo:
@@ -2573,6 +2629,7 @@ func mover_enemigo(e: Combatant, ab: AbilityData, lista: Array, golpes: int) -> 
 	var dur: float = T_EMBESTIDA_BICHO
 	var arco: float = 0.0
 	_por_la_espalda.erase(e)
+	var modo_paso: int = -1
 	# (09/11) TU PERSONAJE FLORECIDO usa estas mismas: el Oportunista (salto_espalda sin 'salta') salta como el Mordisco a
 	# traicion, y la Danza de acero (avance) cruza su linea como la que recorre.
 	if ab.salta or ab.salto_espalda:
@@ -2589,6 +2646,21 @@ func mover_enemigo(e: Combatant, ab: AbilityData, lista: Array, golpes: int) -> 
 					_por_la_espalda[e] = presa
 		dur = T_SALTO_BICHO
 		arco = ALTO_SALTO_BICHO * clampf(radio_pisa(e) / 10.0, 1.0, 2.5)   # el Rey salta mas alto
+	elif ab.paso:
+		# (09/11) EL PASO de tu personaje florecido: el Paso ligero le planta junto a su presa y le pega; el Salto atras
+		# (arco, ballesta) dispara y despues salta hacia atras, lejos de ella, lo que deje su rango.
+		if lista.is_empty():
+			return
+		var presa_p: Combatant = lista[0]["c"]
+		var hacia_p: Vector2 = pies_de(presa_p) - pies_de(e)
+		var dir_p: Vector2 = hacia_p.normalized() if hacia_p.length() > 0.5 else Vector2.DOWN
+		if e.a_distancia:
+			hasta = _sitio_libre_hacia(e, pies_de(e) - dir_p * maxf(ab.forma_rango, 20.0))
+			modo_paso = Desliz.TRAS
+		else:
+			# lo justo para quedar pegado a ella, sin pasar de lo que da el paso
+			var avanza: float = clampf(hacia_p.length() - radio_pisa(presa_p) - radio_pisa(e) - 4.0, 0.0, ab.forma_rango)
+			hasta = _sitio_libre_hacia(e, pies_de(e) + dir_p * avanza)
 	elif (ab.carga or ab.recorre or ab.avance) and f.tipo == CombatFormas.Tipo.LINEA:
 		# LAS EMBESTIDAS RECORREN SU LINEA ENTERA (10/10, el jefe: "se desplazara de todas formas aunque no haya nadie
 		# dentro"): con el frente hasta el final de la raya (la linea sale del borde de su cuerpo: sus pies + el largo),
@@ -2635,7 +2707,8 @@ func mover_enemigo(e: Combatant, ab: AbilityData, lista: Array, golpes: int) -> 
 	if hasta.distance_to(pos_de(e)) < 2.0 and not (ab.salta or ab.salto_espalda):
 		return
 	var desde: Vector2 = pos_de(e)
-	pedir_desliz(e, hasta, Desliz.EMBISTE if ab.carga and not ab.salta else Desliz.ANTES, maxi(1, golpes), dur, arco)
+	pedir_desliz(e, hasta, modo_paso if modo_paso >= 0 else (Desliz.EMBISTE if ab.carga and not ab.salta else Desliz.ANTES),
+		maxi(1, golpes), dur, arco)
 	# PICA Y SE VA (el Picado del chillon, 30/09): acabados los golpes, de otro salto a donde estaba.
 	if ab.vuelve:
 		pedir_desliz(e, desde, Desliz.TRAS, maxi(1, golpes), dur, arco)

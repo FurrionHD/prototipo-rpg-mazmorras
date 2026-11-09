@@ -2337,6 +2337,15 @@ func status_aggro_mult() -> float:
 # un perjuicio) y la Guardia de carne menos (te la has puesto tu a sabiendas, y quitarla a media
 # pelea te bajaria la vida de golpe). Si hay mas debuffs que limpiezas, elige AL AZAR: una limpieza
 # parcial no puede ir siempre a por el mismo.
+# Cuantos estados MALOS distintos lleva (los que limpiar_debuffs le quitaria).
+func debuffs_count() -> int:
+	var ids: Array = []
+	for e in statuses:
+		if bool(e.d.get("debuff", false)) and not ids.has(e.id()):
+			ids.append(e.id())
+	return ids.size()
+
+
 func limpiar_debuffs(cuantos: int = 99) -> Array:
 	if cuantos <= 0:
 		return []
