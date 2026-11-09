@@ -419,6 +419,9 @@ func marcar_regen_cortada(elem: int) -> void:
 # OJO: se llama 'habilidades' (no 'abilities') para no chocar con 'abilities' (las 5 stats).
 var habilidades: Array = []
 var prob_habilidad: float = 0.5
+# (09/11) TU PERSONAJE FLORECIDO: juega en el bando del hongo pero con la ENERGIA de jugador (no con prob_habilidad):
+# en su turno usa una habilidad de 'habilidades' si le llega la energia (la gasta) y si no pega el basico (la repone).
+var energia_de_jugador: bool = false
 var prob_apartarse: float = 0.33   # (enemigos) ver EnemyData.prob_apartarse
 
 # Resistencia a ESTADOS alterados (0..1): MULTIPLICA a la baja la probabilidad de que

@@ -142,6 +142,8 @@ func _guion() -> void:
 		_ok(mo2.r < 0.8 and mo2.g < 0.8, "que se ve (self_modulate del muñeco %s)" % str(mo2))
 		var s2 = _setas_de(t, fp)
 		_ok(s2 != null and not s2._plantadas.is_empty(), "y le brotan setas (%d)" % (s2._plantadas.size() if s2 != null else 0))
+		# (fase 2) pelea con SU ENERGIA de jugador: su barra llega a mi pantalla
+		_ok(fp.max_energy > 0.0, "su energia llega a mi pantalla (%.0f/%.0f)" % [fp.current_energy, fp.max_energy])
 		await _foto(p, t)
 
 		# 4) LO TUMBAN: el muñeco vuelve a caer

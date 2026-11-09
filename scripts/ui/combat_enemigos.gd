@@ -197,6 +197,9 @@ func _enemy_turn(e: Combatant) -> void:
 			if e.ability_ready(ab) and ab.invoca_cantidad <= 0 \
 					and not (ab.pide_dos_cabezas and e.una_cabeza_este_turno()):   # la invocacion ya se decidio arriba
 				listas.append(ab)
+	# (09/11) TU PERSONAJE FLORECIDO: solo las que le llegan con su energia (como cuando lo llevabas tu).
+	if e.energia_de_jugador:
+		listas = listas.filter(func(ab): return e.has_energy(ab.coste(e.ability_manos(ab))))
 	# A QUIEN va: uno de los tuyos que siga en pie (ver _elegir_objetivo_enemigo). Se decide AQUI,
 	# en el momento de pegar, y no al empezar el turno: entre medias puede haber caido alguien.
 	var obj: Combatant = _pantalla.objetivos._elegir_objetivo_enemigo()
@@ -228,10 +231,13 @@ func _enemy_turn(e: Combatant) -> void:
 	if corta != null and listas.has(corta):
 		decidida = corta
 	var elegida: AbilityData = decidida if decidida != null and listas.has(decidida) else null
-	if elegida == null and not listas.is_empty() and (atado or obj == null or (
+	# (el florecido no tira: con energia para alguna, la usa)
+	if elegida == null and not listas.is_empty() and (atado or obj == null or e.energia_de_jugador or (
 			_pantalla.turno_mapa.sacar_tirada(e) if _pantalla.tactico else randf() < e.prob_habilidad)):
 		elegida = listas[randi() % listas.size()]
 	if elegida != null:
+		if e.energia_de_jugador:
+			e.spend_energy(elegida.coste(e.ability_manos(elegida)))
 		if _pantalla.retrasa(elegida):
 			_enemy_begin_retraso(e, elegida, obj)
 		elif elegida.carga_turnos > 0:
@@ -259,6 +265,9 @@ func _enemy_turn(e: Combatant) -> void:
 	# medio, asi que el estilo sale entero del Combatant (EnemyData.fx_basico). Hay que ponerlo en
 	# las dos ramas de aqui abajo -la que falla y la que acierta- igual que hace la de habilidades.
 	var estilo_bas: int = _pantalla.efectos._estilo_de_habilidad(null, e)
+	# (09/11) TU PERSONAJE FLORECIDO: el basico le REPONE energia, como a ti (acierte o falle: ha dado el golpe).
+	if e.energia_de_jugador:
+		e.regen_energy(e.energia_regen if e.energia_regen > 0.0 else _pantalla.ATTACK_ENERGY_REGEN)
 	var result := StatsMath.resolve_attack(e, obj, defendiendo, -1.0, 0.0, 0.0,
 		not (e.orbita and obj.has_status(StatusEffects.Id.IMANTADO)))
 	_pantalla._aplicar_pasivas(result, e, obj)

@@ -821,6 +821,35 @@ func _florecer(e: Combatant) -> void:
 # como siempre: al acabar la pelea se levanta con 1, igual que cualquier KO.
 const FLORECIDO_PJ_VIDA := 2.0
 
+# LO QUE EL CAMINO DE LOS ENEMIGOS AUN NO SABE HACER (fase 2): los campos de AbilityData que solo resuelve el del jugador
+# (combat_habilidades). Una habilidad de su arma que use alguno (con un valor que no sea el de por defecto) no se le da
+# todavia; cada tanda que se enseña al camino enemigo, sale de esta lista. Tanda 1: solo los golpes que no usan ninguno.
+const CAMPOS_SOLO_JUGADOR := [
+	"escudo_desde_golpe", "imbue_estado", "imbue_usos", "imbue_pct", "imbue_elemento", "imbue_prob", "imbue_prob_doble",
+	"imbue_por_destreza", "limpia_debuffs", "reduce_cooldowns", "area_modo", "area_falloff", "salto_espalda", "paso",
+	"avance", "forma_a_aliados", "sigue_al_aliado", "defensa_a_aliados", "junta_aliados", "dual_a_la_vez",
+	"forma_escudo_largo", "cargar_municion", "untar", "municion_por_uso", "crit_extra", "penetracion_extra",
+	"redirige_al_morir", "bloqueo_turnos", "mana_gain", "energia_a_mana", "foco_cargas", "provoca_turnos",
+	"postura_contraataque", "guardia_spd_mult", "evasion_bonus", "contra_mult", "contra_con_escudo", "protege_turnos"]
+static var _ab_por_defecto: AbilityData = null
+
+# Las habilidades de su arma que puede usar el florecido (las de su loadout, sin huecos).
+static func habilidades_florecido(c: Combatant) -> Array:
+	if _ab_por_defecto == null:
+		_ab_por_defecto = AbilityData.new()
+	var sal: Array = []
+	for ab in c.abilities_combate:
+		if ab == null or not (ab is AbilityData) or sal.has(ab):
+			continue
+		var ajena := false
+		for campo in CAMPOS_SOLO_JUGADOR:
+			if campo in ab and ab.get(campo) != _ab_por_defecto.get(campo):
+				ajena = true
+				break
+		if not ajena:
+			sal.append(ab)
+	return sal
+
 func _florecer_personaje(al: Combatant) -> void:
 	if al == null or _espejo:
 		return
@@ -833,8 +862,18 @@ func _florecer_personaje(al: Combatant) -> void:
 	c.statuses.clear()
 	c.max_hp *= FLORECIDO_PJ_VIDA
 	c.current_hp = c.max_hp
-	c.habilidades = []
+	# (fase 2, tanda 1) LAS HABILIDADES DE SU ARMA, con SU ENERGIA de jugador: la que tenia al caer (si no tenia
+	# barra, la de su aguante). En su turno usa una si le llega y si no pega el basico, que se la repone.
+	c.habilidades = habilidades_florecido(c)
 	c.prob_habilidad = 0.0
+	c.energia_de_jugador = true
+	if al.max_energy > 0.0:
+		c.max_energy = al.max_energy
+		c.current_energy = clampf(al.current_energy, 0.0, al.max_energy)
+	else:
+		var ag: Vector2 = Game.aguante_para_combate(pj)
+		c.max_energy = maxf(1.0, ag.y)
+		c.current_energy = c.max_energy
 	var w: WeaponData = pj.equipped_main as WeaponData
 	c.fx_basico = int(CombatFX.FX_ARMA.get(int(w.tipo) if w != null else 0, CombatFX.Estilo.MELEE))
 	if w != null:
@@ -848,7 +887,8 @@ func _florecer_personaje(al: Combatant) -> void:
 			turno_mapa.devolver_cuerpo(c)
 		return   # no cabe
 	_update_hp()
-	print("[florecer] %s se levanta florecido contra los suyos (%.0f de vida)" % [al.nombre, c.max_hp])
+	print("[florecer] %s se levanta florecido contra los suyos (%.0f de vida, %.0f/%.0f de energia, habilidades: %s)" % [
+		al.nombre, c.max_hp, c.current_energy, c.max_energy, ", ".join(c.habilidades.map(func(a): return a.nombre))])
 	_log_extra("🌿 A %s le brotan setas por la espalda... y se levanta contra los suyos." % al.nombre)
 
 

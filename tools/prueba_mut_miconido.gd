@@ -220,12 +220,16 @@ func _correr() -> void:
 			"con dos de pie, la tercera no se levanta (tope 2)")
 	print("   (enemigos %d -> %d)" % [n_antes, combat._enemies.size()])
 
-	print("7) TU PERSONAJE FLORECIDO (fase 1: su basico)")
+	print("7) TU PERSONAJE FLORECIDO (fase 1: su basico; fase 2: las habilidades de su arma con su energia)")
 	var al: Combatant = combat._aliados[1] if combat._aliados.size() > 1 else null
 	_ver(al != null, "hay un segundo de los tuyos")
 	if al != null:
 		var pj_al: PersonajeData = Game.pj_de_combatant(al)
 		var max_al: float = al.max_hp
+		al.max_energy = 120.0
+		al.current_energy = 37.0
+		var en_max_al: float = al.max_energy
+		var en_al: float = al.current_energy
 		_poner(t, al, t.pies_de(yo) + Vector2(30, 0))
 		al.apply_status(StatusEffects.Id.INFECTADO)
 		al.take_damage(al.current_hp + 10.0)
@@ -240,8 +244,13 @@ func _correr() -> void:
 			_ver(is_equal_approx(fp.max_hp, max_al * 2.0) and is_equal_approx(fp.current_hp, fp.max_hp),
 				"con el doble de vida, entera (%.0f -> %.0f)" % [max_al, fp.max_hp])
 			var w: WeaponData = pj_al.equipped_main as WeaponData if pj_al != null else null
-			_ver(fp.habilidades.is_empty() and fp.fx_basico == int(CombatFX.FX_ARMA.get(int(w.tipo) if w != null else 0, -9)),
-				"solo su basico, con el dibujo de su arma")
+			_ver(fp.fx_basico == int(CombatFX.FX_ARMA.get(int(w.tipo) if w != null else 0, -9)), "su basico, con el dibujo de su arma")
+			# (fase 2, tanda 1) LAS HABILIDADES DE SU ARMA con SU ENERGIA de jugador.
+			_ver(fp.energia_de_jugador and is_equal_approx(fp.max_energy, en_max_al) and is_equal_approx(fp.current_energy, en_al),
+				"con la energia que tenia al caer (%.0f/%.0f)" % [fp.current_energy, fp.max_energy])
+			var esperadas: Array = combat.habilidades_florecido(fp)
+			_ver(fp.habilidades == esperadas and fp.habilidades.all(func(a): return al.abilities_combate.has(a)),
+				"las habilidades de su arma que sabe usar (%s)" % ", ".join(fp.habilidades.map(func(a): return a.nombre)))
 			var cu_a: Node2D = t.cuerpo_de(al)
 			_ver(cu_a != null and t.cuerpo_de(fp) == cu_a, "usa el muñeco del caido")
 			# LO QUE VIAJA A LOS ESPEJOS: su fila del roster lleva la direccion del muñeco (peer/cuerpo), no la de un bicho.
@@ -270,6 +279,43 @@ func _correr() -> void:
 					break
 			var nuevo: String = "\n".join(combat.log_entero().slice(log0).map(func(l): return str(l)))
 			_ver(yo.current_hp < hp_yo or nuevo.contains(al.nombre), "en su turno te ataca (%s)" % nuevo.replace("\n", " | ").left(160))
+			# CON ENERGIA, UNA HABILIDAD (y la gasta). Para que no dependa del arma que lleve: el Tajo pesado (un golpe
+			# limpio, 73 de energia), y sin otras.
+			var tajo: AbilityData = load("res://resources/abilities/tajo_pesado.tres")
+			var prov: AbilityData = load("res://resources/abilities/provocacion.tres")
+			var guardadas: Array = fp.abilities_combate
+			fp.abilities_combate = [tajo, prov]
+			var filtradas: Array = combat.habilidades_florecido(fp)
+			fp.abilities_combate = guardadas
+			_ver(filtradas == [tajo], "de su arma toma el Tajo pesado (golpe limpio) y aun no la Provocacion (%s)" % str(
+				filtradas.map(func(a): return a.nombre)))
+			fp.habilidades = [tajo]
+			fp.ability_cooldowns.clear()
+			fp.current_energy = fp.max_energy
+			var hp1: float = yo.current_hp
+			log0 = combat.log_entero().size()
+			await _turno_de(combat, t, fp, yo, hp1)
+			nuevo = " | ".join(combat.log_entero().slice(log0).map(func(l): return str(l)))
+			_ver(nuevo.contains("Tajo pesado"), "con energia usa una habilidad de su arma (%s)" % nuevo.left(160))
+			_ver(is_equal_approx(fp.current_energy, fp.max_energy - tajo.coste(fp.ability_manos(tajo))),
+				"y gasta su coste (%.0f -> %.0f)" % [fp.max_energy, fp.current_energy])
+			# El Tajo pesado SE PREPARA (sale al volver a llegar a la barra): ese turno lo suelta, sin gastar otra vez.
+			if fp.retrasando:
+				var en_antes: float = fp.current_energy
+				log0 = combat.log_entero().size()
+				await _turno_de(combat, t, fp, yo, yo.current_hp)
+				nuevo = " | ".join(combat.log_entero().slice(log0).map(func(l): return str(l)))
+				_ver(nuevo.contains("Tajo pesado") and is_equal_approx(fp.current_energy, en_antes),
+					"al volver a la barra lo suelta, sin gastar mas (%s)" % nuevo.left(120))
+			# SIN ENERGIA, EL BASICO (y la repone).
+			fp.ability_cooldowns.clear()
+			fp.current_energy = 5.0
+			hp1 = yo.current_hp
+			log0 = combat.log_entero().size()
+			await _turno_de(combat, t, fp, yo, hp1)
+			nuevo = " | ".join(combat.log_entero().slice(log0).map(func(l): return str(l)))
+			_ver(not nuevo.contains("Tajo pesado") and fp.current_energy > 5.0,
+				"sin energia pega el basico y la repone (5 -> %.0f)" % fp.current_energy)
 			# LO TUMBAS: su muñeco vuelve a caer (no se desvanece como un bicho).
 			fp.take_damage(fp.current_hp + 10.0)
 			t.morir_en_mapa(fp)
@@ -292,6 +338,20 @@ func _correr() -> void:
 	var rd: AbilityData = load("res://resources/abilities/rata_destello.tres")
 	_ver(expl.elemento_golpe == Elementos.Elemento.FUEGO and rd.elemento_golpe == Elementos.Elemento.OSCURIDAD,
 		"Explosion de brasas de fuego y el Destello de la rata de oscuridad")
+
+
+# Un turno suyo entero en el mapa (hasta que pega o pasan 5 s).
+func _turno_de(combat: Node, t, e: Combatant, yo: Combatant, hp_antes: float) -> void:
+	combat._state = combat.State.ADVANCING
+	t.turno_enemigo(e)
+	for _i in 300:
+		await get_tree().process_frame
+		t.tick(1.0 / 60.0)
+		if yo.current_hp < hp_antes and int(combat._state) != int(combat.State.ADVANCING):
+			break
+	for _i in 30:
+		await get_tree().process_frame
+		t.tick(1.0 / 60.0)
 
 
 func _poner(tm, c: Combatant, p: Vector2) -> void:
