@@ -121,6 +121,16 @@ pelea sigue jugando turnos). Dos detalles de la sala: su pantalla de combate cue
 (búscala con `get_tree().root.get_children() + sala.capas()`), y va **oculta**, así que `is_visible_in_tree()` de su HUD
 es siempre falso (mira `visible` hasta la pantalla). La pelea no se cierra sola: ciérrala tú (Continuar).
 
+## Mirar lo que VE EL JUGADOR: el espejo (09/11/2026)
+
+`prueba_sala_propia` mira el lado de quien lleva la pelea, pero en el juego el jugador siempre ve un **espejo** (juega
+contra su sala). Para mirar su pantalla: una prueba `prueba_town_sala_comun` (el proceso es el cliente; ver
+`prueba_mut_miconido_espejo_guion.gd`). Lo que en una pelea pasa por suerte se le PIDE a la sala con las **órdenes de su
+sonda** (`tools/sonda_sala.gd`: se escribe `<n> <orden> [nombre]` en `user://sonda_orden.txt` y la sala contesta
+`[S] dato orden_<n>=...`); se añaden órdenes nuevas en `_hacer_orden`. Y mira **lo que se ve**, no solo un valor: el
+`self_modulate` de un muñeco no baja a sus capas (la prueba lo daba por gris y en la foto salía a todo color). Con
+ventana y `MICONIDO_CAPTURA=<ruta>` saca la foto de la pantalla del cliente.
+
 ## Cuando una prueba falla
 
 1. Pásala con el código de antes (`git stash`, probar, `git stash pop`): ¿fallaba ya?

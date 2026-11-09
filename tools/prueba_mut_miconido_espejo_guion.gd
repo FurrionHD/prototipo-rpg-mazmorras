@@ -59,11 +59,16 @@ func _setas_de(t, c: Combatant):
 	return s if s != null and is_instance_valid(s) else null
 
 
+# EL GRIS QUE SE VE: el del bicho, el self_modulate de su sprite (el dibujo es ese nodo); el del muñeco, su MODULATE, que
+# es lo que heredan sus capas (09/11: miraba su self_modulate, que no baja a las capas, y pasaba con el muñeco a todo color).
 func _gris_de(cu: Node2D) -> Color:
-	for campo in ["_sprite", "_muneco"]:
-		var spr = cu.get(campo) if cu != null else null
-		if spr is CanvasItem:
-			return (spr as CanvasItem).self_modulate
+	var mu = cu.get("_muneco") if cu != null else null
+	if mu is CanvasItem:
+		var hay_capas: bool = (mu as Node).find_children("*", "AnimatedSprite2D", false, false).size() > 0
+		return (mu as CanvasItem).modulate if hay_capas else Color.WHITE
+	var spr = cu.get("_sprite") if cu != null else null
+	if spr is CanvasItem:
+		return (spr as CanvasItem).self_modulate
 	return Color.WHITE
 
 
@@ -147,6 +152,8 @@ func _guion() -> void:
 		_ok(cu_fp != null and cu_fp.modulate.a > 0.9, "sin desvanecerse (alfa %.2f)" % (cu_fp.modulate.a if cu_fp != null else -1.0))
 		_ok(_setas_de(t, fp) == null, "y sus setas se van")
 		_ok(cu_fp == null or not cu_fp.has_meta(TacticoHongos.MARCA), "y su gris tambien")
+		var mo3 := _gris_de(cu_fp)
+		_ok(mo3.is_equal_approx(Color.WHITE), "su muñeco vuelve a su color (%s)" % str(mo3))
 
 
 # LA FOTO DE MI PANTALLA (MICONIDO_CAPTURA=<ruta sin .png>, con ventana): lo que ve el jugador.
@@ -157,16 +164,34 @@ func _foto(p: Node, t) -> void:
 	var flor: Array = _florecidos(p)
 	if flor.is_empty():
 		return
-	var cam := Camera2D.new()
-	cam.zoom = Vector2(3.0, 3.0)
-	cam.process_mode = Node.PROCESS_MODE_ALWAYS
-	t._arena().add_child(cam)
-	cam.global_position = t.pies_de(flor[0]) + Vector2(0, -20)
-	cam.make_current()
-	await _esperar(1.0)
-	get_tree().root.get_viewport().get_texture().get_image().save_png(salida + ".png")
-	print("[dev] captura: %s.png" % salida)
-	cam.queue_free()
+	# Sin los paneles (la camara de la pelea manda y no se deja acercar): la pantalla entera sin nada encima, y al lado
+	# un recorte ampliado de cada florecido, sacado de donde cae su cuerpo en la pantalla.
+	var capas: Array = []
+	for n in get_tree().root.find_children("*", "CanvasLayer", true, false):
+		if (n as CanvasLayer).visible:
+			capas.append(n)
+			(n as CanvasLayer).visible = false
+	await _esperar(0.5)
+	var img: Image = get_tree().root.get_viewport().get_texture().get_image()
+	for n in capas:
+		(n as CanvasLayer).visible = true
+	img.save_png(salida + "_pantalla.png")
+	const LADO := 110
+	const AUMENTO := 4
+	var hoja := Image.create(LADO * AUMENTO * flor.size(), LADO * AUMENTO, false, img.get_format())
+	for k in flor.size():
+		var cu: Node2D = t.cuerpo_de(flor[k])
+		if cu == null:
+			continue
+		var en_pantalla: Vector2 = cu.get_global_transform_with_canvas().origin
+		var r := Rect2i(Vector2i(en_pantalla) - Vector2i(LADO / 2, LADO * 3 / 4), Vector2i(LADO, LADO))
+		r = r.intersection(Rect2i(Vector2i.ZERO, img.get_size()))
+		var trozo: Image = img.get_region(r)
+		trozo.resize(r.size.x * AUMENTO, r.size.y * AUMENTO, Image.INTERPOLATE_NEAREST)
+		hoja.blit_rect(trozo, Rect2i(Vector2i.ZERO, trozo.get_size()), Vector2i(k * LADO * AUMENTO, 0))
+		print("[dev] foto: %s en %s" % [flor[k].nombre, str(en_pantalla)])
+	hoja.save_png(salida + ".png")
+	print("[dev] captura: %s.png (y %s_pantalla.png)" % [salida, salida])
 
 
 # Como _fin, sin jugador B.

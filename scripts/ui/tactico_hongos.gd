@@ -52,11 +52,16 @@ func tick() -> void:
 
 
 func _gris(cuerpo: Node2D, col: Color) -> void:
-	# el bicho, su sprite; tu personaje florecido, su muñeco
-	for campo in ["_sprite", "_muneco"]:
-		var spr = cuerpo.get(campo)
-		if spr is CanvasItem:
-			(spr as CanvasItem).self_modulate = col
+	# El bicho: el self_modulate de su sprite (el dibujo es ese nodo).
+	var spr = cuerpo.get("_sprite")
+	if spr is CanvasItem:
+		(spr as CanvasItem).self_modulate = col
+	# TU PERSONAJE FLORECIDO: su MUÑECO. (09/11, la foto del cliente) El muñeco es un Node2D y lo que se ve son sus CAPAS
+	# (AnimatedSprite2D hijos): el self_modulate no baja a los hijos y el gris no se veia. Su modulate si baja, y nadie mas
+	# lo toca (cada capa lleva su color en SU modulate; los shaders de capa multiplican por COLOR, que ya lo trae).
+	var mu = cuerpo.get("_muneco")
+	if mu is CanvasItem:
+		(mu as CanvasItem).modulate = col
 
 
 # Al cerrar la pelea: todo fuera.
