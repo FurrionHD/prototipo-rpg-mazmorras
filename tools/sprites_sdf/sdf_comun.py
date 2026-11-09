@@ -451,31 +451,28 @@ def hornear(modname, nombres, salida, vistas):
     mod = importlib.import_module(modname)
     W, H = mod.MODELO.W, mod.MODELO.H
     os.makedirs(salida, exist_ok=True); os.makedirs(vistas, exist_ok=True)
-    trabajos = [(modname, nm, d, i) for nm in nombres for d in range(mod.ANIMS[nm][3]) for i in range(mod.ANIMS[nm][0])]
     # PROCESOS=n: menos a la vez cuando va justa la RAM (cada uno carga el modelo entero).
     # (04/11, el jefe: "al tener la cpu completa no podia ni usar google") Por defecto deja 4 nucleos libres, y todos con la
     # prioridad baja: lo que este usando el pasa siempre por delante.
-    # (05/11, el jefe: "todo siempre con grafica") EN LA GRAFICA si hay NVIDIA (sdf_gpu.py): la segadora, 195 s -> 17 s. La CPU solo hace
-    # los fotogramas con piezas que la grafica no sabe leer. HORNO=hibrido: la CPU le ayuda con todo; HORNO=cpu: solo procesos, como antes.
-    modo = os.environ.get('HORNO', '')
+    # (05/11, el jefe: "todo siempre con grafica") EN LA GRAFICA (sdf_gpu.py): la segadora, 195 s -> 17 s.
+    # (09/11, el jefe: "nos quedamos siempre con hibrido... nunca colocamos sola la cpu") SIEMPRE HIBRIDO: la grafica con sus
+    # lotes y la CPU ayudando por el final (y haciendo las piezas que la grafica no sabe leer). Medido con 64 fotogramas del
+    # Aventurero florecido: CPU sola 140,1 s, grafica sola 35,0, hibrido 30,7. Si un bicho futuro va lento, se ajusta el
+    # hibrido (o se enseña a la grafica su pieza, como el 'casquete'); la CPU sola NO es una opcion: sin NVIDIA, se para.
     procesos = int(os.environ.get('PROCESOS', 0)) or max(1, (os.cpu_count() or 2) - 4)
-    gpu = False
-    if modo != 'cpu':
-        try:
-            import torch
-            gpu = torch.cuda.is_available()
-        except ImportError:
-            pass
-    if gpu:
-        import sdf_gpu
-        print('horno: %s%s' % (torch.cuda.get_device_name(0), ' + %d procesos' % procesos if modo == 'hibrido' else ''))
-        with ProcessPoolExecutor(procesos, initializer=_prioridad_baja) as pool:
-            hechos = sdf_gpu.hechos_de(modname, mod, nombres, pool, procesos, modo == 'hibrido')
-    else:
-        print('horno: cpu, %d procesos' % procesos)
-        # (05/11: con multiprocessing.Pool, si moria un proceso se quedaba esperando para siempre sin decir nada; asi da error.)
-        with ProcessPoolExecutor(procesos, initializer=_prioridad_baja) as pool:
-            hechos = list(pool.map(_trabajo, trabajos))
+    try:
+        import torch
+        gpu = torch.cuda.is_available()
+    except ImportError:
+        gpu = False
+    if not gpu:
+        raise SystemExit('horno: no encuentro la grafica NVIDIA (PyTorch con CUDA). El horno va siempre en hibrido: '
+                         'no se hornea con la CPU sola.')
+    import sdf_gpu
+    print('horno: hibrido, %s + %d procesos' % (torch.cuda.get_device_name(0), procesos))
+    # (05/11: con multiprocessing.Pool, si moria un proceso se quedaba esperando para siempre sin decir nada; asi da error.)
+    with ProcessPoolExecutor(procesos, initializer=_prioridad_baja) as pool:
+        hechos = sdf_gpu.hechos_de(modname, mod, nombres, pool, procesos, True)
     meta_path = salida + 'hojas.json'
     meta = json.load(open(meta_path)) if os.path.exists(meta_path) else {}
     meta['lienzo'] = [W, H]
@@ -506,7 +503,9 @@ def hornear(modname, nombres, salida, vistas):
         vista = vista.resize((vista.width * 2, vista.height * 2), Image.NEAREST)
         vista.save(vistas + modname + '_' + nm + '.png')
         print(nm, 'ok')
-    json.dump(meta, open(meta_path, 'w'), indent=1)
+    # (09/11) newline: en Windows python escribe CRLF y el json salia "cambiado" en cada horneado sin cambiar nada.
+    with open(meta_path, 'w', newline='\n') as f:
+        json.dump(meta, f, indent=1)
 
 
 def tramos(t, claves):

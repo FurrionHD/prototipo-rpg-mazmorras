@@ -454,7 +454,7 @@ def _hacer_lote(mod, tareas):
 class Cola:
     """QUIEN HACE CADA FOTOGRAMA. Los que tienen piezas que no se dejan leer son de la CPU; los demas, de la grafica, en orden
     para que los lotes salgan de la misma firma.
-    HIBRIDO (HORNO=hibrido; 05/11, el jefe: "que se complementen"): la CPU que se queda sin nada coge de los de la grafica, por el
+    HIBRIDO (05/11, el jefe: "que se complementen"; desde el 09/11 SIEMPRE, sin HORNO=): la CPU que se queda sin nada coge de los de la grafica, por el
     final. Medido: segadora 16,7 s solo grafica y 17,3 hibrido; Nudo 107,7 y 100,8. No sale a cuenta poner 12 nucleos a tope por
     defecto, pero se queda para tandas largas o bichos con muchas piezas (el Nudo tiene 152), donde gana algo."""
     def __init__(self, hibrido=False):
