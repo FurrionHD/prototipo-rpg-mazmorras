@@ -93,7 +93,9 @@ def _mat(m, p):
 
 def _huesos(p):
     """La raiz: avanza, se mece hacia delante/atras y de lado sobre los pies y, al morir, se viene abajo hacia delante."""
-    caer = p['derrumbe']
+    # (09/11) topado en 1: el rebote de la muerte (1,02) metia el cuello del florecido bajo el suelo y la campana y los
+    # tallos de los hombros se quedaban sueltos en ese fotograma. Son ~1 grado: no se ve.
+    caer = min(1.0, p['derrumbe'])
     R = rx(p['mece'] * 0.10 + caer * 1.25) @ ry(p['balanceo'] * 0.07)
     t = V((p['vibra'], p['avance'], -caer * 2.0))
     return {'raiz': (R, t)}
@@ -166,11 +168,15 @@ def escena_campana(p):
     # las raices de la base
     # (crece con la evolucion: al principio no hay, si no tapa las patas del normal)
     _elip(add, (0, 0, 1.6), (2.1 * ev + 0.01, 2.0 * ev + 0.01, 1.8 * ev + 0.01), mt('carne'), 1.2)
+    # (09/11) AL MORIR SE RECOGEN: al venirse abajo la base se hunde bajo el suelo y la punta de una raiz asomaba suelta
+    # junto al cadaver (el trozo suelto que avisaba el horno de Godot).
+    recoge = 0.35 + 0.65 * (1.0 - min(1.0, p['derrumbe']))
     for k in range(6):
         a = k / 6 * 2 * math.pi + 0.4
         r = 1.5
+        alc = r * 2.4 * (0.4 + 0.6 * ev) * recoge
         _cono(add, (math.cos(a) * r * 0.8, math.sin(a) * r * 0.8, 1.4),
-              (math.cos(a) * r * 2.4 * (0.4 + 0.6 * ev), math.sin(a) * r * 2.4 * (0.4 + 0.6 * ev), 0.2),
+              (math.cos(a) * alc, math.sin(a) * alc, 0.2),
               0.6 * ev + 0.01, 0.22, mt('raiz'), 0, 'raices')
     # el tallo, curvo hacia delante (se tuerce mas al agacharse y al lanzar)
     curva_y = (0.8 + 2.0 * ag + 1.2 * p['latigo'] + 1.5 * p['destella']) * (0.3 + 0.7 * ev)
@@ -234,10 +240,13 @@ def escena_florecido(p):
     inclina = 0.3 + p['inclina'] + 0.5 * p['agacha']
     paso = p['patas']
     # piernas
+    # (09/11) AL CAER DE BRUCES DOBLA LAS RODILLAS: el cuerpo gira sobre los pies y baja, y sin doblarlas las piernas se
+    # metian bajo el suelo y las botas (mas gordas) asomaban sueltas, separadas de las piernas. Asi los pies quedan arriba.
+    dob = min(1.0, p['derrumbe'])
     for s in (-1, 1):
         cad = W(1.5 * s, 0.0, 11.0)
-        rod = W(1.8 * s, 1.0 + 0.6 * inclina + 1.2 * paso * s, 6.0)
-        tob = W(1.9 * s, 0.2 + 1.6 * paso * s, 1.4)
+        rod = W(1.8 * s, 1.0 + 0.6 * inclina + 1.2 * paso * s, 6.0) + V((0, 1.0 * dob, 0.3 * dob)) * K
+        tob = W(1.9 * s, 0.2 + 1.6 * paso * s, 1.4) + V((0, 3.2 * dob, 1.2 * dob)) * K
         if sube > 0.02:
             _cono(add, cad, rod, 1.25 * K * sube, 1.0 * K * sube, mt('tela'), 0, 'pierna%d' % s)
             _cono(add, rod, tob, 1.0 * K * sube, 0.85 * K * sube, mt('tela'), 0, 'pierna%d' % s)
@@ -336,7 +345,10 @@ def escena_florecido(p):
             codo = hom + V((0.8 * s, 0.6 + a * 2, -6.0 * f))
             mano = codo + V((0.3 * s, 1.0 + a * 3, -6.0 * f))
             _brazo(add, hom, codo, mano, 0.85 * f + 0.01, mt('carne'), 'brazoc%d' % s, dedos=f > 0.4)
-    c0 = top + V((0, 0.1 + 0.3 * sube, 2.0 + 0.2 * sube))
+    # (09/11) al caer de bruces la campana se queda un poco levantada (sobre el cuello): si no, se hundia en el suelo y,
+    # de espaldas, las puntas de las laminas y de un filamento asomaban sueltas bajo su borde.
+    # (barrido: subirla solo en alto, 0,6 a 1,2, deja 0 trozos en las 8 direcciones; echarla hacia delante la separa)
+    c0 = top + V((0, 0.1 + 0.3 * sube, 2.0 + 0.2 * sube)) + V((0, 0, 0.9)) * min(1.0, p['derrumbe'])
     p2 = dict(p)
     p2['evo_fil'] = 1.0
     _campana(add, p2, c0, 1.0 - 0.3 * sube, mt)
