@@ -7,6 +7,9 @@
 # CON VENTANA.
 #   LAMINA_SALIDA=C:/Users/dasui/Desktop/ataques_mapa/cuerpos/pagina godot --path . res://tools/lamina_cuerpos_enemigos.tscn
 #   (y LAMINA_ENEMIGOS=res://a.tres,res://b.tres para sacar solo esos)
+#   LAMINA_FLORECIDO=1 (09/11, el jefe: "la ficha de todos los enemigos infectados mas un par de personajes"): todos con el
+#   aspecto de FLORECIDO (el gris de muerto y las setas de TacticoHongos) y, al final, una pagina con tus personajes
+#   florecidos (el lider y dos mas), todos mirando al sur. Sin el personaje al lado de cada enemigo.
 extends Node
 
 const COLUMNAS := 3
@@ -16,6 +19,7 @@ const ZOOM := 1.5
 const CASILLA := 16.0
 const Tactico = preload("res://scripts/ui/combat_tactico.gd")
 var _salida: String = ""
+var _florecido: bool = false
 
 
 class Capa extends Node2D:
@@ -72,8 +76,38 @@ func _personaje_al_lado(e: Node2D) -> void:
 	m.animar(PoseJugador.animacion(Vector2.DOWN, 0, false))
 
 
+# EL ASPECTO DE FLORECIDO sin pelea (lo mismo que TacticoHongos: el gris en el self_modulate del sprite y las setas).
+func _florecer_dibujo(e: Node2D, semilla: int) -> void:
+	var spr = e.get("_sprite")
+	if spr is CanvasItem:
+		(spr as CanvasItem).self_modulate = TacticoHongos.TINTE
+	var r: Rect2 = Tactico.rect_dibujo(e)
+	if not r.has_area():
+		r = Rect2(e.global_position - Vector2(16, 16), Vector2(32, 32))
+	HongosPixel.poner(get_tree().current_scene, r, semilla)
+
+
+# Uno de tus personajes florecido: su muñeco mirando al sur, gris (en el modulate del muñeco, que baja a sus capas) y
+# con setas en su caja.
+func _muneco_florecido(pj: PersonajeData, pos: Vector2, semilla: int) -> void:
+	var n := Node2D.new()
+	n.global_position = pos
+	get_tree().current_scene.add_child(n)
+	var m := MunecoJugador.new()
+	n.add_child(m)
+	m.montar(pj)
+	m.tenir(pj.color, pj.metalico)
+	if pj == Game.lider():
+		m.poner_cara(Game.textura_cuerpo())
+	m.animar(PoseJugador.animacion(Vector2.DOWN, 0, false))
+	m.modulate = TacticoHongos.TINTE
+	var caja := Rect2(pos + PoseJugador.CAJA_CUERPO.position, PoseJugador.CAJA_CUERPO.size)   # la misma que en la pelea
+	HongosPixel.poner(get_tree().current_scene, caja, semilla)
+
+
 func _ready() -> void:
 	_salida = OS.get_environment("LAMINA_SALIDA")
+	_florecido = OS.get_environment("LAMINA_FLORECIDO") == "1"
 	if _salida == "":
 		_salida = "user://lamina_cuerpos"
 	call_deferred("_empezar")
@@ -94,14 +128,14 @@ func _esperar(n: int) -> void:
 
 
 func _correr() -> void:
-	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
-	if ref is SaveData:
-		Game.importar_partida(ref)
-	Game.semilla_mundo = 424242
-	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
-	await _esperar(5)
-	Game.entrar_arena_de_pruebas()
-	await _esperar(15)
+	# (09/11) Entrar a la arena va por la red: sin sala no se entra. Se arranca una propia (como las pruebas de pelea).
+	var sala = preload("res://tools/prueba_sala_propia.gd").new()
+	add_child(sala)
+	if not await sala.arrancar("lamina_cuerpos", Game.PISO_ARENA):
+		print("[lamina] no arranca la sala")
+		get_tree().quit(1)
+		return
+	await _esperar(10)
 	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
 	# CUALES: todos los de scenes/actors/enemy, o los de LAMINA_ENEMIGOS (rutas separadas por comas: los invocados, los
 	# bichos del ambar del trent, viven en resources/enemigos_invocados).
@@ -118,12 +152,16 @@ func _correr() -> void:
 	# Que ninguno se ponga a pelear mientras se hace la foto: el jugador lejos y cada uno CONGELADO al nacer.
 	var lejos: Vector2 = jug.global_position + Vector2(0, 900)
 	for r in rutas:
-		Net.pisos.pedir_spawn_arena(r, lejos, {})
+		sala.poner_en(r, lejos)
 		await _esperar(1)
 		_congelar_todos()
-	for _i in 20:
+	# Nacen por la red: hasta que esten todos (tope ~20 s).
+	for _i in 1200:
 		await _esperar(1)
 		_congelar_todos()
+		if get_tree().get_nodes_in_group("enemy").size() >= rutas.size():
+			break
+	print("[lamina] enemigos: %d de %d" % [get_tree().get_nodes_in_group("enemy").size(), rutas.size()])
 	var enemigos: Array = get_tree().get_nodes_in_group("enemy")
 	enemigos.sort_custom(func(a, b): return String(a.data.enemy_name) < String(b.data.enemy_name))
 	var origen: Vector2 = jug.global_position + Vector2(2000, 0)
@@ -133,6 +171,9 @@ func _correr() -> void:
 		var pag: int = i / por_pag
 		var k: int = i % por_pag
 		e.process_mode = Node.PROCESS_MODE_DISABLED
+		# (09/11) El piso de la sala propia no se pinta en esta ventana: el bicho, a la escena que si se ve.
+		if e.get_parent() != get_tree().current_scene:
+			e.reparent(get_tree().current_scene)
 		e.global_position = origen + Vector2(pag * PASO.x * (COLUMNAS + 1) + float(k % COLUMNAS) * PASO.x,
 			float(k / COLUMNAS) * PASO.y)
 		# De FRENTE (al sur), en su primer marco de quieto.
@@ -147,10 +188,17 @@ func _correr() -> void:
 		for h in e.get_children():
 			if h is Line2D:
 				(h as Line2D).visible = false
-		_personaje_al_lado(e)
+		if _florecido:
+			_florecer_dibujo(e, i + 1)
+		else:
+			_personaje_al_lado(e)
 	jug.global_position = origen + Vector2(-600, 0)
 	jug.visible = false
-	var cam: Camera2D = jug.get_node_or_null("Camera2D") as Camera2D
+	# (09/11) Con la sala propia la camara del jugador no es la que pinta: una suya, la actual.
+	var cam := Camera2D.new()
+	cam.process_mode = Node.PROCESS_MODE_ALWAYS
+	get_tree().current_scene.add_child(cam)
+	cam.make_current()
 	cam.top_level = true
 	cam.offset = Vector2.ZERO
 	cam.drag_horizontal_enabled = false
@@ -187,13 +235,36 @@ func _correr() -> void:
 			var r: Rect2 = Tactico.rect_dibujo(e)
 			datos.append({"res": String(e.data.resource_path), "nombre": String(e.data.enemy_name),
 				"escala": e.data.escala_visual, "nodo": _v(xf * e.global_position),
-				"dibujo": [_v(xf * r.position), _v(xf * r.end)], "pj": _v(xf * (e.get_meta("pj_al_lado") as Node2D).global_position),
+				"dibujo": [_v(xf * r.position), _v(xf * r.end)],
+				"pj": _v(xf * (e.get_meta("pj_al_lado") as Node2D).global_position) if e.has_meta("pj_al_lado") else [],
 				"zoom": cam.zoom.x})
 		var fa := FileAccess.open("%s_%d.json" % [_salida, pag + 1], FileAccess.WRITE)
 		fa.store_string(JSON.stringify(datos, "  "))
 		fa.close()
 		print("[foto] %s_%d.png" % [_salida, pag + 1])
 		capa.queue_free()
+	# LA PAGINA DE TUS PERSONAJES FLORECIDOS: el lider y dos mas (del grupo y, si no llega, de la plantilla).
+	if _florecido:
+		var pjs: Array = [Game.lider()]
+		for o in Game.companeros() + Game.plantilla:
+			if pjs.size() < 3 and o != null and not pjs.has(o):
+				pjs.append(o)
+		var esq_p: Vector2 = origen + Vector2(paginas * PASO.x * (COLUMNAS + 1), 0)
+		for k in pjs.size():
+			_muneco_florecido(pjs[k], esq_p + Vector2(float(k) * 90.0, 0), 100 + k)
+		cam.global_position = esq_p + Vector2(90.0, -20)
+		cam.zoom = Vector2(3.0, 3.0)
+		var capa_p := Capa.new()
+		capa_p.zona = Rect2(cam.global_position - Vector2(400, 250), Vector2(800, 500))
+		capa_p.z_as_relative = false
+		capa_p.z_index = -1
+		get_tree().current_scene.add_child(capa_p)
+		await _esperar(6)
+		await RenderingServer.frame_post_draw
+		get_tree().root.get_viewport().get_texture().get_image().save_png("%s_personajes.png" % _salida)
+		print("[foto] %s_personajes.png (%s)" % [_salida, ", ".join(pjs.map(func(o): return o.nombre))])
+		get_tree().quit(0)
+		return
 	# EL PERSONAJE AL LADO DEL MINOTAURO, en una foto aparte y sin cuadricula, para medir los dos en pixeles.
 	for e in enemigos:
 		if String(e.data.enemy_name) == "Minotauro":
