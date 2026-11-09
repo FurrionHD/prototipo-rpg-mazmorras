@@ -114,10 +114,9 @@ def escena(pose, lado_lanza=1):
     _elip(add, (0, 0, 4.6 * baja), (4.6 * derrama, 4.2 * derrama, 3.0 * max(baja, 0.55)), 'carne', 2.0)
     # EL SOMBRERO: ancho y oscuro, con el ala que CAE por los lados; por debajo, plano, con las LAMINAS (rayas oscuras
     # en abanico) que solo asoman por delante porque el sombrero va ladeado hacia alli.
-    def sombrero(P):
-        cap = sd_elipsoide(P, V((0, 0, 18.0)), V((8.2, 8.2, 4.4)))
-        return np.maximum(cap, -(P[:, 2] - 16.4 + 0.04 * ((P[:, 0] ** 2 + P[:, 1] ** 2))))   # la panza curvada del ala
-    add(sombrero, 'sombrero', 0, 'sombrero', 'sombrero')
+    # (la panza curvada del ala: el corte baja hacia los bordes; pieza 'casquete' para que la lea la grafica)
+    add(lambda P: sd_casquete(P, V((0.0, 0.0, 0.0)), np.eye(3), V((0, 0, 18.0)), V((8.2, 8.2, 4.4)), 16.4, -0.04),
+        'sombrero', 0, 'sombrero', 'sombrero')
     # las motas claras de encima
     for (x, y, r) in ((-4.0, 2.0, 1.3), (3.0, -3.5, 1.1), (1.5, 4.5, 0.9), (-2.0, -5.0, 1.0), (5.5, 1.0, 0.8)):
         x, y = x * 0.72, y * 0.72

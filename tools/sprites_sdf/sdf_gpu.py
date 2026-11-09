@@ -118,7 +118,7 @@ class Lote:
         self.B = B
         # PARAMETROS por tipo de pieza: [pieza de ese tipo, fotograma, ...]
         self.tipos = {}
-        for kind in ('esfera', 'elipsoide', 'cono', 'caja', 'triangulo'):
+        for kind in ('esfera', 'elipsoide', 'cono', 'caja', 'triangulo', 'casquete'):
             ids = [i for i, x in enumerate(firma) if x[0] == kind]
             if not ids: continue
             self.tipos[kind] = (torch.tensor(ids, device=DISPOSITIVO, dtype=torch.long), self._params(kind, ids))
@@ -139,6 +139,9 @@ class Lote:
             return (_ten(a), _ten(ba), _ten(np.maximum((ba * ba).sum(-1), 1e-6)), _ten(ra), _ten(rb - ra))
         if kind == 'caja':
             return (_ten(col(1, (3,))), _ten(col(2, (3, 3))), _ten(col(3, (3,))), _ten(col(4, ())))
+        if kind == 'casquete':
+            return (_ten(col(1, (3,))), _ten(col(2, (3, 3))), _ten(col(3, (3,))), _ten(col(4, (3,))), _ten(col(5, ())),
+                    _ten(col(6, ())))
         a = col(1, (3,)); b = col(2, (3,)); c = col(3, (3,)); g = col(4, ())
         return tuple(_ten(x) for x in (a, b, c, g))
 
@@ -198,6 +201,22 @@ def _distancias(lo, x, y, z, fs):
             q2 = torch.stack([_punto(v2, ej[..., j, :]) for j in range(3)], dim=-1)
             dd = q2.abs() - (medio - red[..., None])
             d = _norma(torch.clamp(dd, min=0.0)) + torch.clamp(dd.amax(-1), max=0.0) - red
+        elif kind == 'casquete':
+            # (09/11) como sdf_comun.sd_casquete: el elipsoide en el marco (P - o) @ M, cortado por la cuenca.
+            o, M, c, rad, hh, cu = par
+            vx = px - o[..., 0]; vy = py - o[..., 1]; vz = pz - o[..., 2]
+            ux = vx * M[..., 0, 0] + vy * M[..., 1, 0] + vz * M[..., 2, 0]
+            uy = vx * M[..., 0, 1] + vy * M[..., 1, 1] + vz * M[..., 2, 1]
+            uz = vx * M[..., 0, 2] + vy * M[..., 1, 2] + vz * M[..., 2, 2]
+            del vx, vy, vz
+            rx_ = rad[..., 0]; ry_ = rad[..., 1]; rz_ = rad[..., 2]
+            ex = (ux - c[..., 0]) / rx_; ey = (uy - c[..., 1]) / ry_; ez = (uz - c[..., 2]) / rz_
+            k0 = torch.sqrt(ex * ex + ey * ey + ez * ez)
+            ex /= rx_; ey /= ry_; ez /= rz_
+            k1 = torch.sqrt(ex * ex + ey * ey + ez * ez)
+            cap = k0 * (k0 - 1.0) / torch.clamp(k1, min=1e-6)
+            d = torch.maximum(cap, -(uz - hh - cu * (ux * ux + uy * uy)))
+            del ux, uy, uz, ex, ey, ez, k0, k1, cap
         else:
             d = _triangulo(torch.stack([px, py, pz], dim=-1), par)
         D[ids] = d

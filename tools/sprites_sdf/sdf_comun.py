@@ -70,6 +70,15 @@ def sd_triangulo(P, a, b, c, grosor):
     dentro = (pa @ nor) ** 2 / max(nor @ nor, 1e-9)
     return np.sqrt(np.where(lado < 2.0, fuera, dentro)) - grosor
 
+def sd_casquete(P, o, M, c, rad, h, curva):
+    """Un ELIPSOIDE CORTADO por debajo por una cuenca (09/11, el sombrero y la campana del micónido; antes eran lambdas con
+    np.maximum y la grafica no las leia: todo el fotograma a la CPU). En el marco q = (P - o) @ M, queda lo de encima de
+    z = h + curva * (x^2 + y^2) (curva > 0: la panza sube hacia los bordes)."""
+    if P is SONDA: return ('casquete', o, M, c, rad, h, curva)
+    q = (P - o) @ M
+    cap = sd_elipsoide(q, c, rad)
+    return np.maximum(cap, -(q[:, 2] - h - curva * (q[:, 0] ** 2 + q[:, 1] ** 2)))
+
 
 def smin(a, b, k):
     if k <= 0: return np.minimum(a, b)

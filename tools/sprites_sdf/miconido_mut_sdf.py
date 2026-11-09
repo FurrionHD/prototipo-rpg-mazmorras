@@ -112,11 +112,9 @@ def _campana(add, p, c0, esc, mt):
     aplana = p.get('aplana', 1.0)          # < 1 = chata, como el sombrero del normal (en la evolucion)
     rr = V((6.8 * esc * infla, 6.8 * esc * infla, 5.6 * esc * infla * (1 - 0.25 * hund) * aplana))
 
-    def campana(P, c0=c0, lad=lad, rr=rr):
-        q = (P - c0) @ lad
-        cap = sd_elipsoide(q, V((0, 0, 0.0)), rr)
-        return np.maximum(cap, -(q[:, 2] + 1.2 * esc - 0.03 / esc * (q[:, 0] ** 2 + q[:, 1] ** 2)))
-    add(campana, mt('campana'), 0, 'campana')
+    # (pieza 'casquete': la campana cortada por su cuenca, que la lea la grafica)
+    add(lambda P, c0=c0, lad=lad, rr=rr: sd_casquete(P, c0, lad, V((0, 0, 0.0)), rr, -1.2 * esc, 0.03 / esc),
+        mt('campana'), 0, 'campana')
     for k in range(16):
         a = k / 16 * 2 * math.pi
         _cono(add, c0 + lad.T @ (V((math.cos(a) * 1.0, math.sin(a) * 1.0, 0.6)) * esc),

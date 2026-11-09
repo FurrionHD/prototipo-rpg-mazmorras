@@ -268,10 +268,8 @@ func _correr() -> void:
 				t.tick(1.0 / 60.0)
 				if yo.current_hp < hp_yo:
 					break
-			var nuevo: String = "
-".join(combat.log_entero().slice(log0).map(func(l): return str(l)))
-			_ver(yo.current_hp < hp_yo or nuevo.contains(al.nombre), "en su turno te ataca (%s)" % nuevo.replace("
-", " | ").left(160))
+			var nuevo: String = "\n".join(combat.log_entero().slice(log0).map(func(l): return str(l)))
+			_ver(yo.current_hp < hp_yo or nuevo.contains(al.nombre), "en su turno te ataca (%s)" % nuevo.replace("\n", " | ").left(160))
 			# LO TUMBAS: su muñeco vuelve a caer (no se desvanece como un bicho).
 			fp.take_damage(fp.current_hp + 10.0)
 			t.morir_en_mapa(fp)
