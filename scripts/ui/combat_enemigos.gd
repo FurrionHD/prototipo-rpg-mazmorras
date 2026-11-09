@@ -72,6 +72,17 @@ func _enemy_turn(e: Combatant) -> void:
 	if e.energia_de_jugador and e.get_meta(&"gasta_imbue", false):
 		e.remove_meta(&"gasta_imbue")
 		_gastar_imbue_florecido(e)
+	# (tanda 3b) Y BAJA LA GUARDIA, como tu al empezar tu turno (CombatPantalla._begin_player_turn): la defensa y la postura
+	# duran hasta su proxima accion; la cobertura, sus turnos (mientras cubre, sigue defendiendo).
+	if e.energia_de_jugador:
+		_pantalla._defendiendo.erase(e)
+		e.salir_de_guardia()
+		if e.proteger_turnos > 0:
+			e.proteger_turnos -= 1
+			if e.proteger_turnos <= 0:
+				_pantalla.objetivos._romper_cobertura(e)
+		if e.proteger_turnos > 0:
+			_pantalla._defendiendo[e] = true
 	costra_vuelve(e)
 	_chupar_enraizados(e)
 	_luz_que_atrae(e)
@@ -396,6 +407,9 @@ func _enemy_turn(e: Combatant) -> void:
 	# entrada, y metiendo dos en una se cuentan como una sola para el tope y para el anti-repetido.
 	if contra_bloq != "":
 		_pantalla._set_log(contra_bloq)
+	# (tanda 3b) TU PERSONAJE FLORECIDO entra detras (Escolta, Oportunista) del que acaba de pegar.
+	if obj.is_alive():
+		_seguimientos_hongo(e, obj)
 	_pantalla._update_hp()
 	e.advance_hand()  # (sin efecto ahora; los enemigos aun no llevan 2 armas)
 
@@ -461,6 +475,69 @@ func _enemy_turn(e: Combatant) -> void:
 #  TU PERSONAJE FLORECIDO (09/11, fase 2, tanda 3a): sus APOYOS van a SU bando (los bichos) y lo que se hace a si mismo
 #  (imbuir su arma, recortar sus esperas), como en tu camino (CombatHabilidades._usar_habilidad) pero del otro lado.
 # ============================================================
+# LAS ENTRADAS POR DETRAS DEL FLORECIDO (Escolta: detras del bicho al que sigue; Oportunista: detras de cualquiera, a la
+# espalda si le pilla a tiro): las de tus escoltas (CombatPantalla._seguimientos), del otro lado. Sin lo que es de los tuyos:
+# no entrena excelia ni gasta su arma (te esta pegando a ti con tu personaje).
+func _seguimientos_hongo(quien: Combatant, obj: Combatant) -> void:
+	if obj == null or not obj.is_alive() or not _pantalla._aliados.has(obj):
+		return
+	for esc in _pantalla._vivos():
+		if esc == quien or not esc.energia_de_jugador or not obj.is_alive():
+			continue
+		var pct: float = 0.0
+		var inst = null
+		var oport = null
+		for st in esc.statuses:
+			if st.id() == StatusEffects.Id.OPORTUNISTA:
+				var alc: float = float(st.d.get("alcance_mapa", 0.0))
+				if not _pantalla.tactico or alc <= 0.0 						or _pantalla.turno_mapa.pies_de(esc).distance_to(_pantalla.turno_mapa.pies_de(obj)) <= alc:
+					oport = st
+			elif st.id() == StatusEffects.Id.ESCOLTA and (esc.escoltando_a == null or esc.escoltando_a == quien):
+				pct = maxf(pct, float(st.d.get("seguimiento_pct", 0.0)))
+				inst = st
+		if oport != null:
+			inst = oport
+			pct = float(oport.d.get("seguimiento_pct", 0.0))
+		if pct <= 0.0:
+			continue
+		if not esc.puede_atacar():
+			_pantalla._log_extra("%s no llega a entrar detrás." % _pantalla._etq(esc))
+			continue
+		if inst != null and inst.gastar_uso():
+			esc.quitar_estado(inst.id())
+		var crit_extra: float = float(oport.d.get("crit_extra", 0.0)) if oport != null else 0.0
+		if oport != null and _pantalla.tactico:
+			_pantalla.turno_mapa.pedir_salto(esc, obj, quien)
+		var manos: int = 2 if esc.hands.size() >= 2 else 1
+		for i in manos:
+			if not obj.is_alive():
+				break
+			esc.set_active_hand(i)
+			var estilo: int = CombatFX.Estilo.PUNALADA if oport != null else _pantalla.efectos._estilo_de_habilidad(null, esc)
+			var m_mano: float = 1.0 if i == 0 else _pantalla.DUAL_SEGUIMIENTO_MULT
+			_pantalla.efectos._fx_tanda(_pantalla._fx.ultima_tanda() + 1 if _pantalla._fx != null else i)
+			var defiende: bool = bool(_pantalla._defendiendo.get(obj, false)) and _pantalla.turno_mapa.cubre_de_frente(obj, esc)
+			var r := StatsMath.resolve_attack(esc, obj, defiende, -1.0, crit_extra)
+			_pantalla._aplicar_pasivas(r, esc, obj)
+			if r.evaded:
+				_pantalla._log_extra("%s entra detrás pero %s lo esquiva. 💨" % [_pantalla._etq(esc), obj.nombre])
+				_pantalla.efectos._fx_golpe(esc, obj, 0.0, false, true, Elementos.Elemento.NINGUNO, estilo)
+				continue
+			var dmg: float = float(r.damage) * pct * m_mano
+			obj.take_damage(dmg)
+			_pantalla.efectos._fx_golpe(esc, obj, dmg, r.crit, false, Elementos.Elemento.NINGUNO, estilo)
+			var linea: String = "%s entra detrás con %s e inflige %s de daño%s" % [_pantalla._etq(esc),
+				esc.current_hand_name(), _pantalla._n(dmg), " 💥" if r.crit else ""]
+			var imb: String = esc.roll_imbue(obj)
+			if imb != "":
+				linea += "  ⚡ Causa %s a %s." % [imb, obj.nombre]
+			_pantalla._log_extra(linea)
+
+
+# La Guardia rota de tu personaje florecido: a quien le cae el tajo y a quien el escudazo (los de su ultima habilidad).
+var _tajo_florecido: Array = []
+var _escudazo_florecido: Array = []
+
 func _es_apoyo_florecido(e: Combatant, ab: AbilityData) -> bool:
 	return e.energia_de_jugador and ab != null and ab.forma_a_aliados
 
@@ -492,6 +569,12 @@ func _apoyo_florecido(e: Combatant, ab: AbilityData) -> void:
 			continue
 		var nom: String = str(StatusEffects.def(a.estado).get("nombre", "?"))
 		var a_quien: Array = destinos if (a.a_todo_el_grupo or not de_uno) else destinos.slice(0, 1)
+		# LA ESCOLTA (sigue_al_aliado): el estado es SUYO (entra detras); el elegido es a quien sigue.
+		if ab.sigue_al_aliado:
+			if destinos.is_empty() or destinos[0] == e:
+				continue
+			e.escoltando_a = destinos[0]
+			a_quien = [e]
 		var mag: float = StatusEffects.app_magnitude(a, e.atk(), e.motion_value, e.atk())
 		var recibe: Array = []
 		for d in a_quien:
@@ -504,6 +587,33 @@ func _apoyo_florecido(e: Combatant, ab: AbilityData) -> void:
 			recibe.append(_pantalla._etq(dc))
 		if not recibe.is_empty():
 			estados_log.append("%s %s %s" % [", ".join(recibe), "recibe" if recibe.size() == 1 else "reciben", nom])
+	# (tanda 3b) LAS DEFENSAS de grupo, a los suyos:
+	# EL MURO (protege_turnos): se planta delante del bicho elegido y le cubre (tus golpes a el le llegan a el), defendiendo.
+	if ab.protege_turnos > 0 and not destinos.is_empty() and destinos[0] != e:
+		var a_cubrir: Combatant = destinos[0]
+		_pantalla.objetivos._romper_cobertura(e)
+		_pantalla.objetivos._romper_cobertura(a_cubrir)
+		e.protegiendo_a = a_cubrir
+		a_cubrir.protegido_por = e
+		e.proteger_turnos = ab.protege_turnos
+		_pantalla._defendiendo[e] = true
+		if _pantalla.tactico:
+			_pantalla.turno_mapa.pedir_ponerse_delante(e, a_cubrir, _pantalla._aliados_vivos())
+		estados_log.append("se pone delante de %s" % _pantalla._etq(a_cubrir))
+	# EL VOTO DE GUARDIA (defensa_a_aliados): los de su huella, en defensa.
+	if ab.defensa_a_aliados:
+		for d in destinos:
+			_pantalla._poner_en_defensa(d)
+		if not destinos.is_empty():
+			estados_log.append("en guardia: %s" % ", ".join(destinos.map(func(o): return _pantalla._etq(o))))
+	# EL MURO DE ALIADOS (junta_aliados): los de su huella se le arriman un paso.
+	if ab.junta_aliados > 0.0 and _pantalla.tactico:
+		for d in destinos:
+			if d != e:
+				_pantalla.turno_mapa.pedir_juntar(d, e, ab.junta_aliados)
+	# Y lo que le deja a EL (la guardia de los de escudo: el Muro, el Voto).
+	if ab.bloqueo_turnos > 0 and ab.protege_turnos <= 0:
+		_pantalla._poner_en_defensa(e)
 	if ab.limpia_debuffs > 0:
 		for d in (destinos.slice(0, 1) if de_uno else destinos):
 			var quitados: Array = (d as Combatant).limpiar_debuffs(ab.limpia_debuffs)
@@ -536,6 +646,19 @@ func _propio_florecido(e: Combatant, ab: AbilityData) -> Array:
 			ab.imbue_tope(tier), ab.imbue_reparto(tier))
 		out.append("su arma puede causar %s durante %d ataques" % [
 			str(StatusEffects.def(ab.imbue_estado).get("nombre", "?")), ab.imbue_usos])
+	# (tanda 3b) SE PONE EN GUARDIA: el golpe de escudo, la Embestida (bloqueo_turnos)...
+	if ab.bloqueo_turnos > 0:
+		_pantalla._poner_en_defensa(e)
+		out.append("se queda en guardia")
+	# ...y la POSTURA de contraataque (En guardia, Postura de rodela): hasta su proxima accion esquiva mas, va mas lento y
+	# devuelve lo que esquiva (con el escudo, en la de rodela).
+	if ab.postura_contraataque:
+		e.en_guardia = true
+		e.guardia_spd_mult = ab.guardia_spd_mult
+		e.evasion_bonus = ab.evasion_bonus
+		e.guardia_contra_mult = ab.contra_mult
+		e.guardia_contra_escudo = ab.contra_con_escudo
+		out.append("se pone en guardia: devolverá lo que esquive")
 	if ab.reduce_cooldowns > 0:
 		e.reducir_cooldowns(ab.reduce_cooldowns, ab)
 		out.append("sus demás habilidades se recargan %d turno%s antes" % [ab.reduce_cooldowns,
@@ -1287,6 +1410,18 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 				lista_area = lista_mapa
 			var n_pilla: int = (lista_mapa as Array).size() if lista_mapa != null and not (lista_mapa as Array).is_empty() else 1
 			golpes = ab.num_golpes(e.ability_manos(ab), n_pilla)
+			# LA GUARDIA ROTA (forma_escudo_largo): sus golpes de ESCUDO van por SU linea (CombatTactico.forma_escudazo), los
+			# de arma por el tajo; a quien solo pilla el escudazo, solo le llegan los de escudo.
+			_tajo_florecido = []
+			_escudazo_florecido = []
+			if ab.forma_escudo_largo > 0.0 and lista_mapa != null and _pantalla.turno_mapa.ultima_forma_enemigo != null:
+				_tajo_florecido = (lista_mapa as Array).map(func(o): return o["c"])
+				var f_esc = _pantalla.turno_mapa.forma_escudazo(ab, e, _pantalla.turno_mapa.ultima_forma_enemigo.centro)
+				_escudazo_florecido = _pantalla.turno_mapa._reparto_en(ab, e, f_esc).map(func(o): return o["c"])
+				for c_esc in _escudazo_florecido:
+					if not _tajo_florecido.has(c_esc):
+						(lista_mapa as Array).append({"c": c_esc, "escala": 1.0})
+				lista_area = lista_mapa
 		# EN EL MAPA el salto y la embestida mueven al bicho con su gesto (antes de encolar los golpes).
 		if lista_mapa != null:
 			_pantalla.turno_mapa.mover_enemigo(e, ab, lista_mapa, golpes)
@@ -1457,7 +1592,8 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 	# objetivo ni por golpe. Van aparte para que un area no los aplique varias veces.
 	estados_log += _enemy_tirar_efectos(e, ab, e, 1.0, "self")
 	if e.energia_de_jugador:
-		estados_log += _propio_florecido(e, ab)
+		# Lo suyo va como frase entera con su nombre ("Catalardio se queda en guardia"), no como "Causa ...": marca ¶.
+		estados_log += _propio_florecido(e, ab).map(func(f): return "¶" + String(f))
 
 	# INVOCACION (Rey Slime): saca hasta invoca_cantidad slimes al azar del pool. Para si se queda
 	# sin hueco (sequito lleno / tope de 4). Va aparte del daño/estados: una habilidad podria pegar
@@ -1555,6 +1691,9 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 		else:
 			_pantalla._pausa_lectura()
 		return
+	# (tanda 3b) TU PERSONAJE FLORECIDO entra detras (Escolta, Oportunista) del que acaba de pegar.
+	if ab.dano_mult > 0.0 and obj != null and obj.is_alive() and tocados.has(obj):
+		_seguimientos_hongo(e, obj)
 	# Caidas de TODOS los aliados tocados (el area puede tumbar a varios de golpe).
 	var alguno_cayo: bool = false
 	for t in tocados:
@@ -1643,6 +1782,10 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 		var m_golpe: float = 1.0
 		var atk_ov: float = -1.0
 		var estilo_g: int = estilo_ab
+		if como_jugador and ab.forma_escudo_largo > 0.0 and not _tajo_florecido.is_empty():
+			var de_escudo: bool = ab.golpe_es_de_escudo(i)
+			if (de_escudo and not _escudazo_florecido.has(t)) or (not de_escudo and not _tajo_florecido.has(t)):
+				continue
 		if como_jugador:
 			m_golpe = float(plan_j[i]["mult"])
 			if not idxs_j.is_empty():
@@ -1736,7 +1879,9 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 			break
 	# Efectos NO por golpe: una tirada si conecto algo y siguen vivos ambos (un contraataque puede
 	# haber matado al enemigo a mitad de su propia habilidad: un muerto no te envenena).
-	if aplicar_efectos and not ab.efectos_por_golpe and conecto > 0 and t.is_alive() and e.is_alive():
+	# (Guardia rota del florecido) lo que aplica es del escudo: solo a quien se ha comido el escudazo
+	var sin_escudazo: bool = como_jugador and ab.forma_escudo_largo > 0.0 and not _tajo_florecido.is_empty() 		and not _escudazo_florecido.has(t)
+	if aplicar_efectos and not ab.efectos_por_golpe and conecto > 0 and t.is_alive() and e.is_alive() and not sin_escudazo:
 		estados += _enemy_tirar_efectos(e, ab, t, escala, "objetivo", escala_prob)
 	# CORTES DE VIENTO (05/11, el Vendaval rojo): tras su golpe de arma, el corte sale de la garra y sigue de largo.
 	if e.cortes_viento > 0.0 and not magico and e.is_alive():
@@ -1968,6 +2113,8 @@ func _estados_txt(e: Combatant, lista: Array) -> String:
 		var t: String = String(s)
 		if t.ends_with(" (a sí mismo)"):
 			propios.append(t.trim_suffix(" (a sí mismo)"))
+		elif t.begins_with("¶"):
+			a_otros.append("%s %s" % [_pantalla._etq(e), t.substr(1)])
 		else:
 			a_otros.append("·" + t)
 	if not propios.is_empty():
@@ -2156,13 +2303,16 @@ func _contraatacar(atacante: Combatant, quien: Combatant, mult: float = -1.0,
 		"evadido": false, "estilo": estilo,
 		"elem": quien.imbue_elemento if float(result.get("dmg_imbue", 0.0)) > 0.0 \
 			else Elementos.Elemento.NINGUNO})
-	_pantalla._apuntar_dano(atacante, dmg, quien)   # contador oculto de Cazador
 	_pantalla._pasiva_al_golpearle(atacante, quien, dmg)
-	_pantalla._dps_add("Contraataque", dmg)
-	_pantalla._ganar_mana_golpe()   # el riposte es un golpe de arma que conecta: repone maná como los demas
-	# Excelia: el contraataque golpea, entrena como un ataque normal (Fuerza, o Destreza si es de distancia).
-	var pj_contra: PersonajeData = Game.pj_de_combatant(quien)
-	Game.ganar_golpe(_pantalla._reto(atacante, pj_contra) * quien.motion_value, pj_contra, quien)
+	# (09/11) SI CONTESTA UN ENEMIGO (tu personaje florecido en guardia), sin lo que es de los tuyos: ni el contador de
+	# Cazador, ni el mana del que tiene el turno, ni la excelia (no entrena a tu personaje mientras te pega).
+	if not _pantalla._enemies.has(quien):
+		_pantalla._apuntar_dano(atacante, dmg, quien)   # contador oculto de Cazador
+		_pantalla._dps_add("Contraataque", dmg)
+		_pantalla._ganar_mana_golpe()   # el riposte es un golpe de arma que conecta: repone maná como los demas
+		# Excelia: el contraataque golpea, entrena como un ataque normal (Fuerza, o Destreza si es de distancia).
+		var pj_contra: PersonajeData = Game.pj_de_combatant(quien)
+		Game.ganar_golpe(_pantalla._reto(atacante, pj_contra) * quien.motion_value, pj_contra, quien)
 	var extra := "un crítico 💥 " if result.crit else ""
 	# EL ARMA SALE DEL COMBATIENTE, no escrita a mano. Decia "el estoque" siempre, y desde que el
 	# escudo pequeño tambien ripostea eso mentia con cualquier otra arma. set_active_hand(0) de

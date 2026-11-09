@@ -405,11 +405,28 @@ func cerrar_tiros_hab() -> void:
 	_golpes_mun = []
 
 
+# (09/11) LA RESPUESTA DEL ENEMIGO EN GUARDIA (tu personaje florecido) a tu habilidad: UNA por accion y por enemigo, como
+# la tuya a las suyas (si no, seis golpes contra una rodela serian seis ripostes). Se dice en el registro aparte.
+var _ya_respondieron: Array = []
+
+func _respuesta_enemiga(objetivo: Combatant, evadido: bool, defendiendo: bool) -> void:
+	if _ya_respondieron.has(objetivo) or not objetivo.energia_de_jugador:
+		return
+	var txt: String = _pantalla.respuesta_enemiga(objetivo, _pantalla._player, evadido, defendiendo)
+	if txt != "":
+		_ya_respondieron.append(objetivo)
+		_pantalla._log_extra(txt)
+
+
 func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: int,
 		escala: float, etq: String, m_golpe: float) -> Dictionary:
 	# (07/10) EL ESCUDO DE SUBDITOS del Rey tirano: un golpe a EL SOLO (sin area) puede comerselo un subdito suyo.
 	if not ab.es_area() and (ab.forma < 0 or ab.forma == CombatFormas.Tipo.PUNTO):
 		objetivo = _pantalla.escudo_subdito(objetivo, _pantalla._player)
+		# (09/11) el Muro del florecido: a un enemigo cubierto le llega al que le cubre (solo a uno, como contra ti)
+		objetivo = _pantalla.cobertura_enemiga(objetivo)
+	# (09/11) Y si el enemigo defiende o esta en guardia (tu personaje florecido), lo para.
+	var def_e: bool = _pantalla.enemigo_defiende(objetivo, _pantalla._player)
 	# 'c' = a QUIEN fue este golpe. Lo necesita el log para decir el reparto por enemigo (mismo
 	# campo que usan los resultados de hechizo, ver _log_hechizo). 'm_golpe' = el multiplicador que
 	# le toca a ESTE golpe segun el plan (mano principal/segunda del dual, o arma/escudo).
@@ -441,7 +458,7 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	var estilo_ab: int = _pantalla.efectos._estilo_de_habilidad(ab, _pantalla._player)
 	if ab.golpe_es_de_escudo(i) and not (ab.es_toda_de_escudo() and ab.fx_estilo >= 0):
 		estilo_ab = CombatFX.Estilo.ESCUDAZO
-	var result := StatsMath.resolve_attack(_pantalla._player, objetivo, false, atk_ov, ab.crit_extra,
+	var result := StatsMath.resolve_attack(_pantalla._player, objetivo, def_e, atk_ov, ab.crit_extra,
 		ab.penetracion_extra)
 	_pantalla._aplicar_pasivas(result, _pantalla._player, objetivo)
 	if result.evaded:
@@ -450,7 +467,9 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 		_pantalla.efectos._fx_golpe(_pantalla._player, objetivo, 0.0, false, true, Elementos.Elemento.NINGUNO, estilo_ab,
 			1.0, false, "", AbilityData.Gesto.AUTO, null, _semilla_mun)
 		_golpes_mun.append({"c": objetivo, "evadido": true})
+		_respuesta_enemiga(objetivo, true, def_e)
 		return r
+	_respuesta_enemiga(objetivo, false, def_e)
 	_golpes_mun.append({"c": objetivo, "evadido": false})
 	# Con flecha o virote de material cargado, pega con su bonus (_mult_mun = 1 sin municion o sin arco).
 	var dmg: float = result.damage * ab.dano_mult * m_golpe * escala * _mult_mun \
@@ -598,6 +617,7 @@ func _empezar_retraso_jugador(ab: AbilityData) -> void:
 # _begin_player_turn). Cuando es true no se vuelve a cobrar ni a validar nada: la energia y el
 # cooldown se pagaron al EMPEZAR a cargar, hace dos turnos.
 func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
+	_ya_respondieron.clear()
 	# EL ALIADO ELEGIDO SOLO VALE PARA LAS DE UN ALIADO (26/09, fallo suyo): se quedaba guardado de la ultima
 	# (una Egida, un Purificar...) y el Velo umbrio, que es sobre ti, se lo echaba a ese.
 	if ab != null and ab.objetivo_aliado != AbilityData.Objetivo.ALIADO:
@@ -1230,7 +1250,7 @@ static func forma_alargada(f, p: Combatant):
 # (el basico), un golpe de arma. -1 si los esquiva todos.
 func dano_de_habilidad_contra(p: Combatant, ab: AbilityData, v: Combatant) -> float:
 	if ab == null:
-		var rb: Dictionary = StatsMath.resolve_attack(p, v, false)
+		var rb: Dictionary = StatsMath.resolve_attack(p, v, _pantalla.enemigo_defiende(v, p))
 		return -1.0 if rb.get("evaded", false) else float(rb["damage"])
 	var idxs: Array = p.ability_hand_indices(ab)
 	var manos: int = maxi(1, idxs.size())
@@ -1242,7 +1262,8 @@ func dano_de_habilidad_contra(p: Combatant, ab: AbilityData, v: Combatant) -> fl
 		if not idxs.is_empty():
 			p.set_active_hand(idxs[mini(int(plan[i]["hand"]), idxs.size() - 1)])
 		var atk_ov: float = p.atk_escudo() if ab.golpe_es_de_escudo(i) else -1.0
-		var r: Dictionary = StatsMath.resolve_attack(p, v, false, atk_ov, ab.crit_extra, ab.penetracion_extra)
+		var r: Dictionary = StatsMath.resolve_attack(p, v, _pantalla.enemigo_defiende(v, p), atk_ov, ab.crit_extra,
+			ab.penetracion_extra)
 		if r.get("evaded", false):
 			continue
 		alguno = true

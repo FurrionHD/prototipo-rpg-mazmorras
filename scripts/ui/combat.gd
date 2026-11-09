@@ -832,13 +832,14 @@ const FLORECIDO_PJ_VIDA := 2.0
 # TANDA 3a (ya resueltos): los APOYOS (forma_a_aliados) van a SU bando, los bichos (CombatEnemigos._apoyo_florecido, con
 # CombatTactico.apoyo_de_enemigo: a quien mas lo necesita o donde pille a mas), con limpia_debuffs; la imbuicion de su
 # arma (imbue_*) y reduce_cooldowns, a si mismo (_propio_florecido); el paso, en mover_enemigo.
-# Quedan (3b, las DEFENSAS: tus golpes aun no miran si un enemigo defiende) y la Provocacion (tanda 4); cargar_municion y
-# untar tiran de tu bolsa, y el Foco arcano (foco_cargas, energia_a_mana, mana_gain) es de magia (fase 3).
-const CAMPOS_SOLO_JUGADOR := [
-	"sigue_al_aliado", "defensa_a_aliados", "junta_aliados",
-	"forma_escudo_largo", "cargar_municion", "untar",
-	"bloqueo_turnos", "mana_gain", "energia_a_mana", "foco_cargas", "provoca_turnos",
-	"postura_contraataque", "guardia_spd_mult", "evasion_bonus", "contra_mult", "contra_con_escudo", "protege_turnos"]
+# TANDA 3b (ya resueltos): las DEFENSAS. Tus golpes ya miran si un enemigo defiende o esta en guardia (y le pueden
+# contestar), y a quien cubre (CombatPantalla.enemigo_defiende / cobertura_enemiga / respuesta_enemiga); el florecido se
+# pone en guardia (bloqueo_turnos), en postura (postura_contraataque y los suyos), cubre a un bicho (protege_turnos), pone
+# en defensa a los suyos (defensa_a_aliados), los junta (junta_aliados), escolta a uno (sigue_al_aliado, con sus entradas
+# por detras: CombatEnemigos._seguimientos_hongo) y la Guardia rota va con su escudazo (forma_escudo_largo).
+# Quedan: la Provocacion (tanda 4); cargar_municion y untar tiran de tu bolsa; el Foco arcano (foco_cargas, energia_a_mana,
+# mana_gain) es de magia (fase 3).
+const CAMPOS_SOLO_JUGADOR := ["cargar_municion", "untar", "mana_gain", "energia_a_mana", "foco_cargas", "provoca_turnos"]
 static var _ab_por_defecto: AbilityData = null
 
 # Las habilidades de su arma que puede usar el florecido (las de su loadout, sin huecos).
@@ -1010,6 +1011,43 @@ func _mult_pasivas(atacante: Combatant, defensor: Combatant) -> float:
 	if defensor.has_status(StatusEffects.Id.DECRETO) and es_subdito(atacante):
 		m *= defensor.decreto_mult
 	return m
+
+
+# ============================================================
+#  LOS ENEMIGOS QUE DEFIENDEN (09/11, fase 2 tanda 3b, tu personaje florecido). Hasta el, ningun enemigo defendia: tus
+#  golpes iban siempre con defending = false. Ahora el florecido puede estar DEFENDIENDO (Golpe de escudo, Muro, Voto de
+#  guardia), EN GUARDIA (En guardia, Postura de rodela) o CUBRIENDO a un bicho (Muro). Lo miran tu basico, tus habilidades
+#  y las entradas por detras de los tuyos, como la rama del enemigo lo mira contra ti. La magia no se para con la guardia.
+# ============================================================
+# ¿'obj' (un enemigo) te para este golpe de 'quien'? En el mapa, solo si le viene de frente.
+func enemigo_defiende(obj: Combatant, quien: Combatant) -> bool:
+	if obj == null or not _enemies.has(obj):
+		return false
+	return (bool(_defendiendo.get(obj, false)) or obj.en_guardia) and turno_mapa.cubre_de_frente(obj, quien)
+
+
+# A quien le llega tu golpe si 'obj' (un enemigo) lo tiene cubierto otro de los suyos (el Muro del florecido). La misma
+# regla que contra ti (CombatObjetivos._redirigir_cobertura): solo el objetivo principal.
+func cobertura_enemiga(obj: Combatant) -> Combatant:
+	if obj == null or not _enemies.has(obj):
+		return obj
+	return objetivos._redirigir_cobertura(obj)
+
+
+# SU RESPUESTA a tu golpe: si lo ESQUIVA en guardia (En guardia), contraataca; si lo PARA defendiendo con escudo pequeño,
+# a veces responde. Las dos que tienes tu (CombatEnemigos._contraatacar / _riposte_bloqueo), del otro lado. Devuelve el
+# texto para el registro ("" si no responde). Se dibuja al momento.
+func respuesta_enemiga(obj: Combatant, quien: Combatant, evadido: bool, defendiendo: bool) -> String:
+	if obj == null or quien == null or not _enemies.has(obj) or not obj.is_alive() or not quien.is_alive():
+		return ""
+	var txt: String = ""
+	if evadido:
+		if obj.en_guardia and enemigos._devuelve_en_guardia(obj, quien):
+			txt = enemigos._contraatacar(quien, obj)
+	else:
+		txt = enemigos._riposte_bloqueo(quien, obj, defendiendo)
+	enemigos._soltar_contraataques()
+	return txt
 
 
 # UN SUBDITO del Rey (07/10, los mutantes del Rey Slime): un slime de su bando que no es un rey (Combatant.es_rey: el de
@@ -2513,8 +2551,10 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 		con_arma: String, arma_factor: float, pj_atacante: PersonajeData, semilla_fx: int = 0) -> bool:
 	# (07/10) EL ESCUDO DE SUBDITOS del Rey tirano: a veces un subdito suyo se pone delante.
 	obj = escudo_subdito(obj, _player)
-	# Los enemigos no defienden (de momento): defending = false.
-	var result := StatsMath.resolve_attack(_player, obj, false)
+	# (09/11) Y si lo cubre otro de los suyos (el Muro del florecido), le llega a ese; y si defiende, lo para.
+	obj = cobertura_enemiga(obj)
+	var def_e: bool = enemigo_defiende(obj, _player)
+	var result := StatsMath.resolve_attack(_player, obj, def_e)
 	if escala != 1.0:
 		result.damage = float(result.damage) * escala
 		if result.has("dmg_imbue"):
@@ -2535,6 +2575,9 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 			AbilityData.Gesto.AUTO, null, semilla_fx)
 		if corte_mapa:
 			efectos.soltar_suelo()
+		var resp_ev: String = respuesta_enemiga(obj, _player, true, def_e)
+		if resp_ev != "":
+			_set_log(resp_ev)
 		return false
 	else:
 		# (31/10) EL ESCUDO DE CARNE del rey rata: una rata pegada puede llevarse parte del golpe.
@@ -2586,7 +2629,12 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 			var mp: float = _ganar_mana_golpe()
 			if mp > 0.0:
 				txt += "  Recupera %s de maná. 🔷" % _n(mp)
+		if def_e:
+			txt += "  %s estaba en guardia y recibe menos. 🛡️" % _etq(obj)
 		_set_log(txt)
+		var resp: String = respuesta_enemiga(obj, _player, false, def_e)
+		if resp != "":
+			_set_log(resp)
 		return true
 
 
@@ -3120,7 +3168,7 @@ func _disparar_un_seguimiento(esc: Combatant, obj: Combatant, pct: float, inst, 
 		var arma: String = esc.current_hand_name()
 		var m_mano: float = 1.0 if i == 0 else DUAL_SEGUIMIENTO_MULT
 		efectos._fx_tanda(i)   # los dos golpes son dos, no uno: cada uno con su tanda
-		var r := StatsMath.resolve_attack(esc, obj, false, -1.0, crit_extra)
+		var r := StatsMath.resolve_attack(esc, obj, enemigo_defiende(obj, esc), -1.0, crit_extra)
 		_aplicar_pasivas(r, esc, obj)
 		if r.evaded:
 			_log_extra("%s entra detrás pero %s lo esquiva. 💨" % [esc.nombre, obj.nombre])

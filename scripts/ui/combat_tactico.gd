@@ -7174,12 +7174,13 @@ func pedir_carga(ab: AbilityData, c: Combatant, victima: Combatant, golpes: int)
 
 # EL MURO (25/09): te pones junto a quien cubres, DEL LADO DEL ENEMIGO MAS CERCANO A EL (no "delante" suyo:
 # de donde le viene el golpe). Sin enemigos, no te mueves. Sale ya: no hay golpe que esperar.
-func pedir_ponerse_delante(c: Combatant, aliado: Combatant) -> void:
+# 'rivales' (09/11): de quien le tapa. Por defecto los enemigos; tu personaje florecido tapa a un bicho de los TUYOS.
+func pedir_ponerse_delante(c: Combatant, aliado: Combatant, rivales: Array = []) -> void:
 	if _pantalla._espejo or not _pantalla.tactico or c == null or aliado == null or cuerpo_de(aliado) == null:
 		return
 	var enemigo: Combatant = null
 	var d_mejor: float = INF
-	for e in _pantalla._vivos():
+	for e in (rivales if not rivales.is_empty() else _pantalla._vivos()):
 		if e.no_elegible():
 			continue
 		var d: float = hueco_entre(aliado, e)

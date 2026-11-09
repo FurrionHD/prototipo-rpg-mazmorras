@@ -327,8 +327,7 @@ func _correr() -> void:
 			fp.abilities_combate = habs_t2
 			var t2: Array = combat.habilidades_florecido(fp).map(func(a): return a.nombre)
 			fp.abilities_combate = guardadas
-			_ver(t2.size() == 4 and not t2.has("Golpe de escudo"),
-				"tanda 2: Oportunista, Danza de acero, Molinete y Disparo perforante si; el Golpe de escudo aun no (%s)" % str(t2))
+			_ver(t2.size() == 5, "tandas 2 y 3b: Oportunista, Danza de acero, Molinete, Disparo perforante y Golpe de escudo (%s)" % str(t2))
 			# EL OPORTUNISTA: salta a la espalda de su presa (la huella, un circulo pequeño delante) y le pega.
 			for pr in [["oportunista", 30.0], ["danza_de_acero", 30.0]]:
 				var hab: AbilityData = load("res://resources/abilities/%s.tres" % pr[0])
@@ -361,7 +360,7 @@ func _correr() -> void:
 				"paso_ligero", "escolta"].map(func(n): return cargar.call(n))
 			var t3: Array = combat.habilidades_florecido(fp).map(func(a): return a.nombre)
 			fp.abilities_combate = guardadas
-			_ver(t3.size() == 6 and not t3.has("Escolta"), "tanda 3a: los apoyos y lo propio si; la Escolta aun no (%s)" % str(t3))
+			_ver(t3.size() == 7, "tandas 3a y 3b: los apoyos, lo propio y la Escolta (%s)" % str(t3))
 			_poner(t, fp, t._arena().rect.get_center())
 			var suyos: Array = combat._enemies.filter(func(o): return o.is_alive() and o != fp)
 			for k in suyos.size():
@@ -412,6 +411,82 @@ func _correr() -> void:
 			nuevo = await _usa_hasta(combat, t, fp, yo, paso_l)
 			_ver(nuevo.contains("usa Paso ligero") and t.pies_de(fp).distance_to(desde_p) > 10.0,
 				"Paso ligero: se planta junto a su presa (%.0f px)" % t.pies_de(fp).distance_to(desde_p))
+			# (tanda 3b) LAS DEFENSAS. Tus golpes miran si el defiende, esta en guardia o cubre a otro.
+			fp.abilities_combate = ["en_guardia", "postura_rodela", "muro_guardian", "voto_de_guardia", "muro_de_aliados",
+				"guardia_rota", "escolta", "provocacion"].map(func(n): return cargar.call(n))
+			var t3b: Array = combat.habilidades_florecido(fp).map(func(a): return a.nombre)
+			fp.abilities_combate = guardadas
+			_ver(t3b.size() == 7 and not t3b.has("Provocación"), "tanda 3b: las defensas si; la Provocacion aun no (%s)" % str(t3b))
+			for k in suyos.size():
+				suyos[k].current_hp = suyos[k].max_hp
+				_poner(t, suyos[k], t.pies_de(fp) + Vector2(25 + 12 * k, 20 * (k % 3) - 20))
+			_poner(t, yo, t.pies_de(fp) + Vector2(-30, 0))
+			# EL GOLPE DE ESCUDO le deja DEFENDIENDO, y tus golpes de frente lo miran; al empezar su turno baja la guardia.
+			nuevo = await _usa_hasta(combat, t, fp, yo, cargar.call("golpe_escudo_normal"))
+			# Se planta mirando al que golpeo (no a ti): se mira contra los tuyos que tenga de frente.
+			var de_frente: Array = combat._aliados.filter(func(a): return a.is_alive() and combat.enemigo_defiende(fp, a))
+			_ver(nuevo.contains("usa Golpe de escudo") and bool(combat._defendiendo.get(fp, false)) and not de_frente.is_empty(),
+				"Golpe de escudo: se queda defendiendo y tus golpes de frente lo notan (%s)" % ", ".join(de_frente.map(func(a): return a.nombre)))
+			_ver(nuevo.contains(fp.nombre + " se queda en guardia") and not nuevo.contains("Causa se queda"),
+				"y el registro lo dice con su nombre (%s)" % nuevo.right(70))
+			fp.habilidades = []
+			await _turno_de(combat, t, fp, yo, yo.current_hp)
+			_ver(not bool(combat._defendiendo.get(fp, false)), "al empezar su turno baja la guardia")
+			# EN GUARDIA: si esquiva tu golpe, te lo devuelve (sin entrenar a tu personaje: es tu ficha la que te pega).
+			nuevo = await _usa_hasta(combat, t, fp, yo, cargar.call("en_guardia"))
+			_ver(fp.en_guardia, "En guardia: se pone en postura (%s)" % nuevo.left(70))
+			var exc0: String = str(pj_al.ability_internal) if pj_al != null else ""
+			fp.evasion_bonus = 5.0
+			var jugador_antes: Combatant = combat._player
+			combat._player = yo
+			var hp_c: float = yo.current_hp
+			log0 = combat.log_entero().size()
+			# La esquiva tiene TOPE (65 %): se repite el golpe hasta que lo esquive (sin postura no hay nada que mirar).
+			var entro: bool = true
+			for _int in 12:
+				fp.current_hp = fp.max_hp
+				entro = combat._golpe_basico(fp, 1.0, "", true, 0, "su arma", 1.0, Game.pj_de_combatant(yo))
+				if not entro:
+					break
+			combat._player = jugador_antes
+			nuevo = " | ".join(combat.log_entero().slice(log0).map(func(l): return str(l)))
+			_ver(not entro and (yo.current_hp < hp_c or nuevo.contains("contraataca")),
+				"tu golpe lo esquiva en guardia y te lo devuelve (%s)" % nuevo.right(120))
+			_ver(pj_al != null and str(pj_al.ability_internal) == exc0, "y a tu personaje florecido no le da excelia")
+			fp.salir_de_guardia()
+			# EL MURO: se pone delante de un bicho y tus golpes a ese bicho le llegan a el.
+			var muro: AbilityData = cargar.call("muro_guardian")
+			nuevo = await _usa_hasta(combat, t, fp, yo, muro)
+			var cubierto: Combatant = fp.protegiendo_a
+			_ver(nuevo.contains("usa Muro") and cubierto != null and cubierto.protegido_por == fp 				and combat.cobertura_enemiga(cubierto) == fp, "Muro: cubre a %s y tus golpes a el le llegan al florecido" % (
+				cubierto.nombre if cubierto != null else "nadie"))
+			combat.objetivos._romper_cobertura(fp)
+			# EL VOTO DE GUARDIA: los suyos de la huella, en defensa.
+			for o in suyos:
+				combat._defendiendo.erase(o)
+			nuevo = await _usa_hasta(combat, t, fp, yo, cargar.call("voto_de_guardia"))
+			var en_def: int = suyos.filter(func(o): return bool(combat._defendiendo.get(o, false))).size()
+			_ver(nuevo.contains("usa Voto de guardia") and en_def >= 1, "Voto de guardia: %d de los suyos en defensa" % en_def)
+			# LA ESCOLTA: sigue a un bicho y entra detras cuando el pega.
+			nuevo = await _usa_hasta(combat, t, fp, yo, cargar.call("escolta"))
+			var seguido: Combatant = fp.escoltando_a
+			_ver(nuevo.contains("usa Escolta") and seguido != null and fp.has_status(StatusEffects.Id.ESCOLTA),
+				"Escolta: sigue a %s" % (seguido.nombre if seguido != null else "nadie"))
+			if seguido != null and seguido.is_alive():
+				_poner(t, yo, t.pies_de(seguido) + Vector2(-22, 0))
+				seguido.habilidades = []
+				seguido.prob_habilidad = 0.0
+				var log_s: int = combat.log_entero().size()
+				for _turno in 3:
+					await _turno_de(combat, t, seguido, yo, yo.current_hp)
+					if combat.log_entero().slice(log_s).any(func(l): return str(l).contains("entra detrás")):
+						break
+				nuevo = " | ".join(combat.log_entero().slice(log_s).map(func(l): return str(l)))
+				_ver(nuevo.contains("entra detrás"), "cuando %s te pega, el entra detras (%s)" % [seguido.nombre, nuevo.left(140)])
+			# LA GUARDIA ROTA: tajo y escudazo, cada uno a los suyos.
+			_poner(t, yo, t.pies_de(fp) + Vector2(-25, 0))
+			nuevo = await _usa_hasta(combat, t, fp, yo, cargar.call("guardia_rota"))
+			_ver(nuevo.contains("usa Guardia rota"), "Guardia rota: la usa (%s)" % nuevo.left(100))
 			# LO TUMBAS: su muñeco vuelve a caer (no se desvanece como un bicho).
 			fp.take_damage(fp.current_hp + 10.0)
 			t.morir_en_mapa(fp)
