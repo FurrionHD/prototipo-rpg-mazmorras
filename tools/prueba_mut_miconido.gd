@@ -93,8 +93,8 @@ func _correr() -> void:
 	_ver(lum.elemento_golpe == Elementos.Elemento.LUZ and des.elemento_golpe == Elementos.Elemento.LUZ
 		and inf.elemento_golpe < 0 and bocanada.elemento_golpe < 0, "luminosas y Destello de luz; las demas esporas, sin elemento")
 	_ver(is_equal_approx(lum.dano_mult, 0.26) and is_equal_approx(inf.dano_mult, 0.49), "multiplicadores calibrados")
-	_ver(des.carga_turnos == 1 and des.forma == CombatFormas.Tipo.CONO and is_equal_approx(des.forma_radio, 60.0),
-		"Destello: carga un turno, cono de 60")
+	_ver(des.carga_turnos == 1 and des.forma == CombatFormas.Tipo.CIRCULO and des.forma_apunte == CombatFormas.Apunte.ALREDEDOR
+		and is_equal_approx(des.forma_radio, 60.0), "Destello: carga un turno, circulo de 60 alrededor suyo")
 	_ver(is_equal_approx(inf.infecta_suyos, 0.6), "las Esporas de infeccion tambien a los suyos (60 %)")
 
 	sala = preload("res://tools/prueba_sala_propia.gd").new()
@@ -640,14 +640,21 @@ func _efectos_pixel(t, campana: Combatant, florecido: Combatant, yo: Combatant) 
 		var n1: int = cuenta.call(g[2])
 		t._pixel.al_gesto(g[0], t.cuerpo_de(g[0]), g[1], 0.6)
 		_ver(cuenta.call(g[2]) > n1, "%s, gesto '%s': %s" % [(g[0] as Combatant).nombre, g[1], g[2]])
-	# (10/11) EL DESTELLO ES UN FOCO: su cono de luz lo pinta su SUELO con la forma del golpe (FocoAire), no una hoja en el aire
+	# (10/11) EL DESTELLO: lo pinta su SUELO con la forma del golpe (FocoAire). Desde la tarde, un CIRCULO alrededor de sus
+	# pies y solo HACES de la campana (el cono queda para una ficha en cono).
 	var des_f: AbilityData = load("res://resources/abilities/miconido_destello.tres")
 	_ver(des_f.suelo_roto == SueloRoto.Tipo.MICONIDO_FOCO, "el Destello lleva su foco en el suelo (MICONIDO_FOCO)")
-	var cono_f := CombatFormas.cono(t.pies_de(campana), (t.pies_de(yo) - t.pies_de(campana)).normalized(), des_f.forma_radio, des_f.forma_apertura)
-	var foco: Node2D = SueloRoto.lanzar(arena, cono_f, des_f.suelo_roto, 1, 0.0, 0.0)
-	_ver(foco != null and foco.get_parent() == arena, "el foco del Destello sale en la arena")
-	_ver(is_equal_approx(SueloRoto.retraso(cono_f, cono_f.origen + cono_f.dir * des_f.forma_radio, des_f.suelo_roto), 0.22),
-		"y al borde del cono el golpe llega cuando llega la luz (0,22 s)")
+	var circ_f := CombatFormas.circulo(t.pies_de(campana), des_f.forma_radio)
+	var foco: Node2D = SueloRoto.lanzar(arena, circ_f, des_f.suelo_roto, 1, 0.0, 0.0)
+	_ver(foco != null and foco.get_parent() == arena, "el Destello sale en la arena")
+	_ver(is_equal_approx(SueloRoto.retraso(circ_f, circ_f.centro + Vector2.RIGHT * des_f.forma_radio, des_f.suelo_roto), 0.22),
+		"y al borde del circulo el golpe llega cuando llega la luz (0,22 s)")
+	for _k in 20:
+		await get_tree().process_frame
+	var haz = foco.get("_haz") if foco != null else null
+	var suelo = foco.get("_suelo") if foco != null else null
+	_ver(haz != null and (haz as Sprite2D).visible and suelo != null and not (suelo as Sprite2D).visible,
+		"en circulo se ven los haces y nada en el suelo")
 	# LA NUBE QUE SE QUEDA: la del venenoso (PiezaPixel), teñida
 	_ver(ResourceLoader.exists("res://assets/sprites/efectos/miconido/atado_dura_a.png"), "el atado de micelio horneado")
 	for _k in 30:

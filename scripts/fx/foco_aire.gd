@@ -1,3 +1,5 @@
+# (10/11 TARDE: ahora es un CIRCULO alrededor suyo y solo se pintan HACES: ver _pintar_haces. Lo del cono sigue para
+# una ficha en cono.)
 # EL DESTELLO DEL MICONIDO COMO FOCO (10/11/2026, el jefe: "el destello visualmente no alcanza a los objetivos que
 # supuestamente deberia golpear"). Su golpe es un CONO EN EL SUELO (la ficha: 60 de largo, 90 grados, desde delante de
 # sus pies y hacia su objetivo); el dibujo de antes era un abanico en el aire, desde la campana y en 8 direcciones.
@@ -125,13 +127,17 @@ func _estado() -> Vector2i:
 
 func _pintar() -> void:
 	var e: Vector2i = _estado()
-	var clave: String = "%d_%d_%d" % [e.x, e.y, int(_t < T_FOGONAZO and _t >= 0.0)]
+	var clave: String = "%d_%d_%d_%d" % [e.x, e.y, int(_t < T_FOGONAZO and _t >= 0.0), _tic()]
 	if clave == _clave:
 		return
 	_clave = clave
 	if e.x < 0:
 		_suelo.visible = false
 		_haz.visible = false
+		return
+	if _f.tipo == CombatFormas.Tipo.CIRCULO:
+		_suelo.visible = false
+		_pintar_haces(e)
 		return
 	var celda: float = SpriteLienzo.UNIDADES_POR_CELDA
 	var o: Vector2 = SueloRoto.origen_de(_f)
@@ -214,6 +220,144 @@ func _pintar() -> void:
 				imh.set_pixel(cx, cy, col2)
 	_haz.texture = ImageTexture.create_from_image(imh)
 	_haz.global_position = caja_h.position
+	_haz.visible = true
+
+
+# EL DESTELLO EN CIRCULO (10/11, su idea: "brilla toda su campana, que pegue en area alrededor suyo; quitamos la marca y
+# que solo se vean los haces de luz"). HACES de la campana hacia el suelo que cubren el circulo del golpe (la ficha,
+# alrededor de sus pies) con una rendija entre uno y otro; el fogonazo en la campana. Nada en el suelo.
+# "mucho mejor pero seguro que podemos hacer que los haces de luz esten mucho mas guapos": VERSIONES para la lamina
+# (tools/ver_destello_versiones): 0 = el de antes (plano); 1 = NUCLEO (centro casi blanco, medio cian, borde tenue;
+# anchos y largos alternos); 2 = 1 + MOTAS que bajan por los haces y parpadean; 3 = 1 + ABANICO VIVO (se abren
+# escalonados y giran un poco); 4 = todo y un HALO en la campana.
+const HACES := 12
+const HAZ_LLENA := 0.8
+const T_CELDA := 0.06   # cada cuanto se repinta lo que se mueve (salta como un sprite)
+static var VERSION_DEF: int = 4
+var version: int = VERSION_DEF
+
+
+# Lo que necesita repintar la version que se mueve.
+func _tic() -> int:
+	return int(_t / T_CELDA) if version >= 2 and _f != null and _f.tipo == CombatFormas.Tipo.CIRCULO else 0
+
+
+func _pintar_haces(e: Vector2i) -> void:
+	var celda: float = SpriteLienzo.UNIDADES_POR_CELDA
+	var o: Vector2 = _f.centro
+	var q: float = float(e.y) / 4.0
+	var nucleo: bool = version >= 1
+	var motas: bool = version == 2 or version == 4
+	var vivo: bool = version >= 3
+	var giro: float = (0.10 * _t) if vivo else 0.0
+	var haces: Array = []   # {d (eje), largo, media (medio ancho al final), claro}
+	for k in HACES:
+		var fino: bool = nucleo and k % 2 == 1
+		var abre: float = float(e.x) / 6.0
+		if vivo:
+			# escalonados: cada uno sale un poco despues, en orden alrededor
+			var orden: int = (k * 5) % HACES
+			abre = clampf((_t - float(orden) * 0.012) / T_ABRE, 0.0, 1.0)
+			abre = ceil(abre * 6.0) / 6.0
+		if abre <= 0.0:
+			continue
+		var ang: float = TAU * (float(k) + 0.5) / float(HACES) + giro
+		var dir_s: Vector2 = Vector2.RIGHT.rotated(ang)
+		var radio_k: float = _f.radio * (0.94 if fino else 1.0)
+		var punta: Vector2 = o + dir_s * radio_k * abre
+		var eje: Vector2 = punta - _desde
+		var largo: float = maxf(eje.length(), 1.0)
+		var media: float = (TAU * radio_k * abre / float(HACES)) * HAZ_LLENA * 0.5 * (0.55 if fino else 1.0)
+		haces.append({"d": eje / largo, "largo": largo, "media": media, "claro": not fino if nucleo else k % 2 == 0, "k": k})
+	var caja := Rect2(_desde, Vector2.ZERO).expand(o + Vector2(_f.radio, _f.radio) * 1.1).expand(o - Vector2(_f.radio, _f.radio) * 1.1)
+	caja = caja.grow(celda * 12.0)
+	var w: int = int(ceil(caja.size.x / celda))
+	var h: int = int(ceil(caja.size.y / celda))
+	var img := Image.create(maxi(w, 1), maxi(h, 1), false, Image.FORMAT_RGBA8)
+	var fogonazo: bool = _t < T_FOGONAZO
+	for cy in h:
+		for cx in w:
+			var p: Vector2 = caja.position + (Vector2(cx, cy) + Vector2(0.5, 0.5)) * celda
+			var rel: Vector2 = p - _desde
+			var col := Color(0, 0, 0, 0)
+			for hz in haces:
+				var d: Vector2 = hz["d"]
+				var a_lo: float = rel.dot(d)
+				var largo: float = hz["largo"]
+				if a_lo <= 0.0 or a_lo > largo:
+					continue
+				var u: float = a_lo / largo
+				var mitad: float = maxf(float(hz["media"]) * u, celda * 0.5)
+				var s_l: float = absf(rel.cross(d)) / mitad
+				if s_l > 1.0:
+					continue
+				var c2: Color
+				var a: float
+				if nucleo:
+					if s_l < 0.22 and hz["claro"]:
+						c2 = LUZ[3]
+						a = 0.75
+					elif s_l < 0.55:
+						c2 = LUZ[2]
+						a = 0.5
+					else:
+						c2 = LUZ[1]
+						a = 0.25 if u > 0.3 else 0.5
+					a *= 1.0 - 0.55 * u * u
+				else:
+					var claro: bool = hz["claro"]
+					c2 = LUZ[2] if claro and u < 0.6 else LUZ[1]
+					a = (0.5 if claro else 0.25) * (1.0 - 0.5 * u)
+				if rel.length() < celda * 3.0:
+					a *= 2.0
+				c2.a = _escalon(a * q)
+				if c2.a > col.a:
+					col = c2
+			# EL HALO de la campana (4): tres aros de luz que no son lineas, son manchas en escalones
+			if version == 4:
+				var dh: float = rel.length() / celda
+				var ah: float = 0.0
+				var ch: Color = LUZ[1]
+				if dh < 5.0:
+					ah = 0.5
+					ch = LUZ[2]
+				elif dh < 9.0:
+					ah = 0.25
+					ch = LUZ[2]
+				elif dh < 13.0:
+					ah = 0.25
+				ch.a = _escalon(ah * q)
+				if ch.a > col.a:
+					col = ch
+			if fogonazo:
+				var ax: float = absf(rel.x) / celda
+				var ay: float = absf(rel.y) / celda
+				if (ax < 0.6 and ay < 9.0) or (ay < 0.6 and ax < 12.0):
+					col = LUZ[3]
+					col.a = 1.0
+				elif ax + ay < 3.0:
+					col = LUZ[2]
+					col.a = 1.0
+			if col.a > 0.0:
+				img.set_pixel(cx, cy, col)
+	# LAS MOTAS (2 y 4): tres por haz, bajan por dentro y parpadean; una celda, luz entera
+	if motas and e.y >= 2:
+		for hz in haces:
+			for m in 3:
+				var sem: float = float(int(hz["k"]) * 7 + m * 13)
+				var u_m: float = fposmod(sem * 0.137 + _t * 0.9, 1.0)
+				if sin(_t * 23.0 + sem) < -0.2:
+					continue
+				var lat: float = (fposmod(sem * 0.311, 1.0) - 0.5) * 0.9
+				var d_m: Vector2 = hz["d"]
+				var pm: Vector2 = _desde + d_m * float(hz["largo"]) * u_m + d_m.orthogonal() * float(hz["media"]) * u_m * lat
+				var cm: Vector2i = Vector2i(((pm - caja.position) / celda).floor())
+				if cm.x >= 0 and cm.y >= 0 and cm.x < w and cm.y < h:
+					var cmc: Color = LUZ[3]
+					cmc.a = 1.0 if e.y >= 3 else 0.5
+					img.set_pixelv(cm, cmc)
+	_haz.texture = ImageTexture.create_from_image(img)
+	_haz.global_position = caja.position
 	_haz.visible = true
 
 

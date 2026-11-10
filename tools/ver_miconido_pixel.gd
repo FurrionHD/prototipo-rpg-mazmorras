@@ -60,7 +60,8 @@ func _cuerpo(mut: StringName) -> Dictionary:
 func _pies(d: Dictionary) -> Vector2:
 	var r: Rect2 = TACTICO.rect_dibujo(d["nodo"])
 	var ed: EnemyData = d["ed"]
-	return (d["nodo"] as Node2D).global_position + Vector2(r.get_center().x, r.position.y + r.size.y * ed.centro_suelo_real())
+	# (10/11: rect_dibujo ya va en MUNDO; antes se le sumaba otra vez la posicion del nodo y los pies salian movidos)
+	return Vector2(r.get_center().x, r.position.y + r.size.y * ed.centro_suelo_real())
 
 
 func _objetivo() -> void:
@@ -96,6 +97,14 @@ func _foco(nodo: Node2D, p: Vector2) -> void:
 	var d: Vector2 = (_pies_v - p).normalized()
 	var o: Vector2 = p + d * TACTICO.frente_dibujo(nodo, p, d) * TACTICO.FRENTE_METIDO
 	var f := CombatFormas.cono(o, d, ab.forma_radio, ab.forma_apertura)
+	# (10/11 tarde) en CIRCULO alrededor de sus pies: solo los haces; al objetivo le llega si le pilla el circulo
+	if ab.forma == CombatFormas.Tipo.CIRCULO:
+		f = CombatFormas.circulo(p, ab.forma_radio)
+		SueloRoto.lanzar(self, f, ab.suelo_roto, 1, 0.0, 0.0)
+		var caja := Rect2(_pies_v - Vector2(5, 16), Vector2(10, 16))
+		if f.toca(caja):
+			_lanzar("destello_golpe", _pies_v, 0, null, SueloRoto.retraso_caja(f, caja, ab.suelo_roto))
+		return
 	SueloRoto.lanzar(self, f, ab.suelo_roto, 1, 0.0, 0.0)
 	_lanzar("destello_golpe", _pies_v, 0, null, SueloRoto.retraso_caja(f, Rect2(_pies_v - Vector2(5, 16), Vector2(10, 16)), ab.suelo_roto))
 
@@ -174,7 +183,7 @@ func _bucle() -> void:
 						carga.queue_free()
 					_anim(d, "destello")
 					_foco(nodo, p)
-					await _paso("CAMPANA · Destello: el cono de luz", 1.6)
+					await _paso("CAMPANA · Destello: la luz alrededor", 1.6)
 					_anim(d, "idle")
 					_lanzar("atrae", EfectoPixel.centro_sprite(nodo, p), 0, nodo)
 					await _paso("CAMPANA · Luz que atrae", 1.6)

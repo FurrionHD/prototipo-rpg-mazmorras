@@ -12,7 +12,7 @@ turns = 2
 [resource]
 script = ExtResource("1")
 nombre = "Destello"
-descripcion = "La campana se va encendiendo turno a turno y, de golpe, se abre hacia delante. Quien la esté mirando de frente se queda en blanco un buen rato."
+descripcion = "La campana se va encendiendo turno a turno y, de golpe, estalla en luz hacia todos lados. Quien esté cerca se queda en blanco un buen rato."
 coste_energia = 0.0
 dano_mult = 0.6
 es_magico = true
@@ -22,14 +22,15 @@ area_max = 99
 fx_estilo = 14
 cooldown = 4
 carga_turnos = 1
-; EN EL MAPA (09/11): carga un turno (se va encendiendo) y suelta un cono de luz delante. Magico de LUZ.
+; EN EL MAPA: carga un turno (se va encendiendo) y suelta la luz. Magico de LUZ.
+; (10/11, su idea: "brilla toda su campana") UN CIRCULO DE 60 ALREDEDOR SUYO, no un cono delante; mismos numeros.
 fx_estilo_mapa = 229
-; EL FOCO (10/11): el cono de luz en el suelo, el del golpe (SueloRoto.Tipo.MICONIDO_FOCO = 114, FocoAire).
+; EL DIBUJO (SueloRoto.Tipo.MICONIDO_FOCO = 114, FocoAire): en circulo, solo HACES DE LUZ de la campana hacia todos
+; lados, hasta el borde del golpe; sin marca en el suelo.
 suelo_roto = 114
-forma = 2
-forma_apunte = 1
+forma = 1
+forma_apunte = 2
 forma_radio = 60.0
-forma_apertura = 90.0
 fx_anim_carga = &"destello_carga"
 fx_anim = &"destello"
 fx_anim_interrumpe = &"idle"
