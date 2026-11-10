@@ -146,6 +146,22 @@ func _guion() -> void:
 		_ok(fp.max_energy > 0.0, "su energia llega a mi pantalla (%.0f/%.0f)" % [fp.current_energy, fp.max_energy])
 		await _foto(p, t)
 
+		# 3b) (10/11, TANDA 4) SU PROVOCACION, EN MI PANTALLA: mi personaje provocado, con el icono, y mi objetivo fijado en el
+		_ok(await _ordenar("provocar", COMPANERO) == "ok", "la sala hace que %s provoque a los mios" % COMPANERO)
+		var mio: Combatant = null
+		for c in p._aliados:
+			if (c as Combatant).nombre != COMPANERO and (c as Combatant).is_alive():
+				mio = c
+				break
+		espera = await _hasta(func(): return mio != null and p.objetivos.provocador_mio(mio) == fp, 10.0)
+		_ok(mio != null and p.objetivos.provocador_mio(mio) == fp,
+			"en mi pantalla %s esta provocado por %s (%.1f s)" % [mio.nombre if mio != null else "?", COMPANERO, espera])
+		_ok(mio != null and mio.provocador_remoto == p._enemies.find(fp), "(llega en la instantanea: campo 14)")
+		var jug: Combatant = p._player
+		p._player = mio
+		_ok(p._objetivo() == fp, "mi objetivo queda fijado en el (%s)" % p._objetivo().nombre)
+		p._player = jug
+
 		# 4) LO TUMBAN: el muñeco vuelve a caer
 		_ok(await _ordenar("tumbar", COMPANERO) == "ok", "la sala tumba al %s florecido" % COMPANERO)
 		espera = await _hasta(func(): return cu_fp != null and cu_fp.has_meta(t.MARCA_CAIDO), 15.0)

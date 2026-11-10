@@ -931,6 +931,11 @@ func _seleccionar(idx: int) -> void:
 	# (30/10) Al que esta EN LAS SOMBRAS no se le elige: no se le ve.
 	if _pantalla._enemies[idx].no_elegible():
 		return
+	# (10/11) PROVOCADO: solo vale el que te provoco (tu objetivo esta fijado, ver CombatPantalla._objetivo).
+	var prov: Combatant = _pantalla.objetivos.provocador_mio(_pantalla._player) if _pantalla.objetivos != null else null
+	if prov != null and _pantalla._enemies[idx] != prov:
+		_pantalla._set_log("%s está provocado por %s: solo puede ir a por él. 💢" % [_pantalla._player.nombre, prov.nombre], "a")
+		idx = _pantalla._enemies.find(prov)
 	_pantalla._target_idx = idx
 	for i in _pantalla._bloques.size():
 		var vivo: bool = _pantalla._enemies[i].is_alive()

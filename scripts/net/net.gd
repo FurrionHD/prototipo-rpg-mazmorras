@@ -191,7 +191,9 @@ const MAX_CONEXIONES := 32
 #   72 = (09/11) los mutantes del micónido: estados INFECTADO 61 y FLORECIDO 62; la cria con mutacion (dar_cuerpo_a_cria); el florecido que era uno de los tuyos viaja en el roster con
 #     la direccion de su muñeco (peer/cuerpo en vez de nid); las habilidades de enemigo ya no heredan el elemento de su
 #     ficha (solo el basico): un espejo viejo calcularia otro daño.
-const PROTOCOLO := 72
+#   73 = (10/11) la PROVOCACION de tu personaje florecido: la instantanea lleva en el campo 14 de cada uno de los tuyos
+#     quien le tiene provocado (tu pantalla no deja apuntar a otro).
+const PROTOCOLO := 73
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

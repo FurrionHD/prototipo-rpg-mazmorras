@@ -839,7 +839,8 @@ const FLORECIDO_PJ_VIDA := 2.0
 # por detras: CombatEnemigos._seguimientos_hongo) y la Guardia rota va con su escudazo (forma_escudo_largo).
 # Quedan: la Provocacion (tanda 4); cargar_municion y untar tiran de tu bolsa; el Foco arcano (foco_cargas, energia_a_mana,
 # mana_gain) es de magia (fase 3).
-const CAMPOS_SOLO_JUGADOR := ["cargar_municion", "untar", "mana_gain", "energia_a_mana", "foco_cargas", "provoca_turnos"]
+# (10/11, tanda 4) "provoca_turnos" ya no: su Provocacion fija a los tuyos (CombatEnemigos._propio_florecido).
+const CAMPOS_SOLO_JUGADOR := ["cargar_municion", "untar", "mana_gain", "energia_a_mana", "foco_cargas"]
 static var _ab_por_defecto: AbilityData = null
 
 # Las habilidades de su arma que puede usar el florecido (las de su loadout, sin huecos).
@@ -1255,9 +1256,23 @@ func setup(player_cs: Array, enemy_cs: Array, enemy_initiated: bool,
 	_dps_on = not _enemies.is_empty() and _enemies[0].es_dummy
 
 
+# (10/11, tanda 4) ¿LA PROVOCACION le deja soltar esto a 'quien'? 'tocados' = los ENEMIGOS a los que va a dar (la huella, o
+# el objetivo de un golpe a uno solo). Si le tiene provocado un florecido, tiene que estar entre ellos ("mientras el
+# provocador quede dentro"). Devuelve "" si vale, o la frase de por que no. Curar, apoyar y moverse no pasan por aqui.
+func provocado_bloquea(quien: Combatant, tocados: Array) -> String:
+	var prov: Combatant = objetivos.provocador_mio(quien) if objetivos != null else null
+	if prov == null or tocados.has(prov):
+		return ""
+	return "Provocado por %s: tiene que quedar dentro" % prov.nombre
+
+
 # El OBJETIVO de tus acciones: el enemigo que tienes seleccionado. Si el indice apunta a un
 # muerto (o a nada), cae al primer vivo, para que una accion nunca se lance al vacio.
 func _objetivo() -> Combatant:
+	# (10/11, tanda 4) PROVOCADO por tu personaje florecido: tu objetivo es EL, no hay otro.
+	var prov: Combatant = objetivos.provocador_mio(_player) if objetivos != null else null
+	if prov != null:
+		return prov
 	# EN LAS SOMBRAS (30/10, la rata sombria): no se le puede elegir. Si no queda otro, el primero vivo igual (para
 	# que nada se quede sin objetivo), pero llega() no le alcanza: solo le dan las areas.
 	if _target_idx >= 0 and _target_idx < _enemies.size() and _enemies[_target_idx].is_alive() 			and not _enemies[_target_idx].no_elegible():
@@ -2013,6 +2028,10 @@ func _begin_player_turn() -> void:
 	# del que actua (con grupo, ese flag es del que le toca, no del que encaja el golpe).
 	if _player.proteger_turnos > 0:
 		_defendiendo[_player] = true
+	# (10/11, tanda 4) PROVOCADO por tu personaje florecido: el objetivo marcado es el (que se vea a quien vas fijado).
+	var prov_t: Combatant = objetivos.provocador_mio(_player)
+	if prov_t != null and _enemies.find(prov_t) != _target_idx:
+		figuras._seleccionar(_enemies.find(prov_t))
 	# La IMBUICION ya NO baja aqui: dura ATAQUES, no turnos. Ver _gastar_imbue().
 	# LA CAPA DE AMBAR del set Ambar (03/11): rota, vuelve a los tantos turnos suyos (la costra del Tocon, ver alli).
 	enemigos.costra_vuelve(_player)
@@ -2255,6 +2274,9 @@ func _motivo_bloqueo(id: int) -> String:
 	if id == Action.ATTACK and tactico and _pasa_el_turno():
 		return "Estás enraizado y no llegas a golpear"
 	if id == Action.ATTACK and _objetivo_fuera_de_alcance():
+		var prov: Combatant = objetivos.provocador_mio(_player)
+		if prov != null:
+			return "Provocado por %s: tu golpe solo puede ir a por él, y no llegas. Acércate" % prov.nombre
 		if turno_mapa.tapado_por_pared(_player, _objetivo()):
 			return "Sin línea de tiro: muévete"
 		if not turno_mapa.llega_a_alguno(_player):

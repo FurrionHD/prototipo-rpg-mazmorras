@@ -743,7 +743,15 @@ func _chips_de(c: Combatant) -> Array:
 	# PROVOCADO (10/10, el jefe: "no tiene un icono de provocado, no se puede saber si esta haciendo efecto"): en el
 	# ENEMIGO, con los turnos que le quedan y quien le tiene provocado. Viaja a los espejos con el resto de chips.
 	var prov: Combatant = _pantalla.objetivos.provocador_de(c)
-	if prov != null:
+	if prov != null and _pantalla._aliados.has(c):
+		# (10/11) UNO DE LOS TUYOS, provocado por tu personaje florecido: objetivo fijado.
+		out.append(["💢%dt" % prov.provocar_turnos,
+			("Provocado por %s (%d turno%s)
+Sus ataques, habilidades y hechizos contra enemigos tienen que alcanzar a %s:"
+			+ " un golpe a uno solo, a él; un área, con él dentro. Curar, apoyar y moverse, libre.") % [
+				prov.nombre, prov.provocar_turnos, "" if prov.provocar_turnos == 1 else "s", prov.nombre],
+			"💢", Color(1.0, 0.45, 0.35)])
+	elif prov != null:
 		out.append(["💢%dt" % prov.provocar_turnos,
 			"Provocado por %s (%d turno%s)
 Solo tiene ojos para quien lo provocó: todo lo que haga irá contra ese personaje, si llega hasta él." % [

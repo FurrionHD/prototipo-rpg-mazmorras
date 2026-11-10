@@ -323,7 +323,7 @@ func _correr() -> void:
 			fp.abilities_combate = [tajo, prov]
 			var filtradas: Array = combat.habilidades_florecido(fp)
 			fp.abilities_combate = guardadas
-			_ver(filtradas == [tajo], "de su arma toma el Tajo pesado (golpe limpio) y aun no la Provocacion (%s)" % str(
+			_ver(filtradas == [tajo, prov], "de su arma toma el Tajo pesado y la Provocacion (tanda 4) (%s)" % str(
 				filtradas.map(func(a): return a.nombre)))
 			fp.habilidades = [tajo]
 			fp.ability_cooldowns.clear()
@@ -452,7 +452,7 @@ func _correr() -> void:
 				"guardia_rota", "escolta", "provocacion"].map(func(n): return cargar.call(n))
 			var t3b: Array = combat.habilidades_florecido(fp).map(func(a): return a.nombre)
 			fp.abilities_combate = guardadas
-			_ver(t3b.size() == 7 and not t3b.has("Provocación"), "tanda 3b: las defensas si; la Provocacion aun no (%s)" % str(t3b))
+			_ver(t3b.size() == 8 and t3b.has("Provocación"), "tanda 3b y 4: las defensas y la Provocacion (%s)" % str(t3b))
 			for k in suyos.size():
 				suyos[k].current_hp = suyos[k].max_hp
 				_poner(t, suyos[k], t.pies_de(fp) + Vector2(25 + 12 * k, 20 * (k % 3) - 20))
@@ -527,6 +527,8 @@ func _correr() -> void:
 			_poner(t, yo, t.pies_de(fp) + Vector2(-25, 0))
 			nuevo = await _usa_hasta(combat, t, fp, yo, cargar.call("guardia_rota"))
 			_ver(nuevo.contains("usa Guardia rota"), "Guardia rota: la usa (%s)" % nuevo.left(100))
+			# (10/11, TANDA 4) SU PROVOCACION: los tuyos que pille quedan con el OBJETIVO FIJADO en el.
+			await _tanda4_provocacion(combat, t, fp, yo, cargar)
 			# LO TUMBAS: su muñeco vuelve a caer (no se desvanece como un bicho).
 			fp.take_damage(fp.current_hp + 10.0)
 			t.morir_en_mapa(fp)
@@ -553,6 +555,78 @@ func _correr() -> void:
 
 # Le deja SOLO esa habilidad (con 'sola') y energia llena, y juega sus turnos hasta que la USA (las que se preparan salen al
 # turno siguiente; como mucho tres). Devuelve el registro de esos turnos.
+# (10/11) TANDA 4: la Provocacion de tu personaje florecido. Provoca a los tuyos que pille; mientras dure, lo que lancen
+# contra enemigos tiene que alcanzarle a EL (el basico va a el; un area, con el dentro); curar, libre; baja en sus turnos;
+# viaja a tu pantalla (campo 14 de la instantanea) y la sala lo vuelve a mirar.
+func _tanda4_provocacion(combat: Node, t, fp: Combatant, yo: Combatant, cargar: Callable) -> void:
+	var otro: Combatant = null
+	for a in combat._enemies:
+		if a != fp and a.is_alive():
+			otro = a
+			break
+	_poner(t, yo, t.pies_de(fp) + Vector2(-25, 0))
+	if otro != null:
+		_poner(t, otro, t.pies_de(fp) + Vector2(260, 0))
+	fp.salir_de_guardia()
+	var nuevo: String = await _usa_hasta(combat, t, fp, yo, cargar.call("provocacion"))
+	_ver(nuevo.contains("usa Provocación") and fp.provocar_turnos == 3 and fp.provocados.has(yo),
+		"Provocación: %s provocado 3 turnos (%s)" % [yo.nombre, nuevo.right(110)])
+	_ver(nuevo.contains(fp.nombre + " provoca a"), "y el registro lo dice con su nombre")
+	_ver(combat.objetivos.provocador_mio(yo) == fp, "a %s le provoca %s" % [yo.nombre, fp.nombre])
+	var chips: Array = combat.efectos._chips_de(yo)
+	_ver(chips.any(func(ch): return String(ch[0]).begins_with("💢")), "y lleva el icono de provocado")
+	# EL BASICO: tu objetivo es el, y no te deja elegir a otro.
+	var jug: Combatant = combat._player
+	combat._player = yo
+	if otro != null:
+		combat.figuras._seleccionar(combat._enemies.find(otro))
+	_ver(combat._objetivo() == fp, "tu basico va a por el (objetivo %s)" % combat._objetivo().nombre)
+	# UN AREA: solo si el queda dentro de la huella.
+	# (una con HUELLA: el Tajo pesado va a tu objetivo, que ya es el)
+	var tajo: AbilityData = load("res://resources/abilities/aplastamiento.tres")
+	t._quien = yo
+	t.apunte = t.pies_de(fp)
+	t._hay_apunte = true
+	_ver(t.bloqueo_provocado(tajo, yo) == "", "un Aplastamiento hacia el: vale")
+	if otro != null:
+		# al otro lado de ti: el area hacia alli ya no pilla al florecido
+		_poner(t, otro, t.pies_de(yo) + Vector2(-120, 0))
+		t.apunte = t.pies_de(otro)
+		var rep: Array = t.reparto_habilidad(tajo, yo).map(func(o): return o["c"])
+		_ver(not rep.has(fp) and t.bloqueo_provocado(tajo, yo) != "",
+			"un Aplastamiento hacia otro, sin el dentro: no deja (%s)" % t.bloqueo_provocado(tajo, yo))
+	# UN HECHIZO DE DAÑO, igual; una CURA, libre.
+	var bola: SpellData = load("res://resources/spells/bola_fuego.tres")
+	t.apunte = t.pies_de(fp)
+	_ver(t.bloqueo_provocado(null, yo, bola) == "", "una bola de fuego encima de el: vale")
+	t.apunte = t.pies_de(yo) + Vector2(-400, 300)
+	_ver(t.bloqueo_provocado(null, yo, bola) != "", "una bola de fuego lejos de el: no deja")
+	var cura: AbilityData = AbilityData.new()
+	cura.forma = 1
+	cura.forma_apunte = 2
+	cura.forma_a_aliados = true
+	_ver(t.bloqueo_provocado(cura, yo) == "", "lo que va a los tuyos: libre")
+	# LA SALA: si le llega una habilidad que no le pilla, pega su basico a el (sin perder el turno).
+	_ver(combat.espejo._provocado_no_deja("", "habilidad", 0) == false, "(la sala deja pasar lo que vale)")
+	# A TU PANTALLA (espejo): el campo 14 de la instantanea dice quien te provoca.
+	var vals: Array = combat.espejo._valores(combat._aliados, true)
+	var iy: int = combat._aliados.find(yo)
+	_ver(iy >= 0 and int(vals[iy][14]) == combat._enemies.find(fp), "viaja a tu pantalla: el campo 14 lleva a %s" % fp.nombre)
+	yo.provocador_remoto = combat._enemies.find(fp)
+	var guarda: Array = fp.provocados.duplicate()
+	fp.provocados.clear()
+	_ver(combat.objetivos.provocador_mio(yo) == fp, "y en el espejo (sin provocados) se lee del campo 14")
+	fp.provocados = guarda
+	yo.provocador_remoto = -2
+	combat._player = jug
+	# BAJA EN SUS TURNOS y al acabarse quedas libre.
+	fp.habilidades = []
+	for _k in 3:
+		await _turno_de(combat, t, fp, yo, yo.current_hp)
+	_ver(fp.provocar_turnos == 0 and fp.provocados.is_empty() and combat.objetivos.provocador_mio(yo) == null,
+		"a los 3 turnos suyos se acaba y quedas libre (%d)" % fp.provocar_turnos)
+
+
 func _usa_hasta(combat: Node, t, e: Combatant, yo: Combatant, ab: AbilityData, sola: bool = true) -> String:
 	if sola:
 		e.habilidades = [ab]

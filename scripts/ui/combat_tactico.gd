@@ -1836,6 +1836,7 @@ func apuntar_sitio(spell: SpellData, c: Combatant, al_elegir: Callable) -> void:
 			_quien = c
 			_cuerpo = cuerpo
 	_al_elegir_sitio = al_elegir
+	_sitio_hechizo = spell
 	apuntar(huella_apunte_hechizo(spell))
 	if _apuntando == null:
 		_al_elegir_sitio = Callable()
@@ -1844,6 +1845,12 @@ func apuntar_sitio(spell: SpellData, c: Combatant, al_elegir: Callable) -> void:
 
 
 func confirmar_sitio(punto: Vector2) -> void:
+	# (10/11) PROVOCADO: el conjuro tiene que pillar a quien te provoco; si no, se queda apuntando y lo dice.
+	apunte = punto
+	_hay_apunte = true
+	if _bloqueo_provocacion(_apuntando) != "":
+		_avisar_bloqueo()
+		return
 	var al_elegir: Callable = _al_elegir_sitio
 	_al_elegir_sitio = Callable()
 	_dejar_de_apuntar()
@@ -2235,6 +2242,46 @@ func apuntar(ab: AbilityData) -> void:
 	_refrescar_apunte(_raton_en_mundo())
 
 
+# (10/11, tanda 4) LO QUE LA PROVOCACION DICE de lo que se apunta ahora: "" = vale, o la frase de por que no. Si a quien
+# apunta le tiene provocado tu personaje florecido, lo que lance contra enemigos tiene que pillarle a EL (CombatPantalla.
+# provocado_bloquea). Lo de los tuyos (curas, apoyos), lo que no toca a nadie y no es de daño (posturas) y el paso solo,
+# libres. Los hechizos: los de ataque y los que debilitan.
+var _sitio_hechizo: SpellData = null   # el conjuro recitado que se esta colocando (apuntar_sitio)
+
+func _bloqueo_provocacion(ab: AbilityData) -> String:
+	var sp: SpellData = _hechizo_apuntado[0] if not _hechizo_apuntado.is_empty() 		else (_sitio_hechizo if _al_elegir_sitio.is_valid() else null)
+	return bloqueo_provocado(ab, _quien, sp)
+
+
+# Lo mismo sin la pantalla de apuntar, con el apunte que haya (el de tu clic, o el sellado que llega por red): la sala lo
+# vuelve a mirar al recibir la accion (CombatEspejo). 'sp' = el hechizo, si es uno (su huella y si es de daño).
+func bloqueo_provocado(ab: AbilityData, c: Combatant, sp: SpellData = null) -> String:
+	if c == null or _pantalla.objetivos.provocador_mio(c) == null:
+		return ""
+	if sp != null:
+		ab = huella_hechizo(sp)
+	if ab == null or ab.forma_a_aliados:
+		return ""
+	var ofensiva: bool = ab.dano_mult > 0.0
+	if sp != null:
+		ofensiva = sp.tipo == SpellData.TipoEfecto.ATAQUE or sp.tipo == SpellData.TipoEfecto.DEBUFF
+		ab = huella_hechizo(sp)
+	# sin huella (un golpe a tu objetivo): tu objetivo ya es el (CombatPantalla._objetivo)
+	if not usa_huella(ab):
+		return ""
+	var rep: Array = reparto_habilidad(ab, c).map(func(o): return o["c"])
+	if rep.is_empty() and not ofensiva:
+		return ""
+	if ab.paso and int(plan_paso(ab, c)["modo"]) == Desliz.YA:
+		return ""
+	return _pantalla.provocado_bloquea(c, rep)
+
+
+func _avisar_bloqueo() -> void:
+	_pillados_vistos = -1
+	_refrescar_apunte(_raton_en_mundo())
+
+
 func esta_apuntando() -> bool:
 	return _apuntando != null
 
@@ -2271,6 +2318,9 @@ func _refrescar_apunte(raton: Vector2) -> void:
 	var visto: int = -2 if _andando else n + (modo_paso + 1) * 1000
 	if _apuntando.forma_a_aliados and not aliados.is_empty():
 		visto += 100000 * (_pantalla._aliados.find(aliados[0]) + 1)
+	var bloqueo: String = _bloqueo_provocacion(_apuntando)
+	if bloqueo != "":
+		visto += 100000000
 	if visto != _pillados_vistos and is_instance_valid(_letrero):
 		_pillados_vistos = visto
 		var pilla: String = "no alcanza a nadie" if n == 0 else ("alcanza a 1" if n == 1 else "alcanza a %d" % n)
@@ -2284,6 +2334,8 @@ func _refrescar_apunte(raton: Vector2) -> void:
 			Desliz.TRAS: pilla = "estocada y te apartas"
 			Desliz.ANTES: pilla = "te acercas y estocada"
 			Desliz.YA: pilla = "solo el paso"
+		if bloqueo != "":
+			pilla = bloqueo + " 💢"
 		_letrero.text = ("%s: párate para lanzarla" % _apuntando.nombre) if _andando \
 			else ("%s: %s.  Clic para elegir el sitio" % [_apuntando.nombre, pilla]) if _al_elegir_sitio.is_valid() \
 			else "%s: %s.  Clic para lanzarla · clic derecho para volver" % [_apuntando.nombre, pilla]
@@ -2301,6 +2353,12 @@ func _confirmar_apunte() -> void:
 	# LAS DE UNO DE LOS TUYOS (Escolta, Muro) no se lanzan al aire: sin nadie debajo, el clic no hace nada.
 	if ab.forma_a_aliados and ab.objetivo_aliado == AbilityData.Objetivo.ALIADO \
 			and aliados_de_huella(ab, _quien).is_empty():
+		return
+	# (10/11) PROVOCADO: lo que lances contra enemigos tiene que pillar a quien te provoco. Si no, no sale (lo dice el letrero).
+	apunte = _raton_en_mundo()
+	_hay_apunte = true
+	if _bloqueo_provocacion(ab) != "":
+		_avisar_bloqueo()
 		return
 	# OTRO DE LOS TUYOS para un conjuro ya recitado (el suyo huyo): al que quede bajo la huella, y se lanza.
 	if _reeligiendo != null:

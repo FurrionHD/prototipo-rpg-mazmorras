@@ -77,6 +77,11 @@ func _enemy_turn(e: Combatant) -> void:
 	if e.energia_de_jugador:
 		_pantalla._defendiendo.erase(e)
 		e.salir_de_guardia()
+		# (tanda 4) su Provocacion baja un turno; al acabarse, los tuyos quedan libres
+		if e.provocar_turnos > 0:
+			e.provocar_turnos -= 1
+			if e.provocar_turnos <= 0:
+				e.provocados.clear()
 		if e.proteger_turnos > 0:
 			e.proteger_turnos -= 1
 			if e.proteger_turnos <= 0:
@@ -636,8 +641,19 @@ func _apoyo_florecido(e: Combatant, ab: AbilityData) -> void:
 
 
 # Lo que se hace a si mismo al usarla: imbuir su arma (el veneno de la daga) y recortar las esperas de las OTRAS.
-func _propio_florecido(e: Combatant, ab: AbilityData) -> Array:
+func _propio_florecido(e: Combatant, ab: AbilityData, tocados: Array = []) -> Array:
 	var out: Array = []
+	# (10/11, tanda 4) SU PROVOCACION: los tuyos que pille su huella quedan PROVOCADOS (el jefe: "objetivo fijado"). Mientras
+	# dure, lo que lancen contra enemigos tiene que alcanzarle a EL (un golpe a uno solo, a el; un area, con el dentro).
+	# Curar, apoyar y moverse, libre. Lo mira tu pantalla al apuntar y la sala al recibir la accion
+	# (CombatObjetivos.provocador_mio / CombatPantalla.provocado_bloquea). Baja al empezar su turno, como la tuya.
+	if ab.provoca_turnos > 0:
+		var suyos: Array = tocados.filter(func(t): return t != null and t.is_alive() and _pantalla._aliados.has(t))
+		if not suyos.is_empty():
+			e.provocar_turnos = ab.provoca_turnos
+			e.provocados = suyos
+			out.append("provoca a %s: durante %d turno%s, sus ataques tienen que alcanzarle a él" % [
+				_y_nombres(suyos), ab.provoca_turnos, "" if ab.provoca_turnos == 1 else "s"])
 	if ab.es_imbuicion():
 		var pj: PersonajeData = Game.pj_de_combatant(e)
 		var tier: int = maxi(1, Game.equip_tier("main", pj)) if pj != null else 1
@@ -664,6 +680,14 @@ func _propio_florecido(e: Combatant, ab: AbilityData) -> Array:
 		out.append("sus demás habilidades se recargan %d turno%s antes" % [ab.reduce_cooldowns,
 			"" if ab.reduce_cooldowns == 1 else "s"])
 	return out
+
+
+# "Ana", "Ana y Luis", "Ana, Luis y Eva".
+static func _y_nombres(lista: Array) -> String:
+	var n: Array = lista.map(func(c): return String(c.nombre))
+	if n.size() <= 1:
+		return "" if n.is_empty() else String(n[0])
+	return ", ".join(n.slice(0, n.size() - 1)) + " y " + String(n[-1])
 
 
 # (09/11) La imbuicion de tu personaje florecido dura ATAQUES, como la tuya (CombatMagia._gastar_imbue): uno por ataque.
@@ -1593,7 +1617,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 	estados_log += _enemy_tirar_efectos(e, ab, e, 1.0, "self")
 	if e.energia_de_jugador:
 		# Lo suyo va como frase entera con su nombre ("Catalardio se queda en guardia"), no como "Causa ...": marca ¶.
-		estados_log += _propio_florecido(e, ab).map(func(f): return "¶" + String(f))
+		estados_log += _propio_florecido(e, ab, tocados).map(func(f): return "¶" + String(f))
 
 	# INVOCACION (Rey Slime): saca hasta invoca_cantidad slimes al azar del pool. Para si se queda
 	# sin hueco (sequito lleno / tope de 4). Va aparte del daño/estados: una habilidad podria pegar

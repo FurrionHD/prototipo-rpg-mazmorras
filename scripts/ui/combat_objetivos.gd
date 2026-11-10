@@ -100,11 +100,32 @@ func _elegir_objetivo_enemigo(atenuado: bool = false) -> Combatant:
 # QUIEN PROVOCA A 'e' (la Provocacion del escudo): el de los tuyos en pie que le tiene provocado (le pillo su huella; o
 # a todos, sin lista), o null. Se acaba solo: cuando al provocador se le acaban los turnos o cae.
 func provocador_de(e: Combatant) -> Combatant:
+	# (10/11) uno de los TUYOS provocado por un florecido (el 💢 sale tambien en los tuyos)
+	if e != null and _pantalla._aliados.has(e):
+		return provocador_mio(e)
 	if e == null or not _pantalla._enemies.has(e):
 		return null
 	for c in _pantalla._aliados_vivos():
 		if c.provocar_turnos > 0 and (c.provocados.is_empty() or e in c.provocados):
 			return c
+	return null
+
+
+# (10/11, tanda 4) QUIEN TIENE PROVOCADO A UNO DE LOS TUYOS: el enemigo (tu personaje florecido con su Provocacion) que
+# lo lleva en sus provocados, vivo y con turnos. null = libre. En el ESPEJO no hay provocados: viaja ya resuelto en la
+# instantanea (Combatant.provocador_remoto, indice en _enemies).
+func provocador_mio(c: Combatant) -> Combatant:
+	if c == null or not _pantalla._aliados.has(c):
+		return null
+	if c.provocador_remoto > -2:
+		var i: int = c.provocador_remoto
+		if i >= 0 and i < _pantalla._enemies.size() and _pantalla._enemies[i].is_alive():
+			return _pantalla._enemies[i]
+		return null
+	for e in _pantalla._enemies:
+		var ec: Combatant = e
+		if ec.is_alive() and ec.provocar_turnos > 0 and c in ec.provocados:
+			return ec
 	return null
 
 

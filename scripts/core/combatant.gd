@@ -2396,6 +2396,9 @@ const PUERTA_PEGADO := 8
 const PUERTA_CONGELADO := 16
 const PUERTA_PRINGADO := 32
 var puertas_remotas: int = -1
+# (10/11) EN EL ESPEJO: quien tiene PROVOCADO a este de los tuyos, como indice en _enemies (-1 nadie). -2 = no viene por
+# red (quien lleva la pelea lo mira en los provocados del enemigo): ver CombatObjetivos.provocador_mio.
+var provocador_remoto: int = -2
 
 
 # ¿No puede lanzar hechizos ni habilidades? (Silencio). Le quedan el golpe basico, Defender,

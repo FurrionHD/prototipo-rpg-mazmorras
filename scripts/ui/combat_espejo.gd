@@ -439,7 +439,10 @@ func _valores(lista: Array, aliados: bool = false) -> Array:
 			# El campo 13, LOS ESTADOS (04/11, playtest: la rata 'en las sombras' se veia entera). El maniqui no tenia ninguno, y
 			# todo lo que se pinta preguntandole a su estado (las sombras, el sigilo, la resina, la savia, la furia del rey...)
 			# decia que no en el espejo, que es donde se juega de verdad: la pelea la lleva la sala.
-			_estados_red(c)])
+			_estados_red(c),
+			# El campo 14, QUIEN TE TIENE PROVOCADO (10/11, la Provocacion de tu personaje florecido): tu pantalla no deja
+			# apuntar a otro mientras dure. Indice en _enemies, -1 nadie.
+			_pantalla._enemies.find(_pantalla.objetivos.provocador_mio(c)) if aliados else -1])
 	return out
 
 
@@ -538,7 +541,8 @@ func _volatil(c: Combatant) -> Dictionary:
 		"provocar": c.provocar_turnos, "estados": estados, "cd": cds,
 		# A QUIEN tiene provocado (10/10): por INDICE de enemigo, como la cobertura. Sin esto, al traspasar la pelea el que
 		# la recoge veia la Provocacion pero sin nadie provocado.
-		"provocados": c.provocados.map(func(x): return _pantalla._enemies.find(x)),
+		# (10/11) los de un ENEMIGO (tu personaje florecido) son de los tuyos: indice en _aliados.
+		"provocados": c.provocados.map(func(x): return (_pantalla._aliados if _pantalla._enemies.has(c) else _pantalla._enemies).find(x)),
 		# La cura cortada por la luz (la aberracion, 30/09): sus grietas se ven en todas las maquinas.
 		"regen_cortada": c.regen_cortada,
 		"ablandado": c.ablandado, "cocido": c.cocido,
@@ -570,11 +574,12 @@ func _aplicar_volatil(c: Combatant, v: Dictionary) -> void:
 	c.foco_cargas = int(v.get("foco", c.foco_cargas))
 	c.provocar_turnos = int(v.get("provocar", 0))
 	var pv = v.get("provocados", [])
-	if pv is Array and _pantalla._aliados.has(c):
+	if pv is Array and (_pantalla._aliados.has(c) or _pantalla._enemies.has(c)):
+		var de: Array = _pantalla._aliados if _pantalla._enemies.has(c) else _pantalla._enemies
 		c.provocados.clear()
 		for idx in pv:
-			if int(idx) >= 0 and int(idx) < _pantalla._enemies.size():
-				c.provocados.append(_pantalla._enemies[int(idx)])
+			if int(idx) >= 0 and int(idx) < de.size():
+				c.provocados.append(de[int(idx)])
 	c.regen_cortada = int(v.get("regen_cortada", c.regen_cortada))
 	c.ablandado = int(v.get("ablandado", c.ablandado))
 	c.cocido = int(v.get("cocido", c.cocido))
@@ -1016,6 +1021,10 @@ func aplicar_accion_remota(accion: Dictionary, emisor: int = 0) -> void:
 					_pantalla.turno_mapa.anotar_apunte(accion.get("apunte", []))
 				var ia_h: int = int(accion.get("aliado", -1))
 				_pantalla._hab_aliado = _pantalla._aliados[ia_h] if ia_h >= 0 and ia_h < _pantalla._aliados.size() else null
+				# (10/11) PROVOCADO: la sala lo vuelve a mirar con el apunte sellado. Si no pilla a quien le provoco, no se
+				# pierde el turno: pega su basico a el (su objetivo fijado).
+				if _pantalla.tactico and _provocado_no_deja(_pantalla.turno_mapa.bloqueo_provocado(elegida, _pantalla._player), tipo, emisor):
+					return
 				_pantalla.habilidades._usar_habilidad(elegida)
 			else:
 				_pantalla._accion_atacar()   # ya no la tiene: no se pierde el turno
@@ -1034,6 +1043,11 @@ func aplicar_accion_remota(accion: Dictionary, emisor: int = 0) -> void:
 				var al_m: Combatant = _pantalla._aliados[ia_m] if ia_m >= 0 and ia_m < _pantalla._aliados.size() else null
 				# EN EL MAPA, el sitio que apunto (sellado). Sin el, false: aqui no se apunta por el.
 				var pt_m: Array = accion.get("punto", [])
+				if _pantalla.tactico and pt_m.size() >= 2:
+					_pantalla.turno_mapa.apunte = Vector2(float(pt_m[0]), float(pt_m[1]))
+					_pantalla.turno_mapa._hay_apunte = true
+					if _provocado_no_deja(_pantalla.turno_mapa.bloqueo_provocado(null, _pantalla._player, hechizo), tipo, emisor):
+						return
 				_pantalla.magia._elegir_hechizo(hechizo, al_m,
 					Vector2(float(pt_m[0]), float(pt_m[1])) if pt_m.size() >= 2 else false)
 			else:
@@ -1109,6 +1123,19 @@ func aplicar_accion_remota(accion: Dictionary, emisor: int = 0) -> void:
 # ¿La respuesta que llega es de la clase de lo que se pidio? Un turno ("accion") admite cualquiera de
 # las acciones del menu; una FRASE solo admite la frase, y el DISPARO solo el disparo. Mezclarlos era
 # lo que dejaba que un "atacar" rezagado se resolviera en mitad de un recitado.
+# (10/11, tanda 4) La sala vuelve a mirar la PROVOCACION de lo que le llega: 'motivo' = CombatTactico.bloqueo_provocado ("" =
+# vale). Si no vale (su pantalla se lo dejo con otra posicion, o un cliente viejo), no se rechaza el turno -congelaria la
+# pelea-: pega su basico a quien le provoco (su objetivo fijado). Devuelve true si lo ha cambiado.
+func _provocado_no_deja(motivo: String, tipo: String, emisor: int) -> bool:
+	if motivo == "":
+		return false
+	_pantalla._traza_add("'%s' del peer %d de %s NO pilla a quien le provoca (%s): pega su basico" % [
+		tipo, emisor, _pantalla._player.nombre, motivo])
+	_pantalla._set_log("%s. %s se lanza a por él. 💢" % [motivo, _pantalla._player.nombre])
+	_pantalla._accion_atacar()
+	return true
+
+
 func _encaja_con_lo_pedido(tipo: String, pendiente: String) -> bool:
 	match pendiente:
 		# La frase admite tambien el "cancelar": desde el examen de la PRIMERA se puede volver atras.
@@ -1697,6 +1724,8 @@ func _volcar(lista: Array, valores: Array) -> void:
 				lista[i].costra_turnos = int(v[12][6])
 		if v.size() > 13:
 			_volcar_estados(lista[i], v[13])
+		if v.size() > 14:
+			lista[i].provocador_remoto = int(v[14])
 		if v.size() > 8:
 			lista[i].ability_cooldowns.clear()
 			for k in (v[8] as Dictionary):

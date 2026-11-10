@@ -194,6 +194,17 @@ func _hacer_orden(orden: String, nombre: String) -> String:
 					p.altas._caer_aliado(al)
 					return "ok"
 			return "sin_aliado"
+		"provocar":
+			# (10/11, tanda 4) El personaje florecido 'nombre' provoca a todos los tuyos en pie 3 turnos (lo que haria su
+			# Provocacion): en el cliente tiene que salir el provocado y el objetivo fijado.
+			for c in p._enemies:
+				var e: Combatant = c
+				if e.is_alive() and e.nombre == nombre and e.has_status(StatusEffects.Id.FLORECIDO):
+					e.provocar_turnos = 3
+					e.provocados = p._aliados.filter(func(a): return a.is_alive())
+					p._update_hp()
+					return "ok"
+			return "sin_florecido"
 		"tumbar":
 			# El personaje florecido (el que usa el muñeco de un caido) cae otra vez.
 			for c in p._enemies:
