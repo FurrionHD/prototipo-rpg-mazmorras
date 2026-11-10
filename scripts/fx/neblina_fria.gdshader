@@ -1,6 +1,6 @@
 // LA NEBLINA DEL AURA FRIA EN PIXEL ART (04/11/2026, memoria efectos-a-pixel-art): el mismo tamano de celda que los sprites y su paleta
 // cerrada, sin una mezcla. Un solo rectangulo a pintar: lo que importa es a que distancia del borde de la zona cae cada celda, y
-// lo que se desvanece va a trama de 2 celdas. Sin esto serian miles de draw_rect por fotograma.
+// lo que se desvanece, con alfa en 4 escalones (sin rejilla, 10/11). Sin esto serian miles de draw_rect por fotograma.
 shader_type canvas_item;
 render_mode unshaded;
 
@@ -14,8 +14,6 @@ uniform vec4 c2 : source_color = vec4(0.831, 0.925, 1.0, 1.0);
 uniform vec4 c3 : source_color = vec4(1.0, 1.0, 1.0, 1.0);
 
 varying vec2 pos;
-
-const float BAYER[16] = float[](0.03, 0.53, 0.16, 0.66, 0.78, 0.28, 0.91, 0.41, 0.22, 0.72, 0.09, 0.59, 0.97, 0.47, 0.84, 0.34);
 
 void vertex() {
 	pos = VERTEX;
@@ -43,11 +41,18 @@ void fragment() {
 		cant = max(0.0, 1.0 - u) * 0.34;                           // y se deshace justo despues
 	}
 	ivec2 t = ivec2(floor(cel / 2.0));
-	float umbral = BAYER[(t.y & 3) * 4 + (t.x & 3)];
-	vec4 col = vec4(0.0);
-	if (umbral < cant) {
-		col = umbral < cant * 0.3 ? c2 : (umbral < cant * 0.7 ? c1 : c0);
+	// SIN REJILLA (10/11, memoria transparencia-de-verdad): los 4 umbrales de la trama, promediados: cada celda con su color
+	// medio y el alfa en 4 escalones (antes: trama Bayer, "pixel si, pixel no").
+	vec3 suma = vec3(0.0);
+	float n = 0.0;
+	for (int i = 0; i < 4; i++) {
+		float umbral = 0.125 + 0.25 * float(i);
+		if (umbral < cant) {
+			suma += (umbral < cant * 0.3 ? c2 : (umbral < cant * 0.7 ? c1 : c0)).rgb;
+			n += 1.0;
+		}
 	}
+	vec4 col = n > 0.0 ? vec4(suma / n, n * 0.25) : vec4(0.0);
 	// las chispitas de escarcha que titilan (bloques de 2 celdas)
 	float a = azar(vec2(t));
 	if (d < 2.0 && a > 0.985 && fract(TIME * 0.7 + a * 37.0) < 0.5) {

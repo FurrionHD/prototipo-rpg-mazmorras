@@ -1,6 +1,6 @@
 // ============================================================
 //  pixelar.gdshader -- lo que CapaPixel pinto a 2x2 subpixeles por celda (se queda el mas fuerte), cerrado a pixel art (04/11/2026):
-//  sin alfa a medias (lo flojo fuera, lo medio a trama Bayer de 2 celdas, lo fuerte macizo) y el color en escalones
+//  lo flojo fuera, lo medio con alfa en 4 escalones (sin rejilla, 10/11), lo fuerte macizo y el color en escalones
 //  (tono, saturacion y brillo cuantizados): el degradado suave se vuelve bandas de pocos tonos, como los sprites.
 // ============================================================
 shader_type canvas_item;
@@ -12,14 +12,10 @@ uniform float pasos_v = 5.0;
 uniform float pasos_s = 4.0;
 uniform float pasos_h = 36.0;
 
-float bayer2(ivec2 c) {
-	ivec2 b = ivec2(floor(vec2(c) / 2.0));
-	int x = b.x & 1;
-	int y = b.y & 1;
-	if (x == 0 && y == 0) return 0.125;
-	if (x == 1 && y == 1) return 0.375;
-	if (x == 1 && y == 0) return 0.625;
-	return 0.875;
+// SIN REJILLA (10/11, memoria transparencia-de-verdad): donde antes salia "pixel si, pixel no" (trama Bayer), ahora sale
+// cada pixel con el alfa en 4 escalones: los 4 umbrales de la trama, promediados (lo mismo que tools/sprites_sdf/transparencia.py).
+float escalones(float k) {
+	return (step(0.125, k) + step(0.375, k) + step(0.625, k) + step(0.875, k)) * 0.25;
 }
 
 vec3 a_hsv(vec3 c) {
@@ -52,9 +48,8 @@ void fragment() {
 		}
 	}
 	float a = m.a;
-	float u = bayer2(ip + ivec2(celda0));
-	bool queda = a >= corte_alto || (a >= corte_bajo && (a - corte_bajo) / (corte_alto - corte_bajo) > u);
-	if (!queda) {
+	float alfa = a >= corte_alto ? 1.0 : (a >= corte_bajo ? escalones((a - corte_bajo) / (corte_alto - corte_bajo)) : 0.0);
+	if (alfa <= 0.0) {
 		COLOR = vec4(0.0);
 	} else {
 		// el lienzo guarda el color premultiplicado (se pinto sobre transparente): se deshace
@@ -63,6 +58,6 @@ void fragment() {
 		h.x = floor(h.x * pasos_h + 0.5) / pasos_h;
 		h.y = floor(h.y * pasos_s + 0.5) / pasos_s;
 		h.z = clamp(ceil(h.z * pasos_v - 0.25) / pasos_v, 0.0, 1.0);
-		COLOR = vec4(a_rgb(h), 1.0);
+		COLOR = vec4(a_rgb(h), alfa);
 	}
 }

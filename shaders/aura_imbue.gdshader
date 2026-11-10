@@ -269,10 +269,9 @@ void fragment() {
 		res.rgb = tono_hsv(h, 0.78 - 0.5 * smoothstep(0.85, 1.0, luz), 0.45 + 0.65 * luz);
 	}
 	res.a = clamp(res.a * fuerza, 0.0, 1.0);
-	// SIN ALFA A MEDIAS (04/11, memoria efectos-pixel-personajes, como pixelar.gdshader): lo flojo fuera, lo medio a
-	// trama Bayer de 2 celdas, lo fuerte macizo. Asi se va apagando tambien (fuerza).
-	ivec2 b2 = ivec2(floor(celda / 2.0));
-	float um = (b2.x & 1) == 0 ? ((b2.y & 1) == 0 ? 0.125 : 0.875) : ((b2.y & 1) == 0 ? 0.625 : 0.375);
-	res.a = res.a >= 0.62 ? 1.0 : ((res.a >= 0.14 && (res.a - 0.14) / 0.48 > um) ? 1.0 : 0.0);
+	// Como pixelar.gdshader: lo flojo fuera, lo medio con el alfa en 4 escalones (SIN REJILLA, 10/11: antes trama Bayer),
+	// lo fuerte macizo. Asi se va apagando tambien (fuerza).
+	float k = (res.a - 0.14) / 0.48;
+	res.a = res.a >= 0.62 ? 1.0 : (res.a >= 0.14 ? (step(0.125, k) + step(0.375, k) + step(0.625, k) + step(0.875, k)) * 0.25 : 0.0);
 	COLOR = res;
 }

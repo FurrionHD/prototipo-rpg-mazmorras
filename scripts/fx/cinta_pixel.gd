@@ -2,14 +2,13 @@
 #  cinta_pixel.gd  (class_name CintaPixel)
 #  UNA O VARIAS CINTAS EN PIXEL ART ENTRE DOS PUNTOS CUALESQUIERA (04/11/2026, memoria efectos-a-pixel-art): el chorro del Geiser, los hilos de
 #  Chupar... Lo que miden lo dice cada pelea, asi que no caben en una hoja: se pintan por celdas, en la rejilla de los sprites y con tres tonos
-#  (borde, cuerpo, luz). Crecen de 'desde' a 'hasta', aguantan y se van a trama. Con 'bolitas', unas bolas de luz corren por ellas hacia 'hasta'.
+#  (borde, cuerpo, luz). Crecen de 'desde' a 'hasta', aguantan y se van (alfa en 4 escalones, sin rejilla). Con 'bolitas', unas bolas de luz corren por ellas hacia 'hasta'.
 # ============================================================
 extends Node2D
 class_name CintaPixel
 
 const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
 const CELDA: float = SpriteLienzo.UNIDADES_POR_CELDA
-const BAYER: Array = [0.03, 0.53, 0.16, 0.66, 0.78, 0.28, 0.91, 0.41, 0.22, 0.72, 0.09, 0.59, 0.97, 0.47, 0.84, 0.34]
 
 var _a: Vector2 = Vector2.ZERO
 var _b: Vector2 = Vector2.ZERO
@@ -96,22 +95,29 @@ func _draw() -> void:
 	var largo: float = _a.distance_to(_b) + _arco
 	var pasos: int = maxi(4, roundi(largo / CELDA))
 	var hechos: int = int(float(pasos) * crece)
-	# por capas: primero todos los bordes, luego el cuerpo y luego la luz (si no, cada celda le pisa el relleno a la anterior)
+	# por capas: primero todos los bordes, luego el cuerpo y luego la luz (si no, cada celda le pisa el relleno a la anterior).
+	# Cada celda se apunta con su color final y se pinta UNA vez: al irse lleva el alfa en 4 escalones (SIN REJILLA, 10/11;
+	# antes se iba a trama Bayer) y las celdas solapadas no se oscurecen.
+	var alfa: float = 1.0 - (float(0.125 < va) + float(0.375 < va) + float(0.625 < va) + float(0.875 < va)) * 0.25
+	if alfa <= 0.0:
+		return
+	var celdas: Dictionary = {}
 	for capa in 3:
 		for k in _n:
 			for i in hechos + 1:
 				var u: float = float(i) / float(pasos)
 				var c: Vector2 = (_punto(k, u) / CELDA).floor()
-				# se va a trama de 2 celdas
-				if va > 0.0 and BAYER[(int(c.y / 2.0) & 3) * 4 + (int(c.x / 2.0) & 3)] < va:
-					continue
 				var g: int = roundi(_grueso * (1.0 - u * _afina))
 				match capa:
-					0: _celdas(c, g + 1, _pal[0])
-					1: _celdas(c, g, _pal[1])
+					0: _apuntar(celdas, c, g + 1, _pal[0])
+					1: _apuntar(celdas, c, g, _pal[1])
 					2:
 						if g >= 1:
-							_celdas(c + Vector2(0, -1), maxi(g - 1, 0), _pal[2])
+							_apuntar(celdas, c + Vector2(0, -1), maxi(g - 1, 0), _pal[2])
+	for c3 in celdas:
+		var col: Color = celdas[c3]
+		col.a *= alfa
+		draw_rect(Rect2(c3.x * CELDA, c3.y * CELDA, CELDA, CELDA), col)
 	if not _bolitas or va >= 1.0 or crece < 1.0:
 		return
 	for k in _n:
@@ -120,6 +126,12 @@ func _draw() -> void:
 			var c2: Vector2 = (_punto(k, u2) / CELDA).floor()
 			_celdas(c2, 1, _pal[1])
 			_celdas(c2, 0, _luz_bola)
+
+
+func _apuntar(celdas: Dictionary, c: Vector2, media: int, col: Color) -> void:
+	for y in range(-media, media + 1):
+		for x in range(-media, media + 1):
+			celdas[Vector2i(int(c.x) + x, int(c.y) + y)] = col
 
 
 func _celdas(c: Vector2, media: int, col: Color) -> void:
