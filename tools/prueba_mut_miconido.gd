@@ -649,12 +649,20 @@ func _efectos_pixel(t, campana: Combatant, florecido: Combatant, yo: Combatant) 
 	_ver(foco != null and foco.get_parent() == arena, "el Destello sale en la arena")
 	_ver(is_equal_approx(SueloRoto.retraso(circ_f, circ_f.centro + Vector2.RIGHT * des_f.forma_radio, des_f.suelo_roto), 0.22),
 		"y al borde del circulo el golpe llega cuando llega la luz (0,22 s)")
-	for _k in 20:
-		await get_tree().process_frame
-	var haz = foco.get("_haz") if foco != null else null
-	var suelo = foco.get("_suelo") if foco != null else null
-	_ver(haz != null and (haz as Sprite2D).visible and suelo != null and not (suelo as Sprite2D).visible,
-		"en circulo se ven los haces y nada en el suelo")
+	# (10/11, banco 5d6e973e: esperando 20 fotogramas fallo con el PC cargado: un fotograma lento se come el segundo que
+	# dura y el foco ya se ha borrado.) NO DEPENDE DE LO RAPIDO QUE VAYA EL PC: se para su reloj, se pone a mitad de su
+	# vida (abierto del todo y entero) y se mira lo que pinta.
+	var vivo_f: bool = is_instance_valid(foco)
+	if vivo_f:
+		foco.set_process(false)
+		foco.set("_t", 0.4)
+		foco.call("_pintar")
+	var haz = foco.get("_haz") if vivo_f else null
+	var suelo = foco.get("_suelo") if vivo_f else null
+	_ver(vivo_f and haz != null and (haz as Sprite2D).visible and (haz as Sprite2D).texture != null
+		and suelo != null and not (suelo as Sprite2D).visible, "en circulo se ven los haces y nada en el suelo")
+	if vivo_f:
+		foco.queue_free()
 	# LA NUBE QUE SE QUEDA: la del venenoso (PiezaPixel), teñida
 	_ver(ResourceLoader.exists("res://assets/sprites/efectos/miconido/atado_dura_a.png"), "el atado de micelio horneado")
 	for _k in 30:
