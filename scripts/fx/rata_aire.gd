@@ -25,7 +25,9 @@ const T_PASA := 0.2            # lo que tarda la Embestida en recorrer su linea 
 const T_FOGONAZO := 0.16       # lo que tarda el Destello en llegar al borde de su abanico
 const T_ONDA := 1.1            # lo que dura la ondulacion del sigilo
 const ONDA_FRANJAS := 16
-const ONDA_ALFA := 0.75
+# (10/11, el jefe: "se le ve la silueta en gris completamente; que se vea menos y mas sutil") 0,3 como mucho, en 4 escalones
+# de transparencia de verdad (sin trama), y solo ALGUNAS franjas a la vez (un temblor del aire, no su silueta entera).
+const ONDA_ALFA := 1.0   # (ahora es la FUERZA del temblor: el shader no pone color)
 const ESPALDA := 14.0          # (la Traicion aparece un poco mas alla de su presa, en la direccion del salto)
 const JIRONES_SALTO := 5
 const ALTO_SALTO := 10.0
@@ -122,13 +124,25 @@ const _SHADER_ONDA := """shader_type canvas_item;
 uniform vec3 velo = vec3(1.0);
 uniform float fuerza = 1.0;
 varying float alfa;
-const float BAYER[16] = float[](0.03, 0.53, 0.16, 0.66, 0.78, 0.28, 0.91, 0.41, 0.22, 0.72, 0.09, 0.59, 0.97, 0.47, 0.84, 0.34);
+// (10/11, el jefe: "tiene que ser como una ondulacion del aire muy muy sutil, no una mancha gris") SIN COLOR: dentro de
+// su silueta se ve LO DE DETRAS (el suelo), corrido de lado por filas hasta 3 celdas en el pico: el aire que
+// tiembla sobre ella. Sobre suelo liso casi no se nota (y asi debe ser); sobre baldosas, ondula.
+uniform sampler2D pantalla : hint_screen_texture, filter_nearest;
 void vertex() { alfa = COLOR.a; }
 void fragment() {
 	vec4 t = texture(TEXTURE, UV);
-	ivec2 c = ivec2(floor(UV / TEXTURE_PIXEL_SIZE / 2.0));
-	float u = BAYER[(c.y & 3) * 4 + (c.x & 3)];
-	COLOR = vec4(velo, (t.a > 0.5 && u < alfa) ? 1.0 : 0.0);
+	if (t.a < 0.5 || alfa < 0.02) {
+		discard;
+	}
+	// cuanto mide una celda de su hoja en la pantalla (para correr celdas enteras: sigue siendo pixel art)
+	vec2 celda = abs(dFdx(SCREEN_UV)) / max(abs(dFdx(UV)), vec2(1e-6)) * TEXTURE_PIXEL_SIZE;
+	float fila = floor(UV.y / TEXTURE_PIXEL_SIZE.y / 2.0);
+	// (10/11, el jefe: "menos sutil") hasta 2 celdas, mas filas a la vez, y donde se corre el suelo brilla un poco (calor)
+	// (10/11, la que eligio tras dos pruebas: "esta es la buena") hasta 3 celdas, casi todas las filas, brillo 1,14
+	float onda = sin(TIME * 7.0 + fila * 1.3) * (0.75 + 0.25 * sin(TIME * 3.1 + fila * 0.7));
+	float corre = round(onda * 3.0 * alfa);
+	vec3 fondo = texture(pantalla, SCREEN_UV + vec2(corre * celda.x, 0.0)).rgb;
+	COLOR = vec4(fondo * (corre != 0.0 ? 1.14 : 1.0), 1.0);
 }
 """
 
@@ -192,7 +206,7 @@ func _draw() -> void:
 	var alto: float = tam.y / float(ONDA_FRANJAS)
 	draw_set_transform_matrix(_xf)
 	for i in ONDA_FRANJAS:
-		var mece: float = roundf(sin(_t * 11.0 + _fase + float(i) * 0.9) * (0.6 + 1.2 * sin(PI * k)))
+		var mece: float = 0.0   # (10/11) el temblor lo hace el shader con lo de detras; la silueta no se mueve
 		var src := Rect2(0.0, alto * float(i), tam.x, alto)
 		var dst := Rect2(_rect.position + Vector2(mece, alto * float(i)), Vector2(tam.x, alto))
 		if _al_reves:   # (el sprite va volteado: la franja, del reves)

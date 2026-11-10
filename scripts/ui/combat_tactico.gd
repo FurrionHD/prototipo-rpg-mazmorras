@@ -493,7 +493,9 @@ func _sigilo_visible(quitar: bool) -> void:
 # marca de la niebla, que si no lo vuelve a encender), sin ficha ni barra (combat_figuras_mapa) y, cada pocos segundos, el
 # aire ONDULA donde esta (RataAire.onda_sigilo). Lo lee del estado, asi que en el espejo sale igual. 'quitar' los
 # devuelve a todos a la vista (al acabar la pelea).
-const ONDA_CADA := Vector2(2.2, 4.0)   # cada cuanto ondula el aire (s, al azar entre los dos)
+# (10/11, el jefe: "como mucho cada 20 segundos o 15, porque si no va a ser muy evidente") antes 2,2-4 s.
+const ONDA_CADA := Vector2(15.0, 20.0)   # cada cuanto ondula el aire (s, al azar entre los dos)
+const ONDA_PRIMERA := Vector2(10.0, 15.0)   # la primera, tras esconderse
 var _en_sombras: Dictionary = {}   # cuerpo -> segundos que faltan para la siguiente onda
 
 func _sombras_visibles(quitar: bool, dt: float = 0.0) -> void:
@@ -512,7 +514,7 @@ func _sombras_visibles(quitar: bool, dt: float = 0.0) -> void:
 			ocultas["red_%d_%d" % [100 + i, CLASE_CARGA]] = true
 			ocultas["red_%d_%d" % [100 + i, CLASE_PISOTON]] = true
 			if not _en_sombras.has(cu):
-				_en_sombras[cu] = randf_range(0.6, ONDA_CADA.x)
+				_en_sombras[cu] = randf_range(ONDA_PRIMERA.x, ONDA_PRIMERA.y)
 				print("[sombras] %s desaparece" % e.nombre)
 			if cu.visible:
 				cu.visible = false

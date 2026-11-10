@@ -9,6 +9,7 @@ const LADO := 220
 const ZOOM := 4.0
 const TIEMPOS := [0.0, 0.15, 0.3, 0.45, 0.55, 0.65, 0.8, 0.95, 1.05]
 const SUELO := Color(0.13, 0.12, 0.14)
+const PISO := 3   # el de las ratas
 
 var _rotulo: Label = null
 
@@ -19,12 +20,61 @@ func _ready() -> void:
 	cam.zoom = Vector2(ZOOM, ZOOM)
 	add_child(cam)
 	cam.make_current()
+	# (10/11, el jefe: "necesito verlo en un suelo de verdad") EL SUELO DE LA MAZMORRA detras, el del piso de las ratas: la
+	# onda ya no pinta color, corre lo de detras; sobre liso no se veria nada.
+	var ts: TileSet = TerrenoSprites.tileset_de_tramos(TerrenoSprites.tramos_de(PISO))
+	var suelo := TileMapLayer.new()
+	suelo.tile_set = ts
+	suelo.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	suelo.z_index = -100
+	for y in range(-12, 12):
+		for x in range(-12, 12):
+			var c := Vector2i(x, y)
+			suelo.set_cell(c, 0, TerrenoSprites.celda_para("suelo", c, 0, 7))
+	add_child(suelo)
 	var capa := CanvasLayer.new()
 	add_child(capa)
 	_rotulo = Label.new()
 	_rotulo.add_theme_font_size_override("font_size", 12)
 	capa.add_child(_rotulo)
-	call_deferred("_hacer")
+	if OS.get_environment("VER_VIVO") == "1":
+		call_deferred("_vivo")
+	else:
+		call_deferred("_hacer")
+
+
+# (10/11) EN VIVO, para verlo moverse (en foto fija no se ve un temblor): a la izquierda la sombria a la vista, a la
+# derecha escondida y ondulando cada 2,5 s (en la pelea, cada 20-30 s). Se cierra sola a los 40 s.
+#   VER_VIVO=1 godot --path . res://tools/ver_onda_sigilo.tscn
+func _vivo() -> void:
+	var ed: EnemyData = load("res://scenes/actors/enemy/rata.tres")
+	var ver := AnimatedSprite2D.new()
+	ver.sprite_frames = SpritesEnemigo.frames_de(ed, 0.5, true, &"sombria")
+	ver.animation = &"idle_1"
+	ver.position = Vector2(-28, 0)
+	ver.play()
+	add_child(ver)
+	var esc := AnimatedSprite2D.new()
+	esc.sprite_frames = ver.sprite_frames
+	esc.animation = &"idle_1"
+	esc.position = Vector2(28, 0)
+	esc.play()
+	esc.visible = false
+	add_child(esc)
+	_rotulo.text = "izquierda: a la vista  ·  derecha: en las sombras (ondula cada 2,5 s; en la pelea, cada 20-30 s)"
+	_rotulo.position = Vector2(12, 8)
+	BarridoAire.ritmo = 1.0
+	var t: float = 0.0
+	var prox: float = 1.0
+	while t < 40.0:
+		await get_tree().process_frame
+		var dt: float = get_process_delta_time()
+		t += dt
+		prox -= dt
+		if prox <= 0.0:
+			prox = 2.5
+			RataAire.onda_sigilo(self, esc, randi())
+	get_tree().quit(0)
 
 
 func _hacer() -> void:
@@ -48,6 +98,7 @@ func _hacer() -> void:
 		onda.set_process(false)
 		for col in TIEMPOS.size():
 			onda.set("_t", float(TIEMPOS[col]))
+			onda.queue_redraw()   # (10/11: la onda se dibuja ella misma; antes solo se repintaban sus hijos y salia vacia)
 			for c in onda.get_children():
 				(c as Node2D).queue_redraw()
 			await _viñeta(hoja, col + 1, fila, "en las sombras · %.2f s" % float(TIEMPOS[col]))

@@ -192,8 +192,11 @@ func _pelea() -> void:
 	var cu: Node2D = tm.cuerpo_de(som)
 	_ver(not cu.visible, "su cuerpo no se ve")
 	var ondas: int = 0
+	# (10/11) la primera tarda 10-15 s y luego una cada 15-20 s: se avanza el reloj a pasos de 0,1 s (hasta 30 s)
+	var pasado: float = 0.0
 	for _i in 300:
-		tm.tick(0.016)
+		tm.tick(0.1)
+		pasado += 0.1
 		for n in tm._arena().get_children():
 			# (05/11) Con los efectos en pixel a RataAire solo le queda la ONDA del sigilo, y ya no guarda su modo.
 			if n is RataAire and (n.get("modo") == null or n.get("modo") == RataAire.Modo.ONDA):
@@ -201,7 +204,8 @@ func _pelea() -> void:
 		if ondas > 0:
 			break
 		await get_tree().process_frame
-	_ver(ondas > 0, "y de vez en cuando el aire ondula donde esta")
+	_ver(ondas > 0 and pasado >= 9.9, "y de vez en cuando el aire ondula donde esta (la primera a los %.1f s)" % pasado)
+	_ver(float(tm._en_sombras.get(cu, 0.0)) >= 14.9, "y la siguiente, a 15 s o mas (%.1f s)" % float(tm._en_sombras.get(cu, 0.0)))
 	_ver(not cu.visible, "(la niebla no la vuelve a encender)")
 	# Sus huellas no se pintan: una carga suya, guardada pero oculta.
 	tm.guardar_carga_enemigo(som, _ab_mapa("rata_frenesi_sombra"), yo)
