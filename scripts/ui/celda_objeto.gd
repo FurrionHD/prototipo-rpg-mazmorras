@@ -541,6 +541,10 @@ const GLIFO_SET := {
 	# 9 x 9 y A TRES TONOS: '#' el filo (blanco), '+' la hoja (clara), '=' el mango (madera). Pidio rehacer los demas asi.
 	&"segadora": ["...+++++=", ".++++++=.", "++####.=.", "##....=..", "#.....=..", "......=..", ".....=...", ".....=...",
 		"....=...."],
+	# (09/11, eligio el jefe de tools/glifos_contagio.py: "es god") la seta del set Contagio del micónido, la E SETA QUE
+	# REVIENTA: '#' las esporas (claras), '+' el sombrero, '=' el pie. Con SUS tonos (GLIFO_TONOS_MICONIDO).
+	&"miconido": ["#..#.#..#", ".#.....#.", "...+++...", "#.+++++.#", ".+++++++.", "....=....",
+		"...===...", "...===...", "..=====.."],
 }
 # El ACENTO de cada set ('='); sin entrada, su runa oscurecida. El tono claro ('+') es su runa aclarada.
 const GLIFO_ACENTO := {
@@ -558,11 +562,15 @@ const GLIFO_ACENTO := {
 }
 # Los TONOS propios de la guadaña (la hoja y el mango de madera); los demas salen de su runa (tonos_glifo).
 const GLIFO_TONOS := {"+": Color(0.70, 0.77, 0.75), "=": Color(0.59, 0.46, 0.33)}
+# Los de la lamina aprobada (glifos_contagio.TONOS); este tambien tiñe el '#' (las esporas, amarillo palido).
+const GLIFO_TONOS_MICONIDO := {"#": Color8(236, 240, 170), "+": Color8(196, 168, 110), "=": Color8(110, 84, 60)}
 
 
 static func tonos_glifo(id: StringName, col: Color) -> Dictionary:
 	if id == &"segadora":
 		return GLIFO_TONOS
+	if id == &"miconido":
+		return GLIFO_TONOS_MICONIDO
 	return {"+": col.lightened(0.55), "=": GLIFO_ACENTO.get(id, col.darkened(0.45))}
 
 
@@ -605,7 +613,7 @@ func _glifo(ci: CanvasItem, c: Vector2, lado: float, filas: Array, tinta: Color,
 		for i in f.length():
 			var ch: String = f[i]
 			if ch == "#":
-				ci.draw_rect(Rect2(x0 + float(i) * px, y0 + float(j) * px, px, px), tinta)
+				ci.draw_rect(Rect2(x0 + float(i) * px, y0 + float(j) * px, px, px), tonos.get("#", tinta))
 			elif tonos.has(ch):
 				ci.draw_rect(Rect2(x0 + float(i) * px, y0 + float(j) * px, px, px), tonos[ch])
 

@@ -557,6 +557,62 @@ func _correr() -> void:
 	_ver(expl.elemento_golpe == Elementos.Elemento.FUEGO and rd.elemento_golpe == Elementos.Elemento.OSCURIDAD,
 		"Explosion de brasas de fuego y el Destello de la rata de oscuridad")
 
+	print("7) EL SET CONTAGIO (la runa del micónido)")
+	var set_c: RunaSetData = Runas.set_por_id(&"miconido")
+	_ver(set_c != null and set_c.efecto == &"contagio" and is_equal_approx(float(set_c.params["radio"]), 40.0)
+		and is_equal_approx(float(set_c.params["prob"]), 0.6), "el set Contagio carga con sus numeros (40 y 60 %)")
+	_ver(set_c != null and Runas.efecto_txt(set_c).contains("60 %"), "su texto: %s" % (Runas.efecto_txt(set_c) if set_c != null else "-"))
+	var md: EnemyData = load("res://scenes/actors/enemy/miconido.tres")
+	_ver(md.drop_runa != null and md.drop_runa.id == &"runa_miconido", "el micónido suelta su runa")
+	# (los micónidos son inmunes al Veneno: con las ratas, que se envenenan)
+	var vivas: Array = combat._enemies.filter(func(o: Combatant) -> bool: return o.is_alive() and not o.es_inmune(StatusEffects.Id.VENENO))
+	# Con dos que se envenenen basta: el que cae vuelve a ponerse en pie para el paso siguiente.
+	if vivas.size() >= 2:
+		var r1: Combatant = vivas[0]
+		var r2: Combatant = vivas[1]
+		var cont_de_pie := func(r: Combatant) -> void:
+			r.current_hp = r.max_hp
+			r.statuses.clear()
+			if r.has_meta(&"contagio_hecho"):
+				r.remove_meta(&"contagio_hecho")
+		var cont_caer := func(r: Combatant) -> void:
+			r.apply_status(StatusEffects.Id.VENENO)
+			r.take_damage(r.current_hp + 10.0)
+		combat._player = yo
+		yo.runa_contagio_radio = 40.0
+		# (con 10 y no con su 60 %: la tirada no puede fallar; lo que se mira es A QUIEN llega la nube)
+		yo.runa_contagio_prob = 10.0
+		cont_de_pie.call(r1)
+		cont_de_pie.call(r2)
+		_poner(t, r1, t.pies_de(yo) + Vector2(60, 0))
+		_poner(t, r2, t.pies_de(r1) + Vector2(0, 200))
+		cont_caer.call(r1)
+		combat._contagio(r1, yo)
+		_ver(not r2.has_status(StatusEffects.Id.VENENO), "la nube no llega al de lejos")
+		var n_log: int = combat._log_lines.size()
+		combat._contagio(r1, yo)
+		_ver(combat._log_lines.size() == n_log, "una sola vez por muerto")
+		cont_de_pie.call(r1)
+		_poner(t, r2, t.pies_de(r1) + Vector2(30, 0))
+		cont_caer.call(r1)
+		combat._contagio(r1, yo)
+		_ver(r2.has_status(StatusEffects.Id.VENENO), "al caer envenenado, la nube envenena al de al lado")
+		# EN CADENA: el que envenena la nube, al caer a tus manos, revienta igual (sobre el primero, de pie otra vez)
+		cont_de_pie.call(r1)
+		r2.take_damage(r2.current_hp + 10.0)
+		combat._contagio(r2, yo)
+		_ver(r1.has_status(StatusEffects.Id.VENENO), "en cadena: el que envenena la nube tambien revienta")
+		cont_de_pie.call(r1)
+		cont_de_pie.call(r2)
+		yo.runa_contagio_prob = 0.0
+		cont_caer.call(r1)
+		combat._contagio(r1, yo)
+		_ver(not r2.has_status(StatusEffects.Id.VENENO), "sin el set, nada")
+		cont_de_pie.call(r1)
+		cont_de_pie.call(r2)
+	else:
+		_ver(false, "quedan dos enemigos que se envenenan para probar el Contagio (%d)" % vivas.size())
+
 
 # Le deja SOLO esa habilidad (con 'sola') y energia llena, y juega sus turnos hasta que la USA (las que se preparan salen al
 # turno siguiente; como mucho tres). Devuelve el registro de esos turnos.

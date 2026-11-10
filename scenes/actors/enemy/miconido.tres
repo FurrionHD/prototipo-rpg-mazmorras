@@ -14,6 +14,7 @@
 [ext_resource type="Resource" path="res://resources/abilities/miconido_tajo_oxidado.tres" id="25_taj"]
 [ext_resource type="Resource" path="res://resources/abilities/miconido_esporas_infeccion.tres" id="26_inf"]
 [ext_resource type="Resource" path="res://resources/abilities/miconido_estocada.tres" id="27_est"]
+[ext_resource type="Resource" path="res://resources/materials/runa_miconido.tres" id="28_runa"]
 
 [sub_resource type="Resource" id="SA_ven"]
 script = ExtResource("2")
@@ -116,3 +117,4 @@ anim_basico = &"golpe_5_8"
 cuerpo = Rect2(-13.35, -1.95, 25.65, 14.65)
 centro_golpe = Vector2(-0.5, 4.9)
 alcance_marcado = 31.65
+drop_runa = ExtResource("28_runa")

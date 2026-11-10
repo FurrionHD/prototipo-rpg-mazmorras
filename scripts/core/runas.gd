@@ -132,7 +132,7 @@ const RUTAS_SETS := ["res://resources/runas/set_slime.tres", "res://resources/ru
 	"res://resources/runas/set_rata.tres", "res://resources/runas/set_rey_rata.tres", "res://resources/runas/set_jabali.tres",
 	"res://resources/runas/set_trent.tres", "res://resources/runas/set_arana.tres",
 	"res://resources/runas/set_escarabajo.tres", "res://resources/runas/set_ciempies.tres",
-	"res://resources/runas/set_segadora.tres"]
+	"res://resources/runas/set_segadora.tres", "res://resources/runas/set_miconido.tres"]
 static var _sets: Array = []
 
 static func sets() -> Array:
@@ -390,6 +390,9 @@ static func efecto_txt(s: RunaSetData) -> String:
 		&"filo_aire":
 			return "Los ataques con arma del portador se alargan con un corte de viento: los conos y los círculos llegan un %s más lejos, las líneas son un %s más largas y los ataques a un solo objetivo siguen %s por detrás de él. Los enemigos a los que solo alcanza el corte reciben como Daño de Viento un %s del daño que esa habilidad o ataque les habría infligido. Se activa 1 vez por habilidad. No funciona con la magia." % [
 				_pct(p, "mas", 0.3), _pct(p, "linea", 0.4), tramo_txt(float(p.get("detras", 50.0))), _pct(p, "dano", 0.3)]
+		&"contagio":
+			return "Cuando el portador derrota a un enemigo con Veneno, ese enemigo revienta en una nube de esporas: cada enemigo %s tiene un %s de probabilidad base de quedar Envenenado (un Veneno nuevo, sin las acumulaciones del derrotado). La nube no inflige daño. Si el portador derrota después a uno de esos enemigos mientras sigue envenenado, también revienta." % [
+				cerca_txt(float(p.get("radio", 40.0)), false).replace("al objetivo", "a él").replace("del objetivo", "de él"), _pct(p, "prob", 0.6)]
 		&"cielo":
 			return "El Daño de Luz y el Daño de Oscuridad del portador aumentan en un %s. Cuando el portador asesta un golpe crítico, tiene un %s de probabilidad base de causar Ceguera al objetivo." % [
 				_pct(p, "dano", 0.20), _pct(p, "ciego", 0.20)]
@@ -543,6 +546,9 @@ static func aplicar(c: Combatant, p: PersonajeData) -> void:
 	var alc: Dictionary = efecto_activo(p, &"alcantarilla")
 	c.runa_alcantarilla_prob = float(alc.get("prob", 0.0))
 	c.runa_alcantarilla_dano = float(alc.get("dano", 0.0))
+	var contagio: Dictionary = efecto_activo(p, &"contagio")
+	c.runa_contagio_radio = float(contagio.get("radio", 0.0))
+	c.runa_contagio_prob = float(contagio.get("prob", 0.0))
 	var filo: Dictionary = efecto_activo(p, &"filo_aire")
 	c.runa_filo_dano = float(filo.get("dano", 0.0))
 	c.runa_filo_mas = float(filo.get("mas", 0.0))

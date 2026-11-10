@@ -643,6 +643,10 @@ var runa_hilo_radio: float = 0.0        # ...a un enemigo a esta distancia del g
 # set FILO DE AIRE (05/11, la segadora): tus golpes de arma se alargan con un corte de VIENTO de runa_filo_dano x LO QUE SU HABILIDAD LE HARIA (06/11; CombatHabilidades.dano_de_habilidad_contra) a
 # quien la forma normal no toco: conos y circulos +runa_filo_mas de radio, lineas +runa_filo_linea, a uno runa_filo_detras px.
 var runa_filo_dano: float = 0.0
+# set CONTAGIO (10/11, el micónido): al derrotar a un enemigo envenenado, revienta en esporas: a cada enemigo a menos de
+# runa_contagio_radio del borde de su cuerpo, Veneno con runa_contagio_prob (sin daño; en cadena).
+var runa_contagio_radio: float = 0.0
+var runa_contagio_prob: float = 0.0
 var runa_filo_mas: float = 0.0
 var runa_filo_linea: float = 0.0
 var runa_filo_detras: float = 0.0

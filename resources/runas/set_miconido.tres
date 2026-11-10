@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="RunaSetData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/runa_set_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/materials/esporas_densas.tres" id="2_mat"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_miconido.tres" id="3_nuc"]
+[ext_resource type="Resource" path="res://resources/materials/runa_miconido.tres" id="4_runa"]
+
+; CONTAGIO (09/11, numeros aprobados; memoria miconido-mutante), set de ARMA del micónido: al matar a un enemigo ENVENENADO
+; revienta en una nube de esporas (radio, desde el borde de su cuerpo) y cada ENEMIGO dentro tira 'prob' de Veneno (uno
+; nuevo: no pasan las cargas). Sin daño propio; en cadena (el que muera envenenado a tus manos tambien revienta).
+[resource]
+script = ExtResource("1")
+id = &"miconido"
+nombre = "Contagio"
+tipo = 0
+material = ExtResource("2_mat")
+nucleo = ExtResource("3_nuc")
+coste_material = 6
+coste_nucleo = 3
+runa = ExtResource("4_runa")
+bonus_2p = {}
+efecto = &"contagio"
+params = {"radio": 40.0, "prob": 0.6}
+metadata/_custom_type_script = "res://scripts/items/runa_set_data.gd"

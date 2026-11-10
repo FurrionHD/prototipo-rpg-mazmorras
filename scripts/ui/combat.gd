@@ -695,6 +695,44 @@ func _revienta(e: Combatant) -> void:
 	turno_mapa.charcos_al_nacer()
 
 
+# EL SET CONTAGIO (10/11, la runa del micónido; numeros aprobados el 09/11): el enemigo 'e' que 'quien' derrota con Veneno
+# revienta en una nube de esporas. A cada enemigo vivo a menos de runa_contagio_radio del borde de su cuerpo (en la fila,
+# los de al lado), Veneno con runa_contagio_prob y la tirada de siempre contra su resistencia (un Veneno nuevo: no pasan
+# sus cargas). Sin daño. En cadena: el que caiga despues envenenado a manos del portador revienta igual. Una vez por
+# muerto. Solo quien ejecuta la pelea; los efectos viajan como cualquier golpe.
+func _contagio(e: Combatant, quien: Combatant) -> void:
+	if e == null or quien == null or quien.runa_contagio_prob <= 0.0 or _espejo or e.has_meta(&"contagio_hecho") 			or not e.has_status(StatusEffects.Id.VENENO):
+		return
+	e.set_meta(&"contagio_hecho", true)
+	var cerca: Array = []
+	var i: int = _enemies.find(e)
+	for o in _enemies:
+		if o == e or not o.is_alive():
+			continue
+		if tactico:
+			if turno_mapa.hueco_entre(e, o) <= quien.runa_contagio_radio:
+				cerca.append(o)
+		elif absi(_enemies.find(o) - i) == 1:
+			cerca.append(o)
+	var ab := AbilityData.new()
+	var sa := StatusApplication.new()
+	sa.estado = StatusEffects.Id.VENENO
+	sa.prob = quien.runa_contagio_prob
+	ab.efectos = [sa]
+	if _fx != null:
+		efectos._fx_tanda(_fx.ultima_tanda() + 1)
+	# LA NUBE se ve aunque no pille a nadie: la tos de esporas en el que revienta y en cada uno de los de alrededor
+	efectos._fx_golpe(quien, e, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.SIMA_TOS, 1.0, true)
+	var nombres: Array = []
+	for v in cerca:
+		var puestos: Array = habilidades._tirar_efectos_habilidad(ab, v, false, "objetivo")
+		efectos._fx_golpe(quien, v, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.SIMA_TOS, 1.0, true)
+		if not puestos.is_empty():
+			nombres.append(_etq(v))
+	_log_extra("Contagio: %s revienta en esporas%s" % [_etq(e),
+		(" y envenena a %s." % ", ".join(nombres)) if not nombres.is_empty() else "."])
+
+
 # LA GARRAPATA HINCHADA REVIENTA AL MORIR (02/11, ver EnemyData.hincha_tope): a los tuyos a revienta_radio px de sus pies
 # (en la fila, al que tenga delante), revienta_mult de su ataque por cada hinchazon y su Veneno (con su tirada). Sin
 # hinchar, muere sin mas. Solo quien ejecuta la pelea.
@@ -3310,6 +3348,10 @@ func _tras_accion_jugador_varios(objs: Array) -> void:
 	var vistos: Dictionary = {}   # el mismo enemigo puede venir por el area Y por un rebote
 	var caidos_rebote: Array = _caidos_de_rebote
 	_caidos_de_rebote = []
+	# EL SET CONTAGIO: los envenenados que caen por tu accion revientan en esporas (antes de darlos por caidos: sus pies).
+	for o in objs + caidos_rebote:
+		if o is Combatant and not o.is_alive() and _enemies.has(o):
+			_contagio(o, _player)
 	for o in objs + caidos_rebote:
 		if o != null and not o.is_alive() and not vistos.has(o):
 			vistos[o] = true
