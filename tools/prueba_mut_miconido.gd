@@ -155,6 +155,9 @@ func _correr() -> void:
 	await _esperar(40)
 	_ver(is_equal_approx(t.pies_de(yo).distance_to(pc), antes), "a 200 px, nada")
 
+	print("2b) LOS EFECTOS EN PIXEL (10/11, sin rejilla)")
+	await _efectos_pixel(t, campana, florecido, yo)
+
 	print("3) NO SIENTE EL DOLOR")
 	_ver(is_equal_approx(florecido.stun_resist, 0.7) and is_equal_approx(campana.stun_resist, 0.3),
 		"florecido 0,7 de aguante al control (la campana, el del normal 0,3)")
@@ -557,6 +560,45 @@ func _correr() -> void:
 
 # Le deja SOLO esa habilidad (con 'sola') y energia llena, y juega sus turnos hasta que la USA (las que se preparan salen al
 # turno siguiente; como mucho tres). Devuelve el registro de esos turnos.
+# (10/11) LOS EFECTOS DEL MICONIDO EN PIXEL: cada uno, segun quien ataca, lanza su hoja (miconido_efectos_horno.py).
+func _efectos_pixel(t, campana: Combatant, florecido: Combatant, yo: Combatant) -> void:
+	var arena: Node = t._arena()
+	var cuenta := func(nombre: String) -> int:
+		return arena.get_children().filter(func(n): return n is EfectoPixel and String(n.get_meta("hoja", "")) == nombre).size()
+	var casos: Array = [
+		[campana, CombatFX.Estilo.SIMA_PORRAZO, "filamentos_golpe"], [florecido, CombatFX.Estilo.SIMA_PORRAZO, "tajo_golpe"],
+		[campana, CombatFX.Estilo.SIMA_TOS, "tos_luz"], [florecido, CombatFX.Estilo.SIMA_TOS, "tos_seta"],
+		[florecido, CombatFX.Estilo.SIMA_ESTOCADA, "estocada_golpe"], [campana, CombatFX.Estilo.SIMA_DESTELLO, "destello_golpe"],
+		[campana, CombatFX.Estilo.SIMA_ATRAE, "atrae"]]
+	for caso in casos:
+		var n0: int = cuenta.call(caso[2])
+		t._miconido_pixel(arena, caso[1], caso[0], yo, 0.0, 1.0)
+		_ver(cuenta.call(caso[2]) > n0, "%s: %s, en pixel" % [(caso[0] as Combatant).nombre, caso[2]])
+	var c0: int = arena.get_children().filter(func(n): return n is CintaPixel).size()
+	t._miconido_pixel(arena, CombatFX.Estilo.SIMA_LATIGO, campana, yo, 0.0, 1.0)
+	_ver(arena.get_children().filter(func(n): return n is CintaPixel).size() > c0, "el Latigazo de micelio: su cordon, en pixel")
+	# LOS GESTOS: la estela de la espada, los filamentos, la carga y el cono del Destello
+	var gestos: Array = [[florecido, "embestida", "tajo"], [florecido, "estocada", "estocada"], [campana, "embestida", "filamentos"],
+		[campana, "destello_carga", "campana_destello_carga"], [florecido, "destello_carga", "florecido_destello_carga"]]
+	for g in gestos:
+		var n1: int = cuenta.call(g[2])
+		t._pixel.al_gesto(g[0], t.cuerpo_de(g[0]), g[1], 0.6)
+		_ver(cuenta.call(g[2]) > n1, "%s, gesto '%s': %s" % [(g[0] as Combatant).nombre, g[1], g[2]])
+	# (10/11) EL DESTELLO ES UN FOCO: su cono de luz lo pinta su SUELO con la forma del golpe (FocoAire), no una hoja en el aire
+	var des_f: AbilityData = load("res://resources/abilities/miconido_destello.tres")
+	_ver(des_f.suelo_roto == SueloRoto.Tipo.MICONIDO_FOCO, "el Destello lleva su foco en el suelo (MICONIDO_FOCO)")
+	var cono_f := CombatFormas.cono(t.pies_de(campana), (t.pies_de(yo) - t.pies_de(campana)).normalized(), des_f.forma_radio, des_f.forma_apertura)
+	var foco: Node2D = SueloRoto.lanzar(arena, cono_f, des_f.suelo_roto, 1, 0.0, 0.0)
+	_ver(foco != null and foco.get_parent() == arena, "el foco del Destello sale en la arena")
+	_ver(is_equal_approx(SueloRoto.retraso(cono_f, cono_f.origen + cono_f.dir * des_f.forma_radio, des_f.suelo_roto), 0.22),
+		"y al borde del cono el golpe llega cuando llega la luz (0,22 s)")
+	# LA NUBE QUE SE QUEDA: la del venenoso (PiezaPixel), teñida
+	_ver(ResourceLoader.exists("res://assets/sprites/efectos/miconido/atado_dura_a.png"), "el atado de micelio horneado")
+	for _k in 30:
+		await get_tree().process_frame
+		t.tick(1.0 / 60.0)
+
+
 # (10/11) TANDA 4: la Provocacion de tu personaje florecido. Provoca a los tuyos que pille; mientras dure, lo que lancen
 # contra enemigos tiene que alcanzarle a EL (el basico va a el; un area, con el dentro); curar, libre; baja en sus turnos;
 # viaja a tu pantalla (campo 14 de la instantanea) y la sala lo vuelve a mirar.

@@ -51,8 +51,10 @@ enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, T
 	PROFUNDO_MAREA, PROFUNDO_CHORRO, PROFUNDO_CORAL, PROFUNDO_ESTALLIDO, PROFUNDO_ALIENTO, PROFUNDO_CARAMBANOS,
 	REY_ESQUIRLAS,
 	RATA_ESTELA_SOMBRA, RATA_ANILLO_ESQUIRLAS, RATA_SURCO_CRISTAL, RATA_DESTELLO, RATA_TRAICION,
-	TRENT_RESINA, TRENT_SAVIA, TRENT_GEISER, AMBAR_BOLA }
+	TRENT_RESINA, TRENT_SAVIA, TRENT_GEISER, AMBAR_BOLA, MICONIDO_FOCO }
 # TRENT_* (03/11, los mutantes del trent): viven en TrentAire (el goteron de la Resina y de la Savia negra, el Geiser).
+# MICONIDO_FOCO (10/11, 114 en las fichas): el Destello del miconido, su cono de luz EN EL SUELO (FocoAire). Mirado
+# antes que todos los de detras.
 # AMBAR_BOLA, la Bola de caca del pelotero del ambar (AmbarAire). Al final de todo (110..113 en las fichas) y mirados
 # ANTES que los RATA_*.
 # RATA_* (30/10, los mutantes de la rata): viven en RataAire (su Modo = tipo - RATA_ESTELA_SOMBRA). Al final de todo
@@ -169,6 +171,8 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 
 
 # Los TRENT_* en TrentAire: el goteron de la Resina (RESINA), el de la Savia negra (HUMO: la savia) y el GEISER.
+const _FOCO := preload("res://scripts/fx/foco_aire.gd")
+
 const _MODO_TRENT := {Tipo.TRENT_RESINA: TrentAire.Modo.RESINA, Tipo.TRENT_SAVIA: TrentAire.Modo.HUMO,
 	Tipo.TRENT_GEISER: TrentAire.Modo.GEISER}
 
@@ -184,6 +188,8 @@ static func _lanzar_tipo(padre: Node, f: CombatFormas.Forma, t: int, semilla: in
 		return null
 	if t == Tipo.SLIME_PUAS:
 		return SlimeAire.area(padre, f, SlimeAire.Modo.PUAS, semilla, espera)
+	if t == Tipo.MICONIDO_FOCO:
+		return _FOCO.lanzar(padre, f, espera)
 	if t == Tipo.AMBAR_BOLA:
 		return AmbarAire.bola(padre, f, semilla, espera)
 	if t >= Tipo.TRENT_RESINA:
@@ -265,6 +271,8 @@ static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) ->
 		return p.distance_to(origen_de(f)) / EstoqueAire.V_DANZA
 	if t == Tipo.SLIME_PUAS:
 		return SlimeAire.retraso(SlimeAire.Modo.PUAS, f, p)
+	if t == Tipo.MICONIDO_FOCO:
+		return _FOCO.retraso(f, p)
 	if t == Tipo.AMBAR_BOLA:
 		return AmbarAire.retraso_bola(f, p)
 	if t >= Tipo.TRENT_RESINA:
@@ -332,6 +340,8 @@ static func t_salir_de(t: int) -> float:
 		return 0.0
 	if t == Tipo.SLIME_PUAS:
 		return SlimeAire.t_salir(SlimeAire.Modo.PUAS)
+	if t == Tipo.MICONIDO_FOCO:
+		return _FOCO.T_ABRE
 	if t == Tipo.AMBAR_BOLA:
 		return AmbarAire.T_RUEDA
 	if t >= Tipo.TRENT_RESINA:

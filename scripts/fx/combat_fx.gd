@@ -478,7 +478,10 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		ARANA_HILO = 226,
 		# LOS CORTES DE VIENTO (05/11, la Segadora mutante y el set Filo de aire): el impacto verde palido sobre quien lo
 		# encaja (InsectoAire.Modo.VIENTO). No es cuerpo a cuerpo: el corte vuela, no embiste nadie.
-		INSECTO_VIENTO = 227 }
+		INSECTO_VIENTO = 227,
+		# EL MICONIDO Y SUS MUTANTES EN PIXEL (10/11): la Estocada del muerto (esquirlas por detras), el velo del Destello y la
+		# Luz que atrae (motas a la campana). El resto va por SIMA_PORRAZO / SIMA_TOS / SIMA_LATIGO segun quien ataca.
+		SIMA_ESTOCADA = 228, SIMA_DESTELLO = 229, SIMA_ATRAE = 230 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -540,6 +543,7 @@ const DIBUJO_MAPA := [Estilo.CRIA_LANZADA, Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA
 	# las simas (SimaAire, 30/09).
 	Estilo.SIMA_PORRAZO, Estilo.SIMA_TOS, Estilo.SIMA_LATIGO, Estilo.SIMA_VENTOSA, Estilo.SIMA_CHUPADA,
 	Estilo.SIMA_OIDOS, Estilo.SIMA_PALETOS, Estilo.SIMA_ALA, Estilo.SIMA_POLVO, Estilo.SIMA_VELO,
+	Estilo.SIMA_ESTOCADA, Estilo.SIMA_DESTELLO, Estilo.SIMA_ATRAE,
 	# y las bestias de las simas (FieraAire, 30/09).
 	Estilo.FIERA_TESTARAZO, Estilo.FIERA_ZARPA, Estilo.FIERA_PLACA,
 	Estilo.FIERA_FAUCES, Estilo.FIERA_YUGULAR, Estilo.FIERA_DENTELLADA, Estilo.FIERA_TENTACULO, Estilo.FIERA_MIRADA,
@@ -729,6 +733,7 @@ const T_VUELO := {
 	Estilo.INSECTO_TAJO: 0.12, Estilo.INSECTO_GUADANA: 0.12, Estilo.INSECTO_ESTOCADA: 0.1, Estilo.INSECTO_VIENTO: 0.02,
 	# El porrazo y la tos salen EN el golpe; el latigo sale de la mano y tarda en llegar (SimaAire.T_LATIGO_VA).
 	Estilo.SIMA_PORRAZO: 0.02, Estilo.SIMA_TOS: 0.02, Estilo.SIMA_LATIGO: 0.2,
+	Estilo.SIMA_ESTOCADA: 0.1, Estilo.SIMA_DESTELLO: 0.02, Estilo.SIMA_ATRAE: 0.02,
 	# La boca llega abierta y se cierra en el golpe; las gotas suben EN el golpe.
 	Estilo.SIMA_VENTOSA: 0.12, Estilo.SIMA_CHUPADA: 0.02, Estilo.SIMA_OIDOS: 0.02, Estilo.SIMA_PALETOS: 0.1,
 	Estilo.SIMA_ALA: 0.12, Estilo.SIMA_POLVO: 0.02, Estilo.SIMA_VELO: 0.02, Estilo.INSECTO_APRETON: 0.02,

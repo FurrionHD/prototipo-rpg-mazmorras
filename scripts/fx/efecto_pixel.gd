@@ -25,6 +25,9 @@ var _t: float = 0.0:
 		_poner_marco()
 var _capas: Array[Sprite2D] = []
 var _sigue: Node2D = null
+# Donde nace respecto a quien sigue (10/11: el destello del miconido salia en el origen de su nodo, por encima de la cabeza,
+# y no en los pies que se le pasan). Con pos = ZERO, en el nodo mismo (el aura del Rey rata).
+var _desfase: Vector2 = Vector2.ZERO
 # Empieza este rato despues que los demas de su tanda (cada estrella de la Lluvia). Aparte de _t: las hojas de prueba mueven _t a mano.
 var retardo: float = 0.0
 var _corte: int = 0        # desde este marco va a _fps2 (lo que se seca, sin prisa)
@@ -46,6 +49,24 @@ var _v_dur: float = 0.0
 
 # 'dir' = hacia donde va, de 0 a 7 como SpriteLienzo.dir8 (0 = S, 1 = SE, 2 = E...). 'dura' > 0 la estira a ese tiempo.
 # 'espera' = segundos hasta que empieza a verse. Null si no existe la hoja.
+# EL CENTRO DEL SPRITE QUE SE VE de 'cuerpo' (su primer AnimatedSprite2D visible), en global. Las hojas de lo que SALE DEL
+# CUERPO del miconido se hornean con el origen en el centro de su sprite: lanzadas desde aqui casan pixel a pixel con el
+# dibujo, sin depender de donde pone los pies su ficha. Sin sprite, 'si_no'.
+static func centro_sprite(cuerpo: Node2D, si_no: Vector2) -> Vector2:
+	if cuerpo == null:
+		return si_no
+	for hijo in cuerpo.get_children():
+		if hijo is AnimatedSprite2D and (hijo as CanvasItem).visible and (hijo as AnimatedSprite2D).sprite_frames != null:
+			var spr: AnimatedSprite2D = hijo
+			var local: Vector2 = spr.offset
+			if not spr.centered:
+				var tex: Texture2D = spr.sprite_frames.get_frame_texture(spr.animation, spr.frame)
+				if tex != null:
+					local += tex.get_size() * 0.5
+			return spr.to_global(local)
+	return si_no
+
+
 static func lanzar(padre: Node, enemigo: String, nombre: String, pos: Vector2, dir: int = 0, seguir: Node2D = null,
 		espera: float = 0.0, dura: float = -1.0, ritmo: float = 1.0, paleta: PackedColorArray = PackedColorArray()) -> EfectoPixel:
 	var d: Dictionary = (_DATOS.HOJAS.get(enemigo, {}) as Dictionary).get(nombre, {})
@@ -62,7 +83,9 @@ static func lanzar(padre: Node, enemigo: String, nombre: String, pos: Vector2, d
 	e._paleta = paleta
 	e._t = -maxf(espera, 0.0)
 	e._sigue = seguir
-	e.position = seguir.global_position if seguir != null else pos
+	if seguir != null and pos != Vector2.ZERO:
+		e._desfase = pos - seguir.global_position
+	e.position = seguir.global_position + e._desfase if seguir != null else pos
 	e.process_mode = Node.PROCESS_MODE_ALWAYS   # la pelea tactica pausa el arbol
 	padre.add_child(e)
 	var filas: int = int(d["filas"])
@@ -170,7 +193,7 @@ func _process(delta: float) -> void:
 		if not is_instance_valid(_sigue):
 			queue_free()
 			return
-		global_position = _sigue.global_position
+		global_position = _sigue.global_position + _desfase
 	if not _bucle and _marco_de(_t) >= _n:
 		queue_free()
 		return

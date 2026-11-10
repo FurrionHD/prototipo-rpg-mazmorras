@@ -19,6 +19,22 @@ CABECERA = ('# GENERADO por tools/sprites_sdf/horno_efectos.py: no tocar a mano.
             'extends RefCounted\n\nconst HOJAS := {\n')
 
 
+# MODO VOLCADO (sin_rejilla.py): en vez de las hojas, guarda las capas crudas de cada efecto en esa carpeta (una pasada
+# de las 4 con la trama fija) y no toca efectos_pixel_datos.gd.
+VOLCAR = os.environ.get('HORNO_VOLCAR', '')
+
+
+def _volcar(enemigo, nombre, filas, origenes, fps, bucle, corte, fps2):
+    import numpy as np
+    capas = {'%d_%d_%d' % (j, i, k): np.asarray(m[k]) for j, fila in enumerate(filas) for i, m in enumerate(fila) for k in range(2)}
+    np.savez_compressed(os.path.join(VOLCAR, '%s__%s.npz' % (enemigo, nombre)), **capas)
+    meta = {'enemigo': enemigo, 'nombre': nombre, 'largos': [len(f) for f in filas],
+            'origenes': [[float(o[0]), float(o[1])] for o in origenes], 'fps': fps, 'bucle': bucle, 'corte': corte, 'fps2': fps2}
+    with open(os.path.join(VOLCAR, 'orden.jsonl'), 'a', encoding='utf-8') as f:
+        f.write(json.dumps(meta) + '\n')
+    return {}
+
+
 def guardar_capa(carpeta, nombre, sufijo, filas, indice, origenes):
     caja = None
     for j, fila in enumerate(filas):
@@ -44,6 +60,8 @@ def guardar_capa(carpeta, nombre, sufijo, filas, indice, origenes):
 
 def guardar_efecto(enemigo, nombre, filas, origenes, fps, bucle=False, corte=0, fps2=0.0):
     """filas: lista (1 o 5) de listas de marcos (s, a); origenes: (x, y) de cada fila en el lienzo."""
+    if VOLCAR:
+        return _volcar(enemigo, nombre, filas, origenes, fps, bucle, corte, fps2)
     carpeta = os.path.join(RAIZ, 'assets', 'sprites', 'efectos', enemigo)
     os.makedirs(carpeta, exist_ok=True)
     origenes = [(int(round(x)), int(round(y))) for x, y in origenes]
@@ -69,6 +87,8 @@ def sumar(enemigo, datos):
 
 # Pone o cambia la linea de 'enemigo' en el .gd; las de los demas se quedan como estan.
 def apuntar(enemigo, datos):
+    if VOLCAR:
+        return
     lineas = {}
     if os.path.exists(DATOS):
         with open(DATOS, encoding='utf-8') as f:

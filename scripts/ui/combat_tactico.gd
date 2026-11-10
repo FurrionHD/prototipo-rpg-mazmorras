@@ -4365,7 +4365,14 @@ func _charco_visible(clave: String, f, queda: float, dueno: Combatant = null) ->
 		elif estilo == 1:
 			n = InsectoAire.red(arena, f, hash(clave), InsectoAire.T_TELA_CAE)
 		elif estilo == 2:
-			n = SimaAire.nube(arena, f, hash(clave), SimaAire.T_NUBE_SALE)
+			# (10/11) LA DEL MICONIDO, en pixel y sin rejilla: la nube del venenoso, parda, de luz o de seta segun cual sea.
+			var cu_d: Node2D = cuerpo_de(dueno) if dueno != null else null
+			if cu_d != null and _de_los_miconidos(cu_d):
+				var col_n: Color = {"normal": Color8(176, 148, 104), "campana": Color8(120, 232, 214),
+					"florecido": Color8(236, 150, 60)}[_cual_miconido(cu_d)]
+				n = SlimeAire.nube_pixel(arena, f, col_n, SimaAire.T_NUBE_SALE)
+			else:
+				n = SimaAire.nube(arena, f, hash(clave), SimaAire.T_NUBE_SALE)
 		elif estilo == 5:
 			# LA NUBE DE MIASMA (06/10, el miasma y el pestilente): la misma nube, del color de su slime.
 			n = SlimeAire.nube_pixel(arena, f, _color_de(dueno), SimaAire.T_NUBE_SALE)
@@ -4447,7 +4454,10 @@ func _tick_raices() -> void:
 		if atado:
 			if n == null or not is_instance_valid(n):
 				if micelio is Color:
-					n = SimaAire.atado(arena, bulto_de(c), pies_de(c), micelio, _cod(c))
+					# (10/11) en pixel, el de la lamina del miconido (sale, dura en bucle y se va)
+					n = PiezaPixel.crear(arena, "miconido", "atado_sale", "atado_dura", "atado_vete", pies_de(c))
+					if n == null:
+						n = SimaAire.atado(arena, bulto_de(c), pies_de(c), micelio, _cod(c))
 				else:
 					n = BestiaAire.atado(arena, bulto_de(c), pies_de(c), _cod(c))
 				_raices[c] = n
@@ -5913,6 +5923,73 @@ const _MODO_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.QUE
 	CombatFX.Estilo.INSECTO_TAJO: InsectoAire.Modo.TAJO, CombatFX.Estilo.INSECTO_GUADANA: InsectoAire.Modo.GUADANA,
 	CombatFX.Estilo.INSECTO_ESTOCADA: InsectoAire.Modo.ESTOCADA, CombatFX.Estilo.INSECTO_VIENTO: InsectoAire.Modo.VIENTO}
 
+const _ESTILOS_MICONIDO := [CombatFX.Estilo.SIMA_PORRAZO, CombatFX.Estilo.SIMA_TOS, CombatFX.Estilo.SIMA_LATIGO,
+	CombatFX.Estilo.SIMA_ESTOCADA, CombatFX.Estilo.SIMA_DESTELLO, CombatFX.Estilo.SIMA_ATRAE]
+# Los colores del cordon de micelio (borde, cuerpo, luz): los de la lamina (miconido_efectos_pixel.CARNE).
+const _CARNE_MICELIO := [Color8(40, 32, 26), Color8(160, 146, 120), Color8(244, 238, 222)]
+
+
+# ¿Es del micónido (el normal, la Campana o el Florecido)? Los tres tienen el Latigazo de micelio en su hoja.
+func _de_los_miconidos(cuerpo: Node2D) -> bool:
+	return cuerpo != null and _tiene_anim_bicho(cuerpo, "micelio")
+
+
+# Cual de los tres: "florecido" (lleva la Estocada), "campana" (el Destello) o "normal".
+func _cual_miconido(cuerpo: Node2D) -> String:
+	if _tiene_anim_bicho(cuerpo, "estocada"):
+		return "florecido"
+	return "campana" if _tiene_anim_bicho(cuerpo, "destello") else "normal"
+
+
+# (10/11) LOS EFECTOS DEL MICONIDO SOBRE QUIEN RECIBE, en pixel y sin rejilla (los de su lamina aprobada):
+#   PORRAZO  el basico: el aplaston de esporas (normal), el latigazo de luz (Campana) o el golpe de la espada (Florecido)
+#   TOS      la tos de esporas en la cara: parda, de luz o de seta
+#   LATIGO   el cordon de micelio de su mano a la espinilla (CintaPixel: lo que mide lo dice la pelea) y lo que ata
+#   ESTOCADA esquirlas por detras y el agujero; DESTELLO el velo de Ciego; ATRAE las motas que vuelven a su campana
+func _miconido_pixel(arena: Node, estilo: int, a: Combatant, v: Combatant, vuelo: float, ritmo: float) -> void:
+	var cu_a: Node2D = cuerpo_de(a)
+	var cual: String = _cual_miconido(cu_a)
+	var pies_v: Vector2 = pies_de(v)
+	var espera: float = maxf(vuelo, 0.0)
+	match estilo:
+		CombatFX.Estilo.SIMA_PORRAZO:
+			var nombre: String = {"normal": "porrazo", "campana": "filamentos_golpe", "florecido": "tajo_golpe"}[cual]
+			EfectoPixel.lanzar(arena, "miconido", nombre, pies_v, 0, null, espera, -1.0, ritmo)
+		CombatFX.Estilo.SIMA_TOS:
+			var tos: String = {"normal": "tos_espora", "campana": "tos_luz", "florecido": "tos_seta"}[cual]
+			EfectoPixel.lanzar(arena, "miconido", tos, pies_v, 0, null, espera, -1.0, ritmo)
+		CombatFX.Estilo.SIMA_ESTOCADA:
+			var hacia: Vector2 = pies_v - pies_de(a)
+			EfectoPixel.lanzar(arena, "miconido", "estocada_golpe", pies_v,
+				SpriteLienzo.dir8(hacia) if hacia.length_squared() > 1.0 else 0, null, espera, -1.0, ritmo)
+		CombatFX.Estilo.SIMA_DESTELLO:
+			EfectoPixel.lanzar(arena, "miconido", "destello_golpe", pies_v, 0, null, espera, -1.0, ritmo)
+		CombatFX.Estilo.SIMA_ATRAE:
+			# una vez por turno suyo aunque tire de varios
+			var f_now: int = Engine.get_process_frames()
+			if int(cu_a.get_meta(&"atrae_visto", -1)) != f_now:
+				cu_a.set_meta(&"atrae_visto", f_now)
+				EfectoPixel.lanzar(arena, "miconido", "atrae", EfectoPixel.centro_sprite(cu_a, pies_de(a)), 0, cu_a, espera, -1.0, ritmo)
+		CombatFX.Estilo.SIMA_LATIGO:
+			# LA MANO: la del brazo que lanza (la de siempre, MiconidoSprites.mano_del_latigo, escalada con el ancho de su
+			# dibujo); hasta la espinilla.
+			var caja_a: Rect2 = bulto_de(a)
+			var eje: Vector2 = (pies_v - pies_de(a)).normalized() if pies_v.distance_squared_to(pies_de(a)) > 1.0 else Vector2.RIGHT
+			var px: float = caja_a.size.x / (2.0 * MiconidoSprites.ALA_R.x) if caja_a.has_area() else 2.0
+			var mano: Vector2 = pies_de(a) + MiconidoSprites.mano_del_latigo(eje) * px
+			var espinilla: Vector2 = pies_v - Vector2(0.0, bulto_de(v).size.y * 0.2)
+			var cinta: CintaPixel = CintaPixel.lanzar(arena, mano, espinilla, PackedColorArray(_CARNE_MICELIO),
+				espera, 0.35, 0.25, 0.0, ritmo)
+			if cinta != null:
+				cinta.forma(1, 0.0, 1.6, 0.45, 2.0, 3.0)
+			cuerpo_de(v).set_meta("atado_micelio", a.color_visual)
+			var viejo = _raices.get(v)
+			if viejo is BestiaAire:
+				_raices.erase(v)
+				if is_instance_valid(viejo):
+					(viejo as BestiaAire).secar()
+
+
 const _MODO_SIMA := {CombatFX.Estilo.SIMA_PORRAZO: SimaAire.Modo.PORRAZO, CombatFX.Estilo.SIMA_TOS: SimaAire.Modo.TOS,
 	CombatFX.Estilo.SIMA_LATIGO: SimaAire.Modo.LATIGO, CombatFX.Estilo.SIMA_VENTOSA: SimaAire.Modo.VENTOSA,
 	CombatFX.Estilo.SIMA_CHUPADA: SimaAire.Modo.CHUPADA, CombatFX.Estilo.SIMA_OIDOS: SimaAire.Modo.OIDOS,
@@ -6663,6 +6740,10 @@ func _dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 			if a != null:
 				_apretar_vis_enrosque(a)
 			_temblar_presa(v, vuelo)
+		return
+	# EL MICONIDO Y SUS MUTANTES EN PIXEL (10/11, tools/sprites_sdf/miconido_efectos_horno.py).
+	if estilo in _ESTILOS_MICONIDO and a != null and _de_los_miconidos(cuerpo_de(a)):
+		_miconido_pixel(arena, estilo, a, v, vuelo, ritmo)
 		return
 	# LAS SIMAS (SimaAire, 30/09): del cuerpo de quien lo lanza (su mano, su tamaño, sus colores) al que recibe.
 	if estilo in _MODO_SIMA:

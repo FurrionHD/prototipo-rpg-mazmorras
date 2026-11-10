@@ -27,6 +27,9 @@ VERDE = [(24, 78, 66), (62, 150, 118), (150, 226, 186), (238, 255, 240)]
 POLVO = [(66, 60, 54), (100, 90, 78), (144, 130, 110), (190, 176, 152)]
 SOMBRA = (18, 14, 22)
 BAYER = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) / 16.0
+# SIN REJILLA (10/11): tools/sprites_sdf/sin_rejilla.py hornea 4 veces con la trama CONSTANTE y promedia (ver transparencia.py).
+if os.environ.get('TRAMA_FIJA'):
+    BAYER = np.full((4, 4), float(os.environ['TRAMA_FIJA']))
 YY, XX = np.mgrid[0:H, 0:W]
 # La trama va a bloques de 2 celdas: a 1 celda se lee como ruido fino, no como pixel art.
 TRAMA = BAYER[(YY // 2) % 4, (XX // 2) % 4]

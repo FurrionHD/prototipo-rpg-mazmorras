@@ -13,6 +13,7 @@ area_max = 99
 fx_estilo = 15
 cooldown = 3
 ; EN EL MAPA (09/11): una linea de 70 px al frente que ATRAVIESA. Fisico.
+fx_estilo_mapa = 228
 forma = 3
 forma_apunte = 1
 forma_radio = 70.0

@@ -39,6 +39,29 @@ func al_gesto(c: Combatant, cuerpo: Node2D, base: String, dur: float) -> void:
 		EfectoPixel.lanzar(_t._arena(), "segadora", "%s_%s" % [quien, base], _t.pies_de(c),
 			SpriteLienzo.dir8(_t._mirada_de(cuerpo)), cuerpo, 0.0, dur, ritmo_s)
 		return
+	# EL MICONIDO Y SUS MUTANTES (10/11): la estela de la espada del Florecido (tajo y estocada), los filamentos de luz de la
+	# Campana y el Destello (las motas que se juntan mientras carga y el cono). Los de la Campana y el Florecido se
+	# reconocen por su Destello.
+	if _t._tiene_anim_bicho(cuerpo, "micelio") and _t._tiene_anim_bicho(cuerpo, "destello"):
+		var cual: String = "florecido" if _t._tiene_anim_bicho(cuerpo, "estocada") else "campana"
+		var ritmo_m: float = _t._pantalla._fx.escala_tiempo if _t._pantalla._fx != null else 1.0
+		# (salen del cuerpo: desde el centro de su sprite, como se hornearon)
+		var pies_m: Vector2 = EfectoPixel.centro_sprite(cuerpo, _t.pies_de(c))
+		var dir_m: int = SpriteLienzo.dir8(_t._mirada_de(cuerpo))
+		match base:
+			"embestida":
+				EfectoPixel.lanzar(_t._arena(), "miconido", "tajo" if cual == "florecido" else "filamentos", pies_m, dir_m,
+					cuerpo, 0.0, dur, ritmo_m)
+			"estocada":
+				EfectoPixel.lanzar(_t._arena(), "miconido", "estocada", pies_m, dir_m, cuerpo, 0.0, dur, ritmo_m)
+			"destello_carga":
+				var ab_m: AbilityData = (_t._poses_carga.get(c, {}) as Dictionary).get("ab")
+				_mientras_carga(c, ab_m, [EfectoPixel.lanzar(_t._arena(), "miconido", cual + "_destello_carga", pies_m, dir_m,
+					cuerpo, 0.0, -1.0, ritmo_m)])
+			"destello":
+				# (el cono de luz y el haz los pinta su suelo, con la forma del golpe: FocoAire)
+				_quitar_carga(c)
+		return
 	# (los mutantes del ciempies, por su cabeza libre: la Pinza y el Derrumbe)
 	if _t._tiene_anim_bicho(cuerpo, "libre_idle"):
 		var ritmo_c: float = _t._pantalla._fx.escala_tiempo if _t._pantalla._fx != null else 1.0

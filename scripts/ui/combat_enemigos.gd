@@ -1010,6 +1010,8 @@ func _luz_que_atrae(e: Combatant) -> void:
 			continue
 		t.pedir_juntar(al, e, e.atrae_px)
 		nombres.append(_pantalla._etq(al))
+		# (10/11) las motas de luz que vuelven a su campana (en pixel: TacticoMapa._miconido_pixel, SIMA_ATRAE)
+		_pantalla.efectos._fx_golpe(e, al, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.SIMA_ATRAE, 1.0, true)
 	if nombres.is_empty():
 		return
 	print("[luz] %s atrae a %s" % [e.nombre, ", ".join(nombres)])
