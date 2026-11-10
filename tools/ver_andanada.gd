@@ -1,10 +1,11 @@
 # VER EL REVENTON DE LA ANDANADA (10/11, revision del daño de hechizos): las 4 bolas cayendo sobre 3 cuerpos pegados
-# (a 35 px), con el reventon de ANTES (16 px) y el de AHORA (45 px, MagiaAire.R_REVIENTA). Saca fotos. CON VENTANA.
+# (a 35 px), DOS LANZAMIENTOS (semillas distintas: la nube sale distinta cada vez). Saca fotos. CON VENTANA.
+# (MagiaAire.REVENTON_VIEJO = true pinta el de antes: anillo y bocanada, para comparar.)
 #   VER_SALIDA=/ruta/pref godot --path . res://tools/ver_andanada.tscn
 extends Node2D
 
 const CUERPOS := [Vector2(0, 0), Vector2(0, -35), Vector2(0, 35)]
-const FOTOS := [0.30, 0.42, 0.55, 0.75, 1.1]
+const FOTOS := [0.2, 0.32, 0.45, 0.7, 1.0, 1.4, 1.9, 2.5]
 
 
 class CuerposRef extends Node2D:
@@ -32,19 +33,20 @@ func _ready() -> void:
 
 func _correr() -> void:
 	var salida: String = OS.get_environment("VER_SALIDA")
-	for r in [16.0, 45.0]:
-		MagiaAire.R_REVIENTA = r
+	for r in [45, 46]:
+		MagiaAire.REVENTON_VIEJO = false
 		var f := CombatFormas.circulo(Vector2.ZERO, 65.0)
 		f.puntos = [Vector2(2, -1), Vector2(-3, -34), Vector2(3, 36), Vector2(-1, 2)]
-		var e := MagiaAire.area(self, f, MagiaAire.Modo.ANDANADA, 7, 0.0)
+		var e := MagiaAire.area(self, f, MagiaAire.Modo.ANDANADA, 7 + r * 13, 0.0)
 		var t0: int = Time.get_ticks_msec()
 		for k in FOTOS.size():
 			while (Time.get_ticks_msec() - t0) / 1000.0 < FOTOS[k]:
 				await get_tree().process_frame
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png("%s_r%d_%d.png" % [salida, int(r), k])
-		e.queue_free()
-		await get_tree().create_timer(0.5).timeout
-	MagiaAire.R_REVIENTA = 45.0
+		if is_instance_valid(e):
+			e.queue_free()
+		await get_tree().create_timer(0.8).timeout
+	MagiaAire.REVENTON_VIEJO = false
 	print("[ver] FIN")
 	get_tree().quit(0)

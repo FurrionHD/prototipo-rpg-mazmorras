@@ -191,7 +191,7 @@ var _brillo: Node2D = null
 const R_BOLA := 16.0
 # LO QUE ALCANZA EL REVENTON de cada bola (10/11, "que exploten minimo a 40 o 45 px"): a quien le da y lo que se dibuja.
 # Igual que CombatTactico.SALPICON_MIN. R_BOLA sigue siendo solo para repartir los puntos donde caen.
-static var R_REVIENTA := 45.0   # var solo para que tools/ver_andanada.gd pinte el antes (16)
+const R_REVIENTA := 45.0
 const BOLAS := 4
 
 # Donde caen las bolas de ESTA Andanada: las elegidas al soltarla (sobre los enemigos de dentro, Forma.puntos) o, sin
@@ -306,7 +306,7 @@ func duracion() -> float:
 		Modo.LLUVIA: return T_LLUEVE + 1.8
 		Modo.ORBE, Modo.ORBE_FALLA: return _largo / V_ORBE + T_REVIENTA + 0.5
 		Modo.BOLA, Modo.BOLA_FALLA: return _largo / V_BOLA + T_REVIENTA + 0.7
-		Modo.ANDANADA: return T_ENTRE_BOLAS * float(BOLAS - 1) + T_CAE_BOLA + 1.3
+		Modo.ANDANADA: return T_ENTRE_BOLAS * float(BOLAS - 1) + T_CAE_BOLA + (1.3 if REVENTON_VIEJO else T_GRIETAS + 0.1)
 		Modo.OLA: return T_OLA + 1.6
 		Modo.RAYO_CIELO: return T_RAYO_CAE + 0.9
 		Modo.HELICE, Modo.HELICE_FALLA: return _largo / V_HELICE + T_REVIENTA + 0.5
@@ -993,6 +993,174 @@ func _arco(capa: Node2D) -> void:
 # ------------------------------------------------------------
 #  LA ANDANADA: bolas de fuego del cielo
 # ------------------------------------------------------------
+# EL REVENTON DE CADA BOLA (10/11, sobre un video que trajo el jefe: "no se si podemos mejorar las explosiones"):
+#   1 FOGONAZO   estrella blanca y amarilla con puntas, cortisima;
+#   2 CUPULA     media bola de fuego pegada al suelo que crece hasta R_REVIENTA, con BULTOS por dentro (no lisa), chispas
+#                que saltan y polvo en la base;
+#   3 SE ENFRIA  la cupula se oscurece de fuera hacia dentro: costra negra con los bultos del centro aun brillando;
+#   4 HUMO       la costra se deshace en grumos de humo que suben y se van; en el suelo quedan GRIETAS DE LAVA (baldosas
+#                oscuras con el brillo entre ellas) que se apagan despacio.
+# Sin las rayas blancas de los lados del video (son lineas). Todo pasa por CapaPixel como el resto.
+const T_FOGONAZO_B := 0.1
+const T_CRECE := 0.2
+const T_ENFRIA_A := 0.45
+const T_ENFRIA_B := 1.15
+const T_HUMO_A := 0.85
+const T_HUMO_B := 1.9
+const T_GRIETAS := 2.4
+const BULTOS := 9
+const BALDOSAS := 16
+
+# Un numero 0..1 fijo por bola y por pieza (cada reventon distinto, pero sin temblar).
+static func _fijo(i: int, j: int, k: int = 0) -> float:
+	return fposmod(sin(float(i * 127 + j * 311 + k * 74)) * 43758.5453, 1.0)
+
+
+func _reventon_suelo(capa: Node2D, p: Vector2, tr: float, i: int) -> void:
+	var r: float = R_REVIENTA * 0.72
+	# LAS GRIETAS DE LAVA: brillo naranja debajo y baldosas oscuras encima; lo que asoma entre ellas son las grietas
+	var vida: float = 1.0 - clampf((tr - 0.6) / (T_GRIETAS - 0.6), 0.0, 1.0)
+	var sale: float = clampf(tr / T_CRECE, 0.0, 1.0)
+	if vida <= 0.0:
+		return
+	BarridoAire.brillo(capa, p, r * sale, Color(FUEGO_ROJO.lerp(FUEGO_OSCURO, 1.0 - vida), 0.75 * vida))
+	BarridoAire.brillo(capa, p, r * 0.55 * sale, Color(FUEGO_NARANJA, 0.8 * vida * vida))
+	for j in BALDOSAS:
+		var ang: float = TAU * _fijo(i, j, 1)
+		var d: float = r * sqrt(_fijo(i, j, 2)) * 0.9 * sale
+		var c: Vector2 = p + Vector2(cos(ang), sin(ang)) * d
+		var tam: float = r * (0.17 + 0.08 * _fijo(i, j, 3))
+		var pts := PackedVector2Array()
+		for v in 6:
+			var av: float = TAU * float(v) / 6.0 + _fijo(i, j, 4)
+			pts.append(c + Vector2(cos(av), sin(av)) * tam * (0.75 + 0.35 * _fijo(i, j, 5 + v)))
+		capa.draw_colored_polygon(pts, Color(CHAMUSCADO, minf(1.0, 1.6 * vida)))
+	# EL POLVO de la base, que se abre hacia los lados y se va
+	if tr < 0.9:
+		var kp: float = tr / 0.9
+		for lado in [-1.0, 1.0]:
+			BarridoAire.brillo(capa, p + Vector2(lado * r * (0.6 + 0.7 * kp), -2.0), r * (0.35 + 0.3 * kp),
+				Color(0.45, 0.42, 0.4, 0.35 * (1.0 - kp)))
+
+
+func _reventon_cupula(capa: Node2D, p: Vector2, tr: float, i: int, solo_k: int) -> void:
+	# UNA NUBE CON PROTUBERANCIAS ("son feas de pelotas" y "siempre tienen la misma forma"): cada capa es UNA MANCHA cuyo
+	# borde sale de un RUIDO propio de esta bola y de este lanzamiento (_semilla): lobulos de tamaño distinto, mas alta o
+	# mas ancha, ladeada, y que hierve (el borde se mueve con el tiempo). Las capas de dentro van DESCENTRADAS (no es una
+	# diana) y por dentro hay GRUMOS mas oscuros, los huecos entre bultos del video. Al enfriarse se apaga de fuera hacia
+	# dentro; luego sube hecha humo y se rompe en jirones que se separan.
+	var r: float = R_REVIENTA * 0.72
+	var crece: float = 1.0 - pow(1.0 - clampf(tr / T_CRECE, 0.0, 1.0), 3.0)
+	var frio: float = clampf((tr - T_ENFRIA_A) / (T_ENFRIA_B - T_ENFRIA_A), 0.0, 1.0)
+	var humo: float = clampf((tr - T_HUMO_A) / (T_HUMO_B - T_HUMO_A), 0.0, 1.0)
+	if humo >= 1.0:
+		return
+	var sem: int = _semilla * 7 + i * 131
+	var ancho: float = 0.9 + 0.3 * _fijo(sem, 1)
+	var alto_n: float = 0.85 + 0.35 * _fijo(sem, 2)
+	var ladeo: float = (_fijo(sem, 3) - 0.5) * 0.35
+	var centro: Vector2 = p + _alto(r * 0.5 * alto_n * crece) + Vector2(ladeo * r * 0.4, 0.0) + _alto(30.0 * humo)
+	var capas: Array = [
+		# [escala, color caliente, cuando empieza a enfriarse, desplazamiento propio]
+		[1.0, FUEGO_ROJO, 0.0, Vector2.ZERO],
+		[0.84, FUEGO_NARANJA, 0.25, Vector2((_fijo(sem, 4) - 0.5) * 0.3, -0.12 - 0.1 * _fijo(sem, 5))],
+		[0.6, FUEGO_AMARILLO, 0.5, Vector2((_fijo(sem, 6) - 0.5) * 0.35, -0.05 - 0.15 * _fijo(sem, 7))],
+		[0.3, FUEGO_BLANCO, 0.72, Vector2((_fijo(sem, 8) - 0.5) * 0.3, 0.05)],
+	]
+	var a: float = 1.0 - humo
+	for k in capas.size():
+		if k != solo_k:
+			continue
+		var esc: float = float(capas[k][0])
+		var inicio: float = float(capas[k][2])
+		var frio_k: float = clampf((frio - inicio) / maxf(1.0 - inicio, 0.01) * 1.4, 0.0, 1.0)
+		if k >= 2 and frio_k >= 1.0:
+			continue   # el amarillo y el nucleo, ya apagados: queda la costra
+		var col: Color = (capas[k][1] as Color).lerp(HUMO if k < 2 else FUEGO_ROJO.lerp(HUMO, frio_k), frio_k)
+		var off: Vector2 = (capas[k][3] as Vector2) * r
+		var rx: float = r * esc * ancho * crece * (1.0 + 0.25 * humo)
+		var ry: float = r * esc * alto_n * crece * 0.8
+		if humo > 0.0 and k == 0:
+			# EL HUMO: la nube de fuera se rompe en JIRONES que se separan, suben y se encogen
+			for b in 5:
+				var dir_b: Vector2 = Vector2.RIGHT.rotated(PI + PI * (float(b) + 0.5) / 5.0 + (_fijo(sem, 20 + b) - 0.5) * 0.6)
+				var cb: Vector2 = centro + Vector2(dir_b.x * rx * (0.45 + 0.5 * humo), dir_b.y * ry * 0.5) + _alto(18.0 * humo * _fijo(sem, 30 + b))
+				var rr: float = r * 0.42 * (1.0 - 0.5 * humo)
+				capa.draw_colored_polygon(_mancha(cb, rr, rr * 0.8, sem + 50 + b, 0.0), Color(col, a))
+			continue
+		capa.draw_colored_polygon(_mancha(centro + off * crece, rx, ry, sem + k * 17, esc), Color(col, a))
+		# LOS GRUMOS OSCUROS entre bultos: sobre la naranja y la amarilla, del color de la capa de fuera
+		if k == 1 or k == 2:
+			var oscuro: Color = (capas[k - 1][1] as Color).lerp(HUMO, clampf(frio_k + 0.2, 0.0, 1.0))
+			for g in 3:
+				var ag: float = TAU * _fijo(sem, 40 + k * 5 + g)
+				var dg: float = 0.55 + 0.35 * _fijo(sem, 60 + k * 5 + g)
+				var cg: Vector2 = centro + off * crece + Vector2(cos(ag) * rx, sin(ag) * ry) * dg
+				var rg: float = r * esc * (0.16 + 0.1 * _fijo(sem, 80 + g)) * crece
+				capa.draw_colored_polygon(_mancha(cg, rg, rg * 0.8, sem + 90 + k * 7 + g, 0.0), Color(oscuro, a * 0.9))
+
+
+# UNA MANCHA DE NUBE: contorno de 32 puntos cuyo radio es la suma de tres ondas con frecuencia, fase y fuerza sacadas de
+# 'sem' (lobulos grandes y pequeños, nunca iguales), que hierven con el tiempo. 'hierve' > 0 = se mueve mas.
+func _mancha(c: Vector2, rx: float, ry: float, sem: int, hierve: float) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	if rx <= 0.5 or ry <= 0.5:
+		return pts
+	var f1: float = 3.0 + floor(3.0 * _fijo(sem, 1))
+	var f2: float = 5.0 + floor(2.0 * _fijo(sem, 2))
+	var f3: float = 2.0
+	var a1: float = 0.1 + 0.08 * _fijo(sem, 3)
+	var a2: float = 0.03 + 0.03 * _fijo(sem, 4)
+	var a3: float = 0.08 * _fijo(sem, 5)
+	var ph1: float = TAU * _fijo(sem, 6)
+	var ph2: float = TAU * _fijo(sem, 7)
+	var ph3: float = TAU * _fijo(sem, 8)
+	var t_h: float = floor(_t * 12.0) / 12.0 * (1.0 + 2.0 * hierve)
+	for v in 32:
+		var ang: float = TAU * float(v) / 32.0
+		var rr: float = 1.0 + a1 * sin(f1 * ang + ph1 + t_h * 1.3) + a2 * sin(f2 * ang + ph2 - t_h * 2.1) \
+			+ a3 * sin(f3 * ang + ph3)
+		pts.append(c + Vector2(cos(ang) * rx, sin(ang) * ry) * rr)
+	return pts
+
+
+func _bulto(capa: Node2D, c: Vector2, r: float, col: Color) -> void:
+	if r <= 0.5 or col.a <= 0.01:
+		return
+	var pts := PackedVector2Array()
+	for v in 10:
+		var a: float = TAU * float(v) / 10.0
+		pts.append(c + Vector2(cos(a), sin(a)) * r)
+	capa.draw_colored_polygon(pts, col)
+
+
+func _reventon_brillo(capa: Node2D, p: Vector2, tr: float, i: int) -> void:
+	var r: float = R_REVIENTA * 0.72
+	# EL FOGONAZO: estrella grande y un resplandor que se apaga
+	if tr < T_FOGONAZO_B:
+		var k: float = tr / T_FOGONAZO_B
+		BarridoAire.brillo(capa, p + _alto(8.0), R_REVIENTA * 1.1 * (1.0 - k * 0.5), Color(FUEGO_AMARILLO, 0.55 * (1.0 - k)))
+		BarridoAire.destello(capa, p + _alto(10.0), 34.0 * (1.0 - k * 0.4), Color(FUEGO_BLANCO, 1.0 - k), float(i))
+	elif tr < 0.45:
+		var k2: float = (tr - T_FOGONAZO_B) / (0.45 - T_FOGONAZO_B)
+		BarridoAire.brillo(capa, p + _alto(r * 0.45), r * 1.1, Color(FUEGO_NARANJA, 0.35 * (1.0 - k2)))
+	# LAS CHISPAS que saltan hacia arriba y caen
+	if tr < 0.8:
+		for j in 7:
+			var tj: float = tr - 0.03 * float(j % 3)
+			if tj <= 0.0:
+				continue
+			var vx: float = (_fijo(i, j, 8) - 0.5) * 120.0
+			var vy: float = 90.0 + 70.0 * _fijo(i, j, 9)
+			var q: Vector2 = p + Vector2(vx * tj, 0.0) + _alto(vy * tj - 160.0 * tj * tj + 6.0)
+			var a: float = 1.0 - clampf(tj / 0.8, 0.0, 1.0)
+			BarridoAire.brillo(capa, q, 2.2, Color(FUEGO_AMARILLO, a))
+
+
+# REVENTON_VIEJO pinta el de antes (anillo de linea, aro oscuro y bola fina), solo para comparar en tools/ver_andanada.
+static var REVENTON_VIEJO: bool = false
+
+
 func _andanada(capa: Node2D) -> void:
 	if _t < 0.0:
 		return
@@ -1008,31 +1176,46 @@ func _andanada(capa: Node2D) -> void:
 			if tr < 0.0:
 				# LA SOMBRA de la bola, que crece y se oscurece segun baja.
 				BarridoAire.brillo(capa, p, 4.0 + 8.0 * cae, Color(CHAMUSCADO, 0.45 * cae))
-			else:
+			elif REVENTON_VIEJO:
 				var apaga: float = 1.0 - clampf((tr - 0.3) / 1.0, 0.0, 1.0)
 				BarridoAire.brillo(capa, p, R_REVIENTA * 0.75, Color(CHAMUSCADO, 0.5 * apaga))
 				if tr < 0.35:
 					_anillo(capa, p, 3.0 + (R_REVIENTA - 3.0) * (1.0 - pow(1.0 - tr / 0.35, 2.0)), 3.0, Color(FUEGO_NARANJA, 0.7 * (1.0 - tr / 0.35)))
+			else:
+				_reventon_suelo(capa, p, tr, i)
 			continue
 		if capa == _delante:
 			if tr < 0.0:
 				# LA BOLA cayendo: cola de fuego hacia arriba y humo detras.
 				var alto: float = ALTO_CAIDA * (1.0 - cae * cae)
 				var c: Vector2 = p + _alto(alto)
-				BarridoAire.cometa(capa, c + _alto(26.0), c, 5.0, Color(FUEGO_ROJO, 0.55))
-				BarridoAire.cometa(capa, c + _alto(16.0), c, 3.2, Color(FUEGO_AMARILLO, 0.8))
-				_bocanada(capa, c, 5.0, 0.1, float(i) * 7.0)
-			elif tr < 0.5:
-				# EL REVENTON: una bocanada que se abre y se hace humo.
-				var k: float = tr / 0.5
-				_bocanada(capa, p + _alto(4.0 + 10.0 * k), 5.0 + R_REVIENTA * 0.55 * (1.0 - pow(1.0 - k, 2.0)), k, float(i) * 13.0)
+				# (10/11) "una bola en llamas cayendo del cielo": mas gorda y con la cola mas larga (el de antes, 5 px)
+				var g: float = 1.0 if REVENTON_VIEJO else 1.6
+				BarridoAire.cometa(capa, c + _alto(26.0 * g), c, 5.0 * g, Color(FUEGO_ROJO, 0.55))
+				BarridoAire.cometa(capa, c + _alto(16.0 * g), c, 3.2 * g, Color(FUEGO_AMARILLO, 0.8))
+				_bocanada(capa, c, 5.0 * g, 0.1, float(i) * 7.0)
+			elif REVENTON_VIEJO:
+				if tr < 0.5:
+					var k: float = tr / 0.5
+					_bocanada(capa, p + _alto(4.0 + 10.0 * k), 5.0 + R_REVIENTA * 0.55 * (1.0 - pow(1.0 - k, 2.0)), k, float(i) * 13.0)
 			continue
 		if capa == _brillo:
 			if tr < 0.0:
 				BarridoAire.brillo(capa, p + _alto(ALTO_CAIDA * (1.0 - cae * cae)), 10.0, Color(FUEGO_NARANJA, 0.4))
-			elif tr < 0.2:
-				BarridoAire.brillo(capa, p + _alto(5.0), R_REVIENTA * 1.0 * (1.0 - tr / 0.2), Color(FUEGO_AMARILLO, 0.5 * (1.0 - tr / 0.2)))
-				BarridoAire.destello(capa, p + _alto(6.0), 14.0 * (1.0 - tr / 0.2), Color(FUEGO_BLANCO, 1.0 - tr / 0.2), float(i))
+			elif REVENTON_VIEJO:
+				if tr < 0.2:
+					BarridoAire.brillo(capa, p + _alto(5.0), R_REVIENTA * 1.0 * (1.0 - tr / 0.2), Color(FUEGO_AMARILLO, 0.5 * (1.0 - tr / 0.2)))
+					BarridoAire.destello(capa, p + _alto(6.0), 14.0 * (1.0 - tr / 0.2), Color(FUEGO_BLANCO, 1.0 - tr / 0.2), float(i))
+			else:
+				_reventon_brillo(capa, p, tr, i)
+	# LAS NUBES DE TODAS LAS BOLAS, CAPA A CAPA (10/11): primero el rojo de todas, luego el naranja de todas... asi dos
+	# reventones juntos se funden en UNA masa de fuego y el rojo de uno no tapa el amarillo del de al lado.
+	if capa == _delante and not REVENTON_VIEJO:
+		for k in 4:
+			for i in _puntos.size():
+				var tr_k: float = _t - T_ENTRE_BOLAS * float(i) - T_CAE_BOLA
+				if tr_k >= 0.0:
+					_reventon_cupula(capa, _puntos[i], tr_k, i, k)
 	# LAS ASCUAS de cada reventon.
 	if capa == _suelo:
 		for a in _ascuas:
