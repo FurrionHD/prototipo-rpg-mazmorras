@@ -162,6 +162,17 @@ func _guion() -> void:
 		_ok(p._objetivo() == fp, "mi objetivo queda fijado en el (%s)" % p._objetivo().nombre)
 		p._player = jug
 
+		# 3c) (10/11, FASE 3) RECITA: su circulo magico a sus pies, en MI pantalla
+		_ok(await _ordenar("empezar_recitar", COMPANERO) == "ok", "la sala hace que %s empiece a recitar" % COMPANERO)
+		espera = await _hasta(func(): return t._circulos.has(fp) and is_instance_valid(t._circulos[fp]), 10.0)
+		_ok(t._circulos.has(fp) and is_instance_valid(t._circulos[fp]), "en mi pantalla le sale su circulo magico (%.1f s)" % espera)
+		# Y LO SUELTA: llega a mi pantalla (registro y golpe)
+		var n_log: int = p.log_entero().size()
+		_ok(await _ordenar("soltar_hechizo", COMPANERO) == "ok", "la sala hace que %s suelte su Andanada ignea" % COMPANERO)
+		espera = await _hasta(func(): return p.log_entero().slice(n_log).any(func(l): return str(l).contains("Andanada")), 10.0)
+		_ok(p.log_entero().slice(n_log).any(func(l): return str(l).contains("Andanada")),
+			"en mi registro sale su hechizo (%.1f s)" % espera)
+
 		# 4) LO TUMBAN: el muñeco vuelve a caer
 		_ok(await _ordenar("tumbar", COMPANERO) == "ok", "la sala tumba al %s florecido" % COMPANERO)
 		espera = await _hasta(func(): return cu_fp != null and cu_fp.has_meta(t.MARCA_CAIDO), 15.0)

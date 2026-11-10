@@ -860,6 +860,53 @@ static func habilidades_florecido(c: Combatant) -> Array:
 			sal.append(ab)
 	return sal
 
+# (10/11, FASE 3) SUS MAGIAS: cada hechizo que llevaba equipado, hecho una accion suya (el jefe: "con carga visible" y
+# "si es una de 3 frases pues 3 turnos, como nosotros"). Recita tantos turnos como frases (carga_turnos, se ve el chip y su
+# huella en rojo; si le aturdes, se le corta) y lo suelta. Gasta SU MANA (coste_mana del hechizo) al empezar a recitar.
+# Pega con la formula de los hechizos (StatsMath.resolve_spell: su Magia, su baston), sin esquiva, como los tuyos. Los de
+# daño y los que debilitan, a los tuyos; las curas y los apoyos, a los bichos (su apoyo de siempre, _apoyo_florecido); las
+# imbuciones (Filos, Mantos), a si mismo. Lo que el camino del enemigo no tiene (rebotes, dispersion, tirones) no lo
+# hace: el daño, su huella y sus estados si.
+static var _hab_de_hechizo: Dictionary = {}
+
+static func habilidad_de_hechizo(sp: SpellData) -> AbilityData:
+	if sp == null:
+		return null
+	if _hab_de_hechizo.has(sp):
+		return _hab_de_hechizo[sp]
+	var ab: AbilityData = CombatTactico.crear_huella_hechizo(sp)
+	ab.es_magico = true
+	ab.elemento_golpe = int(sp.elemento)
+	ab.carga_turnos = maxi(1, sp.longitud())
+	ab.coste_energia = 0.0
+	ab.cooldown = 0
+	ab.fx_estilo = sp.fx_estilo
+	ab.efectos = sp.efectos.duplicate()
+	if sp.es_imbuicion():
+		# a si mismo: sin huella ni a quien apuntar (lo hace CombatEnemigos._propio_florecido)
+		ab.forma = -1
+		ab.forma_apunte = -1
+		ab.forma_a_aliados = false
+		ab.dano_mult = 0.0
+	elif sp.tipo == SpellData.TipoEfecto.ATAQUE:
+		ab.dano_mult = 1.0
+		ab.golpes_min = maxi(1, sp.hits)
+		ab.golpes_max = ab.golpes_min
+	elif sp.tipo == SpellData.TipoEfecto.DEBUFF:
+		ab.dano_mult = 0.0
+	else:
+		# CURACION y BUFF: a los suyos (los bichos)
+		ab.dano_mult = 0.0
+		ab.forma_a_aliados = true
+		if ab.forma < 0:
+			ab.forma = CombatFormas.Tipo.CIRCULO
+			ab.forma_apunte = CombatFormas.Apunte.ALREDEDOR
+			ab.forma_radio = maxf(ab.forma_radio, 80.0)
+	ab.set_meta(&"hechizo", sp)
+	_hab_de_hechizo[sp] = ab
+	return ab
+
+
 func _florecer_personaje(al: Combatant) -> void:
 	if al == null or _espejo:
 		return
@@ -875,6 +922,12 @@ func _florecer_personaje(al: Combatant) -> void:
 	# (fase 2, tanda 1) LAS HABILIDADES DE SU ARMA, con SU ENERGIA de jugador: la que tenia al caer (si no tenia
 	# barra, la de su aguante). En su turno usa una si le llega y si no pega el basico, que se la repone.
 	c.habilidades = habilidades_florecido(c)
+	# (fase 3) Y SUS MAGIAS, con el mana que tenia al caer.
+	for sp in c.spells:
+		var hab: AbilityData = habilidad_de_hechizo(sp as SpellData)
+		if hab != null and not c.habilidades.has(hab):
+			c.habilidades.append(hab)
+	c.current_mp = clampf(al.current_mp, 0.0, c.max_mp)
 	c.prob_habilidad = 0.0
 	c.energia_de_jugador = true
 	if al.max_energy > 0.0:

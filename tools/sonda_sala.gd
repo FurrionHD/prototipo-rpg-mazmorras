@@ -205,6 +205,35 @@ func _hacer_orden(orden: String, nombre: String) -> String:
 					p._update_hp()
 					return "ok"
 			return "sin_florecido"
+		"empezar_recitar":
+			# (10/11, fase 3) El personaje florecido 'nombre' empieza a recitar su Andanada (su circulo, en el cliente).
+			for c in p._enemies:
+				var e: Combatant = c
+				if e.is_alive() and e.nombre == nombre and e.has_status(StatusEffects.Id.FLORECIDO):
+					var hab: AbilityData = p.habilidad_de_hechizo(load("res://resources/spells/bola_fuego.tres"))
+					var vic: Combatant = null
+					for a in p._aliados:
+						if a.is_alive():
+							vic = a
+							break
+					p.enemigos._enemy_begin_charge(e, hab, vic)
+					return "ok"
+			return "sin_florecido"
+		"soltar_hechizo":
+			# (10/11, fase 3) El personaje florecido 'nombre' suelta su Andanada ignea (la de un mago) contra los tuyos:
+			# el golpe de un hechizo suyo tiene que llegar al cliente como cualquier otro.
+			for c in p._enemies:
+				var e: Combatant = c
+				if e.is_alive() and e.nombre == nombre and e.has_status(StatusEffects.Id.FLORECIDO):
+					var hab: AbilityData = p.habilidad_de_hechizo(load("res://resources/spells/bola_fuego.tres"))
+					var vic: Combatant = null
+					for a in p._aliados:
+						if a.is_alive():
+							vic = a
+							break
+					p.enemigos._enemy_use_ability(e, hab, vic)
+					return "ok"
+			return "sin_florecido"
 		"tumbar":
 			# El personaje florecido (el que usa el muñeco de un caido) cae otra vez.
 			for c in p._enemies:

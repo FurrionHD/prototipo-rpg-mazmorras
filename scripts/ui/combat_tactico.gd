@@ -554,7 +554,31 @@ func _casteos_vistos() -> Dictionary:
 		var d: Dictionary = _pantalla._casteos[c]
 		if d.get("spell") is SpellData:
 			out[c] = [d["spell"], int(d.get("idx", 0)), d.get("punto")]
+	# (10/11, fase 3) TU PERSONAJE FLORECIDO recitando: su circulo a sus pies, una capa mas por turno (como tus frases). Su
+	# huella ya la pinta su carga (en rojo): aqui sin punto.
+	for en in _pantalla._enemies:
+		var ec: Combatant = en
+		if ec.is_alive() and ec.charging != null and ec.charging.has_meta(&"hechizo"):
+			var sp: SpellData = ec.charging.get_meta(&"hechizo")
+			out[ec] = [sp, clampi(ec.charging.carga_turnos - ec.charge_left + 1, 1, maxi(1, sp.longitud())), null]
 	return out
+
+
+# (10/11) Quien recita, como numero para la red: los tuyos por su indice; un enemigo (tu florecido), 1000 + el suyo.
+func _cod_circulo(c: Combatant) -> int:
+	var i: int = _pantalla._aliados.find(c)
+	if i >= 0:
+		return i
+	var j: int = _pantalla._enemies.find(c)
+	return 1000 + j if j >= 0 else -1
+
+
+func _de_cod_circulo(i: int) -> Combatant:
+	if i >= 1000 and i - 1000 < _pantalla._enemies.size():
+		return _pantalla._enemies[i - 1000]
+	if i >= 0 and i < _pantalla._aliados.size():
+		return _pantalla._aliados[i]
+	return null
 
 
 # LA HUELLA DEL HECHIZO mientras se recita: donde va a caer (el aviso, como las cargas). Se pinta con la
@@ -618,7 +642,7 @@ func circulo_acaba(c: Combatant, disparo: bool, spell: SpellData = null) -> void
 	# Para los espejos: viaja en la instantanea (circulos_para_red).
 	if not _pantalla._espejo and spell != null:
 		_fin_seq += 1
-		_fines.append([_pantalla._aliados.find(c), disparo, IdsRed.de(spell), _fin_seq])   # el hechizo, como id
+		_fines.append([_cod_circulo(c), disparo, IdsRed.de(spell), _fin_seq])   # el hechizo, como id
 		if _fines.size() > 4:
 			_fines.pop_front()
 	var circ = _circulos.get(c)
@@ -652,6 +676,11 @@ func circulos_para_red() -> Dictionary:
 			var pt = d.get("punto")
 			cs.append([i, IdsRed.de(d["spell"]), int(d.get("idx", 0))]
 				+ ([(pt as Vector2).x, (pt as Vector2).y] if pt is Vector2 else []))
+	# (10/11) y los florecidos que recitan (1000 + su indice), sin punto
+	var vistos: Dictionary = _casteos_vistos()
+	for c2 in vistos:
+		if _pantalla._enemies.has(c2):
+			cs.append([_cod_circulo(c2), IdsRed.de(vistos[c2][0]), int(vistos[c2][1])])
 	return {"c": cs, "f": _fines}
 
 
@@ -664,17 +693,17 @@ func aplicar_circulos_red(d: Dictionary) -> void:
 		tope = maxi(tope, seq)
 		if _fin_visto < 0 or seq <= _fin_visto:
 			continue   # al llegar a mitad no se repiten los de antes
-		var i: int = int(f[0])
+		var quien: Combatant = _de_cod_circulo(int(f[0]))
 		var sp = IdsRed.cargar(int(f[2]))
-		if i >= 0 and i < _pantalla._aliados.size() and sp is SpellData:
-			circulo_acaba(_pantalla._aliados[i], bool(f[1]), sp)
+		if quien != null and sp is SpellData:
+			circulo_acaba(quien, bool(f[1]), sp)
 	_fin_visto = maxi(tope, 0)
 	_casteos_red.clear()
 	for c in d.get("c", []):
-		var i2: int = int(c[0])
+		var quien2: Combatant = _de_cod_circulo(int(c[0]))
 		var sp2 = IdsRed.cargar(int(c[1]))
-		if i2 >= 0 and i2 < _pantalla._aliados.size() and sp2 is SpellData:
-			_casteos_red[_pantalla._aliados[i2]] = [sp2, int(c[2]),
+		if quien2 != null and sp2 is SpellData:
+			_casteos_red[quien2] = [sp2, int(c[2]),
 				Vector2(float(c[3]), float(c[4])) if (c as Array).size() >= 5 else null]
 
 
@@ -1932,7 +1961,8 @@ func dentro_del_hechizo(spell: SpellData, c: Combatant, punto: Vector2) -> Array
 func vecinos_de(c: Combatant, radio: float) -> Array:
 	var out: Array = []
 	var r: Rect2 = bulto_de(c).grow(radio)
-	for e in _pantalla._vivos():
+	# (10/11) los de SU bando: el salpicon de un hechizo de tu florecido cae entre los tuyos
+	for e in (_pantalla._aliados_vivos() if _pantalla._aliados.has(c) else _pantalla._vivos()):
 		if e != c and r.intersects(bulto_de(e)):
 			out.append(e)
 	return out
@@ -1969,7 +1999,8 @@ func fila_del_proyectil(spell: SpellData, c: Combatant, punto: Vector2) -> Array
 func siguiente_en_cadena(desde: Combatant, ya: Array, maximo: float) -> Combatant:
 	var mejor: Combatant = null
 	var d_mejor: float = INF
-	for e in _pantalla._vivos():
+	# (10/11) salta por el bando de 'desde' (la cadena de tu florecido, entre los tuyos)
+	for e in (_pantalla._aliados_vivos() if _pantalla._aliados.has(desde) else _pantalla._vivos()):
 		if ya.has(e) or e.no_elegible():
 			continue   # (30/10) la cadena salta a quien se ve
 		var d: float = hueco_entre(desde, e)

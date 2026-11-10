@@ -68,11 +68,13 @@ func _objetivos_area(spell: SpellData, principal: Combatant) -> Array:
 	if not spell.salpica():
 		return out
 	var vecinos: Array[Combatant] = []
+	# (10/11) los de SU bando (el hechizo de tu florecido salpica entre los tuyos)
+	var de_los_tuyos: bool = _pantalla._aliados.has(principal)
 	match spell.alcance:
 		SpellData.Alcance.ADYACENTES:
-			vecinos = _adyacentes_vivos(principal)
+			vecinos = _adyacentes_aliados_vivos(principal) if de_los_tuyos else _adyacentes_vivos(principal)
 		SpellData.Alcance.TODOS:
-			vecinos = _pantalla._vivos()
+			vecinos = _pantalla._aliados_vivos() if de_los_tuyos else _pantalla._vivos()
 	for c in vecinos:
 		if c != principal:
 			out.append({"c": c, "escala": spell.dano_salpicon})

@@ -529,6 +529,8 @@ func _correr() -> void:
 			_ver(nuevo.contains("usa Guardia rota"), "Guardia rota: la usa (%s)" % nuevo.left(100))
 			# (10/11, TANDA 4) SU PROVOCACION: los tuyos que pille quedan con el OBJETIVO FIJADO en el.
 			await _tanda4_provocacion(combat, t, fp, yo, cargar)
+			# (10/11, FASE 3) SUS MAGIAS: recita tantos turnos como frases y las suelta.
+			await _fase3_magias(combat, t, fp, yo)
 			# LO TUMBAS: su muñeco vuelve a caer (no se desvanece como un bicho).
 			fp.take_damage(fp.current_hp + 10.0)
 			t.morir_en_mapa(fp)
@@ -625,6 +627,136 @@ func _tanda4_provocacion(combat: Node, t, fp: Combatant, yo: Combatant, cargar: 
 		await _turno_de(combat, t, fp, yo, yo.current_hp)
 	_ver(fp.provocar_turnos == 0 and fp.provocados.is_empty() and combat.objetivos.provocador_mio(yo) == null,
 		"a los 3 turnos suyos se acaba y quedas libre (%d)" % fp.provocar_turnos)
+
+
+# (10/11) FASE 3: las magias de tu personaje florecido, hechas acciones suyas (CombatPantalla.habilidad_de_hechizo).
+func _fase3_magias(combat: Node, t, fp: Combatant, yo: Combatant) -> void:
+	fp.salir_de_guardia()
+	fp.imbue_usos = 0
+	if fp.max_mp < 200.0:
+		fp.max_mp = 200.0
+	_poner(t, yo, t.pies_de(fp) + Vector2(-40, 0))
+	# 1) UN HECHIZO DE ATAQUE: Bola de fuego
+	var bola: SpellData = load("res://resources/spells/bola_fuego.tres")
+	var hb: AbilityData = combat.habilidad_de_hechizo(bola)
+	_ver(hb != null and hb.es_magico and hb.carga_turnos == bola.longitud() and hb.dano_mult > 0.0,
+		"Bola de fuego: recita %d turnos (sus %d frases), magica y de daño" % [hb.carga_turnos, bola.longitud()])
+	fp.current_mp = fp.max_mp
+	var mp0: float = fp.current_mp
+	var hp0: float = yo.current_hp
+	var vida_tuyos0: float = combat._aliados.reduce(func(acc, a): return acc + a.current_hp, 0.0)
+	var nuevo: String = await _lanza_hasta(combat, t, fp, yo, hb, bola.longitud() + 6)
+	_ver(nuevo.contains("empieza a recitar " + bola.nombre), "empieza a recitar %s y lo dice" % bola.nombre)
+	_ver(_circulo_visto, "mientras recita, su circulo magico a sus pies")
+	_ver(is_equal_approx(_mp_al_empezar, mp0 - float(bola.coste_mana)), "y paga su mana al empezar (%.0f -> %.0f, coste %d)" % [
+		mp0, _mp_al_empezar, bola.coste_mana])
+	# (es DISPERSA: sus bolas caen al azar en la zona; a alguno de los tuyos le da)
+	var vida_tuyos1: float = combat._aliados.reduce(func(acc, a): return acc + a.current_hp, 0.0)
+	_ver(nuevo.contains(bola.nombre) and vida_tuyos1 < vida_tuyos0,
+		"al acabar de recitar la suelta y os pega (%.0f de vida menos entre los tuyos)" % (vida_tuyos0 - vida_tuyos1))
+	# LOS DE VERDAD: la Descarga salta en CADENA entre los tuyos (como contra los bichos)
+	var desc: SpellData = load("res://resources/spells/descarga.tres")
+	var hdesc: AbilityData = combat.habilidad_de_hechizo(desc)
+	var los_mios: Array = combat._aliados.filter(func(a): return a.is_alive())
+	for k in los_mios.size():
+		_poner(t, los_mios[k], t.pies_de(fp) + Vector2(-40 - 22 * k, 10 * k))
+	var vidas: Array = los_mios.map(func(a): return a.current_hp)
+	fp.current_mp = fp.max_mp
+	nuevo = await _lanza_hasta(combat, t, fp, yo, hdesc, desc.longitud() + 6)
+	var heridos: int = 0
+	for k in los_mios.size():
+		if los_mios[k].current_hp < float(vidas[k]):
+			heridos += 1
+	_ver(heridos >= 2, "Descarga: salta entre los tuyos (%d heridos): %s" % [heridos, nuevo.right(120)])
+	# el TIRON del Chorro de agua te arrastra
+	var chorro: SpellData = load("res://resources/spells/chorro_agua.tres")
+	var hch: AbilityData = combat.habilidad_de_hechizo(chorro)
+	# (los demas, lejos: el empuje se para contra un cuerpo, como contra un bicho)
+	for k in los_mios.size():
+		if los_mios[k] != yo:
+			_poner(t, los_mios[k], t.pies_de(fp) + Vector2(-260, -60 * k))
+	# hacia el centro de la arena (con pared detras se para, como contra un bicho)
+	var al_centro: Vector2 = (t._arena().global_position - t.pies_de(fp)).normalized() if t._arena() != null else Vector2.DOWN
+	if al_centro.length() < 0.5:
+		al_centro = Vector2.DOWN
+	_poner(t, yo, t.pies_de(fp) + al_centro * 60.0)
+	var donde0: Vector2 = t.pies_de(yo)
+	fp.current_mp = fp.max_mp
+	nuevo = await _lanza_hasta(combat, t, fp, yo, hch, chorro.longitud() + 6)
+	var movido: float = t.pies_de(yo).distance_to(donde0)
+	# (sin ventana el gesto no llega a verse: el empuje arranca a los T_TIRON_ESPERA s de margen)
+	for _k in 240:
+		await get_tree().process_frame
+		t.tick(1.0 / 60.0)
+		movido = maxf(movido, t.pies_de(yo).distance_to(donde0))
+	_ver(nuevo.contains(chorro.nombre) and movido > 8.0,
+		"%s: te empuja (%.0f px): %s" % [chorro.nombre, movido, nuevo.right(100)])
+	# sin mana, no la elige
+	fp.current_mp = 0.0
+	_ver(combat.enemigos._le_llega_el_mana(fp, hb) == false, "sin mana no la puede recitar")
+	# 2) UNA CURA A LOS BICHOS: Vendaje de luz
+	var vend: SpellData = load("res://resources/spells/vendaje_de_luz.tres")
+	var hv: AbilityData = combat.habilidad_de_hechizo(vend)
+	var herido: Combatant = null
+	for o in combat._enemies:
+		if o != fp and o.is_alive():
+			herido = o
+			break
+	_ver(hv.forma_a_aliados and herido != null, "Vendaje de luz: va a los suyos (los bichos)")
+	if herido != null:
+		_poner(t, herido, t.pies_de(fp) + Vector2(30, 0))
+		herido.current_hp = herido.max_hp * 0.3
+		var hh0: float = herido.current_hp
+		fp.current_mp = fp.max_mp
+		nuevo = await _lanza_hasta(combat, t, fp, yo, hv, vend.longitud() + 3)
+		_ver(herido.current_hp > hh0, "cura a %s (%.0f -> %.0f): %s" % [herido.nombre, hh0, herido.current_hp, nuevo.right(90)])
+	# 3) UN DEBILITAMIENTO: Debilidad, a los tuyos
+	var deb: SpellData = load("res://resources/spells/debilidad.tres")
+	var hd: AbilityData = combat.habilidad_de_hechizo(deb)
+	_ver(not hd.forma_a_aliados and hd.dano_mult == 0.0, "Debilidad: va a los tuyos, sin daño")
+	# 4) SU FILO: a si mismo
+	var filo: SpellData = load("res://resources/spells/filo_ardiente.tres")
+	var hf: AbilityData = combat.habilidad_de_hechizo(filo)
+	fp.current_mp = fp.max_mp
+	fp.imbue_usos = 0
+	nuevo = await _lanza_hasta(combat, t, fp, yo, hf, filo.longitud() + 3)
+	_ver(fp.imbue_usos > 0 and nuevo.contains("se imbuye"), "Filo ardiente: se imbuye el arma (%d ataques): %s" % [
+		fp.imbue_usos, nuevo.right(90)])
+	_ver(combat.enemigos._le_llega_el_mana(fp, hf) == false, "y con el filo puesto no lo repite")
+	fp.habilidades = []
+	fp.imbue_usos = 0
+
+
+var _circulo_visto: bool = false
+var _mp_al_empezar: float = -1.0
+
+# Sus turnos hasta que suelte 'ab' (la recita: sus turnos de carga y el de soltarla).
+func _lanza_hasta(combat: Node, t, e: Combatant, yo: Combatant, ab: AbilityData, turnos: int) -> String:
+	e.habilidades = [ab]
+	e.ability_cooldowns.clear()
+	e.retrasando = false
+	e.charging = null
+	var log0: int = combat.log_entero().size()
+	_circulo_visto = false
+	var empezo: bool = false
+	for _turno in turnos:
+		await _turno_de(combat, t, e, yo, yo.current_hp)
+		for _k in 6:
+			await get_tree().process_frame
+			t.tick(1.0 / 60.0)
+		if e.charging == ab:
+			if not empezo:
+				_mp_al_empezar = e.current_mp
+			empezo = true
+			if t._circulos.has(e) and is_instance_valid(t._circulos[e]):
+				_circulo_visto = true
+		var txt: String = " | ".join(combat.log_entero().slice(log0).map(func(l): return str(l)))
+		if txt.contains("usa " + ab.nombre) or (empezo and e.charging == null):
+			break
+	for _k in 40:
+		await get_tree().process_frame
+		t.tick(1.0 / 60.0)
+	return " | ".join(combat.log_entero().slice(log0).map(func(l): return str(l)))
 
 
 func _usa_hasta(combat: Node, t, e: Combatant, yo: Combatant, ab: AbilityData, sola: bool = true) -> String:

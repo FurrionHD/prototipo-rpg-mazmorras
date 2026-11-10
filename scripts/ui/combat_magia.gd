@@ -30,6 +30,38 @@ const COLUMNAS_FRASES := 2
 #  MAGIA (KAN-56): submenu de hechizos + recitado por frases + disparo
 # ------------------------------------------------------------
 # Accion Magia: abre el submenu con los hechizos equipados y su coste de mana.
+# ------------------------------------------------------------
+#  QUIEN LANZA (10/11, el jefe: "las magias tienen que funcionar igual contra nosotros como contra los enemigos")
+# ------------------------------------------------------------
+# Lo que RESUELVE un hechizo (area, rebotes, dispersion, cadena, salpicon, tirones, estados...) es el mismo para tus
+# hechizos y para los de tu personaje FLORECIDO, que lanza desde el bando de los bichos. Dentro, el que lanza es _lanza()
+# (el del turno, o el florecido mientras suelta el suyo: lanzar_de_enemigo) y a quien puede tocar, _rivales() (el bando
+# de enfrente del que lanza). Lo que solo es de los tuyos (la excelia, los contadores ocultos, el DPS) no se cuenta
+# cuando lanza un enemigo.
+var _lanzador: Combatant = null   # el florecido que suelta su hechizo (null = el del turno, _player)
+var _punto_lanzador = null        # donde lo apunto (su carga)
+
+func _lanza() -> Combatant:
+	return _lanzador if _lanzador != null else _pantalla._player
+
+
+func _rivales() -> Array[Combatant]:
+	if _lanzador != null and _pantalla._enemies.has(_lanzador):
+		return _pantalla._aliados_vivos()
+	return _pantalla._vivos()
+
+
+# Tu personaje florecido 'e' suelta 'spell' (de daño o de debilitar) hacia 'punto' (su carga en el mapa; null en la
+# fila), con 'obj' como su objetivo principal. Devuelve los TUYOS que ha tocado (para rematarlos).
+func lanzar_de_enemigo(e: Combatant, spell: SpellData, punto, obj: Combatant) -> Array:
+	_lanzador = e
+	_punto_lanzador = punto
+	var tocados: Array = _resolver_hechizo(spell, obj)
+	_lanzador = null
+	_punto_lanzador = null
+	return tocados
+
+
 func _accion_magia() -> void:
 	_pantalla._ocultar_cajas()
 	# Reconstruimos el submenu cada vez (el mana cambia -> disponibilidad).
@@ -591,19 +623,19 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 	# EL GESTO DE LANZAR (27/09): los golpes de este conjuro los hace el cuerpo con la floritura de la varita o el
 	# conjuro del baston, no con el golpe de su arma. Aqui y al espejo, delante de los golpes.
 	if _pantalla.tactico and _pantalla._fx != null:
-		_pantalla._fx.lanza_hechizo(_pantalla._bloque_de(_pantalla._player))
-		_pantalla.espejo._apuntar_lanza_red(_pantalla._player)
+		_pantalla._fx.lanza_hechizo(_pantalla._bloque_de(_lanza()))
+		_pantalla.espejo._apuntar_lanza_red(_lanza())
 	# EN EL MAPA, lo que tape su huella en el sitio que se apunto al empezar: le da a quien este AHI ahora
 	# (si se han ido, mala suerte). Sin nadie dentro, se pierde contra el suelo (el mana ya esta pagado).
-	var punto = (_pantalla._casteos.get(_pantalla._player, {}) as Dictionary).get("punto")
+	var punto = (_pantalla._casteos.get(_lanza(), {}) as Dictionary).get("punto") if _lanzador == null else _punto_lanzador
 	# EL IMAN (SpellData.forma_iman, 30/10): si alguien esta en su zona de enganche, va a por el.
 	if _pantalla.tactico and punto is Vector2:
-		punto = _pantalla.turno_mapa.punto_con_iman(spell, _pantalla._player, punto)
+		punto = _pantalla.turno_mapa.punto_con_iman(spell, _lanza(), punto)
 	var en_mapa: bool = _pantalla.tactico and punto is Vector2 and _pantalla.turno_mapa.usa_huella_hechizo(spell)
 	var reparto_mapa: Array = []
 	var con_efecto: bool = false
 	if en_mapa:
-		reparto_mapa = _pantalla.turno_mapa.reparto_hechizo(spell, _pantalla._player, punto)
+		reparto_mapa = _pantalla.turno_mapa.reparto_hechizo(spell, _lanza(), punto)
 		# SU EFECTO EN EL MAPA (MagiaAire, por el suelo): cada golpe llega cuando el efecto alcanza a su victima.
 		if spell.suelo_mapa >= 0:
 			var f_ef = _forma_efecto(spell, punto, reparto_mapa)
@@ -611,23 +643,23 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 				f_ef.puntos = _bolas_a_los_de_dentro(spell, punto)
 			# Los de apoyo en area (Fortaleza) no pillan enemigos: cuentan los tuyos que haya dentro.
 			var hay_alguien: bool = not reparto_mapa.is_empty() or (spell.forma_a_aliados
-				and not _pantalla.turno_mapa.aliados_hechizo(spell, _pantalla._player).is_empty())
+				and not _pantalla.turno_mapa.aliados_hechizo(spell, _lanza()).is_empty())
 			if not hay_alguien:
 				# Sin nadie no hay golpes que lo lleven: lo lleva un GOLPE AL AIRE (el gesto de lanzar y su efecto, el del
 				# orbe que se apaga), que viaja a los espejos como un golpe. Antes se lanzaba aqui a pelo y solo lo veia
 				# quien llevaba la pelea: en multi, la sala (29/10).
 				_pantalla.efectos.fijar_suelo(_tipo_fallo(spell.suelo_mapa), f_ef, (randi() & 0x3FFFFFFF) | 1, 0.0)
-				_pantalla.efectos.golpe_al_aire(_pantalla._player)
+				_pantalla.efectos.golpe_al_aire(_lanza())
 				_pantalla.efectos.soltar_suelo()
 			else:
 				_pantalla.efectos.fijar_suelo(spell.suelo_mapa, f_ef, (randi() & 0x3FFFFFFF) | 1, 0.0)
 				con_efecto = true
 		if spell.tipo == SpellData.TipoEfecto.DEBUFF and reparto_mapa.is_empty():
-			_pantalla._set_log("💨 %s de %s cae donde no hay nadie." % [spell.nombre, _pantalla._player.nombre])
+			_pantalla._set_log("💨 %s de %s cae donde no hay nadie." % [spell.nombre, _lanza().nombre])
 			return tocados
 		if spell.tipo == SpellData.TipoEfecto.ATAQUE and reparto_mapa.is_empty():
 			_pantalla._set_log("💨 %s de %s cae donde no hay nadie y se pierde contra el suelo." % [
-				spell.nombre, _pantalla._player.nombre])
+				spell.nombre, _lanza().nombre])
 			return tocados
 		if not reparto_mapa.is_empty():
 			obj = reparto_mapa[0]["c"]
@@ -643,18 +675,18 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 		# de la fila pondria la voragine sobre un bicho al que no le esta pasando nada.
 		var centro: Combatant = obj
 		if spell.alcance == SpellData.Alcance.TODOS:
-			var vivos_c: Array[Combatant] = _pantalla._vivos()
+			var vivos_c: Array[Combatant] = _rivales()
 			if not vivos_c.is_empty():
 				centro = vivos_c[vivos_c.size() / 2]
 		if centro != null:
-			_pantalla.efectos._fx_golpe(_pantalla._player, centro, 0.0, false, false, int(spell.elemento),
+			_pantalla.efectos._fx_golpe(_lanza(), centro, 0.0, false, false, int(spell.elemento),
 				spell.fx_estilo if spell.fx_estilo >= 0 else CombatFX.Estilo.ARCANO,
 				3.0, true)
 	if spell.tipo == SpellData.TipoEfecto.ATAQUE:
 		# Foco arcano (Canalización): gasta 1 carga y amplifica el daño del hechizo. Solo
 		# los OFENSIVOS gastan carga; el largo la gasta AL DISPARAR (respeta el canto). Se
 		# consume UNA vez y multiplica TODOS los golpes (los del area y los de los rebotes).
-		var foco: float = _pantalla._player.consumir_foco()
+		var foco: float = _lanza().consumir_foco()
 		# 1) AREA: el principal y a quien salpique, cada uno con su multiplicador.
 		#    DISPERSA (Tormenta, Andanada): los golpes no van al objetivo fijo, sino repartidos
 		#    a vivos al azar; cada bola aplica ahi el alcance del hechizo. Ver _resolver_dispersa.
@@ -665,10 +697,10 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 			var puntos: Array = []
 			var dentro: Array = []
 			if en_mapa and spell.forma_salpicon > 0.0:
-				dentro = _pantalla.turno_mapa.dentro_del_hechizo(spell, _pantalla._player, punto)
+				dentro = _pantalla.turno_mapa.dentro_del_hechizo(spell, _lanza(), punto)
 			elif en_mapa:
 				puntos = _bolas_elegidas if not _bolas_elegidas.is_empty() \
-					else MagiaAire.puntos_andanada(_pantalla.turno_mapa.forma_hechizo(spell, _pantalla._player, punto))
+					else MagiaAire.puntos_andanada(_pantalla.turno_mapa.forma_hechizo(spell, _lanza(), punto))
 				_bolas_elegidas = []
 			res_area = _resolver_dispersa(spell, foco, puntos, dentro)
 			for r in res_area:
@@ -693,7 +725,7 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 		# llevarse todos los suyos, el resto salta a otros enemigos en vez de perderse.
 		# En un CIRCULO del mapa (la Vorágine) no: ya le cae a cada uno de los de dentro.
 		if spell.sobrantes_saltan() and not res_area.is_empty() and not (en_mapa and spell.forma == CombatFormas.Tipo.CIRCULO):
-			var fila_m = _pantalla.turno_mapa.fila_del_proyectil(spell, _pantalla._player, punto) if en_mapa else null
+			var fila_m = _pantalla.turno_mapa.fila_del_proyectil(spell, _lanza(), punto) if en_mapa else null
 			for r in _saltar_sobrantes(spell, res_area[0], foco, fila_m):
 				res_reb.append(r)
 				tocados.append(r.c)
@@ -710,7 +742,7 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 		var ya: Array = tocados.duplicate()
 		var desde: Combatant = obj
 		for i in spell.rebotes_n():
-			var vivos: Array[Combatant] = _pantalla._vivos()
+			var vivos: Array[Combatant] = _rivales()
 			if vivos.is_empty():
 				break   # no queda nadie a quien saltar: la cadena se apaga
 			var victima: Combatant = null
@@ -749,44 +781,45 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 			for t2 in tocados:
 				if t2.is_alive() and not empujados.has(t2):
 					empujados.append(t2)
-					_pantalla.turno_mapa.pedir_tiron(t2, _pantalla._player, spell.forma_tiron)
-					var dsp: String = _pantalla.desplazado(t2, spell.forma_tiron, _pantalla._player)
+					_pantalla.turno_mapa.pedir_tiron(t2, _lanza(), spell.forma_tiron)
+					var dsp: String = _pantalla.desplazado(t2, spell.forma_tiron, _lanza())
 					if dsp != "":
 						_pantalla._set_log(dsp)
 		# EL POZO (Vorágine): arrastra hacia el centro a los que siguen en pie, mas cuanto mas cerca estan.
 		if en_mapa and spell.forma_atrae > 0.0:
-			var f_at = _pantalla.turno_mapa.forma_hechizo(spell, _pantalla._player, punto)
+			var f_at = _pantalla.turno_mapa.forma_hechizo(spell, _lanza(), punto)
 			var atraidos: Array = []
 			for t3 in tocados:
 				if t3.is_alive() and not atraidos.has(t3):
 					atraidos.append(t3)
 					var cerca_c: float = 1.0 - _pantalla.turno_mapa.lejania_al_centro(f_at, t3)
-					_pantalla.turno_mapa.pedir_atraccion(t3, _pantalla._player, f_at.centro,
+					_pantalla.turno_mapa.pedir_atraccion(t3, _lanza(), f_at.centro,
 						spell.forma_atrae * lerpf(0.5, 1.0, cerca_c))
 					var dsp2: String = _pantalla.desplazado(t3, spell.forma_atrae * lerpf(0.5, 1.0, cerca_c),
-						_pantalla._player)
+						_lanza())
 					if dsp2 != "":
 						_pantalla._set_log(dsp2)
 		dano = _log_hechizo(spell, res_area, res_reb, foco)
-		_pantalla._dps_add("Hechizo: %s" % spell.nombre, dano)   # una entrada por lanzamiento, agregada
+		if _lanzador == null:
+			_pantalla._dps_add("Hechizo: %s" % spell.nombre, dano)   # una entrada por lanzamiento, agregada
 	else:
-		_pantalla._set_log("✨ %s lanza %s." % [_pantalla._player.nombre, spell.nombre])
+		_pantalla._set_log("✨ %s lanza %s." % [_lanza().nombre, spell.nombre])
 		# Los estados de un hechizo sin daño (buff/debuff) se aplican aqui: no hay golpes que
 		# los lleven. Los de ATAQUE ya los ha tirado cada golpe con SU elemento.
 		if en_mapa and spell.tipo == SpellData.TipoEfecto.DEBUFF:
 			# EN EL MAPA, a todos los que pille la huella, cada uno con su tirada (la Debilidad).
 			for d_db in reparto_mapa:
 				_aplicar_estado_hechizo(spell, d_db["c"])
-				_pantalla.efectos._fx_golpe(_pantalla._player, d_db["c"], 0.0, false, false, int(spell.elemento),
+				_pantalla.efectos._fx_golpe(_lanza(), d_db["c"], 0.0, false, false, int(spell.elemento),
 					CombatFX.Estilo.MALDICION, 1.0, true)
 		elif en_mapa and spell.forma_a_aliados and spell.forma_apunte == CombatFormas.Apunte.ALREDEDOR \
 				and spell.tipo != SpellData.TipoEfecto.CURACION and spell.imbue_tipo == 0:
 			# EN EL MAPA, a todos los tuyos que pille el circulo (la Fortaleza).
 			var antes_al: Combatant = _pantalla._cast_aliado
-			for al_f in _pantalla.turno_mapa.aliados_hechizo(spell, _pantalla._player):
+			for al_f in _pantalla.turno_mapa.aliados_hechizo(spell, _lanza()):
 				_pantalla._cast_aliado = al_f
 				_aplicar_estado_hechizo(spell)
-				_pantalla.efectos._fx_golpe(_pantalla._player, al_f, 0.0, false, false, int(spell.elemento),
+				_pantalla.efectos._fx_golpe(_lanza(), al_f, 0.0, false, false, int(spell.elemento),
 					CombatFX.Estilo.FORTALECER, 1.0, true)
 			_pantalla._cast_aliado = antes_al
 		else:
@@ -799,10 +832,10 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 	if spell.imbue_tipo > 0 and en_mapa and spell.forma_a_aliados and spell.forma_apunte == CombatFormas.Apunte.ALREDEDOR:
 		# EN EL MAPA, A TODOS LOS TUYOS de alrededor (el Manto prismatico, 26/09): a cada uno el suyo.
 		var antes_im: Combatant = _pantalla._cast_aliado
-		for al_i in _pantalla.turno_mapa.aliados_hechizo(spell, _pantalla._player):
+		for al_i in _pantalla.turno_mapa.aliados_hechizo(spell, _lanza()):
 			_pantalla._cast_aliado = al_i
 			_aplicar_imbuicion(spell)
-			_pantalla.efectos._fx_golpe(_pantalla._player, al_i, 0.0, false, false,
+			_pantalla.efectos._fx_golpe(_lanza(), al_i, 0.0, false, false,
 				int(spell.elemento), CombatFX.Estilo.IMBUIR_PRISMA if spell.imbue_prisma
 					else (CombatFX.Estilo.IMBUIR_CUERPO if spell.imbue_tipo == 2 else CombatFX.Estilo.IMBUIR_ELEM),
 				1.0, true)
@@ -812,7 +845,7 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 		# EN EL MAPA se ve llegar: el elemento viaja de tu mano al arma de quien lo recibe.
 		if en_mapa and _pantalla._cast_aliado != null:
 			# El MANTO (imbuicion de CUERPO) le envuelve entero; el Filo va a su arma.
-			_pantalla.efectos._fx_golpe(_pantalla._player, _pantalla._cast_aliado, 0.0, false, false,
+			_pantalla.efectos._fx_golpe(_lanza(), _pantalla._cast_aliado, 0.0, false, false,
 				int(spell.elemento), CombatFX.Estilo.IMBUIR_CUERPO if spell.imbue_tipo == 2 else CombatFX.Estilo.IMBUIR_ELEM,
 				1.0, true)
 	# El efecto por el suelo se suelta aqui tambien (el de una magia sin golpe, como la Debilidad, se fijo arriba).
@@ -820,10 +853,13 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 		_pantalla.efectos.soltar_suelo()
 	# Excelia (formula dedicada de Magia): entrena al LANZAR, escalado por el mana
 	# gastado (hechizos caros = mas potentes = entrenan mas) x reto del enemigo.
+	# (10/11) el hechizo de un ENEMIGO (tu personaje florecido): ni excelia ni contadores de los tuyos
+	if _lanzador != null:
+		return tocados
 	var mana_factor: float = float(spell.coste_mana) / Game.MAGIA_COSTE_REF
 	# Reto por-stat (contra TU magia, no tu poder total): asi un cuerpo fuerte con magia baja SI
 	# entrena la magia contra bichos de su piso, en vez de quedarse clavado a 0 (ver Game.reto_stat).
-	var pj_lanza: PersonajeData = _pantalla._pj_de_magia(_pantalla._player, "lanzar " + spell.nombre)   # entrena EL QUE LANZA
+	var pj_lanza: PersonajeData = _pantalla._pj_de_magia(_lanza(), "lanzar " + spell.nombre)   # entrena EL QUE LANZA
 	Game.ganar("magia", Game.reto_stat(_pantalla._poder_enemigo(obj), "magia", obj.level, pj_lanza),
 		Game.GAIN_MAGIA_CAST * mana_factor, Game.RETO_MAX_FISICO, pj_lanza)
 	Game.contar_hechizo(pj_lanza)   # contador oculto de Erudito
@@ -831,14 +867,14 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 	# "lanza Luz restauradora | dano:0.00 | def. magica de Rey Slime". Las demas dicen que son (la cura, a quien y cuanto,
 	# lo escribe _curar_con_hechizo).
 	if spell.tipo == SpellData.TipoEfecto.ATAQUE and tocados.is_empty():
-		print("[magia] %s lanza %s | NO PILLA A NADIE (no queda nadie en su huella)" % [_pantalla._player.nombre, spell.nombre])
+		print("[magia] %s lanza %s | NO PILLA A NADIE (no queda nadie en su huella)" % [_lanza().nombre, spell.nombre])
 	elif spell.tipo == SpellData.TipoEfecto.ATAQUE:
 		print("[magia] %s lanza %s | dano:%.2f (Magia %d) | def. magica de %s: %.2f" % [
-			_pantalla._player.nombre, spell.nombre, dano, _pantalla._player.abilities.magia, obj.nombre,
+			_lanza().nombre, spell.nombre, dano, _lanza().abilities.magia, obj.nombre,
 			obj.mdef_value()])
 	else:
-		print("[magia] %s lanza %s (%s, Magia %d)" % [_pantalla._player.nombre, spell.nombre,
-			String(SpellData.TipoEfecto.keys()[spell.tipo]).to_lower(), _pantalla._player.abilities.magia])
+		print("[magia] %s lanza %s (%s, Magia %d)" % [_lanza().nombre, spell.nombre,
+			String(SpellData.TipoEfecto.keys()[spell.tipo]).to_lower(), _lanza().abilities.magia])
 	return tocados
 
 
@@ -854,7 +890,7 @@ var _bolas_elegidas: Array = []
 
 func _bolas_a_los_de_dentro(spell: SpellData, punto: Vector2) -> Array:
 	_bolas_elegidas = []
-	var dentro: Array = _pantalla.turno_mapa.dentro_del_hechizo(spell, _pantalla._player, punto)
+	var dentro: Array = _pantalla.turno_mapa.dentro_del_hechizo(spell, _lanza(), punto)
 	if dentro.is_empty():
 		return []
 	for i in maxi(spell.golpes(), 1):
@@ -866,7 +902,7 @@ func _bolas_a_los_de_dentro(spell: SpellData, punto: Vector2) -> Array:
 
 func _forma_efecto(spell: SpellData, punto: Vector2, reparto: Array) -> CombatFormas.Forma:
 	var tm = _pantalla.turno_mapa
-	var f = tm.forma_hechizo(spell, _pantalla._player, punto)
+	var f = tm.forma_hechizo(spell, _lanza(), punto)
 	var tipo: int = spell.suelo_mapa
 	# EL RAYO DEL CIELO cae sobre los pies del primero (o en el sitio, si no hay nadie).
 	if tipo == SueloRoto.Tipo.MAGIA_RAYO:
@@ -877,7 +913,7 @@ func _forma_efecto(spell: SpellData, punto: Vector2, reparto: Array) -> CombatFo
 	if not (tipo in [SueloRoto.Tipo.MAGIA_ORBE, SueloRoto.Tipo.MAGIA_BOLA, SueloRoto.Tipo.MAGIA_HELICE,
 			SueloRoto.Tipo.MAGIA_JABALINA]):
 		return f
-	var o: Vector2 = tm.pies_de(_pantalla._player)
+	var o: Vector2 = tm.pies_de(_lanza())
 	var dir: Vector2 = f.dir if f.tipo == CombatFormas.Tipo.LINEA else (f.centro - o)
 	var largo: float = f.largo if f.tipo == CombatFormas.Tipo.LINEA else o.distance_to(f.centro)
 	if not reparto.is_empty():
@@ -1156,7 +1192,7 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 	var n: int = spell.golpes()
 	var frac: float = escala / float(n)
 	var peso: float = _pantalla.efectos._peso_hechizo(spell, escala)
-	var lanzador: Combatant = desde if desde != null else _pantalla._player
+	var lanzador: Combatant = desde if desde != null else _lanza()
 	var multi: bool = n > 1
 	var total: float = 0.0
 	var trail: Array = []
@@ -1174,7 +1210,7 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 			break   # ya ha caido: los que quedan los recoge _saltar_sobrantes (o se pierden)
 		_pantalla.efectos._fx_tanda(tanda_base + i)
 		var elem: int = spell.elemento_de_golpe(i, n)
-		var res: Dictionary = StatsMath.resolve_spell(_pantalla._player, objetivo, spell, elem, frac)
+		var res: Dictionary = StatsMath.resolve_spell(_lanza(), objetivo, spell, elem, frac)
 		var dmg: float = float(res.damage) * foco
 		# (31/10) LA CHEPA del Jabali ancestral aguanta las AREAS (y el fuego se la quema, despues del golpe).
 		dmg *= _pantalla.mult_chepa(objetivo, spell.alcance != SpellData.Alcance.OBJETIVO \
@@ -1200,7 +1236,8 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 		_pantalla.efectos._fx_golpe(lanzador, objetivo, dmg, bool(res.get("crit", false)), false, elem,
 			_pantalla.efectos._estilo_hechizo(spell, elem, rebote, es_salpicon), peso, false, "",
 			AbilityData.Gesto.AUTO, null, 0, float(res.get("mult_elem", 1.0)))
-		_pantalla._apuntar_dano(objetivo, dmg, _pantalla._player)   # contador oculto de Cazador
+		if _lanzador == null:
+			_pantalla._apuntar_dano(objetivo, dmg, _lanza())   # contador oculto de Cazador
 		total += dmg
 		# CRITICO MAGICO: mismo 💥 que en el rastro del golpe fisico, para que se lea igual.
 		trail.append("%s%s%s%s" % [Elementos.icono(elem),
@@ -1245,7 +1282,7 @@ func _saltar_sobrantes(spell: SpellData, primero: Dictionary, foco: float, fila:
 	var hechos: int = int(primero.get("golpes", n))
 	var anterior: Combatant = primero.get("c") as Combatant
 	while hechos < n:
-		var vivos: Array[Combatant] = _pantalla._vivos()
+		var vivos: Array[Combatant] = _rivales()
 		if vivos.is_empty():
 			break   # no queda nadie: se pierden, como siempre
 		var victima: Combatant = null
@@ -1285,7 +1322,7 @@ func _resolver_dispersa(spell: SpellData, foco: float, puntos: Array = [], dentr
 	var anun: Dictionary = {}    # Combatant -> estados ya anunciados (no repetir en el log)
 	var orden: Array = []        # orden de aparicion, para un log estable
 	for i in n:
-		var vivos: Array[Combatant] = _pantalla._vivos()
+		var vivos: Array[Combatant] = _rivales()
 		if vivos.is_empty():
 			break   # no queda nadie: los golpes que faltaban se pierden
 		var principal: Combatant = null
@@ -1298,7 +1335,7 @@ func _resolver_dispersa(spell: SpellData, foco: float, puntos: Array = [], dentr
 			for e in vivos:
 				var caja: Rect2 = _pantalla.turno_mapa.bulto_de(e)
 				if bola.toca(caja):
-					bajo.append({"c": e, "d": caja.get_center().distance_squared_to(p_b), "i": _pantalla._enemies.find(e)})
+					bajo.append({"c": e, "d": caja.get_center().distance_squared_to(p_b), "i": _rivales().find(e)})
 			if bajo.is_empty():
 				continue   # la bola cae donde no hay nadie
 			bajo.sort_custom(func(x, y):
@@ -1336,7 +1373,7 @@ func _resolver_dispersa(spell: SpellData, foco: float, puntos: Array = [], dentr
 			var obj: Combatant = t.c
 			if not obj.is_alive():
 				continue
-			var res: Dictionary = StatsMath.resolve_spell(_pantalla._player, obj, spell, elem, float(t.escala) / float(n))
+			var res: Dictionary = StatsMath.resolve_spell(_lanza(), obj, spell, elem, float(t.escala) / float(n))
 			var dmg: float = float(res.damage) * foco
 			var mult: float = float(res.get("mult_elem", 1.0))
 			obj.take_damage(dmg)
@@ -1356,12 +1393,13 @@ func _resolver_dispersa(spell: SpellData, foco: float, puntos: Array = [], dentr
 			if not dentro.is_empty():
 				estilo_b = CombatFX.Estilo.ARCO if obj != principal \
 					else (CombatFX.Estilo.TORMENTA_RAYO if elem == spell.elemento else CombatFX.Estilo.MELEE)
-			_pantalla.efectos._fx_golpe(_pantalla._player if obj == principal else principal, obj, dmg,
+			_pantalla.efectos._fx_golpe(_lanza() if obj == principal else principal, obj, dmg,
 				bool(res.get("crit", false)), false, elem,
 				estilo_b,
 				_pantalla.efectos._peso_hechizo(spell, float(t.escala)), false, "",
 				AbilityData.Gesto.AUTO, null, 0, float(res.get("mult_elem", 1.0)))
-			_pantalla._apuntar_dano(obj, dmg, _pantalla._player)   # contador oculto de Cazador
+			if _lanzador == null:
+				_pantalla._apuntar_dano(obj, dmg, _lanza())   # contador oculto de Cazador
 			if not acc.has(obj):
 				acc[obj] = {"c": obj, "dano": 0.0, "mult": 1.0, "crit": false, "golpes": 0, "trail": [], "estados": []}
 				anun[obj] = {}
@@ -1400,7 +1438,7 @@ func _log_hechizo(spell: SpellData, res_area: Array, res_reb: Array, foco: float
 	for r in res_area + res_reb:
 		total += float(r.dano)
 	var foco_txt: String = "  🔮Foco arcano +%d%% (quedan %d)" % [
-		roundi(Combatant.FOCO_BONUS * 100.0), _pantalla._player.foco_cargas] if foco > 1.0 else ""
+		roundi(Combatant.FOCO_BONUS * 100.0), _lanza().foco_cargas] if foco > 1.0 else ""
 
 	# MONO-OBJETIVO: el formato de siempre, intacto (Tormenta, Bola de Fuego...).
 	if not spell.es_multiobjetivo():
@@ -1627,13 +1665,13 @@ func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null
 					_pantalla._set_log("… %s es inmune a %s." % [_pantalla._etq(objetivo), nom])
 				print("[estado] %s es INMUNE a %s" % [objetivo.nombre, nom])
 			if al_enemigo:
-				_pantalla.aviso_inmune(objetivo, _pantalla._player)
+				_pantalla.aviso_inmune(objetivo, _lanza())
 			continue
 		if al_enemigo:
 			# Mi eficacia contra su resistencia, por la puerta comun. Lo del ATURDIDO ya va dentro:
 			# el x1.5 por estar ELECTRIZADO y el x0.6 de la afinidad Rayo entran como resistencia de
 			# familia (ver Combatant._resist_control_extra), no como un carril aparte.
-			var p: float = StatusEffects.prob_final(spell.efecto_prob(a), _pantalla._player, objetivo, a.estado)
+			var p: float = StatusEffects.prob_final(spell.efecto_prob(a), _lanza(), objetivo, a.estado)
 			if randf() >= p:
 				if verboso and not silencioso:   # en multi-golpe callamos los fallos: serian 20 lineas de ruido
 					_pantalla._set_log("… pero %s se libra de %s (tenía un %s %% de probabilidad)." % [_pantalla._etq(objetivo), nom,
@@ -1648,10 +1686,10 @@ func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null
 			var mag_real_h: float = StatusEffects.magnitud_del_golpe(int(a.estado), d_h, float(a.fraccion_golpe)) \
 				if a.magnitud < 0.0 else -1.0
 			var mag_h: float = a.magnitud if a.magnitud >= 0.0 \
-				else (mag_real_h if mag_real_h >= 0.0 else StatusEffects.magnitud_por_golpe(int(a.estado), _pantalla._player.atk(), golpe))
+				else (mag_real_h if mag_real_h >= 0.0 else StatusEffects.magnitud_por_golpe(int(a.estado), _lanza().atk(), golpe))
 			# DOS MENTES: un aturdir que pilla un area le da a las dos cabezas.
 			d_h.aturdir_en_area = spell.forma >= 0 and not spell.forma_solo_primero
-			d_h.apply_status(a.estado, _pantalla._player.runa_turnos(a.estado, a.turns), _pantalla._player.runa_mag(a.estado, mag_h, d_h), 1, false, a.cap)
+			d_h.apply_status(a.estado, _lanza().runa_turnos(a.estado, a.turns), _lanza().runa_mag(a.estado, mag_h, d_h), 1, false, a.cap)
 			print("[estado] %s recibe %s del hechizo %s (prob %.0f%%)" % [
 				_pantalla._etq(d_h), nom, spell.nombre, spell.efecto_prob(a) * 100.0])
 		if not aplicados.has(int(a.estado)):

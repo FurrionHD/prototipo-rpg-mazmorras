@@ -161,7 +161,11 @@ func _enemy_turn(e: Combatant) -> void:
 	if e.charging != null:
 		e.charge_left -= 1
 		if e.charge_left > 0:
-			_pantalla._set_log("%s sigue cargando %s... ⚡ (prepárate)" % [_pantalla._etq(e), e.charging.nombre])
+			if e.charging.has_meta(&"hechizo"):
+				_pantalla._set_log("%s sigue recitando %s... 🔮 (le quedan %d turno%s)" % [_pantalla._etq(e), e.charging.nombre,
+					e.charge_left, "" if e.charge_left == 1 else "s"])
+			else:
+				_pantalla._set_log("%s sigue cargando %s... ⚡ (prepárate)" % [_pantalla._etq(e), e.charging.nombre])
 			_pantalla._pausa_lectura()
 			return
 		var cargada: AbilityData = e.charging
@@ -220,7 +224,7 @@ func _enemy_turn(e: Combatant) -> void:
 				listas.append(ab)
 	# (09/11) TU PERSONAJE FLORECIDO: solo las que le llegan con su energia (como cuando lo llevabas tu).
 	if e.energia_de_jugador:
-		listas = listas.filter(func(ab): return e.has_energy(ab.coste(e.ability_manos(ab))))
+		listas = listas.filter(func(ab): return e.has_energy(ab.coste(e.ability_manos(ab))) and _le_llega_el_mana(e, ab))
 	# A QUIEN va: uno de los tuyos que siga en pie (ver _elegir_objetivo_enemigo). Se decide AQUI,
 	# en el momento de pegar, y no al empezar el turno: entre medias puede haber caido alguien.
 	var obj: Combatant = _pantalla.objetivos._elegir_objetivo_enemigo()
@@ -266,6 +270,9 @@ func _enemy_turn(e: Combatant) -> void:
 	if elegida != null:
 		if e.energia_de_jugador:
 			e.spend_energy(elegida.coste(e.ability_manos(elegida)))
+			# (fase 3) un hechizo se paga al empezar a recitarlo (el turno que lo elige)
+			if elegida.has_meta(&"hechizo"):
+				e.spend_mana(float((elegida.get_meta(&"hechizo") as SpellData).coste_mana))
 			if elegida.dano_mult > 0.0:
 				e.set_meta(&"gasta_imbue", true)
 		if _pantalla.retrasa(elegida):
@@ -569,6 +576,20 @@ func _apoyo_florecido(e: Combatant, ab: AbilityData) -> void:
 	var destinos: Array = _destinos_apoyo(e, ab)
 	var de_uno: bool = ab.objetivo_aliado == AbilityData.Objetivo.ALIADO
 	var estados_log: Array = []
+	# (fase 3) SU HECHIZO DE CURA, a los bichos: como el tuyo (CombatMagia._curar_con_hechizo), la de grupo reparte.
+	var sp_c: SpellData = ab.get_meta(&"hechizo") if ab.has_meta(&"hechizo") else null
+	if sp_c != null and sp_c.tipo == SpellData.TipoEfecto.CURACION:
+		var a_curar: Array = destinos.slice(0, 1) if de_uno else destinos
+		var parte: float = StatsMath.resolve_heal(e, sp_c)
+		for d in a_curar:
+			var dc: Combatant = d
+			if not dc.is_alive():
+				continue
+			var cura: float = sp_c.cura_de(dc.max_hp, parte, 1 if de_uno else a_curar.size())
+			dc.heal(cura)
+			_pantalla.efectos._fx_golpe(e, dc, -cura * dc.status_heal_recv_mult(), false, false, int(sp_c.elemento),
+				sp_c.fx_estilo if sp_c.fx_estilo >= 0 else CombatFX.Estilo.CURACION_LUZ, 1.5, false)
+			estados_log.append("%s +%.0f" % [_pantalla._etq(dc), cura])
 	for a in ab.efectos:
 		if a == null or a.estado < 0 or a.en_objetivo:
 			continue
@@ -675,11 +696,67 @@ func _propio_florecido(e: Combatant, ab: AbilityData, tocados: Array = []) -> Ar
 		e.guardia_contra_mult = ab.contra_mult
 		e.guardia_contra_escudo = ab.contra_con_escudo
 		out.append("se pone en guardia: devolverá lo que esquive")
+	# (fase 3) SU FILO / SU MANTO: el hechizo de imbuir, a si mismo.
+	var sp_imb: SpellData = ab.get_meta(&"hechizo") if ab.has_meta(&"hechizo") else null
+	if sp_imb != null and sp_imb.es_imbuicion():
+		e.aplicar_imbue(sp_imb.elemento_imbuido(), sp_imb.imbue_pct, sp_imb.imbue_usos, sp_imb.imbue_tipo == 2,
+			sp_imb.imbue_estado, sp_imb.imbue_prob, sp_imb.imbue_intensidad, 0.0, false, sp_imb.imbue_spd_mult,
+			sp_imb.imbue_prisma)
+		out.append("se imbuye %s de %s: +%d %% de daño de %s durante %d ataques" % [
+			"el cuerpo" if sp_imb.imbue_tipo == 2 else "el arma", Elementos.nombre(sp_imb.elemento_imbuido()),
+			roundi(sp_imb.imbue_pct * 100.0), Elementos.nombre(sp_imb.elemento_imbuido()), sp_imb.imbue_usos])
 	if ab.reduce_cooldowns > 0:
 		e.reducir_cooldowns(ab.reduce_cooldowns, ab)
 		out.append("sus demás habilidades se recargan %d turno%s antes" % [ab.reduce_cooldowns,
 			"" if ab.reduce_cooldowns == 1 else "s"])
 	return out
+
+
+# (fase 3) SUELTA SU HECHIZO: hacia donde dejo apuntada la carga (su huella roja), por CombatMagia.lanzar_de_enemigo.
+# Luego, como cualquier golpe suyo, los tuyos que caigan.
+func _hechizo_florecido(e: Combatant, ab: AbilityData, victima: Combatant) -> void:
+	var sp: SpellData = ab.get_meta(&"hechizo")
+	e.start_cooldown(ab)
+	var obj: Combatant = victima if victima != null and victima.is_alive() and _pantalla._aliados.has(victima) \
+		else _pantalla.objetivos._elegir_objetivo_enemigo()
+	if obj == null:
+		var vivos: Array = _pantalla._aliados_vivos()
+		obj = vivos[0] if not vivos.is_empty() else null
+	if obj == null:
+		_pantalla._pausa_lectura()
+		return
+	var punto = null
+	if _pantalla.tactico:
+		var cg = _pantalla.turno_mapa._cargas.get(e)
+		if cg is Array and (cg as Array).size() >= 2 and cg[1] is Vector2:
+			punto = cg[1]
+		if punto == null:
+			punto = _pantalla.turno_mapa.mejor_apunte(e, ab, obj)["punto"]
+		_pantalla.turno_mapa.olvidar_carga(e)
+		_pantalla.turno_mapa.circulo_acaba(e, true, sp)
+	print("[hechizo enemigo] %s suelta %s hacia %s" % [e.nombre, sp.nombre, str(punto)])
+	var tocados: Array = _pantalla.magia.lanzar_de_enemigo(e, sp, punto, obj)
+	_pantalla._update_hp()
+	var alguno_cayo: bool = false
+	for t in tocados:
+		if t is Combatant and _pantalla._aliados.has(t) and not (t as Combatant).is_alive():
+			_pantalla.altas._caer_aliado(t)
+			alguno_cayo = true
+	if alguno_cayo and _pantalla.altas.derrota():
+		_pantalla._end(false)
+		return
+	_pantalla._pausa_lectura()
+
+
+# (fase 3) ¿Le llega el MANA para este hechizo? (lo que no es un hechizo, si)
+func _le_llega_el_mana(e: Combatant, ab: AbilityData) -> bool:
+	if not ab.has_meta(&"hechizo"):
+		return true
+	var sp: SpellData = ab.get_meta(&"hechizo")
+	# una imbuicion que ya lleva puesta no la repite
+	if sp.es_imbuicion() and e.imbue_usos > 0:
+		return false
+	return e.has_mana(float(sp.coste_mana))
 
 
 # "Ana", "Ana y Luis", "Ana, Luis y Eva".
@@ -1279,7 +1356,11 @@ func _enemy_begin_charge(e: Combatant, ab: AbilityData, obj: Combatant = null, t
 		_pantalla.turno_mapa.guardar_carga_enemigo(e, ab, obj)
 	print("[habilidad enemigo] %s empieza a cargar %s (%d turno%s)" % [
 		e.nombre, ab.nombre, ab.carga_turnos, "" if ab.carga_turnos == 1 else "s"])
-	_pantalla._set_log("⚡ %s se prepara para %s. ¡Prepárate! Si queda Aturdido, se interrumpe." % [_pantalla._etq(e), ab.nombre])
+	if ab.has_meta(&"hechizo"):
+		_pantalla._set_log("🔮 %s empieza a recitar %s (%d turno%s). ¡Prepárate! Si queda Aturdido, se interrumpe." % [
+			_pantalla._etq(e), ab.nombre, ab.carga_turnos, "" if ab.carga_turnos == 1 else "s"])
+	else:
+		_pantalla._set_log("⚡ %s se prepara para %s. ¡Prepárate! Si queda Aturdido, se interrumpe." % [_pantalla._etq(e), ab.nombre])
 	_pantalla._update_hp()   # pinta YA el chip ⚡ en SU tarjeta (si no, no saldria hasta el proximo refresco)
 	_pantalla._pausa_lectura()
 
@@ -1315,6 +1396,11 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 	# (09/11) LOS APOYOS DE TU PERSONAJE FLORECIDO: a los suyos (los bichos), no a los tuyos.
 	if _es_apoyo_florecido(e, ab):
 		_apoyo_florecido(e, ab)
+		return
+	# (10/11, fase 3) SU HECHIZO de daño o de debilitar: por la MISMA resolucion que los tuyos (CombatMagia), con rebotes,
+	# dispersion, cadena, salpicon, tirones y todo ("las magias tienen que funcionar igual contra nosotros").
+	if ab.has_meta(&"hechizo") and not (ab.get_meta(&"hechizo") as SpellData).es_imbuicion() and not ab.forma_a_aliados:
+		_hechizo_florecido(e, ab, victima)
 		return
 	# (07/10) EL DECRETO del Rey tirano: no pega, señala.
 	if ab.decreto_turnos > 0:

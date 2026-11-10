@@ -438,7 +438,11 @@ func _gesto_de_habilidad(ab: AbilityData) -> int:
 func _clave_sfx(ab: AbilityData) -> String:
 	if ab == null:
 		return ""
-	var clave: String = String(ab.resource_path).get_file().get_basename()
+	var ruta: String = String(ab.resource_path)
+	# (10/11) el hechizo de tu personaje florecido (CombatPantalla.habilidad_de_hechizo) no es un fichero: el de su hechizo
+	if ruta.is_empty() and ab.has_meta(&"hechizo"):
+		ruta = String((ab.get_meta(&"hechizo") as Resource).resource_path)
+	var clave: String = ruta.get_file().get_basename()
 	return clave if Sonido.CLAVES.has(clave) else ""
 
 
