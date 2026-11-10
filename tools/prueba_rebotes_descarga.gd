@@ -99,7 +99,8 @@ func _correr() -> void:
 		combat.turno_mapa._pos[e2] = c2.global_position
 	var t2: Array = _lanzar(combat, spell, e1)
 	_ver(t2.has(e2), "la cadena salta al de al lado (%d de %d golpes en el)" % [t2.count(e2), t2.size()])
-	_ver(t2.size() == 1 + n_reb, "y no se pierde ningun rebote (%d)" % t2.size())
+	# (10/11) y el de al lado se lleva ademas el SALPICON (50 % a los que esten a SALPICON_MIN px): un golpe mas
+	_ver(t2.size() == 1 + n_reb + 1, "y no se pierde ningun rebote, mas el salpicon al de al lado (%d)" % t2.size())
 
 	print("3) el otro lejos")
 	if c2 != null and c1 != null:

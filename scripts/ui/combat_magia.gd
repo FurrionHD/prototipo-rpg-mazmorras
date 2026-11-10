@@ -717,6 +717,16 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 				res_area.append(_resolver_golpes_hechizo(spell, t.c, foco, float(t.escala),
 					true, de))
 				tocados.append(t.c)
+			# EL SALPICON DE LO QUE CAE EN UN PUNTO (10/11, revision del daño de hechizos: "la Descarga y el Rayo antes
+			# pegaban el 50 % a los de al lado"). En el mapa su huella es un punto, asi que el reparto solo traia al
+			# principal y el dano_salpicon de la ficha se perdia. Ahora le cae a los que tenga a SALPICON_MIN px de su
+			# cuerpo, y sale DEL PRINCIPAL (revienta en el y de ahi alcanza a sus vecinos).
+			if en_mapa and spell.forma == CombatFormas.Tipo.PUNTO and spell.salpica() and not reparto_mapa.is_empty():
+				for v in _pantalla.turno_mapa.vecinos_de(obj, _pantalla.turno_mapa.SALPICON_MIN):
+					if tocados.has(v):
+						continue
+					res_area.append(_resolver_golpes_hechizo(spell, v, foco, spell.dano_salpicon, true, obj))
+					tocados.append(v)
 		# 2) REBOTES: DESPUES del area, cada uno a un vivo al azar. _vivos() se recalcula en
 		# CADA rebote, asi que la cadena nunca cae sobre un cadaver (ni sobre el que acaba de
 		# tumbar el rebote anterior).
@@ -1330,7 +1340,9 @@ func _resolver_dispersa(spell: SpellData, foco: float, puntos: Array = [], dentr
 		var objetivos: Array
 		if not puntos.is_empty():
 			var p_b: Vector2 = puntos[i % puntos.size()]
-			var bola := CombatFormas.circulo(p_b, MagiaAire.R_BOLA)
+			# (10/11) revienta a MagiaAire.R_REVIENTA (45 px, "las explosiones minimo a 40 o 45"): antes era el
+			# circulito de la bola (16 px) y a los de al lado casi nunca les llegaba el salpicon.
+			var bola := CombatFormas.circulo(p_b, MagiaAire.R_REVIENTA)
 			var bajo: Array = []
 			for e in vivos:
 				var caja: Rect2 = _pantalla.turno_mapa.bulto_de(e)
@@ -1357,7 +1369,7 @@ func _resolver_dispersa(spell: SpellData, foco: float, puntos: Array = [], dentr
 			principal = candidatos.pick_random()
 			objetivos = [{"c": principal, "escala": spell.dano_objetivo}]
 			if elem == spell.elemento:
-				for v in _pantalla.turno_mapa.vecinos_de(principal, spell.forma_salpicon):
+				for v in _pantalla.turno_mapa.vecinos_de(principal, maxf(spell.forma_salpicon, _pantalla.turno_mapa.SALPICON_MIN)):
 					objetivos.append({"c": v, "escala": spell.dano_salpicon})
 		else:
 			principal = vivos.pick_random()

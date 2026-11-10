@@ -74,6 +74,10 @@ const HOLGURA_ALCANCE := 6.0
 # Un cuerpo no se monta encima de uno del OTRO bando: no puede meterse a menos de esto. Solo frena al
 # que se ACERCA, asi que dos que empiezan solapados se pueden separar.
 const SEPARACION := 22.0
+# LO MINIMO QUE ALCANZA UN SALPICON (10/11, su regla: "las areas lo suyo es que todas minimo peguen a 45 px", porque los
+# enemigos guardan su hueco entre ellos): de lo que cae en un punto (Descarga, Rayo) y de los rayos de la Tormenta, desde
+# el cuerpo del que recibe. Las bolas de la Andanada revientan a lo mismo (MagiaAire.R_REVIENTA).
+const SALPICON_MIN := 45.0
 # LOS ENEMIGOS SE REPARTEN (11/10, lo pidio el usuario: "si entran muchos, de un brote, todos van a por ti y se quedan
 # siempre demasiado juntos; una habilidad en area termina el combate"). Cuatro reglas:
 #   NO SE PISAN     entre ellos guardan HUECO_ENEMIGOS de caja a caja (solo se prohibe ACERCARSE, como entre los tuyos).

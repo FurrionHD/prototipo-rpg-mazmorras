@@ -189,6 +189,9 @@ var _brillo: Node2D = null
 # LA ANDANADA: donde cae cada bola dentro del circulo apuntado. Sale SOLO de la forma (su centro, en la rejilla
 # de 1/16 en la que viaja por red), asi que quien resuelve, el dibujo y el espejo sacan los mismos puntos.
 const R_BOLA := 16.0
+# LO QUE ALCANZA EL REVENTON de cada bola (10/11, "que exploten minimo a 40 o 45 px"): a quien le da y lo que se dibuja.
+# Igual que CombatTactico.SALPICON_MIN. R_BOLA sigue siendo solo para repartir los puntos donde caen.
+static var R_REVIENTA := 45.0   # var solo para que tools/ver_andanada.gd pinte el antes (16)
 const BOLAS := 4
 
 # Donde caen las bolas de ESTA Andanada: las elegidas al soltarla (sobre los enemigos de dentro, Forma.puntos) o, sin
@@ -371,7 +374,7 @@ func _preparar_area() -> void:
 			_puntos = bolas_de(forma)
 			for i in 20:
 				_ascuas.append({"b": i % maxi(_puntos.size(), 1), "a": _rng.randf_range(0.0, TAU),
-					"d": _rng.randf_range(2.0, R_BOLA * 0.9), "tam": _rng.randf_range(0.8, 1.5),
+					"d": _rng.randf_range(2.0, R_REVIENTA * 0.8), "tam": _rng.randf_range(0.8, 1.5),
 					"fase": _rng.randf_range(0.0, TAU), "vida": _rng.randf_range(0.7, 1.2)})
 		Modo.OLA:
 			for i in 26:
@@ -1007,9 +1010,9 @@ func _andanada(capa: Node2D) -> void:
 				BarridoAire.brillo(capa, p, 4.0 + 8.0 * cae, Color(CHAMUSCADO, 0.45 * cae))
 			else:
 				var apaga: float = 1.0 - clampf((tr - 0.3) / 1.0, 0.0, 1.0)
-				BarridoAire.brillo(capa, p, R_BOLA * 1.05, Color(CHAMUSCADO, 0.5 * apaga))
+				BarridoAire.brillo(capa, p, R_REVIENTA * 0.75, Color(CHAMUSCADO, 0.5 * apaga))
 				if tr < 0.35:
-					_anillo(capa, p, 3.0 + R_BOLA * 1.3 * (1.0 - pow(1.0 - tr / 0.35, 2.0)), 3.0, Color(FUEGO_NARANJA, 0.7 * (1.0 - tr / 0.35)))
+					_anillo(capa, p, 3.0 + (R_REVIENTA - 3.0) * (1.0 - pow(1.0 - tr / 0.35, 2.0)), 3.0, Color(FUEGO_NARANJA, 0.7 * (1.0 - tr / 0.35)))
 			continue
 		if capa == _delante:
 			if tr < 0.0:
@@ -1022,13 +1025,13 @@ func _andanada(capa: Node2D) -> void:
 			elif tr < 0.5:
 				# EL REVENTON: una bocanada que se abre y se hace humo.
 				var k: float = tr / 0.5
-				_bocanada(capa, p + _alto(4.0 + 10.0 * k), 5.0 + R_BOLA * 0.9 * (1.0 - pow(1.0 - k, 2.0)), k, float(i) * 13.0)
+				_bocanada(capa, p + _alto(4.0 + 10.0 * k), 5.0 + R_REVIENTA * 0.55 * (1.0 - pow(1.0 - k, 2.0)), k, float(i) * 13.0)
 			continue
 		if capa == _brillo:
 			if tr < 0.0:
 				BarridoAire.brillo(capa, p + _alto(ALTO_CAIDA * (1.0 - cae * cae)), 10.0, Color(FUEGO_NARANJA, 0.4))
 			elif tr < 0.2:
-				BarridoAire.brillo(capa, p + _alto(5.0), R_BOLA * 1.6 * (1.0 - tr / 0.2), Color(FUEGO_AMARILLO, 0.5 * (1.0 - tr / 0.2)))
+				BarridoAire.brillo(capa, p + _alto(5.0), R_REVIENTA * 1.0 * (1.0 - tr / 0.2), Color(FUEGO_AMARILLO, 0.5 * (1.0 - tr / 0.2)))
 				BarridoAire.destello(capa, p + _alto(6.0), 14.0 * (1.0 - tr / 0.2), Color(FUEGO_BLANCO, 1.0 - tr / 0.2), float(i))
 	# LAS ASCUAS de cada reventon.
 	if capa == _suelo:
