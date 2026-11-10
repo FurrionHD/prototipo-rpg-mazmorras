@@ -41,14 +41,26 @@ func tick() -> void:
 		var n = _setas.get(cb)
 		if quiere:
 			if n == null or not is_instance_valid(n):
-				n = HongosPixel.poner(arena, _t.bulto_visual(cb), _t._cod(cb))
+				n = HongosPixel.poner(arena, _t.bulto_visual(cb), _t._cod(cb), _sprite_de(cuerpo))
 				_setas[cb] = n
 			if n != null:
-				n.seguir(_t.bulto_visual(cb))
+				n.seguir(_t.bulto_visual(cb), _sprite_de(cuerpo))
 		elif n != null:
 			_setas.erase(cb)
 			if is_instance_valid(n):
 				n.secar()
+
+
+# El dibujo donde se clavan las setas (10/11): el sprite del bicho, o en tu personaje florecido la capa del CUERPO de
+# su muñeco (la piel: va debajo de todo y la ropa se le pega).
+static func _sprite_de(cuerpo: Node2D) -> AnimatedSprite2D:
+	var mu = cuerpo.get("_muneco")
+	if mu is MunecoJugador:
+		var s: AnimatedSprite2D = (mu as MunecoJugador).capa_nodo("cuerpo")
+		if s != null:
+			return s
+	var spr = cuerpo.get("_sprite")
+	return spr if spr is AnimatedSprite2D else null
 
 
 func _gris(cuerpo: Node2D, col: Color) -> void:

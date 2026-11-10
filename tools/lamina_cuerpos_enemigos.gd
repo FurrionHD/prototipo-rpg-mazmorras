@@ -84,7 +84,7 @@ func _florecer_dibujo(e: Node2D, semilla: int) -> void:
 	var r: Rect2 = Tactico.rect_dibujo(e)
 	if not r.has_area():
 		r = Rect2(e.global_position - Vector2(16, 16), Vector2(32, 32))
-	HongosPixel.poner(get_tree().current_scene, r, semilla)
+	HongosPixel.poner(get_tree().current_scene, r, semilla, TacticoHongos._sprite_de(e))
 
 
 # Uno de tus personajes florecido: su muñeco mirando al sur, gris (en el modulate del muñeco, que baja a sus capas) y
@@ -102,7 +102,7 @@ func _muneco_florecido(pj: PersonajeData, pos: Vector2, semilla: int) -> void:
 	m.animar(PoseJugador.animacion(Vector2.DOWN, 0, false))
 	m.modulate = TacticoHongos.TINTE
 	var caja := Rect2(pos + PoseJugador.CAJA_CUERPO.position, PoseJugador.CAJA_CUERPO.size)   # la misma que en la pelea
-	HongosPixel.poner(get_tree().current_scene, caja, semilla)
+	HongosPixel.poner(get_tree().current_scene, caja, semilla, m.capa_nodo("cuerpo"))
 
 
 func _ready() -> void:

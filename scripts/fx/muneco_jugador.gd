@@ -272,6 +272,15 @@ var _mat_aura: ShaderMaterial = null
 var _mat_aura_plana: ShaderMaterial = null
 var _mat_aura_filo: ShaderMaterial = null   # el arma del prismatico (arcoiris encima, como un Filo)
 
+# El sprite de la capa 'clave' (p. ej. "cuerpo"), o null. Lo usan las setas de tu personaje florecido (HongosPixel),
+# que se clavan en la silueta del cuerpo fotograma a fotograma.
+func capa_nodo(clave: String) -> AnimatedSprite2D:
+	for c in _capas:
+		if String(c["clave"]) == clave and is_instance_valid(c["nodo"]):
+			return c["nodo"]
+	return null
+
+
 func poner_imbue(cod: int) -> void:
 	_imbue_ficha = cod
 	_aplicar_imbue()

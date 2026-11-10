@@ -513,6 +513,8 @@ static func cargar_horneado(clave: String, carpeta: String = CARPETA_HORNO, pere
 	if hoja == null:
 		return null
 	hoja.set_meta(META_RECORTADA, true)   # ver caja_pintada
+	# De que hoja es (10/11): con esto se buscan sus anclas medidas (las setas de los florecidos, AnclasHongos).
+	hoja.set_meta(META_HOJA_RUTA, carpeta + clave)
 	var sf := SpriteFrames.new()
 	sf.remove_animation("default")
 	# Los fotogramas REPETIDOS (tools/compactar_hojas.py los deja apuntando al mismo recorte) comparten tambien el
@@ -528,6 +530,7 @@ static func cargar_horneado(clave: String, carpeta: String = CARPETA_HORNO, pere
 
 
 const META_PEREZOSA := &"hoja_perezosa"
+const META_HOJA_RUTA := &"hoja_ruta"
 
 
 # Que 'sf' tenga la animacion 'nombre': si es una hoja perezosa y aun no estaba, se monta ahora (una animacion son

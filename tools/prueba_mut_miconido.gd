@@ -34,6 +34,33 @@ func _ver(ok: bool, que: String) -> void:
 		_mal += 1
 
 
+# (10/11) Las setas de un florecido, clavadas en la SILUETA del fotograma que se ve (AnclasHongos) y no flotando por
+# encima de la caja: la hoja esta medida, hay setas por arriba Y por los lados/frente, y todos los pies caen dentro del
+# dibujo. Se mira en varios fotogramas de su animacion (que sigan al cuerpo al moverse).
+func _setas_en_cuerpo(setas, quien: String) -> void:
+	if setas == null or not is_instance_valid(setas):
+		_ver(false, "%s: sin setas que medir" % quien)
+		return
+	var m: Dictionary = setas.medida()
+	_ver(bool(m["medida"]), "%s: su hoja tiene las anclas medidas" % quien)
+	_ver(int(m["pies"]) >= 4, "%s: setas por arriba, los lados y el frente (%d puestas de %d)" % [quien, m["pies"], setas._plantadas.size()])
+	# (10/11, version E) la mancha podrida cuelga del dibujo del cuerpo y las de los lados van por DEBAJO de los cuerpos
+	_ver(is_instance_valid(setas._mancha) and setas._mancha.get_parent() == setas._spr
+		and int(setas._mancha.material.get_shader_parameter("n_pies")) > 0,
+		"%s: la mancha podrida al pie, sobre su cuerpo" % quien)
+	_ver(is_instance_valid(setas._detras) and setas._detras.z_index < Game.Z_PERSONAJES,
+		"%s: las setas de los lados, por detras del cuerpo" % quien)
+	var mal: int = 0
+	var spr: AnimatedSprite2D = setas._spr
+	var n: int = spr.sprite_frames.get_frame_count(spr.animation) if spr != null and spr.sprite_frames != null else 0
+	for f in n:
+		spr.frame = f
+		var mf: Dictionary = setas.medida()
+		if int(mf["dentro"]) < int(mf["pies"]):
+			mal += 1
+	_ver(mal == 0, "%s: en los %d fotogramas de '%s' todas las setas salen del cuerpo (%d mal)" % [quien, n, spr.animation if spr != null else "", mal])
+
+
 func _esperar(n: int) -> void:
 	for _i in n:
 		await get_tree().process_frame
@@ -171,6 +198,7 @@ func _correr() -> void:
 		var setas = t._hongos._setas.get(fl) if t._hongos != null else null
 		_ver(setas != null and is_instance_valid(setas) and not setas._plantadas.is_empty(),
 			"le brotan setas (%d)" % (setas._plantadas.size() if setas != null and is_instance_valid(setas) else 0))
+		_setas_en_cuerpo(setas, "la florecida")
 		var spr = cu_fl.get("_sprite") if cu_fl != null else null
 		if spr is CanvasItem:
 			var mo: Color = (spr as CanvasItem).self_modulate
@@ -263,6 +291,14 @@ func _correr() -> void:
 				and int(fila.get("cuerpo", -1)) == int(dir_al.get("cuerpo", -2)),
 				"en el roster su fila lleva la direccion del muñeco del caido (%s)" % str(dir_al))
 			_ver(cu_a != null and not cu_a.has_meta(t.MARCA_CAIDO), "y el muñeco esta de pie")
+			# (10/11) SUS SETAS, CLAVADAS EN EL CUERPO DE SU MUÑECO (la capa "cuerpo"), fotograma a fotograma.
+			for _k in 10:
+				await get_tree().process_frame
+				t.tick(1.0 / 60.0)
+			var setas_p = t._hongos._setas.get(fp) if t._hongos != null else null
+			_ver(setas_p != null and is_instance_valid(setas_p) and setas_p._spr != null
+				and setas_p._spr.get_parent() is MunecoJugador, "sus setas siguen la capa del cuerpo de su muñeco")
+			_setas_en_cuerpo(setas_p, "tu personaje florecido")
 			# SU TURNO: pega a los tuyos.
 			_poner(t, yo, t.pies_de(fp) + Vector2(-20, 0))
 			for otro in combat._aliados:
@@ -441,6 +477,10 @@ func _correr() -> void:
 			combat._player = yo
 			var hp_c: float = yo.current_hp
 			log0 = combat.log_entero().size()
+			# A SU LADO (10/11): solo devuelve el golpe si te alcanza (CombatEnemigos._devuelve_en_guardia); tras los turnos
+			# de antes puede haberse movido, y entonces la esquiva salia sin contraataque (bien hecho por el juego).
+			_poner(t, yo, t.pies_de(fp) + Vector2(-20, 0))
+			_ver(combat.turno_mapa.llega(fp, yo), "(estas a su alcance)")
 			# La esquiva tiene TOPE (65 %): se repite el golpe hasta que lo esquive (sin postura no hay nada que mirar).
 			var entro: bool = true
 			for _int in 12:
