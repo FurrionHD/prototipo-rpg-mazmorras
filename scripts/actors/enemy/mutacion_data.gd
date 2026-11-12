@@ -80,12 +80,10 @@ class_name MutacionData
 @export var al_golpear_propio: bool = false
 @export var al_golpear: Array = []
 # AURA FRIA (la escarcha): quien acabe su turno PEGADO a el (a un paso, como un golpe cuerpo a cuerpo) puede quedar
-# con aura_efectos (la Congelacion), con probabilidad aura_prob. No es segura (su decision).
+# con aura_efectos (el Frio), con probabilidad aura_prob. No es segura (su decision).
 @export var aura_fria: bool = false
 @export var aura_prob: float = 0.35
 @export var aura_efectos: Array = []
-# MOJADO SE HIELA (la escarcha): si golpea a alguien MOJADO, la Congelacion le entra SEGURA.
-@export var mojado_se_hiela: bool = false
 # (07/10, los mutantes del REY SLIME: el tirano y el destronado; numeros aprobados por el jefe)
 # ORDEN REAL (el tirano): al EMPEZAR su turno, si le caben subditos, saca 1 de orden_pool GRATIS (sin carga ni gastar el
 # turno), cada orden_cada turnos suyos. Sustituye al Brote.

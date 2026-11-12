@@ -92,6 +92,8 @@ const TABLA := {
 	"🪽": "en_vuelo",
 	"💤": "una_cabeza",
 	"❄": "congelacion",
+	"🧊": "congelado",
+	"💦": "deshielo",
 	"🌑": "en_sombras",
 	"🦷": "colmillos_rotos",
 	"🔮": "foco",

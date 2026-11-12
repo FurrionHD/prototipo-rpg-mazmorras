@@ -19,7 +19,9 @@ class_name Elementos
 #
 # VIENTO (05/11, la Segadora mutante y el set Filo de aire): corta. De momento NO tiene magias ni imbucion: por eso NO entra
 # en AZAR_MAGIA.
-enum Elemento { NINGUNO, FUEGO, AGUA, RAYO, LUZ, OSCURIDAD, VIENTO }
+#
+# HIELO (12/11, la tabla del 10/11; de momento solo el Slime de escarcha): congela. Tampoco tiene magias ni imbucion aun.
+enum Elemento { NINGUNO, FUEGO, AGUA, RAYO, LUZ, OSCURIDAD, VIENTO, HIELO }
 
 const NOMBRE := {
 	Elemento.NINGUNO: "Físico",
@@ -29,6 +31,7 @@ const NOMBRE := {
 	Elemento.LUZ: "Luz",
 	Elemento.OSCURIDAD: "Oscuridad",
 	Elemento.VIENTO: "Viento",
+	Elemento.HIELO: "Hielo",
 }
 
 # LOS ELEMENTOS DE VERDAD, sin el NINGUNO (que es "físico", o sea la ausencia de elemento).
@@ -37,7 +40,7 @@ const NOMBRE := {
 # escrita con los tres de entonces, asi que al añadir Luz y Oscuridad habria seguido enseñando tres
 # — y una ficha que se calla una debilidad es peor que una que no dice nada.
 const TODOS: Array[int] = [Elemento.FUEGO, Elemento.AGUA, Elemento.RAYO, Elemento.LUZ,
-	Elemento.OSCURIDAD, Elemento.VIENTO]
+	Elemento.OSCURIDAD, Elemento.VIENTO, Elemento.HIELO]
 
 # LOS QUE PUEDEN SALIR AL AZAR de una imbucion (Manto prismatico, el grimorio que sortea). El viento aun no: no tiene manto
 # ni colores de imbucion, y saldria un golpe sin dibujo. Cuando los tenga, se añade aqui y ya.
@@ -52,6 +55,7 @@ const ESTADO_DE_IMBUIR := {
 	Elemento.LUZ: StatusEffects.Id.VULNERABLE,
 	Elemento.OSCURIDAD: StatusEffects.Id.CEGUERA,
 	Elemento.VIENTO: StatusEffects.Id.SANGRADO,   # el viento corta (05/11)
+	Elemento.HIELO: StatusEffects.Id.CONGELACION,   # el Frio (12/11)
 }
 
 # Icono de cada elemento (para el log: el rastro de golpes de un hechizo multi-elemento).
@@ -63,6 +67,7 @@ const ICONO := {
 	Elemento.LUZ: "☀",
 	Elemento.OSCURIDAD: "🌑",
 	Elemento.VIENTO: "💨",
+	Elemento.HIELO: "❄",
 }
 
 # Color de cada elemento, para las PARTICULAS del cuerpo imbuido y del bicho elemental
@@ -86,19 +91,23 @@ const COLOR := {
 	Elemento.OSCURIDAD: Color(0.42, 0.24, 0.55),
 	# Verde palido: el blanco ya es de la luz y el azul, del agua.
 	Elemento.VIENTO: Color(0.72, 0.95, 0.82),
+	# El del Frio (su chip): azul hielo, mas blanco que el del agua.
+	Elemento.HIELO: Color(0.6, 0.85, 1.0),
 }
 
 # TABLA DE TIPOS por defecto: perfil de resistencia segun la AFINIDAD del defensor
 # (multiplicador que RECIBE de cada elemento). Lo que no aparezca = 1.0 (neutro).
 #   FUEGO: resiste Fuego (×0.5), débil a Agua (×1.5).
 #   AGUA:  resiste Agua y Fuego (×0.5), débil a Rayo (×1.5).
-#   RAYO:  resiste Rayo. SIN DEBILIDAD todavia (ya llegara su counter, p.ej. Tierra); mientras
-#          tanto su imbuicion de cuerpo lo paga con mas maná y menos turnos.
+#   RAYO:  resiste Rayo, debil al Viento.
+# LA TABLA DEL 10/11 (con el jefe; "tabla tipo Pokemon", sin rueda forzada): el hielo se suma (el fuego lo resiste, al
+# agua la congela) y Viento y Rayo se cuentan el uno al otro, como la luz y la oscuridad.
+#   HIELO: resiste Hielo, debil al Fuego.
 # Los valores de esta tabla son los del elemento PURO (intensidad 1.0).
 const PERFIL_DEFECTO := {
-	Elemento.FUEGO: { Elemento.FUEGO: 0.5, Elemento.AGUA: 1.5 },
-	Elemento.AGUA: { Elemento.AGUA: 0.5, Elemento.FUEGO: 0.5, Elemento.RAYO: 1.5 },
-	Elemento.RAYO: { Elemento.RAYO: 0.5 },
+	Elemento.FUEGO: { Elemento.FUEGO: 0.5, Elemento.HIELO: 0.5, Elemento.AGUA: 1.5 },
+	Elemento.AGUA: { Elemento.AGUA: 0.5, Elemento.FUEGO: 0.5, Elemento.RAYO: 1.5, Elemento.HIELO: 1.5 },
+	Elemento.RAYO: { Elemento.RAYO: 0.5, Elemento.VIENTO: 1.5 },
 	# LUZ y OSCURIDAD se cuentan la una a la otra: cada una resiste lo suyo y es DEBIL a la
 	# contraria. Es el unico par del juego que se aguanta mutuamente, y es lo que hace que valga la
 	# pena tener las dos en el kit en vez de una sola.
@@ -107,7 +116,8 @@ const PERFIL_DEFECTO := {
 	# fuera fuerte contra todo, seria simplemente el elemento bueno.
 	Elemento.LUZ: { Elemento.LUZ: 0.5, Elemento.OSCURIDAD: 1.5 },
 	Elemento.OSCURIDAD: { Elemento.OSCURIDAD: 0.5, Elemento.LUZ: 1.5 },
-	Elemento.VIENTO: { Elemento.VIENTO: 0.5 },
+	Elemento.VIENTO: { Elemento.VIENTO: 0.5, Elemento.RAYO: 1.5 },
+	Elemento.HIELO: { Elemento.HIELO: 0.5, Elemento.FUEGO: 1.5 },
 }
 
 # FRANJAS DE INTENSIDAD de la afinidad. El perfil de arriba es el del elemento PURO; esta
@@ -136,6 +146,8 @@ const INMUNIDAD_POR_AFINIDAD := {
 	# La OSCURIDAD lleva DOS, como el agua, y por el mismo motivo: las dos le salen del mismo sitio.
 	# Quien ES la sombra ve sin luz (no hay ceguera que valga) y no le teme a lo que hay dentro.
 	Elemento.OSCURIDAD: [StatusEffects.Id.CEGUERA, StatusEffects.Id.MIEDO],
+	# Al hielo ni le da frio ni se le congela.
+	Elemento.HIELO: [StatusEffects.Id.CONGELACION, StatusEffects.Id.CONGELADO],
 }
 
 # Resistencia al ATURDIMIENTO por afinidad: multiplica la probabilidad de aturdir que RECIBES.
@@ -156,7 +168,11 @@ const AMPLIFICA_POR_ESTADO := {
 	# arde pega mas, venga de quien venga. Por eso vive aqui y no en un campo del Shock termico —
 	# ahi seria un truco de un hechizo, y asi es una ley del mundo que el hechizo aprovecha.
 	# Y EL VIENTO AVIVA EL FUEGO (05/11, el jefe): tambien x1,5 (las llamas que saltan a los de al lado: CombatEfectos._aviva).
-	StatusEffects.Id.QUEMADURA: { Elemento.AGUA: 1.5, Elemento.VIENTO: 1.5 },
+	# Y LA SOBRECARGA (12/11): el rayo sobre lo que arde, tambien x1,5 (y empuja a los de al lado: CombatEfectos._reacciones).
+	StatusEffects.Id.QUEMADURA: { Elemento.AGUA: 1.5, Elemento.VIENTO: 1.5, Elemento.RAYO: 1.5 },
+	# SE ROMPE (12/11): un golpe FISICO (sin elemento) sobre un Congelado, x1,5, y lo suelta (CombatEfectos._reacciones).
+	# Es la unica entrada con NINGUNO: por eso mult_recibido ya no corta en seco el golpe fisico.
+	StatusEffects.Id.CONGELADO: { Elemento.NINGUNO: 1.5 },
 }
 
 # EL VIENTO A QUIEN ESTA EN EL AIRE (05/11, su idea): SUMA esto a lo que ya recibia, antes de los estados. Asi hasta la gargola,
@@ -218,8 +234,10 @@ static func mult_afinidad_pura(afinidad: int, elem: int) -> float:
 # Encima MULTIPLICA la amplificacion de sus ESTADOS (Mojado -> +50% de Rayo).
 # 'defender' es un Combatant (tiene .elemento, .resist_elemental y .statuses).
 static func mult_recibido(elem: int, defender) -> float:
-	if elem == Elemento.NINGUNO or defender == null:
+	if defender == null:
 		return 1.0
+	if elem == Elemento.NINGUNO:
+		return mult_por_estados(elem, defender)   # el fisico no tiene tabla; solo lo que lleve encima (Se rompe)
 	# El MANTO PRISMATICO defiende como un elemento al azar en cada golpe que le entra.
 	if defender is Combatant and defender.imbue_prisma and defender.imbue_cuerpo:
 		defender.rodar_prisma()

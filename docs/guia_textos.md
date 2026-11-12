@@ -77,7 +77,7 @@ Si una frase se puede leer de dos maneras, está mal.
 
 Los elementos, con mayúscula cuando son tipo de daño: Daño de Fuego, Daño de Viento, Daño de Rayo,
 Daño de Luz, Daño de Oscuridad. Los estados, con la mayúscula de su nombre: Quemadura, Sangrado,
-Veneno, Electrizado, Mojado, Pegajoso, Aturdido, Lento, Congelación, Ceguera.
+Veneno, Electrizado, Mojado, Pegajoso, Aturdido, Lento, Frío, Congelado, Deshielo, Ceguera.
 
 **Distancias (decidido 06/11):** nada de «px». Se dicen en palabras, comparando, pero sin frases
 forzadas del tipo «el doble de lejos que el gusano». Primer caso, los cebos: «Atracción: Corta /

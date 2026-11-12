@@ -28,7 +28,9 @@ area_max = 4
 area_secundario = 1.0
 area_efectos_secundarios = true
 efectos = [SubResource("SA_cong")]
-; (07/10, el slime de escarcha) circulo r45 donde cae, Congelacion 50 %.
+; (12/11) de HIELO: en un Mojado lo deja Congelado (CombatEfectos._reacciones).
+elemento_golpe = 7
+; (07/10, el slime de escarcha) circulo r45 donde cae, Frio (antes Congelacion) 50 %.
 forma = 1
 forma_apunte = 3
 forma_radio = 45.0

@@ -195,16 +195,17 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 		_rebote_hilo(atacante, victima, dmg)
 		_rebote_tormenta(atacante, victima)
 		_al_entrar_viento(atacante, victima, dmg, elem)
+		_pantalla.reacciones.al_entrar(atacante, victima, dmg, elem)
 		_pantalla.enemigos.absorber_elemento(victima, elem, dmg)
 
 
 # LO QUE HACE EL VIENTO AL ENTRAR (05/11, el jefe). Es ley del elemento, venga de quien venga (tambien contra los tuyos):
 # - al que esta elevado cargando (la gargola en su Picado) le corta lo que preparaba y le quita una carga;
-# - AVIVA EL FUEGO: el x1,5 va en Elementos; aqui las llamas de un Quemado saltan a los suyos que tenga pegados.
+# - AVIVA EL FUEGO: el x1,5 va en Elementos; aqui las llamas de un Quemado saltan a los suyos que tenga pegados (el
+#   daño; la Quemadura que se les pega, desde el 12/11, la pone la regla general del viento: CombatReacciones._extiende).
 # Va una vez por resolucion (si un area pilla a tres quemados, salta solo la primera) y lo que salta no vuelve a saltar.
 const AVIVA_RADIO := 30.0
 const AVIVA_DANO := 0.3
-const AVIVA_PROB_QUEMAR := 0.4
 var _aviva_fotograma: int = -1
 
 func _al_entrar_viento(atacante: Combatant, victima: Combatant, dmg: float, elem: int) -> void:
@@ -233,8 +234,6 @@ func _al_entrar_viento(atacante: Combatant, victima: Combatant, dmg: float, elem
 		_en_rebote = true
 		_fx_golpe(victima, v, d, false, false, fuego, CombatFX.Estilo.PASIVA_ARDE, 0.6, false, "", AbilityData.Gesto.AUTO, null, 0, mult)
 		_en_rebote = false
-		if v.is_alive() and randf() < StatusEffects.prob_final(AVIVA_PROB_QUEMAR, atacante, v, StatusEffects.Id.QUEMADURA):
-			v.apply_status(StatusEffects.Id.QUEMADURA)
 		if es_enemigo:
 			_pantalla._apuntar_dano(v, d, atacante)
 			_pantalla._caidos_de_rebote.append(v)

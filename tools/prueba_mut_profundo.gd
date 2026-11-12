@@ -88,7 +88,12 @@ func _correr() -> void:
 	_ver(ed.siguiente_mutacion(false, &"")["id"] == &"arrecife" and ed.siguiente_mutacion(true, &"arrecife")["id"] == &"escarcha",
 		"del profundo al arrecife y del arrecife a la escarcha")
 	_ver(c1.elemento == Elementos.Elemento.AGUA and c0.elemento == Elementos.Elemento.NINGUNO
-		and c2.elemento == Elementos.Elemento.NINGUNO, "el arrecife es de AGUA (los otros dos, sin elemento)")
+		and c2.elemento == Elementos.Elemento.HIELO, "el arrecife es de AGUA, la escarcha de HIELO (12/11), el profundo de nada")
+	_ver(c2.elemento_ataque == Elementos.Elemento.HIELO, "y el basico de la escarcha pega de hielo")
+	for nom in ["slime_estallido_helado", "slime_aliento_gelido", "slime_carambanos"]:
+		_ver(_ab(nom).elemento_golpe == Elementos.Elemento.HIELO, "%s, de hielo" % nom)
+	_ver(c2.es_inmune(StatusEffects.Id.CONGELACION) and c2.es_inmune(StatusEffects.Id.CONGELADO),
+		"a la escarcha ni le da frio ni se congela")
 	_ver(is_equal_approx(Elementos.mult_recibido(Elementos.Elemento.RAYO, c1), 1.5), "el arrecife, debil al rayo (x%.2f)"
 		% Elementos.mult_recibido(Elementos.Elemento.RAYO, c1))
 	_ver(c1.es_inmune(StatusEffects.Id.MOJADO), "y no se le puede mojar")
@@ -102,7 +107,6 @@ func _correr() -> void:
 	_ver(c1.al_ser_golpeado.size() == 1 and is_equal_approx(c1.al_ser_golpeado_prob, 0.3), "el arrecife lleva la anemona (30 %%)")
 	_ver(c2.al_ser_golpeado.is_empty(), "la escarcha, sin anemona")
 	_ver(c2.aura_fria and is_equal_approx(c2.aura_prob, 0.35) and not c1.aura_fria, "la escarcha lleva el aura fria (35 %%)")
-	_ver(c2.mojado_se_hiela and not c1.mojado_se_hiela, "y 'mojado se hiela'")
 
 	print("2) LOS SPRITES")
 	var sf1: SpriteFrames = SpritesEnemigo.frames_de(ed, 0.5, true, &"arrecife")
@@ -189,16 +193,14 @@ func _correr() -> void:
 	arr.al_ser_golpeado_prob = 0.3
 	al[0].statuses.clear()
 
-	print("7) MOJADO SE HIELA")
-	esc.on_hit = []   # (sin su Congelacion al 25 %: que se vea la que entra por estar mojado)
+	print("7) MOJADO SE HIELA (desde el 12/11, la ley del hielo: su golpe de hielo a un Mojado lo deja CONGELADO)")
 	al[0].apply_status(StatusEffects.Id.MOJADO)
-	seed(4242)
-	esc.roll_on_hit(al[0])
-	_ver(al[0].has_status(StatusEffects.Id.CONGELACION), "su golpe a uno MOJADO lo congela seguro")
+	combat.reacciones.al_entrar(esc, al[0], 3.0, esc.elemento_ataque)
+	_ver(al[0].has_status(StatusEffects.Id.CONGELADO) and not al[0].has_status(StatusEffects.Id.MOJADO),
+		"su golpe a uno MOJADO lo congela (y gasta el mojado)")
 	al[0].statuses.clear()
-	seed(4242)
-	esc.roll_on_hit(al[0])
-	_ver(not al[0].has_status(StatusEffects.Id.CONGELACION), "(seco, no)")
+	combat.reacciones.al_entrar(esc, al[0], 3.0, esc.elemento_ataque)
+	_ver(not al[0].has_status(StatusEffects.Id.CONGELADO), "(seco, no)")
 	al[0].statuses.clear()
 
 	print("8) EL AURA FRIA")

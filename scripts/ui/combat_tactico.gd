@@ -43,6 +43,7 @@
 extends RefCounted
 
 const Pantalla = preload("res://scripts/ui/combat.gd")
+const CombatReacciones = preload("res://scripts/ui/combat_reacciones.gd")
 var _pantalla: Pantalla = null
 
 
@@ -3063,6 +3064,29 @@ func _tick_avisos_mentes() -> void:
 			_pantalla.efectos._fx_golpe(c, c, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.AVISO_INMUNE, peso, true)
 
 
+# LAS REACCIONES ELEMENTALES (12/11, CombatReacciones): el rotulo encima y su efecto. El peso dice cual.
+#   CONGELA   el destello helado del slime de escarcha a sus pies (el hielo le sube por las piernas)
+#   ROMPE     el bloque salta en esquirlas de hielo
+#   ESQUIRLAS lo mismo, y cada pegado recibe la suya (ESQUIRLA, sin rotulo: su numero ya lo dice)
+#   el resto  solo el rotulo: lo que se ve ya lo pinta su estado (el mojado que chorrea) o el empujon.
+func _dibujo_reaccion(ev: Dictionary, arena: ArenaCombate, a: Combatant, v: Combatant, caja_a: Rect2, semilla: int,
+		vuelo: float, ritmo: float) -> void:
+	var r: int = CombatReacciones.de_peso(float(ev.get("peso", 0.0)))
+	match r:
+		CombatReacciones.Reaccion.CONGELA:
+			ProfundoAire.sobre_cuerpo(arena, ProfundoAire.Modo.HELADA, caja_a, bulto_de(v), pies_de(v), semilla, vuelo, ritmo)
+		CombatReacciones.Reaccion.ROMPE, CombatReacciones.Reaccion.ESQUIRLAS:
+			PasivaAire.sobre_cuerpo(arena, PasivaAire.Modo.ESQUIRLAS, Rect2(), bulto_de(v), pies_de(v), semilla, vuelo, ritmo,
+				PasivaAire.ESQUIRLAS_HIELO)
+		CombatReacciones.Reaccion.ESQUIRLA:
+			PasivaAire.sobre_cuerpo(arena, PasivaAire.Modo.ESQUIRLAS, caja_a, bulto_de(v), pies_de(v), semilla, vuelo, ritmo,
+				PasivaAire.ESQUIRLAS_HIELO)
+			return
+	if _pantalla._fx != null and CombatReacciones.ROTULO.has(r):
+		_pantalla._fx.texto_sobre(ev["bv"], CombatReacciones.ROTULO[r],
+			CombatReacciones.color_rotulo(float(ev.get("peso", 0.0))), 15)
+
+
 func _texto_aviso_inmune(ev: Dictionary) -> String:
 	var peso: float = float(ev.get("peso", 1.0))
 	if peso < 0.4:
@@ -6072,6 +6096,8 @@ func _dibujo_pasiva(ev: Dictionary, vuelo: float) -> void:
 		CombatFX.Estilo.AVISO_INMUNE:
 			if _pantalla._fx != null:
 				_pantalla._fx.texto_sobre(ev["bv"], _texto_aviso_inmune(ev), AVISO_INMUNE_C, 14)
+		CombatFX.Estilo.AVISO_REACCION:
+			_dibujo_reaccion(ev, arena, a, v, caja_a, semilla, vuelo, ritmo)
 
 
 # POSADA, ES PIEDRA (la gargola, 30/09): esta posada si no se ha movido desde que empezo su ultimo turno (antes del
@@ -6587,7 +6613,7 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 
 
 func _dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
-	if int(ev.get("estilo", 0)) >= CombatFX.Estilo.PASIVA_LLAMADA and int(ev.get("estilo", 0)) <= CombatFX.Estilo.AVISO_INMUNE:
+	if int(ev.get("estilo", 0)) >= CombatFX.Estilo.PASIVA_LLAMADA and int(ev.get("estilo", 0)) <= CombatFX.Estilo.AVISO_INMUNE 			or int(ev.get("estilo", 0)) == CombatFX.Estilo.AVISO_REACCION:
 		_dibujo_pasiva(ev, vuelo)
 		return
 	var arena: ArenaCombate = _arena()

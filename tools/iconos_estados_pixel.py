@@ -153,10 +153,19 @@ ICONOS = [
         {'o': (34, 46, 110), 'l': (140, 196, 255), 'w': (240, 250, 255)}),
     ("paralisis", "Parálisis", (0.36, 0.8, 0.92), espejo(("a....o", ".a..ol", "a...ol", ".a..oo", "...ool", "..olll",
         "..olll", "...oll", "...ol.", "...ol.", "...oo.", "......")), {'a': (200, 250, 255)}),
-    ("congelacion", "Congelación", (0.6, 0.85, 1.0), (
+    ("congelacion", "Frío", (0.6, 0.85, 1.0), (
         ".....o......", "..o.olo.o...", ".olooloolo..", "..ololwlo...", "...ollwo....", "oooolwlloooo",
         "ollllwwllllo", "oooollwoooo.", "...owllo....", "..olollolo..", ".oloolooolo.", "..o.olo.o..."),
         {'o': (40, 70, 110), 'l': (170, 220, 255), 'w': (250, 255, 255)}),
+    # (12/11) LAS REACCIONES DEL HIELO: el bloque de hielo (Congelado) y el que chorrea al salir de el (Deshielo).
+    ("congelado", "Congelado", (0.55, 0.8, 1.0), (
+        "..oooooooo..", ".owwwllllmo.", "owwllllllmmo", "owllllllmmmo", "olllwllmmmdo", "olllllmmmddo",
+        "ollllmmmmddo", "olllmmmmdddo", "ollmmmmddddo", "olmmmmdddddo", ".ommmdddddo.", "..oooooooo.."),
+        {'o': (34, 60, 100), 'w': (245, 252, 255)}),
+    ("deshielo", "Deshielo", (0.55, 0.8, 1.0), (
+        "..oooooooo..", ".owwlllllmo.", ".owllllllmo.", ".olllllmmdo.", ".ollllmmddo.", ".olmmmmdddo.",
+        "..oaooooao..", "..obo..oao..", "..oao...o...", "...o...obo..", "..obo..oao..", "..oao...o..."),
+        {'o': (34, 60, 100), 'a': (90, 160, 235), 'b': (225, 242, 255)}),
     ("miedo", "Miedo", (0.55, 0.35, 0.7), espejo(("...ooo", ".oolll", ".olwll", "olllll", "olaoll", "olaoll",
         "olllll", "olllll", "ollloo", "ollloo", ".ollll", "..oooo")), {'a': (250, 250, 255)}),
     ("silencio", "Silencio", (0.65, 0.5, 0.8), (
@@ -479,7 +488,7 @@ EMOJI = {
     "🤐": "silencio", "🌱": "enraizado", "🧪": "resguardo", "🌫": "ceguera", "😱": "miedo", "👤": "sigilo",
     "🫀": "guardia_carne", "🐛": "enroscado", "🍯": "resinado", "♨": "avivado", "😤": "furia_rey",
     "🖤": "savia_negra", "🦟": "picor", "💩": "pringado", "🫨": "paralisis", "🧲": "imantado", "⚙": "limaduras",
-    "🪽": "en_vuelo", "💤": "una_cabeza", "❄": "congelacion", "🌑": "en_sombras", "🦷": "colmillos_rotos",
+    "🪽": "en_vuelo", "💤": "una_cabeza", "❄": "congelacion", "🧊": "congelado", "💦": "deshielo", "🌑": "en_sombras", "🦷": "colmillos_rotos",
     "🔮": "foco", "⏳": "cargando", "🤺": "en_guardia", "😮": "sin_fuelle", "💚": "plato_remedio",
     "🧄": "plato_estomago", "🍀": "plato_fortuna", "🦠": "infectado", "🌿": "florecido",
 }

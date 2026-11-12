@@ -899,7 +899,6 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		c.aura_fria = mdat2.aura_fria
 		c.aura_prob = mdat2.aura_prob
 		c.aura_efectos = mdat2.aura_efectos
-		c.mojado_se_hiela = mdat2.mojado_se_hiela
 		# (07/10, los del Rey Slime) Orden real, escudo de subditos, tributo y rabia por tramos.
 		c.orden_real = mdat2.orden_real
 		c.orden_cada = mdat2.orden_cada

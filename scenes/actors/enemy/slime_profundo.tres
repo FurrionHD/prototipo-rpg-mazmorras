@@ -65,6 +65,7 @@ script = ExtResource("7_mut")
 id = &"escarcha"
 pesos = {"fuerza": 22, "magia": 38, "voluntad": 18}
 nombre = "Slime de escarcha"
+elemento = 7
 grado = 2
 desde = Array[StringName]([&"arrecife"])
 habilidades = Array[ExtResource("8_ab")]([ExtResource("12_eh"), ExtResource("13_ag"), ExtResource("14_ca")])
@@ -77,7 +78,6 @@ al_golpear = [SubResource("SA_cong")]
 aura_fria = true
 aura_prob = 0.35
 aura_efectos = [SubResource("SA_cong_aura")]
-mojado_se_hiela = true
 
 [resource]
 script = ExtResource("1_g8nro")

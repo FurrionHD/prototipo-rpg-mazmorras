@@ -563,11 +563,11 @@ var mov_mult: float = 1.0
 var deja_estrellas: bool = false
 var estrellas_max: int = 6
 var todo_lo_ve: bool = false
-# (07/10, la escarcha, ver MutacionData) el aura fria y 'mojado se hiela'.
+# (07/10, la escarcha, ver MutacionData) el aura fria. (Su 'mojado se hiela' es desde el 12/11 la ley del hielo para
+# todos: golpe de Hielo sobre un Mojado = Congelado, CombatEfectos._reacciones.)
 var aura_fria: bool = false
 var aura_prob: float = 0.0
 var aura_efectos: Array = []
-var mojado_se_hiela: bool = false
 # (07/10, los mutantes del Rey Slime, ver MutacionData) ORDEN REAL, ESCUDO DE SUBDITOS y TRIBUTO (el tirano); RABIA POR
 # TRAMOS (el destronado). 'orden_espera' = los turnos suyos que le faltan para la siguiente Orden real (0 = ya).
 var orden_real: bool = false
@@ -1510,8 +1510,8 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 	if es_inmune(id):
 		print("[estado] %s es INMUNE a %s" % [nombre, String(d.get("nombre", "?"))])
 		return
-	# El ESCUDO DE AGUA de las runas (set Marea): mientras dura, ni Lento ni Congelacion.
-	if runa_escudo_agua > 0.0 and (id == StatusEffects.Id.LENTO or id == StatusEffects.Id.CONGELACION):
+	# El ESCUDO DE AGUA de las runas (set Marea): mientras dura, ni Lento ni Frio (ni Congelado, 12/11).
+	if runa_escudo_agua > 0.0 and (id == StatusEffects.Id.LENTO or id == StatusEffects.Id.CONGELACION 			or id == StatusEffects.Id.CONGELADO):
 		print("[runas] %s: el escudo de agua para el %s" % [nombre, String(d.get("nombre", "?"))])
 		runa_agua_paradas += 1
 		return
@@ -1664,6 +1664,8 @@ func _al_poner_status(inst) -> void:
 
 func _al_quitar_status(inst) -> void:
 	var id_est: int = inst.id()
+	if id_est == StatusEffects.Id.CONGELADO:
+		_deshielo_pendiente = true   # se pone en _tras_quitar, cuando la lista ya esta escrita (si no, se la comeria)
 	if not _hp_escalado_por.has(id_est):
 		return
 	var m: float = float(_hp_escalado_por[id_est])
@@ -1701,7 +1703,20 @@ func _quitar_status(id: int) -> int:
 	statuses = quedan
 	if antes != statuses.size():
 		_invalidar_hab()
+	_tras_quitar()
 	return antes - statuses.size()
+
+
+# EL DESHIELO (12/11): se vaya como se vaya el Congelado (se le acaba, se rompe, se derrite), detras viene el Deshielo:
+# dos turnos sin poder volver a congelarte. Para ti y para los enemigos.
+var _deshielo_pendiente: bool = false
+
+func _tras_quitar() -> void:
+	if not _deshielo_pendiente:
+		return
+	_deshielo_pendiente = false
+	if is_alive():
+		apply_status(StatusEffects.Id.DESHIELO)
 
 
 # Nº de instancias activas de un estado (para el tope de stacks independientes).
@@ -1812,6 +1827,7 @@ func tick_statuses() -> Dictionary:
 	statuses = kept
 	if antes_de_tick != statuses.size():
 		_invalidar_hab()
+	_tras_quitar()
 	# Lo que aguanta el estomago (plato de Encurtidos): recorta TODO el daño por turno de una vez,
 	# ya sumado, en vez de estado por estado. Es lo mismo (la suma es lineal) y ademas asi el plato
 	# no se puede "colar" dentro de la propia reduccion.
@@ -1902,6 +1918,9 @@ func quitar_estado(id: int) -> bool:
 		if statuses[i].id() == id:
 			statuses.remove_at(i)
 			fuera = true
+	if fuera and id == StatusEffects.Id.CONGELADO:
+		_deshielo_pendiente = true
+		_tras_quitar()
 	return fuera
 
 
@@ -2539,8 +2558,6 @@ func roll_on_hit(target: Combatant) -> Array:
 	var aplicados: Array = []
 	if target == null:
 		return aplicados
-	# MOJADO SE HIELA (07/10, la escarcha): mirado antes de tirar (ver combat_enemigos._enemy_tirar_efectos, la otra rama).
-	var hiela: bool = mojado_se_hiela and target.has_status(StatusEffects.Id.MOJADO)
 	for a0 in on_hit:
 		if a0.estado < 0:
 			continue
@@ -2562,9 +2579,6 @@ func roll_on_hit(target: Combatant) -> Array:
 		for _s in maxi(1, a.stacks):
 			target.apply_status(a.estado, runa_turnos(a.estado, a.turns), runa_mag(a.estado, mag, target), 1, false, a.cap)
 		aplicados.append(str(StatusEffects.def(a.estado).get("nombre", "?")))
-	if hiela and target.is_alive() and not target.es_inmune(StatusEffects.Id.CONGELACION):
-		target.apply_status(StatusEffects.Id.CONGELACION, int(StatusEffects.def(StatusEffects.Id.CONGELACION)["turns"]))
-		aplicados.append("Congelación (estaba mojado)")
 	aplicados.append_array(tirar_refuerzo(target, atk()))
 	return aplicados
 

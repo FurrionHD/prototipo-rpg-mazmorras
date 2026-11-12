@@ -355,7 +355,7 @@ static func efecto_txt(s: RunaSetData) -> String:
 			return "La primera vez en cada combate que el portador recibe un golpe que le inflige un %s o más de su vida máxima, ese golpe le inflige un %s menos de daño (el daño con el tiempo no cuenta). Además, los enemigos que atacan al portador cuerpo a cuerpo tienen un %s de probabilidad base de quedar Pegajosos." % [
 				_pct(p, "umbral", 0.2), _pct(p, "reduce", 0.4), _pct(p, "pegajoso", 0.25)]
 		&"marea":
-			return "Al empezar el combate, el portador obtiene un escudo de agua que absorbe daño equivalente al %s de su vida máxima (no absorbe el daño con el tiempo). Mientras el escudo dure, el portador no puede quedar Lento ni sufrir Congelación. Cuando el escudo se rompe, el enemigo que lo rompió queda Mojado." % [
+			return "Al empezar el combate, el portador obtiene un escudo de agua que absorbe daño equivalente al %s de su vida máxima (no absorbe el daño con el tiempo). Mientras el escudo dure, el portador no puede quedar Lento, ni con Frío ni Congelado. Cuando el escudo se rompe, el enemigo que lo rompió queda Mojado." % [
 				_pct(p, "escudo", 0.15)]
 		&"corona":
 			return "Los aliados que están cuerpo a cuerpo con el portador reciben un %s menos de daño. Cuando un aliado baja del %s de su vida máxima, el portador provoca a todos los enemigos durante %s. Este efecto solo se puede activar 1 vez por combate." % [

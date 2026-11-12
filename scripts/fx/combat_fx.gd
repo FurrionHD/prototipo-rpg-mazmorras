@@ -481,7 +481,9 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		INSECTO_VIENTO = 227,
 		# EL MICONIDO Y SUS MUTANTES EN PIXEL (10/11): la Estocada del muerto (esquirlas por detras), el velo del Destello y la
 		# Luz que atrae (motas a la campana). El resto va por SIMA_PORRAZO / SIMA_TOS / SIMA_LATIGO segun quien ataca.
-		SIMA_ESTOCADA = 228, SIMA_DESTELLO = 229, SIMA_ATRAE = 230 }
+		SIMA_ESTOCADA = 228, SIMA_DESTELLO = 229, SIMA_ATRAE = 230,
+		# LAS REACCIONES ELEMENTALES (12/11, CombatReacciones): su rotulo encima y su efecto; el peso dice cual.
+		AVISO_REACCION = 231 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -550,7 +552,7 @@ const DIBUJO_MAPA := [Estilo.CRIA_LANZADA, Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA
 	Estilo.INSECTO_APRETON,
 	# y las pasivas del repaso y los avisos (PasivaAire, 30/09).
 	Estilo.PASIVA_LLAMADA, Estilo.PASIVA_ARDE, Estilo.PASIVA_DESTELLO,
-	Estilo.AVISO_INTERRUMPIDO, Estilo.AVISO_RETRASO, Estilo.AVISO_INMUNE,
+	Estilo.AVISO_INTERRUMPIDO, Estilo.AVISO_RETRASO, Estilo.AVISO_INMUNE, Estilo.AVISO_REACCION,
 	# y los constructos (ConstructoAire, 30/09).
 	Estilo.CONSTRUCTO_PUNO, Estilo.CONSTRUCTO_MACHACA,
 	Estilo.GARGOLA_ZARPA, Estilo.GARGOLA_PICADO, Estilo.GARGOLA_PETREA,
@@ -746,7 +748,7 @@ const T_VUELO := {
 	Estilo.FIERA_TENTACULO: 0.16, Estilo.FIERA_MIRADA: 0.02,
 	# Las pasivas y los avisos salen EN el golpe (la lengua de fuego sale del golpe y viaja por su cuenta).
 	Estilo.PASIVA_LLAMADA: 0.02, Estilo.PASIVA_ARDE: 0.02, Estilo.PASIVA_DESTELLO: 0.02,
-	Estilo.AVISO_INTERRUMPIDO: 0.02, Estilo.AVISO_RETRASO: 0.02, Estilo.AVISO_INMUNE: 0.02,
+	Estilo.AVISO_INTERRUMPIDO: 0.02, Estilo.AVISO_RETRASO: 0.02, Estilo.AVISO_INMUNE: 0.02, Estilo.AVISO_REACCION: 0.02,
 	# Los tentaculos de la anemona se estiran mientras llega el golpe (ProfundoAire.T_ESTIRA); el hielo, EN el golpe.
 	Estilo.PROFUNDO_ANEMONA: 0.12, Estilo.PROFUNDO_HELADA: 0.02,
 	# (el Decreto se forma cuando alza la corona -IMPACTO_ANIM_MAPA 'decreto'-; el Tributo sale al caer el subdito)
@@ -1012,6 +1014,7 @@ const FAMILIAS: Array = [
 	# gag de dibujos animados de toda la vida.
 	["control", "estrella", [
 		StatusEffects.Id.ATURDIDO, StatusEffects.Id.MIEDO, StatusEffects.Id.SILENCIO, StatusEffects.Id.PARALISIS,
+		StatusEffects.Id.CONGELADO,   # (12/11) tambien te quita el turno
 	]],
 	# No te hace nada por si mismo, esta ahi crepitando y sube lo siguiente que te caiga. Van
 	# RAYITOS (zigzags) y no chispas genericas: una X se lee como "algo brilla", un zigzag como
@@ -2976,7 +2979,7 @@ func _process(delta: float) -> void:
 			# el gesto del cuerpo.)
 			if rect_en_mapa.is_valid() and estilo in DIBUJO_MAPA:
 				dibujo_en_mapa.emit(ev, vuelo)
-			elif (estilo >= Estilo.PASIVA_LLAMADA and estilo <= Estilo.AVISO_INMUNE) 					or estilo == Estilo.PROFUNDO_ANEMONA or estilo == Estilo.PROFUNDO_HELADA \
+			elif (estilo >= Estilo.PASIVA_LLAMADA and estilo <= Estilo.AVISO_INMUNE) or estilo == Estilo.AVISO_REACCION 					or estilo == Estilo.PROFUNDO_ANEMONA or estilo == Estilo.PROFUNDO_HELADA \
 					or estilo == Estilo.REY_DECRETO or estilo == Estilo.REY_TRIBUTO:
 				pass   # las pasivas y los avisos (PasivaAire), y los del profundo (ProfundoAire), solo se pintan en el mapa
 			elif _capa_fx != null and not bool(ev.get("sin_dibujo", false)) \

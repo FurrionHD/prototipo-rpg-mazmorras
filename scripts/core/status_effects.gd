@@ -56,7 +56,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	PICOR, PRINGADO,
 	PARALISIS, ENCAPULLADO,
 	IMANTADO, ADHERIDO, LIMADURAS, EN_VUELO, ORBITA, CORAZA_IMAN, ELITROS, UNA_CABEZA,
-	INFECTADO, FLORECIDO }
+	INFECTADO, FLORECIDO,
+	CONGELADO, DESHIELO }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -641,11 +642,27 @@ static var _defs: Dictionary = {
 		"turns": 3, "evade_flat": 0.25,
 		"descripcion": "Cerrado como una bala: acertarle es cosa de suerte.",
 	},
+	# EL FRIO (12/11): es la Congelacion de antes con su nombre nuevo (el Id se queda: viaja por red y esta en los .tres).
+	# Lo que deja el hielo; con Mojado encima, el hielo no te enfria, te CONGELA (CONGELADO, CombatEfectos._reacciones).
 	Id.CONGELACION: {
-		"id": Id.CONGELACION, "nombre": "Congelación", "icono": "❄", "color": Color(0.6, 0.85, 1.0),
+		"id": Id.CONGELACION, "nombre": "Frío", "icono": "❄", "color": Color(0.6, 0.85, 1.0),
 		"turns": 1, "mov_mult": CONGELACION_MOV,
 		"debuff": true,
-		"descripcion": "Escarcha en las piernas: este turno solo te da para la mitad del camino.",
+		"descripcion": "Escarcha en las piernas: este turno solo te da para la mitad del camino. El fuego la derrite.",
+	},
+	# CONGELADO (12/11, la tabla de reacciones del 10/11): Mojado + un golpe de Hielo. Pierdes el turno entero; un golpe
+	# fisico lo rompe (+50 % y te suelta), el rayo lo revienta en esquirlas a los de al lado y el fuego lo derrite (te deja
+	# Mojado). Al irse, por lo que sea, DESHIELO: dos turnos sin poder volver a congelarte (Combatant._tras_quitar).
+	Id.CONGELADO: {
+		"id": Id.CONGELADO, "nombre": "Congelado", "icono": "🧊", "color": Color(0.55, 0.8, 1.0),
+		"turns": 1, "is_stun": true,
+		"debuff": true,
+		"descripcion": "Metido en un bloque de hielo: pierde el turno entero. Un golpe físico lo rompe y le pega más; el rayo lo revienta en esquirlas contra los de al lado y el fuego lo derrite.",
+	},
+	Id.DESHIELO: {
+		"id": Id.DESHIELO, "nombre": "Deshielo", "icono": "💦", "color": Color(0.5, 0.75, 0.95),
+		"turns": 2, "inmune": [Id.CONGELADO],
+		"descripcion": "Aún chorrea del hielo de antes: no se le puede volver a congelar.",
 	},
 	Id.RESCOLDO: {
 		"id": Id.RESCOLDO, "nombre": "Rescoldo", "icono": "♨", "color": Color(0.85, 0.45, 0.25),

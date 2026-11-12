@@ -54,6 +54,9 @@ const ECO_C := Color(0.86, 0.8, 1.0)
 const T_ESQUIRLAS := 0.7
 const CARGA_C := Color(1.0, 0.84, 0.42)
 const CONJURO_C := Color(0.78, 0.62, 1.0)
+# (12/11) El hielo que se rompe (las reacciones): esquirlas azul hielo. Se pide con extra = ESQUIRLAS_HIELO.
+const HIELO_C := Color(0.7, 0.9, 1.0)
+const ESQUIRLAS_HIELO := -1.0
 const T_ARRASTRE := 0.22          # lo que dura el deslizamiento (CombatTactico mueve el cuerpo a la vez)
 const T_ARRASTRE_QUEDA := 0.7     # y lo que tarda en irse la marca
 const POLVO := Color(0.55, 0.5, 0.44)
@@ -137,7 +140,7 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Rect2, caja: Rect2, pies_v:
 			e._viaje = maxf(espera, T_ECO)
 			e._t = -e._viaje
 		Modo.ESQUIRLAS:
-			e._color = CARGA_C if extra >= 0.5 else CONJURO_C
+			e._color = HIELO_C if extra < 0.0 else (CARGA_C if extra >= 0.5 else CONJURO_C)
 			e._o = e._hasta
 			e._t = -maxf(espera, 0.0)
 			for i in 11:
