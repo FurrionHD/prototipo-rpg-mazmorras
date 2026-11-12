@@ -163,7 +163,7 @@ func _sobrecarga(_atacante: Combatant, victima: Combatant) -> void:
 	if not _salta_ya():
 		return
 	for v in _pegados(victima):
-		_pantalla.turno_mapa.pedir_tiron(v, victima, SOBRECARGA_EMPUJE)
+		_pantalla.turno_mapa.pedir_tiron(v, victima, SOBRECARGA_EMPUJE, victima)   # arranca con el rayo que le entra a el
 		var dsp: String = _pantalla.desplazado(v, SOBRECARGA_EMPUJE, victima)
 		if dsp != "":
 			_pantalla._log_extra(dsp)

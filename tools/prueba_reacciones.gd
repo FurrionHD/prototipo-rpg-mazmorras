@@ -209,6 +209,18 @@ func _correr() -> void:
 	re.al_entrar(yo, a, 5.0, E.RAYO)
 	_ver(_casi(_empuja(tm, b), re.SOBRECARGA_EMPUJE), "rayo sobre quemado: aparta al pegado (%.0f px)" % _empuja(tm, b))
 	_ver(_casi(_empuja(tm, lejos), 0.0) and _casi(_empuja(tm, a), 0.0), "ni al de lejos ni al quemado")
+	var tr_b: Dictionary = {}
+	for tr in tm._tirones:
+		if tr.get("c") == b:
+			tr_b = tr
+	_ver(tr_b.get("espera_a") == a, "el empujon arranca con el golpe del quemado, no con uno suyo (a b no le pega nadie)")
+	tm._on_golpe_encajado(combat._bloque_de(a), 0.0)
+	_ver(float(tr_b.get("t", -1.0)) >= 0.0, "y arranca al verse ese golpe")
+	# UN CUERPO, UN TIRON: otro que arranca en b sustituye al que llevaba en marcha (antes se pisaban).
+	tm.pedir_tiron(b, yo, -18.0)
+	var nuevo_b: Dictionary = tm._tirones.back()
+	tm._arrancar_tiron(nuevo_b)
+	_ver(not tm._tirones.has(tr_b) and tm._tirones.has(nuevo_b), "un empujon nuevo en el mismo cuerpo sustituye al que iba")
 	tm._tirones.clear()
 
 	print("9) EL VIENTO EXTIENDE")

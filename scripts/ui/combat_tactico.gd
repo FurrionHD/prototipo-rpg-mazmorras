@@ -5481,10 +5481,14 @@ const T_TIRON := 0.18
 const T_TIRON_ESPERA := 3.0
 var _tirones: Array = []   # {c, de, px, espera, t, desde, hasta}
 
-func pedir_tiron(c: Combatant, de: Combatant, px: float) -> void:
+# 'con_golpe_de' (12/11, la Sobrecarga): arranca cuando se ve el golpe de ESE, no el de 'c'. A los que aparta una reaccion
+# no les pega nadie: esperando su propio golpe se quedaban colgados hasta T_TIRON_ESPERA (3 s despues del rayo).
+func pedir_tiron(c: Combatant, de: Combatant, px: float, con_golpe_de: Combatant = null) -> void:
 	if _pantalla._espejo or c == null or de == null or is_zero_approx(px) or c.imparable:
 		return
 	var tr := {"c": c, "de": de, "px": px, "espera": 0.0, "t": -1.0}
+	if con_golpe_de != null:
+		tr["espera_a"] = con_golpe_de
 	if not _tiron_a_otro_humano(tr):
 		_tirones.append(tr)
 
@@ -5578,8 +5582,8 @@ func _tiron_a_otro_humano(tr: Dictionary) -> bool:
 
 
 func _on_golpe_encajado(b: Dictionary, _dur: float) -> void:
-	for tr in _tirones:
-		if float(tr["t"]) < 0.0 and is_same(_pantalla._bloque_de(tr["c"]), b):
+	for tr in _tirones.duplicate():
+		if float(tr["t"]) < 0.0 and is_same(_pantalla._bloque_de(tr.get("espera_a", tr["c"])), b):
 			_arrancar_tiron(tr)
 	# El empujon a un personaje de otro humano: sale con SU golpe, en todas las maquinas (lo mueve la suya).
 	for d in _deslices:
@@ -7060,6 +7064,11 @@ const HUECO_ATRAE := 12.0
 func _arrancar_tiron(tr: Dictionary) -> void:
 	var c: Combatant = tr["c"]
 	var cuerpo: Node2D = cuerpo_de(c)
+	# UN CUERPO, UN TIRON A LA VEZ (12/11): si ya le estaban moviendo, el nuevo sale de donde este y el viejo se deja.
+	# Dos a la vez se pisaban fotograma a fotograma (cada uno coloca el cuerpo en SU recorrido).
+	for otro in _tirones.duplicate():
+		if otro != tr and otro["c"] == c and float(otro["t"]) >= 0.0:
+			_tirones.erase(otro)
 	tr["t"] = 0.0
 	tr["desde"] = Vector2.ZERO
 	tr["hasta"] = Vector2.ZERO
@@ -7093,6 +7102,8 @@ func _tick_tirones(delta: float) -> void:
 	if _tirones.is_empty():
 		return
 	for tr in _tirones.duplicate():
+		if not _tirones.has(tr):
+			continue   # lo ha sustituido otro que acaba de arrancar en este mismo cuerpo
 		if float(tr["t"]) < 0.0:
 			tr["espera"] = float(tr["espera"]) + delta
 			if float(tr["espera"]) >= T_TIRON_ESPERA:
