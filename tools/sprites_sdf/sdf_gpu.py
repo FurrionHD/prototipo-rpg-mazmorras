@@ -118,7 +118,7 @@ class Lote:
         self.B = B
         # PARAMETROS por tipo de pieza: [pieza de ese tipo, fotograma, ...]
         self.tipos = {}
-        for kind in ('esfera', 'elipsoide', 'cono', 'caja', 'triangulo', 'casquete'):
+        for kind in ('esfera', 'elipsoide', 'cono', 'caja', 'triangulo', 'casquete', 'toro'):
             ids = [i for i, x in enumerate(firma) if x[0] == kind]
             if not ids: continue
             self.tipos[kind] = (torch.tensor(ids, device=DISPOSITIVO, dtype=torch.long), self._params(kind, ids))
@@ -142,6 +142,8 @@ class Lote:
         if kind == 'casquete':
             return (_ten(col(1, (3,))), _ten(col(2, (3, 3))), _ten(col(3, (3,))), _ten(col(4, (3,))), _ten(col(5, ())),
                     _ten(col(6, ())))
+        if kind == 'toro':
+            return (_ten(col(1, (3,))), _ten(col(2, ())), _ten(col(3, ())), _ten(col(4, ())))
         a = col(1, (3,)); b = col(2, (3,)); c = col(3, (3,)); g = col(4, ())
         return tuple(_ten(x) for x in (a, b, c, g))
 
@@ -217,6 +219,14 @@ def _distancias(lo, x, y, z, fs):
             cap = k0 * (k0 - 1.0) / torch.clamp(k1, min=1e-6)
             d = torch.maximum(cap, -(uz - hh - cu * (ux * ux + uy * uy)))
             del ux, uy, uz, ex, ey, ez, k0, k1, cap
+        elif kind == 'toro':
+            # (12/11) como sdf_comun.sd_toro_y: el aro en XZ (la Z aplastada por kz) y el tubo.
+            c, r, g, kz = par
+            ax = px - c[..., 0]; az = (pz - c[..., 2]) / kz
+            lado = torch.sqrt(ax * ax + az * az) - r
+            ay = py - c[..., 1]
+            d = torch.sqrt(lado * lado + ay * ay) - g
+            del ax, az, lado, ay
         else:
             d = _triangulo(torch.stack([px, py, pz], dim=-1), par)
         D[ids] = d
@@ -375,19 +385,27 @@ def _clave(f):
 
 
 def _lanzar(grupo):
-    """Lanza un lote. Si no cabe en la grafica (el tope, o que otro programa la este usando), lo parte en dos."""
+    """Lanza un lote. Si no cabe en la grafica (el tope, o que otro programa la este usando), lo parte en dos.
+    (12/11, la Polilla insomne) EL REINTENTO VA FUERA DEL 'except': dentro, el error sigue vivo y con el todo lo que
+    habia pedido el intento fallido (su traza guarda las tablas); asi ningun reintento cabia, por pequeño que fuera."""
+    no_cabe = False
     try:
         _marchar(Lote(grupo))
     except torch.OutOfMemoryError:
-        torch.cuda.empty_cache()
-        if len(grupo) == 1 and MEMORIA_TANDA[0] < 2e8:
-            raise
-        if len(grupo) == 1:
-            MEMORIA_TANDA[0] /= 2
-            print('horno: la grafica va justa, tandas mas pequeñas')
-            _lanzar(grupo)
-            return
-        _lanzar(grupo[:len(grupo) // 2]); _lanzar(grupo[len(grupo) // 2:])
+        no_cabe = True
+    if not no_cabe:
+        return
+    import gc
+    gc.collect()
+    torch.cuda.empty_cache()
+    if len(grupo) == 1 and MEMORIA_TANDA[0] < 2e8:
+        raise torch.OutOfMemoryError('horno: ni un fotograma suelto cabe en la grafica')
+    if len(grupo) == 1:
+        MEMORIA_TANDA[0] /= 2
+        print('horno: la grafica va justa, tandas mas pequeñas')
+        _lanzar(grupo)
+        return
+    _lanzar(grupo[:len(grupo) // 2]); _lanzar(grupo[len(grupo) // 2:])
 
 
 def marchar_todo(fotos):

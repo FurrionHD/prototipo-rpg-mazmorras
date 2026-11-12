@@ -80,6 +80,21 @@ def sd_casquete(P, o, M, c, rad, h, curva):
     return np.maximum(cap, -(q[:, 2] - h - curva * (q[:, 0] ** 2 + q[:, 1] ** 2)))
 
 
+def sd_elipsoide_girado(P, c, M, rad):
+    """Un ELIPSOIDE en su propio marco q = (P - c) @ M (12/11, los discos de las alas de la polilla: antes eran lambdas que la
+    grafica no leia y el fotograma entero iba a la CPU). Para la grafica es un casquete SIN CUENCA (el corte, infinitamente
+    abajo): la misma cuenta, ya enseñada."""
+    if P is SONDA: return ('casquete', c, M, np.zeros(3), rad, -1e6, 0.0)
+    return sd_elipsoide((P - c) @ M, np.zeros(3), rad)
+
+
+def sd_toro_y(P, c, r, grosor, kz=1.0):
+    """Un TORO alrededor del eje Y (12/11, los anillos del abdomen de la polilla): el aro de radio 'r' en el plano XZ, con la
+    Z dividida por 'kz' (aplastado), y 'grosor' de tubo."""
+    if P is SONDA: return ('toro', c, r, grosor, kz)
+    return np.sqrt((np.sqrt((P[:, 0] - c[0]) ** 2 + ((P[:, 2] - c[2]) / kz) ** 2) - r) ** 2 + (P[:, 1] - c[1]) ** 2) - grosor
+
+
 def smin(a, b, k):
     if k <= 0: return np.minimum(a, b)
     h = np.clip(0.5 + 0.5 * (b - a) / k, 0.0, 1.0)

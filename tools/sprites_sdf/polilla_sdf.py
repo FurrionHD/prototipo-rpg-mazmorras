@@ -93,7 +93,8 @@ def _disco(add, c, e1, e2, r1, r2, grosor, mat, grupo):
     """Un disco pegado al plano del ala (e1, e2): la base oscura, el ocelo."""
     n = np.cross(e1, e2); n /= np.linalg.norm(n)
     E = V((e1, e2, n)); c = V(c, dtype=float); r = V((r1, r2, grosor))
-    add(lambda P: sd_elipsoide((P - c) @ E.T, np.zeros(3), r), mat, 0, grupo, 'raiz')
+    M = E.T.copy()
+    add(lambda P: sd_elipsoide_girado(P, c, M, r), mat, 0, grupo, 'raiz')   # (12/11) la grafica lo lee
 
 
 def _ala(add, p, s, A, nombre):
@@ -173,8 +174,7 @@ def escena(pose):
     for i in range(4):
         y = -0.6 - 2.0 * i
         r = 1.9 - 0.28 * i
-        add(lambda P, c=V((0.0, y, Z - 0.3 - 0.15 * i)), r=r: np.sqrt(
-            (np.sqrt((P[:, 0] - c[0]) ** 2 + ((P[:, 2] - c[2]) / 0.92) ** 2) - r) ** 2 + (P[:, 1] - c[1]) ** 2) - 0.28,
+        add(lambda P, c=V((0.0, y, Z - 0.3 - 0.15 * i)), r=r: sd_toro_y(P, c, r, 0.28, 0.92),   # (12/11) la grafica lo lee
             'anillo', 0, 'anillo')
     # --- LA CABEZA: pequeña, con OJOS GRANDES y oscuros (una polilla es casi todo ojo).
     _elip(add, (0.0, 6.0, Z - 0.1), (1.8, 1.6, 1.7), 'pelo', 0.5, 'cabeza')
