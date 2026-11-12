@@ -370,7 +370,8 @@ def _marchar(lo):
 
 
 def _clave(f):
-    return (f.firma, f.mo.W, f.mo.H, f.mo.lejos, f.mo.corta_suelo, tuple(f.mo.suaves))
+    # id(f.mo): un lote, un modelo (el Lote usa el de su primer fotograma). Con modelo_de cada pose puede traer el suyo.
+    return (f.firma, f.mo.W, f.mo.H, f.mo.lejos, f.mo.corta_suelo, tuple(f.mo.suaves), id(f.mo))
 
 
 def _lanzar(grupo):
@@ -431,7 +432,7 @@ def render_lote(trabajos):
 
 def _hacer_lote(mod, tareas):
     """[(nm, d, i, pose, L)] -> las tuplas de sdf_comun._trabajo (nm, d, i, imagen, parpados)."""
-    trabajos = [(mod.MODELO, x[4], x[1]) for x in tareas]
+    trabajos = [(sc.modelo_de(mod, x[3]), x[4], x[1]) for x in tareas]
     n_base = len(trabajos)
     # LOS PARPADOS, detras: la misma pose con los ojos cerrados (ver sc._trabajo).
     parp = []
@@ -440,7 +441,7 @@ def _hacer_lote(mod, tareas):
         for k, x in enumerate(tareas):
             for g in range(1, grupos + 1):
                 parp.append(k)
-                trabajos.append((mod.MODELO, mod.escena(dict(x[3], cerrados=True if grupos == 1 else g)), x[1]))
+                trabajos.append((sc.modelo_de(mod, x[3]), mod.escena(dict(x[3], cerrados=True if grupos == 1 else g)), x[1]))
     imgs = render_lote(trabajos)
     pares = {}
     for k, im in zip(parp, imgs[n_base:]):
@@ -496,7 +497,7 @@ def hechos_de(modname, mod, nombres, pool, n_cpu, hibrido=False):
                 pose = fn(t)
                 L = mod.escena_dir(pose, d) if hasattr(mod, 'escena_dir') else mod.escena(pose)
                 tarea = (nm, d, i, pose, L)
-                f = Fotograma(mod.MODELO, L, d)
+                f = Fotograma(sc.modelo_de(mod, pose), L, d)
                 if any(x[0] == 'raro' for x in f.firma):
                     cola.raros.append(tarea)
                 else:

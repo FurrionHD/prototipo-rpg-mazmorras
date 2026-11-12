@@ -135,6 +135,17 @@ def ala_generica(add, p, s, A, nombre):
             disco(oa, ob, r * 0.62, r * 0.62, 0.42, 'iris')
             disco(oa, ob, r * 0.34, r * 0.34, 0.48, 'ocelo_n')
             disco(oa - r * 0.15, ob - r * 0.15, r * 0.12, r * 0.12, 0.54, 'brillo')
+        elif estilo == 'astral':
+            # (12/11, la mezcla de los mutantes) EL OJO ASTRAL: anillos de colores neon de fuera a dentro (astral_0, astral_1...
+            # los que haya en los materiales) y la pupila negra con su brillo. Del ojo en el cielo de su referencia.
+            n = 0
+            while ('astral_%d' % n) in A.get('_mats', ()):
+                n += 1
+            for k in range(n):
+                f = 1.0 - 0.62 * k / max(1, n)
+                disco(oa, ob, r * 1.25 * f, r * f, 0.36 + 0.03 * k, 'astral_%d' % k)
+            disco(oa, ob, r * 0.34, r * 0.30, 0.36 + 0.03 * n, 'ocelo_n')
+            disco(oa - r * 0.12, ob - r * 0.12, r * 0.10, r * 0.10, 0.40 + 0.03 * n, 'brillo')
         elif estilo == 'diana':
             # EN DIANA, la del boceto: blanco, oscuro, blanco, nucleo.
             disco(oa, ob, r, r, 0.36, 'ocelo')

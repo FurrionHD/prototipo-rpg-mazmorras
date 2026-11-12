@@ -408,6 +408,12 @@ def vistas_lado_a_lado(fotos_nuevas, nombre_viejo, salida, escala=4, anim='idle'
 #  HORNEAR: hojas (filas = direcciones, columnas = fotogramas) + hojas.json + vistas para mirarlas
 # ------------------------------------------------------------
 # El modulo del enemigo tiene MODELO, escena(pose) y ANIMS = {nombre: (fotogramas, fps, loop, dirs, fn t -> pose)}.
+# EL MODELO DE UNA POSE (12/11, la evolucion de la polilla: crece y cambia de color fotograma a fotograma): si el modulo
+# tiene modelo_de(pose), ese; si no, su MODELO de siempre. Mismo lienzo para todos (la hoja es una).
+def modelo_de(mod, pose):
+    return mod.modelo_de(pose) if hasattr(mod, 'modelo_de') else mod.MODELO
+
+
 def _trabajo(args):
     modname, nombre, d, i = args
     mod = importlib.import_module(modname)
@@ -416,7 +422,7 @@ def _trabajo(args):
     # 'escena_dir' (05/10, el latigo del miconido): la escena que depende de hacia donde se mira (que brazo da a camara).
     pose = fn(t)
     L = mod.escena_dir(pose, d) if hasattr(mod, 'escena_dir') else mod.escena(pose)
-    im = render(mod.MODELO, L, d)
+    im = render(modelo_de(mod, pose), L, d)
     # LOS PARPADOS (05/10, los slimes: "que parpadeen y que no sea una vez por repeticion de la animacion"): la misma pose
     # con los ojos CERRADOS, y se guarda SOLO lo que cambia. El juego lo pone encima a ratos, a su aire.
     # (06/10, el de MIL OJOS: "cada ojo parpadea por su cuenta"): con GRUPOS_PARPADO > 1, una hoja por grupo de ojos.
@@ -426,7 +432,7 @@ def _trabajo(args):
         grupos = getattr(mod, 'GRUPOS_PARPADO', 1)
         a = np.asarray(im).astype(int)
         for g in range(1, grupos + 1):
-            cerr = render(mod.MODELO, mod.escena(dict(pose, cerrados=True if grupos == 1 else g)), d)
+            cerr = render(modelo_de(mod, pose), mod.escena(dict(pose, cerrados=True if grupos == 1 else g)), d)
             b = np.asarray(cerr).astype(int)
             cambia = (np.abs(a - b).max(axis=2) > 2) & (b[:, :, 3] > 0)
             o = np.zeros_like(b); o[cambia] = b[cambia]
