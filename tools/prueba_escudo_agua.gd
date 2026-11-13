@@ -88,8 +88,9 @@ func _correr() -> void:
 	print("4) el espejo: campo 11 de la instantanea")
 	var vals: Array = combat.espejo._valores(combat._aliados, true)
 	var f11: Array = vals[0][11] if (vals[0] as Array).size() > 11 else []
-	_ver(f11.size() == 3 and is_equal_approx(float(f11[0]), 25.0) and is_equal_approx(float(f11[1]), 40.0)
-		and int(f11[2]) == 1, "lleva [25, 40, 1]")
+	# (13/11) y un cuarto: si es el escudo de la Jaula de Faraday (0 = el de agua).
+	_ver(f11.size() == 4 and is_equal_approx(float(f11[0]), 25.0) and is_equal_approx(float(f11[1]), 40.0)
+		and int(f11[2]) == 1 and int(f11[3]) == 0, "lleva [25, 40, 1, 0] (el de agua, no el de la Jaula)")
 	var copia := Combatant.new("Copia", 1, Abilities.new(), 100.0, 3.0, 3.0, 3.0)
 	combat.espejo._volcar([copia], [vals[0]])
 	_ver(is_equal_approx(copia.runa_escudo_agua, 25.0) and is_equal_approx(copia.runa_escudo_max, 40.0)

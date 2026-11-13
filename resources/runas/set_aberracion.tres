@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="RunaSetData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/runa_set_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/materials/icor.tres" id="2_mat"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_aberracion.tres" id="3_nuc"]
+[ext_resource type="Resource" path="res://resources/materials/runa_aberracion.tres" id="4_runa"]
+
+; JAULA DE FARADAY (13/11, memoria aberracion-mutante), set de ARMADURA magico de la aberracion: el tanque magico que
+; faltaba. 2 piezas: Ataque magico +10 % (dano_magico_pct = magic_amp, ANTES de la defensa: el gemelo de ataque_pct, no
+; daño realizado). 5 piezas: al LANZAR un hechizo, un escudo del 200 % de su coste de maná BASE; no se suma (se queda el
+; mas grande), dura la pelea, el daño con el tiempo pasa por debajo. Usa la capa del escudo de la Marea (CombatMagia.
+; jaula_faraday): las dos son de armadura y nunca van juntas.
+[resource]
+script = ExtResource("1")
+id = &"aberracion"
+nombre = "Jaula de Faraday"
+tipo = 1
+material = ExtResource("2_mat")
+nucleo = ExtResource("3_nuc")
+coste_material = 6
+coste_nucleo = 3
+runa = ExtResource("4_runa")
+bonus_2p = {"dano_magico_pct": 0.1}
+efecto = &"jaula_faraday"
+params = {"escudo": 2.0}
+metadata/_custom_type_script = "res://scripts/items/runa_set_data.gd"

@@ -20,6 +20,15 @@ const AGUA := Color(0.18, 0.55, 0.78)
 const AGUA_CLARA := Color(0.5, 0.85, 1.0)
 const AGUA_HONDA := Color(0.07, 0.28, 0.48)
 const ESPUMA := Color(0.92, 0.98, 1.0)
+# (13/11) LA JAULA DE FARADAY (el set de la aberracion; eligio "burbuja de nervios"): la MISMA burbuja, violeta, y en vez
+# de las burbujitas que suben, NERVIOS cian que chispean por la membrana (el glifo del set hecho escudo). Hechos de
+# PUNTOS de luz que se apagan y vuelven a salir por otro sitio, sin una raya (memoria efectos-sin-lineas).
+const JAULA := Color(0.55, 0.28, 0.85)
+const JAULA_CLARA := Color(0.80, 0.65, 1.0)
+const JAULA_HONDA := Color(0.20, 0.07, 0.38)
+const CHISPA := Color(0.75, 1.0, 1.0)
+const NERVIOS := 5
+const T_NERVIO := 0.22
 const Z_DELANTE := 3700   # por encima de toda capa de muñeco (1024 + hasta ~2570) y dentro del tope de Godot (4096)
 const HOLGURA := Vector2(8.0, 7.0)   # lo que la burbuja sobresale del dibujo del cuerpo, por cada lado
 const LADOS := 48
@@ -46,6 +55,12 @@ var _gotas: Array = []
 var _burbujitas: Array = []
 var _rng := RandomNumberGenerator.new()
 var _z: Array = [-10, 30, false]
+var _agua: Color = AGUA
+var _agua_clara: Color = AGUA_CLARA
+var _agua_honda: Color = AGUA_HONDA
+var _espuma: Color = ESPUMA
+var _jaula: bool = false
+var _nervios: Array = []      # cada uno: {"p": [puntos en angulo/radio], "t": edad}
 
 
 # La pone (o la deja si ya esta) en 'cuerpo' para 'c'. 'caja' = el dibujo del cuerpo en coordenadas del MUNDO.
@@ -84,6 +99,12 @@ static func quitar(cuerpo: Node2D) -> void:
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS   # la pelea tactica pausa el arbol
+	_jaula = _c != null and _c.escudo_es_jaula()
+	if _jaula:
+		_agua = JAULA
+		_agua_clara = JAULA_CLARA
+		_agua_honda = JAULA_HONDA
+		_espuma = CHISPA
 	_detras = _capa(int(_z[0]))
 	_delante_bajo = _capa(int(_z[0]))   # mismo z que el agua honda y despues en el arbol: encima de ella
 	_delante = _capa(int(_z[1]))
@@ -129,6 +150,8 @@ func _process(delta: float) -> void:
 		o["t"] = float(o["t"]) + delta
 	_ondas = _ondas.filter(func(o): return float(o["t"]) < T_ONDA)
 	_sacudida = maxf(_sacudida - delta / T_SACUDIDA, 0.0)
+	if _jaula:
+		_tick_nervios(delta)
 	_destello = maxf(_destello - delta / T_DESTELLO, 0.0)
 	visible = v > 0.0 or _rota >= 0.0
 	_detras.queue_redraw()
@@ -185,10 +208,10 @@ func _pintar(capa: Node2D) -> void:
 	var k: float = 0.4 + 0.6 * f    # cuanto menos le queda, mas transparente
 	var blanco: float = _destello
 	if capa == _detras:
-		# EL AGUA HONDA por detras del cuerpo: casi transparente en el centro y mas densa hacia el borde.
+		# EL _agua HONDA por detras del cuerpo: casi transparente en el centro y mas densa hacia el borde.
 		var c0: Vector2 = _centro()
-		var col_c := Color(AGUA.lerp(ESPUMA, blanco * 0.6), (0.08 + 0.25 * blanco) * k)
-		var col_b := Color(AGUA_HONDA.lerp(ESPUMA, blanco * 0.5), (0.30 + 0.3 * blanco) * k)
+		var col_c := Color(_agua.lerp(_espuma, blanco * 0.6), (0.08 + 0.25 * blanco) * k)
+		var col_b := Color(_agua_honda.lerp(_espuma, blanco * 0.5), (0.30 + 0.3 * blanco) * k)
 		for i in LADOS:
 			var a0: float = TAU * float(i) / float(LADOS)
 			var a1: float = TAU * float(i + 1) / float(LADOS)
@@ -205,7 +228,7 @@ func _pintar(capa: Node2D) -> void:
 		if not _mitad(capa, _borde((a0 + a1) * 0.5).y):
 			continue
 		var golpe: float = _golpe_en((a0 + a1) * 0.5)
-		var col_m := Color(AGUA_CLARA.lerp(ESPUMA, minf(blanco + golpe, 1.0)),
+		var col_m := Color(_agua_clara.lerp(_espuma, minf(blanco + golpe, 1.0)),
 			minf((0.45 + 0.2 * abajo + 0.4 * blanco + 0.6 * golpe) * k, 1.0))
 		var col_0 := Color(col_m, 0.0)
 		var i0: Vector2 = _borde(a0, 1.0 - grosor)
@@ -222,20 +245,23 @@ func _pintar(capa: Node2D) -> void:
 	var R: Vector2 = _radios()
 	var c: Vector2 = _centro()
 	if capa == _delante:
-		BarridoAire.brillo(capa, c + Vector2(-R.x * 0.42, -R.y * 0.58), R.x * 0.3, Color(ESPUMA, 0.45 * k))
-		BarridoAire.brillo(capa, c + Vector2(-R.x * 0.46, -R.y * 0.62), R.x * 0.11, Color(ESPUMA, 0.9 * k))
+		BarridoAire.brillo(capa, c + Vector2(-R.x * 0.42, -R.y * 0.58), R.x * 0.3, Color(_espuma, 0.45 * k))
+		BarridoAire.brillo(capa, c + Vector2(-R.x * 0.46, -R.y * 0.62), R.x * 0.11, Color(_espuma, 0.9 * k))
 	else:
-		BarridoAire.brillo(capa, c + Vector2(R.x * 0.5, R.y * 0.55), R.x * 0.1, Color(ESPUMA, 0.4 * k))
-	# LAS BURBUJITAS que suben por dentro.
-	for b in _burbujitas:
+		BarridoAire.brillo(capa, c + Vector2(R.x * 0.5, R.y * 0.55), R.x * 0.1, Color(_espuma, 0.4 * k))
+	# LOS NERVIOS de la Jaula (en vez de burbujitas).
+	if _jaula:
+		_pintar_nervios(capa, k)
+	# LAS BURBUJITAS que suben por dentro (solo la de agua).
+	for b in (_burbujitas if not _jaula else []):
 		var u: float = fmod(_t + float(b["d"]), float(b["p"])) / float(b["p"])
 		var p := Vector2(c.x + float(b["x"]) * R.x * (0.9 - 0.3 * u) + sin(_t * 3.0 + float(b["d"])) * 1.5,
 			lerpf(c.y + R.y * 0.7, c.y - R.y * 0.75, u))
 		var vive: float = sin(PI * u)
 		if not _mitad(capa, p.y):
 			continue
-		BarridoAire.brillo(capa, p, float(b["r"]) * 1.8, Color(AGUA_CLARA, 0.35 * vive * k))
-		BarridoAire.brillo(capa, p, float(b["r"]), Color(ESPUMA, 0.85 * vive * k))
+		BarridoAire.brillo(capa, p, float(b["r"]) * 1.8, Color(_agua_clara, 0.35 * vive * k))
+		BarridoAire.brillo(capa, p, float(b["r"]), Color(_espuma, 0.85 * vive * k))
 	# DONDE LE HAN PEGADO: la propia membrana se ilumina y se hunde (ver _golpe_en) y suelta unas gotitas de espuma.
 	for o in _ondas:
 		var u2: float = float(o["t"]) / T_ONDA
@@ -246,10 +272,10 @@ func _pintar(capa: Node2D) -> void:
 			var fuera := (pj - c).normalized()
 			if not _mitad(capa, pj.y):
 				continue
-			BarridoAire.brillo(capa, pj + fuera * 7.0 * u2 - Vector2(0.0, 5.0 * u2), 2.2 * (1.0 - u2), Color(ESPUMA, 1.0 - u2))
+			BarridoAire.brillo(capa, pj + fuera * 7.0 * u2 - Vector2(0.0, 5.0 * u2), 2.2 * (1.0 - u2), Color(_espuma, 1.0 - u2))
 	# EL DESTELLO al parar un estado: una estrella de espuma arriba.
 	if blanco > 0.0 and capa == _delante:
-		BarridoAire.destello(capa, c + Vector2(0.0, -R.y * 0.85), 14.0 * blanco + 4.0, Color(ESPUMA, blanco), _t)
+		BarridoAire.destello(capa, c + Vector2(0.0, -R.y * 0.85), 14.0 * blanco + 4.0, Color(_espuma, blanco), _t)
 
 
 # SE ROMPE: la burbuja se hincha y se deshace en un momento, las gotas salen volando desde su borde y caen, y en el
@@ -264,14 +290,14 @@ func _reventar(capa: Node2D) -> void:
 		var s: float = clampf(_rota / 0.25, 0.0, 1.0)
 		var seca: float = clampf((_rota - 0.25) / (T_REVIENTA - 0.25), 0.0, 1.0)
 		capa.draw_set_transform(pies, 0.0, Vector2(1.0, K * 0.6))
-		BarridoAire.brillo(capa, Vector2.ZERO, R.x * (0.8 + 0.6 * s), Color(AGUA, 0.45 * (1.0 - seca)))
-		BarridoAire.brillo(capa, Vector2.ZERO, R.x * (0.5 + 0.4 * s), Color(AGUA_CLARA, 0.35 * (1.0 - seca)))
+		BarridoAire.brillo(capa, Vector2.ZERO, R.x * (0.8 + 0.6 * s), Color(_agua, 0.45 * (1.0 - seca)))
+		BarridoAire.brillo(capa, Vector2.ZERO, R.x * (0.5 + 0.4 * s), Color(_agua_clara, 0.35 * (1.0 - seca)))
 		capa.draw_set_transform(Vector2.ZERO)
 		return
 	# La burbuja que se hincha y se deshace (los primeros 0,15 s).
 	var hincha: float = clampf(_rota / 0.15, 0.0, 1.0)
 	if hincha < 1.0:
-		var col := Color(AGUA_CLARA, 0.55 * (1.0 - hincha))
+		var col := Color(_agua_clara, 0.55 * (1.0 - hincha))
 		var col_0 := Color(col, 0.0)
 		for i in LADOS:
 			var a0: float = TAU * float(i) / float(LADOS)
@@ -284,7 +310,7 @@ func _reventar(capa: Node2D) -> void:
 			capa.draw_primitive(PackedVector2Array([_borde(a0, e * 0.88), _borde(a1, e), _borde(a1, e * 0.88)]),
 				PackedColorArray([col_0, col, col_0]), PackedVector2Array())
 		if capa == _delante:
-			BarridoAire.destello(capa, c, R.x * 0.9 * (1.0 - hincha) + 6.0, Color(ESPUMA, 1.0 - hincha), 0.4)
+			BarridoAire.destello(capa, c, R.x * 0.9 * (1.0 - hincha) + 6.0, Color(_espuma, 1.0 - hincha), 0.4)
 	# LAS GOTAS: salen del borde hacia fuera, suben un poco y caen, cada una con su estela.
 	for g in _gotas:
 		var a: float = float(g["a"])
@@ -302,5 +328,41 @@ func _reventar(capa: Node2D) -> void:
 		var al: float = 1.0 - vida * 0.7
 		if not _mitad(capa, p.y):
 			continue
-		BarridoAire.cometa(capa, p_a, p, float(g["r"]), Color(AGUA_CLARA, 0.9 * al))
-		BarridoAire.brillo(capa, p, float(g["r"]) * 0.6, Color(ESPUMA, al))
+		BarridoAire.cometa(capa, p_a, p, float(g["r"]), Color(_agua_clara, 0.9 * al))
+		BarridoAire.brillo(capa, p, float(g["r"]) * 0.6, Color(_espuma, al))
+
+
+# LOS NERVIOS DE LA JAULA (13/11): cada uno nace en un punto del borde y se mete hacia dentro en zigzag, 4 tramos; vive
+# T_NERVIO segundos (se enciende y se apaga) y sale otro en otro sitio. Se guardan en "angulo, fraccion del radio" para
+# que sigan a la membrana cuando tiembla.
+func _tick_nervios(delta: float) -> void:
+	for n in _nervios:
+		n["t"] = float(n["t"]) + delta
+	_nervios = _nervios.filter(func(n): return float(n["t"]) < T_NERVIO * float(n["v"]))
+	while _nervios.size() < int(ceil(float(NERVIOS) * (0.4 + 0.6 * _frac()))):
+		var a: float = _rng.randf_range(0.0, TAU)
+		var r: float = 1.0
+		var pts: Array = [Vector2(a, r)]
+		for _j in 4:
+			a += _rng.randf_range(-0.45, 0.45)
+			r -= _rng.randf_range(0.12, 0.22)
+			pts.append(Vector2(a, r))
+		_nervios.append({"p": pts, "t": _rng.randf_range(0.0, T_NERVIO * 0.5), "v": _rng.randf_range(0.7, 1.4)})
+
+
+func _pintar_nervios(capa: Node2D, k: float) -> void:
+	for n in _nervios:
+		var u: float = float(n["t"]) / (T_NERVIO * float(n["v"]))
+		var vive: float = sin(PI * clampf(u, 0.0, 1.0))
+		var pts: Array = n["p"]
+		for j in pts.size() - 1:
+			var a: Vector2 = _borde(float(pts[j].x), float(pts[j].y))
+			var b: Vector2 = _borde(float(pts[j + 1].x), float(pts[j + 1].y))
+			if not _mitad(capa, (a.y + b.y) * 0.5):
+				continue
+			# PUNTOS de luz a lo largo del tramo (cada ~2 px), mas gordos en los quiebros: sin raya.
+			var pasos: int = maxi(2, int(a.distance_to(b) / 2.0))
+			for q in pasos:
+				var pq: Vector2 = a.lerp(b, float(q) / float(pasos))
+				BarridoAire.brillo(capa, pq, 1.6, Color(CHISPA, 0.75 * vive * k))
+			BarridoAire.brillo(capa, b, 2.6, Color(_agua_clara, 0.5 * vive * k))

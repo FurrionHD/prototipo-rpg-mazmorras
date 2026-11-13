@@ -6,6 +6,9 @@
 #      regeneracion y Tentaculos que cuelgan (Ojo)
 #   5) en una pelea de verdad: los Tentaculos que cuelgan (al pegado si, al lejano no, con su linea en el registro), la
 #      pasiva conductora, el Aturdido que no le entra y la carga de El ojo se abre cortada con Miedo y moviendola
+#   8) el set JAULA DE FARADAY: 2p Ataque magico (el nombre nuevo del atributo), su texto, la runa y el glifo; en la pelea,
+#      el escudo al lanzar (200 % del coste base, se queda el mayor), para golpes y no el daño con el tiempo, y sin lo
+#      propio de la Marea (ni para el Lento ni moja al romperse)
 #   godot --headless --path . res://tools/prueba_mut_aberracion.tscn
 extends Node
 
@@ -227,3 +230,65 @@ func _correr() -> void:
 	combat.enemigos._enemy_begin_charge(oj, ojo, yo)
 	var linea: String = combat.desplazado(oj, 40.0, yo)
 	_ver(oj.charging == null and linea != "", "moverla 40 se la corta (%s)" % linea)
+
+	print("8) EL SET JAULA DE FARADAY")
+	var set_j: RunaSetData = null
+	for sd in Runas.sets():
+		if (sd as RunaSetData).id == &"aberracion":
+			set_j = sd
+	_ver(set_j != null and set_j.nombre == "Jaula de Faraday" and set_j.tipo == RunaSetData.Tipo.ARMADURA,
+		"el set existe y es de armadura")
+	if set_j == null:
+		return
+	var desc: String = Runas.descripcion_set(set_j)
+	print("     texto: %s" % desc.replace("
+", " | "))
+	_ver(desc.contains("Ataque mágico +10 %") and desc.contains("200 %") and desc.contains("coste de maná base")
+		and desc.contains("se queda con el mayor") and desc.contains("no absorbe el daño con el tiempo"), "su texto, con los numeros")
+	_ver(Runas.nombre_sub("dano_magico_pct") == "Ataque mágico", "el atributo se llama Ataque magico")
+	_ver(set_j.runa != null and set_j.runa.id == &"runa_aberracion" and ab_ed.drop_runa == set_j.runa, "la runa, la suelta la aberracion")
+	_ver(CeldaObjeto.GLIFO_SET.has(&"aberracion") and CeldaObjeto.tonos_glifo(&"aberracion", Color.RED)["#"] == Color8(110, 235, 255),
+		"el glifo de la burbuja con nervios, con sus tonos")
+	var sp_8: SpellData = null
+	var sp_alto: SpellData = null
+	for f in DirAccess.get_files_at("res://resources/spells"):
+		if not f.ends_with(".tres"):
+			continue
+		var sp: SpellData = load("res://resources/spells/" + f) as SpellData
+		if sp == null:
+			continue
+		if sp_8 == null or sp.coste_mana < sp_8.coste_mana:
+			sp_8 = sp
+		if sp_alto == null or sp.coste_mana > sp_alto.coste_mana:
+			sp_alto = sp
+	yo.runa_jaula = 2.0
+	yo.runa_marea = 0.0
+	yo.runa_escudo_agua = 0.0
+	yo.runa_escudo_max = 0.0
+	var e1: float = combat.magia.jaula_faraday(yo, sp_alto)
+	_ver(is_equal_approx(e1, sp_alto.coste_mana * 2.0) and is_equal_approx(yo.runa_escudo_agua, e1),
+		"lanzar %s (coste %d): escudo de %.0f" % [sp_alto.nombre, sp_alto.coste_mana, e1])
+	_ver(yo.escudo_es_jaula() and _log(combat).contains("se cubre con la Jaula de Faraday"), "es el de la Jaula, y lo dice el registro")
+	var e2: float = combat.magia.jaula_faraday(yo, sp_8)
+	_ver(e2 == 0.0 and is_equal_approx(yo.runa_escudo_agua, e1), "uno mas barato (%s) no lo cambia: se queda el mayor" % sp_8.nombre)
+	var vida_j: float = yo.current_hp
+	yo.take_damage(5.0, true)
+	_ver(is_equal_approx(yo.runa_escudo_agua, e1) and is_equal_approx(yo.current_hp, vida_j - 5.0),
+		"el daño con el tiempo pasa por debajo")
+	yo.take_damage(e1 * 0.5)
+	_ver(is_equal_approx(yo.runa_escudo_agua, e1 * 0.5) and is_equal_approx(yo.current_hp, vida_j - 5.0), "un golpe se lo come el escudo")
+	var e3: float = combat.magia.jaula_faraday(yo, sp_8)
+	_ver(is_equal_approx(e3, sp_8.coste_mana * 2.0) == (sp_8.coste_mana * 2.0 > e1 * 0.5), "ya gastado, uno nuevo mayor si lo cambia")
+	yo.status_resist = 0.0
+	yo.apply_status(StatusEffects.Id.LENTO, 2, 1.0)
+	_ver(yo.has_status(StatusEffects.Id.LENTO), "no para el Lento (eso es de la Marea)")
+	yo.take_damage(yo.runa_escudo_agua + 1.0)
+	_ver(yo.runa_escudo_agua <= 0.0 and not yo.runa_agua_rota, "al romperse no moja a nadie")
+	# La burbuja, violeta y con nervios.
+	combat.magia.jaula_faraday(yo, sp_alto)
+	t.pintar_escudos_agua()
+	await _esperar(5)
+	var burbuja: EscudoAgua = EscudoAgua.de(t.cuerpo_de(yo))
+	_ver(burbuja != null and burbuja._jaula and burbuja._agua == EscudoAgua.JAULA, "su burbuja: la de la Jaula (violeta)")
+	await _esperar(20)
+	_ver(burbuja != null and not burbuja._nervios.is_empty(), "con sus nervios (%d)" % (burbuja._nervios.size() if burbuja != null else 0))

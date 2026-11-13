@@ -2404,7 +2404,7 @@ func _refrescar_barras() -> void:
 		# Y LA CAPA DE AMBAR (set Ambar, 03/11): su tramo dorado, como la costra del Tocon.
 		var costra_c: float = c.costra_vista() if c != null else 0.0
 		(fila["hp_lbl"] as Label).text = ("%.1f/%.1f" % [hp_c, maxhp_c]).replace(".", ",") \
-			+ TramoEscudo.poner(fila["hp"] as ProgressBar, hp_c, maxhp_c, escudo_c) \
+			+ TramoEscudo.poner(fila["hp"] as ProgressBar, hp_c, maxhp_c, escudo_c, c != null and c.escudo_es_jaula()) \
 			+ TramoEscudo.poner_costra(fila["hp"] as ProgressBar, hp_c, maxhp_c, costra_c)
 		var en_bar: ProgressBar = fila["en"]
 		var maxen_c: float = c.max_energy if c != null else float(maximos[2])

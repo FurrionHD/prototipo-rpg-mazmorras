@@ -429,7 +429,8 @@ func _valores(lista: Array, aliados: bool = false) -> Array:
 			c.puertas(),
 			# El campo 11, EL ESCUDO DE AGUA (set Marea, 09/10): lo que le queda, con lo que empezo y los estados que
 			# ha parado. La burbuja y el tramo azul de la barra salen de aqui en el espejo (y sus ondas, de que baje).
-			[c.runa_escudo_agua, c.runa_escudo_max, c.runa_agua_paradas],
+			# (13/11) y si es el de la JAULA DE FARADAY (1/0): en el espejo se pinta violeta con nervios.
+			[c.runa_escudo_agua, c.runa_escudo_max, c.runa_agua_paradas, 1 if c.escudo_es_jaula() else 0],
 			# El campo 12, LA COSTRA DE AMBAR (el Tocon ambarino, 02/11): lo que le queda y con lo que empieza (su tramo en
 			# la barra y la hoja sin ambar mientras esta rota salen de aqui en el espejo); y lo hinchada que va la
 			# garrapata del ambar (su hoja).
@@ -1711,6 +1712,8 @@ func _volcar(lista: Array, valores: Array) -> void:
 			lista[i].runa_escudo_agua = float(v[11][0])
 			lista[i].runa_escudo_max = float(v[11][1])
 			lista[i].runa_agua_paradas = int(v[11][2])
+			if (v[11] as Array).size() >= 4:
+				lista[i].runa_jaula = 2.0 if int(v[11][3]) == 1 else 0.0   # (en el espejo solo dice QUE escudo es)
 		if v.size() > 12 and (v[12] as Array).size() >= 2:
 			lista[i].costra = float(v[12][0])
 			lista[i].costra_max = float(v[12][1])

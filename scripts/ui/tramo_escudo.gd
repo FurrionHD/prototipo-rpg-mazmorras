@@ -14,6 +14,9 @@ const AGUA := Color(0.35, 0.75, 1.0, 0.85)
 const ESPUMA := Color(0.85, 0.96, 1.0, 0.9)
 const AMBAR := Color(0.95, 0.62, 0.15, 0.9)
 const AMBAR_BRILLO := Color(1.0, 0.86, 0.5, 0.9)
+# (13/11) el escudo de la JAULA DE FARADAY: la misma capa, violeta con el brillo cian de sus nervios.
+const JAULA := Color(0.62, 0.35, 0.95, 0.85)
+const JAULA_BRILLO := Color(0.75, 1.0, 1.0, 0.9)
 
 var _vida: float = 0.0
 var _max: float = 1.0
@@ -24,9 +27,9 @@ var _desde_izquierda: bool = false   # la costra: encima de la vida desde el bor
 
 
 # Pone (o actualiza) el tramo en 'barra'. Devuelve el texto que va detras del numero de vida ("" sin escudo).
-static func poner(barra: ProgressBar, vida: float, maximo: float, escudo: float) -> String:
-	_poner(barra, "TramoEscudo", vida, maximo, escudo, AGUA, ESPUMA)
-	return "  +%.0f 💧" % escudo if escudo > 0.0 else ""
+static func poner(barra: ProgressBar, vida: float, maximo: float, escudo: float, jaula: bool = false) -> String:
+	_poner(barra, "TramoEscudo", vida, maximo, escudo, JAULA if jaula else AGUA, JAULA_BRILLO if jaula else ESPUMA)
+	return ("  +%.0f %s" % [escudo, "⚡" if jaula else "💧"]) if escudo > 0.0 else ""
 
 
 static func poner_costra(barra: ProgressBar, vida: float, maximo: float, costra: float) -> String:

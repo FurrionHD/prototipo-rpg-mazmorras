@@ -15,6 +15,7 @@
 [ext_resource type="Resource" path="res://resources/abilities/aberracion_rayo_del_ojo.tres" id="25_ray"]
 [ext_resource type="Resource" path="res://resources/abilities/aberracion_ojo_se_abre.tres" id="26_ojo"]
 [ext_resource type="Resource" path="res://resources/abilities/aberracion_tormenta_basico.tres" id="27_bas"]
+[ext_resource type="Resource" path="res://resources/materials/runa_aberracion.tres" id="28_runa"]
 
 [sub_resource type="Resource" id="SA_deb"]
 script = ExtResource("2_sa")
@@ -116,3 +117,5 @@ metadata/_custom_type_script = "uid://le6jfvhlcbou"
 cuerpo = Rect2(-12.94, -9.56, 24.06, 16.67)
 centro_golpe = Vector2(-0.17, -0.67)
 alcance_marcado = 31.11
+; (13/11) LA RUNA de su set Jaula de Faraday (la sueltan sobre todo sus mutantes: Runas.DROP_RUNA).
+drop_runa = ExtResource("28_runa")
