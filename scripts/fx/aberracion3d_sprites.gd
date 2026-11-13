@@ -92,6 +92,41 @@ static func _sprite_mutante(ed: EnemyData, mutacion: StringName) -> StringName:
 	return m.sprite if m != null and LIENZOS_MUT.has(m.sprite) else &""
 
 
+# LAS PUNTAS (13/11, el jefe: "los latigazos tienen que salir del tentaculo que usa para atacar"): donde esta en su sprite,
+# en cada una de las 8 direcciones, el tentaculo de DELANTE en el golpe (base y Masa, fotograma 3 de 'basico') y el OJO del
+# Ojo de la tormenta; y donde acaban sus tentaculos colgando. En pixeles del lienzo desde su centro, medidos en el modelo
+# (tools/sprites_sdf/aberracion_efectos_horno.py, puntas()).
+const PUNTAS := {
+	&"": [Vector2(-13.2, 6.7), Vector2(20.6, -3.6), Vector2(16.7, 3.5), Vector2(20.6, -7.7), Vector2(12.2, -17.6),
+		Vector2(-21.6, -7.2), Vector2(-17.3, 3.9), Vector2(-21.6, -3.2)],
+	&"galvanica": [Vector2(-15.7, 8.1), Vector2(24.9, -4.2), Vector2(20.1, 4.4), Vector2(24.8, -9.1), Vector2(14.7, -21.0),
+		Vector2(-25.9, -8.6), Vector2(-20.6, 4.8), Vector2(-25.8, -3.7)],
+	&"ojo": [Vector2(0.0, -34.9), Vector2(10.6, -37.4), Vector2(12.8, -43.7), Vector2(10.3, -52.7), Vector2(-1.0, -57.5),
+		Vector2(-11.6, -52.3), Vector2(-13.8, -42.7), Vector2(-11.3, -35.1)],
+}
+const CUELGAN := Vector2(0.0, -8.0)
+
+
+# El punto del mundo donde esta esa punta en el sprite de 'cuerpo' ahora (la direccion, la de su animacion: "<anim>_<dir>").
+# 'si_no' si no tiene sprite.
+static func punta(cuerpo: Node2D, si_no: Vector2, clave: StringName) -> Vector2:
+	if cuerpo == null:
+		return si_no
+	for hijo in cuerpo.get_children():
+		if hijo is AnimatedSprite2D and (hijo as CanvasItem).visible and (hijo as AnimatedSprite2D).sprite_frames != null:
+			var spr: AnimatedSprite2D = hijo
+			var trozos: PackedStringArray = String(spr.animation).rsplit("_", true, 1)
+			var d: int = clampi(trozos[1].to_int() if trozos.size() == 2 and trozos[1].is_valid_int() else 0, 0, 7)
+			var q: Vector2 = CUELGAN if clave == &"cuelgan" else (PUNTAS.get(clave, PUNTAS[&""]) as Array)[d]
+			var local: Vector2 = spr.offset + q
+			if not spr.centered:
+				var tex: Texture2D = spr.sprite_frames.get_frame_texture(spr.animation, spr.frame)
+				if tex != null:
+					local += tex.get_size() * 0.5
+			return spr.to_global(local)
+	return si_no
+
+
 # --- EL SPRITE DE MUTANTE (contrato de SpritesEnemigo, como Polilla3DSprites) ---
 static func tiene_mutante(ed: EnemyData, mutacion: StringName = &"") -> bool:
 	return _sprite_mutante(ed, mutacion) != &""

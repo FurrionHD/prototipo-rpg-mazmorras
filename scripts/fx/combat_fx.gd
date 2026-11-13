@@ -483,7 +483,13 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		# Luz que atrae (motas a la campana). El resto va por SIMA_PORRAZO / SIMA_TOS / SIMA_LATIGO segun quien ataca.
 		SIMA_ESTOCADA = 228, SIMA_DESTELLO = 229, SIMA_ATRAE = 230,
 		# LAS REACCIONES ELEMENTALES (12/11, CombatReacciones): su rotulo encima y su efecto; el peso dice cual.
-		AVISO_REACCION = 231 }
+		AVISO_REACCION = 231,
+		# (13/11) LA ABERRACION Y SUS MUTANTES EN PIXEL (tools/sprites_sdf/aberracion_efectos_horno.py): el Chispazo del Ojo de la
+		# tormenta (del ojo al que recibe), el Rayo del ojo (las chispas en cada uno; el zigzag gordo lo pinta su gesto), los
+		# Tentaculos que cuelgan, las chispas del Electrizado (Descarga, Mirada chispeante, El ojo se abre) y la pasiva
+		# conductora de la Masa galvanica (la descarga que salta a quien le pega).
+		ABERRACION_CHISPAZO = 232, ABERRACION_RAYO = 233, ABERRACION_CUELGAN = 234, ABERRACION_CHISPAS = 235,
+		ABERRACION_CONDUCTORA = 236 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -550,6 +556,9 @@ const DIBUJO_MAPA := [Estilo.CRIA_LANZADA, Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA
 	Estilo.FIERA_TESTARAZO, Estilo.FIERA_ZARPA, Estilo.FIERA_PLACA,
 	Estilo.FIERA_FAUCES, Estilo.FIERA_YUGULAR, Estilo.FIERA_DENTELLADA, Estilo.FIERA_TENTACULO, Estilo.FIERA_MIRADA,
 	Estilo.INSECTO_APRETON,
+	# y la aberracion en pixel (13/11).
+	Estilo.ABERRACION_CHISPAZO, Estilo.ABERRACION_RAYO, Estilo.ABERRACION_CUELGAN, Estilo.ABERRACION_CHISPAS,
+	Estilo.ABERRACION_CONDUCTORA,
 	# y las pasivas del repaso y los avisos (PasivaAire, 30/09).
 	Estilo.PASIVA_LLAMADA, Estilo.PASIVA_ARDE, Estilo.PASIVA_DESTELLO,
 	Estilo.AVISO_INTERRUMPIDO, Estilo.AVISO_RETRASO, Estilo.AVISO_INMUNE, Estilo.AVISO_REACCION,
@@ -746,6 +755,9 @@ const T_VUELO := {
 	Estilo.FIERA_FAUCES: 0.14, Estilo.FIERA_YUGULAR: 0.4, Estilo.FIERA_DENTELLADA: 0.18,
 	# El tentaculo brota mientras llega el golpe; el ojo se abre EN el golpe (cuando le llega la Mirada por su cono).
 	Estilo.FIERA_TENTACULO: 0.16, Estilo.FIERA_MIRADA: 0.02,
+	# (13/11) la aberracion en pixel: el chispazo y la descarga que salta tardan un pelo; las chispas, EN el golpe.
+	Estilo.ABERRACION_CHISPAZO: 0.06, Estilo.ABERRACION_RAYO: 0.02, Estilo.ABERRACION_CUELGAN: 0.04,
+	Estilo.ABERRACION_CHISPAS: 0.02, Estilo.ABERRACION_CONDUCTORA: 0.04,
 	# Las pasivas y los avisos salen EN el golpe (la lengua de fuego sale del golpe y viaja por su cuenta).
 	Estilo.PASIVA_LLAMADA: 0.02, Estilo.PASIVA_ARDE: 0.02, Estilo.PASIVA_DESTELLO: 0.02,
 	Estilo.AVISO_INTERRUMPIDO: 0.02, Estilo.AVISO_RETRASO: 0.02, Estilo.AVISO_INMUNE: 0.02, Estilo.AVISO_REACCION: 0.02,

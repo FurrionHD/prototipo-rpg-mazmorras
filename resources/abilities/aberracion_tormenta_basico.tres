@@ -15,4 +15,4 @@ es_magico = true
 elemento_golpe = 3
 fx_estilo = 34
 fx_anim = &"basico"
-fx_estilo_mapa = 172
+fx_estilo_mapa = 232

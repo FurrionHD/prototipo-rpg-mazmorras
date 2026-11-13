@@ -323,3 +323,43 @@ func _correr() -> void:
 	_ver(burbuja != null and burbuja._jaula and burbuja._agua == EscudoAgua.JAULA, "su burbuja: la de la Jaula (violeta)")
 	await _esperar(20)
 	_ver(burbuja != null and not burbuja._nervios.is_empty(), "con sus nervios (%d)" % (burbuja._nervios.size() if burbuja != null else 0))
+
+	print("9) LOS EFECTOS EN PIXEL")
+	var datos: Dictionary = (load("res://scripts/fx/efectos_pixel_datos.gd").HOJAS as Dictionary).get("aberracion", {})
+	var faltan_e: Array = ["latigo_golpe", "chispas", "vibra", "mirada_ojo", "cono_mirada", "cono_chispas", "alarido",
+		"descarga", "aro_carga", "aro_estalla", "carne", "grietas"].filter(func(h): return not datos.has(h))
+	_ver(faltan_e.is_empty(), "las %d hojas de la aberracion estan horneadas%s" % [datos.size(), "" if faltan_e.is_empty() else " (faltan %s)" % faltan_e])
+	var arena: Node = t._arena()
+	var f_c := CombatFormas.Forma.new()
+	f_c.centro = t.pies_de(oj)
+	f_c.radio = 70.0
+	f_c.dir = Vector2.RIGHT
+	for par_s in [[SueloRoto.Tipo.FIERA_ALARIDO, "el Alarido"], [SueloRoto.Tipo.ABERRACION_DESCARGA, "la Descarga"],
+			[SueloRoto.Tipo.ABERRACION_ARO, "el estallido del aro"]]:
+		_ver(SueloRoto.lanzar(arena, f_c, int(par_s[0]), 7) is EfectoPixel, "%s, en pixel" % par_s[1])
+	_ver(SueloRoto.lanzar(arena, f_c, SueloRoto.Tipo.FIERA_CONO, 7) == null, "el cono de la Mirada no lo pinta el suelo (su gesto)")
+	_ver(_ab("aberracion_descarga").suelo_roto == SueloRoto.Tipo.ABERRACION_DESCARGA
+		and _ab("aberracion_ojo_se_abre").suelo_roto == SueloRoto.Tipo.ABERRACION_ARO
+		and _ab("aberracion_tormenta_basico").fx_estilo_mapa == CombatFX.Estilo.ABERRACION_CHISPAZO
+		and _ab("aberracion_rayo_del_ojo").fx_estilo_mapa == CombatFX.Estilo.ABERRACION_RAYO, "cada habilidad con su efecto")
+	var cuenta := func(clase: String) -> int: return arena.find_children("*", clase, true, false).size()
+	# EL LATIGAZO sale del tentaculo de su sprite (no del centro)
+	var desde_t: Vector2 = Aberracion3DSprites.punta(t.cuerpo_de(gm), Vector2.INF, &"galvanica")
+	_ver(desde_t != Vector2.INF and desde_t.distance_to(t.bulto_de(gm).get_center()) > 4.0,
+		"el latigazo sale de su tentaculo (%s, centro %s)" % [str(desde_t), str(t.bulto_de(gm).get_center())])
+	var c0: int = cuenta.call("CintaPixel")
+	var e0: int = cuenta.call("EfectoPixel")
+	t._aberracion_pixel(arena, CombatFX.Estilo.FIERA_TENTACULO, gm, yo, 0.1, 1.0)
+	_ver(cuenta.call("CintaPixel") > c0 and cuenta.call("EfectoPixel") >= e0 + 2, "Latigazo galvanico: tentaculo, golpe y chispas")
+	var r0: int = cuenta.call("RayoPixel")
+	for est in [CombatFX.Estilo.ABERRACION_CHISPAZO, CombatFX.Estilo.ABERRACION_CUELGAN]:
+		t._aberracion_pixel(arena, est, oj, yo, 0.1, 1.0)
+	t._aberracion_pixel(arena, CombatFX.Estilo.ABERRACION_CONDUCTORA, gm, yo, 0.1, 1.0)
+	_ver(cuenta.call("RayoPixel") >= r0 + 3, "Chispazo, Tentaculos y conductora: sus rayos (%d -> %d)" % [r0, cuenta.call("RayoPixel")])
+	var e9: int = cuenta.call("EfectoPixel")
+	t._pixel.al_gesto(oj, t.cuerpo_de(oj), "rayo", 0.8)
+	_ver(cuenta.call("RayoPixel") >= r0 + 4, "el Rayo del ojo: el zigzag gordo")
+	t._pixel.al_gesto(gm, t.cuerpo_de(gm), "mirada", 0.8)
+	t._pixel.al_gesto(oj, t.cuerpo_de(oj), "ojo_carga", 0.8)
+	_ver(cuenta.call("EfectoPixel") >= e9 + 2, "la Mirada chispeante (cono) y el aro de la carga")
+	t._pixel.al_gesto(oj, t.cuerpo_de(oj), "ojo", 0.8)

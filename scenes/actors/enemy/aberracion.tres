@@ -45,7 +45,7 @@ al_ser_golpeado_propio = true
 al_ser_golpeado = [SubResource("SA_cond")]
 al_ser_golpeado_prob = 0.3
 al_ser_golpeado_texto = "una descarga"
-al_ser_golpeado_fx = 224
+al_ser_golpeado_fx = 236
 color_fx = Color(0.45, 0.95, 1, 1)
 
 [sub_resource type="Resource" id="MUT_tormenta"]

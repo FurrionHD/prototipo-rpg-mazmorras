@@ -34,5 +34,5 @@ carga_turnos = 1
 fx_anim_carga = &"ojo_carga"
 fx_anim = &"ojo"
 fx_anim_interrumpe = &"idle"
-suelo_roto = 85
-fx_estilo_mapa = 138
+suelo_roto = 120
+fx_estilo_mapa = 235

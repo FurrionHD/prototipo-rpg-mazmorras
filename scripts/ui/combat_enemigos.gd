@@ -1043,7 +1043,7 @@ func _tentaculos_que_cuelgan(e: Combatant) -> void:
 		if t.cuerpo_de(al) == null or t.hueco_entre(al, e) > e.tentaculos_hueco:
 			continue
 		# El primero lleva su gesto (los tentaculos que restallan); los demas, solo el golpe.
-		var d: float = golpe_elemental(e, al, e.tentaculos_mult, e.tentaculos_elem, CombatFX.Estilo.FIERA_TENTACULO,
+		var d: float = golpe_elemental(e, al, e.tentaculos_mult, e.tentaculos_elem, CombatFX.Estilo.ABERRACION_CUELGAN,
 			&"tentaculos" if partes.is_empty() and esquivan.is_empty() else &"")
 		if d > 0.0:
 			partes.append("%s de daño a %s" % [_pantalla._n(d), al.nombre])

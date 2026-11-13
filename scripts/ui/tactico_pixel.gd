@@ -26,6 +26,13 @@ func _init(t) -> void:
 
 
 # LLAMADO POR gesto_bicho_en_mapa cuando un cuerpo empieza 'base'.
+# (13/11) lo que mide la linea del Rayo del ojo (su forma_radio): el zigzag llega hasta ahi.
+const RAYO_DEL_OJO_LARGO := 130.0
+# su rayo: violeta por fuera y cian por dentro (los de CombatTactico._RAYO_ABERRACION).
+const RAYO_ABERRACION := [Color8(150, 72, 228), Color8(110, 235, 255), Color8(236, 255, 255)]
+const RAYO_ABERRACION_B := Color8(34, 8, 66)
+
+
 func al_gesto(c: Combatant, cuerpo: Node2D, base: String, dur: float) -> void:
 	if base == "afilar":   # Afilarse, de la obsidiana: sus destellos, sobre el
 		EfectoPixel.lanzar(_t._arena(), "slime", "afilar", _t.pies_de(c), 0, null, 0.0, dur)
@@ -60,6 +67,28 @@ func al_gesto(c: Combatant, cuerpo: Node2D, base: String, dur: float) -> void:
 					cuerpo, 0.0, -1.0, ritmo_m)])
 			"destello":
 				# (el cono de luz y el haz los pinta su suelo, con la forma del golpe: FocoAire)
+				_quitar_carga(c)
+		return
+	# LA ABERRACION Y SUS MUTANTES (13/11): el CONO de la Mirada (el de la Masa, de chispas) desde el centro de su sprite como
+	# se horneo; el Rayo del ojo, un zigzag gordo del ojo hasta el final de su linea, en el golpe; y el aro de El ojo se abre
+	# en el suelo mientras carga (el estallido lo pinta su suelo, ABERRACION_ARO).
+	if _t._de_las_aberraciones(cuerpo) and base in ["mirada", "rayo", "ojo_carga", "ojo"]:
+		var ritmo_a: float = _t._pantalla._fx.escala_tiempo if _t._pantalla._fx != null else 1.0
+		var dir_a: int = SpriteLienzo.dir8(_t._mirada_de(cuerpo))
+		match base:
+			"mirada":
+				EfectoPixel.lanzar(_t._arena(), "aberracion", "cono_chispas" if c.mutacion == &"galvanica" else "cono_mirada",
+					EfectoPixel.centro_sprite(cuerpo, _t.pies_de(c)), dir_a, cuerpo, 0.0, dur, ritmo_a)
+			"rayo":
+				var ojo_a: Vector2 = Aberracion3DSprites.punta(cuerpo, _t.pies_de(c), &"ojo")
+				var hasta_a: Vector2 = _t.pies_de(c) + _t._mirada_de(cuerpo).normalized() * RAYO_DEL_OJO_LARGO
+				RayoPixel.lanzar(_t._arena(), ojo_a, hasta_a, 4.4, PackedColorArray(RAYO_ABERRACION), 0.05, 0.22, 0.25,
+					dur * 0.5, ritmo_a, RAYO_ABERRACION_B)
+			"ojo_carga":
+				var ab_a: AbilityData = (_t._poses_carga.get(c, {}) as Dictionary).get("ab")
+				_mientras_carga(c, ab_a, [EfectoPixel.lanzar(_t._arena(), "aberracion", "aro_carga", _t.pies_de(c), 0, null, 0.0,
+					-1.0, ritmo_a)])
+			"ojo":
 				_quitar_carga(c)
 		return
 	# LA POLILLA Y SUS MUTANTES (12/11): lo que sale de ella, desde el centro de su sprite (como se horneo). Las polillas, y
