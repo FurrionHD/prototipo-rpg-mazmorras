@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_par"]
+script = ExtResource("2")
+estado = 51
+prob = 0.5
+
+; EL OJO SE ABRE (13/11, memoria aberracion-mutante): como el Ojo que se abre de la Polilla insomne. Carga 1 turno y suelta
+; un circulo de 70 alrededor suyo, MAGICO de RAYO 2,00, Paralisis 50 %. Ella es INMUNE al Aturdido: se le corta con Miedo,
+; moviendola (tiron, empujon, atraccion grandes) o con viento (vuela). EFECTOS: los del Alarido (provisionales).
+[resource]
+script = ExtResource("1")
+nombre = "El ojo se abre"
+descripcion = "Se queda quieta en el aire y el aro del ojo se va encendiendo punto a punto. Lo que haya debajo cuando se cierre el aro no va a poder moverse en un rato."
+coste_energia = 0.0
+dano_mult = 2.0
+es_magico = true
+elemento_golpe = 3
+area_modo = 1
+area_max = 99
+area_secundario = 0.9
+area_efectos_secundarios = true
+area_prob_secundario = 1.0
+forma = 1
+forma_apunte = 2
+forma_radio = 70.0
+efectos = [SubResource("SA_par")]
+fx_estilo = 17
+cooldown = 4
+carga_turnos = 1
+fx_anim_carga = &"mirada"
+fx_anim = &"alarido"
+fx_anim_interrumpe = &"idle"
+suelo_roto = 85
+fx_estilo_mapa = 138

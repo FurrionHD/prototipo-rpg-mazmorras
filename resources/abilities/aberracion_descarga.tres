@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_par"]
+script = ExtResource("2")
+estado = 51
+prob = 0.3
+
+; DESCARGA (13/11, memoria aberracion-mutante): sustituye al Alarido de la base en la Masa galvanica. El mismo circulo de
+; 70 alrededor de ella, pero MAGICO de RAYO 0,55 y Paralisis 30 %. EFECTOS: los del Alarido (provisionales).
+[resource]
+script = ExtResource("1")
+nombre = "Descarga"
+descripcion = "Se encoge, se le encienden los nervios todos a la vez y suelta de golpe lo que llevaba dentro. Al que está cerca se le quedan los músculos sin saber qué hacer."
+coste_energia = 0.0
+dano_mult = 0.55
+es_magico = true
+elemento_golpe = 3
+area_modo = 1
+area_max = 99
+area_secundario = 1.0
+area_efectos_secundarios = true
+area_prob_secundario = 1.0
+efectos = [SubResource("SA_par")]
+fx_anim = &"alarido"
+fx_estilo = 17
+cooldown = 4
+forma = 1
+forma_apunte = 2
+forma_radio = 70.0
+fx_estilo_mapa = 138
+suelo_roto = 85

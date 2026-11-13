@@ -1,0 +1,229 @@
+# LA ABERRACION Y SUS MUTANTES (13/11, memoria aberracion-mutante), sin ventana:
+#   1) la ficha: la base con Voluntad (sigue sumando 170) y su kit fisico de siempre
+#   2) el arbol: Masa galvanica (1a) --come mas--> Ojo de la tormenta (2a); stats que suman 170
+#   3) los kits: numeros, magicos y elementos ESCRITOS, sus estados; el basico del Ojo, magico de Rayo
+#   4) lo que trae cada una al crearse: conductora y Carne que se cierra (Masa); vuela, inmune al Aturdido, sin
+#      regeneracion y Tentaculos que cuelgan (Ojo)
+#   5) en una pelea de verdad: los Tentaculos que cuelgan (al pegado si, al lejano no, con su linea en el registro), la
+#      pasiva conductora, el Aturdido que no le entra y la carga de El ojo se abre cortada con Miedo y moviendola
+#   godot --headless --path . res://tools/prueba_mut_aberracion.tscn
+extends Node
+
+const ABERRACION := "res://scenes/actors/enemy/aberracion.tres"
+var sala = null
+var _mal: int = 0
+
+
+func _ready() -> void:
+	call_deferred("_empezar")
+
+
+func _empezar() -> void:
+	reparent(get_tree().root)
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	var hueco := Node.new()
+	get_tree().root.add_child(hueco)
+	get_tree().current_scene = hueco
+	await _correr()
+	print("FIN: %s (%d MAL)" % ["TODO BIEN" if _mal == 0 else "HAY FALLOS", _mal])
+	get_tree().quit(1 if _mal > 0 else 0)
+
+
+func _ver(ok: bool, que: String) -> void:
+	print("  %s: %s" % ["BIEN" if ok else "MAL", que])
+	if not ok:
+		_mal += 1
+
+
+func _esperar(n: int) -> void:
+	for _i in n:
+		await get_tree().process_frame
+
+
+func _log(combat: Node) -> String:
+	return "\n".join(combat.log_entero().map(func(l): return str(l)))
+
+
+func _poner(tm, c: Combatant, p: Vector2) -> void:
+	var cu: Node2D = tm.cuerpo_de(c)
+	cu.global_position += p - tm.pies_de(c)
+	tm._pos[c] = cu.global_position
+
+
+func _ab(nombre: String) -> AbilityData:
+	return load("res://resources/abilities/%s.tres" % nombre)
+
+
+func _correr() -> void:
+	print("1) LA FICHA")
+	var ab_ed: EnemyData = load(ABERRACION)
+	_ver([ab_ed.resistencia, ab_ed.fuerza, ab_ed.destreza, ab_ed.agilidad, ab_ed.magia, ab_ed.voluntad] == [38, 50, 22, 24, 18, 18],
+		"base: 38/50/22/24/18/18 (con Voluntad, suma 170)")
+	_ver(ab_ed.habilidades.map(func(a): return a.nombre) == ["Alarido demente", "Latigazo de tentáculo", "Mirada del vacío"]
+		and not _ab("aberracion_latigazo").es_magico and not _ab("aberracion_mirada").es_magico, "su kit de siempre, fisico")
+	_ver(is_equal_approx(ab_ed.regen_turno, 0.08) and ab_ed.regen_corta_elem == Elementos.Elemento.LUZ, "Carne que se cierra igual")
+
+	print("2) EL ARBOL")
+	var gal: MutacionData = ab_ed.mutacion_de(&"galvanica")
+	var tor: MutacionData = ab_ed.mutacion_de(&"tormenta")
+	_ver(gal != null and gal.grado == 1 and gal.nombre == "Masa galvánica", "aberracion -> Masa galvanica (1a)")
+	_ver(tor != null and tor.grado == 2 and tor.nombre == "Ojo de la tormenta" and tor.desde == [&"galvanica"],
+		"Masa galvanica -> Ojo de la tormenta (2a)")
+	if gal == null or tor == null:
+		return
+	_ver(ab_ed.siguiente_mutacion(true, &"galvanica").get("id") == &"tormenta", "comiendo: de la Masa al Ojo")
+	for par in [[gal, [36, 36, 16, 22, 32, 28]], [tor, [28, 10, 12, 26, 50, 44]]]:
+		var m: MutacionData = par[0]
+		var v: Array = ["resistencia", "fuerza", "destreza", "agilidad", "magia", "voluntad"].map(func(k): return int(m.pesos[k]))
+		var suma: int = 0
+		for x in v:
+			suma += int(x)
+		_ver(v == par[1] and suma == 170, "%s: %s, suma %d" % [m.nombre, str(v), suma])
+
+	print("3) LOS KITS")
+	var esperado := {
+		"aberracion_latigazo_galvanico": [1.40, [[StatusEffects.Id.RAYO, 0.4]]],
+		"aberracion_descarga": [0.55, [[StatusEffects.Id.PARALISIS, 0.3]]],
+		"aberracion_mirada_chispeante": [0.60, [[StatusEffects.Id.RAYO, 0.6], [StatusEffects.Id.MIEDO, 0.3]]],
+		"aberracion_tormenta_basico": [1.00, []],
+		"aberracion_rayo_del_ojo": [1.30, [[StatusEffects.Id.RAYO, 0.6]]],
+		"aberracion_ojo_se_abre": [2.00, [[StatusEffects.Id.PARALISIS, 0.5]]],
+	}
+	for k in esperado:
+		var ab: AbilityData = _ab(k)
+		var e: Array = esperado[k]
+		var est: Array = ab.efectos.map(func(s): return [s.estado, snappedf(s.prob, 0.01)])
+		var quiero: Array = (e[1] as Array).map(func(p): return [p[0], snappedf(float(p[1]), 0.01)])
+		_ver(ab.es_magico and is_equal_approx(ab.dano_mult, float(e[0])) and ab.elemento_golpe == Elementos.Elemento.RAYO
+			and est == quiero, "%s: %.2f magico de Rayo, estados %s" % [ab.nombre, float(e[0]), str(est)])
+	_ver(gal.habilidades.map(func(a): return a.resource_path.get_file().get_basename())
+		== ["aberracion_latigazo_galvanico", "aberracion_descarga", "aberracion_mirada_chispeante"], "el kit de la Masa")
+	_ver(tor.habilidades.map(func(a): return a.resource_path.get_file().get_basename())
+		== ["aberracion_rayo_del_ojo", "aberracion_ojo_se_abre"] and tor.basico_propio == _ab("aberracion_tormenta_basico"),
+		"el kit del Ojo y su basico (Chispazo)")
+	var lat: AbilityData = _ab("aberracion_latigazo_galvanico")
+	_ver(lat.golpes_min == 2 and lat.golpes_max == 3 and lat.forma_reparte and is_equal_approx(lat.forma_radio, 90.0),
+		"Latigazo galvanico: 2-3 golpes repartidos hasta 90")
+	var des: AbilityData = _ab("aberracion_descarga")
+	_ver(des.forma == CombatFormas.Tipo.CIRCULO and des.forma_apunte == CombatFormas.Apunte.ALREDEDOR
+		and is_equal_approx(des.forma_radio, 70.0), "Descarga: circulo de 70 alrededor")
+	var mir: AbilityData = _ab("aberracion_mirada_chispeante")
+	_ver(mir.forma == CombatFormas.Tipo.CONO and is_equal_approx(mir.forma_radio, 120.0) and is_equal_approx(mir.forma_apertura, 30.0),
+		"Mirada chispeante: cono de 120 y 30 grados")
+	var ray: AbilityData = _ab("aberracion_rayo_del_ojo")
+	_ver(ray.forma == CombatFormas.Tipo.LINEA and is_equal_approx(ray.forma_radio, 130.0) and is_equal_approx(ray.forma_ancho, 30.0),
+		"Rayo del ojo: linea gorda de 130 x 30")
+	var ojo: AbilityData = _ab("aberracion_ojo_se_abre")
+	_ver(ojo.carga_turnos == 1 and ojo.forma_apunte == CombatFormas.Apunte.ALREDEDOR and is_equal_approx(ojo.forma_radio, 70.0),
+		"El ojo se abre: carga 1 turno, circulo de 70")
+
+	print("4) AL CREARSE")
+	var c_gal: Combatant = ab_ed.crear_combatant(0.5, true, false, &"galvanica")
+	var c_tor: Combatant = ab_ed.crear_combatant(0.5, true, false, &"tormenta")
+	var c_base: Combatant = ab_ed.crear_combatant(0.5, false)
+	_ver(c_gal.al_ser_golpeado.size() == 1 and c_gal.al_ser_golpeado[0].estado == StatusEffects.Id.RAYO
+		and is_equal_approx(c_gal.al_ser_golpeado_prob, 0.3), "Masa: pasiva conductora (Electrizado al 30 %)")
+	_ver(is_equal_approx(c_gal.regen_turno, 0.08) and not c_gal.vuela and c_gal.tentaculos_hueco == 0.0,
+		"Masa: con Carne que se cierra, no vuela, sin tentaculos colgando")
+	_ver(c_tor.vuela and c_tor.en_el_aire() and c_tor.inmune_estados.has(StatusEffects.Id.ATURDIDO) and c_tor.regen_turno == 0.0,
+		"Ojo: vuela, inmune al Aturdido y sin regeneracion")
+	_ver(is_equal_approx(c_tor.tentaculos_hueco, 30.0) and is_equal_approx(c_tor.tentaculos_mult, 0.35)
+		and c_tor.tentaculos_elem == Elementos.Elemento.RAYO, "Ojo: Tentaculos que cuelgan (30, 0,35, Rayo)")
+	_ver(not c_base.inmune_estados.has(StatusEffects.Id.ATURDIDO) and (ab_ed.inmune_estados as Array).is_empty(),
+		"la inmunidad del Ojo no se le pega a la ficha de la base")
+	c_tor.apply_status(StatusEffects.Id.ATURDIDO)
+	c_tor.apply_status(StatusEffects.Id.MIEDO, 2, 1.0)
+	_ver(not c_tor.has_status(StatusEffects.Id.ATURDIDO), "al Ojo no le entra el Aturdido")
+
+	sala = preload("res://tools/prueba_sala_propia.gd").new()
+	add_child(sala)
+	if not await sala.arrancar("prueba_mut_aberracion", Game.PISO_ARENA):
+		_ver(false, "arranca la sala")
+		return
+	sala.poner(ABERRACION, Vector2(150, 0), {"mutacion": "galvanica"})
+	sala.poner(ABERRACION, Vector2(150, 170), {"mutacion": "tormenta"})
+	await _esperar(20)
+	if (await sala.pelear(get_tree().get_nodes_in_group("enemy"), false)) == null:
+		_ver(false, "se abre la pelea")
+		return
+	await _esperar(5)
+	var combat: Node = null
+	for n in get_tree().root.get_children() + sala.capas():
+		if n is CanvasLayer:
+			for h in n.get_children():
+				if h.get("tactico") != null:
+					combat = h
+	if combat == null:
+		_ver(false, "encuentro la pantalla de combate")
+		return
+	var t = combat.turno_mapa
+	var por_mut: Dictionary = {}
+	for e in combat._enemies:
+		por_mut[e.mutacion] = e
+	_ver(por_mut.has(&"galvanica") and por_mut.has(&"tormenta"), "en la pelea: las dos (%s)" % str(por_mut.keys()))
+	if not (por_mut.has(&"galvanica") and por_mut.has(&"tormenta")):
+		return
+	var gm: Combatant = por_mut[&"galvanica"]
+	var oj: Combatant = por_mut[&"tormenta"]
+	_ver(oj.nombre.contains("Ojo de la tormenta") and gm.nombre.contains("Masa galvánica"), "con sus nombres (%s / %s)" % [gm.nombre, oj.nombre])
+	var yo: Combatant = combat._aliados[0]
+	yo.max_hp = 100000.0
+	yo.current_hp = 100000.0
+	var otro: Combatant = combat._aliados[1] if combat._aliados.size() > 1 else null
+
+	print("5) TENTACULOS QUE CUELGAN")
+	# Lejos de la Masa (que no se meta): el Ojo en un sitio, yo pegado a el y el otro lejos.
+	var po: Vector2 = t.pies_de(oj)
+	_poner(t, gm, po + Vector2(300, -200))
+	_poner(t, yo, po + Vector2(-8, 4))
+	if otro != null:
+		otro.max_hp = 100000.0
+		otro.current_hp = 100000.0
+		_poner(t, otro, po + Vector2(-200, 120))
+	for al in combat._aliados.slice(2):
+		_poner(t, al, po + Vector2(-400, 250))
+	await _esperar(3)
+	print("     hueco yo-Ojo %.1f, otro-Ojo %.1f" % [t.hueco_entre(yo, oj), t.hueco_entre(otro, oj) if otro != null else -1.0])
+	var vida_yo: float = yo.current_hp
+	var vida_otro: float = otro.current_hp if otro != null else 0.0
+	var tiradas: int = 0
+	while is_equal_approx(yo.current_hp, vida_yo) and tiradas < 8:   # (la esquiva magica, si la hay, no siempre)
+		combat.enemigos._tentaculos_que_cuelgan(oj)
+		tiradas += 1
+	_ver(yo.current_hp < vida_yo, "al pegado le azotan (%.1f de daño en %d tiradas)" % [vida_yo - yo.current_hp, tiradas])
+	if otro != null:
+		_ver(is_equal_approx(otro.current_hp, vida_otro), "al que esta lejos, nada")
+	_ver(_log(combat).contains("Los tentáculos de") and _log(combat).contains("de daño a %s" % yo.nombre), "su linea en el registro")
+	var vida_m: float = yo.current_hp
+	combat.enemigos._tentaculos_que_cuelgan(gm)
+	_ver(is_equal_approx(yo.current_hp, vida_m), "la Masa no los tiene")
+	# El daño: magico de Rayo 0,35 del de un golpe magico suyo (aprox., sin variacion).
+	var r: Dictionary = StatsMath.resolve_magico_enemigo(oj, yo, true)
+	print("     un golpe magico suyo: %.1f -> tentaculos %.1f" % [float(r.get("damage", 0.0)), float(r.get("damage", 0.0)) * 0.35])
+
+	print("6) LA PASIVA CONDUCTORA")
+	_poner(t, gm, t.pies_de(yo) + Vector2(10, 0))
+	await _esperar(3)
+	yo.statuses = yo.statuses.filter(func(s): return s.id() != StatusEffects.Id.RAYO)
+	var gm_prob: float = gm.al_ser_golpeado_prob
+	gm.al_ser_golpeado_prob = 1.0
+	yo.status_resist = 0.0
+	combat._pasiva_hecha.clear()
+	combat._pasiva_al_golpearle(gm, yo, 10.0)
+	gm.al_ser_golpeado_prob = gm_prob
+	_ver(yo.has_status(StatusEffects.Id.RAYO), "pegarle de cerca: Electrizado")
+	_ver(_log(combat).contains("suelta una descarga sobre"), "y lo dice el registro")
+
+	print("7) INMUNE AL ATURDIDO: LA CARGA SE CORTA CON OTRAS COSAS")
+	oj.apply_status(StatusEffects.Id.ATURDIDO)
+	_ver(not oj.has_status(StatusEffects.Id.ATURDIDO), "en la pelea tampoco le entra el Aturdido")
+	combat.enemigos._enemy_begin_charge(oj, ojo, yo)
+	_ver(oj.charging == ojo, "empieza a cargar El ojo se abre")
+	oj.status_resist = 0.0
+	oj.apply_status(StatusEffects.Id.MIEDO, 2, 1.0)
+	combat._cortar_por_control()
+	_ver(oj.charging == null, "el Miedo se la corta")
+	oj.statuses = oj.statuses.filter(func(s): return s.id() != StatusEffects.Id.MIEDO)
+	combat.enemigos._enemy_begin_charge(oj, ojo, yo)
+	var linea: String = combat.desplazado(oj, 40.0, yo)
+	_ver(oj.charging == null and linea != "", "moverla 40 se la corta (%s)" % linea)

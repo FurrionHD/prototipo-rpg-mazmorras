@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_ray"]
+script = ExtResource("2")
+estado = 8
+prob = 0.4
+
+; LATIGAZO GALVANICO (13/11, memoria aberracion-mutante; numeros de tools/tabla_aberracion.gd): el Latigazo de la base
+; (2-3 golpes, cada uno a uno distinto hasta 90 px) pero MAGICO de RAYO, con Electrizado 40 %. El total 1,40 magico pega
+; como el 1,10 fisico de la base (su magico = x0,72 del basico de la base). EFECTOS: los de la base (provisionales hasta
+; los suyos en pixel).
+[resource]
+script = ExtResource("1")
+nombre = "Latigazo galvánico"
+descripcion = "Los tentáculos ya no se mueven solos: les corre algo por dentro que los hace restallar antes de tocarte. Y cuando te tocan, eso que corría ahora te corre a ti."
+coste_energia = 0.0
+golpes_min = 2
+golpes_max = 3
+dano_mult = 1.4
+reparto_por_golpe = true
+es_magico = true
+elemento_golpe = 3
+efectos = [SubResource("SA_ray")]
+fx_estilo = 34
+cooldown = 3
+forma = 1
+forma_apunte = 2
+forma_radio = 90.0
+forma_reparte = true
+fx_estilo_mapa = 172
+fx_anim = &"basico"

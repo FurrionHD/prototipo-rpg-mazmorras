@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_ray"]
+script = ExtResource("2")
+estado = 8
+prob = 0.6
+
+; RAYO DEL OJO (13/11, memoria aberracion-mutante; el jefe: "un rayo pero uno GORDO, god"): una LINEA larga y ancha que
+; sale del ojo, 130 x 30, y le da a todos los que pille (en el mapa la huella no tiene tope). MAGICO de RAYO 1,30 y
+; Electrizado 60 %. EFECTOS: provisionales (el estallido de rayo de la araña en la fila).
+[resource]
+script = ExtResource("1")
+nombre = "Rayo del ojo"
+descripcion = "El aro del ojo se cierra, la pupila se vuelve un punto blanco y lo que sale de ahí no es una mirada: es la tormenta entera, en línea recta."
+coste_energia = 0.0
+dano_mult = 1.3
+es_magico = true
+elemento_golpe = 3
+area_modo = 1
+area_max = 99
+area_secundario = 1.0
+area_efectos_secundarios = true
+area_prob_secundario = 1.0
+efectos = [SubResource("SA_ray")]
+fx_anim = &"mirada"
+fx_estilo = 224
+cooldown = 3
+forma = 3
+forma_apunte = 1
+forma_radio = 130.0
+forma_ancho = 30.0

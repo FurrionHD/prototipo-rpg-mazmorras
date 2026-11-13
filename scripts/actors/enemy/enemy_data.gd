@@ -962,6 +962,17 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		c.atrae_px = mdat2.atrae_px
 		if mdat2.resist_aturdir >= 0.0:
 			c.stun_resist = mdat2.resist_aturdir
+		# (13/11, el Ojo de la tormenta) vuela, sus inmunidades (se SUMAN a las de su enemigo) y sin regeneracion.
+		if mdat2.vuela:
+			c.vuela = true
+		for id_inm in mdat2.inmune_estados:
+			if not c.inmune_estados.has(id_inm):
+				c.inmune_estados = c.inmune_estados + [id_inm]
+		if mdat2.sin_regen:
+			c.regen_turno = 0.0
+		c.tentaculos_hueco = mdat2.tentaculos_hueco
+		c.tentaculos_mult = mdat2.tentaculos_mult
+		c.tentaculos_elem = mdat2.tentaculos_elem
 		# (03/11, las arañas) las cargas y lo que suelta al llenarse.
 		c.rebote_mult = mdat2.rebote_mult
 		c.rebote_radio = mdat2.rebote_radio

@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+
+; EL BASICO DEL OJO DE LA TORMENTA (13/11, memoria aberracion-mutante): MAGICO de RAYO x1,00 (un chispazo). Su fisico se
+; quedaba en x0,45 del basico de la base (Fuerza 10): sin esto su basico no servia de nada. EFECTOS: los del basico de la
+; base (provisionales).
+[resource]
+script = ExtResource("1")
+nombre = "Chispazo"
+descripcion = "Ni siquiera alarga un tentáculo: el aire entre los dos se rompe y salta la chispa."
+coste_energia = 0.0
+dano_mult = 1.0
+es_magico = true
+elemento_golpe = 3
+fx_estilo = 34
+fx_anim = &"basico"
+fx_estilo_mapa = 172

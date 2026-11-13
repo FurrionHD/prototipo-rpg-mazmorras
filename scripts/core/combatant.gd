@@ -556,6 +556,10 @@ var chupa_enraizados: float = 0.0
 # (09/11, los mutantes del MICONIDO, ver MutacionData) LUZ QUE ATRAE: a quien acerca al empezar su turno, y cuanto.
 var atrae_radio: float = 0.0
 var atrae_px: float = 15.0
+# (13/11, el Ojo de la tormenta) TENTACULOS QUE CUELGAN: ver MutacionData. 0 = no.
+var tentaculos_hueco: float = 0.0
+var tentaculos_mult: float = 0.35
+var tentaculos_elem: int = 3
 # Lo que anda en el mapa en su turno, por esto (la rata acorazada: CombatTactico.radio_de).
 var mov_mult: float = 1.0
 # (06/10, los del slime ABISAL) DEJA ESTRELLAS al moverse en la pelea (las piezas de sus ataques, ver
