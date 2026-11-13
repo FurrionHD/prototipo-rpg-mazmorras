@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_1"]
+script = ExtResource("2")
+estado = 33
+prob = 0.5
+turns = 3
+
+[resource]
+script = ExtResource("1")
+nombre = "Nube de ceniza"
+descripcion = "Bate una vez y lo que suelta no es polvo: es ceniza, fría y negra, y se queda en el aire lo justo para que no veas por dónde viene."
+coste_energia = 0.0
+dano_mult = 0.45
+; (12/11) MAGICO de OSCURIDAD: circulo de 60 alrededor de ella, Ceguera 50 %.
+es_magico = true
+elemento_golpe = 5
+area_modo = 1
+area_max = 99
+area_secundario = 0.9
+area_efectos_secundarios = true
+area_prob_secundario = 1.0
+forma = 1
+forma_apunte = 2
+forma_radio = 60.0
+efectos = [SubResource("SA_1")]
+fx_estilo = 112
+fx_anim = &"nube"
+cooldown = 4
+suelo_roto = 116
+fx_estilo_mapa = 164

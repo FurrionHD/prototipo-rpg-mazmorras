@@ -17,6 +17,9 @@ extends "res://tools/prueba_town_sala_comun.gd"
 
 
 func _ready() -> void:
+	# SIN MUTANTES (13/11, el jefe): uno al azar (la Rata sombria, que se esconde y solo le dan las areas) dejaba la pelea sin
+	# acabar. Lo heredan la sala y el jugador B (procesos hijos).
+	OS.set_environment("PRUEBA_SIN_MUTANTES", "1")
 	slot = 81
 	puerto = 24617
 	registro_b = "user://logs/prueba_town_dos_peleas_b.log"

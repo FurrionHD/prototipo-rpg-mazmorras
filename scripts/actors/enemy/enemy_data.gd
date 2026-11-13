@@ -765,9 +765,18 @@ func _de_grado(g: int, desde: StringName = &"") -> Array:
 	return out
 
 
+# SOLO PARA PRUEBAS (13/11, el jefe: "quita la prob de mutante en la prueba"): con PRUEBA_SIN_MUTANTES=1 en el entorno no
+# nace ni se transforma ningun mutante (prueba_town_dos_peleas: una Rata sombria escondida al azar la dejaba sin poder
+# atacar). La heredan la sala y el otro jugador, que son procesos hijos.
+static func sin_mutantes() -> bool:
+	return OS.get_environment("PRUEBA_SIN_MUTANTES") == "1"
+
+
 # AL NACER: {"mut": bool, "id": StringName}. La 2a (0,5 %) solo si su arbol la tiene; el mutante (2 %) sale de una de
 # las de grado 1 al azar (50/50 el brotado y el punzante del slime), o el generico si no tiene arbol.
 func tirar_mutacion() -> Dictionary:
+	if sin_mutantes():
+		return {"mut": false, "id": &""}
 	var r: float = randf()
 	var de2: Array = _de_grado(2)
 	if not de2.is_empty() and r < MUTANTE2_PROB:
@@ -975,6 +984,10 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		c.enrosque_pegados_radio = mdat2.enrosque_pegados_radio
 		c.aprieta_por_turno = mdat2.aprieta_por_turno
 		c.aprieta_max = mdat2.aprieta_max
+		# (12/11, la Polilla insomne) sus pasivas, a la vista: nace con ellas puestas (ver MutacionData.pasivas_visibles).
+		for id_p in mdat2.pasivas_visibles:
+			var mag_p: float = 1.0 - c.resiste_magia if bool(StatusEffects.def(id_p).get("menos_magia", false)) else 1.0
+			c.apply_status(id_p, 999, mag_p)
 
 	# RESISTENCIA A EFECTOS Y EFICACIA: la curva del PISO por el ajuste de ESTE bicho. Los dos ejes
 	# hacen falta y hacen cosas distintas: la resistencia decide lo que TE aguanta, la eficacia lo

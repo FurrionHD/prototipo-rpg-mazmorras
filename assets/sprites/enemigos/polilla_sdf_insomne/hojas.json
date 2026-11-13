@@ -1,0 +1,96 @@
+{
+ "lienzo": [
+  190,
+  190
+ ],
+ "anims": {
+  "idle": {
+   "fotogramas": 8,
+   "fps": 6.0,
+   "loop": true,
+   "dirs": 8,
+   "parpado": true,
+   "grupos_parpado": 6
+  },
+  "walk": {
+   "fotogramas": 8,
+   "fps": 12.0,
+   "loop": true,
+   "dirs": 8,
+   "parpado": true,
+   "grupos_parpado": 6
+  },
+  "embestida": {
+   "fotogramas": 8,
+   "fps": 12.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "aletear": {
+   "fotogramas": 8,
+   "fps": 14.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "nube": {
+   "fotogramas": 8,
+   "fps": 10.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "encaje": {
+   "fotogramas": 4,
+   "fps": 18.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "muerte": {
+   "fotogramas": 8,
+   "fps": 11.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "ojo_carga": {
+   "fotogramas": 8,
+   "fps": 8.0,
+   "loop": true,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "ojo": {
+   "fotogramas": 8,
+   "fps": 12.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "evolucion_luz": {
+   "fotogramas": 20,
+   "fps": 10.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "evolucion_sombra": {
+   "fotogramas": 20,
+   "fps": 10.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  }
+ }
+}

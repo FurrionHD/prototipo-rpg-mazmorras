@@ -1015,7 +1015,11 @@ func _luz_que_atrae(e: Combatant) -> void:
 	if nombres.is_empty():
 		return
 	print("[luz] %s atrae a %s" % [e.nombre, ", ".join(nombres)])
-	_pantalla._log_extra("☀ La luz de %s atrae a %s." % [_pantalla._etq(e), ", ".join(nombres)])
+	# (12/11) el Insomnio de la Polilla insomne: sus ojos, no una luz
+	if e.mutacion == &"insomne":
+		_pantalla._log_extra("👁 Los ojos de %s tiran de %s." % [_pantalla._etq(e), ", ".join(nombres)])
+	else:
+		_pantalla._log_extra("☀ La luz de %s atrae a %s." % [_pantalla._etq(e), ", ".join(nombres)])
 
 
 # Y VUELVE A BROTAR ENTERA a los costra_turnos turnos suyos (al empezar el que toca). Tambien la CAPA DE AMBAR de los

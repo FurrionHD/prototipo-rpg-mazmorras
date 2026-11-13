@@ -1746,7 +1746,18 @@ func _volcar_estados(c: Combatant, estados: Array) -> void:
 	for e in estados:
 		var def: Dictionary = StatusEffects.def(int(e[0]))
 		if not def.is_empty():
-			c.statuses.append(StatusEffects.Instance.new(def, int(e[1]), int(e[2])))
+			var inst := StatusEffects.Instance.new(def, int(e[1]), int(e[2]))
+			# (12/11) LA PASIVA QUE SE VE (Ojos en vela): su numero no viaja, sale del propio bicho (su mutacion ya esta aqui)
+			if bool(def.get("menos_magia", false)):
+				inst.magnitude = 1.0 - _resiste_magia_de(c)
+			c.statuses.append(inst)
+
+
+# Lo que resiste la magia un maniqui (no trae stats): el de su mutacion en su ficha, o el suyo.
+func _resiste_magia_de(c: Combatant) -> float:
+	var ed: EnemyData = load(c.sprite_res) as EnemyData if c.sprite_res != "" and ResourceLoader.exists(c.sprite_res) else null
+	var m: MutacionData = ed.mutacion_de(c.mutacion) if ed != null else null
+	return m.resiste_magia if m != null else c.resiste_magia
 
 
 # ESPEJO: los que han caido en la instantanea se apagan aqui igual que en la pantalla que ejecuta.

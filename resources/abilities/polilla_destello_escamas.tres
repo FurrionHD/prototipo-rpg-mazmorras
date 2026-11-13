@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_1"]
+script = ExtResource("2")
+estado = 33
+prob = 0.6
+turns = 3
+
+[resource]
+script = ExtResource("1")
+nombre = "Destello de escamas"
+descripcion = "Se te pone delante y abre las alas de golpe. Las escamas devuelven la luz toda a la vez, y lo siguiente que ves es blanco."
+coste_energia = 0.0
+dano_mult = 0.75
+; (12/11) MAGICO de LUZ: el cono del Aleteo cegador (por tramos), Ceguera 60 %.
+es_magico = true
+elemento_golpe = 4
+efectos = [SubResource("SA_1")]
+fx_estilo = 116
+fx_anim = &"aletear"
+cooldown = 3
+forma = 2
+forma_apunte = 1
+forma_radio = 60.0
+forma_apertura = 40.0
+forma_tramos = 3
+forma_tramo_baja = 0.25
+tramos_bajan_prob = true
+fx_estilo_mapa = 164

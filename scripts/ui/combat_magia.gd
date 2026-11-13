@@ -363,6 +363,8 @@ func _responder_frase(elegida: String, correcta: String) -> void:
 		_pantalla._set_log("🗣️ %s recita: «%s» ✓" % [_pantalla._player.nombre, elegida])
 		# (06/11) Y se guarda: la ficha del registro de cuando se lance (o se pierda) dice las frases que dijo.
 		_dichas[_pantalla._player] = (_dichas.get(_pantalla._player, []) as Array) + [elegida]
+		# (12/11) EL SET CONCENTRACION: una carga mas por cada frase bien dicha (hasta su tope).
+		concentrar(_pantalla._player)
 		# La Magia NO se entrena por frase (solo al LANZAR, en _disparar_hechizo), para
 		# que la ganancia sea predecible y no se cuente doble.
 		_pantalla._cast_index += 1
@@ -1231,6 +1233,8 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 			hubo_crit = true
 		objetivo.take_damage(dmg)
 		_pantalla.fuego_al_musgo(objetivo, elem)
+		# (12/11) SU PASIVA ACTUA: los Ojos en vela de la Polilla insomne (le entra menos magia): su nombre encima.
+		_pantalla.reacciones.pasiva_magia(lanzador, objetivo)
 		# LAS DRUSAS QUE REFLEJAN (31/10, el Jabali ancestral): por delante, una parte vuelve al que lo lanzo.
 		if objetivo.reflejo_magia > 0.0 and _pantalla._enemies.has(objetivo) and lanzador != null \
 				and not _pantalla._enemies.has(lanzador) and (not _pantalla.tactico \
@@ -1269,8 +1273,11 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 		_pantalla.efectos._fx_tanda(tanda_base + n)
 		_pantalla.efectos._fx_golpe(objetivo, lanzador, reflejado, false, false, Elementos.Elemento.NINGUNO,
 			CombatFX.Estilo.JABALI_REFLEJO, 1.0, false)
-		_pantalla._log_extra("💎 Las drusas de %s le devuelven el hechizo a %s y le infligen %s de daño" % [_pantalla._etq(objetivo),
-			lanzador.nombre, _pantalla._n(reflejado)])
+		# (12/11) la Mirada que devuelve de la Polilla insomne: sus ojos, no unas drusas
+		var quien_d: String = "Los ojos" if objetivo.mutacion == &"insomne" else "Las drusas"
+		_pantalla._log_extra("%s %s de %s le devuelven el hechizo a %s y le infligen %s de daño" % [
+			"👁" if objetivo.mutacion == &"insomne" else "💎", quien_d, _pantalla._etq(objetivo), lanzador.nombre,
+			_pantalla._n(reflejado)])
 	return {
 		"c": objetivo, "dano": total, "mult": ultimo_mult, "crit": hubo_crit,
 		"golpes": trail.size(), "trail": trail, "estados": aplicados,
@@ -1722,6 +1729,8 @@ func _backfire(elegida: String = "", correcta: String = "") -> void:
 	var spell := _pantalla._cast_spell
 	if elegida != "":
 		_pantalla._set_log("🗣️ %s recita «%s»… pero era «%s»." % [_pantalla._player.nombre, elegida, correcta])
+	# (12/11) EL SET CONCENTRACION: fallar una frase lo pierde todo.
+	desconcentrar(_pantalla._player)
 	var mana_perdido: float = minf(_coste_efectivo(spell), _pantalla._player.current_mp)
 	_pantalla._player.spend_mana(_coste_efectivo(spell))
 	# Por TU VIDA MAXIMA, no por el daño del hechizo: asi fallar duele lo mismo el primer dia que
@@ -1745,6 +1754,23 @@ func _backfire(elegida: String = "", correcta: String = "") -> void:
 			_pantalla._end(false)
 			return
 	_pantalla._state = _pantalla.State.ADVANCING
+
+
+# EL SET CONCENTRACION (12/11, la Polilla insomne; Runas, efecto "concentracion"): cada frase bien recitada le pone al
+# portador una carga de Id.CONCENTRACION (cada una, +runa_concentracion_por de daño magico: mult_override) hasta su tope;
+# fallar una se las quita todas. Duran la pelea (el estado es "de_la_pelea"): pasan de un hechizo al siguiente.
+func concentrar(c: Combatant) -> void:
+	if c == null or c.runa_concentracion_por <= 0.0 or c.runa_concentracion_max <= 0:
+		return
+	c.apply_status(StatusEffects.Id.CONCENTRACION, 999, -1.0, 1, true, c.runa_concentracion_max,
+		1.0 + c.runa_concentracion_por)
+
+
+func desconcentrar(c: Combatant) -> void:
+	if c == null or not c.has_status(StatusEffects.Id.CONCENTRACION):
+		return
+	c.quitar_estado(StatusEffects.Id.CONCENTRACION)
+	_pantalla._log_extra("%s pierde la Concentración." % c.nombre)
 
 
 # (06/11) LAS FRASES DEL CONJURO EN CURSO de cada uno (las que ha dicho bien): van a la ficha del registro cuando se

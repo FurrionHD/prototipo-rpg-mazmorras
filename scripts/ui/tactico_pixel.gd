@@ -62,6 +62,29 @@ func al_gesto(c: Combatant, cuerpo: Node2D, base: String, dur: float) -> void:
 				# (el cono de luz y el haz los pinta su suelo, con la forma del golpe: FocoAire)
 				_quitar_carga(c)
 		return
+	# LA POLILLA Y SUS MUTANTES (12/11): lo que sale de ella, desde el centro de su sprite (como se horneo). Las polillas, y
+	# solo ellas, aletean; el color sale de su mutacion.
+	if _t._tiene_anim_bicho(cuerpo, "aletear"):
+		var ritmo_p: float = _t._pantalla._fx.escala_tiempo if _t._pantalla._fx != null else 1.0
+		var centro_p: Vector2 = EfectoPixel.centro_sprite(cuerpo, _t.pies_de(c))
+		var dir_p: int = SpriteLienzo.dir8(_t._mirada_de(cuerpo))
+		var col_p: String = _t.color_polilla(c)
+		match base:
+			"aletear":
+				# el Aleteo cegador de la normal (tres bocanadas) o el cono de su mutante
+				var hoja_p: String = {"polvo": "aleteo_polvo", "oro": "cono_oro", "ceniza": "cono_ceniza",
+					"rojo": "cono_negro"}[col_p]
+				EfectoPixel.lanzar(_t._arena(), "polilla", hoja_p, centro_p, dir_p, cuerpo, 0.0, dur, ritmo_p)
+			"amortajarse":
+				EfectoPixel.lanzar(_t._arena(), "polilla", "amortajarse", centro_p, 0, cuerpo, 0.0, dur, ritmo_p)
+			"ojo_carga":
+				var ab_p: AbilityData = (_t._poses_carga.get(c, {}) as Dictionary).get("ab")
+				_mientras_carga(c, ab_p, [EfectoPixel.lanzar(_t._arena(), "polilla", "ojo_carga", centro_p, 0, cuerpo, 0.0, -1.0,
+					ritmo_p)])
+			"ojo":
+				_quitar_carga(c)
+				EfectoPixel.lanzar(_t._arena(), "polilla", "ojo", centro_p, 0, cuerpo, 0.0, -1.0, ritmo_p)
+		return
 	# (los mutantes del ciempies, por su cabeza libre: la Pinza y el Derrumbe)
 	if _t._tiene_anim_bicho(cuerpo, "libre_idle"):
 		var ritmo_c: float = _t._pantalla._fx.escala_tiempo if _t._pantalla._fx != null else 1.0

@@ -51,7 +51,11 @@ enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, T
 	PROFUNDO_MAREA, PROFUNDO_CHORRO, PROFUNDO_CORAL, PROFUNDO_ESTALLIDO, PROFUNDO_ALIENTO, PROFUNDO_CARAMBANOS,
 	REY_ESQUIRLAS,
 	RATA_ESTELA_SOMBRA, RATA_ANILLO_ESQUIRLAS, RATA_SURCO_CRISTAL, RATA_DESTELLO, RATA_TRAICION,
-	TRENT_RESINA, TRENT_SAVIA, TRENT_GEISER, AMBAR_BOLA, MICONIDO_FOCO }
+	TRENT_RESINA, TRENT_SAVIA, TRENT_GEISER, AMBAR_BOLA, MICONIDO_FOCO,
+	POLILLA_ORO, POLILLA_CENIZA, POLILLA_ROJO, POLILLA_LLUVIA }
+# POLILLA_* (12/11, 115-118 en las fichas): LA POLILLA Y SUS MUTANTES EN PIXEL (tools/sprites_sdf/polilla_efectos_horno.py).
+# El anillo de las nubes en el color de quien lo suelta (el lila de la normal sigue siendo SIMA_ANILLO, 82: el Polvo
+# dorado, la Nube de ceniza, el Ojo que se abre) y la Lluvia de escamas. Mirados antes que todos los de detras.
 # TRENT_* (03/11, los mutantes del trent): viven en TrentAire (el goteron de la Resina y de la Savia negra, el Geiser).
 # MICONIDO_FOCO (10/11, 114 en las fichas): el Destello del miconido, su cono de luz EN EL SUELO (FocoAire). Mirado
 # antes que todos los de detras.
@@ -176,8 +180,20 @@ const _FOCO := preload("res://scripts/fx/foco_aire.gd")
 const _MODO_TRENT := {Tipo.TRENT_RESINA: TrentAire.Modo.RESINA, Tipo.TRENT_SAVIA: TrentAire.Modo.HUMO,
 	Tipo.TRENT_GEISER: TrentAire.Modo.GEISER}
 
+# LOS DE LA POLILLA EN PIXEL (12/11): la hoja del anillo de su color (o la lluvia), centrada en el circulo.
+const T_LLUVIA_POLILLA := 0.35   # las primeras escamas tocan el suelo
+const _HOJA_POLILLA := {Tipo.SIMA_ANILLO: "anillo60_polvo", Tipo.POLILLA_ORO: "anillo60_oro",
+	Tipo.POLILLA_CENIZA: "anillo60_ceniza", Tipo.POLILLA_ROJO: "anillo70_rojo", Tipo.POLILLA_LLUVIA: "lluvia"}
+
+static func _polilla(padre: Node, f: CombatFormas.Forma, t: int, espera: float) -> Node2D:
+	return EfectoPixel.lanzar(padre, "polilla", String(_HOJA_POLILLA.get(t, "anillo60_polvo")), f.centro, 0, null,
+		maxf(espera, 0.0), -1.0, maxf(BarridoAire.ritmo, 0.05))
+
+
 static func _lanzar_tipo(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 		n_nucleo: float, espera: float) -> Node2D:
+	if t == Tipo.SIMA_ANILLO or t >= Tipo.POLILLA_ORO:
+		return _polilla(padre, f, t, espera)
 	if t == Tipo.ESTELA:
 		return EstelaGolpe.lanzar(padre, f, semilla, espera)
 	if t == Tipo.CORTE:
@@ -260,6 +276,10 @@ static func _lanzar_tipo(padre: Node, f: CombatFormas.Forma, t: int, semilla: in
 static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) -> float:
 	if f == null or f.radio <= 0.0 or t == Tipo.ESTELA:
 		return 0.0   # la estela no se propaga: pega en el instante del golpe
+	if t == Tipo.POLILLA_LLUVIA:
+		return T_LLUVIA_POLILLA
+	if t == Tipo.SIMA_ANILLO or t >= Tipo.POLILLA_ORO:
+		return SimaAire.retraso(SimaAire.Suelo.ANILLO, f, p)
 	# LA EMBESTIDA: cuando el frente del bicho (que sale del origen de la linea) llega a 'p' (ver V_EMBESTIDA).
 	if es_embestida(t, f):
 		return clampf((p - f.origen).dot(f.dir.normalized()) / maxf(f.largo, 1.0), 0.0, 1.0) * t_embestida(f)
@@ -340,6 +360,10 @@ static func t_salir_de(t: int) -> float:
 		return 0.0
 	if t == Tipo.SLIME_PUAS:
 		return SlimeAire.t_salir(SlimeAire.Modo.PUAS)
+	if t == Tipo.POLILLA_LLUVIA:
+		return T_LLUVIA_POLILLA
+	if t >= Tipo.POLILLA_ORO:
+		return SimaAire.T_ANILLO
 	if t == Tipo.MICONIDO_FOCO:
 		return _FOCO.T_ABRE
 	if t == Tipo.AMBAR_BOLA:

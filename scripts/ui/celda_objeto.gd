@@ -545,6 +545,10 @@ const GLIFO_SET := {
 	# REVIENTA: '#' las esporas (claras), '+' el sombrero, '=' el pie. Con SUS tonos (GLIFO_TONOS_MICONIDO).
 	&"miconido": ["#..#.#..#", ".#.....#.", "...+++...", "#.+++++.#", ".+++++++.", "....=....",
 		"...===...", "...===...", "..=====.."],
+	# (12/11, eligio el jefe de tools/glifos_concentracion.py) el ojo del set Concentracion de la polilla, la A OJO INSOMNE:
+	# '#' el rojo de sus ojos, '+' el blanco del aro, '=' la pupila negra en rombo. Con SUS tonos (GLIFO_TONOS_POLILLA).
+	&"polilla": [".........", "..+++++..", ".++###++.", "++##=##++", "+###=###+", "++##=##++", ".++###++.",
+		"..+++++..", "........."],
 }
 # El ACENTO de cada set ('='); sin entrada, su runa oscurecida. El tono claro ('+') es su runa aclarada.
 const GLIFO_ACENTO := {
@@ -564,6 +568,8 @@ const GLIFO_ACENTO := {
 const GLIFO_TONOS := {"+": Color(0.70, 0.77, 0.75), "=": Color(0.59, 0.46, 0.33)}
 # Los de la lamina aprobada (glifos_contagio.TONOS); este tambien tiñe el '#' (las esporas, amarillo palido).
 const GLIFO_TONOS_MICONIDO := {"#": Color8(236, 240, 170), "+": Color8(196, 168, 110), "=": Color8(110, 84, 60)}
+# Los de la lamina aprobada (glifos_concentracion.TONOS). El disco carmesi sale de su runa (runa_polilla.color, oscurecido).
+const GLIFO_TONOS_POLILLA := {"#": Color8(236, 62, 52), "+": Color8(238, 234, 240), "=": Color8(22, 16, 24)}
 
 
 static func tonos_glifo(id: StringName, col: Color) -> Dictionary:
@@ -571,6 +577,8 @@ static func tonos_glifo(id: StringName, col: Color) -> Dictionary:
 		return GLIFO_TONOS
 	if id == &"miconido":
 		return GLIFO_TONOS_MICONIDO
+	if id == &"polilla":
+		return GLIFO_TONOS_POLILLA
 	return {"+": col.lightened(0.55), "=": GLIFO_ACENTO.get(id, col.darkened(0.45))}
 
 

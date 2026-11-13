@@ -467,7 +467,7 @@ func carga_cambiada() -> void:
 # (06/10) MUTA UN PASO EN SU ARBOL: del normal a una de 1a (brotado o punzante, al 50 %), o de una de 1a a la de 2a que
 # salga de ella. Devuelve false si ya no evoluciona mas.
 func mutar(dur: float = 0.0) -> bool:
-	if _dead or data == null:
+	if _dead or data == null or EnemyData.sin_mutantes():
 		return false
 	var sig: Dictionary = data.siguiente_mutacion(mutante, mutacion)
 	if not bool(sig["mut"]):

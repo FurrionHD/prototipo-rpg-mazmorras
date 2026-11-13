@@ -132,7 +132,8 @@ const RUTAS_SETS := ["res://resources/runas/set_slime.tres", "res://resources/ru
 	"res://resources/runas/set_rata.tres", "res://resources/runas/set_rey_rata.tres", "res://resources/runas/set_jabali.tres",
 	"res://resources/runas/set_trent.tres", "res://resources/runas/set_arana.tres",
 	"res://resources/runas/set_escarabajo.tres", "res://resources/runas/set_ciempies.tres",
-	"res://resources/runas/set_segadora.tres", "res://resources/runas/set_miconido.tres"]
+	"res://resources/runas/set_segadora.tres", "res://resources/runas/set_miconido.tres",
+	"res://resources/runas/set_polilla.tres"]
 static var _sets: Array = []
 
 static func sets() -> Array:
@@ -393,6 +394,9 @@ static func efecto_txt(s: RunaSetData) -> String:
 		&"contagio":
 			return "Cuando el portador derrota a un enemigo con Veneno, ese enemigo revienta en una nube de esporas: cada enemigo %s tiene un %s de probabilidad base de quedar Envenenado (un Veneno nuevo, sin las acumulaciones del derrotado). La nube no inflige daño. Si el portador derrota después a uno de esos enemigos mientras sigue envenenado, también revienta." % [
 				cerca_txt(float(p.get("radio", 40.0)), false).replace("al objetivo", "a él").replace("del objetivo", "de él"), _pct(p, "prob", 0.6)]
+		&"concentracion":
+			return "Cada vez que el portador recita bien una frase de un hechizo, el daño mágico que inflige aumenta en un %s, hasta un máximo de %d acumulaciones. Las acumulaciones se mantienen de un hechizo al siguiente hasta que acaba el combate. Si el portador recita mal una frase, pierde todas las acumulaciones." % [
+				_pct(p, "por_frase", 0.04), int(p.get("max", 5))]
 		&"cielo":
 			return "El Daño de Luz y el Daño de Oscuridad del portador aumentan en un %s. Cuando el portador asesta un golpe crítico, tiene un %s de probabilidad base de causar Ceguera al objetivo." % [
 				_pct(p, "dano", 0.20), _pct(p, "ciego", 0.20)]
@@ -549,6 +553,9 @@ static func aplicar(c: Combatant, p: PersonajeData) -> void:
 	var contagio: Dictionary = efecto_activo(p, &"contagio")
 	c.runa_contagio_radio = float(contagio.get("radio", 0.0))
 	c.runa_contagio_prob = float(contagio.get("prob", 0.0))
+	var conc: Dictionary = efecto_activo(p, &"concentracion")
+	c.runa_concentracion_por = float(conc.get("por_frase", 0.0))
+	c.runa_concentracion_max = int(conc.get("max", 0))
 	var filo: Dictionary = efecto_activo(p, &"filo_aire")
 	c.runa_filo_dano = float(filo.get("dano", 0.0))
 	c.runa_filo_mas = float(filo.get("mas", 0.0))

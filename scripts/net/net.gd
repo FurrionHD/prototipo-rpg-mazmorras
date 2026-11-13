@@ -193,7 +193,10 @@ const MAX_CONEXIONES := 32
 #     ficha (solo el basico): un espejo viejo calcularia otro daño.
 #   73 = (10/11) la PROVOCACION de tu personaje florecido: la instantanea lleva en el campo 14 de cada uno de los tuyos
 #     quien le tiene provocado (tu pantalla no deja apuntar a otro).
-const PROTOCOLO := 73
+#   74 = (12/11) la polilla y sus mutantes: estados OJOS_INSOMNES 65 (la pasiva que se ve de la Polilla insomne) y
+#     CONCENTRACION 66 (el set de runas), el rotulo de PASIVA (CombatReacciones.Reaccion.PASIVA, con el estado en el peso) y la
+#     Polilla de luto (ficha nueva). Un build del 73 no sabria pintarlos.
+const PROTOCOLO := 74
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

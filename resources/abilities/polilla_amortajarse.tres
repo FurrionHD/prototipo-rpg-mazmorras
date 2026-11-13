@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_1"]
+script = ExtResource("2")
+estado = 43
+prob = 1.0
+en_objetivo = false
+turns = 2
+
+[resource]
+script = ExtResource("1")
+nombre = "Amortajarse"
+descripcion = "Se envuelve en sus propias alas y la ceniza hace el resto. Durante un rato no está en ningún sitio."
+coste_energia = 0.0
+dano_mult = 0.0
+; (12/11) SE ESCONDE: En las sombras 2 turnos (no se le ve ni se le apunta; se le quita al hacer daño o al recibirlo).
+efectos = [SubResource("SA_1")]
+; QUIETA (0), como el Caparazon del escarabajo: es un buff que no toca a nadie.
+gesto = 0
+fx_estilo = 0
+fx_anim = &"amortajarse"
+cooldown = 4

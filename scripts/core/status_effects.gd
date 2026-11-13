@@ -57,7 +57,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	PARALISIS, ENCAPULLADO,
 	IMANTADO, ADHERIDO, LIMADURAS, EN_VUELO, ORBITA, CORAZA_IMAN, ELITROS, UNA_CABEZA,
 	INFECTADO, FLORECIDO,
-	CONGELADO, DESHIELO }
+	CONGELADO, DESHIELO,
+	OJOS_INSOMNES, CONCENTRACION }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -664,6 +665,24 @@ static var _defs: Dictionary = {
 		"turns": 2, "inmune": [Id.CONGELADO],
 		"descripcion": "Aún chorrea del hielo de antes: no se le puede volver a congelar.",
 	},
+	# LAS PASIVAS QUE SE VEN (12/11, el jefe: "en la ficha del enemigo al inspeccionarlo... como buff permanente e
+	# indisipable, para que se vea visualmente"). Las pone su mutacion al nacer (MutacionData.pasivas_visibles): no se
+	# gastan con los turnos ("pasiva": true, ver Combatant.tick_statuses), salen con "∞" y NO SE PUEDEN DISIPAR (ver
+	# se_puede_disipar: lo que algun dia quite buffs tiene que preguntarlo). Lo que hacen lo hace su campo del Combatant
+	# (aqui resiste_magia); el estado es el cartel. Al golpearlo, su nombre sale encima (CombatReacciones.PASIVA).
+	Id.OJOS_INSOMNES: {
+		"id": Id.OJOS_INSOMNES, "nombre": "Ojos en vela", "icono": "👁", "color": Color(0.92, 0.24, 0.2),
+		"pasiva": true, "turns": 999, "menos_magia": true,
+		"descripcion": "Tiene más ojos que alas y ninguno se cierra.",
+	},
+	# EL SET CONCENTRACION (12/11, el de la Polilla insomne): cada frase bien recitada le pone una carga (hasta el tope del
+	# set) y fallar una se las quita todas (CombatMagia). Cada carga, + el daño magico que diga el set (mult_override). Dura
+	# la pelea: no se gasta por turnos y no sale de ella ("de_la_pelea").
+	Id.CONCENTRACION: {
+		"id": Id.CONCENTRACION, "nombre": "Concentración", "icono": "🕯", "color": Color(0.95, 0.42, 0.36),
+		"turns": 999, "stack_mode": "merge", "max_stacks": 99, "spell_dmg_mult": 1.04, "de_la_pelea": true,
+		"descripcion": "Cada frase bien dicha le afina la voz. Una mal dicha, y vuelta a empezar.",
+	},
 	Id.RESCOLDO: {
 		"id": Id.RESCOLDO, "nombre": "Rescoldo", "icono": "♨", "color": Color(0.85, 0.45, 0.25),
 		"dot": true, "turns": 3, "dot_default": 3.0,
@@ -743,6 +762,17 @@ static var _defs: Dictionary = {
 
 
 # Definicion (Dictionary) de un estado por su Id.
+# ¿Se le puede QUITAR este estado con algo que disipe (12/11)? Las PASIVAS no: son del bicho, no un efecto que lleve
+# encima. Cualquier habilidad o magia que algun dia quite buffs (o estados en general) tiene que pasar por aqui.
+static func se_puede_disipar(id: int) -> bool:
+	return not bool(def(id).get("pasiva", false))
+
+
+# ¿Es una PASIVA de su ficha, de las que se ven como buff (no se gasta, no se disipa)?
+static func es_pasiva(id: int) -> bool:
+	return bool(def(id).get("pasiva", false))
+
+
 static func def(id: int) -> Dictionary:
 	return _defs.get(id, {})
 
@@ -909,8 +939,9 @@ class Instance extends RefCounted:
 		# iria a la quinta entrada.
 		if usos > 0:
 			return "x%d" % usos
-		# El Enroscado no se va por turnos: dura hasta que te sueltan (CombatTactico).
-		if bool(d.get("enrosca", false)) or bool(d.get("pega", false)):
+		# El Enroscado no se va por turnos: dura hasta que te sueltan (CombatTactico). Las PASIVAS no se van nunca.
+		if bool(d.get("enrosca", false)) or bool(d.get("pega", false)) or bool(d.get("pasiva", false)) \
+				or bool(d.get("de_la_pelea", false)):
 			return "∞"
 		return tiempo_restante() if es_tiempo_real() else "%dt" % turns
 
@@ -967,6 +998,8 @@ class Instance extends RefCounted:
 		elif es_tiempo_real():
 			lineas.append("%s  %s  ·  quedan %s" % [
 				str(d.get("icono", "?")), str(d.get("nombre", "?")), tiempo_restante()])
+		elif bool(d.get("pasiva", false)):
+			lineas.append("%s  %s  ·  pasiva (no se puede disipar)" % [str(d.get("icono", "?")), str(d.get("nombre", "?"))])
 		else:
 			lineas.append("%s  %s  ·  %d turno%s" % [
 				str(d.get("icono", "?")), str(d.get("nombre", "?")), turns, "" if turns == 1 else "s"])
@@ -1012,6 +1045,10 @@ class Instance extends RefCounted:
 			lineas.append("Al comienzo de cada turno, tiene un %d %% de probabilidad de perderlo." % roundi(float(d["paralisis"]) * 100.0))
 		if float(d.get("picor", 0.0)) > 0.0:
 			lineas.append("Al comienzo de su turno, pierde un %d %% de la energía que le quede." % roundi(float(d["picor"]) * 100.0))
+		# (12/11) LO QUE LE RESTA A LA MAGIA (la Polilla insomne): la magnitud es la parte que se queda fuera, la de su
+		# Combatant.resiste_magia (asi el numero sale del dato y no del texto).
+		if bool(d.get("menos_magia", false)) and magnitude > 0.0:
+			lineas.append("Recibe un %d %% menos de todo el daño mágico." % roundi(magnitude * 100.0))
 		if bool(d.get("sin_objetos", false)):
 			lineas.append("No puede usar objetos.")
 		# LO QUE ANDA en su turno (el Congelado: 05/11, el jefe, "no tiene descripcion": salia mudo en la ficha).
@@ -1083,6 +1120,9 @@ static func estados_que_salen(statuses: Array) -> Array:
 			continue
 		# El Enroscado es de la pelea (lo sujeta el ciempies de ESA pelea): fuera no hay quien te suelte.
 		if bool(e.d.get("enrosca", false)) or bool(e.d.get("pega", false)):
+			continue
+		# (12/11) Lo que es de ESTA pelea (la Concentracion) y las pasivas de un bicho, tampoco.
+		if bool(e.d.get("de_la_pelea", false)) or bool(e.d.get("pasiva", false)):
 			continue
 		out.append(dict_de_instancia(e))
 	return out

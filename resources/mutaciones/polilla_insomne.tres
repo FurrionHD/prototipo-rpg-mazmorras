@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="MutacionData" format=3]
+
+[ext_resource type="Script" path="res://scripts/actors/enemy/mutacion_data.gd" id="1_mut"]
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="2_ab"]
+[ext_resource type="Resource" path="res://resources/abilities/polilla_ojo_que_se_abre.tres" id="3_ojo"]
+[ext_resource type="Resource" path="res://resources/abilities/polilla_parpado_negro.tres" id="4_par"]
+[ext_resource type="Resource" path="res://resources/abilities/polilla_insomne_basico.tres" id="5_bas"]
+
+; LA POLILLA INSOMNE (12/11, memoria polilla-mutante): el RANGO 2 de las dos polillas. Sale de la Vigilia dorada (la del
+; pavon) y de la Mortaja alada (la de la Polilla de luto), asi que va en SU PROPIO ARCHIVO y la llevan las dos fichas.
+; El TANQUE MAGICO: Voluntad muy alta, Resistencia baja ("hay que pegarle con armas").
+[resource]
+script = ExtResource("1_mut")
+id = &"insomne"
+nombre = "Polilla insomne"
+grado = 2
+desde = Array[StringName]([&"vigilia", &"mortaja"])
+habilidades = Array[ExtResource("2_ab")]([ExtResource("3_ojo"), ExtResource("4_par")])
+sprite = &"insomne"
+; su basico: MAGICO sin elemento (aprovecha su Magia alta)
+basico_propio = ExtResource("5_bas")
+pesos = {"agilidad": 40, "destreza": 16, "fuerza": 10, "magia": 46, "resistencia": 16, "voluntad": 42}
+; SU PASIVA: le entra la MITAD de todo el daño magico. Y se VE en su ficha como buff permanente que no se puede quitar
+; (StatusEffects.Id.OJOS_INSOMNES = 65), y su nombre sale encima al golpearlo con magia.
+resiste_magia = 0.5
+pasivas_visibles = Array[int]([65])
+; MIRADA QUE DEVUELVE: la magia que le entra por delante (120 grados) le devuelve un 25 % a quien la lanzo.
+reflejo_magia = 0.25
+reflejo_angulo = 120.0
+; INSOMNIO: al empezar su turno acerca 15 px a los que esten a 60 o menos (como la Luz que atrae del miconido).
+atrae_radio = 60.0
+atrae_px = 15.0

@@ -3082,8 +3082,9 @@ func _dibujo_reaccion(ev: Dictionary, arena: ArenaCombate, a: Combatant, v: Comb
 			PasivaAire.sobre_cuerpo(arena, PasivaAire.Modo.ESQUIRLAS, caja_a, bulto_de(v), pies_de(v), semilla, vuelo, ritmo,
 				PasivaAire.ESQUIRLAS_HIELO)
 			return
-	if _pantalla._fx != null and CombatReacciones.ROTULO.has(r):
-		_pantalla._fx.texto_sobre(ev["bv"], CombatReacciones.ROTULO[r],
+	var txt_r: String = CombatReacciones.texto_rotulo(float(ev.get("peso", 0.0)))
+	if _pantalla._fx != null and txt_r != "":
+		_pantalla._fx.texto_sobre(ev["bv"], txt_r,
 			CombatReacciones.color_rotulo(float(ev.get("peso", 0.0))), 15)
 
 
@@ -5675,10 +5676,19 @@ func _on_impacto(ev: Dictionary) -> void:
 				(int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1, 0.0,
 				_pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0)
 		return
-	# EL VELO DE LA POLILLA (30/09): si el polvo le ha cegado, un velo sobre los ojos.
+	# EL VELO DE LA POLILLA (30/09): si el polvo le ha cegado, un velo sobre los ojos. (12/11) En pixel, y los jirones del
+	# Miedo si le ha asustado (el Aleteo sombrio, el Parpado negro).
 	if _pantalla.tactico and estilo == CombatFX.Estilo.SIMA_POLVO:
 		var vp: Combatant = _de_bloque(ev["bv"])
+		var ap: Combatant = _de_bloque(ev["ba"])
 		var arena_p: ArenaCombate = _arena()
+		if vp != null and cuerpo_de(vp) != null and arena_p != null and ap != null and _de_las_polillas(cuerpo_de(ap)):
+			var ritmo_p: float = _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0
+			if vp.has_status(StatusEffects.Id.CEGUERA):
+				EfectoPixel.lanzar(arena_p, "polilla", "velo", pies_de(vp), 0, cuerpo_de(vp), 0.0, -1.0, ritmo_p)
+			if vp.has_status(StatusEffects.Id.MIEDO):
+				EfectoPixel.lanzar(arena_p, "polilla", "miedo", pies_de(vp), 0, cuerpo_de(vp), 0.0, -1.0, ritmo_p)
+			return
 		if vp != null and cuerpo_de(vp) != null and arena_p != null and vp.has_status(StatusEffects.Id.CEGUERA):
 			SimaAire.sobre_cuerpo(arena_p, SimaAire.Modo.VELO, Rect2(), bulto_de(vp), pies_de(vp), Color.WHITE,
 				(int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1, 0.0,
@@ -6020,6 +6030,57 @@ func _miconido_pixel(arena: Node, estilo: int, a: Combatant, v: Combatant, vuelo
 				_raices.erase(v)
 				if is_instance_valid(viejo):
 					(viejo as BestiaAire).secar()
+
+
+# (12/11) LA POLILLA Y SUS MUTANTES, en pixel y sin rejilla (los de su lamina aprobada), cada uno en el color de quien
+# lo lanza: lila la normal y la de luto, oro la Vigilia dorada, ceniza la Mortaja alada y rojo la Polilla insomne.
+#   ALA      el basico: el roce de ala en la cara (5 dirs)
+#   POLVO    el polvo en la cara (el Aleteo, las nubes, los conos, la pasiva de tocarla); el velo/miedo, al impacto
+#   ATRAE    el Insomnio: las motas rojas que tiran de los de cerca, sobre ella
+const _ESTILOS_POLILLA := [CombatFX.Estilo.SIMA_ALA, CombatFX.Estilo.SIMA_POLVO, CombatFX.Estilo.SIMA_VELO,
+	CombatFX.Estilo.SIMA_ATRAE]
+
+
+# ¿Es una polilla (la normal, la de luto o una de sus mutantes)? Todas, y solo ellas, aletean.
+func _de_las_polillas(cuerpo: Node2D) -> bool:
+	return cuerpo != null and _tiene_anim_bicho(cuerpo, "aletear")
+
+
+# El color de sus efectos, por su mutacion.
+static func color_polilla(c: Combatant) -> String:
+	if c == null:
+		return "polvo"
+	match c.mutacion:
+		&"vigilia":
+			return "oro"
+		&"mortaja":
+			return "ceniza"
+		&"insomne":
+			return "rojo"
+	return "polvo"
+
+
+func _polilla_pixel(arena: Node, estilo: int, a: Combatant, v: Combatant, vuelo: float, ritmo: float) -> void:
+	var col: String = color_polilla(a)
+	var pies_v: Vector2 = pies_de(v)
+	var espera: float = maxf(vuelo, 0.0)
+	match estilo:
+		CombatFX.Estilo.SIMA_ALA:
+			var hacia: Vector2 = pies_v - pies_de(a)
+			EfectoPixel.lanzar(arena, "polilla", "roce_" + col, pies_v,
+				SpriteLienzo.dir8(hacia) if hacia.length_squared() > 1.0 else 0, null, espera, -1.0, ritmo)
+		CombatFX.Estilo.SIMA_POLVO:
+			EfectoPixel.lanzar(arena, "polilla", "polvo_" + col, pies_v, 0, null, espera, -1.0, ritmo)
+		CombatFX.Estilo.SIMA_VELO:
+			EfectoPixel.lanzar(arena, "polilla", "velo", pies_v, 0, null, espera, -1.0, ritmo)
+		CombatFX.Estilo.SIMA_ATRAE:
+			# una vez por turno suyo aunque tire de varios
+			var cu_a: Node2D = cuerpo_de(a)
+			var f_now: int = Engine.get_process_frames()
+			if cu_a != null and int(cu_a.get_meta(&"atrae_visto", -1)) != f_now:
+				cu_a.set_meta(&"atrae_visto", f_now)
+				EfectoPixel.lanzar(arena, "polilla", "insomnio", EfectoPixel.centro_sprite(cu_a, pies_de(a)), 0, cu_a, espera,
+					-1.0, ritmo)
 
 
 const _MODO_SIMA := {CombatFX.Estilo.SIMA_PORRAZO: SimaAire.Modo.PORRAZO, CombatFX.Estilo.SIMA_TOS: SimaAire.Modo.TOS,
@@ -6638,6 +6699,18 @@ func _dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	if v != null and estilo == CombatFX.Estilo.JABALI_ESPORAS and cuerpo_de(v) != null:
 		JabaliAire.esporas(arena, pies_de(v), v.esporas_radio, (int(ev.get("semilla", 1)) | 1), vuelo)
 		return
+	# (12/11) LA MIRADA QUE DEVUELVE de la Polilla insomne: el destello en sus ojos y la bola roja que vuelve.
+	if v != null and estilo == CombatFX.Estilo.JABALI_REFLEJO and cuerpo_de(v) != null and a != null \
+			and _de_las_polillas(cuerpo_de(a)):
+		var ritmo_m: float = _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0
+		var ojos: Vector2 = EfectoPixel.centro_sprite(cuerpo_de(a), pies_de(a))
+		var esp_m: float = maxf(vuelo - JabaliAire.T_DESTELLO - JabaliAire.T_VUELO, 0.0)
+		EfectoPixel.lanzar(arena, "polilla", "mirada", ojos, 0, null, esp_m, -1.0, ritmo_m)
+		var llega: EfectoPixel = EfectoPixel.lanzar(arena, "polilla", "mirada_llega", pies_de(v), 0, null,
+			esp_m + JabaliAire.T_DESTELLO + JabaliAire.T_VUELO, -1.0, ritmo_m)
+		if llega != null:
+			llega.poner_vuelo("polilla", "mirada_bola", ojos, bulto_de(v).get_center(), JabaliAire.ALTO_BOLA, JabaliAire.T_VUELO)
+		return
 	if v != null and estilo == CombatFX.Estilo.JABALI_REFLEJO and cuerpo_de(v) != null and a != null and cuerpo_de(a) != null:
 		var caja_j: Rect2 = bulto_de(a)
 		var mira_j: Vector2 = _mira_de(cuerpo_de(a))
@@ -6774,6 +6847,10 @@ func _dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 			if a != null:
 				_apretar_vis_enrosque(a)
 			_temblar_presa(v, vuelo)
+		return
+	# LA POLILLA Y SUS MUTANTES EN PIXEL (12/11, tools/sprites_sdf/polilla_efectos_horno.py).
+	if estilo in _ESTILOS_POLILLA and a != null and _de_las_polillas(cuerpo_de(a)):
+		_polilla_pixel(arena, estilo, a, v, vuelo, ritmo)
 		return
 	# EL MICONIDO Y SUS MUTANTES EN PIXEL (10/11, tools/sprites_sdf/miconido_efectos_horno.py).
 	if estilo in _ESTILOS_MICONIDO and a != null and _de_los_miconidos(cuerpo_de(a)):

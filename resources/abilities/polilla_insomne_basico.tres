@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Roce de la mirada"
+descripcion = "No te toca con el cuerpo: se te acerca, abre los ojos de las alas y es la mirada lo que duele."
+coste_energia = 0.0
+dano_mult = 1.0
+; SU BASICO (12/11, el jefe: "que haga daño magico sin elemento y ya, para aprovechar su Magia alta"). Sustituye al roce
+; de ala de la polilla normal. MAGICO y SIN ELEMENTO (escrito: 0 = ninguno).
+es_magico = true
+elemento_golpe = 0
+fx_estilo = 116
+fx_anim = &"embestida"
+fx_estilo_mapa = 163

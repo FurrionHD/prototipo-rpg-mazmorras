@@ -321,6 +321,16 @@ ICONOS = [
         "....oooo....", "..oolwlloo..", ".olwlllwllo.", ".oommmmmmoo.", "...obbbbo...", "..obbbbbbo..",
         "..obooboobo.", "..obbbbbbo..", "...obobob...", "...oooooo...", "c.........c.", "....c......."),
         {'b': (232, 226, 200), 'c': (170, 255, 220)}),
+    # (12/11) LA POLILLA INSOMNE: su pasiva Ojos en vela (el ojo rojo con la pupila en rombo, como el glifo de su set) y el
+    # set Concentracion (una vela encendida: cada frase bien dicha la aviva).
+    ("ojos_insomnes", "Ojos en vela", (0.92, 0.24, 0.2), (
+        "............", "...oooooo...", ".ooccccccoo.", "occcaaaaccco", "occaabbaacco", "ocaabbbbaaco",
+        "occaabbaacco", "occcaaaaccco", ".ooccccccoo.", "...oooooo...", "............", "............"),
+        {'a': (236, 62, 52), 'b': (22, 16, 24), 'c': (238, 234, 240), 'o': (70, 14, 20)}),
+    ("concentracion", "Concentración", (0.95, 0.42, 0.36), (
+        ".....aa.....", "....abba....", "....abba....", ".....aa.....", ".....oo.....", "...oooooo...",
+        "...occcdo...", "...occcdo...", "...occcdo...", "...occcdo...", "..oooooooo..", "............"),
+        {'a': (255, 140, 50), 'b': (255, 236, 140), 'c': (238, 226, 200), 'd': (190, 172, 140), 'o': (60, 40, 30)}),
 ]
 
 
@@ -490,7 +500,7 @@ EMOJI = {
     "🖤": "savia_negra", "🦟": "picor", "💩": "pringado", "🫨": "paralisis", "🧲": "imantado", "⚙": "limaduras",
     "🪽": "en_vuelo", "💤": "una_cabeza", "❄": "congelacion", "🧊": "congelado", "💦": "deshielo", "🌑": "en_sombras", "🦷": "colmillos_rotos",
     "🔮": "foco", "⏳": "cargando", "🤺": "en_guardia", "😮": "sin_fuelle", "💚": "plato_remedio",
-    "🧄": "plato_estomago", "🍀": "plato_fortuna", "🦠": "infectado", "🌿": "florecido",
+    "🧄": "plato_estomago", "🍀": "plato_fortuna", "🦠": "infectado", "🌿": "florecido", "👁": "ojos_insomnes", "🕯": "concentracion",
 }
 
 

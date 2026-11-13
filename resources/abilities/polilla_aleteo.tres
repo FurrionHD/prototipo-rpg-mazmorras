@@ -14,7 +14,9 @@ script = ExtResource("1")
 nombre = "Aleteo cegador"
 descripcion = "Se te viene a la cara y bate. No pega: te llena los ojos de polvo, y a partir de ahí apuntas a bulto."
 coste_energia = 0.0
-dano_mult = 0.7
+dano_mult = 0.73
+; (12/11) MAGICO: es el polvo de las alas (regla del miconido). 0,70 -> 0,73, igual contra hierro (tools/tabla_polilla.gd).
+es_magico = true
 efectos = [SubResource("SA_deb")]
 fx_estilo = 116
 fx_anim = &"aletear"

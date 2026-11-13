@@ -248,6 +248,11 @@ static func poner_parpados(sprite: AnimatedSprite2D, ed: EnemyData, t: float, mu
 	if g != null and g.has_method("ritmo_parpados") and mutante:
 		var r: Array = g.ritmo_parpados()
 		Parpadeo.ritmo(sprite, float(r[0]), float(r[1]), float(r[2]))
+	# (12/11) POR TURNOS (la Polilla insomne): [cada, sin_repetir] o [] si sus grupos van cada uno a su aire.
+	if g != null and g.has_method("turnos_parpados") and mutante:
+		var tp: Array = g.turnos_parpados(ed, mutacion)
+		if tp.size() >= 2:
+			Parpadeo.turnos(sprite, float(tp[0]), int(tp[1]))
 
 
 # ¿Tiene este enemigo SPRITE DE MUTANTE propio (dibujado ya a su tamaño)? Si lo tiene, NO se le estira el x1.2 del

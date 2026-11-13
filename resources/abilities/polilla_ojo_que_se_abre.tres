@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_1"]
+script = ExtResource("2")
+estado = 33
+prob = 0.6
+turns = 2
+
+[resource]
+script = ExtResource("1")
+nombre = "Ojo que se abre"
+descripcion = "Se queda quieta con las alas abiertas y los ojos se le van encendiendo uno detrás de otro. Cuando se abren todos, mirar es lo último que haces en un rato."
+coste_energia = 0.0
+dano_mult = 2.0
+; (12/11) MAGICO de LUZ: carga 1 turno (interrumpible) y suelta un circulo de 70 alrededor suyo, Ceguera 60 %.
+es_magico = true
+elemento_golpe = 4
+area_modo = 1
+area_max = 99
+area_secundario = 0.9
+area_efectos_secundarios = true
+area_prob_secundario = 1.0
+forma = 1
+forma_apunte = 2
+forma_radio = 70.0
+efectos = [SubResource("SA_1")]
+fx_estilo = 14
+cooldown = 4
+carga_turnos = 1
+fx_anim_carga = &"ojo_carga"
+fx_anim = &"ojo"
+fx_anim_interrumpe = &"idle"
+suelo_roto = 117
+fx_estilo_mapa = 164

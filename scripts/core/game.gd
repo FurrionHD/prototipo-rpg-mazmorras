@@ -10022,6 +10022,7 @@ const _MANIFIESTO_MATERIALES := [
 	"res://resources/materials/runa_ciempies.tres",
 	"res://resources/materials/runa_segadora.tres",
 	"res://resources/materials/runa_miconido.tres",
+	"res://resources/materials/runa_polilla.tres",
 	"res://resources/materials/sanguinaria.tres", "res://resources/materials/seta_simas.tres",
 	"res://resources/materials/tablon_anillada.tres",
 	"res://resources/materials/tablon_calcinada.tres",
@@ -10052,10 +10053,10 @@ const _MANIFIESTO_ENEMIGOS := [
 	"res://scenes/actors/enemy/slime.tres", "res://scenes/actors/enemy/slime_abisal.tres",
 	"res://scenes/actors/enemy/slime_fuego.tres", "res://scenes/actors/enemy/slime_profundo.tres",
 	"res://scenes/actors/enemy/slime_veneno.tres", "res://scenes/actors/enemy/trent.tres",
-	# Los cinco de las simas (pisos 7-12).
+	# Los seis de las simas (pisos 7-12; la Polilla de luto, 12/11).
 	"res://scenes/actors/enemy/chillon.tres", "res://scenes/actors/enemy/chupasimas.tres",
 	"res://scenes/actors/enemy/miconido.tres", "res://scenes/actors/enemy/polilla.tres",
-	"res://scenes/actors/enemy/segadora.tres",
+	"res://scenes/actors/enemy/polilla_luto.tres", "res://scenes/actors/enemy/segadora.tres",
 ]
 
 

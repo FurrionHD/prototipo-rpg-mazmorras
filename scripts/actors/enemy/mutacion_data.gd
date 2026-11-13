@@ -214,6 +214,10 @@ class_name MutacionData
 # o menos los acerca atrae_px hacia el (CombatEnemigos._luz_que_atrae).
 @export var atrae_radio: float = 0.0
 @export var atrae_px: float = 15.0
+# (12/11, la Polilla insomne) LAS PASIVAS QUE SE VEN: estados "pasiva" (StatusEffects) con los que nace, para que su
+# pasiva salga en su ficha como un buff permanente que no se puede quitar. Lo que hacen lo hacen sus campos de aqui
+# (resiste_magia...); el estado es el cartel, y al golpearlo sale su nombre encima.
+@export var pasivas_visibles: Array[int] = []
 # NO SIENTE EL DOLOR (el Aventurero florecido): su aguante al control, en vez del de su ficha (EnemyData.resist_aturdir).
 # -1 = el de la ficha.
 @export var resist_aturdir: float = -1.0

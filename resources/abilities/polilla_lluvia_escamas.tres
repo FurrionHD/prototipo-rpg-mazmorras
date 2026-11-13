@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Lluvia de escamas"
+descripcion = "Se eleva sobre un sitio y se sacude. Las escamas bajan despacio, brillando, y queman donde tocan."
+coste_energia = 0.0
+dano_mult = 0.9
+; (12/11) MAGICO de LUZ: un circulo de 40 donde apunta, hasta 120 de ella.
+es_magico = true
+elemento_golpe = 4
+area_modo = 1
+area_max = 99
+area_secundario = 0.9
+forma = 1
+forma_apunte = 3
+forma_radio = 40.0
+forma_rango = 120.0
+fx_estilo = 112
+fx_anim = &"nube"
+cooldown = 4
+suelo_roto = 118
+fx_estilo_mapa = 164

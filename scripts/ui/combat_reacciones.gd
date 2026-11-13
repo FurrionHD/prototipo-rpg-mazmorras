@@ -27,7 +27,9 @@ func _init(pantalla: Pantalla) -> void:
 
 
 # El orden NO se toca: viaja en el peso del rotulo (peso = numero / 10). Las nuevas, al final.
-enum Reaccion { NINGUNA, CONGELA, ROMPE, ESQUIRLAS, DERRITE, SOBRECARGA, EXTIENDE, ESQUIRLA }
+# PASIVA (12/11, la Polilla insomne): no es una reaccion, es el NOMBRE de una pasiva suya que acaba de actuar (los Ojos
+# en vela al entrarle magia). Va por el mismo rotulo; el estado de la pasiva viaja en las milesimas del peso.
+enum Reaccion { NINGUNA, CONGELA, ROMPE, ESQUIRLAS, DERRITE, SOBRECARGA, EXTIENDE, ESQUIRLA, PASIVA }
 
 const ROTULO := {
 	Reaccion.CONGELA: "¡CONGELADO!",
@@ -220,6 +222,33 @@ func _rotulo(atacante: Combatant, victima: Combatant, r: int, elem_color: int = 
 		Elementos.Elemento.NINGUNO, CombatFX.Estilo.AVISO_REACCION, float(r) / 10.0 + float(elem_color) / 1000.0, true)
 
 
+# (12/11) LA PASIVA QUE ACTUA: al entrarle MAGIA a quien tiene una pasiva que se la resta (los Ojos en vela de la Polilla
+# insomne), su nombre sale encima. Una vez por resolucion y bicho (un hechizo de varios golpes no la repite).
+func pasiva_magia(atacante: Combatant, victima: Combatant) -> void:
+	if _pantalla._espejo or victima == null:
+		return
+	var f: int = Engine.get_process_frames()
+	if int(victima.get_meta(&"pasiva_rotulo_f", -1)) == f:
+		return
+	for e in victima.statuses:
+		if bool(e.d.get("pasiva", false)) and bool(e.d.get("menos_magia", false)):
+			victima.set_meta(&"pasiva_rotulo_f", f)
+			_rotulo(atacante, victima, Reaccion.PASIVA, e.id())
+			return
+
+
+# El texto del rotulo de ese peso ("" = ninguno): el de su reaccion, o el NOMBRE de la pasiva.
+static func texto_rotulo(peso: float) -> String:
+	var r: int = de_peso(peso)
+	if r == Reaccion.PASIVA:
+		return String(StatusEffects.def(_extra_de_peso(peso)).get("nombre", "")).to_upper()
+	return String(ROTULO.get(r, ""))
+
+
+static func _extra_de_peso(peso: float) -> int:
+	return int(round((peso * 10.0 - float(de_peso(peso))) * 100.0))
+
+
 # Del peso del aviso a su reaccion (lo usa quien lo pinta, en todas las pantallas).
 static func de_peso(peso: float) -> int:
 	return int(floorf(peso * 10.0 + 0.001))
@@ -228,6 +257,8 @@ static func de_peso(peso: float) -> int:
 # Y su color: el del elemento que lleva el peso, si lo lleva; si no, el de la reaccion.
 static func color_rotulo(peso: float) -> Color:
 	var r: int = de_peso(peso)
+	if r == Reaccion.PASIVA:
+		return StatusEffects.def(_extra_de_peso(peso)).get("color", Color.WHITE)
 	var elem: int = int(round((peso * 10.0 - float(r)) * 100.0))
 	if elem > 0 and Elementos.tiene_color(elem):
 		return Elementos.color(elem)

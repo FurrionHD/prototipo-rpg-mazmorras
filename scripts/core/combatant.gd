@@ -647,6 +647,10 @@ var runa_filo_dano: float = 0.0
 # runa_contagio_radio del borde de su cuerpo, Veneno con runa_contagio_prob (sin daño; en cadena).
 var runa_contagio_radio: float = 0.0
 var runa_contagio_prob: float = 0.0
+# set CONCENTRACION (12/11, la Polilla insomne): cada frase bien recitada, una carga de Id.CONCENTRACION (+ este % de daño
+# magico cada una) hasta runa_concentracion_max; fallar una frase las quita todas (CombatMagia).
+var runa_concentracion_por: float = 0.0
+var runa_concentracion_max: int = 0
 var runa_filo_mas: float = 0.0
 var runa_filo_linea: float = 0.0
 var runa_filo_detras: float = 0.0
@@ -1816,6 +1820,10 @@ func tick_statuses() -> Dictionary:
 		# Se los gasta el reloj DE VERDAD (combat._tick_platos y Game.tick_estados), que corre igual
 		# para todos y no sabe de turnos ni de ATB.
 		if e.es_tiempo_real():
+			kept.append(e)
+			continue
+		# LAS PASIVAS QUE SE VEN (12/11, la Polilla insomne): son de su ficha, no se gastan.
+		if bool(e.d.get("pasiva", false)) or bool(e.d.get("de_la_pelea", false)):
 			kept.append(e)
 			continue
 		e.turns -= 1

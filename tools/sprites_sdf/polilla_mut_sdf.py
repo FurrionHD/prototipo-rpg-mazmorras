@@ -75,10 +75,33 @@ SALIDA = 'assets/sprites/enemigos/polilla_sdf_%s/' % MUT
 VISTAS = 'tools/salida/sdf/polilla_%s/' % MUT
 
 
+# LOS OJOS DE LA INSOMNE PARPADEAN POR SEPARADO (12/11, su pedido: "como el slime de mil ojos"; uno al azar cada 3 s y
+# sin repetir hasta que hayan parpadeado otros dos: eso lo decide el juego, Parpadeo.turnos). El horno saca una hoja de
+# parpados por GRUPO (<anim>_parpado.png, _parpado2...): cada grupo es UN ojo de ala. Cerrado = sus anillos se apagan y
+# queda el panel negro del ala. Solo idle y walk (las demas, sin parpados: con todas el horno pasaba de hora y media).
+PARPADOS = MUT == 'insomne'
+GRUPOS_PARPADO = 6
+# grupo -> (lado, ala, panel): 1-2 el grande de delante, 3-4 el mediano de detras, 5-6 el pequeño de la cola.
+_OJO_DE_GRUPO = {1: (-1, 1, 0), 2: (1, 1, 0), 3: (-1, 2, 0), 4: (1, 2, 0), 5: (-1, 2, 1), 6: (1, 2, 1)}
+
+
+def _ala_con_parpado(cerrados):
+    def fn(add, p, s, A, nombre):
+        ala = 1 if len(A.get('paneles', [])) == 1 else 2
+        ab = list(A.get('abiertos', [1.0] * len(A['paneles'])))
+        for g, (lado, a, k) in _OJO_DE_GRUPO.items():
+            if (cerrados is True or cerrados == g) and lado == s and a == ala:
+                ab[k] = 0.0
+        pp.ala_paneles(add, p, s, dict(A, abiertos=ab), nombre)
+    return fn
+
+
 def escena(pose):
     # El ala de cada una: la generica (vigilia, mortaja) o la de paneles (insomne). polilla_mezcla_versiones envuelve la
     # generica para que acepte un ala por lado; con un ala normal hace lo mismo que la original.
     pv.ala_generica = pp.ala_paneles if MUT == 'insomne' else ast.mz._ala_por_lado
+    if MUT == 'insomne' and pose.get('cerrados'):
+        pv.ala_generica = _ala_con_parpado(pose['cerrados'])
     if pose.get('_evo') is not None and MUT in ORIGEN:
         return _escena_evo(pose)
     if pose.get('_evo') is not None and MUT == 'insomne':

@@ -23,6 +23,13 @@ var _espera_max: float = ESPERA_MAX
 var _principal: AnimatedSprite2D = null
 var _espera: float = 0.0
 var _cerrado: float = -1.0
+# POR TURNOS (12/11, la Polilla insomne: "uno al azar cada 3 s y que no se repita el mismo hasta que hayan parpadeado
+# otros dos"). Los grupos dejan de ir a su aire: la capa principal ("Parpados") es la que MANDA y cada _cada segundos
+# cierra UN grupo al azar de los que no esten entre los ultimos _sin_repetir.
+var _en_turnos: bool = false
+var _cada: float = 3.0
+var _sin_repetir: int = 2
+var _ultimos: Array = []
 
 
 # Le pone (o le cambia) los parpados a 'sprite'. Sin hoja de parpados, se los quita.
@@ -76,6 +83,17 @@ static func ritmo(sprite: AnimatedSprite2D, dura: float, espera_min: float, espe
 			h._espera = minf(h._espera, espera_max)
 
 
+# Los grupos de 'sprite' pasan a parpadear POR TURNOS: uno cada 'cada' s, sin repetir ninguno de los 'sin_repetir' ultimos.
+static func turnos(sprite: AnimatedSprite2D, cada: float, sin_repetir: int) -> void:
+	for h in sprite.get_children():
+		if h is Parpadeo:
+			h._en_turnos = true
+			h._cada = cada
+			h._sin_repetir = sin_repetir
+			if h.name == NOMBRE:
+				h._espera = randf_range(0.3, cada)
+
+
 func _ready() -> void:
 	visible = false
 	_espera = randf_range(0.3, ESPERA_MAX)   # que no empiecen todos a la vez
@@ -83,6 +101,9 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	if _principal == null or not is_instance_valid(_principal):
+		return
+	if _en_turnos:
+		_por_turnos(delta)
 		return
 	if _cerrado >= 0.0:
 		_cerrado -= delta
@@ -96,6 +117,34 @@ func _process(delta: float) -> void:
 	if _espera <= 0.0 and _puede():
 		_cerrado = _dura
 		_copiar()
+
+
+func _por_turnos(delta: float) -> void:
+	if _cerrado >= 0.0:
+		_cerrado -= delta
+		if _cerrado < 0.0:
+			visible = false
+		else:
+			_copiar()
+	if name != NOMBRE:
+		return   # los demas grupos solo cierran cuando los elige el principal
+	_espera -= delta
+	if _espera > 0.0:
+		return
+	_espera = _cada
+	var grupos: Array = _principal.get_children().filter(func(h): return h is Parpadeo)
+	var libres: Array = grupos.filter(func(h): return not _ultimos.has(h.name))
+	if libres.is_empty():
+		libres = grupos
+	if libres.is_empty():
+		return
+	var elegido: Parpadeo = libres[randi() % libres.size()]
+	_ultimos.append(elegido.name)
+	while _ultimos.size() > _sin_repetir:
+		_ultimos.pop_front()
+	if elegido._puede():
+		elegido._cerrado = elegido._dura
+		elegido._copiar()
 
 
 # Muerto no parpadea (tirado con los ojos cerrados de golpe quedaria raro), ni en lo que no tenga parpados.

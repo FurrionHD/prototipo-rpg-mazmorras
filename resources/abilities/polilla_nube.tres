@@ -15,7 +15,10 @@ script = ExtResource("1")
 nombre = "Nube de esporas"
 descripcion = "Bate las alas una sola vez y el polvo lo tapa todo. No hay dónde apartarse: cuando se posa, ya lo tienes en los pulmones."
 coste_energia = 0.0
-dano_mult = 0.4
+dano_mult = 0.42
+; (12/11) MAGICO: es polvo de esporas (regla del miconido). 0,40 -> 0,42 para que contra hierro pegue lo mismo que
+; cuando era fisico (tools/tabla_polilla.gd): contra placas, +55 %; contra tela, -35 %.
+es_magico = true
 area_modo = 1
 area_max = 99
 area_secundario = 0.9
