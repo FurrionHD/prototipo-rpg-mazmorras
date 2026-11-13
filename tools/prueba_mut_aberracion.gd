@@ -120,6 +120,19 @@ func _correr() -> void:
 	_ver(ojo.carga_turnos == 1 and ojo.forma_apunte == CombatFormas.Apunte.ALREDEDOR and is_equal_approx(ojo.forma_radio, 70.0),
 		"El ojo se abre: carga 1 turno, circulo de 70")
 
+	print("3b) LOS SPRITES")
+	_ver(SpritesEnemigo.mutante_propio(ab_ed, &"galvanica"), "la Masa galvanica tiene sprite propio")
+	var sf_g: SpriteFrames = SpritesEnemigo.frames_de(ab_ed, 0.5, true, &"galvanica")
+	var faltan_g: Array = ["idle_0", "walk_0", "embestida_0", "basico_0", "alarido_0", "mirada_0", "encaje_0", "muerte_0",
+		"cadaver_0"].filter(func(an): return sf_g == null or not sf_g.has_animation(StringName(an)))
+	_ver(faltan_g.is_empty(), "con todas sus anims%s" % ("" if faltan_g.is_empty() else " (faltan %s)" % faltan_g))
+	var sf_b: SpriteFrames = SpritesEnemigo.frames_de(ab_ed, 0.5)
+	if sf_g != null and sf_b != null:
+		var at_g = sf_g.get_frame_texture(&"idle_0", 0).get("atlas")
+		var at_b = sf_b.get_frame_texture(&"idle_0", 0).get("atlas")
+		_ver(at_g != null and at_g != at_b and at_g.resource_path.contains("galvanica"),
+			"y se ve con SU dibujo (%s)" % (at_g.resource_path if at_g != null else "?"))
+
 	print("4) AL CREARSE")
 	var c_gal: Combatant = ab_ed.crear_combatant(0.5, true, false, &"galvanica")
 	var c_tor: Combatant = ab_ed.crear_combatant(0.5, true, false, &"tormenta")
@@ -211,10 +224,15 @@ func _correr() -> void:
 	var gm_prob: float = gm.al_ser_golpeado_prob
 	gm.al_ser_golpeado_prob = 1.0
 	yo.status_resist = 0.0
-	combat._pasiva_hecha.clear()
-	combat._pasiva_al_golpearle(gm, yo, 10.0)
+	# (La probabilidad del estado se divide por la resistencia a estados de quien lo recibe -su equipo y sus stats, no solo
+	# status_resist-: no es segura aunque la pasiva salte siempre. Varias tiradas, como los tentaculos.)
+	var tiradas_c: int = 0
+	while not yo.has_status(StatusEffects.Id.RAYO) and tiradas_c < 10:
+		combat._pasiva_hecha.clear()
+		combat._pasiva_al_golpearle(gm, yo, 10.0)
+		tiradas_c += 1
 	gm.al_ser_golpeado_prob = gm_prob
-	_ver(yo.has_status(StatusEffects.Id.RAYO), "pegarle de cerca: Electrizado")
+	_ver(yo.has_status(StatusEffects.Id.RAYO), "pegarle de cerca: Electrizado (%d tiradas)" % tiradas_c)
 	_ver(_log(combat).contains("suelta una descarga sobre"), "y lo dice el registro")
 
 	print("7) INMUNE AL ATURDIDO: LA CARGA SE CORTA CON OTRAS COSAS")

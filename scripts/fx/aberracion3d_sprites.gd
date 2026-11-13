@@ -56,3 +56,37 @@ static func tam_cuerpo(escala: float = 1.0) -> Vector2:
 
 static func generar(color: Color = BASE) -> SpriteFrames:
 	return Sprites3D.montar(CARPETA, ANIMS, LIENZO, BASE, SpriteLienzo.cuantizar_hsv(color, AberracionSprites.COLOR_PASOS))
+
+
+# LOS MUTANTES DE LA ABERRACION (13/11, memoria aberracion-mutante): su carpeta y sus animaciones
+# (tools/sprites_sdf/aberracion_mut_sdf.py). Ya vienen a su tamaño (x1,2 la Masa) y con SU color (sin el tinte del piso).
+# La MASA GALVANICA tiene las mismas anims que la base con el mismo nombre: 'alarido' es su Descarga y 'mirada' su Mirada
+# chispeante (sus habilidades piden esos gestos), asi que sus efectos caen igual.
+const LIENZOS_MUT := {&"galvanica": Vector2i(122, 122)}
+
+
+static func _anims_mutante(_sprite: StringName) -> Dictionary:
+	return ANIMS.duplicate()
+
+
+static func _sprite_mutante(ed: EnemyData, mutacion: StringName) -> StringName:
+	var m: MutacionData = ed.mutacion_de(mutacion) if ed != null else null
+	return m.sprite if m != null and LIENZOS_MUT.has(m.sprite) else &""
+
+
+# --- EL SPRITE DE MUTANTE (contrato de SpritesEnemigo, como Polilla3DSprites) ---
+static func tiene_mutante(ed: EnemyData, mutacion: StringName = &"") -> bool:
+	return _sprite_mutante(ed, mutacion) != &""
+
+
+static func clave_mutante_de(ed: EnemyData, _t: float, mutacion: StringName = &"") -> String:
+	var s: StringName = _sprite_mutante(ed, mutacion)
+	return "" if s == &"" else "aberracion3d_aberracion_sdf_%s" % String(s)
+
+
+static func generar_mutante_de(ed: EnemyData, _t: float, mutacion: StringName = &"") -> SpriteFrames:
+	var s: StringName = _sprite_mutante(ed, mutacion)
+	if s == &"":
+		return null
+	return Sprites3D.montar("res://assets/sprites/enemigos/aberracion_sdf_%s/" % String(s), _anims_mutante(s), LIENZOS_MUT[s],
+		BASE, BASE)

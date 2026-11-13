@@ -34,6 +34,8 @@ prob = 1.0
 [sub_resource type="Resource" id="MUT_galvanica"]
 script = ExtResource("20_mut")
 id = &"galvanica"
+; su sprite propio (aberracion_sdf_galvanica, tools/sprites_sdf/aberracion_mut_sdf.py)
+sprite = &"galvanica"
 nombre = "Masa galvánica"
 grado = 1
 habilidades = Array[ExtResource("21_ab")]([ExtResource("22_lat"), ExtResource("23_des"), ExtResource("24_mir")])
