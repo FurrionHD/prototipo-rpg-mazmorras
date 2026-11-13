@@ -133,6 +133,19 @@ func _correr() -> void:
 		_ver(at_g != null and at_g != at_b and at_g.resource_path.contains("galvanica"),
 			"y se ve con SU dibujo (%s)" % (at_g.resource_path if at_g != null else "?"))
 
+	_ver(SpritesEnemigo.mutante_propio(ab_ed, &"tormenta"), "el Ojo de la tormenta tiene sprite propio")
+	var sf_t: SpriteFrames = SpritesEnemigo.frames_de(ab_ed, 0.5, true, &"tormenta")
+	var faltan_t: Array = ["idle_0", "walk_0", "basico_0", "embestida_0", "rayo_0", "ojo_carga_0", "ojo_0", "tentaculos_0",
+		"encaje_0", "muerte_0", "cadaver_0", "evolucion_0"].filter(func(an): return sf_t == null or not sf_t.has_animation(StringName(an)))
+	_ver(faltan_t.is_empty(), "con sus anims nuevas%s" % ("" if faltan_t.is_empty() else " (faltan %s)" % faltan_t))
+	if sf_t != null:
+		_ver(sf_t.get_frame_count(&"muerte_0") == 12 and sf_t.get_frame_count(&"evolucion_0") == 20 and sf_t.get_frame_count(&"rayo_0") == 10,
+			"muerte 12, evolucion 20 y rayo 10 fotogramas")
+	_ver(_ab("aberracion_rayo_del_ojo").fx_anim == &"rayo" and _ab("aberracion_ojo_se_abre").fx_anim_carga == &"ojo_carga"
+		and _ab("aberracion_ojo_se_abre").fx_anim == &"ojo", "sus habilidades piden sus gestos (rayo, ojo_carga, ojo)")
+	_ver((load("res://scripts/ui/combat_espejo.gd").ANIMS_SUELTAS as Array).has(&"tentaculos"),
+		"el gesto de los tentaculos viaja por la red")
+
 	print("4) AL CREARSE")
 	var c_gal: Combatant = ab_ed.crear_combatant(0.5, true, false, &"galvanica")
 	var c_tor: Combatant = ab_ed.crear_combatant(0.5, true, false, &"tormenta")

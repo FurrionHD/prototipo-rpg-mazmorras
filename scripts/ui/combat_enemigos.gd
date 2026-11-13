@@ -1042,7 +1042,9 @@ func _tentaculos_que_cuelgan(e: Combatant) -> void:
 	for al in _pantalla._aliados_vivos():
 		if t.cuerpo_de(al) == null or t.hueco_entre(al, e) > e.tentaculos_hueco:
 			continue
-		var d: float = golpe_elemental(e, al, e.tentaculos_mult, e.tentaculos_elem, CombatFX.Estilo.FIERA_TENTACULO)
+		# El primero lleva su gesto (los tentaculos que restallan); los demas, solo el golpe.
+		var d: float = golpe_elemental(e, al, e.tentaculos_mult, e.tentaculos_elem, CombatFX.Estilo.FIERA_TENTACULO,
+			&"tentaculos" if partes.is_empty() and esquivan.is_empty() else &"")
 		if d > 0.0:
 			partes.append("%s de daño a %s" % [_pantalla._n(d), al.nombre])
 			tocados.append(al)
@@ -1071,7 +1073,7 @@ func _tentaculos_que_cuelgan(e: Combatant) -> void:
 
 # Un golpe MAGICO de 'e' a 't' fuera de habilidad, de un elemento dado y por 'frac' de lo normal (el corte de viento de la
 # Segadora y los tentaculos del Ojo de la tormenta). Devuelve el daño (0 si lo esquiva).
-func golpe_elemental(e: Combatant, t: Combatant, frac: float, elem: int, estilo: int) -> float:
+func golpe_elemental(e: Combatant, t: Combatant, frac: float, elem: int, estilo: int, anim: StringName = &"") -> float:
 	if e == null or t == null or frac <= 0.0 or not t.is_alive() or not e.is_alive():
 		return 0.0
 	var suyo: int = e.elemento_ataque
@@ -1079,12 +1081,13 @@ func golpe_elemental(e: Combatant, t: Combatant, frac: float, elem: int, estilo:
 	var r: Dictionary = StatsMath.resolve_magico_enemigo(e, t, true)
 	var dano: float = 0.0
 	if r.get("evaded", false):
-		_pantalla.efectos._fx_golpe(e, t, 0.0, false, true, elem, estilo, 0.8, true)
+		_pantalla.efectos._fx_golpe(e, t, 0.0, false, true, elem, estilo, 0.8, true, "", AbilityData.Gesto.AUTO,
+			anim if anim != &"" else null)
 	else:
 		dano = float(r["damage"]) * frac * e.dummy_dmg_out_mult
 		t.take_damage(dano)
 		_pantalla.efectos._fx_golpe(e, t, dano, bool(r.get("crit", false)), false, elem, estilo,
-			0.8, false, "", AbilityData.Gesto.AUTO, null, 0, float(r.get("mult_elem", 1.0)))
+			0.8, false, "", AbilityData.Gesto.AUTO, anim if anim != &"" else null, 0, float(r.get("mult_elem", 1.0)))
 	e.elemento_ataque = suyo
 	return dano
 

@@ -62,11 +62,29 @@ static func generar(color: Color = BASE) -> SpriteFrames:
 # (tools/sprites_sdf/aberracion_mut_sdf.py). Ya vienen a su tamaño (x1,2 la Masa) y con SU color (sin el tinte del piso).
 # La MASA GALVANICA tiene las mismas anims que la base con el mismo nombre: 'alarido' es su Descarga y 'mirada' su Mirada
 # chispeante (sus habilidades piden esos gestos), asi que sus efectos caen igual.
-const LIENZOS_MUT := {&"galvanica": Vector2i(122, 122)}
+const LIENZOS_MUT := {&"galvanica": Vector2i(122, 122), &"tormenta": Vector2i(190, 190)}
+# EL OJO DE LA TORMENTA (13/11): VUELA, y sus anims son todas nuevas ("la forma se parece pero no es igual"): late como una
+# medusa, avanza a latidos, el Chispazo (basico), el Rayo del ojo (rayo), El ojo se abre (ojo_carga en bucle y ojo, el
+# estallido), los Tentaculos que cuelgan (tentaculos), el encaje en el aire, la muerte que cae y la evolucion desde la Masa.
+# 'embestida' es su Chispazo (por si algo pide el gesto de siempre).
+const _MUT_TORMENTA := {
+	"idle": {"hoja": "idle", "dirs": 8, "marcos": 8, "fps": 6.0, "loop": true},
+	"walk": {"hoja": "walk", "dirs": 8, "marcos": 8, "fps": 8.0, "loop": true},
+	"basico": {"hoja": "basico", "dirs": 8, "marcos": 8, "fps": 14.0, "loop": false},
+	"embestida": {"hoja": "basico", "dirs": 8, "marcos": 8, "fps": 14.0, "loop": false},
+	"rayo": {"hoja": "rayo", "dirs": 8, "marcos": 10, "fps": 12.0, "loop": false},
+	"ojo_carga": {"hoja": "ojo_carga", "dirs": 8, "marcos": 8, "fps": 8.0, "loop": true},
+	"ojo": {"hoja": "ojo", "dirs": 8, "marcos": 8, "fps": 12.0, "loop": false},
+	"tentaculos": {"hoja": "tentaculos", "dirs": 8, "marcos": 8, "fps": 14.0, "loop": false},
+	"encaje": {"hoja": "encaje", "dirs": 8, "marcos": 4, "fps": 18.0, "loop": false},
+	"muerte": {"hoja": "muerte", "dirs": 8, "marcos": 12, "fps": 9.0, "loop": false},
+	"cadaver": {"hoja": "muerte", "dirs": 8, "marcos": 1, "desde": 11, "fps": 1.0, "loop": false},
+	"evolucion": {"hoja": "evolucion", "dirs": 8, "marcos": 20, "fps": 10.0, "loop": false},
+}
 
 
-static func _anims_mutante(_sprite: StringName) -> Dictionary:
-	return ANIMS.duplicate()
+static func _anims_mutante(sprite: StringName) -> Dictionary:
+	return _MUT_TORMENTA.duplicate() if sprite == &"tormenta" else ANIMS.duplicate()
 
 
 static func _sprite_mutante(ed: EnemyData, mutacion: StringName) -> StringName:

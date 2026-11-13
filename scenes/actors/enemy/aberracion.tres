@@ -51,6 +51,8 @@ color_fx = Color(0.45, 0.95, 1, 1)
 [sub_resource type="Resource" id="MUT_tormenta"]
 script = ExtResource("20_mut")
 id = &"tormenta"
+; su sprite propio, con sus anims nuevas (aberracion_sdf_tormenta, tools/sprites_sdf/aberracion_mut_sdf.py)
+sprite = &"tormenta"
 nombre = "Ojo de la tormenta"
 grado = 2
 desde = Array[StringName]([&"galvanica"])

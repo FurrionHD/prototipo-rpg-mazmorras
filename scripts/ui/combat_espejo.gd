@@ -1416,7 +1416,8 @@ const MARCA_ANIM := -11
 # (07/11, log de la sala del .exe: "la animacion 'golpe_6_8' no esta en ANIMS_SUELTAS") TAMBIEN los EnemyData.anim_basico:
 # el basico de un bicho no sale de una AbilityData y pide su animacion por el nombre. Lo vigila test_anims_sueltas.gd.
 const ANIMS_SUELTAS := [&"lanzar_puas",   # las puas de la pasiva de espinas (combat._espinas)
-	&"golpe_6_8", &"golpe_5_8", &"golpe_4_6", &"golem_golpe", &"coloso_golpe", &"mino_hachazo"]   # anim_basico
+	&"golpe_6_8", &"golpe_5_8", &"golpe_4_6", &"golem_golpe", &"coloso_golpe", &"mino_hachazo",   # anim_basico
+	&"tentaculos"]   # (13/11) los Tentaculos que cuelgan del Ojo de la tormenta (CombatEnemigos._tentaculos_que_cuelgan)
 var _ult_anim_red: Dictionary = {}   # codigo del atacante -> [codigo de la animacion, gesto] lo ultimo que se le mando
 
 # El numero de la animacion de un golpe (ver MARCA_ANIM). 'anim_de' es lo que recibe _fx_golpe.

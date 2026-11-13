@@ -179,8 +179,265 @@ if MUT == 'galvanica':
         else:
             g = _con_luz(fn)
         ANIMS[nm] = (n, fps, loop, d, g)
-else:
-    raise SystemExit('ABERRACION_MUT=%s: el Ojo de la tormenta va en su paso (anims nuevas, todavia no)' % MUT)
+elif MUT != 'tormenta':
+    raise SystemExit('ABERRACION_MUT=%s: galvanica o tormenta' % MUT)
+
+
+# ------------------------------------------------------------
+#  EL OJO DE LA TORMENTA (13/11): la E a de aberracion_medusa_versiones.py, ANIMADA DE CERO ("la forma se parece pero no
+#  es igual: literal VUELA"). Anims marcadas por el jefe (memoria aberracion-mutante):
+#    idle       late como medusa: se contrae y se expande, sube con cada latido y baja despacio; tentaculos con retraso
+#    walk       avanza a latidos: inclinado hacia donde va, empujon al contraerse, planea; tentaculos de estela
+#    basico     el Chispazo: el aro parpadea y salta la chispa, con un tiron de retroceso
+#    rayo       Rayo del ojo: sube, el aro se cierra sobre la pupila y el disparo la empuja atras
+#    ojo_carga  El ojo se abre, la carga (bucle): sube mas, tentaculos en abanico, el aro se enciende punto a punto
+#    ojo        el estallido: baja de golpe con todo encendido
+#    tentaculos Tentaculos que cuelgan: se tensan y restallan hacia abajo
+#    encaje     sale despedida atras y arriba, se tambalea y se recoloca
+#    muerte     los nervios se apagan uno a uno, cae girando, choca y se desinfla, el aro apagado
+#    evolucion  desde la Masa galvanica: se hincha, se despega del suelo, los tentaculos pasan a colgar y se enciende el aro
+#  EL CUERPO (la masa, el ojo, el aro, los nervios, la boca) va ENTERO en un hueso que sube, se inclina, retrocede y gira;
+#  los TENTACULOS cuelgan de donde nacen con su propio movimiento (ondean, abanico, estela, tension) y, si el cuerpo
+#  baja, se apoyan en el suelo. Sin sombra en el sprite (la pondra el juego).
+# ------------------------------------------------------------
+ALTURA = 20.0          # a la que flota (la F c3 aprobada)
+AURO_N = 16            # puntos del aro del ojo
+_ESC_TOR = 2.6         # la E a (x1,44 de la base)
+
+
+def POSE_T(**k):
+    p = dict(sube=0.0, latido=0.0, inclina=0.0, avance=0.0, gira=0.0, boca=0.6, desinfla=0.0, parpado=0.0,
+             luz=LUZ_NORMAL, iris=4, aro=AURO_N, aro_luz=LUZ_NORMAL, aro_cierra=0.0, onda=0.0, abanico=0.0, estela=0.0,
+             tension=0.0, escala=1.0, finos=1.0, alto=ALTURA, t=0.0)
+    p.update(k)
+    return p
+
+
+def _rot(p):
+    """El giro del cuerpo: guiñada (gira, al caer) y cabeceo (inclina: + = la cara hacia abajo, hacia donde va)."""
+    a, g = p['inclina'], p['gira']
+    cx, sx = math.cos(a), math.sin(a)
+    rx_ = np.array([[1, 0, 0], [0, cx, sx], [0, -sx, cx]])
+    cz, sz = math.cos(g), math.sin(g)
+    rz_ = np.array([[cz, -sz, 0], [sz, cz, 0], [0, 0, 1]])
+    return rz_ @ rx_
+
+
+# (13/11, el jefe: "los tentaculos de la que vuela son lamentables, parecen planos y se fusionan entre si; mejor 6 como el
+# original") SEIS, cada uno en SU GRUPO (contorno propio: no se funden entre si; los dos primeros tramos, en el del cuerpo,
+# para que nazcan de la masa sin costura), mas abiertos hacia fuera (TENT_ABRE) y de un material que se elige para
+# compararlo: TENT_MAT = tent (opacos, el de la base) o tent_t (translucidos).
+TENT_MAT = os.environ.get('TENT_MAT', 'tent_ojo')
+# (13/11, el jefe: "los translucidos, pero menos translucidos y mas marcado que es otra parte del cuerpo, parece plano") SU
+# MATERIAL: morado mas intenso que la carne y con MAS CONTRASTE de sombra a luz (el volumen), y su propia opacidad
+# (Modelo.alfa_mat), TENT_ALFA.
+TENT_ALFA = float(os.environ.get('TENT_ALFA', '0.70'))   # (13/11, eligio la C: 0,70)
+MAT['tent_ojo'] = [(0.22, 0.09, 0.32), (0.46, 0.24, 0.62), (0.66, 0.44, 0.82), (0.88, 0.74, 0.96)]
+TENT_ABRE = 0.3
+TENT_RAIZ = 5.4
+
+
+def _tentaculo_ojo(add, nace, fuera, p, i, n, paso, r0, r1, punta=None):
+    """Un tentaculo que CUELGA: cae casi recto y se curva al final. 'abanico' lo abre hacia fuera, 'estela' lo deja atras
+    (contra donde va), 'onda' lo mece (cada uno en su fase, con retraso hacia la punta), 'tension' > 0 lo tensa recto hacia
+    abajo (el azote) y < 0 lo recoge hacia arriba. Si llega al suelo, se tiende."""
+    fuera = _unit(V((fuera[0], fuera[1], 0.0)))
+    lado = V((fuera[1], -fuera[0], 0.0))
+    atras = V((0.0, -1.0, 0.0))
+    pt = V(nace, dtype=float); rr = r0
+    enr = (0.9, -0.7, 0.8, -0.9, 0.7, -0.8, 0.6, -0.6)[i % 8]
+    ten = p['tension']
+    en_suelo = False      # una vez toca el suelo, se tiende (el grosor que lo apoya va menguando: no vale comparar alturas)
+    for k in range(n):
+        u = k / (n - 1)
+        caida = 1.45 - (p['abanico'] + TENT_ABRE) * 0.75 * (1.0 - 0.5 * u)
+        if ten > 0.0:
+            caida = caida + (1.55 - caida) * ten
+        elif ten < 0.0:
+            caida = caida + ten * 1.6 * u          # recogido: la punta sube
+        sway = (1.0 - max(ten, 0.0)) * (0.35 * math.sin(2 * math.pi * p['onda'] - u * 2.2 + i * 1.9) * u + enr * 0.25 * u * u)
+        d = fuera * math.cos(caida) + V((0.0, 0.0, -math.sin(caida))) + lado * sway + atras * p['estela'] * 0.9 * u
+        if en_suelo:
+            d = fuera + lado * sway * 0.5     # en el suelo: se tiende
+        d = _unit(d)
+        q = pt + d * paso
+        apoyo = r1 * 0.9 + (rr - r1) * 0.55
+        if q[2] <= apoyo:
+            q[2] = apoyo
+            en_suelo = True
+        rb = r0 + (r1 - r0) * min(1.0, (k + 1) / (n - 1))
+        _cono(add, pt, q, rr, rb, TENT_MAT, 1.2 if k < 2 else 0.0, 'cuerpo' if k < 2 else 'tent%d' % i)
+        pt = q; rr = rb
+    if punta:
+        _elip(add, pt, (r1 * 1.3,) * 3, punta, 0, 'nervio')
+
+
+def _raices(r, z, nn, des, an, al):
+    out = []
+    for i in range(nn):
+        a = math.radians(des + 360.0 / nn * i + (7.0, -5.0, 9.0, -8.0, 4.0, -6.0, 5.0, -7.0)[i % 8])
+        f = (math.sin(a), math.cos(a))
+        if f[1] > 0.93:
+            continue      # ninguno justo delante (el ojo y las fauces)
+        out.append((i, f, V((f[0] * r * an, f[1] * r * an, z * al))))
+    return out
+
+
+def _escena_tormenta(pose):
+    p = pose
+    # EL CUERPO, en sus coordenadas (la masa de la base sin tentaculos, la boca abierta), translucida.
+    pal = (p['escala'] - 1.0) / 0.06 + 1.6 * p['latido']
+    pb = ab.POSE(palpita=pal, boca=p['boca'], desinfla=p['desinfla'], parpado=p['parpado'],
+                 aplasta=max(0.0, -0.35 * p['latido']))
+    guardo = ab.TENTACULOS
+    ab.TENTACULOS = 0
+    try:
+        Lc = ab.escena(pb)
+    finally:
+        ab.TENTACULOS = guardo
+    Lc = amv.recolorea(Lc, {'carne': 'carne_t', 'tent': 'tent_t', 'iris': 'iris@%d' % int(p['iris'])})
+    an, al = ab._volumen(pb)
+    T = lambda c: V((c[0] * an, c[1] * an, c[2] * al))
+    e = Escena({'raiz': (np.eye(3), V((0.0, 0.0, 0.0)))}); add = e.add
+    k = int(p['luz'])
+    oj = V((ab.OJO[0], ab.OJO[1] * an, ab.OJO[2] * al))
+    # LOS NERVIOS, que nacen DEL OJO (el corazon de la tormenta), con nudos.
+    puntas = [tuple(T(c)) for c in [(4.4, -3.0, 8.4), (-4.8, 1.6, 7.0), (-0.8, -2.8, 10.6), (2.6, -5.0, 6.0),
+                                    (-3.6, -4.4, 9.0)]]
+    puntas += [tuple(q) for (_i, _f, q) in _raices(4.2, 3.6, 8, 22.5, an, al)]
+    sub = Escena({'raiz': (np.eye(3), V((0.0, 0.0, 0.0)))})
+    amv.nervios(sub.add, oj - V((0.0, 2.6, 0.0)), puntas, nudos=True)
+    for (fn, mat, g, kk, X, h) in sub.L:
+        e.L.append((fn, {'nervio': 'nervio@%d' % k, 'nudo': 'nudo@%d' % k}.get(mat, mat), g, kk, X, h))
+    # LA LUZ DE LA BOCA.
+    bo = V((0.0, ab.BOCA[1] * an + 1.9, max(1.4, ab.BOCA[2] * al)))
+    _elip(add, bo, (2.1, 0.7, 1.2 + 0.6 * p['boca']), 'nudo@%d' % min(5, k + 1), 0, 'nervio')
+    # EL ARO: AURO_N cuentas en el plano de la cara, delante del globo; 'aro' = cuantas encendidas (de una en una, en
+    # sentido horario desde arriba), 'aro_cierra' las junta sobre la pupila (el Rayo).
+    rad = 3.9 * (1.0 - 0.62 * p['aro_cierra'])
+    for j in range(AURO_N):
+        a = math.pi * 0.5 - 2 * math.pi * j / AURO_N
+        lit = j < int(round(p['aro']))
+        mat = 'nervio@%d' % (int(p['aro_luz']) if lit else 0)
+        _elip(add, oj + V((rad * math.cos(a), 2.6 + 0.4 * p['aro_cierra'], rad * 0.97 * math.sin(a))), (0.55, 0.5, 0.55),
+              mat, 0, 'nervio')
+    # TODO EL CUERPO al hueso del vuelo: sube (altura + sube), avanza, se inclina y gira.
+    M = _rot(p)
+    tr = V((0.0, p['avance'], p['alto'] + p['sube']))
+    L = Piezas([(fn, m, g, kk, (M, tr), 'vuelo') for (fn, m, g, kk, _X, _h) in list(Lc) + list(e.L)])
+    L.sombras = []
+    # LOS SEIS TENTACULOS, colgando de donde nacen (en el mundo), cada uno con su contorno.
+    et = Escena({'raiz': (np.eye(3), V((0.0, 0.0, 0.0)))})
+    for (i, f, q) in _raices(TENT_RAIZ, 3.4, 6, 30.0, an, al):
+        _tentaculo_ojo(et.add, M @ q + tr, M @ V((f[0], f[1], 0.0)), p, i, 11, 1.2, 2.2, 0.8)
+    # Los anillos cian donde nacen.
+    for (i, f, q) in _raices(TENT_RAIZ, 1.6 / max(al, 0.2), 6, 30.0, an, al):
+        _elip(et.add, M @ V((q[0], q[1], 1.6)) + tr, (1.4, 1.4, 0.7), 'nervio@%d' % k, 0, 'nervio')
+    L.extend(et.L)
+    return L
+
+
+def _anim_t(claves):
+    """Una anim del Ojo a partir de sus claves: {param: [(t, valor)]}. Los niveles de luz se redondean (escalones)."""
+    def g(t):
+        p = POSE_T(t=t)
+        for k_, cl in claves.items():
+            if callable(cl):
+                p[k_] = cl(t)
+            else:
+                p[k_] = tramos(t, cl)
+        for k_ in ('luz', 'iris', 'aro_luz'):
+            p[k_] = int(round(p[k_]))
+        return p
+    return g
+
+
+if MUT == 'tormenta':
+    MODELO = Modelo(_ESC_TOR, (190, 190), (95, 95), MAT, (0.12, 0.04, 0.12), suaves=('cuerpo',), brillan=_BRILLAN,
+                    corta_suelo=True, especular=('carne', 'tent', 'globo', 'carne_t', 'tent_t'), umbral_especular=0.90,
+                    translucidos=('carne_t', 'tent_t', 'tent_ojo'), alfa=0.45)
+    MODELO.alfa_mat = {'tent_ojo': TENT_ALFA}
+    MODELO.especular = MODELO.especular + ('tent_ojo',)
+    LIENZO = (MODELO.W, MODELO.H)
+    escena = _escena_tormenta
+    W = lambda f=1.0, ph=0.0: (lambda t: math.sin(2 * math.pi * (f * t + ph)))
+    ANIMS = {
+        # LATE COMO MEDUSA: contraer (latido -) = mas estrecha y alta; con cada latido sube un poco y baja despacio. Los
+        # tentaculos ondean a la mitad y con retraso. Los nervios laten 2..4.
+        'idle': (8, 6.0, True, 8, _anim_t({
+            'latido': W(1.0), 'sube': lambda t: 1.2 * math.sin(2 * math.pi * t - 0.9), 'onda': lambda t: t,
+            'luz': lambda t: 3 + math.sin(2 * math.pi * t), 'abanico': lambda t: 0.12 + 0.12 * math.sin(2 * math.pi * t - 1.4)})),
+        # AVANZA A LATIDOS: inclinada, empujon al contraerse (avance +) y planea; tentaculos de estela.
+        'walk': (8, 8.0, True, 8, _anim_t({
+            'inclina': lambda t: 0.22, 'latido': W(1.0), 'avance': lambda t: 1.4 * math.sin(2 * math.pi * t + 0.6),
+            'sube': lambda t: 0.8 * math.sin(2 * math.pi * t - 0.5), 'estela': lambda t: 0.55 + 0.25 * math.sin(2 * math.pi * t - 1.5),
+            'onda': lambda t: 2 * t})),
+        # EL CHISPAZO: el aro parpadea (3 -> 5 -> 3) y un tiron atras.
+        'basico': (8, 14.0, False, 8, _anim_t({
+            'aro_luz': [(0.0, 3), (0.2, 4), (0.35, 5), (0.5, 5), (0.7, 4), (1.0, 3)],
+            'iris': [(0.0, 4), (0.35, 5), (0.6, 5), (1.0, 4)],
+            'avance': [(0.0, 0.0), (0.2, 0.6), (0.4, -1.6), (0.7, -0.6), (1.0, 0.0)],
+            'latido': [(0.0, 0.0), (0.3, -0.6), (0.45, 0.6), (1.0, 0.0)],
+            'onda': lambda t: 0.3 * t})),
+        # RAYO DEL OJO: sube, el aro se cierra sobre la pupila y se enciende; el disparo la empuja atras.
+        'rayo': (10, 12.0, False, 8, _anim_t({
+            'sube': [(0.0, 0.0), (0.35, 2.0), (0.55, 2.2), (0.8, 1.0), (1.0, 0.0)],
+            'aro_cierra': [(0.0, 0.0), (0.4, 1.0), (0.6, 1.0), (0.8, 0.3), (1.0, 0.0)],
+            'aro_luz': [(0.0, 3), (0.2, 4), (0.4, 5), (0.65, 5), (0.85, 4), (1.0, 3)],
+            'iris': [(0.0, 4), (0.4, 5), (0.7, 5), (1.0, 4)],
+            'avance': [(0.0, 0.0), (0.5, 0.4), (0.6, -3.0), (0.8, -1.4), (1.0, 0.0)],
+            'inclina': [(0.0, 0.0), (0.5, 0.08), (0.6, -0.12), (1.0, 0.0)],
+            'tension': [(0.0, 0.0), (0.55, 0.0), (0.62, -0.3), (1.0, 0.0)],
+            'onda': lambda t: 0.4 * t})),
+        # EL OJO SE ABRE, LA CARGA (bucle): arriba, tentaculos en abanico y el aro encendiendose punto a punto.
+        'ojo_carga': (8, 8.0, True, 8, _anim_t({
+            'sube': lambda t: 4.0 + 0.4 * math.sin(2 * math.pi * t), 'abanico': lambda t: 0.9 + 0.08 * math.sin(2 * math.pi * t),
+            'aro': lambda t: AURO_N * (t + 1.0 / 8.0), 'aro_luz': lambda t: 4, 'iris': lambda t: 5, 'luz': lambda t: 4,
+            'latido': lambda t: -0.3 + 0.2 * math.sin(4 * math.pi * t), 'onda': lambda t: t})),
+        # EL ESTALLIDO: baja de golpe con todo a tope, los tentaculos restallan abajo, y vuelve.
+        'ojo': (8, 12.0, False, 8, _anim_t({
+            'sube': [(0.0, 4.0), (0.25, -2.0), (0.45, -1.0), (1.0, 0.0)],
+            'abanico': [(0.0, 0.9), (0.25, 0.0), (1.0, 0.1)],
+            'tension': [(0.0, 0.0), (0.2, 0.9), (0.45, 0.6), (1.0, 0.0)],
+            'latido': [(0.0, -0.3), (0.25, 1.0), (0.5, 0.3), (1.0, 0.0)],
+            'luz': [(0.0, 4), (0.2, 5), (0.5, 5), (0.75, 4), (1.0, 3)],
+            'aro_luz': [(0.0, 4), (0.2, 5), (0.6, 5), (1.0, 3)],
+            'iris': [(0.0, 5), (0.6, 5), (1.0, 4)]})),
+        # TENTACULOS QUE AZOTAN: se recogen y restallan hacia abajo; el cuerpo da un respingo.
+        'tentaculos': (8, 14.0, False, 8, _anim_t({
+            'tension': [(0.0, 0.0), (0.25, -0.8), (0.45, 1.0), (0.65, 0.6), (1.0, 0.0)],
+            'sube': [(0.0, 0.0), (0.25, 1.2), (0.45, -0.8), (1.0, 0.0)],
+            'luz': [(0.0, 3), (0.4, 4), (0.65, 4), (1.0, 3)]})),
+        # ENCAJE EN EL AIRE: despedida atras y arriba, tambaleo, se recoloca.
+        'encaje': (4, 18.0, False, 8, _anim_t({
+            'avance': [(0.0, -3.0), (0.34, -1.6), (0.67, -0.5), (1.0, 0.0)],
+            'sube': [(0.0, 2.2), (0.34, 1.2), (0.67, 0.3), (1.0, 0.0)],
+            'inclina': [(0.0, -0.35), (0.34, 0.18), (0.67, -0.08), (1.0, 0.0)],
+            'latido': [(0.0, 1.0), (0.5, -0.3), (1.0, 0.0)],
+            'luz': [(0.0, 4), (0.5, 3), (1.0, 3)], 'estela': [(0.0, -0.6), (1.0, 0.0)]})),
+        # MUERTE QUE CAE: se apagan los nervios uno a uno y el aro; cae dando vueltas, choca y se desinfla.
+        'muerte': (12, 9.0, False, 8, _anim_t({
+            'luz': [(0.0, 3), (0.15, 2), (0.3, 1), (0.45, 0), (1.0, 0)],
+            'aro': [(0.0, AURO_N), (0.4, 0), (1.0, 0)], 'iris': [(0.0, 4), (0.3, 2), (0.5, 0), (1.0, 0)],
+            'sube': [(0.0, 0.0), (0.15, 1.0), (0.62, -ALTURA), (1.0, -ALTURA)],
+            'gira': [(0.0, 0.0), (0.62, 2.4), (1.0, 2.6)],
+            'inclina': [(0.0, 0.0), (0.4, 0.3), (0.62, 0.1), (1.0, 0.0)],
+            'desinfla': [(0.0, 0.0), (0.62, 0.0), (0.75, 0.55), (0.9, 0.9), (1.0, 1.0)],
+            'latido': [(0.0, 0.0), (0.62, 0.0), (0.66, -0.8), (1.0, 0.0)],
+            'boca': [(0.0, 0.6), (0.3, 1.0), (1.0, 0.7)], 'parpado': [(0.0, 0.0), (0.62, 0.3), (1.0, 0.55)],
+            'abanico': [(0.0, 0.0), (0.5, 0.5), (1.0, 0.8)], 'onda': lambda t: 1.5 * t})),
+        # LA EVOLUCION desde la Masa galvanica: en el suelo y del tamaño de la Masa; se hincha, se despega, los finos
+        # le brotan, y el aro se enciende punto a punto.
+        'evolucion': (20, 10.0, False, 8, _anim_t({
+            'escala': [(0.0, 2.16 / _ESC_TOR), (0.35, 2.16 / _ESC_TOR * 1.06), (0.7, 1.0), (1.0, 1.0)],
+            'sube': [(0.0, -ALTURA), (0.3, -ALTURA), (0.75, 0.6), (0.85, -0.3), (1.0, 0.0)],
+            'latido': [(0.0, 0.0), (0.15, 0.8), (0.3, -0.6), (0.45, 1.0), (0.6, 0.0), (1.0, 0.0)],
+            'finos': [(0.0, 0.0), (0.5, 0.0), (0.85, 1.0), (1.0, 1.0)],
+            'boca': [(0.0, 0.15), (0.6, 0.15), (0.9, 0.6), (1.0, 0.6)],
+            'aro': [(0.0, 0), (0.7, 0), (1.0, AURO_N)], 'aro_luz': [(0.0, 3), (1.0, 3)],
+            'iris': [(0.0, 3), (0.7, 3), (0.85, 4), (1.0, 4)],
+            'luz': [(0.0, 3), (0.4, 4), (0.6, 5), (0.8, 4), (1.0, 3)], 'onda': lambda t: t})),
+    }
 
 
 def modelo_de(pose):
