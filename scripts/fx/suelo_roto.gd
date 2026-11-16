@@ -52,7 +52,12 @@ enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, T
 	REY_ESQUIRLAS,
 	RATA_ESTELA_SOMBRA, RATA_ANILLO_ESQUIRLAS, RATA_SURCO_CRISTAL, RATA_DESTELLO, RATA_TRAICION,
 	TRENT_RESINA, TRENT_SAVIA, TRENT_GEISER, AMBAR_BOLA, MICONIDO_FOCO,
-	POLILLA_ORO, POLILLA_CENIZA, POLILLA_ROJO, POLILLA_LLUVIA }
+	POLILLA_ORO, POLILLA_CENIZA, POLILLA_ROJO, POLILLA_LLUVIA,
+	ABERRACION_DESCARGA, ABERRACION_ARO }
+# ABERRACION_* (13/11, 119-120 en las fichas): LA ABERRACION Y SUS MUTANTES EN PIXEL (tools/sprites_sdf/aberracion_efectos_horno.py):
+# el anillo de chispas de la Descarga (Masa galvanica) y el estallido del aro de El ojo se abre (Ojo de la tormenta). Tambien
+# el ALARIDO (FIERA_ALARIDO) pasa a pixel, y el CONO de la Mirada (FIERA_CONO) lo pinta su gesto, desde el ojo
+# (TacticoPixel.al_gesto): aqui no dibuja nada. Mirados ANTES que los de la polilla (van detras en el enum).
 # POLILLA_* (12/11, 115-118 en las fichas): LA POLILLA Y SUS MUTANTES EN PIXEL (tools/sprites_sdf/polilla_efectos_horno.py).
 # El anillo de las nubes en el color de quien lo suelta (el lila de la normal sigue siendo SIMA_ANILLO, 82: el Polvo
 # dorado, la Nube de ceniza, el Ojo que se abre) y la Lluvia de escamas. Mirados antes que todos los de detras.
@@ -190,8 +195,25 @@ static func _polilla(padre: Node, f: CombatFormas.Forma, t: int, espera: float) 
 		maxf(espera, 0.0), -1.0, maxf(BarridoAire.ritmo, 0.05))
 
 
+# LOS DE LA ABERRACION EN PIXEL (13/11): el Alarido sale de sus fauces (la hoja tiene 5 direcciones: hacia donde mira, la
+# de la forma), la Descarga y el estallido del aro, centrados en ella; el cono de la Mirada no se pinta aqui (su gesto).
+static func _aberracion(padre: Node, f: CombatFormas.Forma, t: int, espera: float) -> Node2D:
+	var ritmo: float = maxf(BarridoAire.ritmo, 0.05)
+	match t:
+		Tipo.FIERA_ALARIDO:
+			var d: int = SpriteLienzo.dir8(f.dir) if f.dir.length_squared() > 0.01 else 0
+			return EfectoPixel.lanzar(padre, "aberracion", "alarido", f.centro, d, null, maxf(espera, 0.0), -1.0, ritmo)
+		Tipo.ABERRACION_DESCARGA:
+			return EfectoPixel.lanzar(padre, "aberracion", "descarga", f.centro, 0, null, maxf(espera, 0.0), -1.0, ritmo)
+		Tipo.ABERRACION_ARO:
+			return EfectoPixel.lanzar(padre, "aberracion", "aro_estalla", f.centro, 0, null, maxf(espera, 0.0), -1.0, ritmo)
+	return null
+
+
 static func _lanzar_tipo(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 		n_nucleo: float, espera: float) -> Node2D:
+	if t in [Tipo.ABERRACION_DESCARGA, Tipo.ABERRACION_ARO, Tipo.FIERA_ALARIDO, Tipo.FIERA_CONO]:
+		return _aberracion(padre, f, t, espera)
 	if t == Tipo.SIMA_ANILLO or t >= Tipo.POLILLA_ORO:
 		return _polilla(padre, f, t, espera)
 	if t == Tipo.ESTELA:
@@ -276,6 +298,8 @@ static func _lanzar_tipo(padre: Node, f: CombatFormas.Forma, t: int, semilla: in
 static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) -> float:
 	if f == null or f.radio <= 0.0 or t == Tipo.ESTELA:
 		return 0.0   # la estela no se propaga: pega en el instante del golpe
+	if t == Tipo.ABERRACION_DESCARGA or t == Tipo.ABERRACION_ARO:
+		return FieraAire.retraso(Tipo.FIERA_ALARIDO - Tipo.FIERA_ARROLLA, f, p)   # sale de ella, como el Alarido
 	if t == Tipo.POLILLA_LLUVIA:
 		return T_LLUVIA_POLILLA
 	if t == Tipo.SIMA_ANILLO or t >= Tipo.POLILLA_ORO:
@@ -360,6 +384,8 @@ static func t_salir_de(t: int) -> float:
 		return 0.0
 	if t == Tipo.SLIME_PUAS:
 		return SlimeAire.t_salir(SlimeAire.Modo.PUAS)
+	if t == Tipo.ABERRACION_DESCARGA or t == Tipo.ABERRACION_ARO:
+		return FieraAire.t_salir(Tipo.FIERA_ALARIDO - Tipo.FIERA_ARROLLA)
 	if t == Tipo.POLILLA_LLUVIA:
 		return T_LLUVIA_POLILLA
 	if t >= Tipo.POLILLA_ORO:

@@ -556,6 +556,10 @@ var chupa_enraizados: float = 0.0
 # (09/11, los mutantes del MICONIDO, ver MutacionData) LUZ QUE ATRAE: a quien acerca al empezar su turno, y cuanto.
 var atrae_radio: float = 0.0
 var atrae_px: float = 15.0
+# (13/11, el Ojo de la tormenta) TENTACULOS QUE CUELGAN: ver MutacionData. 0 = no.
+var tentaculos_hueco: float = 0.0
+var tentaculos_mult: float = 0.35
+var tentaculos_elem: int = 3
 # Lo que anda en el mapa en su turno, por esto (la rata acorazada: CombatTactico.radio_de).
 var mov_mult: float = 1.0
 # (06/10, los del slime ABISAL) DEJA ESTRELLAS al moverse en la pelea (las piezas de sus ataques, ver
@@ -671,6 +675,9 @@ var runa_escudo_agua: float = 0.0       # lo que le queda al escudo
 var runa_escudo_max: float = 0.0        # con lo que empezo (para la burbuja y el tramo azul de su barra, 09/10)
 var runa_agua_paradas: int = 0          # cuantos Lento/Congelacion ha parado (la burbuja destella al subir)
 var runa_agua_rota: bool = false        # se acaba de romper (quien lo rompio se moja: combat_enemigos)
+# (13/11) set JAULA DE FARADAY: al LANZAR un hechizo, escudo = su coste de maná base x esto, en la MISMA capa que el de
+# agua (las dos son de armadura: nunca juntas). Lo propio de la Marea (parar Lento/Frio, mojar al que lo rompe) no va aqui.
+var runa_jaula: float = 0.0
 var runa_corona_aliados: float = 0.0    # set Corona: -% a los aliados pegados a ti...
 var runa_corona_umbral: float = 0.0     # ...y si uno baja de esta vida, provocas
 var runa_corona_turnos: int = 0
@@ -1218,7 +1225,7 @@ func take_damage(amount: float, es_dot: bool = false) -> void:
 			runa_escudo_agua -= come
 			amount -= come
 			if runa_escudo_agua <= 0.0:
-				runa_agua_rota = true
+				runa_agua_rota = not escudo_es_jaula()   # (mojar al que lo rompe es de la Marea, no de la Jaula)
 				print("[runas] %s: se rompe su escudo de agua" % nombre)
 		# ...y la costra de ambar (el Tocon ambarino) igual, despues del agua.
 		if costra > 0.0 and amount > 0.0:
@@ -1264,6 +1271,10 @@ func costra_vista() -> float:
 
 func agua_vista() -> float:
 	return vis_agua if vis_agua >= 0.0 else runa_escudo_agua
+
+# ¿El escudo de la capa de agua es el de la JAULA DE FARADAY (13/11)? Para pintarlo violeta con nervios (burbuja y tramo).
+func escudo_es_jaula() -> bool:
+	return runa_jaula > 0.0
 
 
 # (04/11, los mutantes del escarabajo: MutacionData)
@@ -1515,7 +1526,7 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 		print("[estado] %s es INMUNE a %s" % [nombre, String(d.get("nombre", "?"))])
 		return
 	# El ESCUDO DE AGUA de las runas (set Marea): mientras dura, ni Lento ni Frio (ni Congelado, 12/11).
-	if runa_escudo_agua > 0.0 and (id == StatusEffects.Id.LENTO or id == StatusEffects.Id.CONGELACION 			or id == StatusEffects.Id.CONGELADO):
+	if runa_escudo_agua > 0.0 and not escudo_es_jaula() and (id == StatusEffects.Id.LENTO or id == StatusEffects.Id.CONGELACION 			or id == StatusEffects.Id.CONGELADO):
 		print("[runas] %s: el escudo de agua para el %s" % [nombre, String(d.get("nombre", "?"))])
 		runa_agua_paradas += 1
 		return

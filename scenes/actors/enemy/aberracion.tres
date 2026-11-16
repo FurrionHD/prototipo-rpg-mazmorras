@@ -7,11 +7,70 @@
 [ext_resource type="Resource" path="res://resources/materials/icor.tres" id="5_ico"]
 [ext_resource type="Resource" uid="uid://jygehc31a8gd" path="res://resources/abilities/aberracion_mirada.tres" id="5_mir"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_aberracion.tres" id="6_nuc"]
+[ext_resource type="Script" path="res://scripts/actors/enemy/mutacion_data.gd" id="20_mut"]
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="21_ab"]
+[ext_resource type="Resource" path="res://resources/abilities/aberracion_latigazo_galvanico.tres" id="22_lat"]
+[ext_resource type="Resource" path="res://resources/abilities/aberracion_descarga.tres" id="23_des"]
+[ext_resource type="Resource" path="res://resources/abilities/aberracion_mirada_chispeante.tres" id="24_mir"]
+[ext_resource type="Resource" path="res://resources/abilities/aberracion_rayo_del_ojo.tres" id="25_ray"]
+[ext_resource type="Resource" path="res://resources/abilities/aberracion_ojo_se_abre.tres" id="26_ojo"]
+[ext_resource type="Resource" path="res://resources/abilities/aberracion_tormenta_basico.tres" id="27_bas"]
+[ext_resource type="Resource" path="res://resources/materials/runa_aberracion.tres" id="28_runa"]
 
 [sub_resource type="Resource" id="SA_deb"]
 script = ExtResource("2_sa")
 estado = 4
 prob = 0.45
+
+; La Electrizacion de la PASIVA CONDUCTORA de la Masa galvanica (al_ser_golpeado: al que le pega de cerca).
+[sub_resource type="Resource" id="SA_cond"]
+script = ExtResource("2_sa")
+estado = 8
+prob = 1.0
+
+; LOS MUTANTES DE LA ABERRACION (13/11, memoria aberracion-mutante; numeros de tools/tabla_aberracion.gd). Llevan el set de
+; armadura magico (Jaula de Faraday). Van hacia una MEDUSA ELECTRICA, morado + cian:
+;     Aberracion de la sima --> Masa galvanica (translucida, nervios a la vista) --come mas--> Ojo de la tormenta (flota)
+[sub_resource type="Resource" id="MUT_galvanica"]
+script = ExtResource("20_mut")
+id = &"galvanica"
+; su sprite propio (aberracion_sdf_galvanica, tools/sprites_sdf/aberracion_mut_sdf.py)
+sprite = &"galvanica"
+nombre = "Masa galvánica"
+grado = 1
+habilidades = Array[ExtResource("21_ab")]([ExtResource("22_lat"), ExtResource("23_des"), ExtResource("24_mir")])
+pesos = {"agilidad": 22, "destreza": 16, "fuerza": 36, "magia": 32, "resistencia": 36, "voluntad": 28}
+; PASIVA CONDUCTORA: al que le pega CUERPO A CUERPO, 30 % de dejarlo Electrizado. Conserva la Carne que se cierra.
+al_ser_golpeado_propio = true
+al_ser_golpeado = [SubResource("SA_cond")]
+al_ser_golpeado_prob = 0.3
+al_ser_golpeado_texto = "una descarga"
+al_ser_golpeado_fx = 236
+color_fx = Color(0.45, 0.95, 1, 1)
+
+[sub_resource type="Resource" id="MUT_tormenta"]
+script = ExtResource("20_mut")
+id = &"tormenta"
+; su sprite propio, con sus anims nuevas (aberracion_sdf_tormenta, tools/sprites_sdf/aberracion_mut_sdf.py)
+sprite = &"tormenta"
+nombre = "Ojo de la tormenta"
+grado = 2
+desde = Array[StringName]([&"galvanica"])
+habilidades = Array[ExtResource("21_ab")]([ExtResource("25_ray"), ExtResource("26_ojo")])
+; su basico: un chispazo MAGICO de Rayo (su Fuerza 10 no da para nada)
+basico_propio = ExtResource("27_bas")
+pesos = {"agilidad": 26, "destreza": 12, "fuerza": 10, "magia": 50, "resistencia": 28, "voluntad": 44}
+; FLOTA (el viento le corta las cargas), INMUNE AL ATURDIDO (idea del jefe: hay que cortarle El ojo se abre con Miedo o
+; moviendola) y SIN la Carne que se cierra.
+vuela = true
+inmune_estados = [7]
+sin_regen = true
+; TENTACULOS QUE CUELGAN: al empezar su turno, a todos los tuyos pegados a ella (el hueco del cuerpo a cuerpo, 30), un
+; latigazo MAGICO de Rayo de 0,35 de su golpe magico (CombatEnemigos._tentaculos_que_cuelgan).
+tentaculos_hueco = 30.0
+tentaculos_mult = 0.35
+tentaculos_elem = 3
+color_fx = Color(0.45, 0.95, 1, 1)
 
 [resource]
 script = ExtResource("1_g8nro")
@@ -21,11 +80,14 @@ centro_suelo = 0.39
 color = Color(0.45, 0.2, 0.5, 1)
 escala_visual = 1.8
 sprite_gen = &"aberracion"
-fuerza = 55
-resistencia = 40
-destreza = 25
-agilidad = 25
-magia = 25
+; (13/11, memoria aberracion-mutante) estrena VOLUNTAD (antes caia a la Magia: defendia como V25); sigue sumando 170. Su
+; kit sigue FISICO y su basico pega igual (+1 %, tools/tabla_aberracion.gd).
+fuerza = 50
+resistencia = 38
+destreza = 22
+agilidad = 24
+magia = 18
+voluntad = 18
 base_hp = 62.0
 base_attack = 5.2
 base_defense = 3.8
@@ -45,6 +107,7 @@ resist_elemental = {
 status_resist = 1.7
 fx_basico = 34
 habilidades = [ExtResource("3_emb"), ExtResource("4_chi"), ExtResource("5_mir")]
+mutaciones = Array[ExtResource("20_mut")]([SubResource("MUT_galvanica"), SubResource("MUT_tormenta")])
 ; ALCANCE del basico en el mapa (30/09): llega con los tentaculos.
 alcance = 35.0
 ; PASIVA CARNE QUE SE CIERRA (30/09): al empezar su turno se cura el 8% de su vida; la LUZ (4) se la corta 2 turnos
@@ -58,3 +121,5 @@ metadata/_custom_type_script = "uid://le6jfvhlcbou"
 cuerpo = Rect2(-12.94, -9.56, 24.06, 16.67)
 centro_golpe = Vector2(-0.17, -0.67)
 alcance_marcado = 31.11
+; (13/11) LA RUNA de su set Jaula de Faraday (la sueltan sobre todo sus mutantes: Runas.DROP_RUNA).
+drop_runa = ExtResource("28_runa")

@@ -91,6 +91,9 @@ func _enemy_turn(e: Combatant) -> void:
 	costra_vuelve(e)
 	_chupar_enraizados(e)
 	_luz_que_atrae(e)
+	_tentaculos_que_cuelgan(e)
+	if _pantalla._state == _pantalla.State.FINISHED:
+		return
 	if _pantalla.tactico:
 		_pantalla.turno_mapa.nube_infecta(e)
 	# Estados alterados (KAN-58): tick al inicio del turno del enemigo.
@@ -1020,6 +1023,73 @@ func _luz_que_atrae(e: Combatant) -> void:
 		_pantalla._log_extra("👁 Los ojos de %s tiran de %s." % [_pantalla._etq(e), ", ".join(nombres)])
 	else:
 		_pantalla._log_extra("☀ La luz de %s atrae a %s." % [_pantalla._etq(e), ", ".join(nombres)])
+
+
+# TENTACULOS QUE CUELGAN (13/11, el Ojo de la tormenta, ver MutacionData): al empezar su turno, un latigazo automatico a
+# todos los tuyos que tenga pegados (hueco <= tentaculos_hueco: el del cuerpo a cuerpo, debajo o al lado). Es su golpe
+# MAGICO del elemento de sus tentaculos por tentaculos_mult, resuelto como el corte de viento (se esquiva, lo para la
+# Voluntad y la armadura magica). Solo en el mapa (en la fila no hay "debajo") y quien lleva la pelea: el daño y los
+# numeros llegan a los espejos por el camino de siempre.
+func _tentaculos_que_cuelgan(e: Combatant) -> void:
+	if e.tentaculos_hueco <= 0.0 or not e.is_alive() or _pantalla._espejo or not _pantalla.tactico:
+		return
+	var t = _pantalla.turno_mapa
+	if t.cuerpo_de(e) == null:
+		return
+	var partes: Array = []
+	var esquivan: Array = []
+	var tocados: Array = []
+	for al in _pantalla._aliados_vivos():
+		if t.cuerpo_de(al) == null or t.hueco_entre(al, e) > e.tentaculos_hueco:
+			continue
+		# El primero lleva su gesto (los tentaculos que restallan); los demas, solo el golpe.
+		var d: float = golpe_elemental(e, al, e.tentaculos_mult, e.tentaculos_elem, CombatFX.Estilo.ABERRACION_CUELGAN,
+			&"tentaculos" if partes.is_empty() and esquivan.is_empty() else &"")
+		if d > 0.0:
+			partes.append("%s de daño a %s" % [_pantalla._n(d), al.nombre])
+			tocados.append(al)
+		else:
+			esquivan.append(al.nombre)
+	if partes.is_empty() and esquivan.is_empty():
+		return
+	_pantalla._update_hp()
+	var linea: String = "⚡ Los tentáculos de %s azotan a quien tiene debajo" % _pantalla._etq(e)
+	if not partes.is_empty():
+		linea += " e infligen " + ", ".join(partes)
+	if not esquivan.is_empty():
+		linea += ("; " if not partes.is_empty() else ": ") + ", ".join(esquivan) + (" lo esquiva" if esquivan.size() == 1
+			else " lo esquivan")
+	_pantalla._log_extra(linea)
+	print("[tentaculos] %s: %s" % [e.nombre, linea])
+	# Los que caen, caen como con cualquier golpe (CombatEnemigos, los hechizos de enemigo); si no queda nadie, se acaba.
+	var alguno_cayo: bool = false
+	for al in tocados:
+		if not (al as Combatant).is_alive():
+			_pantalla.altas._caer_aliado(al)
+			alguno_cayo = true
+	if alguno_cayo and _pantalla.altas.derrota():
+		_pantalla._end(false)
+
+
+# Un golpe MAGICO de 'e' a 't' fuera de habilidad, de un elemento dado y por 'frac' de lo normal (el corte de viento de la
+# Segadora y los tentaculos del Ojo de la tormenta). Devuelve el daño (0 si lo esquiva).
+func golpe_elemental(e: Combatant, t: Combatant, frac: float, elem: int, estilo: int, anim: StringName = &"") -> float:
+	if e == null or t == null or frac <= 0.0 or not t.is_alive() or not e.is_alive():
+		return 0.0
+	var suyo: int = e.elemento_ataque
+	e.elemento_ataque = elem
+	var r: Dictionary = StatsMath.resolve_magico_enemigo(e, t, true)
+	var dano: float = 0.0
+	if r.get("evaded", false):
+		_pantalla.efectos._fx_golpe(e, t, 0.0, false, true, elem, estilo, 0.8, true, "", AbilityData.Gesto.AUTO,
+			anim if anim != &"" else null)
+	else:
+		dano = float(r["damage"]) * frac * e.dummy_dmg_out_mult
+		t.take_damage(dano)
+		_pantalla.efectos._fx_golpe(e, t, dano, bool(r.get("crit", false)), false, elem, estilo,
+			0.8, false, "", AbilityData.Gesto.AUTO, anim if anim != &"" else null, 0, float(r.get("mult_elem", 1.0)))
+	e.elemento_ataque = suyo
+	return dano
 
 
 # Y VUELVE A BROTAR ENTERA a los costra_turnos turnos suyos (al empezar el que toca). Tambien la CAPA DE AMBAR de los
@@ -2050,21 +2120,7 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 # elemento VIENTO (su multiplicador por material, el aire y lo quemado, Elementos.mult_recibido) y de 'frac' x ese golpe.
 # Se esquiva como un hechizo. Devuelve el daño hecho.
 func corte_viento(e: Combatant, t: Combatant, frac: float) -> float:
-	if e == null or t == null or frac <= 0.0 or not t.is_alive() or not e.is_alive():
-		return 0.0
-	var suyo: int = e.elemento_ataque
-	e.elemento_ataque = Elementos.Elemento.VIENTO
-	var r: Dictionary = StatsMath.resolve_magico_enemigo(e, t, true)
-	var dano: float = 0.0
-	if r.get("evaded", false):
-		_pantalla.efectos._fx_golpe(e, t, 0.0, false, true, Elementos.Elemento.VIENTO, CORTE_ESTILO, 0.8, true)
-	else:
-		dano = float(r["damage"]) * frac * e.dummy_dmg_out_mult
-		t.take_damage(dano)
-		_pantalla.efectos._fx_golpe(e, t, dano, bool(r.get("crit", false)), false, Elementos.Elemento.VIENTO, CORTE_ESTILO,
-			0.8, false, "", AbilityData.Gesto.AUTO, null, 0, float(r.get("mult_elem", 1.0)))
-	e.elemento_ataque = suyo
-	return dano
+	return golpe_elemental(e, t, frac, Elementos.Elemento.VIENTO, CORTE_ESTILO)
 
 # Como se ve el corte (el de la Segadora; sus cortes en pixel van con los efectos, paso 6 del plan).
 const CORTE_ESTILO := CombatFX.Estilo.INSECTO_VIENTO

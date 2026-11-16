@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"runa_aberracion"
+nombre = "Runa de aberración"
+descripcion = "Una piedra blanda al tacto, casi tibia. Si la miras de cerca se le ven dentro unos hilos que se encienden y se apagan, como si pensara."
+familia = 0
+tipo = 13
+tier = 1
+exigencia = 0.0
+peso_base = 0.1
+valor_base = 180
+; (13/11) VIOLETA ELECTRICO: el disco del sello es este oscurecido un 35 % (tools/glifos_faraday.py). Ni el cian de la
+; araña (0,36 / 0,8 / 0,92) ni el morado gris de la rata (0,55 / 0,45 / 0,6).
+color = Color(0.62, 0.3, 0.9, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

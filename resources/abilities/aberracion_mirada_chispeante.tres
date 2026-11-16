@@ -1,0 +1,36 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_ray"]
+script = ExtResource("2")
+estado = 8
+prob = 0.6
+
+[sub_resource type="Resource" id="SA_miedo"]
+script = ExtResource("2")
+estado = 19
+prob = 0.3
+
+; MIRADA CHISPEANTE (13/11, memoria aberracion-mutante): la Mirada de la base (cono estrecho y largo, 120 px y 30 grados)
+; pasada a RAYO MAGICO 0,60: menos Miedo (30 %) y mas Electrizado (60 %), para preparar la Descarga. EFECTOS: los de la
+; Mirada (provisionales).
+[resource]
+script = ExtResource("1")
+nombre = "Mirada chispeante"
+descripcion = "El ojo se le llena de chispas y te mira. No da tanto miedo como antes; da algo peor, un hormigueo que no se va."
+coste_energia = 0.0
+dano_mult = 0.6
+es_magico = true
+elemento_golpe = 3
+efectos = [SubResource("SA_ray"), SubResource("SA_miedo")]
+fx_anim = &"mirada"
+fx_estilo = 33
+cooldown = 4
+forma = 2
+forma_apunte = 1
+forma_radio = 120.0
+forma_apertura = 30.0
+fx_estilo_mapa = 235
+suelo_roto = 84

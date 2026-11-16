@@ -348,6 +348,11 @@ def pintar(mo, L, dir_i, t, hi, mats, grupos, n, ao, sub=None):
             solo = np.asarray(sub(mo2, L_cl, dir_i)).astype(float) / 255.0
             es_claro = (solo[:, :, 3] > 0) & (np.abs(solo[:, :, :3] - detras[:, :, :3]).sum(axis=2) < 0.02)
             a = np.where(es_claro, getattr(mo, 'alfa_claro', 0.15), a)
+        # (13/11, los tentaculos del Ojo de la tormenta) UNA OPACIDAD POR MATERIAL: {material: alfa} para los translucidos que
+        # no van con la del modelo (menos transparentes que la carne). Sin 'alfa_mat', todo como antes.
+        for m_a, al_a in getattr(mo, 'alfa_mat', {}).items():
+            if m_a in mo.nombres:
+                a = np.where(matmap == mo.nombres.index(m_a), al_a, a)
         fuera = a + (1.0 - a) * ad
         for ch in range(3):
             mezcla = (sal[:, :, ch] * a + detras[:, :, ch] * ad * (1.0 - a)) / np.maximum(fuera, 1e-6)

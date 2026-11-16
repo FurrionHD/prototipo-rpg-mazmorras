@@ -221,3 +221,17 @@ class_name MutacionData
 # NO SIENTE EL DOLOR (el Aventurero florecido): su aguante al control, en vez del de su ficha (EnemyData.resist_aturdir).
 # -1 = el de la ficha.
 @export var resist_aturdir: float = -1.0
+# (13/11, el Ojo de la tormenta, memoria aberracion-mutante) Lo que la ficha del enemigo ya sabia decir y la mutacion no:
+# VUELA (para el viento va en el aire, como EnemyData.vuela; solo suma: false = lo de su enemigo), ESTADOS A LOS QUE ES
+# INMUNE ademas de los de su enemigo (el Ojo: el Aturdido; el Miedo SI le entra, por eso no vale resist_aturdir, que
+# frena los dos) y SIN REGENERACION (pierde la Carne que se cierra de la aberracion: EnemyData.regen_turno).
+@export var vuela: bool = false
+@export var inmune_estados: Array = []
+@export var sin_regen: bool = false
+# TENTACULOS QUE CUELGAN (13/11, el Ojo de la tormenta; el jefe eligio la version nueva): al EMPEZAR su turno, a todos los
+# tuyos que esten a tentaculos_hueco px o menos de su cuerpo (el hueco del cuerpo a cuerpo), un latigazo automatico de
+# tentaculos_mult de su golpe MAGICO, del elemento tentaculos_elem (3 = Rayo). Se esquiva y se resiste como cualquier
+# golpe magico (CombatEnemigos._tentaculos_que_cuelgan). 0 = no.
+@export var tentaculos_hueco: float = 0.0
+@export var tentaculos_mult: float = 0.35
+@export var tentaculos_elem: int = 3

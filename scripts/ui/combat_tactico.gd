@@ -4545,26 +4545,28 @@ func _tick_carne() -> void:
 		var vivo: bool = c.is_alive() and cuerpo_de(c) != null
 		var antes: float = float(_carne_vida.get(c, c.current_hp))
 		_carne_vida[c] = c.current_hp
+		# (13/11) EN PIXEL: las pustulas y las grietas doradas de su lamina, sobre el centro de su sprite y siguiendole.
+		var ritmo_c: float = _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0
 		if vivo and c.current_hp > antes + 0.5:
-			FieraAire.sobre_cuerpo(arena, FieraAire.Modo.PUSTULAS, bulto_de(c).get_center(), bulto_de(c), _cod(c) + randi() % 97,
-				0.0, _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0, -1.0, c.color_visual)
+			EfectoPixel.lanzar(arena, "aberracion", "carne", EfectoPixel.centro_sprite(cuerpo_de(c), bulto_de(c).get_center()),
+				0, cuerpo_de(c), 0.0, -1.0, ritmo_c)
 		var n = _grietas.get(c)
 		if vivo and c.regen_cortada > 0:
 			if n == null or not is_instance_valid(n):
-				n = FieraAire.grietas(arena, bulto_de(c), _cod(c))
+				n = EfectoPixel.lanzar(arena, "aberracion", "grietas",
+					EfectoPixel.centro_sprite(cuerpo_de(c), bulto_de(c).get_center()), 0, cuerpo_de(c), 0.0, -1.0, ritmo_c)
 				_grietas[c] = n
-			n.call("seguir", bulto_de(c))
 		elif n != null:
 			_grietas.erase(c)
 			if is_instance_valid(n):
-				n.call("secar")
+				(n as Node).queue_free()
 
 
 func _quitar_carne() -> void:
 	for c in _grietas.keys():
 		var n = _grietas[c]
 		if n != null and is_instance_valid(n):
-			n.call("secar")
+			(n as Node).queue_free()
 	_grietas.clear()
 	_carne_vida.clear()
 
@@ -6041,6 +6043,69 @@ const _ESTILOS_POLILLA := [CombatFX.Estilo.SIMA_ALA, CombatFX.Estilo.SIMA_POLVO,
 	CombatFX.Estilo.SIMA_ATRAE]
 
 
+# (13/11) LA ABERRACION Y SUS MUTANTES, en pixel y sin rejilla (los de su lamina aprobada). La electricidad, violeta por
+# fuera y cian por dentro (no el azul de la araña).
+#   TENTACULO  el basico y el Latigazo (base y Masa): el tentaculo SALE DEL QUE AZOTA en su sprite (Aberracion3DSprites.punta)
+#              hasta quien recibe, y alli el destello y el verdugon; la Masa, con su lila y las chispas. El Chispazo del Ojo
+#              va por ABERRACION_CHISPAZO.
+#   MIRADA     sobre quien pilla la Mirada del vacio: el ojo negro y el Miedo (el cono lo pinta su gesto)
+#   CHISPAZO / RAYO / CUELGAN / CHISPAS / CONDUCTORA  lo electrico, ver CombatFX.Estilo
+const _ESTILOS_ABERRACION := [CombatFX.Estilo.FIERA_TENTACULO, CombatFX.Estilo.FIERA_MIRADA,
+	CombatFX.Estilo.ABERRACION_CHISPAZO, CombatFX.Estilo.ABERRACION_RAYO, CombatFX.Estilo.ABERRACION_CUELGAN,
+	CombatFX.Estilo.ABERRACION_CHISPAS, CombatFX.Estilo.ABERRACION_CONDUCTORA]
+# El rayo: [cuerpo, medio, nucleo] (RayoPixel) y su borde. El tentaculo: [borde, cuerpo, luz] (CintaPixel).
+const _RAYO_ABERRACION := [Color8(150, 72, 228), Color8(110, 235, 255), Color8(236, 255, 255)]
+const _RAYO_ABERRACION_B := Color8(34, 8, 66)
+const _TENT_ABERRACION := [Color8(31, 10, 31), Color8(92, 46, 105), Color8(204, 158, 204)]
+const _TENT_GALVANICA := [Color8(31, 10, 31), Color8(142, 100, 175), Color8(110, 235, 255)]
+
+
+# ¿Es una aberracion (la normal o sus mutantes)? Solo ellas gritan (alarido) o cuelgan los tentaculos.
+func _de_las_aberraciones(cuerpo: Node2D) -> bool:
+	return cuerpo != null and (_tiene_anim_bicho(cuerpo, "alarido") or _tiene_anim_bicho(cuerpo, "tentaculos"))
+
+
+func _rayo_aberracion(arena: Node, desde: Vector2, hasta: Vector2, grueso: float, espera: float, ritmo: float) -> void:
+	RayoPixel.lanzar(arena, desde, hasta, grueso, PackedColorArray(_RAYO_ABERRACION), 0.06, 0.1, 0.18, espera, ritmo,
+		_RAYO_ABERRACION_B)
+
+
+func _aberracion_pixel(arena: Node, estilo: int, a: Combatant, v: Combatant, vuelo: float, ritmo: float) -> void:
+	var pies_v: Vector2 = pies_de(v)
+	var espera: float = maxf(vuelo, 0.0)
+	var cu_a: Node2D = cuerpo_de(a)
+	var pecho: Vector2 = bulto_de(v).get_center()
+	match estilo:
+		CombatFX.Estilo.FIERA_TENTACULO:
+			var galv: bool = a.mutacion == &"galvanica"
+			var desde: Vector2 = Aberracion3DSprites.punta(cu_a, bulto_de(a).get_center(), &"galvanica" if galv else &"")
+			var cinta: CintaPixel = CintaPixel.lanzar(arena, desde, pecho,
+				PackedColorArray(_TENT_GALVANICA if galv else _TENT_ABERRACION), maxf(vuelo, 0.08), 0.12, 0.25, 0.0, ritmo)
+			if cinta != null:
+				cinta.forma(1, 0.0, 2.2, 0.5, 6.0, 2.0)
+			var hacia: Vector2 = pies_v - pies_de(a)
+			EfectoPixel.lanzar(arena, "aberracion", "latigo_golpe", pies_v,
+				SpriteLienzo.dir8(hacia) if hacia.length_squared() > 1.0 else 0, null, espera, -1.0, ritmo)
+			if galv:
+				EfectoPixel.lanzar(arena, "aberracion", "chispas", pies_v, 0, null, espera, -1.0, ritmo)
+		CombatFX.Estilo.FIERA_MIRADA:
+			EfectoPixel.lanzar(arena, "aberracion", "mirada_ojo", pies_v, 0, null, espera, -1.0, ritmo)
+		CombatFX.Estilo.ABERRACION_CHISPAZO:
+			_rayo_aberracion(arena, Aberracion3DSprites.punta(cu_a, bulto_de(a).get_center(), &"ojo"), pecho, 2.2,
+				maxf(espera - 0.06, 0.0), ritmo)
+			EfectoPixel.lanzar(arena, "aberracion", "chispas", pies_v, 0, null, espera, -1.0, ritmo)
+		CombatFX.Estilo.ABERRACION_CUELGAN:
+			var abajo: Vector2 = Aberracion3DSprites.punta(cu_a, pies_de(a), &"cuelgan")
+			abajo.x = lerpf(abajo.x, pecho.x, 0.5)
+			_rayo_aberracion(arena, abajo, pecho, 1.6, maxf(espera - 0.04, 0.0), ritmo)
+			EfectoPixel.lanzar(arena, "aberracion", "chispas", pies_v, 0, null, espera, -1.0, ritmo)
+		CombatFX.Estilo.ABERRACION_CONDUCTORA:
+			_rayo_aberracion(arena, bulto_de(a).get_center(), pecho, 2.0, maxf(espera - 0.04, 0.0), ritmo)
+			EfectoPixel.lanzar(arena, "aberracion", "chispas", pies_v, 0, null, espera, -1.0, ritmo)
+		CombatFX.Estilo.ABERRACION_RAYO, CombatFX.Estilo.ABERRACION_CHISPAS:
+			EfectoPixel.lanzar(arena, "aberracion", "chispas", pies_v, 0, null, espera, -1.0, ritmo)
+
+
 # ¿Es una polilla (la normal, la de luto o una de sus mutantes)? Todas, y solo ellas, aletean.
 func _de_las_polillas(cuerpo: Node2D) -> bool:
 	return cuerpo != null and _tiene_anim_bicho(cuerpo, "aletear")
@@ -6847,6 +6912,10 @@ func _dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 			if a != null:
 				_apretar_vis_enrosque(a)
 			_temblar_presa(v, vuelo)
+		return
+	# LA ABERRACION Y SUS MUTANTES EN PIXEL (13/11, tools/sprites_sdf/aberracion_efectos_horno.py).
+	if estilo in _ESTILOS_ABERRACION and a != null and _de_las_aberraciones(cuerpo_de(a)):
+		_aberracion_pixel(arena, estilo, a, v, vuelo, ritmo)
 		return
 	# LA POLILLA Y SUS MUTANTES EN PIXEL (12/11, tools/sprites_sdf/polilla_efectos_horno.py).
 	if estilo in _ESTILOS_POLILLA and a != null and _de_las_polillas(cuerpo_de(a)):

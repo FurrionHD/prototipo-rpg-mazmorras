@@ -243,4 +243,16 @@ func _hacer_orden(orden: String, nombre: String) -> String:
 					p._morir_enemigo(e)
 					return "ok"
 			return "sin_florecido"
+		"escudo_jaula":
+			# (13/11, prueba_mut_aberracion_espejo) El primer aliado en pie con el escudo de la Jaula de Faraday (el set de
+			# la aberracion): en el cliente tiene que llegar el escudo y que es el de la Jaula (no el de la Marea).
+			for c in p._aliados:
+				var al: Combatant = c
+				if al.is_alive():
+					al.runa_jaula = 2.0
+					al.runa_escudo_agua = 50.0
+					al.runa_escudo_max = 50.0
+					p._update_hp()
+					return "ok:" + al.nombre
+			return "sin_aliado"
 	return "orden_desconocida"

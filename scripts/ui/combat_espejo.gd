@@ -429,7 +429,8 @@ func _valores(lista: Array, aliados: bool = false) -> Array:
 			c.puertas(),
 			# El campo 11, EL ESCUDO DE AGUA (set Marea, 09/10): lo que le queda, con lo que empezo y los estados que
 			# ha parado. La burbuja y el tramo azul de la barra salen de aqui en el espejo (y sus ondas, de que baje).
-			[c.runa_escudo_agua, c.runa_escudo_max, c.runa_agua_paradas],
+			# (13/11) y si es el de la JAULA DE FARADAY (1/0): en el espejo se pinta violeta con nervios.
+			[c.runa_escudo_agua, c.runa_escudo_max, c.runa_agua_paradas, 1 if c.escudo_es_jaula() else 0],
 			# El campo 12, LA COSTRA DE AMBAR (el Tocon ambarino, 02/11): lo que le queda y con lo que empieza (su tramo en
 			# la barra y la hoja sin ambar mientras esta rota salen de aqui en el espejo); y lo hinchada que va la
 			# garrapata del ambar (su hoja).
@@ -1415,7 +1416,8 @@ const MARCA_ANIM := -11
 # (07/11, log de la sala del .exe: "la animacion 'golpe_6_8' no esta en ANIMS_SUELTAS") TAMBIEN los EnemyData.anim_basico:
 # el basico de un bicho no sale de una AbilityData y pide su animacion por el nombre. Lo vigila test_anims_sueltas.gd.
 const ANIMS_SUELTAS := [&"lanzar_puas",   # las puas de la pasiva de espinas (combat._espinas)
-	&"golpe_6_8", &"golpe_5_8", &"golpe_4_6", &"golem_golpe", &"coloso_golpe", &"mino_hachazo"]   # anim_basico
+	&"golpe_6_8", &"golpe_5_8", &"golpe_4_6", &"golem_golpe", &"coloso_golpe", &"mino_hachazo",   # anim_basico
+	&"tentaculos"]   # (13/11) los Tentaculos que cuelgan del Ojo de la tormenta (CombatEnemigos._tentaculos_que_cuelgan)
 var _ult_anim_red: Dictionary = {}   # codigo del atacante -> [codigo de la animacion, gesto] lo ultimo que se le mando
 
 # El numero de la animacion de un golpe (ver MARCA_ANIM). 'anim_de' es lo que recibe _fx_golpe.
@@ -1711,6 +1713,8 @@ func _volcar(lista: Array, valores: Array) -> void:
 			lista[i].runa_escudo_agua = float(v[11][0])
 			lista[i].runa_escudo_max = float(v[11][1])
 			lista[i].runa_agua_paradas = int(v[11][2])
+			if (v[11] as Array).size() >= 4:
+				lista[i].runa_jaula = 2.0 if int(v[11][3]) == 1 else 0.0   # (en el espejo solo dice QUE escudo es)
 		if v.size() > 12 and (v[12] as Array).size() >= 2:
 			lista[i].costra = float(v[12][0])
 			lista[i].costra_max = float(v[12][1])

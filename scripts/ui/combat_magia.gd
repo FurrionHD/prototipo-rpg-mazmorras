@@ -154,6 +154,26 @@ func _elegir_objetivo_aliado(spell: SpellData) -> void:
 	_pantalla._ocultar_log()
 
 
+# EL SET JAULA DE FARADAY (13/11, memoria aberracion-mutante): al LANZAR un hechizo, quien lleva el set obtiene un escudo
+# del coste de maná BASE del hechizo (la ficha, sin la Eficiencia ni los estados) x runa_jaula (2,0). Va en la capa del
+# escudo de agua de la Marea (para golpes, el daño con el tiempo pasa por debajo; burbuja, tramo de la barra y espejo ya
+# hechos). NO SE SUMA: si el que tiene es mayor, se queda ese. Devuelve el escudo nuevo (0 si no cambia nada).
+func jaula_faraday(c: Combatant, spell: SpellData) -> float:
+	if c == null or spell == null or c.runa_jaula <= 0.0 or not c.is_alive():
+		return 0.0
+	var nuevo: float = float(spell.coste_mana) * c.runa_jaula
+	if nuevo <= c.runa_escudo_agua:
+		return 0.0
+	c.runa_escudo_agua = nuevo
+	c.runa_escudo_max = nuevo
+	c.runa_agua_rota = false
+	_pantalla._update_hp()
+	_pantalla._log_extra("⚡ %s se cubre con la Jaula de Faraday: un escudo que absorbe %s de daño." % [c.nombre,
+		_pantalla._n(nuevo)])
+	print("[runas] %s: Jaula de Faraday, escudo %.1f (%s, coste %d)" % [c.nombre, nuevo, spell.nombre, spell.coste_mana])
+	return nuevo
+
+
 # Coste de maná EFECTIVO tras la mejora Eficiencia del equipo (KAN-95). FLOAT (sin
 # redondeo hacia arriba: así CUALQUIER % de Eficiencia se nota). Mínimo 0.5.
 func _coste_efectivo(spell: SpellData) -> float:
@@ -592,6 +612,8 @@ func _disparar_hechizo(aliado_nuevo: Combatant = null) -> void:
 			_pantalla._tras_accion_jugador_varios([])
 			return
 		_pantalla._player.spend_mana(coste)
+	# (13/11) EL SET JAULA DE FARADAY: lanzar (no recitar, no fallar) da el escudo.
+	jaula_faraday(_pantalla._player, spell)
 	# Objetivo PRINCIPAL, capturado una vez, como en el resto de acciones (ver _usar_habilidad).
 	# El area y los rebotes salen de el; y el sigue siendo el que cuenta para la Excelia y el DPS.
 	var obj: Combatant = _pantalla._objetivo()

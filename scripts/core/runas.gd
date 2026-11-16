@@ -38,7 +38,7 @@ const ELEM_ID := {"fuego": 1, "agua": 2, "rayo": 3, "luz": 4, "oscuridad": 5}   
 # [ARMA_FISICA, ARMA_MAGICA, ARMADURA] (0 = no sale ahi). Los de elemento se generan abajo (_subs).
 const _BASE := {
 	"ataque_pct": ["Ataque", 0.03, 0.06, "tier", [100, 0, 0]],
-	"dano_magico_pct": ["Daño mágico", 0.03, 0.06, "tier", [0, 100, 0]],
+	"dano_magico_pct": ["Ataque mágico", 0.03, 0.06, "tier", [0, 100, 0]],
 	"crit": ["Probabilidad de crítico", 0.03, 0.06, "fijo", [50, 0, 0]],
 	"crit_dmg": ["Daño crítico", 0.06, 0.12, "tier", [50, 0, 0]],
 	"crit_mag": ["Probabilidad de crítico mágico", 0.03, 0.06, "fijo", [0, 50, 0]],
@@ -133,7 +133,7 @@ const RUTAS_SETS := ["res://resources/runas/set_slime.tres", "res://resources/ru
 	"res://resources/runas/set_trent.tres", "res://resources/runas/set_arana.tres",
 	"res://resources/runas/set_escarabajo.tres", "res://resources/runas/set_ciempies.tres",
 	"res://resources/runas/set_segadora.tres", "res://resources/runas/set_miconido.tres",
-	"res://resources/runas/set_polilla.tres"]
+	"res://resources/runas/set_polilla.tres", "res://resources/runas/set_aberracion.tres"]
 static var _sets: Array = []
 
 static func sets() -> Array:
@@ -397,6 +397,9 @@ static func efecto_txt(s: RunaSetData) -> String:
 		&"concentracion":
 			return "Cada vez que el portador recita bien una frase de un hechizo, el daño mágico que inflige aumenta en un %s, hasta un máximo de %d acumulaciones. Las acumulaciones se mantienen de un hechizo al siguiente hasta que acaba el combate. Si el portador recita mal una frase, pierde todas las acumulaciones." % [
 				_pct(p, "por_frase", 0.04), int(p.get("max", 5))]
+		&"jaula_faraday":
+			return "Cada vez que el portador lanza un hechizo, obtiene un escudo que absorbe daño equivalente al %s del coste de maná base de ese hechizo (no absorbe el daño con el tiempo). Si el portador ya tiene un escudo mayor, se queda con el mayor. El escudo dura hasta que se rompe o hasta que acaba el combate. Este efecto no se puede acumular." % [
+				_pct(p, "escudo", 2.0)]
 		&"cielo":
 			return "El Daño de Luz y el Daño de Oscuridad del portador aumentan en un %s. Cuando el portador asesta un golpe crítico, tiene un %s de probabilidad base de causar Ceguera al objetivo." % [
 				_pct(p, "dano", 0.20), _pct(p, "ciego", 0.20)]
@@ -587,6 +590,8 @@ static func aplicar(c: Combatant, p: PersonajeData) -> void:
 	c.runa_pegajoso = float(masa.get("pegajoso", 0.0))
 	var marea: Dictionary = efecto_activo(p, &"marea")
 	c.runa_marea = float(marea.get("escudo", 0.0))
+	# (13/11) JAULA DE FARADAY: al lanzar, escudo = coste de maná base x esto (CombatMagia.jaula_faraday).
+	c.runa_jaula = float(efecto_activo(p, &"jaula_faraday").get("escudo", 0.0))
 	var corona: Dictionary = efecto_activo(p, &"corona")
 	c.runa_corona_aliados = float(corona.get("aliados", 0.0))
 	c.runa_corona_umbral = float(corona.get("umbral", 0.0))
