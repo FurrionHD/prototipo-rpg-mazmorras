@@ -66,8 +66,9 @@ func _guion() -> void:
 		return
 	await _esperar(3.0)
 	var yo: Node2D = get_tree().get_first_node_in_group("player") as Node2D
-	Net.pisos.pedir_spawn_arena(ABERRACION, yo.global_position + Vector2(70, 150), {"mutacion": "galvanica"})
-	Net.pisos.pedir_spawn_arena(ABERRACION, yo.global_position + Vector2(-90, 140), {"mutacion": "tormenta"})
+	# Juntos (16/11, banco b11f6647: a 160 px el Ojo, que vuela y deambula, se quedaba a veces fuera de la zona de la pelea).
+	Net.pisos.pedir_spawn_arena(ABERRACION, yo.global_position + Vector2(30, 150), {"mutacion": "galvanica"})
+	Net.pisos.pedir_spawn_arena(ABERRACION, yo.global_position + Vector2(-30, 150), {"mutacion": "tormenta"})
 	await _hasta(func(): return Net.enemigos._enem_nodos.size() + Net.enemigos._enemigos.size() >= 2, 15.0)
 	await pelear_con(enemigo_libre())
 	await _hasta(func(): return pantalla() != null, 10.0)

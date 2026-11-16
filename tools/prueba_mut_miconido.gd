@@ -580,7 +580,9 @@ func _correr() -> void:
 			r.take_damage(r.current_hp + 10.0)
 		combat._player = yo
 		yo.runa_contagio_radio = 40.0
-		# (con 10 y no con su 60 %: la tirada no puede fallar; lo que se mira es A QUIEN llega la nube)
+		# (con 10 y no con su 60 %: lo que se mira es A QUIEN llega la nube. OJO, 16/11: aun asi PUEDE fallar, la
+		# probabilidad de un estado tiene techo, StatusEffects.PROB_TECHO 0,95; por eso los pasos que esperan que
+		# envenene lo intentan varias veces. Era el "inestable" del banco 4e2a1ea2 y del b11f6647.)
 		yo.runa_contagio_prob = 10.0
 		cont_de_pie.call(r1)
 		cont_de_pie.call(r2)
@@ -592,15 +594,27 @@ func _correr() -> void:
 		var n_log: int = combat._log_lines.size()
 		combat._contagio(r1, yo)
 		_ver(combat._log_lines.size() == n_log, "una sola vez por muerto")
-		cont_de_pie.call(r1)
 		_poner(t, r2, t.pies_de(r1) + Vector2(30, 0))
-		cont_caer.call(r1)
-		combat._contagio(r1, yo)
+		for _i in 6:
+			cont_de_pie.call(r1)
+			cont_de_pie.call(r2)
+			cont_caer.call(r1)
+			combat._contagio(r1, yo)
+			if r2.has_status(StatusEffects.Id.VENENO):
+				break
 		_ver(r2.has_status(StatusEffects.Id.VENENO), "al caer envenenado, la nube envenena al de al lado")
 		# EN CADENA: el que envenena la nube, al caer a tus manos, revienta igual (sobre el primero, de pie otra vez)
-		cont_de_pie.call(r1)
-		r2.take_damage(r2.current_hp + 10.0)
-		combat._contagio(r2, yo)
+		for _i in 6:
+			cont_de_pie.call(r1)
+			r2.current_hp = r2.max_hp
+			if r2.has_meta(&"contagio_hecho"):
+				r2.remove_meta(&"contagio_hecho")
+			if not r2.has_status(StatusEffects.Id.VENENO):
+				r2.apply_status(StatusEffects.Id.VENENO)
+			r2.take_damage(r2.current_hp + 10.0)
+			combat._contagio(r2, yo)
+			if r1.has_status(StatusEffects.Id.VENENO):
+				break
 		_ver(r1.has_status(StatusEffects.Id.VENENO), "en cadena: el que envenena la nube tambien revienta")
 		cont_de_pie.call(r1)
 		cont_de_pie.call(r2)

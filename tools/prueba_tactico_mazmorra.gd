@@ -210,6 +210,7 @@ func _pelea_jugada(gen: DungeonGenerator, px: Vector2) -> void:
 	var t0: int = Time.get_ticks_msec()
 	var turnos: int = 0
 	var visto_desvanecido: bool = false
+	var rodeos: int = 0   # pasos de lado seguidos para rodear a los que le tapan (ver ATASCADO)
 	while is_instance_valid(combat) and not combat.acabada() and Time.get_ticks_msec() - t0 < 180000:
 		await _esperar(2)
 		if is_instance_valid(e) and e.has_meta("muerto_en_pelea"):
@@ -220,6 +221,7 @@ func _pelea_jugada(gen: DungeonGenerator, px: Vector2) -> void:
 		if atacar != null and not atacar.disabled:
 			atacar.pressed.emit()
 			turnos += 1
+			rodeos = 0
 			continue
 		var obj = combat._objetivo()
 		var co: Node2D = tm.cuerpo_de(obj) if obj != null else null
@@ -236,7 +238,24 @@ func _pelea_jugada(gen: DungeonGenerator, px: Vector2) -> void:
 			await _esperar(15)
 			for k in teclas:
 				Input.action_release(k)
+		# ATASCADO (16/11, banco b11f6647: 36 turnos defendiendo sin pegar ni una vez): en el pasillo de 4 casillas los
+		# dos compañeros de cuerpo a cuerpo le tapan el camino recto al enemigo. Como haria un jugador, antes de rendirse
+		# prueba a rodearlos: un paso de lado (alternando) y vuelve a intentarlo.
+		if co != null and tm._fase == tm.Fase.MOVIENDO and is_instance_valid(tm._cuerpo) \
+				and tm._cuerpo.global_position.distance_to(desde) < 2.0 and (atacar == null or atacar.disabled) and rodeos < 6:
+			var dd2: Vector2 = co.global_position - desde
+			var de_lado: String
+			if absf(dd2.x) >= absf(dd2.y):
+				de_lado = "move_down" if rodeos % 2 == 0 else "move_up"
+			else:
+				de_lado = "move_right" if rodeos % 2 == 0 else "move_left"
+			rodeos += 1
+			Input.action_press(de_lado)
+			await _esperar(12)
+			Input.action_release(de_lado)
+			continue
 		if tm._fase == tm.Fase.MOVIENDO and is_instance_valid(tm._cuerpo) 				and tm._cuerpo.global_position.distance_to(desde) < 2.0 				and (atacar == null or atacar.disabled):
+			rodeos = 0
 			var def: BaseButton = combat._action_buttons.get(combat.Action.DEFEND)
 			var pasar: BaseButton = combat._action_buttons.get(combat.Action.FLEE)
 			if def != null and not def.disabled:
