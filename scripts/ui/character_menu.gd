@@ -696,7 +696,7 @@ func _pagina_habilidades(c: Combatant) -> void:
 	# FUERZA -> ataque fisico. Como fuerza_factor(0) == 1, lo que aporta es todo lo que el ataque
 	# total tiene por encima del raw pelado (base + arma).
 	_fila_habilidad("Fuerza", "fuerza", ab)
-	var atk_sin: float = (c.base_ataque() + c.ataque_arma) * c.status_atk_mult()
+	var atk_sin: float = (c.base_ataque() + c.ataque_arma) * c.motion_value * c.status_atk_mult()
 	_aporte("+%.1f de ataque" % (_ataque_total(c) - atk_sin))
 
 	# RESISTENCIA -> vida y defensa.
@@ -2210,8 +2210,10 @@ func _combatiente() -> Combatant:
 
 # Ataque TOTAL (raw): (base + arma) × factor_fuerza × estados, SIN el motion value (ese se aplica por
 # golpe). Es la misma cuenta que combate_detalle._atk_total.
+# (17/11) CON lo que pega el arma de la mano (motion_value), como la ficha del arma y como pega de verdad (Combatant.atk):
+# «un 200 % del Ataque» de una habilidad tiene que cuadrar con este numero.
 func _ataque_total(c: Combatant) -> float:
-	return (c.base_ataque() + c.ataque_arma) * c.factor_ataque_crudo() * c.status_atk_mult()
+	return (c.base_ataque() + c.ataque_arma) * c.factor_ataque_crudo() * c.motion_value * c.status_atk_mult()
 
 
 # El critico es un CONTEST (tu Destreza contra la Agilidad de quien recibe el golpe); aqui no hay

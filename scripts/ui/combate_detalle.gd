@@ -744,11 +744,12 @@ func _barras(c: Combatant) -> void:
 
 
 # Ataque total (raw, sin motion value: ese se aplica por golpe) igual que la ficha del menu C.
+# (17/11) CON el motion_value del arma de la mano: lo mismo que la ficha del arma y que Combatant.atk().
 static func _atk_total(c: Combatant) -> float:
-	return (c.base_ataque() + c.ataque_arma) * c.factor_ataque_crudo() * c.status_atk_mult()
+	return (c.base_ataque() + c.ataque_arma) * c.factor_ataque_crudo() * c.motion_value * c.status_atk_mult()
 
 func _atk_arma(c: Combatant) -> float:
-	return c.ataque_arma * c.factor_ataque_crudo() * c.status_atk_mult()
+	return c.ataque_arma * c.factor_ataque_crudo() * c.motion_value * c.status_atk_mult()
 
 
 # LO QUE APORTA EL EQUIPO A LA DEFENSA, medido POR DIFERENCIA y no leyendo `extra_defense`.
@@ -914,7 +915,7 @@ func _tab_habilidades(c: Combatant) -> void:
 			var tag: String = "Área" if hab.has_method("es_area") and hab.es_area() else "Individual"
 			MenuScaffold.titulo(_panel, "%s   [%s]" % [str(hab.nombre), tag], 15)
 			var l := Label.new()
-			l.text = hab.resumen() if hab.has_method("resumen") else str(hab.get("descripcion"))
+			l.text = hab.resumen(1, true) if hab.has_method("resumen") else str(hab.get("descripcion"))
 			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			_panel.add_child(l)
@@ -923,16 +924,19 @@ func _tab_habilidades(c: Combatant) -> void:
 
 	# ALIADO: basico + habilidades de arma + hechizos, con la elegida en detalle.
 	var kit: Array = []
+	# (17/11, repaso de frases) Al estilo de las habilidades: «un 100 % (N) del Ataque ... a un enemigo».
 	kit.append({"nombre": "Ataque básico", "txt":
-		"Golpea con lo que lleve en las manos. No cuesta energía: la recupera."})
+		"Inflige %s a un enemigo.\nNo cuesta energía: recupera %d de energía." % [AbilityData.cuanto_txt(
+			1.0, c.atk(), "del Ataque de quien lo usa", "como Daño Físico"),
+			roundi(c.energia_regen if c.energia_regen > 0.0 else _combat.ATTACK_ENERGY_REGEN)]})
 	for hab in c.abilities_combate:
 		if hab != null:
 			kit.append({"nombre": str(hab.nombre),
-				"txt": hab.resumen() if hab.has_method("resumen") else ""})
+				"txt": hab.resumen(1, false, c) if hab.has_method("resumen") else ""})
 	for sp in c.spells:
 		if sp != null:
 			kit.append({"nombre": "🔮 " + str(sp.nombre),
-				"txt": sp.resumen() if sp.has_method("resumen") else ""})
+				"txt": sp.descripcion_mecanica() if sp.has_method("descripcion_mecanica") else ""})
 
 	var iconos := HFlowContainer.new()
 	iconos.add_theme_constant_override("h_separation", 6)

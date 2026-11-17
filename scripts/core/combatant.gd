@@ -935,8 +935,9 @@ func imbue_resumen() -> String:
 	lineas.append("%s Imbuición de %s (%s)" % [
 		Elementos.icono(imbue_elemento), elem, "cuerpo" if imbue_cuerpo else "arma"])
 	# (06/11, pase de textos) en tercera persona: el chip lo llevan tambien los compañeros.
-	lineas.append("Los golpes infligen un daño adicional de %s equivalente al %d %% del daño del golpe." % [
-		elem, roundi(imbue_pct * 100.0)])
+	# (17/11, repaso) La porcion imbuida sale del Ataque y es MAGICA (StatsMath.resolve_attack), con el numero de quien la lleva.
+	lineas.append("Cada golpe inflige además %s." % AbilityData.cuanto_txt(imbue_pct, atk(), "de su Ataque",
+		"como Daño Mágico de %s" % elem))
 	if imbue_cuerpo:
 		lineas.append(_texto_afinidad_imbue())
 	if imbue_estado >= 0 and imbue_prob > 0.0:

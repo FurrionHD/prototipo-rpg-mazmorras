@@ -513,18 +513,19 @@ func dano_mostrado() -> float:
 #  CURACIONES, y va aparte de 'ref' porque la cura NO escala como el daño (ver StatsMath.resolve_heal).
 #  < 0 = no hay nadie delante y se dice sin numero.
 func descripcion_mecanica(ref: float = 0.0, cura_magica: float = -1.0) -> String:
+	var forma_l: String = forma_texto()
 	if es_imbuicion():
-		return _texto_imbuicion()
+		return _con_forma(forma_l, _texto_imbuicion())
 	if tipo == TipoEfecto.CURACION:
-		var lineas_cura: Array = [_texto_curacion(cura_magica)]
+		var lineas_cura: Array = [_texto_curacion(cura_magica, ref)]
 		var est_cura: String = _texto_estados("a quien alcanza", true)
 		if est_cura != "":
 			lineas_cura.append(est_cura)
-		return "\n".join(lineas_cura)
+		return _con_forma(forma_l, "\n".join(lineas_cura))
 	if tipo != TipoEfecto.ATAQUE or dano_base <= 0.0:
 		# BUFF/DEBUFF sin daño: solo tienen sus estados que contar, y van a UN objetivo (no hay
 		# area que "alcance" a nadie).
-		return _texto_estados("al objetivo", true)
+		return _con_forma(forma_l, _texto_estados("a cada enemigo alcanzado" if _forma_de_area() else "a ese enemigo", true))
 
 	var lineas: Array = []
 	lineas.append(_texto_ataque(ref))
@@ -534,93 +535,172 @@ func descripcion_mecanica(ref: float = 0.0, cura_magica: float = -1.0) -> String
 	var reb: String = _texto_rebotes(ref)
 	if reb != "":
 		lineas.append(reb)
-	if sobrantes_saltan():
-		lineas.append("Si el objetivo cae antes, los golpes que quedan saltan a otros enemigos.")
-	var est: String = _texto_estados("a cada enemigo alcanzado" if es_multiobjetivo() else "al objetivo")
+	if sobrantes_saltan() and not (_con_huella() and int(forma) == 1):
+		lineas.append("Si el enemigo cae antes, los golpes que quedan saltan a otros enemigos.")
+	var est: String = _texto_estados("a cada enemigo alcanzado" if (es_multiobjetivo() or _forma_de_area()) else "a ese enemigo")
 	if est != "":
 		lineas.append(est)
 	# UNA LINEA POR COSA: en un parrafo corrido hay que releer para encontrar el dato que buscas.
-	return "\n".join(lineas)
+	return _con_forma(forma_l, "\n".join(lineas))
 
 
-# La frase del DAÑO: como se reparte y a quien llega.
+static func _con_forma(forma_l: String, resto: String) -> String:
+	return resto if forma_l == "" else forma_l + "\n" + resto
+
+
+# ------------------------------------------------------------
+#  EL REPASO DEL 17/11 (estilo HSR, docs/guia_textos.md): el daño de un hechizo es «un X % del ATAQUE MAGICO del
+#  lanzador», la misma stat que enseña la ficha del personaje (MenuScaffold.dano_magico = el daño de Pulso menor con su
+#  poder magico). Asi un hechizo de daño_base B es B / (el de Pulso menor) veces ese Ataque magico. Y la FORMA del mapa
+#  en su propia linea, en casillas, como las habilidades (AbilityData._forma_txt).
+# ------------------------------------------------------------
+const HECHIZO_REFERENCIA := "res://resources/spells/pulso_menor.tres"
+static var _base_referencia: float = -1.0
+
+static func base_referencia() -> float:
+	if _base_referencia < 0.0:
+		var sp = load(HECHIZO_REFERENCIA)
+		_base_referencia = float(sp.dano_base) if sp != null and float(sp.dano_base) > 0.0 else 1.0
+	return _base_referencia
+
+
+# 'f' (un multiplicador del hechizo: dano_objetivo, una cuña...) en % del Ataque magico, y el numero real con 'ref'.
+func _pct_am(f: float, ref: float = 0.0) -> String:
+	var v: float = f * dano_base / base_referencia()
+	var txt: String = "%d %%" % roundi(v * 100.0)
+	if ref <= 0.0 or AbilityData.modo_cifras == AbilityData.ModoCifras.PORCENTAJE:
+		return txt
+	if AbilityData.modo_cifras == AbilityData.ModoCifras.NUMERO:
+		return AbilityData.num_txt(f * ref)
+	return "%s (%s)" % [txt, AbilityData.num_txt(f * ref)]
+
+
+func _con_huella() -> bool:
+	return int(forma) >= 0 and int(forma_apunte) >= 0
+
+
+# ¿Su huella es un AREA (pilla a todos los de dentro)? El punto, la linea de un proyectil y lo de un aliado, no.
+func _forma_de_area() -> bool:
+	return _con_huella() and int(forma) > 0 and not forma_solo_primero and not forma_a_aliados
+
+
+# La huella como la ve la pelea (CombatTactico.crear_huella_hechizo, que vive en scripts/ui), para su linea de forma.
+func _huella() -> AbilityData:
+	var ab := AbilityData.new()
+	ab.forma = forma
+	ab.forma_apunte = forma_apunte
+	ab.forma_radio = forma_radio
+	ab.forma_apertura = forma_apertura
+	ab.forma_rango = forma_rango
+	ab.forma_ancho = forma_ancho
+	ab.forma_solo_primero = forma_solo_primero
+	ab.forma_a_aliados = forma_a_aliados
+	ab.forma_desde_quien_ataca = forma_desde_quien_ataca
+	# A UNO de los tuyos (Vendaje, Filos) salvo que caiga ALREDEDOR del lanzador (Fortaleza): se elige en toda la zona.
+	if forma_a_aliados and int(forma_apunte) != 2:
+		ab.objetivo_aliado = AbilityData.Objetivo.ALIADO
+		ab.forma_rango = 0.0
+	return ab
+
+
+# «Forma: círculo · 2 casillas de radio · donde apunte, hasta 5 casillas.» "" sin huella o si va a uno solo.
+func forma_texto() -> String:
+	if not _con_huella():
+		return ""
+	var t: String = _huella()._forma_txt(false)
+	return t.replace("alrededor de quien la usa", "alrededor del lanzador")
+
+
+# La frase del DAÑO: a quien llega y cuanto, en % del Ataque magico del lanzador.
 func _texto_ataque(ref: float) -> String:
-	# (06/11, pase de textos) "como Daño de Fuego", al estilo de la guia (docs/guia_textos.md).
-	var de_elem: String = "" if elemento == Elementos.Elemento.NINGUNO else " como Daño de %s" % Elementos.nombre(elemento)
-	var de_elem_golpes: String = "" if elemento == Elementos.Elemento.NINGUNO else " de %s" % Elementos.nombre(elemento)
+	var elem_txt: String = "" if elemento == Elementos.Elemento.NINGUNO else " de %s" % Elementos.nombre(elemento)
 	# Con reparto de elementos no se puede decir "de Rayo" a secas: lo aclara _texto_mezcla().
 	if not elemento_mix.is_empty():
-		de_elem = ""
-		de_elem_golpes = ""
-	var obj: int = roundi(dano_objetivo * 100.0)
-	var sal: int = roundi(dano_salpicon * 100.0)
+		elem_txt = ""
+	var como: String = "del Ataque mágico del lanzador como Daño Mágico%s" % elem_txt
+	var reparto: String = "" if not es_multigolpe() or dispersa else ", repartido en %d golpes" % golpes()
+	var huella: bool = _con_huella()
+	var t: int = int(forma)
+	var del_f: String = AbilityData._DEL_FORMA[t] if huella and t > 0 and t < AbilityData._DEL_FORMA.size() else ""
 
-	# DISPERSO: las bolas caen solas, no eliges donde (Tormenta, Andanada). Aqui los numeros van POR
-	# BOLA y no en totales, al reves que en los demas hechizos, porque en un disperso el total no
-	# significa nada: depende de cuantos enemigos haya y de donde caiga cada una. Lo unico que se
-	# puede prometer de verdad es lo que suelta CADA bola donde cae.
-	#
-	# Ademas, en totales la frase se leia como el doble de lo que pega: "se reparten el 100% ...
-	# salpicando otro 100%" son 200% sumados a ojo, y la Tormenta parecia hacer 284 cuando su
-	# referencia son 142. El motor divide escala/n (combat._resolver_dispersa), asi que cada uno de
-	# sus 20 golpes hace un 5%, no un 100%.
+	# DISPERSO: las bolas caen solas (Tormenta, Andanada). Los numeros van POR GOLPE (el motor divide escala/n,
+	# combat._resolver_dispersa): en un disperso el total no significa nada.
 	if dispersa:
 		var n: float = float(golpes())
-		# Linea 1: COMO llega (cuantos golpes y de que son). El reparto de elementos va en un
-		# parentesis AQUI y no en una frase suelta al final: con mezcla, el salpicon depende de que
-		# elemento sea cada golpe, asi que hay que haber dicho antes cuales hay.
-		var s: String = "Descarga %d golpes%s que caen sobre enemigos al azar" % [golpes(), de_elem_golpes]
+		var donde: String = ("los enemigos %s" % del_f) if del_f != "" else "los enemigos"
+		var s: String = "Descarga %d golpes%s que caen al azar sobre %s" % [golpes(), elem_txt, donde]
 		if not elemento_mix.is_empty():
 			var partes: Array = []
 			for e in elemento_mix:
 				partes.append("%s de %s" % [_pct(peso_elemento(int(e))), Elementos.nombre(int(e))])
 			s += " (%s)" % ", ".join(partes)
-		# Linea 2: CUANTO pega cada uno, y quien salpica.
-		s += ".\nCada uno inflige un %s del daño del hechizo al enemigo que alcanza" % _pct(dano_objetivo / n, ref)
-		if salpica():
-			# SOLO salpican los golpes del elemento de IDENTIDAD (combat._resolver_dispersa exige
-			# elem == spell.elemento): en la Tormenta el rayo arquea a los lados y la lluvia cae
-			# suelta. Decir "cada uno salpica" daba a entender que salpicaban los 20 golpes cuando
-			# solo lo hacen los ~6 de Rayo.
+		s += ".\nCada uno inflige un %s %s al enemigo que alcanza" % [_pct_am(dano_objetivo / n, ref), como]
+		if salpica() and (not huella or forma_salpicon > 0.0):
+			var a_quien_s: String = "los que estén a menos de %s de él" % AbilityData.casillas_txt(forma_salpicon) \
+				if huella and forma_salpicon > 0.0 else "los %s" % _vecinos_texto()
 			if not elemento_mix.is_empty():
-				# Aqui el verbo se queda: es lo que distingue a los golpes que salpican de los que
-				# no, y sin el la frase no dice que la lluvia cae suelta.
-				s += "; los golpes de %s infligen además un %s a los %s" % [
-					Elementos.nombre(elemento), _pct(dano_salpicon / n, ref), _vecinos_texto()]
+				s += "; los golpes de %s infligen además un %s a %s" % [Elementos.nombre(elemento),
+					_pct_am(dano_salpicon / n, ref), a_quien_s]
 			else:
-				# Salpican todos, asi que no hace falta verbo: mismo giro que los no dispersos.
-				s += " y un %s a los %s" % [_pct(dano_salpicon / n, ref), _vecinos_texto()]
+				s += " y un %s a %s" % [_pct_am(dano_salpicon / n, ref), a_quien_s]
 		return s + "."
 
-	# Los 'hits' REPARTEN el daño entre golpes (ver combat._resolver_golpes_hechizo: frac =
-	# escala/n), no lo multiplican: 3 golpes de Brasa hacen lo MISMO que uno solo. Lo unico que
-	# cambian de verdad es que dan 3 tiradas de estado en vez de una... y eso ya va dentro del % de
-	# Quemadura (prob_total). Por eso va al FINAL y como coletilla: metido en medio de la frase
-	# ("igual al 150% del daño, repartido en 3 golpes, y un 75%...") partia en dos la unica parte
-	# que importa -a quien llega y cuanto- y encima sonaba a que pegaba tres veces mas.
-	var reparto: String = "" if not es_multigolpe() else ", repartido en %d golpes" % golpes()
+	if huella and t > 0 and not forma_a_aliados:
+		if forma_solo_primero:
+			return "Inflige un %s %s solo al primer enemigo que encuentra%s." % [_pct_am(dano_objetivo, ref), como, reparto]
+		if forma_cunas > 1 and not forma_escalas.is_empty():
+			# Las CUÑAS del cono: la 0 en el centro y hacia fuera suben (Brasa: el centro quema mas que los bordes).
+			var n_esc: int = mini(forma_escalas.size(), (forma_cunas + 1) / 2)
+			var partes_c: Array = []
+			for k in n_esc:
+				var donde_k: String = "en el centro" if k == 0 else ("en los bordes" if k == n_esc - 1 else "a los lados")
+				partes_c.append("un %s %s" % [_pct_am(float(forma_escalas[k]), ref), donde_k])
+			return "Inflige a todos los enemigos %s %s %s%s." % [del_f, _y(partes_c), como, reparto]
+		if forma_caida.size() >= 2:
+			return "Inflige a todos los enemigos %s un %s %s en el centro, que baja hasta un %s en el borde%s." % [
+				del_f, _pct_am(float(forma_caida[0]), ref), como, _pct_am(float(forma_caida[1]), ref), reparto]
+		return "Inflige un %s %s a todos los enemigos %s%s." % [_pct_am(dano_objetivo, ref), como, del_f, reparto]
 
+	# UN PUNTO (con huella) o sin huella todavia: el de siempre, con su salpicon.
 	if alcance == Alcance.TODOS and salpica() and is_equal_approx(dano_objetivo, dano_salpicon):
-		# Reparto plano (Rocio): a todos lo mismo, sin distinguir objetivo y resto.
-		return "Inflige un %s del daño del hechizo%s a todos los enemigos%s." % [
-			_pct(dano_objetivo, ref), de_elem, reparto]
-	var base: String = "Inflige un %s del daño del hechizo%s al objetivo seleccionado" % [
-		_pct(dano_objetivo, ref), de_elem]
+		return "Inflige un %s %s a todos los enemigos%s." % [_pct_am(dano_objetivo, ref), como, reparto]
+	var base: String = "Inflige un %s %s a un enemigo" % [_pct_am(dano_objetivo, ref), como]
 	if salpica():
-		base += " y un %s a los %s" % [_pct(dano_salpicon, ref), _vecinos_texto()]
+		var vecinos: String = "a los que estén a menos de %s de él" % AbilityData.casillas_txt(45.0) \
+			if huella else "a los %s" % _vecinos_texto()
+		base += " y un %s %s" % [_pct_am(dano_salpicon, ref), vecinos]
 	return base + reparto + "."
 
 
 # LO QUE CURA, en ficha: el % de la vida maxima de quien la recibe mas la parte del que la lanza. La de
 # grupo dice ademas que REPARTE, que es lo que cambia la cuenta: sola te lo llevas entero.
-func _texto_curacion(cura_magica: float) -> String:
+# (17/11, su eleccion) La parte magica de la cura, «como las demas»: en % del ATAQUE MAGICO del lanzador. La formula NO
+# cambia (StatsMath.resolve_heal: la Magia y el baston cuentan la mitad, decision del 21/09), asi que ese % no es fijo:
+# se calcula con quien la lanza (baja un poco segun sube su Magia o mejora su baston) y siempre dice la verdad.
+# 'ref' = el daño al 100 % de este hechizo con su poder (como en el resto de la ficha): de ahi sale su Ataque magico.
+func _texto_curacion(cura_magica: float, ref: float = 0.0) -> String:
 	# (06/11, pase de textos) "el lanzador" (lo pidio el jefe: la magia no se porta, se lanza) y sin px.
-	var fija: String = " + %.0f por el poder mágico del lanzador" % cura_magica if cura_magica >= 0.0 \
-		else " + una parte del poder mágico del lanzador"
+	var fija: String = " + una parte del Ataque mágico del lanzador"
+	var atq_mag: float = ref * base_referencia() / dano_base if ref > 0.0 and dano_base > 0.0 else 0.0
+	if cura_magica >= 0.0 and atq_mag > 0.0:
+		var pct: int = roundi(cura_magica / atq_mag * 100.0)
+		match AbilityData.modo_cifras:
+			AbilityData.ModoCifras.NUMERO:
+				fija = " + %s" % AbilityData.num_txt(cura_magica)
+			AbilityData.ModoCifras.PORCENTAJE:
+				fija = " + un %d %% del Ataque mágico del lanzador" % pct
+			_:
+				fija = " + un %d %% (%s) del Ataque mágico del lanzador" % [pct, AbilityData.num_txt(cura_magica)]
+	elif cura_magica >= 0.0:
+		fija = " + %s" % AbilityData.num_txt(cura_magica)
 	if alcance == Alcance.TODOS:
-		return ("Cura a todos los aliados (fuera de combate, a los que estén cerca) con una cantidad de vida equivalente "
+		# Con huella, a los de dentro de ella (17/11, como Fortaleza): «a todos los aliados del círculo».
+		var a_quien: String = "todos los aliados (fuera de combate, a los que estén cerca)"
+		if _con_huella() and int(forma) > 0:
+			a_quien = "todos los aliados %s" % AbilityData._DEL_FORMA[int(forma)]
+		return ("Cura a %s con una cantidad de vida equivalente "
 			+ "al %s de la vida máxima de cada uno%s.\nSe reparte entre todos los que alcanza: con 4 aliados, cada uno "
-			+ "recibe un cuarto.") % [_pct(cura_pct), fija]
+			+ "recibe un cuarto.") % [a_quien, _pct(cura_pct), fija]
 	return "Cura a un aliado con una cantidad de vida equivalente al %s de su vida máxima%s." % [_pct(cura_pct), fija]
 
 
@@ -644,9 +724,14 @@ func _texto_mezcla() -> String:
 func _texto_rebotes(ref: float) -> String:
 	if rebotes_n() <= 0:
 		return ""
-	return ("Después salta %d %s a enemigos al azar e inflige un %s del daño del hechizo en cada salto. "
-		+ "Puede alcanzar varias veces al mismo enemigo.") % [
-		rebotes_n(), "vez" if rebotes_n() == 1 else "veces", _pct(dano_rebote, ref)]
+	var veces: String = "vez" if rebotes_n() == 1 else "veces"
+	var cuanto: String = "un %s del Ataque mágico del lanzador" % _pct_am(dano_rebote, ref)
+	if _con_huella() and forma_cadena > 0.0:
+		return ("Después salta %d %s, cada una al enemigo más cercano que aún no la haya recibido (a menos de %s), e "
+			+ "inflige %s en cada salto. Si no queda nadie nuevo a tiro, el salto vuelve a caer sobre uno de los cercanos, "
+			+ "también el mismo.") % [rebotes_n(), veces, AbilityData.casillas_txt(forma_cadena), cuanto]
+	return ("Después salta %d %s a enemigos al azar e inflige %s en cada salto. "
+		+ "Puede alcanzar varias veces al mismo enemigo.") % [rebotes_n(), veces, cuanto]
 
 
 # Los estados que aplica, con la probabilidad ACUMULADA de todo el hechizo (prob_total), que es la
@@ -657,39 +742,53 @@ func _texto_rebotes(ref: float) -> String:
 # siempre"). Con 'detalle' (hechizos sin daño: Debilidad, Fortaleza) se dice ademas QUE hace y CUANTO dura, que si
 # no la ficha solo daba un nombre.
 func _texto_estados(a_quien: String, detalle: bool = false) -> String:
-	var propios: Array = []
+	# (17/11, como HSR) Los que solo cambian stats se dicen por lo que hacen: «reducir el Ataque de ese enemigo en un 20 %
+	# durante 3 turnos», «Aumenta el Ataque de todos los aliados del círculo en un 25 % durante 3 turnos». Los que tienen
+	# mecanica propia (Quemadura, Mojado...), por su nombre.
+	var quien: String = a_quien.trim_prefix("a ")
+	var trozos: Array = []
 	var buffs: Array = []
 	var grupo: bool = false
 	for a in efectos:
 		if a == null or int(a.estado) < 0:
 			continue
-		var nom: String = String(StatusEffects.def(int(a.estado)).get("nombre", "?"))
-		var extra: String = _detalle_estado(a) if detalle else ""
-		if a.en_objetivo:
-			# Con detalle, el "a quien" va pegado al nombre: "causar Débil al objetivo durante 3 turnos (...)".
-			propios.append([roundi(prob_total(a) * 100.0), nom + (" " + a_quien if detalle else "") + extra])
-		else:
-			buffs.append([nom, extra])
-			if bool(a.get("a_todo_el_grupo")):
-				grupo = true
+		if bool(a.get("a_todo_el_grupo")) and not a.en_objetivo:
+			grupo = true
+	var a_quien_b: String = "todos los aliados" if grupo else "un aliado"
+	if forma_a_aliados and _con_huella() and int(forma_apunte) == 2 and int(forma) > 0:
+		a_quien_b = "todos los aliados %s" % AbilityData._DEL_FORMA[int(forma)]
 	var out: Array = []
-	if not propios.is_empty():
-		var partes: Array = []
-		for k in propios.size():
-			partes.append(("un %d %% de probabilidad base de causar %s" if k == 0 else "un %d %% de causar %s")
-				% [int(propios[k][0]), String(propios[k][1])])
-		out.append("Tiene %s." % _y(partes) if detalle else "Tiene %s %s." % [_y(partes), a_quien])
-	if not buffs.is_empty():
-		# Como HSR (06/11, eleccion del jefe): "Otorga X a un aliado" / "a todos los aliados".
-		var a_quien_b: String = "todos los aliados" if grupo else "un aliado"
-		if buffs.size() == 1:
-			out.append("Otorga %s a %s%s." % [String(buffs[0][0]), a_quien_b, String(buffs[0][1])])
+	for a in efectos:
+		if a == null or int(a.estado) < 0:
+			continue
+		var id_est: int = int(a.estado)
+		var nom: String = String(StatusEffects.def(id_est).get("nombre", "?"))
+		var durante: String = _durante_estado(a)
+		if a.en_objetivo:
+			var st: String = AbilityData.accion_stats(id_est, float(a.mult), quien if trozos.is_empty() else "", true)
+			var accion: String = st + durante if st != "" \
+				else "causar %s %s%s" % [nom, a_quien if trozos.is_empty() else "a ese mismo", _detalle_estado(a) if detalle else durante]
+			var p: int = roundi(prob_total(a) * 100.0)
+			trozos.append(("un %d %% de probabilidad base de %s" if trozos.is_empty() else "un %d %% de %s") % [p, accion])
 		else:
-			var lista_b: Array = []
-			for b in buffs:
-				lista_b.append(String(b[0]) + String(b[1]))
-			out.append("Otorga a %s %s." % [a_quien_b, _y(lista_b)])
+			var st2: String = AbilityData.accion_stats(id_est, float(a.mult), a_quien_b, false)
+			if st2 != "":
+				out.append(AbilityData._mayus(st2) + _durante_estado(a) + ".")
+			else:
+				buffs.append(nom + _detalle_estado(a))
+	if not trozos.is_empty():
+		out.push_front("Tiene %s." % (trozos[0] if trozos.size() == 1
+			else ", ".join(trozos.slice(0, trozos.size() - 1)) + " y " + String(trozos[-1])))
+	if not buffs.is_empty():
+		out.append("Otorga a %s %s." % [a_quien_b, _y(buffs)])
 	return " ".join(out)
+
+
+# « durante 3 turnos» a secas (sin el parentesis de lo que hace).
+func _durante_estado(a) -> String:
+	var id_est: int = int(a.estado)
+	var turnos: int = int(a.turns) if int(a.turns) > 0 else int(StatusEffects.def(id_est).get("turns", 0))
+	return " durante %d turno%s" % [turnos, "" if turnos == 1 else "s"] if turnos > 0 else ""
 
 
 # " durante 3 turnos (Daño infligido +25 %)": lo que hace un estado y cuanto dura, del catalogo.
@@ -721,24 +820,24 @@ func _texto_imbuicion() -> String:
 	var que: String = "el cuerpo" if imbue_tipo == 2 else "el arma"
 	var lineas: Array = []
 	if imbue_prisma:
-		lineas.append("Envuelve en todos los elementos %s de un aliado durante %d ataque%s: cada golpe que da y cada uno que recibe es de un elemento al azar." % [
+		lineas.append("Imbuye de todos los elementos %s de un aliado durante %d ataque%s: cada golpe que da y cada uno que recibe es de un elemento al azar." % [
 			que, imbue_usos, "" if imbue_usos == 1 else "s"])
 	else:
 		# Con elemento al azar la ficha NO puede nombrar uno: seria mentir en la mitad de las tiradas.
 		var elem_txt: String = "un elemento al azar" if imbue_elemento_aleatorio else Elementos.nombre(elemento)
-		lineas.append("Envuelve en %s %s de un aliado durante %d ataque%s." % [
+		lineas.append("Imbuye de %s %s de un aliado durante %d ataque%s." % [
 			elem_txt, que, imbue_usos, "" if imbue_usos == 1 else "s"])
 	# El % de la imbuicion es del daño del GOLPE de quien la lleva (su Fuerza y su arma), no del daño del hechizo.
 	var de: String = "del elemento que salga" if (imbue_prisma or imbue_elemento_aleatorio) \
 		else "de %s" % Elementos.nombre(elemento)
-	var linea: String = "Los golpes de ese aliado infligen un daño adicional %s equivalente al %s del daño del golpe" % [
-		de, _pct(imbue_pct)]
+	var linea: String = "Lo que hace que cada golpe de ese aliado inflija además un %s de su Ataque como Daño Mágico %s" % [
+		_pct(imbue_pct), de]
 	if imbue_estado >= 0 and imbue_prob > 0.0:
-		linea += " y tienen un %s de probabilidad base de causar %s" % [_pct(imbue_prob),
+		linea += " y tenga un %s de probabilidad base de causar %s" % [_pct(imbue_prob),
 			String(StatusEffects.def(imbue_estado).get("nombre", "?"))]
 	elif imbue_prisma and imbue_prob > 0.0:
-		linea += " y tienen un %s de probabilidad base de causar el estado de ese elemento" % _pct(imbue_prob)
-	lineas.append(linea + ".")
+		linea += " y tenga un %s de probabilidad base de causar el estado de ese elemento" % _pct(imbue_prob)
+	lineas[lineas.size() - 1] = String(lineas[-1]).trim_suffix(".") + ", " + linea.substr(0, 1).to_lower() + linea.substr(1) + "."
 	if imbue_tipo == 2:
 		lineas.append(_texto_afinidad())
 	# La velocidad va en su propia linea: es un efecto de otra clase (no tiñe los golpes, mueve antes).
@@ -807,7 +906,7 @@ func resumen() -> String:
 	p.append("%s (%d frase%s)" % [longitud_texto(), longitud(), "" if longitud() == 1 else "s"])
 	p.append("%d maná" % coste_mana)
 	if tipo == TipoEfecto.ATAQUE and dano_base > 0.0:
-		var d: String = "%.0f de daño" % dano_mostrado()
+		var d: String = "%s del Ataque mágico" % _pct_am(dano_objetivo)
 		if es_multigolpe():
 			d += " en %d golpes" % golpes()
 		if not elemento_mix.is_empty():
@@ -833,7 +932,7 @@ func resumen() -> String:
 		if dispersa:
 			p.append(dispersa_texto())
 	if tipo == TipoEfecto.CURACION:
-		p.append("cura un %s de la vida + poder mágico del lanzador%s" % [_pct(cura_pct),
+		p.append("cura un %s de la vida + una parte del Ataque mágico del lanzador%s" % [_pct(cura_pct),
 			" · repartido entre los aliados cercanos" if alcance == Alcance.TODOS else " · a un aliado"])
 	if es_imbuicion():
 		p.append("imbuye el %s de %s" % [imbue_texto(), "todos los elementos" if imbue_prisma

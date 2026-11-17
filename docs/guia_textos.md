@@ -22,7 +22,7 @@ Si una frase se puede leer de dos maneras, está mal.
    - **A quien se le echa, como HSR: «un aliado» y después «ese aliado»** (decidido 06/11 tras
      contarlo en los textos oficiales, ver sección 4): «Otorga Fortaleza a un aliado durante 3
      turnos», «Los golpes de ese aliado infligen…». «Todos los aliados» si va a todos. A un
-     enemigo, «el objetivo seleccionado».
+     enemigo, «un enemigo» (17/11: HSR nunca dice «seleccionado»).
    - **Los números, de los datos y concretos:** nada de «resiste lo mismo que el fuego»; «recibe
      un 20 % menos de Daño de Fuego y un 20 % más de Daño de Agua».
 2. **Cada porcentaje (y cada número) dice de qué es. LEY PARA TODO: fichas, avisos, HUD, menús y log.** Nunca «el 30 %»
@@ -53,6 +53,30 @@ Si una frase se puede leer de dos maneras, está mal.
     En la `descripcion` de sabor no va ninguna cifra.
 11. **Hay que comprobarlo en el código antes de escribirlo.** Un texto bonito que miente es peor
     que uno feo.
+
+## 1b. El repaso del 17/11 (habilidades y magias, al estilo HSR)
+
+- **El daño sale de la stat, no del básico.** Habilidades: «Inflige un 200 % del Ataque de quien la usa como Daño
+  Físico a todos los enemigos del cono.» Enemigos, sin repetir su nombre: «un 85 % de su Ataque … a un objetivo». Magias:
+  «un 107 % del Ataque mágico del lanzador como Daño Mágico de Fuego». Nunca «del daño de un ataque básico» ni «del daño
+  del hechizo» (no es ninguna stat que el jugador vea).
+- **Quién recibe:** las de los personajes, «enemigo» («a un enemigo», «a todos los enemigos del cono»); las de los
+  enemigos, «objetivo». Nunca «el objetivo seleccionado» (HSR no lo dice ni una vez).
+- **La forma, en su propia línea y en casillas** (1 casilla = el personaje): «Forma: cono · 2 casillas · 120° · delante»,
+  «Forma: círculo · 2 casillas de radio · alrededor de quien la usa», «Forma: un aliado · hasta 4,5 casillas».
+- **Tipo y elemento en la frase del daño:** «como Daño Físico», «como Daño Mágico de Rayo». El elemento del personaje
+  sale del arma (hoy ninguna lo tiene: `AbilityData.elemento_de_arma`); la imbuición, en su línea al final: «Por su
+  imbuición de Fuego, cada golpe inflige además un 30 % (2,4) del Ataque de quien la usa como Daño Mágico de Fuego».
+- **El % y el número de quien la lleva:** «un 200 % (16) del Ataque…». Ajuste del jugador (`AbilityData.modo_cifras`):
+  solo %, solo número («Inflige 16 de Daño Físico…») o los dos (por defecto). Sin nadie delante, solo el %.
+- **Los estados que solo cambian stats se dicen por lo que hacen**, como HSR: «Tiene un 45 % de probabilidad base de
+  reducir el Ataque de cada enemigo alcanzado en un 20 % durante 3 turnos.», «Aumenta la Velocidad de todos los aliados
+  del círculo en un 25 % durante 3 turnos.» Los que tienen mecánica propia, por su nombre: «causar Sangrado».
+- **La cura:** «… un 24 % de la vida máxima de cada uno + un X % (N) del Ataque mágico del lanzador». La X se calcula con
+  quien la lanza (la fórmula frena la Magia y el bastón a la mitad, decisión del 21/09).
+- **El «Ataque» de la ficha del personaje lleva el arma de la mano** (su `motion_value`), como la ficha del arma: es el
+  número del que salen los %.
+- Fuera «No hace daño.» en las de apoyo y la coletilla «Lo reduce la Defensa mágica…».
 
 ## 2. Números
 
@@ -148,5 +172,6 @@ probabilidad base de causarla. El daño de las Quemaduras que causa el portador 
 | Estados (ficha del chip en tercera persona, coletillas, chip de la imbuición, sabor) | Hecho 06/11 |
 | Menús y avisos (todos los menús, avisos del HUD y de la red, chips de estado, barras con coma; revisor `tools/volcar_cadenas_ui.py --revisar`) | Hecho 07/11 |
 | Log de combate (frases; números con coma y sin ceros: `CombatPantalla._n`) | Hecho 06/11 |
+| Repaso estilo HSR de habilidades y magias (daño de la stat, forma en casillas, % y número, estados de stats como HSR, cura, Ataque con el arma) | Hecho 17/11 |
 | Fuera de `scripts/ui` (pasivas y desarrollos con «quien la tiene», slayers sacados de `dmg_vs`/`dmg_from`, pesos y tallas con coma, «versión del juego» en vez de «build», «No se ha podido») | Hecho 07/11 |
 | Tildes del sabor (grimorios, carbones, flechas y virotes, materiales), «Ataque de carga:» sin gritar, nombres (Carbón…, Micónido) y frases mágicas con tilde (se comparan con `SpellBook.normalizar`, que las quita) | Hecho 07/11 |
