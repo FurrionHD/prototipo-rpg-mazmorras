@@ -2403,7 +2403,7 @@ func _refrescar_barras() -> void:
 		var escudo_c: float = c.agua_vista() if c != null else 0.0
 		# Y LA CAPA DE AMBAR (set Ambar, 03/11): su tramo dorado, como la costra del Tocon.
 		var costra_c: float = c.costra_vista() if c != null else 0.0
-		(fila["hp_lbl"] as Label).text = ("%.1f/%.1f" % [hp_c, maxhp_c]).replace(".", ",") \
+		(fila["hp_lbl"] as Label).text = Preferencias.barra("%.1f/%.1f", hp_c, maxhp_c) \
 			+ TramoEscudo.poner(fila["hp"] as ProgressBar, hp_c, maxhp_c, escudo_c, c != null and c.escudo_es_jaula()) \
 			+ TramoEscudo.poner_costra(fila["hp"] as ProgressBar, hp_c, maxhp_c, costra_c)
 		var en_bar: ProgressBar = fila["en"]
@@ -2414,13 +2414,13 @@ func _refrescar_barras() -> void:
 		# Rojiza cuando ese se ha quedado sin fuelle (el lider por _exhausted, via el meta de arriba).
 		en_bar.self_modulate = HudEstilo.SIN_FUELLE if c == null and bool(pj.get_meta("sin_fuelle", false)) \
 			else HudEstilo.ENERGIA
-		(fila["en_lbl"] as Label).text = "%.0f/%.0f" % [en_c, maxen_c]
+		(fila["en_lbl"] as Label).text = Preferencias.barra("%.0f/%.0f", en_c, maxen_c)
 		var mp_bar: ProgressBar = fila["mp"]
 		var maxmp_c: float = c.max_mp if c != null else float(maximos[3])
 		var mp_c: float = c.current_mp if c != null else (pj.current_mp if pj.current_mp >= 0.0 else maxmp_c)   # = player_mp
 		mp_bar.max_value = maxf(1.0, maxmp_c)
 		mp_bar.value = mp_c
-		(fila["mp_lbl"] as Label).text = ("%.2f/%.2f" % [mp_c, maxmp_c]).replace(".", ",")
+		(fila["mp_lbl"] as Label).text = Preferencias.barra("%.2f/%.2f", mp_c, maxmp_c)
 		para_red.append([String(pj.uid), pj.nombre, pj.color, snappedf(hp_c, 0.1), snappedf(maxhp_c, 0.1),
 			snappedf(en_c, 1.0), snappedf(maxen_c, 1.0), snappedf(mp_c, 0.01), snappedf(maxmp_c, 0.01), pj == lider_red])
 		# Los estados que lleva encima fuera del combate (y las cargas de Foco), como chips.

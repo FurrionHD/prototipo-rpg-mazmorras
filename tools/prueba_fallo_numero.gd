@@ -133,7 +133,7 @@ func _correr() -> void:
 
 	print("3) un golpe que entra")
 	var n3: Array = await _golpe(combat, e, al, false)
-	_ver(n3.size() == 1 and n3[0]["texto"] != "FALLO" and String(n3[0]["texto"]).begins_with("3.50"),
+	_ver(n3.size() == 1 and n3[0]["texto"] != "FALLO" and String(n3[0]["texto"]).begins_with("3,50"),
 		"sale su numero, no FALLO (%s)" % str(n3.map(func(x): return x["texto"])))
 
 	print("FIN: %s (%d MAL)" % ["TODO BIEN" if _mal == 0 else "HAY FALLOS", _mal])

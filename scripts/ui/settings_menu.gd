@@ -1,6 +1,8 @@
 # ============================================================
 #  settings_menu.gd  (Control creado por codigo)
-#  Los AJUSTES, en APARTADOS: SONIDO (los tres volumenes) y GRAFICOS (modo de pantalla y vsync).
+#  Los AJUSTES, en APARTADOS: SONIDO (los tres volumenes), GRAFICOS (modo de pantalla, vsync, limite de FPS, mostrar
+#  FPS y brillo) y JUEGO (como se
+#  escriben los numeros: las cifras de las fichas y los decimales; ver Preferencias).
 #  Se abren desde el menu del titulo, desde la pausa y desde el combate. Los apartados existen
 #  desde que hay mas de una clase de ajuste: una lista seguida de volumenes y pantallas mezclados
 #  no se lee, y ahi tiene que caber lo que venga despues (idioma, controles) sin mover nada.
@@ -41,14 +43,25 @@ const MUESTRA := {"general": true, "efectos": true, "musica": false}
 const APARTADOS := [
 	{"clave": "sonido", "titulo": "Sonido"},
 	{"clave": "graficos", "titulo": "Gráficos"},
+	{"clave": "juego", "titulo": "Juego"},
 ]
-# Alto fijo del cuerpo: lo que ocupa el apartado mas alto (los tres volumenes). Sin esto, el panel
-# encoge al cambiar a Graficos y el boton de Volver salta de sitio bajo el dedo.
-const ALTO_CUERPO := 236.0
+# Alto fijo del cuerpo: lo que ocupa el apartado MAS ALTO (se mide al montarlos, ver _ready). Sin esto, el panel
+# encoge al cambiar de pestaña y el boton de Volver salta de sitio bajo el dedo.
+var _cuerpo: Control = null
 
 var _cifras: Dictionary = {}   # clave -> Label del porcentaje
 var _pantalla: OptionButton = null   # el selector de modo de ventana
 var _vsync: CheckButton = null
+var _limite_fps: OptionButton = null
+var _resolucion: OptionButton = null
+var _resoluciones: Array = []   # las de la lista, en su orden (Vector2i)
+var _mostrar_fps: CheckButton = null
+var _brillo: HSlider = null
+var _cifra_brillo: Label = null
+var _cifras_fichas: OptionButton = null   # porcentaje / numero / los dos
+var _decimales: OptionButton = null       # enteros / 1 decimal / por defecto
+var _ej_cifras: Label = null   # el ejemplo de debajo de cada lista: se ve lo que hace sin ir a buscarlo
+var _ej_decimales: Label = null
 var _cuerpos: Dictionary = {}   # clave de apartado -> VBoxContainer
 var _pestanas: Dictionary = {}  # clave de apartado -> Button
 var _apartado: String = "sonido"
@@ -105,7 +118,7 @@ func _ready() -> void:
 	# EL CUERPO: los dos apartados montados a la vez, y se enseña uno. Montarlos al vuelo obligaria a
 	# rehacer los mandos cada vez que se cambia de pestaña, y con ellos el estado que ya tienen.
 	var cuerpo := Control.new()
-	cuerpo.custom_minimum_size = Vector2(ANCHO, ALTO_CUERPO)
+	_cuerpo = cuerpo
 	vb.add_child(cuerpo)
 	for a in APARTADOS:
 		var caja := VBoxContainer.new()
@@ -119,6 +132,45 @@ func _ready() -> void:
 
 	_fila_pantalla(_cuerpos["graficos"])
 	_fila_vsync(_cuerpos["graficos"])
+	# Limite de FPS y Mostrar FPS en la misma fila: los dos son del contador de fotogramas.
+	var fila_fps := _doble(_cuerpos["graficos"])
+	_limite_fps = _fila_lista(fila_fps, "Límite de FPS", Ventana.LIMITES_FPS, Ventana.limite_fps,
+		func(id: int) -> void: Ventana.aplicar_limite_fps(id), MEDIO)
+	var caja_fps := VBoxContainer.new()
+	caja_fps.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	caja_fps.add_theme_constant_override("separation", 2)
+	fila_fps.add_child(caja_fps)
+	var tit_fps := Label.new()
+	tit_fps.text = "Mostrar FPS"
+	tit_fps.add_theme_font_size_override("font_size", 15)
+	tit_fps.add_theme_color_override("font_color", Color(0.82, 0.85, 0.9))
+	caja_fps.add_child(tit_fps)
+	_mostrar_fps = CheckButton.new()
+	_mostrar_fps.text = "También con F3"
+	_mostrar_fps.custom_minimum_size = Vector2(MEDIO, ALTO_MANDO + 8)
+	_mostrar_fps.add_theme_font_size_override("font_size", 15)
+	_mostrar_fps.button_pressed = Ventana.mostrar_fps
+	_mostrar_fps.toggled.connect(func(on: bool) -> void: Ventana.aplicar_mostrar_fps(on))
+	caja_fps.add_child(_mostrar_fps)
+	_fila_brillo(_cuerpos["graficos"])
+
+	_cifras_fichas = _fila_lista(_cuerpos["juego"], "Cifras de habilidades y hechizos",
+		Preferencias.MODOS_CIFRAS, AbilityData.modo_cifras, func(id: int) -> void:
+			Preferencias.fijar_modo_cifras(id)
+			_pintar_ejemplos())
+	_ej_cifras = _pista(_cuerpos["juego"])
+	_decimales = _fila_lista(_cuerpos["juego"], "Decimales de barras, registro y golpes",
+		Preferencias.MODOS_DECIMALES, Preferencias.decimales, func(id: int) -> void:
+			Preferencias.fijar_decimales(id)
+			_pintar_ejemplos())
+	_ej_decimales = _pista(_cuerpos["juego"])
+	_pintar_ejemplos()
+
+	# EL ALTO del cuerpo = el del apartado mas alto (Graficos, hoy).
+	var alto: float = 0.0
+	for k in _cuerpos:
+		alto = maxf(alto, (_cuerpos[k] as Control).get_combined_minimum_size().y)
+	_cuerpo.custom_minimum_size = Vector2(ANCHO, alto)
 
 	_ir_a(_apartado)
 
@@ -179,27 +231,79 @@ func _fila_pantalla(vb: VBoxContainer) -> void:
 	caja.add_theme_constant_override("separation", 2)
 	vb.add_child(caja)
 
-	var lbl := Label.new()
-	lbl.text = "Pantalla"
-	lbl.add_theme_font_size_override("font_size", 15)
-	lbl.add_theme_color_override("font_color", Color(0.82, 0.85, 0.9))
-	caja.add_child(lbl)
-
-	_pantalla = OptionButton.new()
-	_pantalla.custom_minimum_size = Vector2(ANCHO, ALTO_MANDO + 8)
-	_pantalla.add_theme_font_size_override("font_size", 15)
-	for m in Ventana.MODOS:
-		_pantalla.add_item(String(m["nombre"]), int(m["id"]))
-	_pantalla.select(_pantalla.get_item_index(Ventana.modo))
-	_pantalla.item_selected.connect(func(i: int) -> void:
-		Ventana.aplicar(_pantalla.get_item_id(i)))
-	caja.add_child(_pantalla)
+	# MODO Y RESOLUCION EN LA MISMA FILA (17/11): la resolucion va al lado porque depende del modo (solo en Ventana; en
+	# las otras manda el monitor). En columna, Graficos llenaba la pantalla de alto.
+	var fila := _doble(caja)
+	_pantalla = _fila_lista(fila, "Pantalla", Ventana.MODOS, Ventana.modo, func(id: int) -> void:
+		Ventana.aplicar(id)
+		_pintar_resolucion(), MEDIO)
+	_resoluciones = Ventana.resoluciones_que_caben()
+	var nombres: Array = []
+	for i in _resoluciones.size():
+		var r: Vector2i = _resoluciones[i]
+		nombres.append({"id": i, "nombre": "%d × %d" % [r.x, r.y]})
+	_resolucion = _fila_lista(fila, "Resolución", nombres, -1, func(id: int) -> void:
+		Ventana.aplicar_resolucion(_resoluciones[id]), MEDIO)
+	_pintar_resolucion()
 
 	var pista := Label.new()
-	pista.text = "Pulsa F11 en cualquier momento para cambiar a pantalla completa o volver."
+	pista.text = "La resolución solo se elige en modo Ventana; en las otras se usa la del monitor. F11: pantalla completa."
+	pista.custom_minimum_size = Vector2(ANCHO, 0)
+	pista.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	pista.add_theme_font_size_override("font_size", 11)
 	pista.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
 	caja.add_child(pista)
+
+
+# La resolucion que toca en la lista: la elegida o, si nunca se eligio, la del tamaño de la ventana ahora. Apagada fuera
+# del modo Ventana.
+func _pintar_resolucion() -> void:
+	if _resolucion == null:
+		return
+	var actual: Vector2i = Ventana.resolucion
+	if actual.x <= 0:
+		actual = DisplayServer.window_get_size()
+	var idx: int = _resoluciones.find(actual)
+	_resolucion.select(idx)   # -1 = ninguna marcada (un tamaño a mano que no esta en la lista)
+	_resolucion.disabled = Ventana.modo != Ventana.Modo.VENTANA
+
+
+# EL BRILLO: un mando como los del volumen, del 50 al 150 %. Se ve al arrastrar y se guarda al soltar.
+func _fila_brillo(vb: VBoxContainer) -> void:
+	var caja := VBoxContainer.new()
+	caja.add_theme_constant_override("separation", 2)
+	vb.add_child(caja)
+	var linea := HBoxContainer.new()
+	caja.add_child(linea)
+	var lbl := Label.new()
+	lbl.text = "Brillo"
+	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lbl.add_theme_font_size_override("font_size", 15)
+	lbl.add_theme_color_override("font_color", Color(0.82, 0.85, 0.9))
+	linea.add_child(lbl)
+	_cifra_brillo = Label.new()
+	_cifra_brillo.add_theme_font_size_override("font_size", 15)
+	_cifra_brillo.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
+	linea.add_child(_cifra_brillo)
+	_brillo = HSlider.new()
+	_brillo.min_value = Ventana.BRILLO_MIN * 100.0
+	_brillo.max_value = Ventana.BRILLO_MAX * 100.0
+	_brillo.step = 5.0
+	_brillo.value = Ventana.brillo * 100.0
+	_brillo.custom_minimum_size = Vector2(ANCHO, ALTO_MANDO)
+	caja.add_child(_brillo)
+	_brillo.value_changed.connect(func(v: float) -> void:
+		Ventana.fijar_brillo(v / 100.0)
+		_pintar_brillo())
+	_brillo.drag_ended.connect(func(cambiado: bool) -> void:
+		if cambiado:
+			Ventana.guardar_ajustes())
+	_pintar_brillo()
+
+
+func _pintar_brillo() -> void:
+	if _cifra_brillo != null:
+		_cifra_brillo.text = "%d %%" % roundi(Ventana.brillo * 100.0)
 
 
 # SINCRONIZACION VERTICAL. Interruptor y no lista: son dos estados y no hay termino medio.
@@ -219,6 +323,65 @@ func _fila_vsync(vb: VBoxContainer) -> void:
 	pista.add_theme_font_size_override("font_size", 11)
 	pista.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
 	vb.add_child(pista)
+
+
+# UNA LISTA DE OPCIONES con su titulo (los ajustes de Juego). 'modos' = [{id, nombre}]; al elegir se llama a
+# 'al_elegir' con el id, que es lo que se guarda.
+# 'ancho' = MEDIO cuando va en una fila doble (_doble).
+func _fila_lista(vb: Container, titulo: String, modos: Array, actual: int, al_elegir: Callable,
+		ancho: float = ANCHO) -> OptionButton:
+	var caja := VBoxContainer.new()
+	caja.add_theme_constant_override("separation", 2)
+	caja.size_flags_horizontal = Control.SIZE_EXPAND_FILL   # en una fila doble, las dos medias llegan al borde
+	vb.add_child(caja)
+
+	var lbl := Label.new()
+	lbl.text = titulo
+	lbl.add_theme_font_size_override("font_size", 15)
+	lbl.add_theme_color_override("font_color", Color(0.82, 0.85, 0.9))
+	caja.add_child(lbl)
+
+	var ob := OptionButton.new()
+	ob.custom_minimum_size = Vector2(ancho, ALTO_MANDO + 8)
+	ob.add_theme_font_size_override("font_size", 15)
+	for m in modos:
+		ob.add_item(String(m["nombre"]), int(m["id"]))
+	ob.select(ob.get_item_index(actual))
+	ob.item_selected.connect(func(i: int) -> void: al_elegir.call(ob.get_item_id(i)))
+	caja.add_child(ob)
+	return ob
+
+
+# UNA FILA DE DOS MEDIAS (Graficos): dos ajustes cortos lado a lado.
+const HUECO_DOBLE := 12.0
+const MEDIO := (ANCHO - HUECO_DOBLE) / 2.0
+
+func _doble(vb: Container) -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", int(HUECO_DOBLE))
+	vb.add_child(h)
+	return h
+
+
+func _pista(vb: VBoxContainer) -> Label:
+	var l := Label.new()
+	l.custom_minimum_size = Vector2(ANCHO, 0)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.add_theme_font_size_override("font_size", 11)
+	l.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
+	vb.add_child(l)
+	return l
+
+
+# LOS EJEMPLOS de la pestaña Juego, con las mismas funciones que pintan de verdad: si el ejemplo dice una cosa, la
+# ficha y la barra dicen esa misma.
+func _pintar_ejemplos() -> void:
+	if _ej_cifras != null:
+		_ej_cifras.text = "Ej.: «Inflige %s.»" % AbilityData.cuanto_txt(2.0, 24.0,
+			"del Ataque de quien la usa", "como Daño Físico")
+	if _ej_decimales != null:
+		_ej_decimales.text = "Ej.: vida %s · golpe de %s" % [Preferencias.barra("%.2f / %.2f", 198.84, 199.9),
+			Preferencias.fijo(34.62, 2)]
 
 
 # Cambia de apartado: se enseña su caja y su pestaña se enciende.
@@ -261,8 +424,21 @@ func abrir() -> void:
 	# Y lo de Gráficos, que se puede haber cambiado por fuera (F11) con este panel escondido.
 	if _pantalla != null:
 		_pantalla.select(_pantalla.get_item_index(Ventana.modo))
+	_pintar_resolucion()
 	if _vsync != null:
 		_vsync.set_pressed_no_signal(Ventana.vsync)
+	if _limite_fps != null:
+		_limite_fps.select(_limite_fps.get_item_index(Ventana.limite_fps))
+	if _mostrar_fps != null:
+		_mostrar_fps.set_pressed_no_signal(Ventana.mostrar_fps)   # F3 lo puede haber cambiado por fuera
+	if _brillo != null:
+		_brillo.set_value_no_signal(Ventana.brillo * 100.0)
+		_pintar_brillo()
+	if _cifras_fichas != null:
+		_cifras_fichas.select(_cifras_fichas.get_item_index(AbilityData.modo_cifras))
+	if _decimales != null:
+		_decimales.select(_decimales.get_item_index(Preferencias.decimales))
+	_pintar_ejemplos()
 
 
 func cerrar() -> void:
@@ -270,4 +446,5 @@ func cerrar() -> void:
 	# Cinturon: si alguien cambio algo con el teclado (las flechas mueven el mando sin arrastrar y
 	# por tanto sin drag_ended), aqui no se pierde.
 	Sonido.guardar_ajustes()
+	Ventana.guardar_ajustes()   # el brillo movido con el teclado, igual que los volumenes
 	cerrado.emit()

@@ -175,7 +175,7 @@ func _correr() -> void:
 			inst = e
 	var txt: String = inst.resumen() if inst != null else ""
 	print("     ficha: %s" % txt.replace("\n", " | "))
-	_ver(txt.contains("pasiva (no se puede disipar)") and txt.contains("Recibe un 50 % menos de todo el daño mágico."),
+	_ver(txt.contains("pasiva (no se puede disipar)") and txt.contains("El daño mágico que recibe se reduce en un 50 %."),
 		"su ficha dice que es pasiva y el 50 % (del dato)")
 	_ver(inst != null and inst.duracion_texto() == "∞", "en el chip, ∞")
 	_ver(StatusEffects.estados_que_salen(c_ins.statuses).filter(func(d): return int(d.get("id", -1)) == StatusEffects.Id.OJOS_INSOMNES).is_empty(),

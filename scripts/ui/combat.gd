@@ -3562,6 +3562,8 @@ func _set_log(texto: String, tipo: String = "") -> void:
 
 # UN NUMERO DEL REGISTRO (06/11, pase de textos; lo eligio el jefe): coma decimal, hasta 2 decimales y sin los ceros
 # que sobran. 5.69 -> "5,69", 4.10 -> "4,1", 3.00 -> "3".
+# SIEMPRE con hasta 2 decimales, sea cual sea el ajuste: la frase viaja ESCRITA por la red a los espejos, y cada uno
+# la recorta con SU ajuste de decimales al pintarla (Preferencias.en_texto, en combat_registro).
 static func _n(x: float) -> String:
 	var s: String = "%.2f" % x
 	s = s.rstrip("0").rstrip(".")

@@ -90,6 +90,7 @@ func _fijar_barra_num(bloque: Dictionary, clave: String, valor: float, maximo: f
 	if not bloque.has(clave):
 		return
 	bloque[clave].max_value = maximo
+	fmt = Preferencias.fmt(fmt)   # los decimales del ajuste (pestaña Juego)
 	bloque[clave + "_fmt"] = fmt
 	_fijar_barra(bloque, clave, valor)
 	if bloque.has(clave + "_lbl"):
