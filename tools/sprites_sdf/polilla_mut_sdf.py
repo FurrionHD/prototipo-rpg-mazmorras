@@ -81,6 +81,8 @@ VISTAS = 'tools/salida/sdf/polilla_%s/' % MUT
 # queda el panel negro del ala. Solo idle y walk (las demas, sin parpados: con todas el horno pasaba de hora y media).
 PARPADOS = MUT == 'insomne'
 GRUPOS_PARPADO = 6
+# (16/11) Y el horno lo respeta (sdf_comun.lleva_parpados): antes no habia forma de decirlo y se hacian en todas.
+ANIMS_PARPADO = ('idle', 'walk')
 # grupo -> (lado, ala, panel): 1-2 el grande de delante, 3-4 el mediano de detras, 5-6 el pequeño de la cola.
 _OJO_DE_GRUPO = {1: (-1, 1, 0), 2: (1, 1, 0), 3: (-1, 2, 0), 4: (1, 2, 0), 5: (-1, 2, 1), 6: (1, 2, 1)}
 

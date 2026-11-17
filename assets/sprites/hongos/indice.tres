@@ -69,10 +69,10 @@ metadata/hojas = {
 "res://assets/sprites/enemigos/jabali3d_jabali_sdf_ancestral_rotos": "res://assets/sprites/hongos/f99c0d94cc54.tres",
 "res://assets/sprites/enemigos/jabali3d_jabali_sdf_colmillo": "res://assets/sprites/hongos/51d52034ccbd.tres",
 "res://assets/sprites/enemigos/jabali3d_jabali_sdf_colmillo_rotos": "res://assets/sprites/hongos/620143f44f43.tres",
-"res://assets/sprites/enemigos/miconido3d_806e40": "res://assets/sprites/hongos/0fe649bf0f77.tres",
-"res://assets/sprites/enemigos/miconido3d_807455": "res://assets/sprites/hongos/0fe649bf0f77.tres",
-"res://assets/sprites/enemigos/miconido3d_aa9b71": "res://assets/sprites/hongos/0fe649bf0f77.tres",
-"res://assets/sprites/enemigos/miconido3d_aaa28e": "res://assets/sprites/hongos/0fe649bf0f77.tres",
+"res://assets/sprites/enemigos/miconido3d_806e40": "res://assets/sprites/hongos/f55117b2e4de.tres",
+"res://assets/sprites/enemigos/miconido3d_807455": "res://assets/sprites/hongos/f55117b2e4de.tres",
+"res://assets/sprites/enemigos/miconido3d_aa9b71": "res://assets/sprites/hongos/f55117b2e4de.tres",
+"res://assets/sprites/enemigos/miconido3d_aaa28e": "res://assets/sprites/hongos/f55117b2e4de.tres",
 "res://assets/sprites/enemigos/miconido3d_miconido_sdf_campana": "res://assets/sprites/hongos/c4b87906d62a.tres",
 "res://assets/sprites/enemigos/miconido3d_miconido_sdf_florecido": "res://assets/sprites/hongos/2eb4eafc166d.tres",
 "res://assets/sprites/enemigos/minotauro3d": "res://assets/sprites/hongos/db8427354929.tres",
@@ -84,8 +84,8 @@ metadata/hojas = {
 "res://assets/sprites/enemigos/polilla3d_luto_a48eaa": "res://assets/sprites/hongos/9481c0371bd2.tres",
 "res://assets/sprites/enemigos/polilla3d_luto_d5d5d5": "res://assets/sprites/hongos/9481c0371bd2.tres",
 "res://assets/sprites/enemigos/polilla3d_polilla_sdf_insomne": "res://assets/sprites/hongos/4b8f54a90a8e.tres",
-"res://assets/sprites/enemigos/polilla3d_polilla_sdf_mortaja": "res://assets/sprites/hongos/0a5c7c21ea7f.tres",
-"res://assets/sprites/enemigos/polilla3d_polilla_sdf_vigilia": "res://assets/sprites/hongos/dc371f02ed4c.tres",
+"res://assets/sprites/enemigos/polilla3d_polilla_sdf_mortaja": "res://assets/sprites/hongos/9a1d3bfdc4fa.tres",
+"res://assets/sprites/enemigos/polilla3d_polilla_sdf_vigilia": "res://assets/sprites/hongos/b3a2e42d8d19.tres",
 "res://assets/sprites/enemigos/rata3d_806a55": "res://assets/sprites/hongos/ba6b35ab5ea9.tres",
 "res://assets/sprites/enemigos/rata3d_80756a": "res://assets/sprites/hongos/ba6b35ab5ea9.tres",
 "res://assets/sprites/enemigos/rata3d_aa8a55_rey": "res://assets/sprites/hongos/0d48097fa7c7.tres",
@@ -158,5 +158,5 @@ metadata/hojas = {
 "res://assets/sprites/enemigos/trent3d_trent_sdf_ambarino": "res://assets/sprites/hongos/43e2996d3f3a.tres",
 "res://assets/sprites/enemigos/trent3d_trent_sdf_ambarino_sin_costra": "res://assets/sprites/hongos/be76d04150ca.tres",
 "res://assets/sprites/enemigos/trent3d_trent_sdf_espantajo": "res://assets/sprites/hongos/bea2d4a90ffb.tres",
-"res://assets/sprites/player/cuerpo_1.00": "res://assets/sprites/hongos/edd75c9072ef.tres"
+"res://assets/sprites/player/cuerpo_1.00": "res://assets/sprites/hongos/9784fd63ffdc.tres"
 }

@@ -386,7 +386,11 @@ static func describir(sf: SpriteFrames) -> Dictionary:
 			h = int(at.region.size.y + at.margin.size.y)
 		anims.append({"n": a, "loop": sf.get_animation_loop(a), "fps": sf.get_animation_speed(a),
 			"f": marcos})
-	return {"w": w, "h": h, "anims": anims}
+	var d := {"w": w, "h": h, "anims": anims}
+	if sf.has_meta(META_PIES):   # (16/11) el punto del suelo, para SombraSuelo
+		var p: Vector2 = sf.get_meta(META_PIES)
+		d["pies"] = [p.x, p.y]
+	return d
 
 
 # LO QUE SE HA ESCRITO EN ESTA PASADA DEL HORNO, por ruta. Lo lleva 'hornear' y lo consume
@@ -517,6 +521,8 @@ static func cargar_horneado(clave: String, carpeta: String = CARPETA_HORNO, pere
 	hoja.set_meta(META_HOJA_RUTA, carpeta + clave)
 	var sf := SpriteFrames.new()
 	sf.remove_animation("default")
+	if desc.tiene_pies:
+		sf.set_meta(META_PIES, desc.pies)
 	# Los fotogramas REPETIDOS (tools/compactar_hojas.py los deja apuntando al mismo recorte) comparten tambien el
 	# mismo AtlasTexture: la hoja del cuerpo creaba 14.596 y la mitad eran iguales. La tabla se queda con la hoja
 	# perezosa para que las animaciones que se monten despues sigan compartiendo.
@@ -531,6 +537,8 @@ static func cargar_horneado(clave: String, carpeta: String = CARPETA_HORNO, pere
 
 const META_PEREZOSA := &"hoja_perezosa"
 const META_HOJA_RUTA := &"hoja_ruta"
+# EL PUNTO DEL SUELO de una hoja (16/11, SombraSuelo): Vector2 respecto al centro del lienzo, en pixeles de la hoja.
+const META_PIES := &"pies_suelo"
 
 
 # Que 'sf' tenga la animacion 'nombre': si es una hoja perezosa y aun no estaba, se monta ahora (una animacion son

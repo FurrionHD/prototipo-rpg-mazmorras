@@ -176,7 +176,10 @@ class Escena:
         self.L.sombras = []
 
     def sombra(self, x, y, rx, ry, alfa=0.26):
-        self.L.sombras.append((x, y, rx, ry, alfa))
+        # (16/11, memoria sombras-fuera-del-sprite) LA SOMBRA YA NO SE HORNEA: la pinta el juego (SombraSuelo) en el punto
+        # del suelo de la hoja ('pies' de hojas.json). Solo en las LAMINAS de diseño, para leer la altura: SDF_SOMBRA=1.
+        if os.environ.get('SDF_SOMBRA') == '1':
+            self.L.sombras.append((x, y, rx, ry, alfa))
 
     def add(self, fn, mat, k=0.0, grupo='cuerpo', hueso='raiz'):
         self.L.append((fn, mat, grupo, k, self.X.get(hueso, IDENT), hueso))
@@ -431,7 +434,19 @@ def vistas_lado_a_lado(fotos_nuevas, nombre_viejo, salida, escala=4, anim='idle'
 # EL MODELO DE UNA POSE (12/11, la evolucion de la polilla: crece y cambia de color fotograma a fotograma): si el modulo
 # tiene modelo_de(pose), ese; si no, su MODELO de siempre. Mismo lienzo para todos (la hoja es una).
 def modelo_de(mod, pose):
-    return mod.modelo_de(pose) if hasattr(mod, 'modelo_de') else mod.MODELO
+    # (16/11) OJO: los hornos que hacen 'from sdf_comun import *' se traen ESTA funcion con el mismo nombre; esa no es
+    # la suya (pedia la pose sola y reventaba el chillon y las polillas base). Solo vale un modelo_de(pose) PROPIO.
+    f = getattr(mod, 'modelo_de', None)
+    return f(pose) if f is not None and f is not modelo_de else mod.MODELO
+
+
+# ¿Lleva parpados ESTA animacion? (16/11) PARPADOS los activa y ANIMS_PARPADO, si el horno la tiene, dice en cuales: la
+# Polilla insomne solo en idle y walk. Sin esa lista el horno los hacia en TODAS (82 min en vez de ~15, y 54 hojas de mas).
+def lleva_parpados(mod, nombre):
+    if not getattr(mod, 'PARPADOS', False):
+        return False
+    solo = getattr(mod, 'ANIMS_PARPADO', None)
+    return solo is None or nombre in solo
 
 
 def _trabajo(args):
@@ -447,7 +462,7 @@ def _trabajo(args):
     # con los ojos CERRADOS, y se guarda SOLO lo que cambia. El juego lo pone encima a ratos, a su aire.
     # (06/10, el de MIL OJOS: "cada ojo parpadea por su cuenta"): con GRUPOS_PARPADO > 1, una hoja por grupo de ojos.
     par = None
-    if getattr(mod, 'PARPADOS', False):
+    if lleva_parpados(mod, nombre):
         par = []
         grupos = getattr(mod, 'GRUPOS_PARPADO', 1)
         a = np.asarray(im).astype(int)
@@ -502,6 +517,8 @@ def hornear(modname, nombres, salida, vistas):
     meta_path = salida + 'hojas.json'
     meta = json.load(open(meta_path)) if os.path.exists(meta_path) else {}
     meta['lienzo'] = [W, H]
+    # (16/11) EL PUNTO DEL SUELO: la sombra ya no va en el dibujo, la pinta el juego (SombraSuelo) aqui.
+    meta['pies'] = [mod.MODELO.OX, mod.MODELO.OY]
     meta.setdefault('anims', {})
     for nm in nombres:
         n, fps, loop, dirs, fn = mod.ANIMS[nm]

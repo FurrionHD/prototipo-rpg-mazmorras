@@ -139,6 +139,8 @@ func _ready() -> void:
 	set_process(true)
 	# Para quien tenga que encontrar el muñeco de un cuerpo desde fuera (la mirada de la Sed de sangre).
 	add_to_group(&"munecos_jugador")
+	# SU SOMBRA (16/11): ya no va horneada en la capa del cuerpo, la pinta el juego en sus pies.
+	SombraSuelo.poner_en_muneco(self)
 
 
 # DONDE TIENE LOS OJOS EN ESTE FOTOGRAMA, en coordenadas de MUNDO: los que se le ven (dos de frente y en

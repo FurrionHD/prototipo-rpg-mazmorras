@@ -84,5 +84,9 @@
    "parpado": true,
    "grupos_parpado": 1
   }
- }
+ },
+ "pies": [
+  34.0,
+  47.15789473684211
+ ]
 }

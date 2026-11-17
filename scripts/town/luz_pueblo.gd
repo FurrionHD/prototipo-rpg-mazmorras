@@ -95,6 +95,11 @@ func poner_foco(pos: Vector2, radio: float, color: Color, fuerza: float = 1.0,
 	_focos.append(f)
 
 
+# Los focos apuntados (16/11: los lee LucesSombra para las sombras). Solo leer.
+func focos() -> Array:
+	return _focos
+
+
 func poner_encendible(nodo: CanvasItem, retraso: float = 0.0) -> void:
 	nodo.modulate.a = 0.0
 	nodo.visible = false

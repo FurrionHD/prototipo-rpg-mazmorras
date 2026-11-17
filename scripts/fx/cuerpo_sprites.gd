@@ -201,7 +201,7 @@ static func color_piel() -> Color:
 # (PoseJugador.profundidad) y ordenando. Sale gratis y no se puede quedar desfasado.
 static func pintar(esq: Dictionary, piezas: Array) -> void:
 	var p: Dictionary = esq["puntos"]
-	CapaJugador.sombra_suelo(piezas, esq)
+	# (16/11) SIN la sombra del suelo: ya no va horneada, la pinta el juego (SombraSuelo, en MunecoJugador).
 
 	# Que lado queda mas lejos de la camara. Menos profundidad = mas al fondo.
 	var pierna_izq_prof: float = PoseJugador.profundidad(esq, PoseJugador.P_PIE_IZQ)

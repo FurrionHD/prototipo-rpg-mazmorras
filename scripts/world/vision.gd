@@ -476,7 +476,30 @@ func poner_flores(celdas: Dictionary, radio: float, intensidad: float,
 				idx.append(i)
 				val.append(v)
 		if idx.size() > 0:
-			_flores.append({"pos": pos, "idx": idx, "val": val})
+			_flores.append({"pos": pos, "idx": idx, "val": val, "tope": tope})
+
+
+# (16/11, LucesSombra) LAS FLORES Y BROTES QUE LE LLEGAN a este punto del mundo: [{pos, fuerza 0..1}]. Usa la huella de
+# cada flor (las subceldas que alumbra DE VERDAD, con las paredes en medio), asi que una flor tras un muro no cuenta.
+# 'cerca' = hasta donde mirar (px): las flores mas lejos ni se miran.
+func flores_en(mundo: Vector2, cerca: float) -> Array:
+	var out: Array = []
+	if _flores.is_empty() or ancho <= 0:
+		return out
+	var px_sub: float = float(DungeonGenerator.CELDA) / float(SUB)
+	var sx: int = int(mundo.x / px_sub)
+	var sy: int = int(mundo.y / px_sub)
+	if sx < 0 or sy < 0 or sx >= ancho or sy >= alto:
+		return out
+	var i: int = sy * ancho + sx
+	for f in _flores:
+		if (f["pos"] as Vector2).distance_squared_to(mundo) > cerca * cerca:
+			continue
+		var idx: PackedInt32Array = f["idx"]
+		var k: int = idx.bsearch(i)      # (se rellenan en orden: fila a fila)
+		if k < idx.size() and idx[k] == i:
+			out.append({"pos": f["pos"], "fuerza": float((f["val"] as PackedByteArray)[k]) / maxf(float(f["tope"]), 1.0)})
+	return out
 
 
 # ------------------------------------------------------------

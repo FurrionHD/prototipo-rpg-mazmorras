@@ -244,5 +244,9 @@
    "parpado": false,
    "grupos_parpado": 0
   }
- }
+ },
+ "pies": [
+  92,
+  108
+ ]
 }

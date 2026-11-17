@@ -40,6 +40,9 @@ static func montar(carpeta: String, anims_tabla: Dictionary, lienzo: Vector2i, b
 			continue
 		paleta[i] = Color(clampf(c.r * k.x, 0.0, 1.0), clampf(c.g * k.y, 0.0, 1.0), clampf(c.b * k.z, 0.0, 1.0), c.a)
 	var sf: SpriteFrames = SpriteLienzo.montar_frames_con_plan(anims, SpriteLienzo.paleta(paleta), lienzo.x, lienzo.y, est["plan"])
+	var pies = pies_de(carpeta, lienzo)
+	if pies != null:
+		sf.set_meta(SpriteLienzo.META_PIES, pies)
 	_cache[clave] = sf
 	return sf
 
@@ -79,6 +82,23 @@ static func _estructura(carpeta: String, anims_tabla: Dictionary, lienzo: Vector
 	var est: Dictionary = {"anims": anims, "paleta": paleta, "plan": {}}   # plan: lo rellena montar_frames_con_plan la 1a vez
 	_estructuras[clave] = est
 	return est
+
+
+# EL PUNTO DEL SUELO de las hojas de 'carpeta' respecto al centro del lienzo (16/11, SombraSuelo), o null si su hojas.json
+# no lo dice (lo apunta el horno SDF: tools/sprites_sdf/apuntar_pies.py para las ya horneadas).
+static var _pies: Dictionary = {}
+
+static func pies_de(carpeta: String, lienzo: Vector2i):
+	if _pies.has(carpeta):
+		return _pies[carpeta]
+	var r = null
+	var js: String = carpeta + "hojas.json"
+	if FileAccess.file_exists(js):
+		var d = JSON.parse_string(FileAccess.get_file_as_string(js))
+		if d is Dictionary and d.get("pies", null) is Array and (d["pies"] as Array).size() == 2:
+			r = Vector2(float(d["pies"][0]), float(d["pies"][1])) - Vector2(lienzo) / 2.0
+	_pies[carpeta] = r
+	return r
 
 
 static func _hoja(ruta: String) -> Image:
