@@ -100,5 +100,9 @@
    "parpado": false,
    "grupos_parpado": 0
   }
- }
+ },
+ "pies": [
+  120.0,
+  119.36842105263159
+ ]
 }

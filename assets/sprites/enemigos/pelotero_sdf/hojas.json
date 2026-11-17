@@ -52,5 +52,9 @@
    "parpado": false,
    "grupos_parpado": 0
   }
- }
+ },
+ "pies": [
+  48,
+  59
+ ]
 }

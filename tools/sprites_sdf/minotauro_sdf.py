@@ -838,6 +838,7 @@ def hornear(nombres, roto=False):
     meta_path = SALIDA + 'hojas.json'
     meta = json.load(open(meta_path)) if os.path.exists(meta_path) else {}
     meta['lienzo'] = [W, H]
+    meta['pies'] = [OX, OY]   # (16/11) el punto del suelo, para la sombra del juego (SombraSuelo)
     meta.setdefault('anims', {})
     for nm in nombres:
         n, fps, loop, dirs, fn = ANIMS[nm]

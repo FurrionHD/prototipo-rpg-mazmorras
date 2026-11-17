@@ -248,6 +248,9 @@ func _montar_sprite() -> void:
 	SpritesEnemigo.poner_parpados(_sprite, data, current_t, mutante, mutacion)   # los mismos que en el mapa
 	HumoToxico.poner(_sprite, HumoToxico.modo_de(data, mutante, mutacion), data.color_visual(current_t))
 	NeblinaFria.poner(_sprite, NeblinaFria.lleva(data, mutante, mutacion))   # (la neblina del aura fria)
+	# Y SU SOMBRA (16/11), igual que en enemy.gd.
+	SombraSuelo.poner_en_enemigo(_sprite, SpritesEnemigo.tam_cuerpo(data), SombraSuelo.escala_sin_mutante(data),
+		SombraSuelo.vuela_de(data, mutante, mutacion))
 	# La textura generada NO es 1 pixel = 1 unidad de mundo: cada generador dice cuanto escalarla.
 	# Y NO se vuelve a estirar con escala_visual: los generadores ya dibujan al bicho grande con mas
 	# celdas, que es lo que mantiene el pixel del mismo tamaño para todos.

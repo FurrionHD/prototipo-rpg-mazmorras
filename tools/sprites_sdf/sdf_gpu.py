@@ -457,6 +457,8 @@ def _hacer_lote(mod, tareas):
     if getattr(mod, 'PARPADOS', False):
         grupos = getattr(mod, 'GRUPOS_PARPADO', 1)
         for k, x in enumerate(tareas):
+            if not sc.lleva_parpados(mod, x[0]):   # (16/11) solo en las de ANIMS_PARPADO
+                continue
             for g in range(1, grupos + 1):
                 parp.append(k)
                 trabajos.append((sc.modelo_de(mod, x[3]), mod.escena(dict(x[3], cerrados=True if grupos == 1 else g)), x[1]))

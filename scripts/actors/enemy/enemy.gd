@@ -311,6 +311,9 @@ func _ready() -> void:
 			HumoToxico.poner(_sprite, HumoToxico.modo_de(data, mutante, mutacion), data.color_visual(current_t))
 			# Y LA NEBLINA del aura fria (el slime de escarcha): marca en el suelo hasta donde le cala.
 			NeblinaFria.poner(_sprite, NeblinaFria.lleva(data, mutante, mutacion))
+			# Y SU SOMBRA (16/11): ya no va en el dibujo, la pinta el juego en su punto del suelo.
+			SombraSuelo.poner_en_enemigo(_sprite, SpritesEnemigo.tam_cuerpo(data), SombraSuelo.escala_sin_mutante(data),
+				SombraSuelo.vuela_de(data, mutante, mutacion))
 		# La forma de su cuerpo, para que la colision sea a su medida y no una caja de 32x32. Va
 		# ANTES de _aplicar_escala, que es quien la monta.
 		_tam_cuerpo = SpritesEnemigo.tam_cuerpo(data)

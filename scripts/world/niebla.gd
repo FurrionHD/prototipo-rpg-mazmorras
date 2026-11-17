@@ -257,6 +257,11 @@ func _refrescar_camara() -> void:
 #
 # El motor de vision ya sabia hacer esto (vision.gd lee 'radio' e 'intensidad' foco a foco); lo que
 # faltaba era rellenar la lista bien, y que el radio ajeno VIAJARA (ver Net.jugadores.anunciar_luz).
+# (16/11, LucesSombra) Los farolillos de la ultima pasada: [{pos, radio (celdas)}]. Solo leer.
+func focos_luz() -> Array:
+	return _focos_previos
+
+
 func _focos(jugador: Node2D) -> Array:
 	var r: float = radio_actual()
 	# Y de paso se lo cuento a los demas. Va aqui y no colgado de los seis sitios que mueven el radio

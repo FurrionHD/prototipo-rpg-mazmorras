@@ -22,6 +22,10 @@ extends Resource
 @export var cuantos: PackedInt32Array = PackedInt32Array()
 # Seis enteros por fotograma: x, y, ancho y alto del recorte y los dos margenes (ver SpriteLienzo.describir).
 @export var marcos: PackedInt32Array = PackedInt32Array()
+# EL PUNTO DEL SUELO (16/11, SombraSuelo): donde cae el suelo respecto al CENTRO del lienzo, en pixeles de la hoja. Lo
+# apunta el horno SDF en su hojas.json ('pies') y Sprites3D lo cuelga del SpriteFrames; tiene_pies = false si no hay.
+@export var pies: Vector2 = Vector2.ZERO
+@export var tiene_pies: bool = false
 
 
 # El numero de la animacion 'nombre', o -1 si esta hoja no la tiene.
@@ -37,6 +41,10 @@ static func desde_json(d: Dictionary, firma_json: int) -> DescripcionHoja:
 	r.h = int(d.get("h", 0))
 	r.gris = bool(d.get("gris", false))
 	r.firma = firma_json
+	var p = d.get("pies", null)
+	if p is Array and (p as Array).size() == 2:
+		r.pies = Vector2(float(p[0]), float(p[1]))
+		r.tiene_pies = true
 	var anims: Array = d.get("anims", [])
 	# Ordenadas por nombre: el json ya viene asi, pero bsearch no perdona.
 	anims = anims.duplicate()
