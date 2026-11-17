@@ -302,7 +302,7 @@ func _rebote_tormenta(e: Combatant, golpeado: Combatant) -> void:
 		var v: Combatant = a_tiro.pick_random()
 		# Se mira ANTES de ponerle el suyo: lo que alarga la cadena es que YA estuviera Electrizado.
 		var sigue: bool = v.has_status(StatusEffects.Id.RAYO)
-		var res: Dictionary = StatsMath.resolve_magico_enemigo(e, v, false)
+		var res: Dictionary = StatsMath.resolve_magico_enemigo(e, v, false, _pantalla.enemigos.defiende_de(v, e))
 		var d: float = float(res.damage) * e.rebote_mult
 		v.take_damage(d)
 		_fx_golpe(desde, v, d, false, false, Elementos.Elemento.RAYO, CombatFX.Estilo.ARANA_ARCO, 0.6, false, "",

@@ -161,6 +161,12 @@ var evasion_penal: float = 0.0   # baja la esquiva propia (escudos)
 # escala con el tier y la rareza del escudo, porque va por la mitigacion normal K/(K+DEF) y no
 # tiene techo (a diferencia de defend_block). Ver Upgrades.shield_mods y StatsMath.resolve_attack.
 var defend_defense: float = 0.0
+# Y LA DEFENSA MAGICA del escudo (17/11), igual: solo el turno que Defiendes (o En guardia), y solo contra los golpes
+# MAGICOS (StatsMath.resolve_magico_enemigo). Ver ShieldData.DEF_MAGICA_FRAC.
+var defend_mdef: float = 0.0
+# Cuanto de defend_block vale contra un golpe MAGICO: la mitad sin escudo, y con escudo lo de su tamaño
+# (ShieldData.BLOQUEO_MAGIA_FRAC: la torre, que mas bloquea, la que menos para la magia).
+var defend_bloqueo_magia: float = 0.5
 
 # --- POSTURA DE CONTRAATAQUE del estoque ("En guardia", KAN-57). Flag TRANSITORIO que dura
 # hasta tu proxima accion (como _player_defending, lo limpia el combate). Lleva sus propios

@@ -1012,6 +1012,7 @@ const GAIN_RESISTENCIA_PESCA := 0.75
 # TODOS PROVISIONALES: se afinan con la tabla de antes/despues y el playtest.
 # ============================================================
 const GAIN_VOLUNTAD_GOLPE_MAGICO := 0.345   # = GAIN_RESISTENCIA_GOLPE: un golpe es un golpe
+const GAIN_VOLUNTAD_BLOQUEO := 0.375        # = GAIN_RESISTENCIA_BLOQUEO (17/11): parar magia con el escudo entrena Voluntad
 const GAIN_VOLUNTAD_ESTADO := 0.3           # por intento RESISTIDO
 const VOLUNTAD_ESTADO_ENTRA := 0.5          # x si te entra (aguantarlo dentro enseña menos)
 const GAIN_VOLUNTAD_DOT := 0.1              # por tick de daño en el tiempo (x el peso del tick)
@@ -9214,6 +9215,8 @@ func _aplicar_loadout(c: Combatant, pj: PersonajeData = null) -> void:
 	c.defend_block = m["defend_block"]
 	c.evasion_penal = m["evasion_penal"]
 	c.defend_defense = m["defend_defense"]   # la del escudo: solo cuenta el turno que Defiendes
+	c.defend_mdef = m["defend_mdef"]         # y su defensa MAGICA, igual (17/11)
+	c.defend_bloqueo_magia = m["bloqueo_magia_frac"]   # y cuanto de su bloqueo vale contra la magia
 	# AGGRO PASIVO: llevar ESCUDO ya te hace mas apetecible como objetivo, sin gastar turno (el que
 	# va tapado y plantado delante se come mas golpes). defend_defense > 0 <=> hay escudo en la off.
 	# La Provocacion multiplica esto durante unos turnos. Ver combat.gd._elegir_objetivo_enemigo.
@@ -9298,6 +9301,8 @@ func loadout_mods(pj: PersonajeData = null) -> Dictionary:
 		# DEFENSA del escudo: solo la del escudo, y solo al Defender (ver Combatant.defend_defense).
 		# 0 = sin escudo (un arma no te tapa).
 		"defend_defense": 0.0,
+		"defend_mdef": 0.0,   # la MAGICA del escudo (17/11), igual: solo al Defender
+		"bloqueo_magia_frac": StatsMath.DEFEND_BLOQUEO_MAGIA,   # sin escudo, la mitad del bloqueo contra la magia
 		"resist_estados": 0.0,
 		# PERSONALIDAD DEL ESCUDO (ver shield_data.gd). Los defaults viven AQUI y no solo en la rama
 		# del escudo: sin escudo (dos manos, dual, mano libre) estas claves tienen que existir igual,
@@ -9330,6 +9335,8 @@ func loadout_mods(pj: PersonajeData = null) -> Dictionary:
 		m["defend_block"] += float(sh_m["bloqueo"])      # pero bloquea mucho
 		m["evasion_penal"] += float(sh_m["evasion_penal"])
 		m["defend_defense"] = float(sh_m["def"])         # lo que de verdad distingue a un escudo
+		m["defend_mdef"] = float(sh_m["mdef"])           # y lo que para de la magia (17/11)
+		m["bloqueo_magia_frac"] = float(sh_m["bloqueo_magia_frac"])
 		m["resist_estados"] = float(sh_m["resist_estados"])
 		# Lo que hace que este escudo no sea otro con otros numeros: cuanto atrae los golpes y si
 		# devuelve los que para. Se ASIGNAN (no se acumulan): solo cabe un escudo en la off.
@@ -13780,6 +13787,14 @@ func poder_piso(piso: int = -1) -> float:
 func ganar_voluntad_golpe_magico(reto_val: float, dmg_bruto: float, vida_max: float, pj: PersonajeData) -> void:
 	var dmg_mult: float = clampf(dmg_bruto / maxf(1.0, vida_max * 0.1), 0.5, 2.0)
 	ganar("voluntad", reto_val * dmg_mult, GAIN_VOLUNTAD_GOLPE_MAGICO, RETO_MAX_FISICO, pj)
+
+
+# (1b) PARAR MAGIA DEFENDIENDO (17/11, su decision: «bloquear magia deberia subir voluntad»). El espejo de la Resistencia
+# por bloquear un golpe fisico: el reto por lo que bloqueas, que contra la magia es la parte de tu bloqueo que vale
+# (Combatant.defend_bloqueo_magia). 'aggro_mult' = el mismo reparto por aggro que la Resistencia.
+func ganar_voluntad_bloqueo_magico(reto_val: float, c: Combatant, aggro_mult: float, pj: PersonajeData) -> void:
+	ganar("voluntad", reto_val * c.defend_block * c.defend_bloqueo_magia, GAIN_VOLUNTAD_BLOQUEO * aggro_mult,
+		RETO_MAX_FISICO, pj)
 
 
 # (2) Un estado que un enemigo intenta meterte (ver Combatant.anotar_intento_estado).

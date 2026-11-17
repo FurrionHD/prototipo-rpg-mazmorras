@@ -1969,8 +1969,8 @@ f1663 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1663 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1664 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1664 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f1665 LOG … 3,69 de daño.
-f1665 Daniel hp=185.790 mp=20.000 en=159.025
+f1665 LOG … 1,68 de daño.  🛡️ Daniel aguanta en guardia (menos daño).
+f1665 Daniel hp=187.800 mp=20.000 en=159.025
 f1665 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1665 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1666 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -2508,7 +2508,7 @@ f1923 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1923 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1924 LOG … 1,74 de daño en total: Daniel (1,54), Agirato ochinan (0,2)
 f1924 Agirato ochinan hp=198.599 mp=36.500 en=177.425
-f1924 Daniel hp=184.247 mp=20.000 en=159.025
+f1924 Daniel hp=186.257 mp=20.000 en=159.025
 f1924 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1924 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1925 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -3261,7 +3261,7 @@ f2286 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2286 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2286 PULSA Atacar
 f2287 LOG 1. Rey Slime esquiva el golpe de Daniel. 💨
-f2287 Daniel hp=184.247 mp=20.000 en=181.025
+f2287 Daniel hp=186.257 mp=20.000 en=181.025
 f2287 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2287 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2288 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -3488,7 +3488,7 @@ f2396 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2397 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2397 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2398 LOG 1. Rey Slime ataca a Daniel y le inflige 0,97 de daño.
-f2398 Daniel hp=183.273 mp=20.000 en=181.025
+f2398 Daniel hp=185.284 mp=20.000 en=181.025
 f2398 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2398 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2399 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -4270,7 +4270,7 @@ f2774 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2774 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2774 PULSA _ability_box: Golpe demoledor  (42 EN)
 f2775 LOG ⏳ Daniel prepara Golpe demoledor. Si queda Aturdido, se interrumpe.
-f2775 Daniel hp=183.273 mp=20.000 en=139.025
+f2775 Daniel hp=185.284 mp=20.000 en=139.025
 f2775 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2775 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2776 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -5035,7 +5035,7 @@ f3140 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3140 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3140 PULSA Atacar
 f3141 LOG Daniel golpea con Maza pequeña e inflige 5,21 de daño.
-f3141 Daniel hp=183.273 mp=20.000 en=174.025
+f3141 Daniel hp=185.284 mp=20.000 en=174.025
 f3141 Rey Slime hp=209.072 mp=21.188 en=0.000
 f3141 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3141 Slime venenoso hp=0.000 mp=20.363 en=0.000
@@ -5254,14 +5254,14 @@ f3315 Dasui hp=199.517 mp=20.000 en=163.300
 f3318 PULSA Habilidad
 f3321 PULSA _ability_box: Guardia de carne  (52 EN)
 f3322 LOG ⏳ Daniel prepara Guardia de carne. Si queda Aturdido, se interrumpe.
-f3322 Daniel hp=183.273 mp=20.000 en=122.025
+f3322 Daniel hp=185.284 mp=20.000 en=122.025
 f3324 PULSA Habilidad
 f3327 PULSA _ability_box: Golpe sísmico  (60 EN)
 f3328 LOG ⏳ Catalardio prepara Golpe sísmico. Si queda Aturdido, se interrumpe.
 f3328 Catalardio hp=198.329 mp=24.620 en=121.275
 f3360 PULSA ⚡ ¡Soltar Guardia de carne!
 f3361 LOG Daniel usa Guardia de carne.
-f3361 Daniel hp=366.547 mp=20.000 en=122.025
+f3361 Daniel hp=370.567 mp=20.000 en=122.025
 f3418 PULSA ⚡ ¡Soltar Golpe sísmico!
 f3419 LOG … 34,09 de daño en total: 1. Rey Slime (15,66), 2. Slime (9), 3. Slime (9,43)  Causa Aturdido.
 f3419 Rey Slime hp=196.543 mp=21.188 en=0.000
@@ -5450,7 +5450,7 @@ f3506 Slime hp=22.621 mp=20.363 en=0.000
 f3507 Slime hp=23.047 mp=20.363 en=0.000
 f3507 Slime hp=22.621 mp=20.363 en=0.000
 f3508 LOG 2. Slime ataca a Daniel y le inflige 0,64 de daño.  Causa Pegajoso a Daniel.
-f3508 Daniel hp=365.908 mp=20.000 en=122.025
+f3508 Daniel hp=369.928 mp=20.000 en=122.025
 f3508 Slime hp=23.047 mp=20.363 en=0.000
 f3508 Slime hp=22.621 mp=20.363 en=0.000
 f3509 Slime hp=23.047 mp=20.363 en=0.000
@@ -5787,7 +5787,7 @@ f3672 Slime hp=23.047 mp=20.363 en=0.000
 f3672 Slime hp=22.621 mp=20.363 en=0.000
 f3672 PULSA _ability_box: Grito de aliento  (66 EN)
 f3673 LOG ⏳ Daniel prepara Grito de aliento. Si queda Aturdido, se interrumpe.
-f3673 Daniel hp=365.908 mp=20.000 en=56.025
+f3673 Daniel hp=369.928 mp=20.000 en=56.025
 f3673 Slime hp=23.047 mp=20.363 en=0.000
 f3673 Slime hp=22.621 mp=20.363 en=0.000
 f3674 Slime hp=23.047 mp=20.363 en=0.000

@@ -1285,8 +1285,11 @@ static func filas_escudo(sh: ShieldData, tier: int, rareza: int, mejoras: Dictio
 		# Su defensa es PLANA (se suma despues del multiplicador de Resistencia), asi que esto YA es
 		# lo que te da: no hay una fila "para ti" que añadir, seria repetir el mismo numero.
 		["Defensa al bloquear", "+%.1f" % float(m["def"])],
+		# Y la MAGICA (17/11), la misma por la fraccion de su tamaño: solo al Defender contra golpes magicos.
+		["Defensa mágica al bloquear", "+%.1f" % float(m["mdef"])],
 	]
 	filas.append(["Bloqueo", "%.0f%%" % (float(m["bloqueo"]) * 100.0)])
+	filas.append(["Bloqueo contra la magia", "%.0f%%" % (float(m["bloqueo"]) * float(m["bloqueo_magia_frac"]) * 100.0)])
 	if float(m.get("eficacia", 0.0)) > 0.001:
 		filas.append(["Eficacia", "+%.0f%%" % (float(m["eficacia"]) * 100.0)])
 	if float(m["resist_estados"]) > 0.0:
@@ -1578,6 +1581,7 @@ static func filas_mejora(item: Resource, tier: int, rareza: int, mejoras: Dictio
 		var a := Upgrades.shield_mods(sh, tm, rareza, mejoras)
 		var b := Upgrades.shield_mods(sh, tm, rareza, despues)
 		_attr(filas, "Defensa al bloquear", "+%.1f" % float(a["def"]), _d(float(a["def"]), float(b["def"]), "+%.1f"))
+		_attr(filas, "Defensa mágica al bloquear", "+%.1f" % float(a["mdef"]), _d(float(a["mdef"]), float(b["mdef"]), "+%.1f"))
 		_attr(filas, "Bloqueo", "%.0f%%" % (float(a["bloqueo"]) * 100.0),
 			_d(float(a["bloqueo"]) * 100.0, float(b["bloqueo"]) * 100.0, "+%.0f%%"))
 		if float(a["resist_estados"]) > 0.0 or float(b["resist_estados"]) > 0.0:

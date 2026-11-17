@@ -769,6 +769,11 @@ static func shield_mods(sh: ShieldData, tmult: float, rareza: int, mejoras: Dict
 	return {
 		# Lo que hace bueno a un escudo. Solo cuenta al Defender (ver Combatant.defend_defense).
 		"def": sh.defensa_base * rmult * (1.0 + subida) * tmult,
+		# Y LA MAGICA (17/11): la misma Defensa por la fraccion de su tamaño (rodela 40 %, caballero 100 %, torre 60 %).
+		# Asi la Dureza, el tier y la rareza suben las dos a la vez, sin mejora aparte (su decision).
+		"mdef": sh.defensa_base * rmult * (1.0 + subida) * tmult * sh.def_magica_frac(),
+		# Cuanto de su bloqueo vale contra la magia (del tamaño, crudo como el bloqueo).
+		"bloqueo_magia_frac": sh.bloqueo_magia_frac(),
 		# Del TAMAÑO + Refuerzo, sin tier ni rareza (arriba el porque). Y sin tope propio: el
 		# dim_sum ya asintota solo en STEP/(1-DECAY) = +0.25, asi que el escudo grande se planta
 		# en 0.45 (0.75 con el 0.30 de base) y nunca llega a morder el 80% global. Un tope duro

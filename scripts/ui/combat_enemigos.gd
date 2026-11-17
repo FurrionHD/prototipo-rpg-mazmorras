@@ -1078,7 +1078,7 @@ func golpe_elemental(e: Combatant, t: Combatant, frac: float, elem: int, estilo:
 		return 0.0
 	var suyo: int = e.elemento_ataque
 	e.elemento_ataque = elem
-	var r: Dictionary = StatsMath.resolve_magico_enemigo(e, t, true)
+	var r: Dictionary = StatsMath.resolve_magico_enemigo(e, t, true, defiende_de(t, e))
 	var dano: float = 0.0
 	if r.get("evaded", false):
 		_pantalla.efectos._fx_golpe(e, t, 0.0, false, true, elem, estilo, 0.8, true, "", AbilityData.Gesto.AUTO,
@@ -1287,7 +1287,7 @@ func _estallar(e: Combatant) -> void:
 		if _pantalla.tactico and _pantalla.turno_mapa.pies_de(v).distance_to(_pantalla.turno_mapa.pies_de(e)) \
 				> ab.forma_radio + _pantalla.turno_mapa.radio_pisa(v):
 			continue
-		var res: Dictionary = StatsMath.resolve_magico_enemigo(e, v, false)
+		var res: Dictionary = StatsMath.resolve_magico_enemigo(e, v, false, defiende_de(v, e))
 		var d: float = float(res.damage) * ab.dano_mult
 		v.take_damage(d)
 		var puestos: Array = _enemy_tirar_efectos(e, ab, v, 1.0, "objetivo")
@@ -1923,9 +1923,11 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 		escala: float, permitir_contra: bool, aplicar_efectos: bool, escala_prob: float = 1.0,
 		tanda_base: int = 0) -> Dictionary:
 	var pj_t: PersonajeData = Game.pj_de_combatant(t)
-	# LO MAGICO no se para con la guardia ni el escudo (AbilityData.es_magico): para el, nadie esta defendiendo.
+	# LO MAGICO (AbilityData.es_magico) TAMBIEN se para defendiendo desde el 17/11: la Defensa magica del escudo, una
+	# parte del bloqueo y el critico a la mitad (StatsMath.resolve_magico_enemigo). Pararlo entrena la VOLUNTAD (no la
+	# Resistencia) y NO salta el riposte (paras el hechizo, no se lo devuelves).
 	var magico: bool = ab != null and ab.es_magico
-	var defendiendo: bool = not magico and (bool(_pantalla._defendiendo.get(t, false)) or t.en_guardia) \
+	var defendiendo: bool = (bool(_pantalla._defendiendo.get(t, false)) or t.en_guardia) \
 		and _pantalla.turno_mapa.cubre_de_frente(t, e)
 	var total: float = 0.0
 	var total_bruto: float = 0.0   # el mismo daño SIN mitigar, para la excelia de Resistencia
@@ -1984,7 +1986,7 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 		# (la Mirada estelar NO FALLA: AbilityData.infalible)
 		var esquivable: bool = (ab == null or not ab.infalible) and not (desde_sombras and i == 0) \
 			and not (e.orbita and t.has_status(StatusEffects.Id.IMANTADO))
-		var result := StatsMath.resolve_magico_enemigo(e, t, esquivable) if magico \
+		var result := StatsMath.resolve_magico_enemigo(e, t, esquivable, defendiendo) if magico \
 			else StatsMath.resolve_attack(e, t, defendiendo, atk_ov, ab.crit_extra if como_jugador else 0.0,
 				ab.penetracion_extra if como_jugador else 0.0, esquivable)
 		_pantalla._aplicar_pasivas(result, e, t)
@@ -2058,7 +2060,7 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 			# habilidad de seis golpes contra una rodela al 35% devolveria dos estocadas por turno
 			# y el escudo pequeño pasaria a ser el que mas daño hace del juego.
 			if permitir_contra and contra == "":
-				contra = _riposte_bloqueo(e, t, defendiendo)
+				contra = _riposte_bloqueo(e, t, defendiendo and not magico)
 				if not e.is_alive():
 					break
 		if not t.is_alive():
@@ -2096,6 +2098,9 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 		if not magico and bool(_pantalla._defendiendo.get(t, false)):
 			Game.ganar("resistencia", _pantalla._reto(e, pj_t) * t.defend_block,
 				Game.GAIN_RESISTENCIA_BLOQUEO * aggro_mult, Game.RETO_MAX_FISICO, pj_t)
+		# Y PARAR MAGIA defendiendo entrena la VOLUNTAD (17/11), el espejo de lo de arriba.
+		if magico and defendiendo and bool(_pantalla._defendiendo.get(t, false)):
+			Game.ganar_voluntad_bloqueo_magico(_pantalla._reto(e, pj_t), t, aggro_mult, pj_t)
 	# Y esquivar entrena Agilidad, igual que en el basico. Se paga UNA sola vez por habilidad y no
 	# por golpe esquivado: una de cinco golpes no puede rendir cinco veces mas que un ataque normal.
 	# Los golpes de mas suben el reto (aguantar un chaparron es mas dificil que un golpe suelto) pero
@@ -2127,6 +2132,15 @@ const CORTE_ESTILO := CombatFX.Estilo.INSECTO_VIENTO
 # Lo que SIGUE el corte por detras del cuerpo de quien lo encaja (px): pilla a quien este justo detras.
 const CORTE_SIGUE := 70.0
 const CORTE_ANCHO := 18.0
+
+# ¿'t' SE DEFIENDE de lo que le tira 'e'? Defendiendo (o En guardia) y de cara: la guardia solo cubre por delante. La
+# usan los golpes MAGICOS sueltos (17/11: el estallido, el golpe elemental, los rebotes, las burbujas), que antes no
+# miraban la guardia; los fisicos de cada sitio la escriben a mano igual.
+func defiende_de(t: Combatant, e: Combatant) -> bool:
+	if t == null or e == null:
+		return false
+	return (bool(_pantalla._defendiendo.get(t, false)) or t.en_guardia) and _pantalla.turno_mapa.cubre_de_frente(t, e)
+
 
 # EL TAJO DE LA ZONA DE SIEGA (la de sierra, CombatTactico._zona_siega): un golpe de arma suyo de zona_siega x lo normal,
 # fuera de turno, a quien se ha metido en su alcance. Se esquiva y se para como cualquier golpe; con sus efectos (el

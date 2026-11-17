@@ -314,6 +314,9 @@ const DEFEND_TAKEN_MAX := 0.9   # como minimo bloquea el 10%
 # inmunidad. A la mitad sigue siendo una razon de peso para Defender contra quien pega criticos,
 # pero el rival conserva su jugada.
 const DEFEND_CRIT_MULT := 0.5
+# Cuanto del BLOQUEO vale contra un golpe MAGICO SIN ESCUDO (17/11): la mitad. Con escudo, lo de su tamaño
+# (ShieldData.BLOQUEO_MAGIA_FRAC). Ver resolve_magico_enemigo.
+const DEFEND_BLOQUEO_MAGIA := 0.5
 
 # Armadura: reduccion PORCENTUAL SIEMPRE activa (aparte de la DEF plana, que va por
 # la mitigacion K/(K+DEF)). Se aplica a TODO golpe recibido, criticos incluidos.
@@ -591,9 +594,12 @@ static func _runa_crit_ciego(attacker: Combatant, defender: Combatant, is_crit: 
 # tres cambios y nada mas, para que todo lo demas (esquiva, critico, elementos, pasivas, estados) siga igual:
 #   - el ataque sale de su MAGIA (Combatant.atk_magico) y no de su Fuerza;
 #   - contra tu DEFENSA MAGICA (mdef_value: Voluntad + armadura) y la reduccion MAGICA de la armadura;
-#   - la guardia y el escudo NO lo paran (no hay 'defending': ni su defensa, ni su bloqueo, ni el critico a la mitad).
+#   - DEFENDIENDO (17/11, para que los tanques sirvan contra magia): suma la Defensa MAGICA del escudo (defend_mdef), una
+#     PARTE del bloqueo (defend_bloqueo_magia, segun el tamaño del escudo) y los criticos a la mitad, como lo fisico.
+#     Antes la guardia no paraba nada.
 # Tampoco lleva penetracion (es del arma) ni imbuicion (los enemigos no imbuyen). Devuelve lo mismo que resolve_attack.
-static func resolve_magico_enemigo(attacker: Combatant, defender: Combatant, puede_esquivar: bool = true) -> Dictionary:
+static func resolve_magico_enemigo(attacker: Combatant, defender: Combatant, puede_esquivar: bool = true,
+		defending: bool = false) -> Dictionary:
 	var atk_dex := attacker.hab("destreza")
 	var def_agi := defender.hab("agilidad")
 	var evasion_extra := defender.evasion_bonus + defender.status_evade_flat()
@@ -602,10 +608,12 @@ static func resolve_magico_enemigo(attacker: Combatant, defender: Combatant, pue
 	var evade_p := clampf(evade_chance(def_agi, atk_dex) - defender.evasion_penal - acierto + evasion_extra, 0.0, evade_cap)
 	var crit_p := clampf(crit_chance(atk_dex, def_agi) + attacker.crit_bonus + attacker.crit_flat
 		+ attacker.status_crit_flat() - defender.crit_resist, 0.0, 1.0)
+	if defending:
+		crit_p *= DEFEND_CRIT_MULT   # como lo fisico: el critico a la mitad, no anulado
 	if puede_esquivar and randf() < evade_p:
 		return {"damage": 0.0, "evaded": true, "crit": false, "aturde": false,
 			"evade_p": evade_p, "crit_p": crit_p, "aturde_p": 0.0, "magico": true}
-	var mdef := defender.mdef_value()
+	var mdef := defender.mdef_value() + (defender.defend_mdef if defending else 0.0)
 	var dmg := damage(attacker.atk_magico(), mdef)
 	var mitig := MITIGATION_K / (MITIGATION_K + mdef)
 	dmg *= randf_range(1.0 - DAMAGE_VARIANCE, 1.0 + DAMAGE_VARIANCE)
@@ -621,6 +629,12 @@ static func resolve_magico_enemigo(attacker: Combatant, defender: Combatant, pue
 	mitig *= defender.resiste_magia
 	dmg *= attacker.mult_vs(defender.familia)
 	dmg *= defender.mult_from(attacker.familia)
+	# EL BLOQUEO, UNA PARTE contra la magia (17/11, su decision): defender a un mago sirve, pero menos que a un guerrero,
+	# y la torre (la que mas bloquea) es la que menos para la magia (Combatant.defend_bloqueo_magia).
+	if defending:
+		var f_bloqueo := clampf(1.0 - defender.defend_block * defender.defend_bloqueo_magia, DEFEND_TAKEN_MIN, DEFEND_TAKEN_MAX)
+		dmg *= f_bloqueo
+		mitig *= f_bloqueo
 	var mult_elem := Elementos.mult_recibido(attacker.elemento_ataque, defender)
 	dmg *= mult_elem
 	var mult_pasiva := defender.mult_pasiva_recibido()

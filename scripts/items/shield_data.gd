@@ -33,6 +33,25 @@ enum Tamano { PEQUENO, NORMAL, GRANDE }  # GRANDE = escudos de tanque
 # EL ANCHO DEL ESCUDAZO en el mapa, por tamaño (AbilityData.forma_escudo_largo): la linea de la Guardia rota
 # es mas gorda cuanto mas escudo (25/09, lo pidio el). Indice = Tamano.
 const ANCHO_ESCUDAZO := [14.0, 20.0, 28.0]
+# LA DEFENSA MAGICA del escudo (17/11, su decision), como fraccion de su Defensa, por tamaño (indice = Tamano). Solo
+# cuenta al Defender, como la otra. El de CABALLERO es el antimagia (el guardian): la torre para lo fisico, la rodela
+# poca de las dos. Va aqui y no en cada .tres porque es del TAMAÑO, como el ancho del escudazo. Escala con lo mismo que
+# la Defensa (tier, rareza, Dureza): ver Upgrades.shield_mods.
+# La torre al 30 % (y no al 60 % del primer intento): con su bloqueo, que es el mas alto, empataba con el caballero.
+const DEF_MAGICA_FRAC := [0.4, 1.0, 0.3]
+# CUANTO DE SU BLOQUEO vale contra la magia, por tamaño (17/11, su decision: «invierte el bloqueo vs magia»). La torre,
+# que es la que mas bloquea, es la que menos para la magia: rodela 22 %, caballero 24,75 %, torre 20 % sin Refuerzo
+# (y 35,75 / 38,5 / 30 % con todo), asi que el orden se queda igual subas lo que subas. Sin escudo vale la mitad
+# (StatsMath.DEFEND_BLOQUEO_MAGIA).
+const BLOQUEO_MAGIA_FRAC := [0.55, 0.55, 0.4]
+
+
+func def_magica_frac() -> float:
+	return float(DEF_MAGICA_FRAC[clampi(int(tamano), 0, DEF_MAGICA_FRAC.size() - 1)])
+
+
+func bloqueo_magia_frac() -> float:
+	return float(BLOQUEO_MAGIA_FRAC[clampi(int(tamano), 0, BLOQUEO_MAGIA_FRAC.size() - 1)])
 
 @export var nombre: String = "Escudo pequeño"
 @export var tamano: Tamano = Tamano.PEQUENO
