@@ -169,7 +169,7 @@ func _accion_habilidad() -> void:
 		var foco_txt := "  🔮%d cargas" % ab.foco_cargas if ab.foco_cargas > 0 else ""
 		b.text = "%s  (%s)%s" % [ab.nombre, costo_txt, cd_txt]
 		# Tooltip: datos DERIVADos de los campos (resumen) + el sabor de la descripcion.
-		b.tooltip_text = foco_txt.strip_edges() + "\n" + ab.resumen(manos) if foco_txt != "" else ab.resumen(manos)
+		b.tooltip_text = foco_txt.strip_edges() + "\n" + ab.resumen(manos, false, _pantalla._player) if foco_txt != "" else ab.resumen(manos, false, _pantalla._player)
 		if ab.descripcion != "":
 			b.tooltip_text += "\n\n" + ab.descripcion
 		if tras_prep:

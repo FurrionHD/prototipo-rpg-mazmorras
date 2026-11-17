@@ -792,21 +792,283 @@ func _num(x: float) -> String:
 		s = s.substr(0, s.length() - 1)
 	return s
 
-# Texto del ÁREA para el resumen (derivado de los campos). "" si no golpea en área.
-func _area_txt() -> String:
+# Texto del ÁREA de las que aun se resuelven como en la FILA (sin huella en el mapa: forma_apunte o forma < 0). "" si no
+# golpea en area. 'rec' = como se llama a quien la recibe ("enemigo" / "objetivo").
+func _area_txt(rec: String = "enemigo") -> String:
 	match area_modo:
 		AreaModo.SPLASH:
-			var alcance: String = "todos los enemigos" if area_max >= 99 else "hasta %d enemigos" % area_max
+			var alcance: String = "todos los %ss" % rec if area_max >= 99 else "hasta %d %ss" % [area_max, rec]
 			var base: String = "Salpica a %s: los adyacentes reciben un %s de ese daño." % [
 				alcance, _pct_txt(area_secundario)]
 			if area_secundario_decay > 0.0:
-				return base + " Cada enemigo de más recibe un %s menos." % _pct_txt(area_secundario_decay)
+				return base + " Ese daño se reduce en un %s por cada %s de más." % [_pct_txt(area_secundario_decay), rec]
 			return base
 		AreaModo.BARRIDO:
-			var alcance2: String = "todos los enemigos" if area_max >= 99 else "hasta %d enemigos" % area_max
-			return "Alcanza a %s a la vez; el daño baja un %s por cada enemigo de más." % [
-				alcance2, _pct_txt(1.0 - area_falloff)]
+			var alcance2: String = "todos los %ss" % rec if area_max >= 99 else "hasta %d %ss" % [area_max, rec]
+			return "Alcanza a %s a la vez; el daño se reduce en un %s por cada %s de más." % [
+				alcance2, _pct_txt(1.0 - area_falloff), rec]
 	return ""
+
+
+# ------------------------------------------------------------
+#  LA FICHA AL ESTILO HSR (17/11, repaso de frases; docs/guia_textos.md). El daño sale de la STAT (StatsMath.damage es
+#  proporcional al Ataque: dano_mult = «un X % del Ataque»), no «del daño de un ataque basico». Las de los personajes:
+#  «del Ataque de quien la usa ... a un enemigo»; las de los enemigos: «de su Ataque ... a un objetivo». La FORMA (la
+#  huella del mapa) en su propia linea, en CASILLAS (DungeonGenerator.CELDA = 32 px = el personaje).
+# ------------------------------------------------------------
+const CASILLA_PX := 32.0
+# Los tamaños por defecto de CombatFormas (R_BASE, APERTURA_BARRIDO, PASO), repetidos aqui porque scripts/items no
+# conoce la pantalla de combate (ver la cabecera de 'forma'). Los vigila tools/unitarias/test_resumen_habilidad.
+const _R_BASE := 40.0
+const _APERTURA_BASE := 110.0
+const _PASO_RADIO := 28.0
+const _NOMBRE_FORMA := ["", "círculo", "cono", "línea", "rectángulo"]
+# «del círculo», «de la línea».
+const _DEL_FORMA := ["", "del círculo", "del cono", "de la línea", "del rectángulo"]
+
+# "media casilla", "1 casilla", "2,5 casillas" (redondeado a media casilla).
+static func casillas_txt(px: float) -> String:
+	var v: float = maxf(0.5, roundf(px / CASILLA_PX * 2.0) / 2.0)
+	if is_equal_approx(v, 0.5):
+		return "media casilla"
+	if is_equal_approx(v, 1.0):
+		return "1 casilla"
+	var t: String = str(roundi(v)) if is_equal_approx(v, roundf(v)) else ("%.1f" % v).replace(".", ",")
+	return "%s casillas" % t
+
+
+# El ELEMENTO DEL ARMA (17/11, su peticion: "no lo descartes"): hoy todas las armas son fisicas sin elemento, asi que
+# NINGUNO. Si algun dia hay armas elementales, se mira aqui y todas las fichas lo dicen solas.
+static func elemento_de_arma(_quien = null) -> int:
+	return Elementos.Elemento.NINGUNO
+
+
+# [tipo, radio, apertura] de la huella que dice la ficha, o la deducida (como CombatFormas.de_habilidad). tipo -1 = un
+# solo objetivo (sin forma que contar).
+func _forma_para_texto() -> Array:
+	var t: int = forma
+	var r: float = forma_radio
+	var ap: float = forma_apertura
+	if t < 0:
+		if not es_area() or area_max <= 1 or area_max >= 99:
+			return [-1, 0.0, 0.0]
+		if area_modo == AreaModo.BARRIDO:
+			return [2, maxf(_R_BASE + _PASO_RADIO * float(area_max - 1), _R_BASE), _APERTURA_BASE]
+		return [1, _R_BASE + _PASO_RADIO * float(area_max - 1), 0.0]
+	if t == 0:
+		return [-1, 0.0, 0.0]
+	return [t, r if r > 0.0 else _R_BASE, ap if ap > 0.0 else _APERTURA_BASE]
+
+
+# «Forma: cono · 2 casillas · 120° · delante». "" si pega a uno solo.
+func _forma_txt(de_enemigo: bool) -> String:
+	var f: Array = _forma_para_texto()
+	var t: int = int(f[0])
+	if t < 0:
+		return ""
+	# A UN ALIADO (la Escolta, el Muro): la huella solo sirve para elegirlo; no es un area.
+	if forma_a_aliados and objetivo_aliado == Objetivo.ALIADO:
+		if forma_apunte == 3 and forma_rango > 0.0:
+			return "Forma: un aliado · hasta %s." % casillas_txt(forma_rango)
+		return "Forma: un aliado."
+	var partes: Array = [_NOMBRE_FORMA[t]]
+	match t:
+		1:
+			partes.append("%s de radio" % casillas_txt(float(f[1])))
+		2:
+			partes.append(casillas_txt(float(f[1])))
+			partes.append("%d°" % roundi(float(f[2])))
+		3:
+			partes.append("%s de largo" % casillas_txt(float(f[1])))
+		4:
+			partes.append("%s de lado" % casillas_txt(float(f[1])))
+	# DONDE CAE. El cono y la linea salen siempre de quien la usa.
+	var donde: String = ""
+	if t == 2 or t == 3:
+		donde = "delante"
+	elif forma_apunte == 2 or (forma_apunte < 0 and forma_desde_quien_ataca):
+		donde = "a su alrededor" if de_enemigo else "alrededor de quien la usa"
+	elif forma_apunte == 1:
+		donde = "delante"
+	elif forma_apunte == 3:
+		donde = ("donde apunte, hasta %s" % casillas_txt(forma_rango)) if forma_rango > 0.0 \
+			else "donde apunte, al alcance de su arma"
+	elif forma_apunte == 0:
+		donde = "sobre un objetivo" if de_enemigo else "sobre un enemigo"
+	if donde != "":
+		partes.append(donde)
+	return "Forma: " + " · ".join(partes) + "."
+
+
+# «del Ataque de quien la usa» / «de su Ataque» (y el magico y la Defensa del escudazo).
+func _base_txt(de_enemigo: bool, escudo: bool) -> String:
+	var stat: String = "Defensa" if escudo else ("Ataque mágico" if es_magico else "Ataque")
+	if de_enemigo:
+		return "de su %s" % stat
+	return ("de la %s de quien la usa" % stat) if escudo else ("del %s de quien la usa" % stat)
+
+
+# «como Daño Físico», «como Daño Mágico de Oscuridad».
+func _tipo_txt(de_enemigo: bool, quien = null) -> String:
+	var elem: int = elemento_de_arma(quien)
+	if de_enemigo:
+		elem = elemento_golpe if elemento_golpe >= 0 else Elementos.Elemento.NINGUNO
+	var t: String = "como Daño %s" % ("Mágico" if es_magico else "Físico")
+	if elem != Elementos.Elemento.NINGUNO:
+		t += " de %s" % Elementos.nombre(elem)
+	return t
+
+
+# ------------------------------------------------------------
+#  LAS CIFRAS DE LAS FICHAS (17/11, su decision): el % y, al lado, el numero con el personaje que la lleva («un 200 %
+#  (48) del Ataque de quien la usa»), en habilidades y hechizos por igual. Lo elige el jugador en Ajustes (el menu de
+#  opciones, por hacer): 0 = solo el %, 1 = solo el numero («Inflige 48 de Daño Físico»), 2 = los dos. Sin personaje
+#  delante (ref <= 0) va siempre solo el %.
+# ------------------------------------------------------------
+enum ModoCifras { PORCENTAJE, NUMERO, LOS_DOS }
+static var modo_cifras: int = ModoCifras.LOS_DOS
+
+
+static func _solo_numero(ref: float) -> bool:
+	return ref > 0.0 and modo_cifras == ModoCifras.NUMERO
+
+
+# Una cifra suelta para listas: «un 130 % (52)», «un 130 %» o «52».
+static func cifra_txt(f: float, ref: float) -> String:
+	if _solo_numero(ref):
+		return num_txt(f * ref)
+	if ref > 0.0 and modo_cifras == ModoCifras.LOS_DOS:
+		return "un %s (%s)" % [_pct_txt(f), num_txt(f * ref)]
+	return "un " + _pct_txt(f)
+
+
+# Lo que inflige, entero: «un 200 % (48) del Ataque de quien la usa como Daño Físico» o, en modo numero, «48 de Daño
+# Físico». 'base' = «del Ataque de quien la usa»; 'tipo' = «como Daño Físico».
+static func cuanto_txt(f: float, ref: float, base: String, tipo: String) -> String:
+	if _solo_numero(ref):
+		return "%s %s" % [num_txt(f * ref), tipo.replace("como Daño", "de Daño")]
+	return "%s %s %s" % [cifra_txt(f, ref), base, tipo]
+
+
+# Varias cifras seguidas (tramos, cuñas): «un 130 %, un 97,5 % y un 65 % del Ataque de quien la usa como Daño Físico» o
+# «52, 39 y 26 de Daño Físico».
+static func lista_cuanto_txt(fs: Array, ref: float, base: String, tipo: String) -> String:
+	var partes: Array = []
+	for f in fs:
+		partes.append(cifra_txt(float(f), ref))
+	var y_txt: String = partes[0] if partes.size() == 1 else "%s y %s" % [", ".join(partes.slice(0, partes.size() - 1)), partes[-1]]
+	if _solo_numero(ref):
+		return "%s %s" % [y_txt, tipo.replace("como Daño", "de Daño")]
+	return "%s %s %s" % [y_txt, base, tipo]
+
+
+# Un numero de daño: sin decimales si es grande, con uno y coma si es pequeño («48», «3,5»).
+static func num_txt(v: float) -> String:
+	if v >= 10.0 or is_equal_approx(v, roundf(v)):
+		return str(roundi(v))
+	return ("%.1f" % v).replace(".", ",")
+
+
+# Lo que vale el 100 % de la stat de la que sale el daño, con 'quien' (un Combatant): su Ataque, su Ataque magico o lo
+# que pega con el escudo. 0 sin nadie delante.
+func _ref_de(quien, escudo: bool) -> float:
+	if quien == null or not (quien is Object) or not quien.has_method("atk"):
+		return 0.0
+	if escudo:
+		return float(quien.atk_escudo()) / StatsMath.ESCUDO_DEF_A_ATAQUE if quien.has_method("atk_escudo") else 0.0
+	if es_magico:
+		return float(quien.atk_magico()) if quien.has_method("atk_magico") else 0.0
+	return float(quien.atk())
+
+
+# LA FRASE DEL DAÑO (y la de a quien). Varias lineas si hace falta.
+func _dano_txt(manos: int, de_enemigo: bool, quien = null) -> Array:
+	var l: Array = []
+	var rec: String = "objetivo" if de_enemigo else "enemigo"
+	var g: String = _golpes_txt(manos)
+	var escudo_todo: bool = escudo_desde_golpe == 0
+	var k: float = StatsMath.ESCUDO_DEF_A_ATAQUE if escudo_todo else 1.0
+	var base: String = _base_txt(de_enemigo, escudo_todo)
+	var tipo: String = _tipo_txt(de_enemigo, quien)
+	var ref: float = _ref_de(quien, escudo_todo)
+	var f: Array = _forma_para_texto()
+	var t: int = int(f[0])
+	var del_f: String = _DEL_FORMA[t] if t > 0 else "del área"
+	var huella: bool = forma >= 0 and forma_apunte >= 0
+	var pct: float = dano_mult * k
+	var a_quien: String = "a un %s" % rec
+	var cada: String = ""          # lo que va despues ("y un 50 % ... a los del resto")
+	# Lo de los de detras / el resto, en la misma moneda (en modo numero, solo el numero).
+	var resto := func(fr: float) -> String:
+		return num_txt(fr * ref) if _solo_numero(ref) else "%s %s" % [cifra_txt(fr, ref), base]
+	if t > 0 and huella:
+		if forma_solo_primero:
+			a_quien = "solo al primer %s que encuentra" % rec
+		elif atraviesa:
+			a_quien = "al primer %s que cruza" % rec
+			var tope: String = ""
+			if area_max > 0 and area_max < 99:
+				tope = " (hasta %d %ss en total)" % [area_max, rec]
+			cada = " y %s a los que van detrás%s" % [resto.call(pct * area_secundario), tope]
+		elif avance and forma_reparte and num_golpes_max(manos) > 1:
+			a_quien = "a los %ss que cruza al avanzar, repartidos en el orden en que los cruza" % rec
+			pct *= forma_escala
+		elif forma_reparte and num_golpes_max(manos) > 1:
+			a_quien = "a un solo %s %s, por turnos, del más cercano al centro al más lejano" % [rec, del_f]
+			pct *= forma_escala
+		elif forma_nucleo > 0.0:
+			a_quien = "a todos los %ss del centro (%s de radio)" % [rec, casillas_txt(forma_nucleo)]
+			cada = " y %s a los del resto %s" % [resto.call(pct * area_secundario), del_f]
+		elif forma_tramos > 1:
+			a_quien = "a todos los %ss %s" % [rec, del_f]
+		elif forma_a_aliados:
+			a_quien = "a todos los aliados %s" % del_f
+			pct *= forma_escala
+		else:
+			a_quien = "a todos los %ss %s" % [rec, del_f]
+			pct *= forma_escala
+	if forma_tramos > 1 and huella and t > 0 and not forma_reparte and forma_nucleo <= 0.0 and not forma_solo_primero \
+			and not atraviesa:
+		# Con tramos no hay UN porcentaje: «Inflige a todos los enemigos del cono un 130 %, un 97,5 % y un 65 % del Ataque
+		# de quien la usa como Daño Físico, de cerca a lejos.»
+		var fs: Array = []
+		for i in forma_tramos:
+			fs.append(dano_mult * k * maxf(0.0, forma_escala - forma_tramo_baja * float(i)))
+		var frase: String = "%s %s, de cerca a lejos" % [a_quien, lista_cuanto_txt(fs, ref, base, tipo)]
+		if g == "1":
+			l.append("Inflige %s." % frase)
+		else:
+			l.append("Da %s golpes; cada uno inflige %s." % [g, frase])
+	elif g == "1":
+		l.append("Inflige %s %s%s." % [cuanto_txt(pct, ref, base, tipo), a_quien, cada])
+	else:
+		l.append("Da %s golpes; cada uno inflige %s %s%s." % [g, cuanto_txt(pct, ref, base, tipo), a_quien, cada])
+	if not huella:
+		var at: String = _area_txt(rec)
+		if at != "":
+			l.append(at)
+		elif redirige_al_morir and num_golpes_max(manos) > 1:
+			l.append("Si el %s cae antes, los golpes que quedan saltan a otros %ss." % [rec, rec])
+	if escudo_desde_golpe > 0:
+		var ref_e: float = _ref_de(quien, true)
+		l.append("Del %d.º golpe en adelante golpea con el escudo: esos golpes infligen %s." % [
+			escudo_desde_golpe + 1, cuanto_txt(dano_mult * StatsMath.ESCUDO_DEF_A_ATAQUE, ref_e,
+			_base_txt(de_enemigo, true), _tipo_txt(de_enemigo, quien))])
+	return l
+
+
+# LA IMBUICION que lleva puesta 'quien' (un Combatant, en la pelea): su linea al final, con SU porcentaje. Es MAGICA:
+# sale del Ataque crudo y va contra la Defensa magica (StatsMath.resolve_attack).
+static func imbuicion_txt(quien) -> String:
+	if quien == null or not (quien is Object) or quien.get("imbue_usos") == null:
+		return ""
+	if int(quien.imbue_usos) <= 0 or int(quien.imbue_elemento) == Elementos.Elemento.NINGUNO or float(quien.imbue_pct) <= 0.0:
+		return ""
+	var ref: float = float(quien.atk()) if quien.has_method("atk") else 0.0
+	var e: String = "un elemento al azar" if bool(quien.get("imbue_prisma")) else Elementos.nombre(int(quien.imbue_elemento))
+	var que: String = "prismática" if bool(quien.get("imbue_prisma")) else "de %s" % e
+	return "Por su imbuición %s, cada golpe inflige además %s." % [que,
+		cuanto_txt(float(quien.imbue_pct), ref, "del Ataque de quien la usa", "como Daño Mágico de %s" % e)]
 
 
 # Tope de golpes que da con esas manos (sin contar los extra por multitud). Las frases de la ficha
@@ -836,22 +1098,20 @@ func _golpes_txt(manos: int) -> String:
 # PASE DE TEXTOS (06/11, docs/guia_textos.md): cada % dice de que es ("del daño de un ataque basico"), los estados con
 # "probabilidad base de causar", el sujeto es "quien la usa" (lo eligio el jefe), a quien se le echa "un aliado", y nada
 # de "tú", "encajar" ni "CD".
-func resumen(manos: int = 1) -> String:
+#
+# REPASO 17/11 (estilo HSR): «un X % del Ataque de quien la usa ... a un enemigo» (personajes) / «un X % de su Ataque ... a
+# un objetivo» (enemigos: 'de_enemigo'), la FORMA en su linea, y la IMBUICION de 'quien' (Combatant) al final si la lleva.
+func resumen(manos: int = 1, de_enemigo: bool = false, quien = null) -> String:
 	# UNA FRASE POR LINEA, como las magias (SpellData.descripcion_mecanica).
 	var l: Array = []
+	var rec: String = "objetivo" if de_enemigo else "enemigo"
+	var ft: String = _forma_txt(de_enemigo)
+	if ft != "":
+		l.append(ft)
 
 	# --- QUE HACE AL PEGAR ---
 	if dano_mult > 0.0:
-		var g: String = _golpes_txt(manos)
-		var pct: String = _pct_txt(dano_mult)
-		var tipo: String = " como daño mágico" if es_magico else ""
-		if g == "1":
-			l.append("Inflige al objetivo seleccionado un %s del daño de un ataque básico%s." % [pct, tipo])
-		else:
-			l.append("Golpea %s veces al objetivo seleccionado; cada golpe inflige un %s del daño de un ataque básico%s." % [
-				g, pct, tipo])
-		if es_magico:
-			l.append("Se defiende con la Defensa mágica: la guardia y el escudo no lo reducen.")
+		l.append_array(_dano_txt(manos, de_enemigo, quien))
 		if manos >= 2 and golpes_dual_max > golpes_max:
 			l.append("Los golpes de la segunda arma (del %d.º en adelante) infligen un %s del daño de los de la primera." % [
 				golpes_max + 1, _pct_txt(dual_golpe_mult)])
@@ -860,16 +1120,6 @@ func resumen(manos: int = 1) -> String:
 			for i in mults_golpe.size():
 				partes.append("el %d.º un %s" % [i + 1, _pct_txt(float(mults_golpe[i]))])
 			l.append("No todos los golpes infligen lo mismo: %s de ese daño." % _y(partes))
-		if escudo_desde_golpe == 0:
-			l.append("Golpea con el escudo: el daño sale de la Defensa, no del arma.")
-		elif escudo_desde_golpe > 0:
-			l.append("Del %d.º golpe en adelante golpea con el escudo: ese daño sale de la Defensa, no del arma." % (
-				escudo_desde_golpe + 1))
-		var at: String = _area_txt()
-		if at != "":
-			l.append(at)
-		elif redirige_al_morir and num_golpes_max(manos) > 1:
-			l.append("Si el objetivo cae antes, los golpes que quedan saltan a otros enemigos.")
 		var por: float = golpes_extra_por_enemigo
 		if manos >= 2 and golpes_extra_por_enemigo_dual > 0.0:
 			por = golpes_extra_por_enemigo_dual
@@ -878,12 +1128,11 @@ func resumen(manos: int = 1) -> String:
 		if crit_extra > 0.0:
 			l.append("Probabilidad de crítico de esta habilidad +%s." % _pct_txt(crit_extra))
 		if penetracion_extra > 0.0:
-			l.append("Ignora un %s más de la Defensa del objetivo." % _pct_txt(penetracion_extra))
-	elif not es_imbuicion() and limpia_debuffs <= 0:
-		l.append("No hace daño.")
+			l.append("Ignora un %s más de la Defensa de cada %s al que golpea." % [_pct_txt(penetracion_extra), rec])
+	var antes_de_efectos: int = l.size()
 
 	# --- LO QUE APLICA ---
-	var est: String = _texto_estados(manos)
+	var est: String = _texto_estados(manos, de_enemigo)
 	if est != "":
 		l.append(est)
 	if es_imbuicion():
@@ -906,32 +1155,47 @@ func resumen(manos: int = 1) -> String:
 			else "%d estado%s negativo%s al azar" % [limpia_debuffs, "" if limpia_debuffs == 1 else "s",
 				"" if limpia_debuffs == 1 else "s"]
 		l.append("Elimina %s %s." % [cuantos, "de todos los aliados" if objetivo_aliado == Objetivo.GRUPO else "de un aliado"])
+	# En las de ENEMIGO el sujeto va callado («Se pone en guardia...»): su nombre ya sale en la ficha (17/11).
+	var quien_s: String = "" if de_enemigo else "Quien la usa "
+	var de_quien: String = "suyas" if de_enemigo else "de quien la usa"
 	if reduce_cooldowns > 0:
-		l.append("Las demás habilidades de quien la usa se recargan %d turno%s antes." % [
+		l.append("Las demás habilidades %s se recargan %d turno%s antes." % [de_quien,
 			reduce_cooldowns, "" if reduce_cooldowns == 1 else "s"])
 	if invoca_cantidad > 0:
-		l.append("Invoca %d ayudante%s." % [invoca_cantidad, "" if invoca_cantidad == 1 else "s"])
+		l.append(_invoca_txt())
+	# La GUARDIA es la de Defender: bloquea parte del daño (entre StatsMath.DEFEND_TAKEN_MAX y _MIN, segun un pulso de
+	# stats: no hay un numero fijo que dar) y deja los criticos en su contra a la mitad.
+	var guardia: String = "bloquea parte del daño que recibe y la probabilidad de recibir un golpe crítico se reduce a la mitad"
 	if bloqueo_turnos > 0:
-		l.append("Quien la usa se pone en guardia: recibe mucho menos daño hasta su próximo turno.")
+		l.append(_mayus("%sse pone en guardia hasta su próximo turno: %s." % [quien_s, guardia]))
 	if provoca_turnos > 0:
-		l.append("Durante %d turno%s, los enemigos tienen más probabilidad de atacar a quien la usa." % [
-			provoca_turnos, "" if provoca_turnos == 1 else "s"])
+		l.append("Durante %d turno%s, los %s tienen más probabilidad de atacar a %s." % [
+			provoca_turnos, "" if provoca_turnos == 1 else "s", "personajes" if de_enemigo else "enemigos",
+			"este enemigo" if de_enemigo else "quien la usa"])
 	if postura_contraataque:
 		if contra_con_escudo:
-			l.append("Quien la usa se pone en guardia: aumenta su Esquiva y devuelve con un escudazo (que sale de su Defensa) los golpes que esquiva o para, pero se vuelve más lento.")
+			l.append(_mayus("%sse pone en guardia: aumenta su Esquiva y devuelve con un escudazo (que sale de su Defensa) los golpes que esquiva o para, pero se vuelve más lento." % quien_s))
 		else:
-			l.append("Quien la usa se pone en guardia: aumenta su Esquiva y devuelve los golpes que esquiva, pero se vuelve más lento.")
+			l.append(_mayus("%sse pone en guardia: aumenta su Esquiva y devuelve los golpes que esquiva, pero se vuelve más lento." % quien_s))
 	if defensa_a_aliados:
-		l.append("Pone en guardia a los aliados cercanos hasta su próximo turno.")
+		l.append("Pone en guardia a los aliados cercanos hasta su próximo turno: %s." % guardia.replace("recibe", "reciben"))
 	if protege_turnos > 0:
-		l.append("Durante %d turno%s, protege a un aliado: los ataques dirigidos a ese aliado los recibe quien la usa, con su bloqueo y su Defensa." % [
-			protege_turnos, "" if protege_turnos == 1 else "s"])
+		l.append("Durante %d turno%s, protege a un aliado: los ataques dirigidos a ese aliado los recibe %s, con su bloqueo y su Defensa." % [
+			protege_turnos, "" if protege_turnos == 1 else "s", "él" if de_enemigo else "quien la usa"])
 	if foco_cargas > 0:
-		l.append("Quien la usa obtiene %d cargas de Foco arcano para sus próximos hechizos." % foco_cargas)
+		l.append(_mayus("%sobtiene %d cargas de Foco arcano para sus próximos hechizos." % [quien_s, foco_cargas]))
 	if mana_gain > 0.0:
-		l.append("Quien la usa recupera %d de maná." % roundi(mana_gain))
+		l.append(_mayus("%srecupera %d de maná." % [quien_s, roundi(mana_gain)]))
 	if energia_a_mana > 0.0:
-		l.append("Convierte toda la energía de quien la usa en maná.")
+		l.append("Convierte toda la energía %s en maná." % ("suya" if de_enemigo else "de quien la usa"))
+	# LA IMBUICION que lleva quien la usa en la pelea (al final de lo que hace: es un 'y ademas' de su arma).
+	if dano_mult > 0.0 and not de_enemigo:
+		var imb: String = imbuicion_txt(quien)
+		if imb != "":
+			l.append(imb)
+	# «No hace daño.» solo si no hace NADA que contar (17/11: en las de apoyo sobraba; HSR no lo dice nunca).
+	if dano_mult <= 0.0 and l.size() == antes_de_efectos:
+		l.append("No hace daño.")
 
 	# --- LO QUE CUESTA (siempre la ultima linea) ---
 	var coste_p: Array = []
@@ -971,6 +1235,26 @@ func resumen(manos: int = 1) -> String:
 	return "\n".join(l)
 
 
+# Con la primera letra en mayuscula (las frases que empiezan por un sujeto que puede ir callado).
+static func _mayus(t: String) -> String:
+	return t.substr(0, 1).to_upper() + t.substr(1) if t != "" else t
+
+
+# «Invoca 1 Apagaluces pequeño.» / «Invoca 2 slimes al azar entre: Slime de fuego, Slime de agua.» (lo que saca de verdad,
+# de invoca_pool; antes «Invoca 1 ayudante»).
+func _invoca_txt() -> String:
+	var nombres: Array = []
+	for ed in invoca_pool:
+		if ed != null and ed.get("enemy_name") != null and not nombres.has(String(ed.enemy_name)):
+			nombres.append(String(ed.enemy_name))
+	var n: int = invoca_cantidad
+	if nombres.is_empty():
+		return "Invoca %d aliado%s." % [n, "" if n == 1 else "s"]
+	if nombres.size() == 1:
+		return "Invoca %d %s." % [n, nombres[0]] if n == 1 else "Invoca %d: %s." % [n, nombres[0]]
+	return "Invoca %d al azar entre: %s." % [n, _y(nombres)]
+
+
 # "150 %", "37,5 %": coma decimal y espacio antes del % (guia de textos).
 static func _pct_txt(f: float) -> String:
 	var v: float = f * 100.0
@@ -989,8 +1273,8 @@ func _extra_por_enemigo_txt(por: float) -> String:
 
 
 # Los estados que aplica, agrupados por A QUIEN van. Mismo criterio que SpellData._texto_estados.
-func _texto_estados(manos: int = 1) -> String:
-	var al_rival: Array = []      # [prob, nombre, detalle]
+func _texto_estados(manos: int = 1, de_enemigo: bool = false) -> String:
+	var al_rival: Array = []      # _efecto_partes
 	var a_los_mios: Array = []
 	var por_crit: Array = []       # los que SOLO salen si el golpe critea (a.solo_crit)
 	for a in efectos:
@@ -1008,37 +1292,101 @@ func _texto_estados(manos: int = 1) -> String:
 	# de 6 tajos no es un 22 %, es casi seguro. Sin esto el numero engaña.
 	var multi: bool = num_golpes_max(manos) > 1
 	var por_golpe: bool = efectos_por_golpe and multi
-	var a_quien: String = "a cada enemigo alcanzado" if es_area() else "al objetivo"
+	var rec: String = "objetivo" if de_enemigo else "enemigo"
+	var en_area: bool = (es_area() or int(_forma_para_texto()[0]) > 0) and not forma_solo_primero
+	var quien_r: String = ("cada %s alcanzado" % rec) if en_area else ("ese %s" % rec)
 
 	var out: Array = []
 	if not al_rival.is_empty():
 		var sujeto: String = "Cada golpe tiene" if por_golpe else "Tiene"
-		out.append(_frase_causar(sujeto, al_rival, a_quien))
+		out.append(_frase_causar(sujeto, al_rival, quien_r))
 	if not a_los_mios.is_empty():
 		var grupo: bool = _algun_efecto_al_grupo()
-		var partes: Array = []
+		var quien_m: String = "quien la usa"
+		if grupo:
+			quien_m = "todos los aliados"
+			if forma_a_aliados and int(_forma_para_texto()[0]) > 0:
+				quien_m += " " + _DEL_FORMA[int(_forma_para_texto()[0])]
+		elif de_enemigo:
+			quien_m = ""   # «Aumenta su Ataque...»: el nombre ya sale en la ficha
+		var nombrados: Array = []
 		for e in a_los_mios:
 			var p: int = int(e[0])
-			partes.append(("%s%s" % [e[1], e[2]]) if p >= 100 else ("%s%s (con un %d %% de probabilidad)" % [e[1], e[2], p]))
-		if grupo:
-			out.append("Otorga a todos los aliados %s." % _y(partes))
-		else:
-			out.append("Quien la usa obtiene %s." % _y(partes))
+			var conp: String = "" if p >= 100 else " (con un %d %% de probabilidad)" % p
+			# Los que solo cambian stats, como HSR: «Aumenta la Velocidad de quien la usa en un 25 % durante 2 turnos.»
+			var st: String = accion_stats(int(e[3]), float(e[4]), quien_m, false)
+			if st != "" and int(e[6]) <= 1:
+				out.append(_mayus(st) + String(e[5]) + conp + ".")
+			else:
+				nombrados.append("%s%s%s" % [e[1], e[2], conp])
+		if not nombrados.is_empty():
+			if grupo:
+				out.append("Otorga a %s %s." % [quien_m, _y(nombrados)])
+			else:
+				out.append(("Obtiene %s." if de_enemigo else "Quien la usa obtiene %s.") % _y(nombrados))
 	# Los de critico van en su PROPIA frase, con la condicion delante.
 	if not por_crit.is_empty():
-		out.append(_frase_causar("Si el golpe es crítico, además tiene", por_crit, a_quien))
+		out.append(_frase_causar("Si el golpe es crítico, además tiene", por_crit, quien_r))
 	return "\n".join(out)
 
 
-# "Tiene un 55 % de probabilidad base de causar Sangrado al objetivo durante 3 turnos." Con varios, uno por linea.
-func _frase_causar(sujeto: String, lista: Array, a_quien: String) -> String:
-	if lista.size() == 1:
-		var e: Array = lista[0]
-		return "%s un %d %% de probabilidad base de causar %s %s%s." % [sujeto, int(e[0]), e[1], a_quien, e[2]]
-	var l: Array = ["%s una probabilidad base de causar %s:" % [sujeto, a_quien]]
+# «Tiene un 55 % de probabilidad base de causar Sangrado a ese enemigo durante 3 turnos.» Los que solo bajan stats, como
+# HSR: «...de reducir el Ataque de cada enemigo alcanzado en un 20 % durante 3 turnos». Varios, en la misma frase: «y un
+# 60 % de reducir su Velocidad en un 25 % durante 3 turnos».
+func _frase_causar(sujeto: String, lista: Array, quien: String) -> String:
+	var trozos: Array = []
+	# Si todos son de stats y duran lo mismo, la duracion va una vez al final (no «durante 3 turnos y ... durante 3 turnos»).
+	var junta: bool = lista.size() > 1
 	for e in lista:
-		l.append("   · %s: %d %%%s" % [e[1], int(e[0]), e[2]])
-	return "\n".join(l)
+		if int(e[6]) > 1 or StatusEffects._bonus(int(e[3]), float(e[4]), 1.0).is_empty() or String(e[5]) != String(lista[0][5]):
+			junta = false
+	for k in lista.size():
+		var e: Array = lista[k]
+		var st: String = accion_stats(int(e[3]), float(e[4]), quien if k == 0 else "", true) if int(e[6]) <= 1 else ""
+		var accion: String
+		if st != "":
+			accion = st + ("" if junta else String(e[5]))
+		else:
+			accion = "causar %s a %s%s" % [e[1], quien if k == 0 else ("ese mismo" if quien.begins_with("ese") else "cada uno"), e[2]]
+		if k == 0:
+			trozos.append("un %d %% de probabilidad base de %s" % [int(e[0]), accion])
+		else:
+			trozos.append("un %d %% de %s" % [int(e[0]), accion])
+	if trozos.size() == 1:
+		return "%s %s." % [sujeto, trozos[0]]
+	return "%s %s y %s%s." % [sujeto, ", ".join(trozos.slice(0, trozos.size() - 1)), trozos[-1],
+		("," + String(lista[0][5])) if junta else ""]
+
+
+# LO QUE HACE UN ESTADO QUE SOLO CAMBIA STATS, como HSR (17/11): «reducir el Ataque de ese enemigo en un 20 %» (infinitivo)
+# o «aumenta la Velocidad de quien la usa en un 25 %». 'quien' vacio = «su» («reducir su Velocidad...»). "" si el estado
+# hace algo mas que cambiar stats (Sangrado, Aturdido...): ese va por su nombre.
+static func accion_stats(id: int, mult: float, quien: String, infinitivo: bool) -> String:
+	var bonus: Array = StatusEffects._bonus(id, mult, 1.0)
+	if bonus.is_empty():
+		return ""
+	var trozos: Array = []
+	var signo_antes: int = 0
+	for i in bonus.size():
+		var p: Array = bonus[i]
+		var v: float = float(p[1])
+		var signo: int = 1 if v >= 0.0 else -1
+		var cuanto: String = ("en un %d %%" if bool(p[2]) else "en %d") % absi(roundi(v))
+		var verbo: String = ("aumentar" if signo > 0 else "reducir") if infinitivo else ("aumenta" if signo > 0 else "reduce")
+		var s: String
+		if i == 0 and quien != "":
+			s = "%s %s %s de %s %s" % [verbo, String(p[3]), String(p[0]), quien, cuanto]
+		elif i == 0 or signo != signo_antes:
+			s = "%s su %s %s" % [verbo, String(p[0]), cuanto]
+		else:
+			s = "su %s %s" % [String(p[0]), cuanto]
+		trozos.append(s)
+		signo_antes = signo
+	var t: String = String(trozos[0]) if trozos.size() == 1 \
+		else ", ".join(trozos.slice(0, trozos.size() - 1)) + " y " + String(trozos[-1])
+	if int(StatusEffects.def(id).get("max_stacks", 1)) > 1:
+		t += " por acumulación"
+	return t
 
 
 # Con UN efecto va todo en una frase; con varios, uno por linea con vineta.
@@ -1086,9 +1434,10 @@ func _efecto_partes(a) -> Array:
 		extras.append(que_hace)
 	if id_est == StatusEffects.Id.ATURDIDO and a.en_objetivo:
 		extras.append("se suma al aturdimiento propio del arma")
+	var durante: String = det
 	if not extras.is_empty():
 		det += " (%s)" % "; ".join(extras)
-	return [roundi(a.prob * 100.0), nom, det]
+	return [roundi(a.prob * 100.0), nom, det, id_est, float(a.mult), durante, int(a.stacks)]
 
 
 # Texto de UN estado en una linea ("Sangrado (55 % · 3 turnos)"), para quien lo pida suelto.

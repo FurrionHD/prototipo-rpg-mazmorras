@@ -18,7 +18,8 @@ func _ready() -> void:
 		var a = load("res://resources/abilities/" + f)
 		if a == null or not (a is AbilityData):
 			continue
-		if int(a.precio) <= 0:
+		# De ENEMIGO = ni se compra ni cuesta energia (17/11: el Golpe sismico del martillo tiene precio 0).
+		if int(a.precio) <= 0 and a.coste_energia <= 0.0 and a.coste_energia_dual <= 0.0:
 			de_enemigo.append([f, a])
 			continue
 		_volcar(f, a, "")
@@ -29,9 +30,10 @@ func _ready() -> void:
 
 func _volcar(f: String, ab: AbilityData, marca: String) -> void:
 	print("=== %s%s  [%s]" % [ab.nombre, marca, f])
-	var uno: String = ab.resumen(1)
+	var enem: bool = marca != ""
+	var uno: String = ab.resumen(1, enem)
 	print("  " + uno.replace("\n", "\n  "))
-	var dos: String = ab.resumen(2)
+	var dos: String = ab.resumen(2, enem)
 	if dos != uno:
 		print("  [a dos manos]\n  " + dos.replace("\n", "\n  "))
 	if ab.descripcion != "":

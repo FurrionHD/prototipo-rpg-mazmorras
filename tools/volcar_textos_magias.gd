@@ -23,7 +23,7 @@ func _ready() -> void:
 		var sp: SpellData = s
 		print("=== %s  [%s]" % [sp.nombre, f])
 		print("  Resumen: " + sp.resumen())
-		print("  " + sp.descripcion_mecanica(REF * sp.dano_mostrado() / maxf(1.0, sp.dano_mostrado()), CURA).replace("\n", "\n  "))
+		print("  " + sp.descripcion_mecanica(REF * sp.dano_base / SpellData.base_referencia(), CURA).replace("\n", "\n  "))
 		if sp.descripcion != "":
 			print("  Sabor: " + sp.descripcion.replace("\n", " "))
 	get_tree().quit()

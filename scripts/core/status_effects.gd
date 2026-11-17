@@ -1048,7 +1048,7 @@ class Instance extends RefCounted:
 		# (12/11) LO QUE LE RESTA A LA MAGIA (la Polilla insomne): la magnitud es la parte que se queda fuera, la de su
 		# Combatant.resiste_magia (asi el numero sale del dato y no del texto).
 		if bool(d.get("menos_magia", false)) and magnitude > 0.0:
-			lineas.append("Recibe un %d %% menos de todo el daño mágico." % roundi(magnitude * 100.0))
+			lineas.append("El daño mágico que recibe se reduce en un %d %%." % roundi(magnitude * 100.0))
 		if bool(d.get("sin_objetos", false)):
 			lineas.append("No puede usar objetos.")
 		# LO QUE ANDA en su turno (el Congelado: 05/11, el jefe, "no tiene descripcion": salia mudo en la ficha).
@@ -1056,7 +1056,7 @@ class Instance extends RefCounted:
 			lineas.append("En su turno, solo recorre un %d %% de la distancia normal." % roundi(float(d["mov_mult"]) * 100.0))
 		# ESCOLTA, igual: era un chip mudo.
 		if float(d.get("seguimiento_pct", 0.0)) > 0.0:
-			lineas.append("Se suma al ataque de cada aliado con un %d %% del daño de un ataque básico." % roundi(
+			lineas.append("Cada vez que ataca el aliado al que escolta, lo acompaña con un golpe al mismo objetivo que inflige un %d %% de su propio Ataque como Daño Físico." % roundi(
 				float(d["seguimiento_pct"]) * 100.0))
 		var stun_m: float = stun_prob_mult()
 		if not is_equal_approx(stun_m, 1.0):
@@ -1300,7 +1300,7 @@ static func efecto_legible(id: int, mult: float = 0.0, escala: float = 1.0) -> S
 	if bool(d.get("sin_objetos", false)):
 		return "no puede usar objetos"
 	if float(d.get("seguimiento_pct", 0.0)) > 0.0:
-		return "se suma al ataque de cada aliado con un %d %% del daño de un ataque básico" % roundi(
+		return "acompaña cada ataque del aliado al que escolta con un golpe del %d %% de su propio Ataque como Daño Físico" % roundi(
 			float(d["seguimiento_pct"]) * 100.0)
 	return ""
 
