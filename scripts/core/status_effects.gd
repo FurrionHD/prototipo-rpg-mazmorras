@@ -1048,7 +1048,7 @@ class Instance extends RefCounted:
 		# (12/11) LO QUE LE RESTA A LA MAGIA (la Polilla insomne): la magnitud es la parte que se queda fuera, la de su
 		# Combatant.resiste_magia (asi el numero sale del dato y no del texto).
 		if bool(d.get("menos_magia", false)) and magnitude > 0.0:
-			lineas.append("Recibe un %d %% menos de todo el daño mágico." % roundi(magnitude * 100.0))
+			lineas.append("El daño mágico que recibe se reduce en un %d %%." % roundi(magnitude * 100.0))
 		if bool(d.get("sin_objetos", false)):
 			lineas.append("No puede usar objetos.")
 		# LO QUE ANDA en su turno (el Congelado: 05/11, el jefe, "no tiene descripcion": salia mudo en la ficha).
