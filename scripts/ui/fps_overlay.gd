@@ -2,7 +2,8 @@
 #  fps_overlay.gd
 #  Contador de FPS y de FRAME TIME. Lo crea Game (autoload), asi que existe en TODAS las
 #  escenas y se pinta por ENCIMA de todo (capa 200: sobre el combate y los minijuegos, que
-#  van en la 100). Se apaga y enciende con F3.
+#  van en la 100). Se apaga y enciende con F3 o desde Ajustes > Graficos > Mostrar FPS, que son el MISMO ajuste
+#  (Ventana.mostrar_fps): se recuerda al cerrar el juego.
 #
 #  El numero que importa NO es el de FPS, es el FRAME TIME: 16.6 ms = 60 fps clavados,
 #  33 ms = 30. Y sobre todo el PEOR frame del ultimo segundo: un juego que va "a 60 de media"
@@ -34,6 +35,9 @@ func _ready() -> void:
 	# Apagado de serie: es una herramienta de medir, no parte del juego. Se enciende con F3
 	# (la tecla la recuerda la linea de ayudas del HUD).
 	visible = false
+	add_to_group("contador_fps")
+	# Lo que dejo puesto el jugador (Ajustes o F3) la ultima vez.
+	encender(Ventana.mostrar_fps)
 
 	# Debajo del "Piso: N" Y del contador de monedas del HUD (que estan en 10 y 32): antes se
 	# solapaba con el dinero. Dentro de un panel negro semitransparente, para que se lea
@@ -65,8 +69,13 @@ func _ready() -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo \
 			and (event as InputEventKey).keycode == KEY_F3:
-		_encendido = not _encendido
-		visible = _encendido
+		Ventana.aplicar_mostrar_fps(not _encendido)   # pasa por Ventana para que se guarde; vuelve por encender()
+
+
+# Lo llama Ventana (grupo "contador_fps") al cambiar el ajuste.
+func encender(on: bool) -> void:
+	_encendido = on
+	visible = _encendido
 
 
 # Con un MENU abierto el contador estorba y no mide nada util (el juego esta parado). En

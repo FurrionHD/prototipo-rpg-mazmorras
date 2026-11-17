@@ -1738,7 +1738,7 @@ func _pintar_numero(bloque: Dictionary, clave: String) -> void:
 	if lbl == null or not is_instance_valid(lbl):
 		return
 	var bar: ProgressBar = bloque[clave]
-	lbl.text = String(bloque[clave + "_fmt"]) % [bar.value, bar.max_value]
+	lbl.text = (String(bloque[clave + "_fmt"]) % [bar.value, bar.max_value]).replace(".", ",")   # coma decimal, como _fijar_barra_num
 
 
 func _snap_barras() -> void:
@@ -3290,7 +3290,7 @@ func _soltar_numero_de(ev: Dictionary) -> void:
 	else:
 		# Con DOS DECIMALES, igual que el log y que los numeros de dentro de las barras: si el
 		# numero que vuela dice 134 y la barra dice 134.42, parecen dos cuentas distintas.
-		lbl.text = "%.2f" % maxf(float(ev["dmg"]), 0.0)
+		lbl.text = Preferencias.fijo(maxf(float(ev["dmg"]), 0.0), 2)   # con el ajuste de decimales
 		if crit:
 			lbl.text += "!"
 		# LA DEBILIDAD ELEMENTAL, con flecha y no con otro "!": el "!" ya es del critico y dos

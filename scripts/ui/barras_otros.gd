@@ -56,7 +56,7 @@ func refrescar() -> void:
 func _poner(bar: ProgressBar, lbl: Label, v: float, m: float, fmt: String) -> void:
 	bar.max_value = maxf(1.0, m)
 	bar.value = v
-	lbl.text = (fmt % [v, m]).replace(".", ",")   # decimales con coma
+	lbl.text = Preferencias.barra(fmt, v, m)   # decimales con coma y con el ajuste de la pestaña Juego
 
 
 func _rehacer(grupos: Array) -> void:

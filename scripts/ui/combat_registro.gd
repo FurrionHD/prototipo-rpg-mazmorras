@@ -234,7 +234,7 @@ func repintar() -> void:
 		var lineas: Array = gr["lineas"]
 		var p: int = int(gr["p"]) if int(gr["p"]) >= 0 else int(lineas[0])
 		var fila: String = "[url=%s][color=#%s]%s[/color]" % [g, _color_de(gr).to_html(false),
-			_escapar(String(_pantalla._log_lines[p]))]
+			_escapar(Preferencias.en_texto(String(_pantalla._log_lines[p])))]
 		if lineas.size() > 1:
 			fila += "[color=#%s]  +%d[/color]" % [COLOR_MAS.to_html(false), lineas.size() - 1]
 		filas.append(fila + "[/url]")
@@ -362,7 +362,7 @@ func _llenar_ficha(g: String) -> void:
 	var orden: Array = ([p] if p >= 0 else []) + lineas.filter(func(i): return int(i) != p)
 	for i in orden:
 		var l := Label.new()
-		l.text = String(_pantalla._log_lines[int(i)])
+		l.text = Preferencias.en_texto(String(_pantalla._log_lines[int(i)]))
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.custom_minimum_size.x = 340.0
 		l.add_theme_font_size_override("font_size", 16 if primero else 14)

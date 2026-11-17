@@ -9,6 +9,7 @@
 #     ultimo guardado a mano. Ahora el aviso llega aqui, se guarda con un cartel delante y se cierra.
 #  2. EL MODO DE PANTALLA: ventana, ventana sin bordes o pantalla completa. Es un ajuste de MAQUINA,
 #     no de partida, asi que vive en user://ajustes.cfg junto a los volumenes (ver sonido.gd).
+#     Con el, lo demas de la pestaña Graficos (17/11): vsync, limite de FPS, mostrar FPS y brillo.
 #
 #  PROCESS_MODE_ALWAYS porque los menus de este juego pausan el arbol: sin eso, cerrar desde el menu
 #  de pausa se quedaria esperando un frame que no llega (ver menus-pausan-el-juego).
@@ -43,6 +44,32 @@ var modo: int = Modo.VENTANA
 # los fotogramas (portatil con la grafica justa, o para ver de verdad si algo va lento). Es lo otro
 # que se ajusta de la imagen, asi que vive aqui con el modo.
 var vsync: bool = true
+# LIMITE DE FPS (17/11): 0 = sin limite (con vsync ya va a lo que da la pantalla).
+const LIMITES_FPS := [
+	{"id": 0, "nombre": "Sin límite"},
+	{"id": 30, "nombre": "30"},
+	{"id": 60, "nombre": "60"},
+	{"id": 120, "nombre": "120"},
+	{"id": 144, "nombre": "144"},
+]
+var limite_fps: int = 0
+# LA RESOLUCION DE LA VENTANA (17/11). Solo cuenta en modo Ventana: sin bordes y completa usan la del monitor. Todo esta
+# montado sobre 1280x720 y el motor lo escala (stretch canvas_items + expand), asi que cualquier tamaño se ve entero.
+# (0, 0) = nunca la ha elegido: no se toca la ventana (lo de siempre).
+const RESOLUCIONES := [
+	Vector2i(1280, 720), Vector2i(1366, 768), Vector2i(1600, 900), Vector2i(1920, 1080),
+	Vector2i(2560, 1440), Vector2i(3840, 2160),
+]
+var resolucion: Vector2i = Vector2i.ZERO
+# EL CONTADOR DE FPS (el de F3): lo enciende el interruptor de Ajustes o la tecla, y se recuerda al cerrar.
+var mostrar_fps: bool = false
+# BRILLO (17/11): 0,5 a 1,5; 1 = como esta pintado. Es una capa por encima de TODO que multiplica la imagen, y solo
+# existe si el brillo no es 1: por defecto no cuesta nada.
+const BRILLO_MIN := 0.5
+const BRILLO_MAX := 1.5
+var brillo: float = 1.0
+var _capa_brillo: CanvasLayer = null
+var _mat_brillo: ShaderMaterial = null
 
 var _cerrando: bool = false
 var _cartel: CanvasLayer = null
@@ -57,6 +84,8 @@ func _ready() -> void:
 	_cargar_ajustes()
 	aplicar(modo)
 	aplicar_vsync(vsync)
+	aplicar_limite_fps(limite_fps)
+	fijar_brillo(brillo)
 
 
 # ============================================================
@@ -87,7 +116,37 @@ func aplicar(m: int) -> void:
 			DisplayServer.window_set_size(DisplayServer.screen_get_size(pantalla))
 		_:
 			DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, false)
+			_poner_resolucion()
 	_guardar_ajustes()
+
+
+# Las que CABEN en el monitor donde esta la ventana (una de 2560 en una pantalla de 1920 se saldria por los lados).
+func resoluciones_que_caben() -> Array:
+	var tope: Vector2i = DisplayServer.screen_get_size(DisplayServer.window_get_current_screen())
+	var out: Array = []
+	for r in RESOLUCIONES:
+		if (r as Vector2i).x <= tope.x and (r as Vector2i).y <= tope.y:
+			out.append(r)
+	if out.is_empty():
+		out.append(RESOLUCIONES[0])
+	return out
+
+
+func aplicar_resolucion(r: Vector2i) -> void:
+	resolucion = r
+	if modo == Modo.VENTANA:
+		_poner_resolucion()
+	_guardar_ajustes()
+
+
+# La pone y CENTRA la ventana en su monitor. Sin elegir (0, 0) no se toca nada.
+func _poner_resolucion() -> void:
+	if resolucion.x <= 0 or resolucion.y <= 0 or DisplayServer.get_name() == "headless":
+		return
+	var pantalla: int = DisplayServer.window_get_current_screen()
+	DisplayServer.window_set_size(resolucion)
+	var hueco: Vector2i = DisplayServer.screen_get_size(pantalla)
+	DisplayServer.window_set_position(DisplayServer.screen_get_position(pantalla) + (hueco - resolucion) / 2)
 
 
 func aplicar_vsync(activo: bool) -> void:
@@ -95,6 +154,59 @@ func aplicar_vsync(activo: bool) -> void:
 	DisplayServer.window_set_vsync_mode(
 		DisplayServer.VSYNC_ENABLED if vsync else DisplayServer.VSYNC_DISABLED)
 	_guardar_ajustes()
+
+
+func aplicar_limite_fps(f: int) -> void:
+	limite_fps = maxi(f, 0)
+	Engine.max_fps = limite_fps
+	_guardar_ajustes()
+
+
+# Lo enciende o lo apaga en el contador (fps_overlay, en el grupo "contador_fps") y se guarda.
+func aplicar_mostrar_fps(on: bool) -> void:
+	mostrar_fps = on
+	get_tree().call_group("contador_fps", "encender", on)
+	_guardar_ajustes()
+
+
+# Mientras se arrastra el mando: se ve YA y NO se guarda (como los volumenes). guardar_ajustes() al soltar.
+func fijar_brillo(b: float) -> void:
+	brillo = clampf(b, BRILLO_MIN, BRILLO_MAX)
+	if is_equal_approx(brillo, 1.0):
+		if _capa_brillo != null:
+			_capa_brillo.visible = false
+		return
+	if _capa_brillo == null:
+		_montar_capa_brillo()
+	_capa_brillo.visible = true
+	_mat_brillo.set_shader_parameter("brillo", brillo)
+
+
+func guardar_ajustes() -> void:
+	_guardar_ajustes()
+
+
+# La capa del brillo: encima de TODO (por encima de los carteles de 4096), sin coger el raton, y lee la pantalla ya
+# pintada y la multiplica. filter_nearest: que el pixel art no se emborrone.
+func _montar_capa_brillo() -> void:
+	_capa_brillo = CanvasLayer.new()
+	_capa_brillo.layer = 4100
+	_capa_brillo.process_mode = Node.PROCESS_MODE_ALWAYS
+	var sh := Shader.new()
+	sh.code = """shader_type canvas_item;
+uniform sampler2D pantalla : hint_screen_texture, filter_nearest;
+uniform float brillo = 1.0;
+void fragment() {
+	COLOR = vec4(texture(pantalla, SCREEN_UV).rgb * brillo, 1.0);
+}"""
+	_mat_brillo = ShaderMaterial.new()
+	_mat_brillo.shader = sh
+	var r := ColorRect.new()
+	r.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r.material = _mat_brillo
+	_capa_brillo.add_child(r)
+	add_child(_capa_brillo)
 
 
 func nombre_modo(m: int) -> String:
@@ -118,6 +230,11 @@ func _cargar_ajustes() -> void:
 		push_warning("[ventana] no se pudo leer %s (error %d): modo por defecto" % [RUTA_AJUSTES, err])
 	modo = clampi(int(cfg.get_value(SECCION, "modo", Modo.VENTANA)), 0, MODOS.size() - 1)
 	vsync = bool(cfg.get_value(SECCION, "vsync", true))
+	limite_fps = maxi(int(cfg.get_value(SECCION, "limite_fps", 0)), 0)
+	var res = cfg.get_value(SECCION, "resolucion", Vector2i.ZERO)
+	resolucion = res if res is Vector2i else Vector2i.ZERO
+	mostrar_fps = bool(cfg.get_value(SECCION, "mostrar_fps", false))
+	brillo = clampf(float(cfg.get_value(SECCION, "brillo", 1.0)), BRILLO_MIN, BRILLO_MAX)
 
 
 func _guardar_ajustes() -> void:
@@ -127,6 +244,10 @@ func _guardar_ajustes() -> void:
 	cfg.load(RUTA_AJUSTES)
 	cfg.set_value(SECCION, "modo", modo)
 	cfg.set_value(SECCION, "vsync", vsync)
+	cfg.set_value(SECCION, "limite_fps", limite_fps)
+	cfg.set_value(SECCION, "resolucion", resolucion)
+	cfg.set_value(SECCION, "mostrar_fps", mostrar_fps)
+	cfg.set_value(SECCION, "brillo", brillo)
 	var err: int = cfg.save(RUTA_AJUSTES)
 	if err != OK:
 		push_warning("[ventana] no se pudo guardar %s (error %d)" % [RUTA_AJUSTES, err])

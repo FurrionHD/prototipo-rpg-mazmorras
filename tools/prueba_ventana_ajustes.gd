@@ -49,6 +49,34 @@ func _ready() -> void:
 	Ventana.aplicar(99)
 	_ok("un modo imposible se recorta al ultimo valido", Ventana.modo == Ventana.MODOS.size() - 1)
 
+	# 4) Lo nuevo de Graficos (17/11): limite de FPS, mostrar FPS y brillo, guardados y releidos.
+	var fps_antes: int = Engine.max_fps
+	Ventana.aplicar_limite_fps(60)
+	_ok("el limite de FPS llega al motor", Engine.max_fps == 60)
+	Ventana.aplicar_mostrar_fps(true)
+	Ventana.fijar_brillo(9.0)
+	_ok("un brillo imposible se recorta al maximo", is_equal_approx(Ventana.brillo, Ventana.BRILLO_MAX))
+	Ventana.fijar_brillo(0.8)
+	Ventana.aplicar_resolucion(Vector2i(1600, 900))
+	_ok("las resoluciones de la lista caben en la pantalla", not Ventana.resoluciones_que_caben().is_empty())
+	Ventana.guardar_ajustes()
+	Ventana.resolucion = Vector2i.ZERO
+	Ventana.limite_fps = 0
+	Ventana.mostrar_fps = false
+	Ventana.brillo = 1.0
+	Ventana._cargar_ajustes()
+	_ok("al releer: limite 60", Ventana.limite_fps == 60)
+	_ok("al releer: mostrar FPS", Ventana.mostrar_fps)
+	_ok("al releer: brillo 0,8", is_equal_approx(Ventana.brillo, 0.8))
+	_ok("al releer: resolucion 1600x900", Ventana.resolucion == Vector2i(1600, 900))
+	Ventana.resolucion = Vector2i.ZERO
+	var cfg3 := ConfigFile.new()
+	cfg3.load(Ventana.RUTA_AJUSTES)
+	_ok("y el volumen sigue ahi", is_equal_approx(float(cfg3.get_value(Sonido.SECCION_VOL, "musica", -1.0)), 0.77))
+	Ventana.fijar_brillo(1.0)
+	Ventana.mostrar_fps = false
+	Engine.max_fps = fps_antes
+
 	_restaurar()
 	print("FIN, %d fallos" % _malos)
 	get_tree().quit(_malos)
