@@ -1992,9 +1992,12 @@ func _shield_stats(vb: VBoxContainer, sh: ShieldData, tier: int, rareza: int,
 	# Es PLANA (se suma DESPUES del multiplicador de Resistencia, al reves que la armadura), asi que
 	# el numero YA es lo que te da: no hace falta una fila "para ti".
 	_row_en(vb, "Defensa al bloquear", _con_mejoras("%.1f", float(base["def"]), float(mods["def"])))
+	# Y la MAGICA (17/11): la misma, por la fraccion de su tamaño. Solo cuenta al Defender contra golpes magicos.
+	_row_en(vb, "Defensa mágica al bloquear", _con_mejoras("%.1f", float(base["mdef"]), float(mods["mdef"])))
 	# El bloqueo NO lleva tier ni rareza (es del tamaño): lo unico que lo sube es el Refuerzo, y eso
-	# es justo lo que enseña el parentesis.
+	# es justo lo que enseña el parentesis. Contra la magia, la parte de su tamaño (ShieldData.BLOQUEO_MAGIA_FRAC).
 	_row_en(vb, "Bloqueo", _con_mejoras_pct(float(base["bloqueo"]), float(mods["bloqueo"])))
+	_row_en(vb, "Bloqueo contra la magia", _fmt_pct(float(mods["bloqueo"]) * float(mods["bloqueo_magia_frac"])))
 	if float(mods["resist_estados"]) > 0.0:
 		_row_en(vb, "Resistencia a estados",
 			_con_mejoras_pct(float(base["resist_estados"]), float(mods["resist_estados"])))
@@ -2105,7 +2108,9 @@ func _resumen_pieza(vb: VBoxContainer, item: Resource) -> void:
 	elif item is ShieldData:
 		var sm: Dictionary = Upgrades.shield_mods(item as ShieldData, tmult, rareza, mejoras)
 		_row_en(vb, "Defensa al bloquear", "%.1f" % float(sm["def"]))
+		_row_en(vb, "Defensa mágica al bloquear", "%.1f" % float(sm["mdef"]))
 		_row_en(vb, "Bloqueo", _fmt_pct(float(sm["bloqueo"])))
+		_row_en(vb, "Bloqueo contra la magia", _fmt_pct(float(sm["bloqueo"]) * float(sm["bloqueo_magia_frac"])))
 	elif item is WandData:
 		var wd := item as WandData
 		var mgw: Dictionary = Upgrades.magic_mods(wd.magic_amp, tmult, rareza, mejoras)

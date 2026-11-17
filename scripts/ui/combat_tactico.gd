@@ -3942,7 +3942,12 @@ func _reventar_burbuja(clave: String, a: Combatant = null) -> void:
 		var dano: float = dueno.atk() * ab.burbuja_dano
 		# MAGICA (08/10): contra su defensa magica, sin esquiva (revienta encima), y entrena la Voluntad.
 		if ab.es_magico:
-			var r_m: Dictionary = StatsMath.resolve_magico_enemigo(dueno, c, false)
+			var def_m: bool = _pantalla.enemigos.defiende_de(c, dueno)
+			var r_m: Dictionary = StatsMath.resolve_magico_enemigo(dueno, c, false, def_m)
+			# Pararla defendiendo entrena la Voluntad (17/11), como en las habilidades magicas.
+			if def_m and bool(_pantalla._defendiendo.get(c, false)):
+				Game.ganar_voluntad_bloqueo_magico(_pantalla._reto(dueno, Game.pj_de_combatant(c)), c, 1.0,
+					Game.pj_de_combatant(c))
 			dano = float(r_m["damage"]) * ab.burbuja_dano
 			Game.ganar_voluntad_golpe_magico(_pantalla._reto(dueno, Game.pj_de_combatant(c)),
 				float(r_m["dmg_sin_mitigar"]) * ab.burbuja_dano, float(c.max_hp), Game.pj_de_combatant(c))

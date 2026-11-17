@@ -437,7 +437,8 @@ enum Pieza { NINGUNA, PEDAZO, ESQUIRLA }
 # EL ELEMENTO DE SUS GOLPES si no es el de quien la lanza (-1 = el suyo): las estrellas del abisal son de LUZ.
 @export var elemento_golpe: int = -1
 # MAGICA (08/10/2026, de momento solo las de los slimes): pega con la MAGIA del que la lanza contra tu DEFENSA MAGICA y
-# la reduccion magica de tu armadura; ni la guardia ni el escudo la paran. Ver StatsMath.resolve_magico_enemigo.
+# la reduccion magica de tu armadura. Defendiendo con escudo (17/11) tambien su Defensa magica, el bloqueo a medias y el
+# critico a la mitad. Ver StatsMath.resolve_magico_enemigo.
 @export var es_magico: bool = false
 # (09/11, las Esporas de infeccion del Aventurero florecido, memoria miconido-mutante) LA INFECCION TAMBIEN A LOS SUYOS: a
 # cada enemigo (de su bando) dentro de su area al soltarla, y a los que empiecen su turno dentro de su nube, esta prob. de

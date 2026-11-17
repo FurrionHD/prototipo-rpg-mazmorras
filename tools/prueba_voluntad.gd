@@ -163,6 +163,20 @@ func _excelia() -> void:
 	Game.ganar_voluntad_golpe_magico(1.0, 20.0, 100.0, g)
 	_ok(_subida(g) > 0.0 and is_equal_approx(float(g.ability_internal["resistencia"]), res_antes),
 		"un golpe magico entrena Voluntad (la Resistencia la pone el golpe, aparte)")
+	# PARAR MAGIA DEFENDIENDO (17/11): Voluntad por lo que bloqueas contra la magia, como la Resistencia con lo fisico.
+	var caballero := _combatiente(Abilities.new())
+	caballero.defend_block = 0.75
+	caballero.defend_bloqueo_magia = 0.55
+	var torre := _combatiente(Abilities.new())
+	torre.defend_block = 0.80
+	torre.defend_bloqueo_magia = 0.4
+	var bc := _ficha_limpia()
+	Game.ganar_voluntad_bloqueo_magico(1.0, caballero, 1.0, bc)
+	var bt := _ficha_limpia()
+	Game.ganar_voluntad_bloqueo_magico(1.0, torre, 1.0, bt)
+	print("    parar magia: caballero %.4f · torre %.4f" % [_subida(bc), _subida(bt)])
+	_ok(_subida(bc) > 0.0, "parar magia defendiendo entrena Voluntad")
+	_ok(_subida(bc) > _subida(bt), "mas el que mas magia para (el caballero, no la torre)")
 	# Y que el combatiente lo apunte solo cuando le toca: jugador <- enemigo.
 	var ab_e := Abilities.new()
 	ab_e.fuerza = 100
