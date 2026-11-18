@@ -1,10 +1,17 @@
 [gd_resource type="Resource" script_class="AbilityData" format=3]
 
 [ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_osc"]
+script = ExtResource("2")
+estado = 69
+prob = 0.95
+turns = 2
 
 ; EL CHILLIDO DE OSCURIDAD (18/11, memoria chillon-mutante): el del Apagaluces y la Piña negra. MAGICO DE OSCURIDAD, en
 ; CIRCULO ALREDEDOR SUYO de radio 70 (su eleccion); pega lo del chillido de hoy (0,36, tools/tabla_chillon) y a cada uno que
-; pilla le deja A OSCURAS (el farolillo al minimo) con prob base 95 % (el techo): el estado entra en el paso 2.
+; pilla le deja A OSCURAS (el farolillo al minimo) 2 turnos, con prob base 95 % (el techo).
 ; EFECTOS PROVISIONALES (los oidos en blanco del chillido normal) hasta su lamina de efectos en pixel.
 [resource]
 script = ExtResource("1")
@@ -22,6 +29,7 @@ area_prob_secundario = 1.0
 forma = 1
 forma_apunte = 2
 forma_radio = 70.0
+efectos = [SubResource("SA_osc")]
 fx_estilo = 17
 fx_anim = &"chillido_oscuro"
 cooldown = 4

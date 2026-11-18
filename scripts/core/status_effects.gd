@@ -59,7 +59,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	INFECTADO, FLORECIDO,
 	CONGELADO, DESHIELO,
 	OJOS_INSOMNES, CONCENTRACION,
-	COSTRA_SANGRE, SED_MANA }
+	COSTRA_SANGRE, SED_MANA,
+	A_OSCURAS, BEBE_LUZ, RACIMO }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -689,6 +690,25 @@ static var _defs: Dictionary = {
 		"pasiva": true, "turns": 999, "texto_portador": true,
 		"descripcion": "Huele el maná. Al que más lleva, antes le encuentra.",
 	},
+	# (18/11, los mutantes del CHILLON) A OSCURAS: el Chillido de oscuridad te deja el farolillo AL MINIMO
+	# (Vision.RADIO_MINIMO; ver Game.a_oscuras). Fuera del combate sigue 'seg_fuera' s por cada turno que le quedaba, y al
+	# acabar la pelea pasa a TODO el grupo con lo del que mas le quedaba (Game.a_oscuras_seg, el reloj del grupo).
+	Id.A_OSCURAS: {
+		"id": Id.A_OSCURAS, "nombre": "A oscuras", "icono": "🏮", "color": Color(0.32, 0.34, 0.52),
+		"turns": 2, "debuff": true, "apaga_luz": true, "seg_fuera": 30.0,
+		"descripcion": "Lo que alumbraba sigue encendido, pero ya no llega a ningún sitio.",
+	},
+	# Sus pasivas, a la vista como las de la chupasimas (con los numeros de quien la tiene).
+	Id.BEBE_LUZ: {
+		"id": Id.BEBE_LUZ, "nombre": "Bebe la luz", "icono": "🌘", "color": Color(0.85, 0.75, 0.35),
+		"pasiva": true, "turns": 999, "texto_portador": true,
+		"descripcion": "Cuanto más oscuro está todo, más deprisa va.",
+	},
+	Id.RACIMO: {
+		"id": Id.RACIMO, "nombre": "Racimo", "icono": "🍇", "color": Color(0.35, 0.33, 0.4),
+		"pasiva": true, "turns": 999, "texto_portador": true,
+		"descripcion": "Para llegar a la del centro hay que apartar a todas las demás.",
+	},
 	# EL SET CONCENTRACION (12/11, el de la Polilla insomne): cada frase bien recitada le pone una carga (hasta el tope del
 	# set) y fallar una se las quita todas (CombatMagia). Cada carga, + el daño magico que diga el set (mult_override). Dura
 	# la pelea: no se gasta por turnos y no sale de ella ("de_la_pelea").
@@ -1069,6 +1089,10 @@ class Instance extends RefCounted:
 			lineas.append_array(StatusEffects.texto_pasiva_portador(id(), quien))
 		if bool(d.get("sin_objetos", false)):
 			lineas.append("No puede usar objetos.")
+		# (18/11) A OSCURAS (el Chillido de oscuridad del chillon): el farolillo al minimo, y lo que dura fuera.
+		if bool(d.get("apaga_luz", false)):
+			lineas.append("Su farolillo alumbra lo mínimo.")
+			lineas.append("Fuera del combate, dura %s s por cada turno que le quede." % StatusEffects.num(float(d.get("seg_fuera", 30.0))))
 		# LO QUE ANDA en su turno (el Congelado: 05/11, el jefe, "no tiene descripcion": salia mudo en la ficha).
 		if d.has("mov_mult") and float(d["mov_mult"]) < 1.0:
 			lineas.append("En su turno, solo recorre un %d %% de la distancia normal." % roundi(float(d["mov_mult"]) * 100.0))
@@ -1360,6 +1384,15 @@ static func texto_pasiva_portador(id_p: int, quien) -> PackedStringArray:
 		out.append("Lo que drena quien la tiene, con Drenaje o mientras está adherida a alguien, se le convierte en un escudo equivalente al %d %% de lo drenado. %s Si un golpe le rompe el escudo, los siguientes golpes ya no se ven afectados." % [
 			roundi(quien.costra_sangre * 100.0), frase])
 		out.append("El escudo no puede superar su vida máxima.")
+	elif id_p == Id.BEBE_LUZ:
+		out.append("Por cada personaje que esté A oscuras, la velocidad de quien la tiene aumenta en un %d %% y el daño que inflige aumenta en un %d %%." % [
+			roundi(quien.bebe_luz_vel * 100.0), roundi(quien.bebe_luz_dano * 100.0)])
+	elif id_p == Id.RACIMO:
+		out.append("Quien la tiene recibe un %d %% menos de daño. Cada cría suya derrotada reduce este efecto en un %d %%; con %d derrotadas, desaparece." % [
+			roundi(quien.racimo_reduce * 100.0), roundi(quien.racimo_por_cria * 100.0),
+			ceili(quien.racimo_reduce / maxf(quien.racimo_por_cria, 0.001) - 0.001)])
+		out.append("Al empezar cada uno de sus turnos suelta una cría, sin gastar el turno.")
+		out.append("Hasta un máximo de %d crías a la vez." % quien.crias_tope)
 	elif id_p == Id.SED_MANA:
 		out.append("Al elegir a quién atacar, prefiere a los que tienen más Maná máximo: la probabilidad de atacar a cada uno se multiplica por su Maná máximo frente a la media de su grupo.")
 		# (contraccion: «de el doble» -> «del doble»)

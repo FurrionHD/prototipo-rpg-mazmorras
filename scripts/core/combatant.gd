@@ -1305,6 +1305,15 @@ var rayo_prob: float = 0.25
 var suelta_con_rayo: bool = false
 var mana_bebido: float = 0.0   # lo que lleva bebido (carga el Rayo de mana)
 
+# (18/11, los mutantes del chillon: MutacionData) BEBE LA LUZ (+velocidad y +daño por cada uno de sus rivales A oscuras) y el
+# RACIMO de la Piña (menos daño recibido, que pierde con cada cria que le matan; una cria por turno, con tope).
+var bebe_luz_vel: float = 0.0
+var bebe_luz_dano: float = 0.0
+var racimo_reduce: float = 0.0
+var racimo_por_cria: float = 0.0
+var crias_tope: int = 0
+var crias_muertas: int = 0
+
 
 # ¿Tiene ahora la COSTRA DE SANGRE puesta? (lo que cambia sus resistencias, golpe a golpe)
 func con_costra_sangre() -> bool:

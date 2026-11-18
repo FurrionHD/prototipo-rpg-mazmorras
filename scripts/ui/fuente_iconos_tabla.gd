@@ -109,4 +109,7 @@ const TABLA := {
 	"🕯": "concentracion",
 	"🧫": "costra_sangre",
 	"🫦": "sed_mana",
+	"🏮": "a_oscuras",
+	"🌘": "bebe_luz",
+	"🍇": "racimo",
 }

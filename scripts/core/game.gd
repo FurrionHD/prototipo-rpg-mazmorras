@@ -2309,6 +2309,48 @@ func cola_pocion_a_estado(pj: PersonajeData, c: Combatant) -> void:
 #
 # QUE sale y que se queda en la pelea lo decide StatusEffects.estados_que_salen, que es la misma
 # regla que usan los enemigos (ver combat.gd): no hay dos versiones de lo que sobrevive.
+# ============================================================
+#  A OSCURAS FUERA DE LA PELEA (18/11, los mutantes del chillon; su regla: "para que no puedas hacer trampa cambiando a un
+#  personaje que no tenga el debuff para poder ver bien")
+# ------------------------------------------------------------
+# Dentro de la pelea es un estado como cualquiera, en el combatiente. Al salir NO se queda en la ficha de cada uno: pasa a
+# un RELOJ DEL GRUPO (a_oscuras_seg), con 'seg_fuera' s (30) por cada turno que le quedaba al que MAS le quedaba, asi que
+# cambiar de lider no te devuelve la luz. Se saca de la ficha en refrescar_cache_estados, que es el paso por el que pasan
+# TODAS las escrituras de pj.estados (el cierre, la huida y lo que llega por la red). Si entras en otra pelea con el reloj
+# en marcha, vuelve a ser el estado en los tuyos (restaurar_estados_de_ficha), con los turnos que le queden.
+var a_oscuras_seg: float = 0.0
+var _oscuras_turnos_pelea: int = 0   # lo que se convirtio al entrar en ESTA pelea (lo comparten todos los tuyos)
+
+
+func a_oscuras() -> bool:
+	var p: Node = Net.peleas._pantalla_combate() if Net.peleas != null else null
+	if p != null and is_instance_valid(p) and p.get("_aliados") is Array:
+		var mios: Dictionary = {}
+		for pj in party:
+			mios[String(pj.uid)] = true
+		for c in p._aliados:
+			if mios.has(String(c.uid_formacion)) and c.has_status(StatusEffects.Id.A_OSCURAS):
+				return true
+		return false
+	return a_oscuras_seg > 0.0
+
+
+func _sacar_oscuras(pj: PersonajeData) -> void:
+	var seg: float = float(StatusEffects.def(StatusEffects.Id.A_OSCURAS).get("seg_fuera", 30.0))
+	var quedan: Array = []
+	var antes: float = a_oscuras_seg
+	for d in pj.estados:
+		if int(d.get("id", -1)) == StatusEffects.Id.A_OSCURAS:
+			a_oscuras_seg = maxf(a_oscuras_seg, float(d.get("turns", 0)) * seg)
+		else:
+			quedan.append(d)
+	if quedan.size() == pj.estados.size():
+		return
+	pj.estados = quedan
+	if a_oscuras_seg > antes:
+		print("[estado] A oscuras fuera de la pelea: todo el grupo, %.0f s" % a_oscuras_seg)
+
+
 func guardar_estados_en_ficha(c: Combatant, pj: PersonajeData) -> void:
 	if c == null or pj == null:
 		return
@@ -2328,6 +2370,12 @@ func restaurar_estados_de_ficha(c: Combatant, pj: PersonajeData) -> void:
 	if c == null or pj == null:
 		return
 	c.foco_cargas = pj.foco_cargas
+	# (18/11) A OSCURAS: el reloj del grupo vuelve a ser el estado en cada uno de los tuyos (con los turnos que le queden)
+	if a_oscuras_seg > 0.0:
+		_oscuras_turnos_pelea = ceili(a_oscuras_seg / float(StatusEffects.def(StatusEffects.Id.A_OSCURAS).get("seg_fuera", 30.0)))
+		a_oscuras_seg = 0.0
+	if _oscuras_turnos_pelea > 0:
+		c.apply_status(StatusEffects.Id.A_OSCURAS, _oscuras_turnos_pelea)
 	if pj.estados.is_empty():
 		return
 	StatusEffects.aplicar_a(c, pj.estados)
@@ -6641,6 +6689,10 @@ func radio_lampara(piso: int = -1) -> float:
 	var p: int = current_floor if piso < 0 else piso
 	if not lampara_encendida():
 		return Vision.RADIO_MINIMO
+	# (18/11) A OSCURAS (el Chillido de oscuridad del chillon): el corro minimo, aunque lleves la mejor lampara. Solo el de
+	# ahora: la ficha que enseña "en el piso X tendrias" (piso pedido) no se ve afectada.
+	if piso < 0 and a_oscuras():
+		return Vision.RADIO_MINIMO
 	var m: Dictionary = item_meta.get(equipped_lampara, {})
 	var mejoras: int = int((m.get("mejoras", {}) as Dictionary).get(Upgrades.LUMINOSIDAD, 0))
 	var pot: float = Lampara.potencia(int(m.get("tier", 1)),
@@ -8175,6 +8227,10 @@ func tick_heal(delta: float) -> void:
 const SEG_POR_TURNO_FUERA := 5.0
 
 func tick_estados(delta: float) -> void:
+	# (18/11) el reloj del grupo de A oscuras corre por el mapa (ver a_oscuras_seg)
+	if a_oscuras_seg > 0.0:
+		a_oscuras_seg = maxf(0.0, a_oscuras_seg - delta)
+	_oscuras_turnos_pelea = 0
 	for p in party:
 		# Ni con la lista vacia ni con TODO congelado (buffs que no se gastan andando, ver
 		# StatusEffects.corre_fuera): en los dos casos no hay nada que tiquear y el reloj se para.
@@ -8286,6 +8342,7 @@ func chips_estados(pj: PersonajeData = null) -> Array:
 func refrescar_cache_estados(p: PersonajeData) -> void:
 	if p == null:
 		return
+	_sacar_oscuras(p)   # (18/11) A oscuras no se queda en la ficha: pasa al reloj del grupo
 	var mult: float = 1.0
 	var mochila: float = 0.0
 	var partes: PackedStringArray = []

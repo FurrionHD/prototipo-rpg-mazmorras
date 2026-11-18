@@ -343,6 +343,17 @@ ICONOS = [
         "............", "...oooooo...", "..oddddddo..", ".odedededdo.", ".odebaabedo.", ".odeaaaaedo.",
         ".odebaabedo.", ".oddededeoo.", "..oddddddo..", "...oooooo...", "............", "............"),
         {'a': (84, 168, 255), 'b': (22, 10, 26), 'd': (78, 30, 96), 'e': (238, 228, 206), 'o': (30, 12, 36)}),
+    # (18/11, los estados del chillon; elegidos por el jefe en tools/iconos_chillon_versiones.py) A OSCURAS = el farol
+    # apagado humeando; BEBE LA LUZ = la luz comida (la oscuridad con ojos se la come); RACIMO = la piña de caras.
+    ("a_oscuras", "A oscuras", (0.32, 0.34, 0.52), (
+        "....aa......", ".....a......", "....oooo....", "...o....o...", "..oooooooo..", "..obbbbbbo..", "..obbccbbo..", "..obbccbbo..", "..obbbbbbo..", "..oooooooo..", "...ommmmo...", "............"),
+        {'a': (110, 110, 124), 'b': (16, 16, 26), 'c': (96, 84, 70)}),
+    ("bebe_luz", "Bebe la luz", (0.85, 0.75, 0.35), (
+        "....cccc....", "..cceebbbb..", ".ceeebbbbbb.", ".ceebbwbbwb.", "ceeebbbbbbb.", "ceeebbbbbbb.", "ceeebbbbbbb.", ".ceebbbbbbb.", ".ceeebbbbbb.", "..cceebbbb..", "....cccc....", "............"),
+        {'b': (30, 30, 40), 'c': (255, 220, 120), 'e': (255, 250, 220), 'w': (220, 222, 228)}),
+    ("racimo", "Racimo", (0.35, 0.33, 0.4), (
+        "....o..o....", "...obbbbo...", "..obwbbwbo..", ".obbbbbbbbo.", "obwbwbbwbwbo", "obbbbbbbbbbo", ".obwbwbwbwo.", ".obbbbbbbbo.", "..obwbbwbo..", "...obbbbo...", "....obbo....", ".....oo....."),
+        {'b': (30, 30, 40), 'w': (220, 222, 228)}),
 ]
 
 
@@ -513,7 +524,7 @@ EMOJI = {
     "🪽": "en_vuelo", "💤": "una_cabeza", "❄": "congelacion", "🧊": "congelado", "💦": "deshielo", "🌑": "en_sombras", "🦷": "colmillos_rotos",
     "🔮": "foco", "⏳": "cargando", "🤺": "en_guardia", "😮": "sin_fuelle", "💚": "plato_remedio",
     "🧄": "plato_estomago", "🍀": "plato_fortuna", "🦠": "infectado", "🌿": "florecido", "👁": "ojos_insomnes", "🕯": "concentracion",
-    "🧫": "costra_sangre", "🫦": "sed_mana",
+    "🧫": "costra_sangre", "🫦": "sed_mana", "🏮": "a_oscuras", "🌘": "bebe_luz", "🍇": "racimo",
 }
 
 

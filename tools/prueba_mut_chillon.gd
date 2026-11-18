@@ -3,6 +3,8 @@
 #   1. La ficha: la base con su Voluntad, el Apagaluces (1a) y la Piña negra (2a, desde el Apagaluces), sus stats y kits.
 #   2. El Chillido de oscuridad: magico de Oscuridad, en circulo de 70 alrededor suyo, 0,36.
 #   3. Los sprites: cada mutante el suyo (con sus animaciones), y la cria con el suyo.
+#   4. A OSCURAS: el estado y su texto; el farolillo al minimo; fuera de la pelea, el reloj del GRUPO (30 s por turno, el
+#      que mas le quedaba) y de vuelta a la pelea, el estado en los tuyos.
 extends Node
 
 var _mal := 0
@@ -19,6 +21,7 @@ func _ready() -> void:
 	_ficha(ed)
 	_chillido()
 	_sprites(ed)
+	_a_oscuras()
 	print("")
 	print("FIN: TODO BIEN" if _mal == 0 else "FIN: %d MAL" % _mal)
 	get_tree().quit(1 if _mal > 0 else 0)
@@ -74,3 +77,56 @@ func _sprites(ed: EnemyData) -> void:
 		_ok(faltan.is_empty(), "%s: con sus animaciones (faltan %s)" % [par[0], str(faltan)])
 	var sp: SpriteFrames = SpritesEnemigo.frames_de(ed, 0.5, true, &"pina")
 	_ok(sp != null and not sp.has_animation(&"embestida_0"), "la Piña no pica")
+
+
+func _a_oscuras() -> void:
+	print("=== A OSCURAS ===")
+	var A := StatusEffects.Id.A_OSCURAS
+	var ab: AbilityData = load("res://resources/abilities/chillon_chillido_oscuro.tres")
+	_ok(ab.efectos.size() == 1 and ab.efectos[0].estado == A and is_equal_approx(ab.efectos[0].prob, 0.95)
+		and ab.efectos[0].turns == 2, "el Chillido deja A oscuras: 95 %, 2 turnos")
+	var c := Combatant.new("Yo", 1, Abilities.new(), 100.0, 5.0, 5.0, 5.0)
+	c.apply_status(A, 2)
+	var txt: String = String(StatusEffects.chip_de_grupo(c.statuses.filter(func(e): return e.id() == A), c)[1])
+	print("     ficha: %s" % txt.replace("\n", " | "))
+	_ok(txt.contains("Su farolillo alumbra lo mínimo") and txt.contains("30 s por cada turno"), "su texto")
+	_ok(StatusEffects.def(A).get("debuff", false) and not StatusEffects.estados_que_salen(c.statuses).is_empty(),
+		"es un estorbo y sale de la pelea")
+	# FUERA: el reloj del grupo
+	Game.a_oscuras_seg = 0.0
+	var pj1: PersonajeData = Game.party[0] if Game.party.size() > 0 else PersonajeData.new()
+	var pj2: PersonajeData = Game.party[1] if Game.party.size() > 1 else PersonajeData.new()
+	var est1: Array = pj1.estados.duplicate()
+	var est2: Array = pj2.estados.duplicate()
+	pj1.estados = [{"id": A, "turns": 1, "stacks": 1}]
+	Game.refrescar_cache_estados(pj1)
+	pj2.estados = [{"id": A, "turns": 2, "stacks": 1}]
+	Game.refrescar_cache_estados(pj2)
+	_ok(is_equal_approx(Game.a_oscuras_seg, 60.0), "al salir, el grupo: 30 s por turno del que mas le quedaba (%.0f s)" % Game.a_oscuras_seg)
+	_ok(pj1.estados.is_empty() and pj2.estados.is_empty(), "y no se queda en la ficha de cada uno")
+	_ok(Game.a_oscuras(), "a oscuras por el mapa")
+	var luz_lejos: float = Game.radio_lampara(9)
+	_ok(is_equal_approx(Game.radio_lampara(), Vision.RADIO_MINIMO), "el farolillo, al minimo (%.1f)" % Game.radio_lampara())
+	_ok(Game.radio_lampara(9) == luz_lejos and luz_lejos >= Vision.RADIO_MINIMO, "(la ficha de 'en el piso X' no cambia)")
+	Game.tick_estados(25.0)
+	_ok(is_equal_approx(Game.a_oscuras_seg, 35.0), "el reloj corre por el mapa (%.0f s)" % Game.a_oscuras_seg)
+	# DE VUELTA A UNA PELEA: el estado en los tuyos, con los turnos que le queden (35 s = 2 turnos)
+	var c1 := Combatant.new("Uno", 1, Abilities.new(), 100.0, 5.0, 5.0, 5.0)
+	var c2 := Combatant.new("Dos", 1, Abilities.new(), 100.0, 5.0, 5.0, 5.0)
+	Game.restaurar_estados_de_ficha(c1, pj1)
+	Game.restaurar_estados_de_ficha(c2, pj2)
+	var t1: int = -1
+	var t2: int = -1
+	for e in c1.statuses:
+		if e.id() == A:
+			t1 = e.turns
+	for e in c2.statuses:
+		if e.id() == A:
+			t2 = e.turns
+	_ok(t1 == 2 and t2 == 2, "en la siguiente pelea, A oscuras en los dos (%d y %d turnos)" % [t1, t2])
+	_ok(is_zero_approx(Game.a_oscuras_seg), "y el reloj del mapa se para (lo lleva la pelea)")
+	Game.tick_estados(0.1)
+	Game.a_oscuras_seg = 0.0
+	pj1.estados = est1
+	pj2.estados = est2
+	_ok(not Game.a_oscuras(), "sin nada, con luz")

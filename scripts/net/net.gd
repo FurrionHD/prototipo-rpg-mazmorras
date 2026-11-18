@@ -198,7 +198,9 @@ const MAX_CONEXIONES := 32
 #     Polilla de luto (ficha nueva). Un build del 73 no sabria pintarlos.
 #   75 = (18/11) los mutantes de la chupasimas: estados COSTRA_SANGRE 67 y SED_MANA 68 (sus pasivas a la vista), la costra
 #     de sangre (la capa del Tocon que nace a 0 y no rebrota) y la variante 'costra' de sus hojas.
-const PROTOCOLO := 75
+#   76 = (18/11) los mutantes del chillon: estados A_OSCURAS 69, BEBE_LUZ 70 y RACIMO 71 (viajan por su id en la
+#        instantanea y en el roster).
+const PROTOCOLO := 76
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
