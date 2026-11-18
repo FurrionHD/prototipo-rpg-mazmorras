@@ -235,3 +235,22 @@ class_name MutacionData
 @export var tentaculos_hueco: float = 0.0
 @export var tentaculos_mult: float = 0.35
 @export var tentaculos_elem: int = 3
+# (18/11, los mutantes de la CHUPASIMAS, memoria chupasimas-mutante)
+# COSTRA DE SANGRE (el Coagulo y la Madre): lo que DRENA (el daño de su habilidad con robo_vida) no le cura: se le vuelve
+# COSTRA (la misma capa que la de ambar del Tocon, por encima de la vida) al costra_sangre x ese daño, sin pasar de su vida
+# maxima, y NO rebrota sola. Mientras tiene costra: el daño fisico le entra x costra_fisico y los elementos de
+# costra_resist cambian (el agua la disuelve: x1,3; el rayo, neutro). Se mira GOLPE A GOLPE: si un golpe la rompe, los
+# siguientes de la misma habilidad ya le entran como sin costra. 0 = no tiene.
+@export var costra_sangre: float = 0.0
+@export var costra_fisico: float = 0.5
+@export var costra_resist: Dictionary = {}
+# SED DE MANA (la Vidriada y la Madre): al elegir a quien pega, el peso de cada uno se multiplica por su mana MAXIMO
+# frente a la media de los vivos (entre x0,5 y x2): va a por el mago (CombatObjetivos._peso_aggro).
+@export var sed_de_mana: bool = false
+# EL MANA QUE BEBE (AbilityData.roba_mana, tambien en su basico_propio) CARGA su Rayo de mana (AbilityData.rayo_mana): lo
+# suelta seguro al llegar a rayo_tope y, antes, con rayo_min o mas, con rayo_prob cada turno. suelta_con_rayo (la Madre):
+# pegada a alguien, con el rayo lleno se despega sola para soltarlo.
+@export var rayo_tope: float = 12.5   # (lleno = x2 justo: 0,5 + 0,12 x 12,5)
+@export var rayo_min: float = 4.0
+@export var rayo_prob: float = 0.25
+@export var suelta_con_rayo: bool = false

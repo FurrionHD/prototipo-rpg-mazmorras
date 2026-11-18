@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+
+; EL SORBO DE LA VIDRIADA (18/11, su decision: "como Adherirse"): sustituye al Adherirse. Salta hasta 70 px, muerde (x0,85,
+; MAGICO sin elemento), bebe el 10 % del mana MAXIMO y se aparta 40 px: no se queda pegada (para tener turnos de soltar el
+; rayo). Recarga 3.
+[resource]
+script = ExtResource("1")
+nombre = "Sorbo"
+descripcion = "Salta, se te clava un instante, bebe y ya está otra vez lejos, más azul que antes."
+coste_energia = 0.0
+dano_mult = 0.85
+es_magico = true
+elemento_golpe = 0
+roba_mana = 0.1
+se_aparta = 40.0
+fx_estilo = 114
+fx_anim = &"sorbo"
+cooldown = 3
+forma = 1
+forma_apunte = 3
+forma_radio = 12.0
+forma_rango = 70.0
+salta = true
+fx_estilo_mapa = 159

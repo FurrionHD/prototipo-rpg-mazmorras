@@ -3553,7 +3553,7 @@ func _decidir_de_lejos(e: Combatant) -> bool:
 		return false
 	var buenas: Array = []
 	for ab in e.habilidades:
-		if e.ability_ready(ab) and ab.invoca_cantidad <= 0 and usa_huella(ab) \
+		if e.ability_ready(ab) and ab.invoca_cantidad <= 0 and usa_huella(ab) and not ab.rayo_mana \
 				and int(mejor_apunte(e, ab)["n"]) > 0:
 			buenas.append(ab)
 	if buenas.is_empty():
@@ -6480,12 +6480,20 @@ func _tick_costra() -> void:
 		if rota == bool(_costra_var.get(cu, false)):
 			_costra_var[cu] = rota
 			continue
-		# AL ROMPERSE (no al llegar a una pelea con la costra ya rota): el ESTALLIDO de los grumos (TrentAire).
-		if rota and _costra_var.has(cu) and _arena() != null:
+		# LOS DOS SENTIDOS (18/11, el Coagulo y la Madre de las simas): el Tocon NACE con costra y su hoja de siempre la
+		# lleva (la variante es 'sin_costra'); la chupasimas nace SIN ella, la forma bebiendo, y la variante es 'costra'.
+		var nace_sin: bool = SpritesEnemigo.frames_variante(ed, e.mutacion, &"costra") != null
+		# AL ROMPERSE (no al llegar a una pelea con la costra ya rota): el ESTALLIDO de los grumos (TrentAire, el del ambar).
+		if rota and not nace_sin and _costra_var.has(cu) and _arena() != null:
 			TrentAire.estallido(_arena(), bulto_visual(e), _cod(e) + randi() % 97)
 		var t_v = cu.get("current_t")
-		var sf: SpriteFrames = SpritesEnemigo.frames_variante(ed, e.mutacion, &"sin_costra") if rota \
-			else SpritesEnemigo.frames_de(ed, float(t_v) if t_v != null else 0.5, true, e.mutacion)
+		var sf: SpriteFrames = null
+		if nace_sin:
+			sf = SpritesEnemigo.frames_de(ed, float(t_v) if t_v != null else 0.5, true, e.mutacion) if rota \
+				else SpritesEnemigo.frames_variante(ed, e.mutacion, &"costra")
+		else:
+			sf = SpritesEnemigo.frames_variante(ed, e.mutacion, &"sin_costra") if rota \
+				else SpritesEnemigo.frames_de(ed, float(t_v) if t_v != null else 0.5, true, e.mutacion)
 		if sf == null:
 			continue
 		_costra_var[cu] = rota

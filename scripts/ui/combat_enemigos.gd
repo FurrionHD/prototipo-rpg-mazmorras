@@ -186,6 +186,9 @@ func _enemy_turn(e: Combatant) -> void:
 		# PEGADA (el Adherirse del chupasimas, 30/09): mientras lleve a alguien pegado, cada turno suyo le chupa (su
 		# habilidad que roba vida, el Drenaje, este o no en espera) sin andar ni cambiar de presa. Cuenta sus turnos.
 		var pegada: Combatant = _pantalla.turno_mapa.pegada_de(e)
+		if pegada != null and e.suelta_con_rayo and e.mana_bebido >= e.rayo_tope - 0.001:
+			_pantalla.turno_mapa.soltar_pegada(e, "⚡ %s, llena de maná, se despega de %s." % [_pantalla._etq(e), pegada.nombre])
+			pegada = null
 		if pegada != null:
 			var chupa: AbilityData = null
 			for ab in e.habilidades:
@@ -244,6 +247,14 @@ func _enemy_turn(e: Combatant) -> void:
 			return _pantalla.turno_mapa.sirve_en_mapa(e, ab, obj))
 	else:
 		listas = listas.filter(func(ab): return not _es_apoyo_florecido(e, ab) or not _destinos_apoyo(e, ab).is_empty())
+	# EL RAYO DE MANA (18/11, la Vidriada y la Madre): lleno lo suelta SEGURO; con rayo_min o mas, con su tirada; sin carga,
+	# no (no tiene que soltar). Va por encima de la tirada de habilidad normal.
+	for ab_r in listas.duplicate():
+		if (ab_r as AbilityData).rayo_mana:
+			if rayo_listo(e):
+				decidida = ab_r
+			else:
+				listas.erase(ab_r)
 	if obj == null and listas.is_empty():
 		# No queda nadie de los tuyos a quien pegar -- o, en el mapa, nadie A SU ALCANCE: se ha
 		# acercado todo lo que le deja su radio y no llega, asi que pierde el ataque (la misma regla
@@ -1205,6 +1216,21 @@ func _limaduras_mult(e: Combatant, ab: AbilityData) -> float:
 	return 1.0 + LIMADURAS_MULT * float(lim.stacks)
 
 
+# EL RAYO DE MANA (18/11): el daño sale de lo bebido (AbilityData.RAYO_BASE + RAYO_POR_MANA x mana, hasta RAYO_TOPE).
+# Su dano_mult en el .tres es 1: esto es TODO su multiplicador.
+static func _rayo_mult(e: Combatant, ab: AbilityData) -> float:
+	if ab == null or not ab.rayo_mana:
+		return 1.0
+	return minf(AbilityData.RAYO_BASE + AbilityData.RAYO_POR_MANA * e.mana_bebido, AbilityData.RAYO_TOPE)
+
+
+# ¿Suelta el rayo este turno? Lleno, si; con rayo_min o mas, con rayo_prob; sin carga, no.
+static func rayo_listo(e: Combatant) -> bool:
+	if e.mana_bebido >= e.rayo_tope - 0.001:
+		return true
+	return e.mana_bebido >= e.rayo_min and randf() < e.rayo_prob
+
+
 # PEGA Y SE VA: acabados sus golpes, se aleja de 't'. El Iman errante, con alguien Imantado, se queda encima (Orbita).
 func _pega_y_se_va(e: Combatant, t: Combatant) -> void:
 	if e.pega_y_se_va <= 0.0 or not _pantalla.tactico or _pantalla._espejo:
@@ -1852,6 +1878,9 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 	msg += _pantalla.magia._elem_reparto_txt(e.elemento_ataque, mult_por_obj)
 	# Que se CHUPA lo que te saca. Sin decirlo, un bicho que drena se lee como un bicho que
 	# simplemente no baja de vida, y eso parece un fallo en vez de su mecanica.
+	# EL RAYO SE VACIA al acabar la habilidad ENTERA (no por objetivo: el segundo de la linea recibe la misma carga).
+	if ab.rayo_mana:
+		e.mana_bebido = 0.0
 	if robado_total > 0.0:
 		msg += "  🩸 Recupera %s de vida con lo que chupa." % _pantalla._n(robado_total)
 		# LA GARRAPATA ENGORDA con cada chupada (EnemyData.hincha_tope).
@@ -1937,6 +1966,7 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 	var rastro: Array = []   # un token por golpe para el desglose del log (mismo formato que el jugador)
 	var esquivados: int = 0  # para la excelia de Agilidad, que se paga UNA vez al final
 	var robado: float = 0.0  # vida que se ha chupado con esta tanda (AbilityData.robo_vida)
+	var costra_hecha: float = 0.0   # (la costra de sangre) lo que se le ha endurecido con lo que chupa
 	# EL ASPECTO lo pide la habilidad y, si no pide nada, el propio bicho (ver _estilo_de_habilidad).
 	# Por aqui pasan LOS DOS caminos: con 'ab' cuando lanza tecnica y con 'ab' nulo cuando pega su
 	# ataque basico, asi que pasarle el atacante es lo que hace que la rata muerda tambien sin
@@ -2010,6 +2040,7 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 			dmg *= _runa_corona_mult(t)
 			dmg *= _runa_musgo_mult(t, ab)
 			dmg *= _limaduras_mult(e, ab)
+			dmg *= _rayo_mult(e, ab)
 			# CORTES DE VIENTO (05/11, el Vendaval rojo): su cuerpo a cuerpo pega menos, porque te llega ademas el corte.
 			if e.cortes_viento > 0.0 and not magico:
 				dmg *= e.cortes_melee_mult
@@ -2019,7 +2050,14 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 			# ROBO DE VIDA del bicho (el Drenaje del chupasimas). Sobre el daño YA MITIGADO: contra
 			# alguien con armadura, drenar le rinde poco, y esa es la gracia -- va a por el que va
 			# ligero. Se acumula para decirlo UNA vez en el log y no una por golpe.
-			if ab.robo_vida > 0.0:
+			if ab.robo_vida > 0.0 and e.costra_sangre > 0.0:
+				# LA COSTRA DE SANGRE (18/11): lo que chupa no le cura, se le vuelve costra (x costra_sangre del daño, hasta
+				# su vida maxima). La capa es la del Tocon: se come los golpes antes que la vida.
+				var antes_c: float = e.costra
+				e.costra = minf(e.costra + dmg * e.costra_sangre, e.costra_max)
+				e.costra_rota = false
+				costra_hecha += e.costra - antes_c
+			elif ab.robo_vida > 0.0:
 				var cur: float = dmg * ab.robo_vida
 				e.heal(cur)
 				robado += cur
@@ -2077,6 +2115,15 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 	# REY DE LA CAMADA: tras su habilidad, sus ratas saltan detras de el (una vez por accion).
 	if conecto > 0:
 		_pega_y_se_va(e, t)
+	# (18/11, los mutantes de la chupasimas) BEBE MANA, una vez por uso; SE APARTA (el Sorbo); el RAYO se vacia al soltarlo.
+	if ab != null and conecto > 0 and ab.roba_mana > 0.0:
+		var bebido: float = e.beber_mana(t, ab.roba_mana)
+		if bebido > 0.0:
+			_pantalla._log_extra("💧 %s le bebe %s de maná a %s." % [_pantalla._etq(e), _pantalla._n(bebido), t.nombre])
+	if ab != null and conecto > 0 and ab.se_aparta > 0.0 and _pantalla.tactico and not _pantalla._espejo:
+		_pantalla.turno_mapa.pedir_retirada(e, t, ab.se_aparta)
+	if costra_hecha > 0.0:
+		_pantalla._log_extra("🩸 A %s se le endurece la costra de sangre (+%s)." % [_pantalla._etq(e), _pantalla._n(costra_hecha)])
 	if conecto > 0 and e.camada_salto > 0.0 and t.is_alive():
 		var camada: String = _pantalla._camada_salta(e, t)
 		if camada != "":

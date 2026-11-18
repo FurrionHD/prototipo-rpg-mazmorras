@@ -242,7 +242,11 @@ static func mult_recibido(elem: int, defender) -> float:
 	if defender is Combatant and defender.imbue_prisma and defender.imbue_cuerpo:
 		defender.rodar_prisma()
 	var base: float
-	if defender.resist_elemental.has(elem):
+	# LA COSTRA DE SANGRE (18/11, el Coagulo y la Madre): con ella puesta, el agua la disuelve y el rayo le entra normal; sin
+	# ella, lo suyo de siempre. Golpe a golpe (MutacionData.costra_resist).
+	if defender is Combatant and defender.con_costra_sangre() and defender.costra_resist.has(elem):
+		base = float(defender.costra_resist[elem])
+	elif defender.resist_elemental.has(elem):
 		# Override a medida: es un valor ABSOLUTO que puso el diseñador. No se escala.
 		base = float(defender.resist_elemental[elem])
 	else:

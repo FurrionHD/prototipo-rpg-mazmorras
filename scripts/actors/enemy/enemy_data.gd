@@ -995,6 +995,20 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		c.enrosque_pegados_radio = mdat2.enrosque_pegados_radio
 		c.aprieta_por_turno = mdat2.aprieta_por_turno
 		c.aprieta_max = mdat2.aprieta_max
+		# (18/11, los mutantes de la chupasimas) la costra de sangre (empieza SIN costra: se la hace bebiendo; la capa es la
+		# del Tocon, con el tope en su vida maxima), la sed de mana y el rayo.
+		c.costra_sangre = mdat2.costra_sangre
+		if mdat2.costra_sangre > 0.0:
+			c.costra_max = c.max_hp
+			c.costra = 0.0
+			c.costra_espera = 0
+		c.costra_fisico = mdat2.costra_fisico
+		c.costra_resist = mdat2.costra_resist.duplicate()
+		c.sed_de_mana = mdat2.sed_de_mana
+		c.rayo_tope = mdat2.rayo_tope
+		c.rayo_min = mdat2.rayo_min
+		c.rayo_prob = mdat2.rayo_prob
+		c.suelta_con_rayo = mdat2.suelta_con_rayo
 		# (12/11, la Polilla insomne) sus pasivas, a la vista: nace con ellas puestas (ver MutacionData.pasivas_visibles).
 		for id_p in mdat2.pasivas_visibles:
 			var mag_p: float = 1.0 - c.resiste_magia if bool(StatusEffects.def(id_p).get("menos_magia", false)) else 1.0

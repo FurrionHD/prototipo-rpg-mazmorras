@@ -266,7 +266,26 @@ func _peso_aggro(c: Combatant, atacante: Combatant = null) -> float:
 		w *= EVITA_TANQUE
 	if esta_preparando(c) and puede_interrumpir(atacante) and not provocado_por_otro(atacante, c):
 		w *= INTERRUMPE_PESO
+	# SED DE MANA (18/11, la Vidriada y la Madre): su mana MAXIMO frente a la media de los vivos, entre x0,5 y x2. Con tres
+	# de 20 y un mago de 52, el mago sale x1,86 y los demas x0,71: va a por el.
+	if atacante.sed_de_mana:
+		w *= sed_de_mana_mult(c)
 	return w
+
+
+func sed_de_mana_mult(c: Combatant) -> float:
+	return sed_de_mana_de(c, _pantalla._aliados_vivos())
+
+
+# La cuenta, sin pantalla (la usa su prueba).
+static func sed_de_mana_de(c: Combatant, vivos: Array) -> float:
+	if vivos.is_empty():
+		return 1.0
+	var media: float = 0.0
+	for a in vivos:
+		media += (a as Combatant).max_mp
+	media /= float(vivos.size())
+	return clampf(c.max_mp / maxf(media, 0.01), 0.5, 2.0)
 
 
 # ¿'c' esta cargando una habilidad o recitando un conjuro? (lo que se le puede cortar)

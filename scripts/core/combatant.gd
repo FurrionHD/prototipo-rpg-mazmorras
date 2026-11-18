@@ -1242,8 +1242,9 @@ func take_damage(amount: float, es_dot: bool = false) -> void:
 			if costra <= 0.0:
 				costra = 0.0
 				costra_rota = true
-				costra_espera = costra_turnos
-				print("[costra] %s: se le rompe la costra de ambar" % nombre)
+				# La de SANGRE no rebrota sola: se la vuelve a hacer bebiendo (MutacionData.costra_sangre).
+				costra_espera = 0 if costra_sangre > 0.0 else costra_turnos
+				print("[costra] %s: se le rompe la costra de %s" % [nombre, "sangre" if costra_sangre > 0.0 else "ambar"])
 	else:
 		amount *= 1.0 - clampf(runa_menos_dot, 0.0, 0.9)
 	if not es_dot:
@@ -1282,6 +1283,35 @@ func agua_vista() -> float:
 # ¿El escudo de la capa de agua es el de la JAULA DE FARADAY (13/11)? Para pintarlo violeta con nervios (burbuja y tramo).
 func escudo_es_jaula() -> bool:
 	return runa_jaula > 0.0
+
+
+# (18/11, los mutantes de la chupasimas: MutacionData)
+var costra_sangre: float = 0.0
+var costra_fisico: float = 0.5
+var costra_resist: Dictionary = {}
+var sed_de_mana: bool = false
+var rayo_tope: float = 12.5
+var rayo_min: float = 4.0
+var rayo_prob: float = 0.25
+var suelta_con_rayo: bool = false
+var mana_bebido: float = 0.0   # lo que lleva bebido (carga el Rayo de mana)
+
+
+# ¿Tiene ahora la COSTRA DE SANGRE puesta? (lo que cambia sus resistencias, golpe a golpe)
+func con_costra_sangre() -> bool:
+	return costra_sangre > 0.0 and costra > 0.0
+
+
+# LO QUE BEBE: le quita a 'de' 'frac' de su mana MAXIMO (lo que tenga) y lo suma a su carga del rayo. Devuelve lo bebido.
+func beber_mana(de: Combatant, frac: float) -> float:
+	if de == null or frac <= 0.0 or de.max_mp <= 0.0:
+		return 0.0
+	var b: float = minf(de.current_mp, de.max_mp * frac)
+	if b <= 0.0:
+		return 0.0
+	de.current_mp -= b
+	mana_bebido = minf(mana_bebido + b, rayo_tope)
+	return b
 
 
 # (04/11, los mutantes del escarabajo: MutacionData)
