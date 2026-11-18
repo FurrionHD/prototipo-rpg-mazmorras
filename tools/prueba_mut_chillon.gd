@@ -5,6 +5,8 @@
 #   3. Los sprites: cada mutante el suyo (con sus animaciones), y la cria con el suyo.
 #   4. A OSCURAS: el estado y su texto; el farolillo al minimo; fuera de la pelea, el reloj del GRUPO (30 s por turno, el
 #      que mas le quedaba) y de vuelta a la pelea, el estado en los tuyos.
+#   5. LAS PASIVAS: Bebe la luz (+10 % velocidad y +5 % daño por cada uno de los tuyos A oscuras) en el Apagaluces y la Piña,
+#      y el Racimo de la Piña (-40 % de todo el daño, -10 % por cria muerta; tope de 2 crias), a la vista y con su texto.
 extends Node
 
 var _mal := 0
@@ -22,6 +24,7 @@ func _ready() -> void:
 	_chillido()
 	_sprites(ed)
 	_a_oscuras()
+	_pasivas(ed)
 	print("")
 	print("FIN: TODO BIEN" if _mal == 0 else "FIN: %d MAL" % _mal)
 	get_tree().quit(1 if _mal > 0 else 0)
@@ -130,3 +133,46 @@ func _a_oscuras() -> void:
 	pj1.estados = est1
 	pj2.estados = est2
 	_ok(not Game.a_oscuras(), "sin nada, con luz")
+
+
+func _pasivas(ed: EnemyData) -> void:
+	print("=== LAS PASIVAS ===")
+	var B := StatusEffects.Id.BEBE_LUZ
+	var R := StatusEffects.Id.RACIMO
+	var ap: Combatant = ed.crear_combatant(0.5, true, false, &"apagaluces")
+	var pi: Combatant = ed.crear_combatant(0.5, true, false, &"pina")
+	var no: Combatant = ed.crear_combatant(0.5, false, false)
+	_ok(ap.has_status(B) and not ap.has_status(R), "el Apagaluces nace con Bebe la luz a la vista")
+	_ok(pi.has_status(B) and pi.has_status(R), "la Piña, con Bebe la luz y el Racimo")
+	_ok(not no.has_status(B) and is_equal_approx(no.mult_bebe_luz_vel(), 1.0) and is_equal_approx(no.mult_pasiva_recibido(), 1.0),
+		"el chillon normal, sin nada")
+	# BEBE LA LUZ: 2 de los tuyos a oscuras -> x1,2 velocidad y x1,1 daño (fisico y magico)
+	var v0: float = ap.spd()
+	var a0: float = ap.atk()
+	var m0: float = ap.atk_magico()
+	ap.bebe_luz_n = 2
+	_ok(is_equal_approx(ap.spd(), v0 * 1.2), "Bebe la luz: 2 a oscuras = +20 %% de velocidad (%.2f -> %.2f)" % [v0, ap.spd()])
+	_ok(is_equal_approx(ap.atk(), a0 * 1.1) and is_equal_approx(ap.atk_magico(), m0 * 1.1),
+		"y +10 %% de daño, fisico y magico (%.2f -> %.2f)" % [a0, ap.atk()])
+	ap.bebe_luz_n = 4
+	_ok(is_equal_approx(ap.mult_bebe_luz_vel(), 1.4) and is_equal_approx(ap.mult_bebe_luz_dano(), 1.2), "4 a oscuras: +40 % y +20 %")
+	# EL RACIMO: -40 % de todo; -10 % por cria muerta; con 4, nada
+	_ok(is_equal_approx(pi.mult_pasiva_recibido(), 0.6), "el Racimo: recibe un 40 %% menos (x%.2f)" % pi.mult_pasiva_recibido())
+	pi.crias_muertas = 2
+	_ok(is_equal_approx(pi.mult_pasiva_recibido(), 0.8), "con 2 crias muertas, un 20 %% menos (x%.2f)" % pi.mult_pasiva_recibido())
+	pi.crias_muertas = 5
+	_ok(is_equal_approx(pi.mult_pasiva_recibido(), 1.0), "con 4 o mas, nada (x%.2f)" % pi.mult_pasiva_recibido())
+	pi.crias_muertas = 0
+	_ok(pi.crias_tope == 2, "tope de 2 crias")
+	# LOS TEXTOS (con los numeros de quien la tiene)
+	var tb: String = "
+".join(StatusEffects.texto_pasiva_portador(B, ap))
+	var tr: String = "
+".join(StatusEffects.texto_pasiva_portador(R, pi))
+	print("     Bebe la luz: %s" % tb.replace("
+", " | "))
+	print("     Racimo: %s" % tr.replace("
+", " | "))
+	_ok(tb.contains("aumenta en un 10 %") and tb.contains("aumenta en un 5 %"), "el texto de Bebe la luz con sus numeros")
+	_ok(tr.contains("un 40 % menos") and tr.contains("en un 10 %") and tr.contains("con 4 derrotadas") and tr.contains("2 crías"),
+		"el texto del Racimo con sus numeros")

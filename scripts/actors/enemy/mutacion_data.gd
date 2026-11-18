@@ -254,3 +254,14 @@ class_name MutacionData
 @export var rayo_min: float = 4.0
 @export var rayo_prob: float = 0.25
 @export var suelta_con_rayo: bool = false
+# (18/11, los mutantes del CHILLON, memoria chillon-mutante)
+# BEBE LA LUZ (el Apagaluces, la Piña y sus crias): por cada uno de los tuyos que este A oscuras, +bebe_luz_vel de velocidad
+# (su barra de turno) y +bebe_luz_dano del daño que inflige (fisico y magico). El tope lo pone tu grupo. Lo cuenta
+# Combat._contar_a_oscuras en cada tic de las barras (Combatant.bebe_luz_n).
+@export var bebe_luz_vel: float = 0.0
+@export var bebe_luz_dano: float = 0.0
+# EL RACIMO (la Piña): recibe racimo_reduce menos de TODO el daño (golpes y hechizos), y cada cria suya que le matan le
+# quita racimo_por_cria (Combatant.crias_muertas). Suelta una cria en cada turno suyo, sin pasar de crias_tope vivas.
+@export var racimo_reduce: float = 0.0
+@export var racimo_por_cria: float = 0.0
+@export var crias_tope: int = 0

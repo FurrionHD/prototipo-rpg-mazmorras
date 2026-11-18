@@ -1009,6 +1009,12 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		c.rayo_min = mdat2.rayo_min
 		c.rayo_prob = mdat2.rayo_prob
 		c.suelta_con_rayo = mdat2.suelta_con_rayo
+		# (18/11, los mutantes del chillon) Bebe la luz y el Racimo de la Piña.
+		c.bebe_luz_vel = mdat2.bebe_luz_vel
+		c.bebe_luz_dano = mdat2.bebe_luz_dano
+		c.racimo_reduce = mdat2.racimo_reduce
+		c.racimo_por_cria = mdat2.racimo_por_cria
+		c.crias_tope = mdat2.crias_tope
 		# (12/11, la Polilla insomne) sus pasivas, a la vista: nace con ellas puestas (ver MutacionData.pasivas_visibles).
 		for id_p in mdat2.pasivas_visibles:
 			var mag_p: float = 1.0 - c.resiste_magia if bool(StatusEffects.def(id_p).get("menos_magia", false)) else 1.0

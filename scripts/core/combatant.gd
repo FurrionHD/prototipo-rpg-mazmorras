@@ -412,6 +412,9 @@ func mult_pasiva_recibido() -> float:
 	# (En el aire, cargando el Picado, NO esta posada: no se ha movido de sitio, pero ya no es piedra.)
 	if posada_mult != 1.0 and posada and not volando():
 		m *= posada_mult
+	# (18/11) EL RACIMO de la Piña negra: menos de TODO el daño, golpes y hechizos.
+	if racimo_reduce > 0.0:
+		m *= 1.0 - racimo_ahora()
 	return m
 
 
@@ -1124,13 +1127,13 @@ func _init(nombre_: String, level_: int, abilities_: Abilities,
 # spd() lleva la velocidad del arma (mas/menos turnos).
 func atk() -> float:
 	return (base_ataque() + ataque_arma) * StatsMath.ataque_factor(hab("fuerza"), hab("destreza"), escala_des) \
-		* motion_value * status_atk_mult()
+		* motion_value * status_atk_mult() * mult_bebe_luz_dano()
 
 # EL ATAQUE MAGICO de un ENEMIGO (08/10/2026): su mismo ataque, pero con la MAGIA donde va la Fuerza y la misma curva.
 # Asi los dos pesos se comparan 1:1: un slime con tanta Magia como Fuerza pega igual de fuerte con una cosa que con la
 # otra, y lo que cambia es contra que defensa entra. El jugador NO lo usa: sus hechizos van por resolve_spell.
 func atk_magico() -> float:
-	return base_ataque() * StatsMath.fuerza_factor(hab("magia")) * motion_value * status_atk_mult()
+	return base_ataque() * StatsMath.fuerza_factor(hab("magia")) * motion_value * status_atk_mult() * mult_bebe_luz_dano()
 
 # El factor de las stats de la MANO ACTIVA con las basicas CRUDAS (sin estados): lo que enseñan las fichas.
 func factor_ataque_crudo() -> float:
@@ -1177,7 +1180,7 @@ func def_value() -> float:
 func spd() -> float:
 	if dummy_speed_override >= 0.0:
 		return dummy_speed_override   # modo prueba: velocidad estandar fija
-	return _spd_base() * velocidad_mult * status_spd_mult() * _guardia_spd() * imbue_spd_mult
+	return _spd_base() * velocidad_mult * status_spd_mult() * _guardia_spd() * imbue_spd_mult * mult_bebe_luz_vel()
 # La velocidad con la que se decide QUIEN ES EL MAS RAPIDO de la pelea (ver combat._escala_barra):
 # la de verdad sin lo pasajero (estados, guardia, imbuicion), para que un Ralentizado frene al que lo
 # lleva en vez de acelerar al resto.
@@ -1313,6 +1316,18 @@ var racimo_reduce: float = 0.0
 var racimo_por_cria: float = 0.0
 var crias_tope: int = 0
 var crias_muertas: int = 0
+var bebe_luz_n: int = 0   # cuantos de sus rivales estan A oscuras ahora (lo escribe Combat._contar_a_oscuras)
+
+# BEBE LA LUZ: lo que multiplica su velocidad y su daño (1 sin nadie a oscuras o sin la pasiva).
+func mult_bebe_luz_vel() -> float:
+	return 1.0 + bebe_luz_vel * bebe_luz_n
+
+func mult_bebe_luz_dano() -> float:
+	return 1.0 + bebe_luz_dano * bebe_luz_n
+
+# EL RACIMO: lo que le quita ahora al daño recibido (menos con cada cria muerta; nunca por debajo de 0).
+func racimo_ahora() -> float:
+	return maxf(0.0, racimo_reduce - racimo_por_cria * crias_muertas)
 
 
 # ¿Tiene ahora la COSTRA DE SANGRE puesta? (lo que cambia sus resistencias, golpe a golpe)

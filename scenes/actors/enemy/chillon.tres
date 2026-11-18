@@ -27,6 +27,9 @@ grado = 1
 habilidades = Array[ExtResource("21_ab")]([ExtResource("22_chio"), ExtResource("4_pic")])
 sprite = &"apagaluces"
 pesos = {"agilidad": 50, "destreza": 30, "fuerza": 26, "magia": 32, "resistencia": 22, "voluntad": 20}
+bebe_luz_vel = 0.1
+bebe_luz_dano = 0.05
+pasivas_visibles = Array[int]([70])
 
 [resource]
 script = ExtResource("1")

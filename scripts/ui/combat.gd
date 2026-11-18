@@ -1247,6 +1247,22 @@ func _mult_camada(atacante: Combatant) -> float:
 	return 1.0
 
 
+# BEBE LA LUZ (18/11, los mutantes del chillon): a cada bicho con la pasiva le apunta cuantos de los tuyos estan A oscuras
+# ahora (Combatant.bebe_luz_n), que es lo que leen su velocidad (spd) y su daño (atk, atk_magico). Va en cada tic de las
+# barras: el estado entra y sale a mitad de pelea y la barra tiene que notarlo en el momento.
+func _contar_a_oscuras() -> void:
+	var n: int = -1
+	for e in _vivos():
+		if e.bebe_luz_vel <= 0.0 and e.bebe_luz_dano <= 0.0:
+			continue
+		if n < 0:
+			n = 0
+			for a in _aliados_vivos():
+				if a.has_status(StatusEffects.Id.A_OSCURAS):
+					n += 1
+		e.bebe_luz_n = n
+
+
 # Aplica _mult_pasivas a un resultado de StatsMath.resolve_attack y lo cuenta en el log si cambia algo.
 func _aplicar_pasivas(result: Dictionary, atacante: Combatant, defensor: Combatant) -> void:
 	if result.get("evaded", false):
@@ -2029,6 +2045,7 @@ func _process(delta: float) -> void:
 			rate *= EXHAUSTED_RATE
 		var cspeed: float = c.cast_spd() if casteando else c.spd()
 		_gauge[c] += cspeed * datb * rate
+	_contar_a_oscuras()
 	for e in _vivos():
 		_gauge[e] += e.spd() * datb * escala * (e.rabia_velocidad if e.en_rabia() else 1.0) \
 			* (e.mult_rabia_tramos() if e.rabia_tramos_velocidad else 1.0)
