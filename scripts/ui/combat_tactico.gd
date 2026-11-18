@@ -502,6 +502,7 @@ func _sigilo_visible(quitar: bool) -> void:
 const ONDA_CADA := Vector2(15.0, 20.0)   # cada cuanto ondula el aire (s, al azar entre los dos)
 const ONDA_PRIMERA := Vector2(10.0, 15.0)   # la primera, tras esconderse
 var _en_sombras: Dictionary = {}   # cuerpo -> segundos que faltan para la siguiente onda
+const ALFA_ECO := 0.5   # (18/11) lo que se le ve al escondido en el turno de quien lleva Ecolocalizacion
 
 func _sombras_visibles(quitar: bool, dt: float = 0.0) -> void:
 	var siguen: Dictionary = {}
@@ -521,6 +522,18 @@ func _sombras_visibles(quitar: bool, dt: float = 0.0) -> void:
 			if not _en_sombras.has(cu):
 				_en_sombras[cu] = randf_range(ONDA_PRIMERA.x, ONDA_PRIMERA.y)
 				print("[sombras] %s desaparece" % e.nombre)
+			# (18/11) ECOLOCALIZACION: en el turno de quien lleva el set (Combatant.ve_sombras) se le ve A MEDIAS y se le
+			# puede elegir; en el de los demas, escondido como siempre.
+			var spr_v = cu.get("_sprite")
+			if Combatant.ve_sombras:
+				cu.remove_meta(OCULTA_PELEA)
+				cu.visible = true
+				if spr_v is CanvasItem:
+					(spr_v as CanvasItem).self_modulate.a = ALFA_ECO
+				_en_sombras[cu] = float(_en_sombras[cu]) - dt
+				continue
+			if spr_v is CanvasItem:
+				(spr_v as CanvasItem).self_modulate.a = 1.0
 			if cu.visible:
 				cu.visible = false
 			cu.set_meta(OCULTA_PELEA, true)
@@ -540,6 +553,9 @@ func _sombras_visibles(quitar: bool, dt: float = 0.0) -> void:
 		if is_instance_valid(cu):
 			(cu as Node2D).remove_meta(OCULTA_PELEA)
 			(cu as Node2D).visible = true
+			var spr_f = (cu as Node2D).get("_sprite")
+			if spr_f is CanvasItem:
+				(spr_f as CanvasItem).self_modulate.a = 1.0
 			print("[sombras] vuelve a verse")
 
 

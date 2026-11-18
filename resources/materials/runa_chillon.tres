@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"runa_chillon"
+nombre = "Runa del eco"
+descripcion = "Una piedra lisa sin ninguna marca. Si la acercas al oido, se oye la cueva entera."
+familia = 0
+tipo = 13
+tier = 1
+exigencia = 0.0
+peso_base = 0.1
+valor_base = 180
+; el disco del sello es este oscurecido un 35 %: el pizarra oscuro (0,16 / 0,19 / 0,26) de tools/glifos_eco.py
+color = Color(0.246, 0.292, 0.4, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

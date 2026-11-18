@@ -10,6 +10,8 @@
 #   6. LAS CRIAS: su ficha (un apagaluces en pequeño; solo su chillido, de 45, apaga) y, EN UNA PELEA DE VERDAD, la Piña
 #      suelta una por turno sin pasar de 2, con el 35 % de la vida de un Apagaluces y Bebe la luz; al caer una, su Racimo
 #      baja un 10 %; Bebe la luz cuenta a los tuyos A oscuras.
+#   7. EL SET ECOLOCALIZACION (armadura): 2 piezas +15 % resistencia a estados; 5 piezas inmune a Ceguera y A oscuras, en su
+#      turno ve y puede elegir a los de las sombras, +15 % de daño a los de sigilo o sombras. La runa la sueltan sus mutantes.
 extends Node
 
 const CombatEnemigos = preload("res://scripts/ui/combat_enemigos.gd")
@@ -41,6 +43,7 @@ func _empezar() -> void:
 	_a_oscuras()
 	_pasivas(ed)
 	_ficha_cria()
+	_set_eco()
 	await _pelea()
 	print("")
 	print("FIN: TODO BIEN" if _mal == 0 else "FIN: %d MAL" % _mal)
@@ -345,3 +348,55 @@ func _efectos(combat: Node, pi: Combatant, yo: Combatant) -> void:
 	_ok(_hojas_de(arena).has("oidos"), "el Chillido normal: los oidos en blanco")
 	tm._chillon_pixel(arena, {}, CombatFX.Estilo.SIMA_PALETOS, pi, yo, 0.0, 1.0, 7)
 	_ok(_hojas_de(arena).has("paletos"), "el basico y el Picado: los paletos")
+
+
+func _set_eco() -> void:
+	print("=== EL SET ECOLOCALIZACION ===")
+	var sd: RunaSetData = Runas.set_por_id(&"chillon")
+	_ok(sd != null and sd.nombre == "Ecolocalización" and sd.tipo == RunaSetData.Tipo.ARMADURA, "el set existe y es de armadura")
+	if sd == null:
+		return
+	_ok(is_equal_approx(float(sd.bonus_2p.get("resist_estados", 0.0)), 0.15), "2 piezas: +15 % de resistencia a estados")
+	var ed: EnemyData = load(CHILLON)
+	_ok(sd.runa != null and sd.runa.id == &"runa_chillon" and ed.drop_runa == sd.runa, "la runa del eco, la sueltan sus mutantes")
+	var txt: String = Runas.descripcion_set(sd)
+	print("     texto: %s" % txt.replace("
+", " | "))
+	_ok(txt.contains("Cegado ni A oscuras") and txt.contains("aumenta en un 15 %") and txt.contains("pueden elegir") == false
+		and txt.contains("puede elegirlos"), "su texto, con sus numeros")
+	_ok(CeldaObjeto.GLIFO_SET.has(&"chillon") and CeldaObjeto.tonos_glifo(&"chillon", Color.RED)["#"] == Color8(200, 228, 255),
+		"el glifo de la cabeza y ondas, con sus tonos")
+	# CON 5 PIEZAS PUESTAS, en un personaje de verdad
+	var pj := PersonajeData.new()
+	var slots := {"equipped_casco": "cuero_casco", "equipped_pecho": "cuero_pecho", "equipped_manos": "cuero_manos",
+		"equipped_pantalones": "cuero_pantalones", "equipped_botas": "cuero_botas"}
+	var n: int = 0
+	for slot in slots:
+		var it: Resource = Game.crear_item(load("res://resources/armor/%s.tres" % slots[slot]), 1, 1, {}, false)
+		Game.meta_de(it)["runas"] = {"set": "chillon", "subs": []}
+		pj.set(slot, it)
+		n += 1
+		if n == 2:
+			var c2 := Combatant.new("Dos", 1, Abilities.new(), 100.0, 5.0, 5.0, 5.0)
+			var r0: float = c2.status_resist
+			Runas.aplicar(c2, pj)
+			_ok(is_equal_approx(c2.status_resist - r0, 0.15) and not c2.runa_eco, "con 2 piezas: +15 % y sin el efecto de 5")
+	var c := Combatant.new("Cinco", 1, Abilities.new(), 100.0, 5.0, 5.0, 5.0)
+	Runas.aplicar(c, pj)
+	_ok(c.runa_eco and is_equal_approx(c.runa_eco_dano, 0.15), "con 5 piezas: el efecto")
+	c.apply_status(StatusEffects.Id.CEGUERA, 2)
+	c.apply_status(StatusEffects.Id.A_OSCURAS, 2)
+	_ok(not c.has_status(StatusEffects.Id.CEGUERA) and not c.has_status(StatusEffects.Id.A_OSCURAS), "ni Cegado ni A oscuras")
+	var rata := Combatant.new("Rata", 1, Abilities.new(), 100.0, 5.0, 5.0, 5.0)
+	_ok(is_equal_approx(c.runa_mult_contra(rata), 1.0), "a uno a la vista, el daño de siempre")
+	rata.apply_status(StatusEffects.Id.EN_SOMBRAS)
+	_ok(is_equal_approx(c.runa_mult_contra(rata), 1.15), "a uno en las sombras, +15 %% (x%.2f)" % c.runa_mult_contra(rata))
+	var otro := Combatant.new("Otro", 1, Abilities.new(), 100.0, 5.0, 5.0, 5.0)
+	otro.apply_status(StatusEffects.Id.SIGILO, 2)
+	_ok(is_equal_approx(c.runa_mult_contra(otro), 1.15), "y a uno en sigilo")
+	# ELEGIRLO: solo en el turno del portador (la pelea escribe ve_sombras)
+	Combatant.ve_sombras = false
+	_ok(rata.no_elegible(), "en las sombras, sin el set en el turno: no se le puede elegir")
+	Combatant.ve_sombras = true
+	_ok(not rata.no_elegible(), "en el turno del portador: si")
+	Combatant.ve_sombras = false

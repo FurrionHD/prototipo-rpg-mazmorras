@@ -134,7 +134,7 @@ const RUTAS_SETS := ["res://resources/runas/set_slime.tres", "res://resources/ru
 	"res://resources/runas/set_escarabajo.tres", "res://resources/runas/set_ciempies.tres",
 	"res://resources/runas/set_segadora.tres", "res://resources/runas/set_miconido.tres",
 	"res://resources/runas/set_polilla.tres", "res://resources/runas/set_aberracion.tres",
-	"res://resources/runas/set_chupasimas.tres"]
+	"res://resources/runas/set_chupasimas.tres", "res://resources/runas/set_chillon.tres"]
 static var _sets: Array = []
 
 static func sets() -> Array:
@@ -405,6 +405,9 @@ static func efecto_txt(s: RunaSetData) -> String:
 		&"jaula_faraday":
 			return "Cada vez que el portador lanza un hechizo, obtiene un escudo que absorbe daño equivalente al %s del coste de maná base de ese hechizo (no absorbe el daño con el tiempo). Si el portador ya tiene un escudo mayor, se queda con el mayor. El escudo dura hasta que se rompe o hasta que acaba el combate. Este efecto no se puede acumular." % [
 				_pct(p, "escudo", 2.0)]
+		&"ecolocalizacion":
+			return "El portador no puede quedar Cegado ni A oscuras. En los turnos del portador, los enemigos que están en las sombras se ven y el portador puede elegirlos como objetivo. El daño que inflige el portador a los enemigos en sigilo o en las sombras aumenta en un %s." % [
+				_pct(p, "dano", 0.15)]
 		&"cielo":
 			return "El Daño de Luz y el Daño de Oscuridad del portador aumentan en un %s. Cuando el portador asesta un golpe crítico, tiene un %s de probabilidad base de causar Ceguera al objetivo." % [
 				_pct(p, "dano", 0.20), _pct(p, "ciego", 0.20)]
@@ -602,6 +605,10 @@ static func aplicar(c: Combatant, p: PersonajeData) -> void:
 	c.runa_marea = float(marea.get("escudo", 0.0))
 	# (13/11) JAULA DE FARADAY: al lanzar, escudo = coste de maná base x esto (CombatMagia.jaula_faraday).
 	c.runa_jaula = float(efecto_activo(p, &"jaula_faraday").get("escudo", 0.0))
+	# (18/11) ECOLOCALIZACION: inmune a Ceguera y A oscuras, ve a los de las sombras en su turno, y mas daño a ellos.
+	var eco: Dictionary = efecto_activo(p, &"ecolocalizacion")
+	c.runa_eco = not eco.is_empty()
+	c.runa_eco_dano = float(eco.get("dano", 0.0))
 	var corona: Dictionary = efecto_activo(p, &"corona")
 	c.runa_corona_aliados = float(corona.get("aliados", 0.0))
 	c.runa_corona_umbral = float(corona.get("umbral", 0.0))

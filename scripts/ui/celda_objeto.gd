@@ -557,6 +557,10 @@ const GLIFO_SET := {
 	# ANILLO: '#' la mitad de sangre, '+' la de maná, '=' los dientes de hueso. Con SUS tonos (GLIFO_TONOS_CHUPASIMAS).
 	&"chupasimas": ["..###++..", ".##=.=++.", "##=...=++", "#=.....=+", "#.......+", "#=.....=+", "##=...=++",
 		".##=.=++.", "..###++.."],
+	# (16/11, eligio el jefe de tools/glifos_eco.py) la cabeza del set Ecolocalizacion del chillon, la B CABEZA Y ONDAS: '+' la
+	# cabeza de murcielago (gris), '=' los ojos ciegos y la boca, '#' las ondas del eco. Con SUS tonos (GLIFO_TONOS_CHILLON).
+	&"chillon": ["+.......+", "++.....++", "+++++++++", "+=+++++=+", ".+++++++.", "..+++++..", "...+=+...",
+		".#.....#.", "#.#...#.#"],
 }
 # El ACENTO de cada set ('='); sin entrada, su runa oscurecida. El tono claro ('+') es su runa aclarada.
 const GLIFO_ACENTO := {
@@ -582,6 +586,8 @@ const GLIFO_TONOS_POLILLA := {"#": Color8(236, 62, 52), "+": Color8(238, 234, 24
 const GLIFO_TONOS_ABERRACION := {"#": Color8(110, 235, 255), "+": Color8(205, 165, 240), "=": Color8(125, 78, 172)}
 # Los de la lamina aprobada (glifos_boca.TONOS). El disco morado sale de su runa (runa_chupasimas.color, oscurecido).
 const GLIFO_TONOS_CHUPASIMAS := {"#": Color8(200, 40, 54), "+": Color8(84, 168, 255), "=": Color8(238, 228, 206)}
+# Los de la lamina aprobada (glifos_eco.TONOS). El disco pizarra sale de su runa (runa_chillon.color, oscurecido).
+const GLIFO_TONOS_CHILLON := {"#": Color8(200, 228, 255), "+": Color8(128, 140, 156), "=": Color8(18, 18, 24)}
 
 
 static func tonos_glifo(id: StringName, col: Color) -> Dictionary:
@@ -595,6 +601,8 @@ static func tonos_glifo(id: StringName, col: Color) -> Dictionary:
 		return GLIFO_TONOS_ABERRACION
 	if id == &"chupasimas":
 		return GLIFO_TONOS_CHUPASIMAS
+	if id == &"chillon":
+		return GLIFO_TONOS_CHILLON
 	return {"+": col.lightened(0.55), "=": GLIFO_ACENTO.get(id, col.darkened(0.45))}
 
 

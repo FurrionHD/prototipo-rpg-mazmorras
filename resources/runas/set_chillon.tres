@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="RunaSetData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/runa_set_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/materials/humor_ciego.tres" id="2_mat"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_chillon.tres" id="3_nuc"]
+[ext_resource type="Resource" path="res://resources/materials/runa_chillon.tres" id="4_runa"]
+
+; ECOLOCALIZACION (16/11, "que putisima buena idea"; memoria chillon-mutante), set de ARMADURA del chillon. 2 piezas: +15 %
+; de resistencia a estados. 5 piezas: no puede quedar Cegado ni A oscuras; EN SU TURNO ve a los enemigos En las sombras y
+; puede elegirlos de objetivo (la version corta, 18/11); y +15 % de daño a los que estan en sigilo o en las sombras.
+[resource]
+script = ExtResource("1")
+id = &"chillon"
+nombre = "Ecolocalización"
+tipo = 1
+material = ExtResource("2_mat")
+nucleo = ExtResource("3_nuc")
+coste_material = 6
+coste_nucleo = 3
+runa = ExtResource("4_runa")
+bonus_2p = {"resist_estados": 0.15}
+efecto = &"ecolocalizacion"
+params = {"dano": 0.15}
+metadata/_custom_type_script = "res://scripts/items/runa_set_data.gd"

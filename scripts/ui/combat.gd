@@ -1462,6 +1462,7 @@ func _escala_barra() -> float:
 # Al cerrarse la pantalla, los cuerpos del mapa vuelven a animarse como antes de la pelea (ver
 # combat_tactico.montar, que les dio permiso para animarse con el arbol en pausa).
 func _exit_tree() -> void:
+	Combatant.ve_sombras = false
 	if tactico:
 		turno_mapa.desmontar()
 
@@ -1979,6 +1980,8 @@ func _tick_platos(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
+	# (18/11) ECOLOCALIZACION: en el turno de uno de los tuyos con el set, los de las sombras se ven y se pueden elegir.
+	Combatant.ve_sombras = _state == State.WAITING_PLAYER and _player != null and _player.runa_eco
 	# ESPEJO: acercar las barras a su objetivo ANTES de pintar, para que la linea de tiempo salga
 	# suave y no a escalones de 20 Hz.
 	if _espejo:

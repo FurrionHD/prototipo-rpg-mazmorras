@@ -123,7 +123,8 @@ func seguir() -> void:
 		# EN LAS SOMBRAS (30/10, la rata sombria): ni barra ni clic. La marca es suya, como la de la cria.
 		var idx: int = int((f["bloque"] as Dictionary).get("idx", -1))
 		var zona_s: Control = f.get("zona")
-		if idx >= 0 and idx < _pantalla._enemies.size() and _pantalla._enemies[idx].en_sombras():
+		# (18/11) salvo en el turno de quien lleva Ecolocalizacion (Combatant.ve_sombras): ahi se le ve y se le puede elegir.
+		if idx >= 0 and idx < _pantalla._enemies.size() and _pantalla._enemies[idx].en_sombras() and not Combatant.ve_sombras:
 			if col.visible:
 				col.visible = false
 				col.set_meta(&"oculta_sombra", true)

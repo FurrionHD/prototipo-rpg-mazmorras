@@ -11,6 +11,7 @@
 [ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="21_ab"]
 [ext_resource type="Resource" path="res://resources/abilities/chillon_chillido_oscuro.tres" id="22_chio"]
 [ext_resource type="Resource" path="res://resources/mutaciones/chillon_pina.tres" id="23_pina"]
+[ext_resource type="Resource" path="res://resources/materials/runa_chillon.tres" id="24_runa"]
 
 [sub_resource type="Resource" id="SA_sil"]
 script = ExtResource("2")
@@ -61,6 +62,8 @@ drop_extra = ExtResource("7_carne")
 drop_extra_chance = 0.1
 drop_piso_debut = 8
 drop_piso_pleno = 11
+; (18/11) la runa del set Ecolocalizacion: la sueltan sus mutantes
+drop_runa = ExtResource("24_runa")
 al_golpear = [SubResource("SA_sil")]
 vuela = true
 resist_elemental = {

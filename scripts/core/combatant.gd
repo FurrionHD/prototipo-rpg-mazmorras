@@ -819,6 +819,9 @@ func consumir_amplificadores(elem: int) -> Array:
 func es_inmune(id: int) -> bool:
 	if inmune_estados.has(id) or Elementos.inmunidades_de(elemento).has(id):
 		return true
+	# (18/11) ECOLOCALIZACION (5 piezas): ni Cegado ni A oscuras.
+	if runa_eco and (id == StatusEffects.Id.CEGUERA or id == StatusEffects.Id.A_OSCURAS):
+		return true
 	# Las arañas mutantes: la Tejedora no se quema (y la Tormentosa, de rayo, ya lo tiene por su elemento).
 	if carga_elemento == Elementos.Elemento.FUEGO and id == StatusEffects.Id.QUEMADURA:
 		return true
@@ -1316,6 +1319,8 @@ var racimo_reduce: float = 0.0
 var racimo_por_cria: float = 0.0
 var crias_tope: int = 0
 var crias_muertas: int = 0
+var runa_eco: bool = false          # (18/11) el set ECOLOCALIZACION a 5 piezas (Runas.aplicar)
+var runa_eco_dano: float = 0.0
 var cria_data: EnemyData = null       # la cria que suelta (MutacionData.cria)
 var cria_vida: float = 0.35
 var cria_vida_de: StringName = &""
@@ -1389,8 +1394,13 @@ var runa_campo_cuenta: int = 0
 
 
 # ¿No se le puede elegir de objetivo? En las sombras o en el aire: las areas si le dan.
+# (18/11) En las sombras SI, en el turno de quien lleva ECOLOCALIZACION (ve_sombras).
 func no_elegible() -> bool:
-	return en_sombras() or has_status(StatusEffects.Id.EN_VUELO)
+	return (en_sombras() and not ve_sombras) or has_status(StatusEffects.Id.EN_VUELO)
+
+# ¿Es ahora el turno de uno de los tuyos con el set ECOLOCALIZACION (5 piezas)? Lo escribe la pelea cada fotograma
+# (Combat._process); en el espejo igual, que tambien sabe de quien es el turno. Solo cuenta para elegir y ver.
+static var ve_sombras: bool = false
 
 
 # EN LAS SOMBRAS (30/10): ni se le ve ni se le puede elegir de objetivo; las areas si le dan.
@@ -1429,6 +1439,9 @@ func runa_mult_contra(defender: Combatant) -> float:
 		m *= 1.0 + runa_dano_jefes
 	if runa_miasma_carga > 0.0 and defender != null:
 		m *= 1.0 + runa_miasma_carga * float(mini(defender.stacks_de(StatusEffects.Id.VENENO), runa_miasma_max))
+	# (18/11) ECOLOCALIZACION: a los que estan en sigilo o en las sombras.
+	if runa_eco_dano > 0.0 and defender != null and (defender.en_sombras() or defender.has_status(StatusEffects.Id.SIGILO)):
+		m *= 1.0 + runa_eco_dano
 	# SANGRE REAL: las cargas de Sangrado de todos los enemigos de la pelea (su lista compartida, battle_enemies).
 	if runa_sangre_real_carga > 0.0 and defender != null:
 		var n: int = 0
