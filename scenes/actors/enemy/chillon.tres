@@ -7,11 +7,26 @@
 [ext_resource type="Resource" path="res://resources/materials/humor_ciego.tres" id="5_mat"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_chillon.tres" id="6_nuc"]
 [ext_resource type="Resource" path="res://resources/materials/carne_bestia.tres" id="7_carne"]
+[ext_resource type="Script" path="res://scripts/actors/enemy/mutacion_data.gd" id="20_mut"]
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="21_ab"]
+[ext_resource type="Resource" path="res://resources/abilities/chillon_chillido_oscuro.tres" id="22_chio"]
+[ext_resource type="Resource" path="res://resources/mutaciones/chillon_pina.tres" id="23_pina"]
 
 [sub_resource type="Resource" id="SA_sil"]
 script = ExtResource("2")
 estado = 18
 prob = 0.25
+
+; LOS MUTANTES DEL CHILLON (18/11, memoria chillon-mutante), una linea:
+;     Chillon --> APAGALUCES (negro mate; su chillido en circulo te deja A oscuras) --> PIÑA NEGRA (resources/mutaciones)
+[sub_resource type="Resource" id="MUT_apagaluces"]
+script = ExtResource("20_mut")
+id = &"apagaluces"
+nombre = "Apagaluces"
+grado = 1
+habilidades = Array[ExtResource("21_ab")]([ExtResource("22_chio"), ExtResource("4_pic")])
+sprite = &"apagaluces"
+pesos = {"agilidad": 50, "destreza": 30, "fuerza": 26, "magia": 32, "resistencia": 22, "voluntad": 20}
 
 [resource]
 script = ExtResource("1")
@@ -23,10 +38,13 @@ historia = "Nació sin ojos y no los echa de menos. Cuelga del techo en racimos 
 color = Color(0.42, 0.48, 0.55, 1)
 escala_visual = 1.4
 sprite_gen = &"chillon"
+; (16/11, memoria chillon-mutante) estrena VOLUNTAD, misma suma 180: el basico pega un 2 % mas (tools/tabla_chillon).
 resistencia = 20
 fuerza = 30
-destreza = 40
-agilidad = 60
+destreza = 38
+agilidad = 58
+magia = 14
+voluntad = 20
 base_hp = 48.0
 base_attack = 4.8
 base_defense = 2.8
@@ -50,6 +68,7 @@ resist_elemental = {
 fx_basico = 17
 habilidades = [ExtResource("3_chi"), ExtResource("4_pic")]
 prob_habilidad = 0.6
+mutaciones = Array[ExtResource("20_mut")]([SubResource("MUT_apagaluces"), ExtResource("23_pina")])
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
 ; ALCANCE del basico en el mapa (30/09): muerde de cerca.
 alcance = 15.0

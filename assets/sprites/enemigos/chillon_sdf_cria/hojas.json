@@ -1,0 +1,60 @@
+{
+ "lienzo": [
+  60,
+  60
+ ],
+ "pies": [
+  30,
+  34
+ ],
+ "anims": {
+  "idle": {
+   "fotogramas": 8,
+   "fps": 9.0,
+   "loop": true,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "walk": {
+   "fotogramas": 8,
+   "fps": 14.0,
+   "loop": true,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "embestida": {
+   "fotogramas": 8,
+   "fps": 12.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "encaje": {
+   "fotogramas": 4,
+   "fps": 18.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "muerte": {
+   "fotogramas": 8,
+   "fps": 11.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  },
+  "chillido_oscuro": {
+   "fotogramas": 8,
+   "fps": 8.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false,
+   "grupos_parpado": 0
+  }
+ }
+}

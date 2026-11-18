@@ -224,12 +224,15 @@ def escena_pina(p):
     # LOS QUE BATEN, a destiempo (cada uno con su desfase); al morir se sueltan y se apartan hacia arriba y fuera.
     pose_fn = base.anim_walk if p['batir'] == 'walk' else base.anim_idle
     n_bate = len(BATEN) if evo < 0 else int(round(len(BATEN) * _paso(evo, 0.55, 0.95)))
+    if p['sueltan'] >= 0.85:
+        n_bate = 0      # ya se han ido (los que van hacia la camara no salian del dibujo)
     for jb, (anillo, ang, des) in enumerate(BATEN[:n_bate]):
         dz, r, _n = ANILLOS[anillo]
         a = math.radians(ang)
         fuera = V((math.cos(a), math.sin(a), 0.0))
         donde = V((r * k_r * math.cos(a), r * k_r * math.sin(a), ALTO + dz * k_z)) + fuera * 4.5 + V((0.0, 0.0, 1.5))
-        donde = donde + (fuera * 7.0 + V((0.0, 0.0, 6.0))) * p['sueltan']
+        # al morir se SUELTAN y se van volando lejos (fuera del dibujo antes de que acabe: el cadaver es solo el racimo)
+        donde = donde + (fuera * 60.0 + V((0.0, 0.0, 40.0))) * p['sueltan'] ** 1.5
         giro = a - math.pi / 2
         t_a = p['t_ala'] + des
         # descolocados (el tiron del encaje): el aleteo da un salto

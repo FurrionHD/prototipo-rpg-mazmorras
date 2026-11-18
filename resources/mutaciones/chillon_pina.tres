@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="MutacionData" format=3]
+
+[ext_resource type="Script" path="res://scripts/actors/enemy/mutacion_data.gd" id="1_mut"]
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="2_ab"]
+[ext_resource type="Resource" path="res://resources/abilities/chillon_chillido_oscuro.tres" id="3_chi"]
+
+; LA PIÑA NEGRA (18/11, memoria chillon-mutante): el RANGO 2 del chillon, desde el Apagaluces. Un racimo de unos veinte
+; colgando, llevado por seis que baten. Lenta y TANQUE (Racimo: empieza con -40 % de todo el daño y cada cria que le matan le
+; quita un 10 %); suelta una cria en cada turno suyo (paso 4). Basico fisico, Chillido de oscuridad; sin Picado.
+[resource]
+script = ExtResource("1_mut")
+id = &"pina"
+nombre = "Piña negra"
+grado = 2
+desde = Array[StringName]([&"apagaluces"])
+habilidades = Array[ExtResource("2_ab")]([ExtResource("3_chi")])
+sprite = &"pina"
+pesos = {"agilidad": 28, "destreza": 22, "fuerza": 24, "magia": 36, "resistencia": 38, "voluntad": 32}
