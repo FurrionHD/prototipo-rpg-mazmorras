@@ -286,3 +286,62 @@ func _pelea() -> void:
 	_ok(pi.crias_muertas == 1, "la misma cria no cuenta dos veces")
 	combat.enemigos._soltar_cria(pi)
 	_ok(crias.call().size() == 2, "con una muerta, vuelve a soltar hasta 2")
+	await _efectos(combat, pi, yo)
+
+
+# LOS EFECTOS EN PIXEL (18/11, chillon_efectos_horno): las hojas horneadas, los suelos (la sombra de 70 y la de 45, el cono)
+# y lo que sale sobre cada uno en una pelea de verdad.
+func _hojas_de(arena: Node) -> Array:
+	var out: Array = []
+	for n in arena.get_children():
+		if n is EfectoPixel and n.has_meta("hoja"):
+			out.append(String(n.get_meta("hoja")))
+	return out
+
+
+func _efectos(combat: Node, pi: Combatant, yo: Combatant) -> void:
+	print("=== LOS EFECTOS EN PIXEL ===")
+	var hojas: Dictionary = (load("res://scripts/fx/efectos_pixel_datos.gd").HOJAS as Dictionary).get("chillon", {})
+	var faltan: Array = ["sombra70", "sombra45", "cono", "paletos", "oidos", "farol", "mota", "mota_entra"].filter(
+		func(h): return not hojas.has(h))
+	_ok(faltan.is_empty(), "las hojas horneadas (faltan %s)" % str(faltan))
+	_ok(int((hojas.get("cono", {}) as Dictionary).get("filas", 0)) == 5 and int((hojas.get("paletos", {}) as Dictionary).get("filas", 0)) == 5,
+		"el cono y los paletos, con 5 direcciones")
+	var T := SueloRoto.Tipo
+	_ok((load("res://resources/abilities/chillon_chillido_oscuro.tres") as AbilityData).suelo_roto == T.CHILLON_SOMBRA
+		and (load("res://resources/abilities/chillon_chillido_cria.tres") as AbilityData).suelo_roto == T.CHILLON_SOMBRA
+		and (load("res://resources/abilities/chillon_chillido.tres") as AbilityData).suelo_roto == T.CHILLON_CONO,
+		"los chillidos con su suelo (la sombra los de oscuridad, el cono el normal)")
+	var arena: Node = combat.turno_mapa._arena()
+	var s70 = SueloRoto.lanzar(arena, CombatFormas.circulo(Vector2(0, 0), 70.0), T.CHILLON_SOMBRA, 1)
+	var s45 = SueloRoto.lanzar(arena, CombatFormas.circulo(Vector2(0, 0), 45.0), T.CHILLON_SOMBRA, 1)
+	var co = SueloRoto.lanzar(arena, CombatFormas.cono(Vector2(0, 0), Vector2.RIGHT, 60.0, 100.0), T.CHILLON_CONO, 1)
+	_ok(s70 != null and s70.get_meta("hoja") == "sombra70" and s45 != null and s45.get_meta("hoja") == "sombra45",
+		"la sombra: la de 70 y la de 45 segun el radio")
+	_ok(co != null and co.get_meta("hoja") == "cono", "las ondas del Chillido normal")
+	var f70 := CombatFormas.circulo(Vector2(0, 0), 70.0)
+	_ok(is_equal_approx(SueloRoto.retraso(f70, Vector2(70, 0), T.CHILLON_SOMBRA), SueloRoto.T_SOMBRA_LLEGA)
+		and SueloRoto.retraso(f70, Vector2(20, 0), T.CHILLON_SOMBRA) < SueloRoto.T_SOMBRA_LLEGA,
+		"le llega cuando la sombra le alcanza (antes al de cerca)")
+	for n in [s70, s45, co]:
+		if n != null:
+			n.queue_free()
+	await _esperar(2)
+	var tm = combat.turno_mapa
+	var O := CombatFX.Estilo.SIMA_OIDOS
+	# EL CHILLIDO DE OSCURIDAD: a quien NO se ha quedado a oscuras, nada
+	yo.quitar_estado(StatusEffects.Id.A_OSCURAS)
+	tm._chillon_pixel(arena, {"anim": &"chillido_oscuro"}, O, pi, yo, 0.0, 1.0, 7)
+	var h0: Array = _hojas_de(arena)
+	_ok(not h0.has("farol") and not h0.has("oidos"), "sin quedarse a oscuras, no se le apaga nada")
+	# a quien SI: su luz se apaga y las motas van a la Piña (Bebe la luz)
+	yo.apply_status(StatusEffects.Id.A_OSCURAS, 2)
+	tm._chillon_pixel(arena, {"anim": &"chillido_oscuro"}, O, pi, yo, 0.0, 1.0, 7)
+	var h1: Array = _hojas_de(arena)
+	_ok(h1.has("farol"), "a oscuras: su luz se apaga")
+	_ok(h1.count("mota_entra") == 4, "y 4 motas de luz vuelan a la Piña (%d)" % h1.count("mota_entra"))
+	# EL CHILLIDO NORMAL: los oidos en blanco
+	tm._chillon_pixel(arena, {"anim": &"chillido"}, O, pi, yo, 0.0, 1.0, 7)
+	_ok(_hojas_de(arena).has("oidos"), "el Chillido normal: los oidos en blanco")
+	tm._chillon_pixel(arena, {}, CombatFX.Estilo.SIMA_PALETOS, pi, yo, 0.0, 1.0, 7)
+	_ok(_hojas_de(arena).has("paletos"), "el basico y el Picado: los paletos")

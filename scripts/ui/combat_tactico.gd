@@ -6296,6 +6296,73 @@ func _chupasimas_recibe(arena: Node, ev: Dictionary, v: Combatant, vuelo: float,
 		SpriteLienzo.dir8(_mirada_de(cu)), cu, maxf(vuelo - 1.0 / 12.0, 0.0), -1.0, ritmo)
 
 
+# (18/11) EL CHILLON Y SUS MUTANTES, en pixel y sin rejilla (los de su lamina aprobada,
+# tools/sprites_sdf/chillon_efectos_horno.py). Por cada uno que recibe:
+#   SIMA_PALETOS  el basico y cada mordisco del Picado: los dos paletos, por la linea del mordisco (y el eco al que va en
+#                 sigilo, como antes)
+#   SIMA_OIDOS    el Chillido: los oidos en blanco y tiembla. El CHILLIDO DE OSCURIDAD (su gesto 'chillido_oscuro', que viaja)
+#                 usa el mismo estilo: a quien se queda A oscuras se le apaga la luz y, si quien chilla Bebe la luz, unas
+#                 motas de luz vuelan de el al bicho.
+# Lo del suelo (la sombra del Chillido de oscuridad y las ondas del normal) lo pinta SueloRoto (CHILLON_SOMBRA/CONO).
+const _ESTILOS_CHILLON := [CombatFX.Estilo.SIMA_PALETOS, CombatFX.Estilo.SIMA_OIDOS]
+const _CHILLON_FPS := 12.0
+const _PALETOS_TOCA := 2.0     # el marco en que se clavan (el que cae con el golpe)
+const _FAROL_APAGA := 6.0      # el marco en que la luz ya se ha apagado: ahi salen las motas
+const _MOTA_VUELO := 4.0       # marcos de vuelo de cada mota, y el arco (celdas)
+const _MOTA_ARCO := 10.0
+
+
+# ¿Es un chillon (el normal, sus mutantes o la cria de la Piña)? Por su ficha.
+func _de_los_chillones(cuerpo: Node2D) -> bool:
+	if cuerpo == null:
+		return false
+	var ed = cuerpo.get("data")
+	return ed is EnemyData and (ed as EnemyData).sprite_gen == &"chillon"
+
+
+func _chillon_pixel(arena: Node, ev: Dictionary, estilo: int, a: Combatant, v: Combatant, vuelo: float, ritmo: float,
+		semilla: int) -> void:
+	var pies_v: Vector2 = pies_de(v)
+	var espera: float = maxf(vuelo, 0.0)
+	match estilo:
+		CombatFX.Estilo.SIMA_PALETOS:
+			# LA ECOLOCALIZACION (30/09): al que va en sigilo le llega su eco y se le ve entero un momento.
+			if a.ecolocaliza and v.has_status(StatusEffects.Id.SIGILO):
+				var eco: PasivaAire = PasivaAire.sobre_cuerpo(arena, PasivaAire.Modo.ECO, bulto_de(a), bulto_de(v), pies_v,
+					semilla, vuelo, ritmo)
+				if eco != null:
+					cuerpo_de(v).set_meta(&"revelado_hasta", Time.get_ticks_msec()
+						+ int((eco._viaje - vuelo + REVELADO_ECO) * 1000.0 / maxf(ritmo, 0.05)))
+			var hacia: Vector2 = pies_v - pies_de(a)
+			EfectoPixel.lanzar(arena, "chillon", "paletos", pies_v,
+				SpriteLienzo.dir8(hacia) if hacia.length_squared() > 1.0 else 0, null,
+				maxf(espera - _PALETOS_TOCA / _CHILLON_FPS, 0.0), -1.0, ritmo)
+		CombatFX.Estilo.SIMA_OIDOS:
+			if StringName(ev.get("anim", &"")) != &"chillido_oscuro":
+				EfectoPixel.lanzar(arena, "chillon", "oidos", pies_v, 0, null, espera, -1.0, ritmo)
+				_temblar_presa(v, vuelo)
+				return
+			# A OSCURAS: solo a quien de verdad se ha quedado (el estado ya esta puesto, y viaja: igual en el espejo).
+			if not v.has_status(StatusEffects.Id.A_OSCURAS):
+				return
+			EfectoPixel.lanzar(arena, "chillon", "farol", pies_v, 0, null, espera, -1.0, ritmo)
+			# BEBE LA LUZ: las motas, de su luz (9 celdas sobre la cabeza) al cuerpo del bicho.
+			if a.bebe_luz_vel <= 0.0 and a.bebe_luz_dano <= 0.0:
+				return
+			var cu_a: Node2D = cuerpo_de(a)
+			var hasta: Vector2 = EfectoPixel.centro_sprite(cu_a, pies_de(a))
+			var luz: Vector2 = pies_v - Vector2(0.0, 25.0 * CELDA_PX)
+			var rng := RandomNumberGenerator.new()
+			rng.seed = semilla
+			var dur: float = _MOTA_VUELO / _CHILLON_FPS
+			for i in 4:
+				var sale: float = espera + (_FAROL_APAGA - 3.0 + float(i) * 0.7 + rng.randf_range(0.0, 0.3)) / _CHILLON_FPS
+				var o := Vector2(rng.randf_range(-3.0, 3.0), rng.randf_range(-3.0, 3.0)) * CELDA_PX
+				var m: EfectoPixel = EfectoPixel.lanzar(arena, "chillon", "mota_entra", hasta, 0, null, sale + dur, -1.0, ritmo)
+				if m != null:
+					m.poner_vuelo("chillon", "mota", luz + o, hasta, _MOTA_ARCO * CELDA_PX, dur)
+
+
 const _MODO_SIMA := {CombatFX.Estilo.SIMA_PORRAZO: SimaAire.Modo.PORRAZO, CombatFX.Estilo.SIMA_TOS: SimaAire.Modo.TOS,
 	CombatFX.Estilo.SIMA_LATIGO: SimaAire.Modo.LATIGO, CombatFX.Estilo.SIMA_VENTOSA: SimaAire.Modo.VENTOSA,
 	CombatFX.Estilo.SIMA_CHUPADA: SimaAire.Modo.CHUPADA, CombatFX.Estilo.SIMA_OIDOS: SimaAire.Modo.OIDOS,
@@ -7101,6 +7168,10 @@ func _dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	# LA POLILLA Y SUS MUTANTES EN PIXEL (12/11, tools/sprites_sdf/polilla_efectos_horno.py).
 	if estilo in _ESTILOS_POLILLA and a != null and _de_las_polillas(cuerpo_de(a)):
 		_polilla_pixel(arena, estilo, a, v, vuelo, ritmo)
+		return
+	# EL CHILLON Y SUS MUTANTES EN PIXEL (18/11, tools/sprites_sdf/chillon_efectos_horno.py).
+	if estilo in _ESTILOS_CHILLON and a != null and _de_los_chillones(cuerpo_de(a)):
+		_chillon_pixel(arena, ev, estilo, a, v, vuelo, ritmo, semilla)
 		return
 	# EL MICONIDO Y SUS MUTANTES EN PIXEL (10/11, tools/sprites_sdf/miconido_efectos_horno.py).
 	if estilo in _ESTILOS_MICONIDO and a != null and _de_los_miconidos(cuerpo_de(a)):

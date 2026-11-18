@@ -11,7 +11,7 @@ turns = 2
 
 ; EL CHILLIDO DE LAS CRIAS (18/11, memoria chillon-mutante): el Chillido de oscuridad del Apagaluces con MENOS ALCANCE
 ; (circulo de 45, su numero). Es lo UNICO de la cria que deja A oscuras (su basico y su Picado, no).
-; EFECTOS PROVISIONALES, como el del Apagaluces, hasta la lamina de efectos en pixel.
+; EFECTOS EN PIXEL (18/11): la sombra de 45 por el suelo (121), como la del Apagaluces.
 [resource]
 script = ExtResource("1")
 nombre = "Chillido de oscuridad"
@@ -33,3 +33,4 @@ fx_estilo = 17
 fx_anim = &"chillido_oscuro"
 cooldown = 4
 fx_estilo_mapa = 161
+suelo_roto = 121

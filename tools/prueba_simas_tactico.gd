@@ -215,7 +215,8 @@ func _probar_pegada(combat, t, e, al: Array) -> void:
 
 func _probar_chillon(combat, t, e, al: Array) -> void:
 	var chi: AbilityData = load("res://resources/abilities/chillon_chillido.tres")
-	_ver(chi.suelo_roto == SueloRoto.Tipo.SIMA_ULTRA, "el Chillido lleva el ultrasonido (suelo %d)" % chi.suelo_roto)
+	# (18/11) las ondas del Chillido pasan a pixel: el cono del chillon (SueloRoto.CHILLON_CONO, chillon_efectos_horno)
+	_ver(chi.suelo_roto == SueloRoto.Tipo.CHILLON_CONO, "el Chillido lleva sus ondas en cono (suelo %d)" % chi.suelo_roto)
 	var pe: Vector2 = t.pies_de(e)
 	_colocar(t, al, [pe + Vector2(t.radio_pisa(e) + 30, 0), pe + Vector2(-t.radio_pisa(e) - 30, 0)])
 	await _esperar(2)

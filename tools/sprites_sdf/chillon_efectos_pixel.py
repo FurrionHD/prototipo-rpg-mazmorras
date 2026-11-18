@@ -26,9 +26,17 @@ import numpy as np
 import slime_efectos_pixel as sl
 import escarabajo_efectos_pixel as ep
 import rata_efectos_pixel as rt
-from slime_efectos_pixel import (W, H, XX, YY, TRAMA, UNIDAD, SALIDA, nuevo, poner, punto, disco, estrella,
+
+# Lienzo propio (la sombra de 70 con sus brazos no cabia en el de los slimes): las piezas de ep/sl leen estos globales.
+W, H = 230, 190
+YY, XX = np.mgrid[0:H, 0:W]
+TRAMA = ep.BAYER[(YY // 2) % 4, (XX // 2) % 4]
+for _m in (ep, sl, rt):
+    _m.W, _m.H, _m.YY, _m.XX, _m.TRAMA = W, H, YY, XX, TRAMA
+
+from slime_efectos_pixel import (UNIDAD, SALIDA, nuevo, poner, punto, disco, estrella,  # noqa: E402
                                  victima, lamina, elegir, DIRS, NOM_DIR)
-from rata_efectos_pixel import marco, escena
+from rata_efectos_pixel import marco, escena  # noqa: E402
 
 NORMAL, APAGA, PINA, CRIA = 'chillon_sdf', 'chillon_sdf_apagaluces', 'chillon_sdf_pina', 'chillon_sdf_cria'
 
@@ -213,8 +221,13 @@ VARIANTES_C = {
 NACE, QUIETA, RECOGE = 5, 7, 6   # fotogramas de cada fase
 
 
+# REDONDA (18/11, al verla en el juego): las areas del juego son circulos de verdad (memoria huellas-suelo-circulos-no-elipses),
+# y la sombra tiene que tapar justo a quien pilla.
+APLASTE = 1.0
+
+
 def _p(cx, cy, r, th):
-    return cx + math.cos(th) * r, cy + math.sin(th) * r * 0.8
+    return cx + math.cos(th) * r, cy + math.sin(th) * r * APLASTE
 
 
 def _fase(e):
@@ -236,8 +249,8 @@ def sombra_viva(s, cx, cy, R, e, v, sem=3):
         return
     rnd = random.Random(sem)
     r = R * (1.0 - cfg['largo'] * 0.6) * u      # el cuerpo de la sombra (los brazos llegan al borde R)
-    d = np.hypot(XX - cx, (YY - cy) / 0.8)
-    ang = np.arctan2((YY - cy) / 0.8, XX - cx)
+    d = np.hypot(XX - cx, (YY - cy) / APLASTE)
+    ang = np.arctan2((YY - cy) / APLASTE, XX - cx)
     borde = r * (1.0 + 0.05 * np.sin(ang * 7 + sem + e * 0.3))
     poner(s, (d < borde) & (TRAMA < 0.85), NEGRO[1])
     poner(s, (d < borde * 0.72) & (TRAMA < 0.6), NEGRO[0])
@@ -269,7 +282,7 @@ def sombra_viva(s, cx, cy, R, e, v, sem=3):
             disco(s, x, y, max(0.5, w - 1.0), NEGRO[0])
             # la pincelada clara, ROTA: solo en el lado de fuera de la curva y a tramos
             if 0.15 < q < 0.8 and math.sin(q * 9 + k) > -0.2:
-                nx, ny = -math.sin(th) * lado, math.cos(th) * 0.8 * lado
+                nx, ny = -math.sin(th) * lado, math.cos(th) * APLASTE * lado
                 punto(s, x + nx * w * 0.8, y + ny * w * 0.8, NEGRO[3])
     # la pincelada clara rota en el filo del cuerpo
     rota = np.sin(ang * 9 + sem - e * 0.4) > 0.3
@@ -323,6 +336,25 @@ def mordisco(fila, var=NORMAL, anim='embestida'):
     return m, t
 
 
+def ondas_cono(a, bx, by, eje, R, mitad, f):
+    """Las ondas del Chillido normal: tres frentes grises en cono que salen de la boca y se apagan al llegar a R."""
+    d = np.hypot(XX - bx, YY - by)
+    ang = np.arctan2(YY - by, XX - bx)
+    rel = np.abs((ang - eje + np.pi) % (2 * np.pi) - np.pi)
+    for k in range(3):
+        e = f - 1 - k * 2.5
+        if e < 0:
+            continue
+        r = 8 + e * 6.0
+        if r > R:
+            continue
+        fuerza = 1.0 - r / R
+        borde = np.abs(d - r)
+        en = (rel < mitad * (0.4 + 0.6 * min(1.0, r / 30.0))) & (borde < 2.0)
+        poner(a, en & (TRAMA < fuerza * 1.4), SONIDO[1])
+        poner(a, en & (borde < 0.9) & (TRAMA < fuerza * 1.6), SONIDO[2])
+
+
 def chillido_normal(fila):
     """El Chillido de hoy en pixel: onda en cono y los oidos en blanco del que pilla."""
     dx, dy = DIRS[fila]
@@ -335,21 +367,7 @@ def chillido_normal(fila):
     m, t = [], []
     for f in range(18):
         s, a = nuevo(), nuevo()
-        d = np.hypot(XX - boca[0], YY - boca[1])
-        ang = np.arctan2(YY - boca[1], XX - boca[0])
-        rel = np.abs((ang - eje + np.pi) % (2 * np.pi) - np.pi)
-        for k in range(3):
-            e = f - 1 - k * 2.5
-            if e < 0:
-                continue
-            r = 8 + e * 6.0
-            if r > R:
-                continue
-            fuerza = 1.0 - r / R
-            borde = np.abs(d - r)
-            en = (rel < mitad * (0.4 + 0.6 * min(1.0, r / 30.0))) & (borde < 2.0)
-            poner(a, en & (TRAMA < fuerza * 1.4), SONIDO[1])
-            poner(a, en & (borde < 0.9) & (TRAMA < fuerza * 1.6), SONIDO[2])
+        ondas_cono(a, boca[0], boca[1], eje, R, mitad, f)
         for v in vict:
             victima(s, *v)
             llega = f - 1 - int(math.hypot(v[0] - boca[0], v[1] - boca[1]) / 6.0)

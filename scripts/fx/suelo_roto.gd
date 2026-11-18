@@ -53,7 +53,11 @@ enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, T
 	RATA_ESTELA_SOMBRA, RATA_ANILLO_ESQUIRLAS, RATA_SURCO_CRISTAL, RATA_DESTELLO, RATA_TRAICION,
 	TRENT_RESINA, TRENT_SAVIA, TRENT_GEISER, AMBAR_BOLA, MICONIDO_FOCO,
 	POLILLA_ORO, POLILLA_CENIZA, POLILLA_ROJO, POLILLA_LLUVIA,
-	ABERRACION_DESCARGA, ABERRACION_ARO }
+	ABERRACION_DESCARGA, ABERRACION_ARO,
+	CHILLON_SOMBRA, CHILLON_CONO }
+# CHILLON_* (18/11, 121-122 en las fichas): EL CHILLON Y SUS MUTANTES EN PIXEL (tools/sprites_sdf/chillon_efectos_horno.py): la
+# SOMBRA del Chillido de oscuridad (la C3 Marea: hoja de 70 o de 45 segun el radio, centrada en el) y las ONDAS EN CONO del
+# Chillido normal (5 direcciones, desde el vertice). Mirados ANTES que los de la polilla (van detras en el enum).
 # ABERRACION_* (13/11, 119-120 en las fichas): LA ABERRACION Y SUS MUTANTES EN PIXEL (tools/sprites_sdf/aberracion_efectos_horno.py):
 # el anillo de chispas de la Descarga (Masa galvanica) y el estallido del aro de El ojo se abre (Ojo de la tormenta). Tambien
 # el ALARIDO (FIERA_ALARIDO) pasa a pixel, y el CONO de la Mirada (FIERA_CONO) lo pinta su gesto, desde el ojo
@@ -210,8 +214,31 @@ static func _aberracion(padre: Node, f: CombatFormas.Forma, t: int, espera: floa
 	return null
 
 
+# LOS DEL CHILLON EN PIXEL (18/11): la sombra del Chillido de oscuridad (la de 45 para un circulo pequeño: la cria) y las
+# ondas del Chillido normal, desde su vertice hacia donde mira la forma.
+const T_SOMBRA_LLEGA := 4.0 / 12.0    # lo que tarda la sombra en llegar a su borde (4 marcos de su hoja, a 12 fps)
+const CONO_FPS := 14.0                # las ondas del cono: un frente nace a 8 celdas y avanza 6 por marco
+
+static func _chillon(padre: Node, f: CombatFormas.Forma, t: int, espera: float) -> Node2D:
+	var ritmo: float = maxf(BarridoAire.ritmo, 0.05)
+	if t == Tipo.CHILLON_CONO:
+		var d: int = SpriteLienzo.dir8(f.dir) if f.dir.length_squared() > 0.01 else 0
+		return EfectoPixel.lanzar(padre, "chillon", "cono", origen_de(f), d, null, maxf(espera, 0.0), -1.0, ritmo)
+	return EfectoPixel.lanzar(padre, "chillon", "sombra45" if f.radio < 57.0 else "sombra70", f.centro, 0, null,
+		maxf(espera, 0.0), -1.0, ritmo)
+
+
+static func _retraso_chillon(f: CombatFormas.Forma, p: Vector2, t: int) -> float:
+	if t == Tipo.CHILLON_CONO:
+		var celdas: float = p.distance_to(origen_de(f)) / SpriteLienzo.UNIDADES_POR_CELDA
+		return (maxf(celdas - 8.0, 0.0) / 6.0 + 1.0) / CONO_FPS
+	return clampf(p.distance_to(f.centro) / maxf(f.radio, 1.0), 0.0, 1.0) * T_SOMBRA_LLEGA
+
+
 static func _lanzar_tipo(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 		n_nucleo: float, espera: float) -> Node2D:
+	if t == Tipo.CHILLON_SOMBRA or t == Tipo.CHILLON_CONO:
+		return _chillon(padre, f, t, espera)
 	if t in [Tipo.ABERRACION_DESCARGA, Tipo.ABERRACION_ARO, Tipo.FIERA_ALARIDO, Tipo.FIERA_CONO]:
 		return _aberracion(padre, f, t, espera)
 	if t == Tipo.SIMA_ANILLO or t >= Tipo.POLILLA_ORO:
@@ -300,6 +327,8 @@ static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) ->
 		return 0.0   # la estela no se propaga: pega en el instante del golpe
 	if t == Tipo.ABERRACION_DESCARGA or t == Tipo.ABERRACION_ARO:
 		return FieraAire.retraso(Tipo.FIERA_ALARIDO - Tipo.FIERA_ARROLLA, f, p)   # sale de ella, como el Alarido
+	if t == Tipo.CHILLON_SOMBRA or t == Tipo.CHILLON_CONO:
+		return _retraso_chillon(f, p, t)
 	if t == Tipo.POLILLA_LLUVIA:
 		return T_LLUVIA_POLILLA
 	if t == Tipo.SIMA_ANILLO or t >= Tipo.POLILLA_ORO:
@@ -386,6 +415,10 @@ static func t_salir_de(t: int) -> float:
 		return SlimeAire.t_salir(SlimeAire.Modo.PUAS)
 	if t == Tipo.ABERRACION_DESCARGA or t == Tipo.ABERRACION_ARO:
 		return FieraAire.t_salir(Tipo.FIERA_ALARIDO - Tipo.FIERA_ARROLLA)
+	if t == Tipo.CHILLON_SOMBRA:
+		return T_SOMBRA_LLEGA
+	if t == Tipo.CHILLON_CONO:
+		return (60.0 / SpriteLienzo.UNIDADES_POR_CELDA - 8.0) / 6.0 / CONO_FPS
 	if t == Tipo.POLILLA_LLUVIA:
 		return T_LLUVIA_POLILLA
 	if t >= Tipo.POLILLA_ORO:

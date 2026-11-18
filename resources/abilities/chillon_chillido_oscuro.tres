@@ -12,7 +12,7 @@ turns = 2
 ; EL CHILLIDO DE OSCURIDAD (18/11, memoria chillon-mutante): el del Apagaluces y la Piña negra. MAGICO DE OSCURIDAD, en
 ; CIRCULO ALREDEDOR SUYO de radio 70 (su eleccion); pega lo del chillido de hoy (0,36, tools/tabla_chillon) y a cada uno que
 ; pilla le deja A OSCURAS (el farolillo al minimo) 2 turnos, con prob base 95 % (el techo).
-; EFECTOS PROVISIONALES (los oidos en blanco del chillido normal) hasta su lamina de efectos en pixel.
+; EFECTOS EN PIXEL (18/11, chillon_efectos_horno): la SOMBRA por el suelo (121) y, en cada uno, su luz que se apaga y las motas.
 [resource]
 script = ExtResource("1")
 nombre = "Chillido de oscuridad"
@@ -34,3 +34,4 @@ fx_estilo = 17
 fx_anim = &"chillido_oscuro"
 cooldown = 4
 fx_estilo_mapa = 161
+suelo_roto = 121
