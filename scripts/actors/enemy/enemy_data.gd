@@ -1015,6 +1015,9 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		c.racimo_reduce = mdat2.racimo_reduce
 		c.racimo_por_cria = mdat2.racimo_por_cria
 		c.crias_tope = mdat2.crias_tope
+		c.cria_data = mdat2.cria
+		c.cria_vida = mdat2.cria_vida
+		c.cria_vida_de = mdat2.cria_vida_de
 		# (12/11, la Polilla insomne) sus pasivas, a la vista: nace con ellas puestas (ver MutacionData.pasivas_visibles).
 		for id_p in mdat2.pasivas_visibles:
 			var mag_p: float = 1.0 - c.resiste_magia if bool(StatusEffects.def(id_p).get("menos_magia", false)) else 1.0

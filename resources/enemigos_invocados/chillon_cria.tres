@@ -1,0 +1,56 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+[ext_resource type="Resource" path="res://resources/abilities/chillon_chillido_cria.tres" id="3_chi"]
+[ext_resource type="Resource" path="res://resources/abilities/chillon_picado.tres" id="4_pic"]
+
+[sub_resource type="Resource" id="SA_sil"]
+script = ExtResource("2")
+estado = 18
+prob = 0.25
+
+; LA CRIA DE APAGALUCES (18/11, memoria chillon-mutante): la que suelta la Piña negra, una en cada turno suyo (tope 2 vivas).
+; Un apagaluces en pequeño (Chillon3DSprites.CRIA, sprite_variante 'cria'), con sus stats (R22 F26 D30 A50 M32 V20) y los
+; numeros base del chillon. Su VIDA la pone quien la suelta: el 35 % de la de un Apagaluces de ese piso; y Bebe la luz, la
+; suya (CombatEnemigos._soltar_cria). Basico y Picado que NO apagan; apaga solo con SU chillido, de menos alcance (45).
+; Vive FUERA de scenes/actors/enemy para que nunca salga sola por un piso, y no suelta nada (es invocada).
+[resource]
+script = ExtResource("1")
+dureza = 2.0
+familia = 5
+enemy_name = "Cría de apagaluces"
+sprite_variante = &"cria"
+centro_suelo = 0.52
+color = Color(0.12, 0.12, 0.14, 1)
+escala_visual = 1.05
+sprite_gen = &"chillon"
+resistencia = 22
+fuerza = 26
+destreza = 30
+agilidad = 50
+magia = 32
+voluntad = 20
+base_hp = 48.0
+base_attack = 4.8
+base_defense = 2.8
+base_speed = 6.0
+al_golpear = [SubResource("SA_sil")]
+vuela = true
+resist_elemental = {
+6: 1.25,
+4: 1.5,
+5: 0.7
+}
+fx_basico = 17
+habilidades = [ExtResource("3_chi"), ExtResource("4_pic")]
+prob_habilidad = 0.6
+inmune_estados = [33]
+ecolocaliza = true
+alcance = 15.0
+fx_basico_mapa = 162
+anim_basico = &"golpe_5_8"
+metadata/_custom_type_script = "uid://le6jfvhlcbou"
+cuerpo = Rect2(-12.86, -9.75, 27.86, 12.86)
+centro_golpe = Vector2(-0.16, -2.41)
+alcance_marcado = 20.2

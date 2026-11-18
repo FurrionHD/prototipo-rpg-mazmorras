@@ -92,6 +92,7 @@ func _enemy_turn(e: Combatant) -> void:
 	_chupar_enraizados(e)
 	_luz_que_atrae(e)
 	_tentaculos_que_cuelgan(e)
+	_soltar_cria(e)
 	if _pantalla._state == _pantalla.State.FINISHED:
 		return
 	if _pantalla.tactico:
@@ -951,6 +952,51 @@ func costra_rota(e: Combatant) -> void:
 			_pantalla.turno_mapa.sitio_grieta(e, data))
 	_pantalla._update_hp()
 	_pantalla._log_extra("🪲 Del ámbar roto sale %s." % data.enemy_name.to_lower())
+
+
+# EL RACIMO SUELTA UNA CRIA (18/11, la Piña negra, ver MutacionData): al empezar CADA turno suyo, sin gastarlo, una cria
+# (cria_data), si tiene menos de crias_tope suyas vivas. Su vida, cria_vida de la de un mutante cria_vida_de de su enemigo
+# en este piso (el 35 % de un Apagaluces); Bebe la luz, la de la madre. EN EL MAPA la de abajo del racimo se suelta (su
+# gesto 'soltar') y cae a su lado, hacia los tuyos (CombatTactico.lanzar_cria). Al morir se lo cuenta: _pantalla._cria_muerta.
+func _soltar_cria(e: Combatant) -> void:
+	if e.cria_data == null or e.crias_tope <= 0 or not e.is_alive() or _pantalla._espejo:
+		return
+	var vivas: int = 0
+	for c in _pantalla._enemies:
+		if c.is_alive() and c.madre_cria == e:
+			vivas += 1
+	if vivas >= e.crias_tope:
+		return
+	var data: EnemyData = e.cria_data
+	var cria: Combatant = data.crear_combatant(0.5, false, false, &"", _pantalla.altas._piso())
+	var vida: float = vida_de_cria(e, _pantalla.altas._piso())
+	if vida > 0.0:
+		cria.max_hp = vida
+		cria.current_hp = vida
+	cria.madre_cria = e
+	cria.bebe_luz_vel = e.bebe_luz_vel
+	cria.bebe_luz_dano = e.bebe_luz_dano
+	if e.bebe_luz_vel > 0.0 or e.bebe_luz_dano > 0.0:
+		cria.apply_status(StatusEffects.Id.BEBE_LUZ, 999)
+	if _pantalla.altas._meter_enemigo(cria, true) < 0:
+		return   # no cabe
+	_pantalla.efectos.golpe_al_aire(e, &"soltar")
+	if _pantalla.tactico:
+		_pantalla.turno_mapa.lanzar_cria(cria, data, _pantalla.turno_mapa.pos_de(e),
+			_pantalla.turno_mapa.sitio_grieta(e, data))
+	_pantalla._update_hp()
+	_pantalla._log_extra("🍇 Del racimo de %s se suelta una cría." % _pantalla._etq(e))
+
+
+# La vida de la cria que suelta 'e': cria_vida de la de su mutante cria_vida_de (de su mismo enemigo) en ese piso. -1 = la
+# de su ficha. Suelta para la prueba.
+static func vida_de_cria(e: Combatant, piso: int) -> float:
+	if e.cria_vida_de == &"" or e.sprite_res == "":
+		return -1.0
+	var ed: EnemyData = load(e.sprite_res) as EnemyData
+	if ed == null or ed.mutacion_de(e.cria_vida_de) == null:
+		return -1.0
+	return ed.crear_combatant(0.5, true, false, e.cria_vida_de, piso).max_hp * e.cria_vida
 
 
 # CHUPAR A LOS ENRAIZADOS (02/11, el Espantajo, ver MutacionData): a cada uno de los tuyos clavado al suelo le quita

@@ -1221,6 +1221,20 @@ func _furia_rey(muerto: Combatant) -> void:
 			roundi(rey.furia_por_muerte * 100.0 * float(inst.stacks if inst != null else 1))])
 
 
+# EL RACIMO SE DESHACE (18/11, la Piña negra): al caer una de sus crias, a la madre (viva) se le cuenta (crias_muertas) y su
+# Racimo pierde racimo_por_cria (Combatant.racimo_ahora). Solo quien ejecuta la pelea.
+func _cria_muerta(muerto: Combatant) -> void:
+	if muerto == null or _espejo:
+		return
+	var madre: Combatant = muerto.madre_cria
+	muerto.madre_cria = null   # una vez
+	if madre == null or not madre.is_alive() or madre.racimo_reduce <= 0.0:
+		return
+	madre.crias_muertas += 1
+	_log_extra("🍇 Cae una cría de %s: su racimo aguanta menos (%d %% menos de daño)" % [_etq(madre),
+		roundi(madre.racimo_ahora() * 100.0)])
+
+
 # TRIBUTO (07/10, el Rey tirano, ver MutacionData): al caer uno de sus subditos, el rey recoge su cristal y se cura una
 # parte de su vida (5 %). Solo quien ejecuta la pelea.
 func _tributo(muerto: Combatant) -> void:
@@ -3168,6 +3182,7 @@ func _morir_enemigo(e: Combatant) -> void:
 		_florecer(e)
 		_tributo(e)
 		_furia_rey(e)
+		_cria_muerta(e)
 		if hueco >= 0 and hueco < _enemies.size() and _enemies[hueco] != e \
 				and _target_idx == hueco:
 			figuras._seleccionar(hueco)   # el nuevo ocupa el sitio de tu objetivo: que se vea marcado

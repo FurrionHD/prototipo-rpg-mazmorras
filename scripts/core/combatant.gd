@@ -1316,6 +1316,10 @@ var racimo_reduce: float = 0.0
 var racimo_por_cria: float = 0.0
 var crias_tope: int = 0
 var crias_muertas: int = 0
+var cria_data: EnemyData = null       # la cria que suelta (MutacionData.cria)
+var cria_vida: float = 0.35
+var cria_vida_de: StringName = &""
+var madre_cria: Combatant = null      # en la CRIA: quien la solto (para contarle la muerte: crias_muertas)
 var bebe_luz_n: int = 0   # cuantos de sus rivales estan A oscuras ahora (lo escribe Combat._contar_a_oscuras)
 
 # BEBE LA LUZ: lo que multiplica su velocidad y su daño (1 sin nadie a oscuras o sin la pasiva).

@@ -265,3 +265,8 @@ class_name MutacionData
 @export var racimo_reduce: float = 0.0
 @export var racimo_por_cria: float = 0.0
 @export var crias_tope: int = 0
+# LA CRIA que suelta (su ficha, en resources/enemigos_invocados) y su vida: cria_vida de la que tendria un mutante
+# cria_vida_de de su enemigo en ese piso (la Piña: el 35 % de un Apagaluces). Lleva Bebe la luz con los numeros de la madre.
+@export var cria: EnemyData = null
+@export var cria_vida: float = 0.35
+@export var cria_vida_de: StringName = &""

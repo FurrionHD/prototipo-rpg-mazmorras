@@ -3,10 +3,11 @@
 [ext_resource type="Script" path="res://scripts/actors/enemy/mutacion_data.gd" id="1_mut"]
 [ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="2_ab"]
 [ext_resource type="Resource" path="res://resources/abilities/chillon_chillido_oscuro.tres" id="3_chi"]
+[ext_resource type="Resource" path="res://resources/enemigos_invocados/chillon_cria.tres" id="4_cria"]
 
 ; LA PIÑA NEGRA (18/11, memoria chillon-mutante): el RANGO 2 del chillon, desde el Apagaluces. Un racimo de unos veinte
 ; colgando, llevado por seis que baten. Lenta y TANQUE (Racimo: empieza con -40 % de todo el daño y cada cria que le matan le
-; quita un 10 %); suelta una cria en cada turno suyo (paso 4). Basico fisico, Chillido de oscuridad; sin Picado.
+; quita un 10 %); suelta una cria en cada turno suyo (tope 2 vivas, con el 35 % de la vida de un Apagaluces). Basico fisico, Chillido de oscuridad; sin Picado.
 [resource]
 script = ExtResource("1_mut")
 id = &"pina"
@@ -21,4 +22,7 @@ bebe_luz_dano = 0.05
 racimo_reduce = 0.4
 racimo_por_cria = 0.1
 crias_tope = 2
+cria = ExtResource("4_cria")
+cria_vida = 0.35
+cria_vida_de = &"apagaluces"
 pasivas_visibles = Array[int]([70, 71])

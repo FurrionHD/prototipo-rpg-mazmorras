@@ -7,9 +7,15 @@
 #      que mas le quedaba) y de vuelta a la pelea, el estado en los tuyos.
 #   5. LAS PASIVAS: Bebe la luz (+10 % velocidad y +5 % daño por cada uno de los tuyos A oscuras) en el Apagaluces y la Piña,
 #      y el Racimo de la Piña (-40 % de todo el daño, -10 % por cria muerta; tope de 2 crias), a la vista y con su texto.
+#   6. LAS CRIAS: su ficha (un apagaluces en pequeño; solo su chillido, de 45, apaga) y, EN UNA PELEA DE VERDAD, la Piña
+#      suelta una por turno sin pasar de 2, con el 35 % de la vida de un Apagaluces y Bebe la luz; al caer una, su Racimo
+#      baja un 10 %; Bebe la luz cuenta a los tuyos A oscuras.
 extends Node
 
+const CombatEnemigos = preload("res://scripts/ui/combat_enemigos.gd")
+const CHILLON := "res://scenes/actors/enemy/chillon.tres"
 var _mal := 0
+var sala = null
 
 
 func _ok(cond: bool, que: String) -> void:
@@ -19,15 +25,31 @@ func _ok(cond: bool, que: String) -> void:
 
 
 func _ready() -> void:
-	var ed: EnemyData = load("res://scenes/actors/enemy/chillon.tres")
+	call_deferred("_empezar")
+
+
+func _empezar() -> void:
+	reparent(get_tree().root)
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	var hueco := Node.new()
+	get_tree().root.add_child(hueco)
+	get_tree().current_scene = hueco
+	var ed: EnemyData = load(CHILLON)
 	_ficha(ed)
 	_chillido()
 	_sprites(ed)
 	_a_oscuras()
 	_pasivas(ed)
+	_ficha_cria()
+	await _pelea()
 	print("")
 	print("FIN: TODO BIEN" if _mal == 0 else "FIN: %d MAL" % _mal)
 	get_tree().quit(1 if _mal > 0 else 0)
+
+
+func _esperar(n: int) -> void:
+	for _i in n:
+		await get_tree().process_frame
 
 
 func _suma(m: Dictionary) -> int:
@@ -176,3 +198,91 @@ func _pasivas(ed: EnemyData) -> void:
 	_ok(tb.contains("aumenta en un 10 %") and tb.contains("aumenta en un 5 %"), "el texto de Bebe la luz con sus numeros")
 	_ok(tr.contains("un 40 % menos") and tr.contains("en un 10 %") and tr.contains("con 4 derrotadas") and tr.contains("2 crías"),
 		"el texto del Racimo con sus numeros")
+
+
+func _ficha_cria() -> void:
+	print("=== LA CRIA ===")
+	var cr: EnemyData = load("res://resources/enemigos_invocados/chillon_cria.tres")
+	_ok(cr != null and cr.sprite_variante == &"cria" and cr.mutaciones.is_empty(), "su ficha: la variante 'cria', sin mutaciones")
+	if cr == null:
+		return
+	_ok([cr.resistencia, cr.fuerza, cr.destreza, cr.agilidad, cr.magia, cr.voluntad] == [22, 26, 30, 50, 32, 20],
+		"con las stats del Apagaluces")
+	var sf: SpriteFrames = SpritesEnemigo.frames_de(cr, 0.5, false, &"")
+	_ok(sf != null and sf.has_animation(&"idle_0") and sf.has_animation(&"chillido_oscuro_0"), "con su sprite (el apagaluces en pequeño)")
+	var chi: AbilityData = null
+	for a in cr.habilidades:
+		if a.nombre == "Chillido de oscuridad":
+			chi = a
+	_ok(chi != null and is_equal_approx(chi.forma_radio, 45.0) and chi.efectos.size() == 1
+		and chi.efectos[0].estado == StatusEffects.Id.A_OSCURAS, "su Chillido de oscuridad, de 45, deja A oscuras")
+	var apagan_otros: bool = cr.al_golpear.any(func(s): return s.estado == StatusEffects.Id.A_OSCURAS)
+	for a in cr.habilidades:
+		if a != chi and a.efectos.any(func(s): return s.estado == StatusEffects.Id.A_OSCURAS):
+			apagan_otros = true
+	_ok(not apagan_otros and cr.habilidades.size() == 2, "su basico y su Picado no apagan")
+	var pi: Combatant = (load(CHILLON) as EnemyData).crear_combatant(0.5, true, false, &"pina", 10)
+	var ap: Combatant = (load(CHILLON) as EnemyData).crear_combatant(0.5, true, false, &"apagaluces", 10)
+	var v: float = CombatEnemigos.vida_de_cria(pi, 10)
+	_ok(is_equal_approx(v, ap.max_hp * 0.35), "su vida: el 35 %% de la de un Apagaluces (%.1f de %.1f, piso 10)" % [v, ap.max_hp])
+
+
+func _pelea() -> void:
+	print("=== EN UNA PELEA ===")
+	sala = preload("res://tools/prueba_sala_propia.gd").new()
+	add_child(sala)
+	if not await sala.arrancar("prueba_mut_chillon", Game.PISO_ARENA):
+		_ok(false, "arranca la sala")
+		return
+	sala.poner(CHILLON, Vector2(150, 0), {"mutacion": "pina"})
+	await _esperar(20)
+	if (await sala.pelear(get_tree().get_nodes_in_group("enemy"), false)) == null:
+		_ok(false, "se abre la pelea")
+		return
+	await _esperar(5)
+	var combat: Node = null
+	for n in get_tree().root.get_children() + sala.capas():
+		if n is CanvasLayer:
+			for h in n.get_children():
+				if h.get("tactico") != null:
+					combat = h
+	if combat == null:
+		_ok(false, "encuentro la pantalla de combate")
+		return
+	var pi: Combatant = null
+	for e in combat._enemies:
+		if e.mutacion == &"pina":
+			pi = e
+	_ok(pi != null, "la Piña negra en la pelea")
+	if pi == null:
+		return
+	for a in combat._aliados:
+		a.max_hp = 100000.0
+		a.current_hp = 100000.0
+	var crias := func() -> Array:
+		return combat._enemies.filter(func(c): return c.is_alive() and c.madre_cria == pi)
+	for _k in 3:
+		combat.enemigos._soltar_cria(pi)
+	var cs: Array = crias.call()
+	_ok(cs.size() == 2, "suelta una por llamada, sin pasar de 2 vivas (%d)" % cs.size())
+	if cs.is_empty():
+		return
+	var c0: Combatant = cs[0]
+	var vida: float = CombatEnemigos.vida_de_cria(pi, combat.altas._piso())
+	_ok(is_equal_approx(c0.max_hp, vida) and is_equal_approx(c0.current_hp, vida), "con el 35 %% de la vida de un Apagaluces (%.1f)" % c0.max_hp)
+	_ok(c0.has_status(StatusEffects.Id.BEBE_LUZ) and is_equal_approx(c0.bebe_luz_vel, 0.1), "y con Bebe la luz")
+	_ok(c0.nombre.contains("Cría"), "se llama Cría de apagaluces (%s)" % c0.nombre)
+	# BEBE LA LUZ en la pelea: uno de los tuyos A oscuras
+	var yo: Combatant = combat._aliados[0]
+	yo.apply_status(StatusEffects.Id.A_OSCURAS, 2)
+	combat._contar_a_oscuras()
+	_ok(pi.bebe_luz_n == 1 and c0.bebe_luz_n == 1, "Bebe la luz cuenta a los tuyos A oscuras (Piña %d, cria %d)" % [pi.bebe_luz_n, c0.bebe_luz_n])
+	# CAE UNA: el Racimo baja
+	_ok(is_equal_approx(pi.racimo_ahora(), 0.4), "el Racimo entero mientras viven (40 %)")
+	c0.current_hp = 0.0
+	combat._morir_enemigo(c0)
+	_ok(pi.crias_muertas == 1 and is_equal_approx(pi.racimo_ahora(), 0.3), "cae una cria: el Racimo baja al 30 %% (%.2f)" % pi.racimo_ahora())
+	combat._morir_enemigo(c0)
+	_ok(pi.crias_muertas == 1, "la misma cria no cuenta dos veces")
+	combat.enemigos._soltar_cria(pi)
+	_ok(crias.call().size() == 2, "con una muerta, vuelve a soltar hasta 2")
