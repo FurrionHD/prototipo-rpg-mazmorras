@@ -174,6 +174,18 @@ func jaula_faraday(c: Combatant, spell: SpellData) -> float:
 	return nuevo
 
 
+# EL SET BOCA DE LAS SIMAS (18/11, la chupasimas): al LANZAR un hechizo, quien lleva el set recupera runa_boca_mana de lo
+# que le ha costado (el coste que paga de verdad, con la Eficiencia), sin pasar de su tope por turno (Combatant.boca_mana).
+func boca_simas_hechizo(c: Combatant, coste: float) -> float:
+	if c == null:
+		return 0.0
+	var r: float = c.boca_mana(coste)
+	if r > 0.0:
+		_pantalla._update_hp()
+		_pantalla._log_extra("💧 La Boca de las simas le devuelve %s de maná a %s." % [_pantalla._n(r), c.nombre])
+	return r
+
+
 # Coste de maná EFECTIVO tras la mejora Eficiencia del equipo (KAN-95). FLOAT (sin
 # redondeo hacia arriba: así CUALQUIER % de Eficiencia se nota). Mínimo 0.5.
 func _coste_efectivo(spell: SpellData) -> float:
@@ -614,6 +626,8 @@ func _disparar_hechizo(aliado_nuevo: Combatant = null) -> void:
 		_pantalla._player.spend_mana(coste)
 	# (13/11) EL SET JAULA DE FARADAY: lanzar (no recitar, no fallar) da el escudo.
 	jaula_faraday(_pantalla._player, spell)
+	# (18/11) EL SET BOCA DE LAS SIMAS: lanzar devuelve una parte de lo pagado (con su tope por turno).
+	boca_simas_hechizo(_pantalla._player, coste)
 	# Objetivo PRINCIPAL, capturado una vez, como en el resto de acciones (ver _usar_habilidad).
 	# El area y los rebotes salen de el; y el sigue siendo el que cuenta para la Excelia y el DPS.
 	var obj: Combatant = _pantalla._objetivo()

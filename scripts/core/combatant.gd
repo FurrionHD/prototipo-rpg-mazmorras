@@ -684,6 +684,15 @@ var runa_agua_rota: bool = false        # se acaba de romper (quien lo rompio se
 # (13/11) set JAULA DE FARADAY: al LANZAR un hechizo, escudo = su coste de maná base x esto, en la MISMA capa que el de
 # agua (las dos son de armadura: nunca juntas). Lo propio de la Marea (parar Lento/Frio, mojar al que lo rompe) no va aqui.
 var runa_jaula: float = 0.0
+# (18/11) set BOCA DE LAS SIMAS (la chupasimas): sus golpes FISICOS le curan runa_boca_vida del daño hecho y sus hechizos le
+# devuelven runa_boca_mana de su coste de maná, con un TOPE FIJO por turno suyo (no un %: al subir de nivel se queda corto
+# y empuja a buscar algo mejor). Lo ya restaurado este turno, en boca_*_turno (se vacia al empezar su turno).
+var runa_boca_vida: float = 0.0
+var runa_boca_mana: float = 0.0
+var runa_boca_tope_vida: float = 0.0
+var runa_boca_tope_mana: float = 0.0
+var boca_vida_turno: float = 0.0
+var boca_mana_turno: float = 0.0
 var runa_corona_aliados: float = 0.0    # set Corona: -% a los aliados pegados a ti...
 var runa_corona_umbral: float = 0.0     # ...y si uno baja de esta vida, provocas
 var runa_corona_turnos: int = 0
@@ -1462,6 +1471,30 @@ func tick_cooldowns() -> void:
 
 
 # --- Mana (KAN-56) ---
+# EL SET BOCA DE LAS SIMAS: lo que le restaura un golpe fisico de 'dmg' de daño (vida) o un hechizo de 'coste' (maná), sin
+# pasar del tope de este turno. Devuelve lo restaurado de verdad (con la vida llena, nada; y nada cuenta para el tope).
+func boca_vida(dmg: float) -> float:
+	if runa_boca_vida <= 0.0 or dmg <= 0.0 or not is_alive():
+		return 0.0
+	var queda: float = runa_boca_tope_vida - boca_vida_turno
+	if queda <= 0.0:
+		return 0.0
+	var antes: float = current_hp
+	heal(minf(dmg * runa_boca_vida, queda))
+	current_hp = minf(current_hp, antes + queda)   # (la cura recibida lo puede inflar: el tope manda)
+	boca_vida_turno += current_hp - antes
+	return current_hp - antes
+
+
+func boca_mana(coste: float) -> float:
+	if runa_boca_mana <= 0.0 or coste <= 0.0 or not is_alive():
+		return 0.0
+	var antes: float = current_mp
+	regen_mana(minf(coste * runa_boca_mana, maxf(runa_boca_tope_mana - boca_mana_turno, 0.0)))
+	boca_mana_turno += current_mp - antes
+	return current_mp - antes
+
+
 func spend_mana(amount: float) -> void:
 	current_mp = maxf(0.0, current_mp - amount)
 
@@ -1804,6 +1837,9 @@ func tick_statuses() -> Dictionary:
 		quitar_estado(StatusEffects.Id.UNA_CABEZA)
 	if runa_mentes_espera > 0:
 		runa_mentes_espera -= 1
+	# (18/11) el tope del set Boca de las simas es POR TURNO suyo
+	boca_vida_turno = 0.0
+	boca_mana_turno = 0.0
 	var antes_de_tick: int = statuses.size()
 	var total_dmg: float = 0.0
 	var total_heal: float = 0.0

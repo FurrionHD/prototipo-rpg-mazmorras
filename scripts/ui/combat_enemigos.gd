@@ -1224,6 +1224,13 @@ static func _rayo_mult(e: Combatant, ab: AbilityData) -> float:
 	return minf(AbilityData.RAYO_BASE + AbilityData.RAYO_POR_MANA * e.mana_bebido, AbilityData.RAYO_TOPE)
 
 
+# LO CARGADO QUE VA SE VE (18/11): el peso del golpe del rayo lleva su carga (AbilityData.peso_rayo).
+static func peso_rayo(e: Combatant, ab: AbilityData) -> float:
+	if ab == null or not ab.rayo_mana:
+		return 1.0
+	return AbilityData.peso_rayo(e.mana_bebido, e.rayo_tope)
+
+
 # ¿Suelta el rayo este turno? Lleno, si; con rayo_min o mas, con rayo_prob; sin carga, no.
 static func rayo_listo(e: Combatant) -> bool:
 	if e.mana_bebido >= e.rayo_tope - 0.001:
@@ -2025,7 +2032,8 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 			Game.contar_esquiva(pj_t)   # contador oculto de Reflejos
 			esquivados += 1
 			rastro.append({"t": "falla", "c": t})
-			_pantalla.efectos._fx_golpe(e, t, 0.0, false, true, e.elemento_ataque, estilo_g, 1.0, false, sfx_ab, gesto_ab, anim_ab)
+			_pantalla.efectos._fx_golpe(e, t, 0.0, false, true, e.elemento_ataque, estilo_g, peso_rayo(e, ab), false, sfx_ab, gesto_ab,
+				anim_ab)
 			if t.en_guardia and permitir_contra and contra == "" and _devuelve_en_guardia(t, e):
 				contra = _contraatacar(e, t)
 				if not e.is_alive():
@@ -2061,7 +2069,7 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 				var cur: float = dmg * ab.robo_vida
 				e.heal(cur)
 				robado += cur
-			_pantalla.efectos._fx_golpe(e, t, dmg, result.crit, false, e.elemento_ataque, estilo_g, 1.0, false,
+			_pantalla.efectos._fx_golpe(e, t, dmg, result.crit, false, e.elemento_ataque, estilo_g, peso_rayo(e, ab), false,
 				sfx_ab, gesto_ab, anim_ab, 0, float(result.get("mult_elem", 1.0)))
 			# Igual que en el golpe basico: si el manto ha recortado el daño, se cobra la carga.
 			# El tope por accion hace que una habilidad de cinco golpes cueste una, no cinco.
@@ -2536,6 +2544,7 @@ func _contraatacar(atacante: Combatant, quien: Combatant, mult: float = -1.0,
 	if not _pantalla._enemies.has(quien):
 		_pantalla._apuntar_dano(atacante, dmg, quien)   # contador oculto de Cazador
 		_pantalla._dps_add("Contraataque", dmg)
+		_pantalla.boca_simas_golpe(quien, dmg)
 		_pantalla._ganar_mana_golpe()   # el riposte es un golpe de arma que conecta: repone maná como los demas
 		# Excelia: el contraataque golpea, entrena como un ataque normal (Fuerza, o Destreza si es de distancia).
 		var pj_contra: PersonajeData = Game.pj_de_combatant(quien)

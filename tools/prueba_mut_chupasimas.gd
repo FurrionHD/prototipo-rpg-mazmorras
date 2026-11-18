@@ -6,6 +6,7 @@
 #   3. BEBER MANA y el RAYO: lo bebido sale del mana de quien muerde y carga el rayo (con tope); el rayo pega segun la carga.
 #   4. La SED DE MANA: va a por el mago (tres de 20 y uno de 52: x1,86 y x0,71).
 #   5. Los SPRITES: cada mutante el suyo, y la variante con costra en el Coagulo y la Madre.
+#   6. El set BOCA DE LAS SIMAS: su runa, su glifo, su texto y lo que cura / devuelve con su tope por turno.
 extends Node
 
 const CE := preload("res://scripts/ui/combat_enemigos.gd")
@@ -28,6 +29,7 @@ func _ready() -> void:
 	_sed()
 	_sprites(ed)
 	_pasivas(ed)
+	_set_boca(ed)
 	print("")
 	print("FIN: TODO BIEN" if _mal == 0 else "FIN: %d MAL" % _mal)
 	get_tree().quit(1 if _mal > 0 else 0)
@@ -182,3 +184,44 @@ func _pasivas(ed: EnemyData) -> void:
 	print("     ficha: %s" % txt_s.replace("\n", " | "))
 	_ok(txt_s.contains("Maná máximo") and txt_s.contains("la mitad") and txt_s.contains("el doble"),
 		"el texto de la Sed de mana")
+
+
+# EL SET BOCA DE LAS SIMAS (18/11): de arma, hibrido. Golpe fisico: 5 % del daño en vida; hechizo: 15 % de su coste en mana;
+# tope fijo por turno del portador (8 de vida, 3 de mana).
+func _set_boca(ed: EnemyData) -> void:
+	print("=== EL SET BOCA DE LAS SIMAS ===")
+	var s: RunaSetData = null
+	for x in Runas.sets():
+		if x.id == &"chupasimas":
+			s = x
+	_ok(s != null and s.nombre == "Boca de las simas" and s.tipo == RunaSetData.Tipo.ARMA, "el set existe y es de ARMA")
+	if s == null:
+		return
+	_ok(ed.drop_runa != null and ed.drop_runa == s.runa, "la chupasimas suelta su runa")
+	_ok(CeldaObjeto.GLIFO_SET.has(&"chupasimas") and CeldaObjeto.tonos_glifo(&"chupasimas", Color.RED)["=" ] == Color8(238, 228, 206),
+		"el glifo de la boca de anillo, con sus tonos")
+	var txt: String = Runas.efecto_txt(s)
+	print("     texto: %s" % txt)
+	_ok(txt.contains("5 % del daño que infligen") and txt.contains("15 % de su coste de maná")
+		and txt.contains("8 de vida y 3 de maná por turno"), "el texto, con los numeros del dato")
+	var yo := Combatant.new("Yo", 1, Abilities.new(), 100.0, 5.0, 5.0, 5.0)
+	yo.max_mp = 40.0
+	yo.current_mp = 10.0
+	yo.current_hp = 50.0
+	yo.runa_boca_vida = float(s.params["vida"])
+	yo.runa_boca_mana = float(s.params["mana"])
+	yo.runa_boca_tope_vida = float(s.params["tope_vida"])
+	yo.runa_boca_tope_mana = float(s.params["tope_mana"])
+	_ok(is_equal_approx(yo.boca_vida(60.0), 3.0) and is_equal_approx(yo.current_hp, 53.0), "un golpe de 60: +3 de vida")
+	_ok(is_equal_approx(yo.boca_vida(200.0), 5.0), "el siguiente de 200 (daria 10) se queda en lo que queda del tope (5)")
+	_ok(is_zero_approx(yo.boca_vida(100.0)), "con el tope gastado, nada")
+	_ok(is_equal_approx(yo.boca_mana(12.0), 1.8) and is_equal_approx(yo.current_mp, 11.8), "un hechizo de 12: +1,8 de mana")
+	_ok(is_equal_approx(yo.boca_mana(12.0), 1.2), "el segundo, hasta el tope de 3")
+	yo.tick_statuses()
+	_ok(is_equal_approx(yo.boca_vida(60.0), 3.0) and is_equal_approx(yo.boca_mana(10.0), 1.5), "en su turno siguiente, otra vez")
+	yo.current_hp = yo.max_hp
+	var vb: float = yo.boca_vida_turno
+	_ok(is_zero_approx(yo.boca_vida(60.0)) and is_equal_approx(yo.boca_vida_turno, vb), "con la vida llena no cura ni gasta tope")
+	var otro := Combatant.new("Otro", 1, Abilities.new(), 100.0, 5.0, 5.0, 5.0)
+	otro.current_hp = 50.0
+	_ok(is_zero_approx(otro.boca_vida(60.0)), "sin el set, nada")

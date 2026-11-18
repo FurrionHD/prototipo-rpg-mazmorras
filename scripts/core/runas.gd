@@ -133,7 +133,8 @@ const RUTAS_SETS := ["res://resources/runas/set_slime.tres", "res://resources/ru
 	"res://resources/runas/set_trent.tres", "res://resources/runas/set_arana.tres",
 	"res://resources/runas/set_escarabajo.tres", "res://resources/runas/set_ciempies.tres",
 	"res://resources/runas/set_segadora.tres", "res://resources/runas/set_miconido.tres",
-	"res://resources/runas/set_polilla.tres", "res://resources/runas/set_aberracion.tres"]
+	"res://resources/runas/set_polilla.tres", "res://resources/runas/set_aberracion.tres",
+	"res://resources/runas/set_chupasimas.tres"]
 static var _sets: Array = []
 
 static func sets() -> Array:
@@ -397,6 +398,10 @@ static func efecto_txt(s: RunaSetData) -> String:
 		&"concentracion":
 			return "Cada vez que el portador recita bien una frase de un hechizo, el daño mágico que inflige aumenta en un %s, hasta un máximo de %d acumulaciones. Las acumulaciones se mantienen de un hechizo al siguiente hasta que acaba el combate. Si el portador recita mal una frase, pierde todas las acumulaciones." % [
 				_pct(p, "por_frase", 0.04), int(p.get("max", 5))]
+		&"boca_simas":
+			return "Los golpes físicos del portador le restauran vida equivalente al %s del daño que infligen. Los hechizos del portador le restauran maná equivalente al %s de su coste de maná. Como máximo, restaura %s de vida y %s de maná por turno del portador." % [
+				_pct(p, "vida", 0.05), _pct(p, "mana", 0.15), num_txt(float(p.get("tope_vida", 8.0))),
+				num_txt(float(p.get("tope_mana", 3.0)))]
 		&"jaula_faraday":
 			return "Cada vez que el portador lanza un hechizo, obtiene un escudo que absorbe daño equivalente al %s del coste de maná base de ese hechizo (no absorbe el daño con el tiempo). Si el portador ya tiene un escudo mayor, se queda con el mayor. El escudo dura hasta que se rompe o hasta que acaba el combate. Este efecto no se puede acumular." % [
 				_pct(p, "escudo", 2.0)]
@@ -559,6 +564,11 @@ static func aplicar(c: Combatant, p: PersonajeData) -> void:
 	var conc: Dictionary = efecto_activo(p, &"concentracion")
 	c.runa_concentracion_por = float(conc.get("por_frase", 0.0))
 	c.runa_concentracion_max = int(conc.get("max", 0))
+	var boca: Dictionary = efecto_activo(p, &"boca_simas")
+	c.runa_boca_vida = float(boca.get("vida", 0.0))
+	c.runa_boca_mana = float(boca.get("mana", 0.0))
+	c.runa_boca_tope_vida = float(boca.get("tope_vida", 0.0))
+	c.runa_boca_tope_mana = float(boca.get("tope_mana", 0.0))
 	var filo: Dictionary = efecto_activo(p, &"filo_aire")
 	c.runa_filo_dano = float(filo.get("dano", 0.0))
 	c.runa_filo_mas = float(filo.get("mas", 0.0))

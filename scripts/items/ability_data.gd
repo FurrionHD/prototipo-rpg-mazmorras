@@ -65,6 +65,18 @@ class_name AbilityData
 const RAYO_BASE := 0.5
 const RAYO_POR_MANA := 0.12
 const RAYO_TOPE := 2.0
+# LO CARGADO QUE VA SE VE (18/11): el haz engorda con la carga (0..1 de su tope). Viaja en el PESO del golpe, que ya va en
+# el paquete de impactos (0..1,98 en pasos de 1/64): el espejo pinta el mismo grosor sin mandar nada mas. El peso de
+# siempre es 1; el del rayo, PESO_RAYO_MIN + la carga (CombatTactico._chupasimas_pixel lo deshace con carga_de_peso).
+const PESO_RAYO_MIN := 0.2
+
+
+static func peso_rayo(bebido: float, tope: float) -> float:
+	return PESO_RAYO_MIN + (clampf(bebido / tope, 0.0, 1.0) if tope > 0.0 else 0.0)
+
+
+static func carga_de_peso(peso: float) -> float:
+	return clampf(peso - PESO_RAYO_MIN, 0.0, 1.0)
 # SE APARTA (el Sorbo de la Vidriada): acabados sus golpes se aleja esto de su victima. 0 = se queda.
 @export var se_aparta: float = 0.0
 

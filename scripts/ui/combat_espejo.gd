@@ -140,6 +140,12 @@ func _maniqui_de_fila(d: Dictionary) -> Combatant:
 	c.mutante = bool(d.get("mut", false))
 	c.mutacion = StringName(d.get("mutid", ""))   # CUAL (06/10): su sprite y su nombre
 	c.grado_mut = int(d.get("mutg", 1 if c.mutante else 0))
+	# (18/11) LA COSTRA DE SANGRE (Coagulo y Madre de las simas): no viaja, sale de su ficha como la de la sala. La pide lo
+	# que se pinta de ella (la costra que se cuaja al chupar, el chorreo con el agua: CombatTactico._chupasimas_*).
+	if c.mutacion != &"":
+		var m_f: MutacionData = _mutacion_de_ficha(c)
+		if m_f != null:
+			c.costra_sangre = m_f.costra_sangre
 	# LA FICHA DE ESCAPARATE del aliado (aspecto + equipo). No es un PersonajeData de verdad -- no
 	# tiene stats ni inventario --, solo lo justo para que JugadorSprites le monte las capas. Se
 	# cuelga del maniqui porque Game.pj_de_combatant no lo puede encontrar: en un espejo
@@ -1759,9 +1765,14 @@ func _volcar_estados(c: Combatant, estados: Array) -> void:
 
 # Lo que resiste la magia un maniqui (no trae stats): el de su mutacion en su ficha, o el suyo.
 func _resiste_magia_de(c: Combatant) -> float:
-	var ed: EnemyData = load(c.sprite_res) as EnemyData if c.sprite_res != "" and ResourceLoader.exists(c.sprite_res) else null
-	var m: MutacionData = ed.mutacion_de(c.mutacion) if ed != null else null
+	var m: MutacionData = _mutacion_de_ficha(c)
 	return m.resiste_magia if m != null else c.resiste_magia
+
+
+# La mutacion de un maniqui, de su ficha (su .tres viaja en el roster).
+func _mutacion_de_ficha(c: Combatant) -> MutacionData:
+	var ed: EnemyData = load(c.sprite_res) as EnemyData if c.sprite_res != "" and ResourceLoader.exists(c.sprite_res) else null
+	return ed.mutacion_de(c.mutacion) if ed != null else null
 
 
 # ESPEJO: los que han caido en la instantanea se apagan aqui igual que en la pantalla que ejecuta.
