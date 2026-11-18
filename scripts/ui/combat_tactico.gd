@@ -3553,7 +3553,7 @@ func _decidir_de_lejos(e: Combatant) -> bool:
 		return false
 	var buenas: Array = []
 	for ab in e.habilidades:
-		if e.ability_ready(ab) and ab.invoca_cantidad <= 0 and usa_huella(ab) \
+		if e.ability_ready(ab) and ab.invoca_cantidad <= 0 and usa_huella(ab) and not ab.rayo_mana \
 				and int(mejor_apunte(e, ab)["n"]) > 0:
 			buenas.append(ab)
 	if buenas.is_empty():
@@ -6153,6 +6153,149 @@ func _polilla_pixel(arena: Node, estilo: int, a: Combatant, v: Combatant, vuelo:
 					-1.0, ritmo)
 
 
+# (18/11) LA CHUPASIMAS Y SUS MUTANTES, en pixel y sin rejilla (los de su lamina aprobada,
+# tools/sprites_sdf/chupasimas_efectos_horno.py):
+#   VENTOSA  el basico, el Adherirse y el Sorbo: la ventosa llega abierta y se cierra en la cara (de dientes; en azul la de
+#            quien bebe mana: la Vidriada y lo magico de la Madre), y si bebe, gotas AZULES de la victima a su boca
+#   CHUPADA  cada chupada del Drenaje: gotas de sangre (la normal y el Coagulo), de mana (la Vidriada) o de las dos (la
+#            Madre); a quien tiene la Costra de sangre, ademas, la costra SE LE CUAJA por el lomo
+#   ABERRACION_RAYO (el estilo del Rayo del ojo, que es el suyo de mapa): el RAYO DE MANA, un haz recto de la boca al final
+#            de su linea con el GROSOR DE LA CARGA, que viaja en el peso del golpe (CombatEnemigos._peso_rayo)
+# Lo de la costra que no sale de un golpe suyo (romperse, chorrear con el agua) va en _tick_costra y en _chupasimas_recibe.
+const _ESTILOS_CHUPASIMAS := [CombatFX.Estilo.SIMA_VENTOSA, CombatFX.Estilo.SIMA_CHUPADA, CombatFX.Estilo.ABERRACION_RAYO]
+const _RAYO_MANA := [Color8(40, 100, 220), Color8(84, 168, 255), Color8(226, 242, 255)]
+const _RAYO_MANA_B := Color8(16, 40, 110)
+const _RAYO_MANA_AB := preload("res://resources/abilities/chupasimas_rayo_mana.tres")
+const _GOTA_FPS := 12.0          # el ritmo de su lamina: una gota cada 0,9 marcos, 4 marcos de vuelo, 9 celdas de arco
+const _GOTA_CADA := 0.9
+const _GOTA_VUELO := 4.0
+const _GOTA_ARCO := 9.0
+const _VENTOSA_CIERRA := 2.0     # el marco en que la ventosa se cierra (el que tiene que caer con el golpe)
+const _CUAJA_SALE := 2.0         # la costra se empieza a cuajar dos marcos despues de la chupada (a 11 fps)
+const _CUAJA_LISTA := 10.0       # y en el marco 10 ya esta marron: ahi se le pone la hoja con la costra
+const CELDA_PX: float = SpriteLienzo.UNIDADES_POR_CELDA   # una celda de sus laminas, en el mundo
+
+
+# ¿Es una chupasimas (la normal o sus mutantes)? Por su ficha: la garrapata tambien usa la ventosa y la chupada.
+func _de_las_chupasimas(cuerpo: Node2D) -> bool:
+	if cuerpo == null:
+		return false
+	var ed = cuerpo.get("data")
+	return ed is EnemyData and (ed as EnemyData).sprite_gen == &"chupasimas"
+
+
+# Cual de las dos con costra es (sus hojas de cuajar/chorrear/postillas se midieron en su cuerpo).
+static func _costra_de(c: Combatant) -> String:
+	return "madre" if c.mutacion == &"madre" else "coagulo"
+
+
+# SU BOCA: el borde de su dibujo hacia 'hacia' (lo de su lamina: chupasimas_efectos_pixel.frente).
+func _boca_chupasimas(a: Combatant, hacia: Vector2) -> Vector2:
+	var caja: Rect2 = bulto_de(a)
+	var d: Vector2 = hacia.normalized() if hacia.length_squared() > 0.01 else Vector2.DOWN
+	return caja.get_center() + Vector2(d.x * caja.size.x, d.y * caja.size.y) * 0.45 - Vector2(0.0, 2.0 * CELDA_PX)
+
+
+# Las gotas de 'desde' (la victima) a 'hasta' (su boca), una tras otra, cada una en su arco. 'pal' = sangre | mana.
+func _gotas_chupasimas(arena: Node, desde: Vector2, hasta: Vector2, pal: String, n: int, espera: float, ritmo: float,
+		semilla: int) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = semilla
+	var vuelo: float = _GOTA_VUELO / _GOTA_FPS
+	for i in n:
+		var sale: float = espera + (float(i) * _GOTA_CADA + rng.randf_range(0.0, 0.4)) / _GOTA_FPS
+		var o := Vector2(rng.randf_range(-4.0, 4.0), rng.randf_range(-3.0, 3.0)) * CELDA_PX
+		var g: EfectoPixel = EfectoPixel.lanzar(arena, "chupasimas", "gota_entra_" + pal, hasta, 0, null, sale + vuelo, -1.0,
+			ritmo)
+		if g != null:
+			g.poner_vuelo("chupasimas", "gota_" + pal, desde + o, hasta, _GOTA_ARCO * CELDA_PX, vuelo)
+
+
+# ¿Bebe mana este golpe suyo? Todo lo de la Vidriada; de la Madre, todo menos el Adherirse (fisico). Sale de su mutacion y
+# de la animacion del golpe, que viajan: se ve igual en el espejo.
+static func _bebe_mana_vis(a: Combatant, anim: StringName) -> bool:
+	return a.mutacion == &"vidriada" or (a.mutacion == &"madre" and anim != &"adherirse")
+
+
+func _chupasimas_pixel(arena: Node, ev: Dictionary, estilo: int, a: Combatant, v: Combatant, vuelo: float,
+		ritmo: float) -> void:
+	var cu_a: Node2D = cuerpo_de(a)
+	var pies_v: Vector2 = pies_de(v)
+	var espera: float = maxf(vuelo, 0.0)
+	var semilla: int = int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)
+	var hacia: Vector2 = pies_v - pies_de(a)
+	var boca: Vector2 = _boca_chupasimas(a, hacia)
+	# de donde salen las gotas: la cabeza de quien recibe (la de su lamina: 16 celdas sobre los pies)
+	var cabeza: Vector2 = pies_v - Vector2(0.0, 16.0 * CELDA_PX)
+	match estilo:
+		CombatFX.Estilo.SIMA_VENTOSA:
+			var mana: bool = _bebe_mana_vis(a, StringName(ev.get("anim", &"")))
+			EfectoPixel.lanzar(arena, "chupasimas", "ventosa_mana" if mana else "ventosa_dientes", pies_v, 0, null,
+				maxf(espera - _VENTOSA_CIERRA / _GOTA_FPS, 0.0), -1.0, ritmo)
+			if mana:
+				_gotas_chupasimas(arena, cabeza, boca, "mana", 4, espera, ritmo, semilla)
+		CombatFX.Estilo.SIMA_CHUPADA:
+			var pals: Array = ["sangre"]
+			if a.mutacion == &"vidriada":
+				pals = ["mana"]
+			elif a.mutacion == &"madre":
+				pals = ["sangre", "mana"]
+			for j in pals.size():
+				_gotas_chupasimas(arena, cabeza + Vector2(0.0, 3.0 * CELDA_PX), boca, pals[j], 6,
+					espera + float(j) * 0.6 / _GOTA_FPS, ritmo, semilla + j * 7)
+			# LA COSTRA SE CUAJA (una vez por chupada aunque el Drenaje toque a varios): gotas rojas que le suben por el lomo
+			# y se oscurecen. La hoja con la costra se le pone cuando ya esta marron (_tick_costra mira 'cuaja_hasta').
+			var f_now: int = Engine.get_process_frames()
+			if a.costra_sangre > 0.0 and cu_a != null and int(cu_a.get_meta(&"cuaja_visto", -1)) != f_now:
+				cu_a.set_meta(&"cuaja_visto", f_now)
+				var sale: float = espera + _CUAJA_SALE / 11.0
+				EfectoPixel.lanzar(arena, "chupasimas", "cuaja_" + _costra_de(a), EfectoPixel.centro_sprite(cu_a, pies_de(a)),
+					SpriteLienzo.dir8(_mirada_de(cu_a)), cu_a, sale, -1.0, ritmo)
+				cu_a.set_meta(&"cuaja_hasta", Time.get_ticks_msec()
+					+ int((sale + _CUAJA_LISTA / 11.0) * 1000.0 / maxf(ritmo, 0.05)))
+		CombatFX.Estilo.ABERRACION_RAYO:
+			# UN HAZ POR RAYO aunque la linea pille a varios
+			var f_r: int = Engine.get_process_frames()
+			if cu_a == null or int(cu_a.get_meta(&"rayo_visto", -1)) == f_r:
+				return
+			cu_a.set_meta(&"rayo_visto", f_r)
+			var carga: float = AbilityData.carga_de_peso(float(ev.get("peso", 1.0)))
+			var dir_r: Vector2 = hacia.normalized() if hacia.length_squared() > 1.0 else _mirada_de(cu_a).normalized()
+			var hasta: Vector2 = pies_de(a) + dir_r * _RAYO_MANA_AB.forma_radio
+			hasta.y -= 16.0 * CELDA_PX * 0.6   # a la altura del pecho, como sale de su boca
+			var antes: float = 2.0 / 11.0      # los dos marcos en que se le junta el mana en la boca
+			var t0: float = maxf(espera - antes, 0.0)
+			EfectoPixel.lanzar(arena, "chupasimas", "rayo_boca_%d" % clampi(int(round(carga * 2.0)), 0, 2), boca, 0, null, t0,
+				-1.0, ritmo)
+			RayoPixel.lanzar(arena, boca, hasta, 1.2 + 3.6 * carga, PackedColorArray(_RAYO_MANA), 0.05, 0.27, 0.36,
+				t0 + antes, ritmo, _RAYO_MANA_B)
+			# LLENO: chispas a lo largo del haz
+			if carga > 0.6:
+				var rng := RandomNumberGenerator.new()
+				rng.seed = semilla
+				for i in int(4.0 * carga):
+					var s: float = rng.randf_range(0.2, 1.0)
+					var p: Vector2 = boca.lerp(hasta, s) + Vector2(rng.randf_range(-4.0, 4.0), rng.randf_range(-4.0, 4.0)) * CELDA_PX
+					EfectoPixel.lanzar(arena, "chupasimas", "chispa_mana", p, 0, null, t0 + antes + rng.randf_range(0.0, 0.2),
+						-1.0, ritmo)
+
+
+# LO QUE LE PASA A LA COSTRA DE SANGRE AL RECIBIR (18/11): un golpe de AGUA con la costra puesta la hace CHORREAR (el x1,3).
+# Del elemento del golpe y de la costra que se ve, que viajan: igual en el espejo.
+func _chupasimas_recibe(arena: Node, ev: Dictionary, v: Combatant, vuelo: float, ritmo: float) -> void:
+	if v == null or v.costra_sangre <= 0.0 or v.costra_vista() <= 0.0 or bool(ev.get("evadido", false)):
+		return
+	if int(ev.get("elem", -1)) != Elementos.Elemento.AGUA:
+		return
+	var cu: Node2D = cuerpo_de(v)
+	var f_now: int = Engine.get_process_frames()
+	if cu == null or int(cu.get_meta(&"chorrea_visto", -1)) == f_now:
+		return
+	cu.set_meta(&"chorrea_visto", f_now)
+	EfectoPixel.lanzar(arena, "chupasimas", "chorrea_" + _costra_de(v), EfectoPixel.centro_sprite(cu, pies_de(v)),
+		SpriteLienzo.dir8(_mirada_de(cu)), cu, maxf(vuelo - 1.0 / 12.0, 0.0), -1.0, ritmo)
+
+
 const _MODO_SIMA := {CombatFX.Estilo.SIMA_PORRAZO: SimaAire.Modo.PORRAZO, CombatFX.Estilo.SIMA_TOS: SimaAire.Modo.TOS,
 	CombatFX.Estilo.SIMA_LATIGO: SimaAire.Modo.LATIGO, CombatFX.Estilo.SIMA_VENTOSA: SimaAire.Modo.VENTOSA,
 	CombatFX.Estilo.SIMA_CHUPADA: SimaAire.Modo.CHUPADA, CombatFX.Estilo.SIMA_OIDOS: SimaAire.Modo.OIDOS,
@@ -6464,6 +6607,8 @@ func _tick_jabali() -> void:
 # roto: Trent3DSprites, variante 'sin_costra'); al volver a brotar, la de siempre. Mira solo los numeros de la costra, que
 # en el espejo llegan en la instantanea (campo 12): se ve igual en todas las maquinas.
 var _costra_var: Dictionary = {}   # cuerpo -> true si lleva puesta la hoja sin costra
+var _costra_desde: Dictionary = {}  # cuerpo -> cuando se vio que le ha salido la de sangre (espera a que se cuaje)
+const ESPERA_CUAJA_MS := 400
 
 func _tick_costra() -> void:
 	_pantalla.efectos.tick_capas()
@@ -6479,13 +6624,38 @@ func _tick_costra() -> void:
 		var rota: bool = e.costra_vista() <= 0.0   # cuando toca el golpe, no al pulsar
 		if rota == bool(_costra_var.get(cu, false)):
 			_costra_var[cu] = rota
+			_costra_desde.erase(cu)
 			continue
-		# AL ROMPERSE (no al llegar a una pelea con la costra ya rota): el ESTALLIDO de los grumos (TrentAire).
+		# LOS DOS SENTIDOS (18/11, el Coagulo y la Madre de las simas): el Tocon NACE con costra y su hoja de siempre la
+		# lleva (la variante es 'sin_costra'); la chupasimas nace SIN ella, la forma bebiendo, y la variante es 'costra'.
+		var nace_sin: bool = SpritesEnemigo.frames_variante(ed, e.mutacion, &"costra") != null
+		# (18/11) LA DE SANGRE SE PONE CUANDO YA SE HA CUAJADO: la chupada lanza el cuajarse y apunta cuando acaba
+		# ('cuaja_hasta', _chupasimas_pixel); hasta entonces sigue con la hoja sin costra. Si la chupada aun no ha llegado a
+		# dibujarse (en el espejo la instantanea puede ir delante), se espera un poco a que la apunte.
+		if nace_sin and not rota and _costra_var.has(cu):
+			var ahora: int = Time.get_ticks_msec()
+			if not _costra_desde.has(cu):
+				_costra_desde[cu] = ahora
+			if ahora < maxi(int(_costra_desde[cu]) + ESPERA_CUAJA_MS, int(cu.get_meta(&"cuaja_hasta", 0))):
+				continue
+		_costra_desde.erase(cu)
+		# AL ROMPERSE (no al llegar a una pelea con la costra ya rota): el ESTALLIDO de los grumos (TrentAire, el del ambar);
+		# la de sangre suelta sus POSTILLAS (18/11).
 		if rota and _costra_var.has(cu) and _arena() != null:
-			TrentAire.estallido(_arena(), bulto_visual(e), _cod(e) + randi() % 97)
+			if nace_sin:
+				EfectoPixel.lanzar(_arena(), "chupasimas", "postillas_" + _costra_de(e), EfectoPixel.centro_sprite(cu, pies_de(e)),
+					SpriteLienzo.dir8(_mirada_de(cu)), cu, 0.0, -1.0,
+					_pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0)
+			else:
+				TrentAire.estallido(_arena(), bulto_visual(e), _cod(e) + randi() % 97)
 		var t_v = cu.get("current_t")
-		var sf: SpriteFrames = SpritesEnemigo.frames_variante(ed, e.mutacion, &"sin_costra") if rota \
-			else SpritesEnemigo.frames_de(ed, float(t_v) if t_v != null else 0.5, true, e.mutacion)
+		var sf: SpriteFrames = null
+		if nace_sin:
+			sf = SpritesEnemigo.frames_de(ed, float(t_v) if t_v != null else 0.5, true, e.mutacion) if rota \
+				else SpritesEnemigo.frames_variante(ed, e.mutacion, &"costra")
+		else:
+			sf = SpritesEnemigo.frames_variante(ed, e.mutacion, &"sin_costra") if rota \
+				else SpritesEnemigo.frames_de(ed, float(t_v) if t_v != null else 0.5, true, e.mutacion)
 		if sf == null:
 			continue
 		_costra_var[cu] = rota
@@ -6815,6 +6985,8 @@ func _dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	if v == null or cuerpo_de(v) == null:
 		return
 	var ritmo: float = _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0
+	# (18/11) LA COSTRA DE SANGRE CHORREA con el agua (el Coagulo y la Madre de las simas), pegue quien pegue.
+	_chupasimas_recibe(arena, ev, v, vuelo, ritmo)
 	var semilla: int = (int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1
 	# LOS DEL SLIME PROFUNDO (07/10): el pinchazo de la anemona, del slime (a) a quien le pega (v); el destello helado,
 	# en los pies de quien se queda congelado (v).
@@ -6917,6 +7089,10 @@ func _dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 			if a != null:
 				_apretar_vis_enrosque(a)
 			_temblar_presa(v, vuelo)
+		return
+	# LA CHUPASIMAS Y SUS MUTANTES EN PIXEL (18/11, tools/sprites_sdf/chupasimas_efectos_horno.py).
+	if estilo in _ESTILOS_CHUPASIMAS and a != null and _de_las_chupasimas(cuerpo_de(a)):
+		_chupasimas_pixel(arena, ev, estilo, a, v, vuelo, ritmo)
 		return
 	# LA ABERRACION Y SUS MUTANTES EN PIXEL (13/11, tools/sprites_sdf/aberracion_efectos_horno.py).
 	if estilo in _ESTILOS_ABERRACION and a != null and _de_las_aberraciones(cuerpo_de(a)):

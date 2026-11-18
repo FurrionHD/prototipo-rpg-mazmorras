@@ -56,6 +56,29 @@ class_name AbilityData
 # Vale para las DOS ramas. Lo estrena el Drenaje del chupasimas, pero está en AbilityData y no en
 # el enemigo a propósito: el día que una técnica del jugador robe vida, funciona sola.
 @export var robo_vida: float = 0.0
+# (18/11, los mutantes de la chupasimas) BEBE MANA: le quita a quien muerde esta parte de su mana MAXIMO, una vez por uso
+# (si conecta algun golpe), y lo que bebe CARGA el Rayo de mana de quien la usa (Combatant.mana_bebido).
+@export var roba_mana: float = 0.0
+# EL RAYO DE MANA: su daño sale de lo bebido (RAYO_BASE + RAYO_POR_MANA x mana, hasta RAYO_TOPE) y al soltarlo se vacia.
+# Cuando lo suelta lo decide MutacionData (rayo_tope / rayo_min / rayo_prob).
+@export var rayo_mana: bool = false
+const RAYO_BASE := 0.5
+const RAYO_POR_MANA := 0.12
+const RAYO_TOPE := 2.0
+# LO CARGADO QUE VA SE VE (18/11): el haz engorda con la carga (0..1 de su tope). Viaja en el PESO del golpe, que ya va en
+# el paquete de impactos (0..1,98 en pasos de 1/64): el espejo pinta el mismo grosor sin mandar nada mas. El peso de
+# siempre es 1; el del rayo, PESO_RAYO_MIN + la carga (CombatTactico._chupasimas_pixel lo deshace con carga_de_peso).
+const PESO_RAYO_MIN := 0.2
+
+
+static func peso_rayo(bebido: float, tope: float) -> float:
+	return PESO_RAYO_MIN + (clampf(bebido / tope, 0.0, 1.0) if tope > 0.0 else 0.0)
+
+
+static func carga_de_peso(peso: float) -> float:
+	return clampf(peso - PESO_RAYO_MIN, 0.0, 1.0)
+# SE APARTA (el Sorbo de la Vidriada): acabados sus golpes se aleja esto de su victima. 0 = se queda.
+@export var se_aparta: float = 0.0
 
 # Lo que aporta la SEGUNDA MANO pega ALGO MENOS: los golpes EXTRA que solo existen porque
 # llevas dos armas (los que pasan del rango de UNA mano) pegan a este multiplicador. A 0.6 el

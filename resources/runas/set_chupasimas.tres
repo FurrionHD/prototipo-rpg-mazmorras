@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="RunaSetData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/runa_set_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/materials/cuero_endurecido.tres" id="2_mat"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_sanguijuela.tres" id="3_nuc"]
+[ext_resource type="Resource" path="res://resources/materials/runa_chupasimas.tres" id="4_runa"]
+
+; BOCA DE LAS SIMAS (16/11, idea y numeros del jefe; memoria chupasimas-mutante), set de ARMA HIBRIDO de la chupasimas: los
+; golpes FISICOS curan el 5 % del daño hecho y los HECHIZOS devuelven el 15 % de su coste de maná (del coste, no del daño).
+; Con un TOPE FIJO por turno del portador (8 de vida y 3 de maná), no un %: al subir de nivel se queda corto a proposito.
+[resource]
+script = ExtResource("1")
+id = &"chupasimas"
+nombre = "Boca de las simas"
+tipo = 0
+material = ExtResource("2_mat")
+nucleo = ExtResource("3_nuc")
+coste_material = 6
+coste_nucleo = 3
+runa = ExtResource("4_runa")
+bonus_2p = {}
+efecto = &"boca_simas"
+params = {"vida": 0.05, "mana": 0.15, "tope_vida": 8.0, "tope_mana": 3.0}
+metadata/_custom_type_script = "res://scripts/items/runa_set_data.gd"

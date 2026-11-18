@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+
+; EL BASICO DE LA VIDRIADA Y LA MADRE (18/11, memoria chupasimas-mutante): "las evoluciones con Magia alta no pueden
+; quedarse con ataques fisicos". MAGICO SIN ELEMENTO (escrito: 0 = ninguno) y bebe el 3 % del mana MAXIMO de quien muerde,
+; que carga su Rayo de mana. Nombre PROVISIONAL.
+[resource]
+script = ExtResource("1")
+nombre = "Mordisco vidriado"
+descripcion = "La ventosa de cristal se cierra sobre ti y lo que sorbe no es sangre: se te nota más vacío por dentro."
+coste_energia = 0.0
+dano_mult = 1.0
+es_magico = true
+elemento_golpe = 0
+roba_mana = 0.03
+fx_estilo = 114
+fx_anim = &"embestida"
+fx_estilo_mapa = 159

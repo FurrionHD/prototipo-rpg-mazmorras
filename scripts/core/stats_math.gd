@@ -504,6 +504,11 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	var f_armadura := (1.0 - clampf(defender.armor_reduction, 0.0, ARMOR_REDUCTION_MAX))
 	dmg *= f_armadura
 	mitig *= f_armadura
+	# 3.55) LA COSTRA DE SANGRE (18/11, el Coagulo y la Madre): con la costra puesta el golpe fisico le entra a medias. Se
+	# mira en ESTE golpe: si el anterior se la rompio, este ya entra entero.
+	if defender.con_costra_sangre():
+		dmg *= defender.costra_fisico
+		mitig *= defender.costra_fisico
 
 	# 3.6) PASIVAS SLAYER (del jugador): +daño a una familia, −daño de ella. Los dicts van vacios en
 	# los enemigos (mult 1.0), asi que esto solo tiene efecto cuando el jugador tiene el slayer.

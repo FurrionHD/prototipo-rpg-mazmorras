@@ -255,4 +255,33 @@ func _hacer_orden(orden: String, nombre: String) -> String:
 					p._update_hp()
 					return "ok:" + al.nombre
 			return "sin_aliado"
+		"costra", "romper_costra":
+			# (18/11, prueba_mut_chupasimas_espejo) Al Coagulo le sale (o se le rompe) la Costra de sangre: en el cliente su hoja
+			# tiene que cambiar, y al romperse saltar las postillas.
+			for c in p._enemies:
+				var e: Combatant = c
+				if e.is_alive() and e.mutacion == &"coagulo":
+					e.costra = 30.0 if orden == "costra" else 0.0
+					e.costra_rota = orden != "costra"
+					p._update_hp()
+					return "ok:" + e.nombre
+			return "sin_coagulo"
+		"drenaje", "rayo_lleno":
+			# (18/11) El Coagulo chupa (Drenaje) o la Vidriada suelta el Rayo de mana LLENO al primero de los tuyos: en el cliente,
+			# las gotas y la costra que se cuaja, o el haz con el grosor de la carga (que viaja en el peso del golpe).
+			var mut: StringName = &"coagulo" if orden == "drenaje" else &"vidriada"
+			var hab: String = "chupasimas_drenaje" if orden == "drenaje" else "chupasimas_rayo_mana"
+			var vic: Combatant = null
+			for a in p._aliados:
+				if a.is_alive():
+					vic = a
+					break
+			for c in p._enemies:
+				var e: Combatant = c
+				if e.is_alive() and e.mutacion == mut and vic != null:
+					if orden == "rayo_lleno":
+						e.mana_bebido = e.rayo_tope
+					p.enemigos._enemy_use_ability(e, load("res://resources/abilities/%s.tres" % hab), vic)
+					return "ok:" + e.nombre
+			return "sin_" + String(mut)
 	return "orden_desconocida"

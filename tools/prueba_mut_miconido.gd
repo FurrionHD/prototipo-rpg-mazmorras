@@ -798,14 +798,17 @@ func _fase3_magias(combat: Node, t, fp: Combatant, yo: Combatant) -> void:
 	# el TIRON del Chorro de agua te arrastra
 	var chorro: SpellData = load("res://resources/spells/chorro_agua.tres")
 	var hch: AbilityData = combat.habilidad_de_hechizo(chorro)
-	# (los demas, lejos: el empuje se para contra un cuerpo, como contra un bicho)
+	# (18/11, banco f0528f40) DESDE EL CENTRO DE VERDAD DE LA ARENA (su rect; su global_position no es el centro): el bicho a
+	# la izquierda y tu a su derecha, con sitio detras para el empuje. Antes, segun donde acabara el bicho deambulando, te
+	# ponia contra una pared, el Torrente te empujaba contra ella (con pared detras se para, como contra un bicho) y salian
+	# 0 px. Era la prueba, no el juego.
+	var r_a: Rect2 = t._arena().rect
+	_poner(t, fp, r_a.get_center() - Vector2(r_a.size.x * 0.22, 0.0))
+	var al_centro := Vector2.RIGHT
+	# (los demas, lejos y detras del bicho: el empuje se para contra un cuerpo, como contra un bicho)
 	for k in los_mios.size():
 		if los_mios[k] != yo:
 			_poner(t, los_mios[k], t.pies_de(fp) + Vector2(-260, -60 * k))
-	# hacia el centro de la arena (con pared detras se para, como contra un bicho)
-	var al_centro: Vector2 = (t._arena().global_position - t.pies_de(fp)).normalized() if t._arena() != null else Vector2.DOWN
-	if al_centro.length() < 0.5:
-		al_centro = Vector2.DOWN
 	_poner(t, yo, t.pies_de(fp) + al_centro * 60.0)
 	var donde0: Vector2 = t.pies_de(yo)
 	fp.current_mp = fp.max_mp

@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+
+; EL RAYO DE MANA (18/11, memoria chupasimas-mutante): MAGICO SIN ELEMENTO, una linea que sale de la boca. Su daño sale de
+; lo BEBIDO (AbilityData.RAYO_BASE 0,5 + RAYO_POR_MANA 0,12 x mana, hasta x2: dano_mult 1 aqui) y al soltarlo se vacia.
+; Cuando lo suelta: lleno (12,5 = x2) seguro; con 4 o mas, 25 % cada turno; sin carga, nunca (CombatEnemigos.rayo_listo).
+; EFECTOS PROVISIONALES (los del Rayo del ojo de la aberracion) hasta su lamina de efectos en pixel.
+[resource]
+script = ExtResource("1")
+nombre = "Rayo de maná"
+descripcion = "Todo lo que ha bebido le sube por el cristal hasta la boca y sale de golpe, en línea recta."
+coste_energia = 0.0
+dano_mult = 1.0
+es_magico = true
+elemento_golpe = 0
+rayo_mana = true
+area_modo = 1
+area_max = 99
+area_secundario = 1.0
+area_prob_secundario = 1.0
+fx_anim = &"rayo"
+fx_estilo = 224
+cooldown = 2
+forma = 3
+forma_apunte = 1
+forma_radio = 110.0
+forma_ancho = 16.0
+fx_estilo_mapa = 233

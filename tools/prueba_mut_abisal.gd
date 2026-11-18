@@ -146,9 +146,16 @@ func _correr() -> void:
 	_ver(hay_red, "viajan con las huellas")
 	var sin_estrellas: Array = tm.estrellas_de(ojos)
 	# Andar deja una: se le aleja la presa y anda su turno.
-	_poner(tm, al[0], pc + Vector2(-260, 0))
+	# (18/11, banco f0528f40) DESDE EL CENTRO DE LA ARENA, con sitio para andar: es pequeña (11 x 9 celdas) y antes de la
+	# pelea los slimes deambulan; si el cielo acababa pegado al borde de la izquierda, no podia andar hacia los tuyos (que
+	# iban 260 px a la izquierda, fuera de la arena), se deslizaba 4 px y no dejaba estrella. Era la prueba, no el juego.
+	var r_a: Rect2 = tm._arena().rect
+	var c_a: Vector2 = r_a.get_center()
+	_poner(tm, cielo, c_a + Vector2(r_a.size.x * 0.28, 0.0))
+	pc = tm.pies_de(cielo)
+	_poner(tm, al[0], c_a - Vector2(r_a.size.x * 0.3, 0.0))
 	for a2 in al.slice(1):
-		_poner(tm, a2, pc + Vector2(-260, 30))
+		_poner(tm, a2, c_a - Vector2(r_a.size.x * 0.3, -30.0))
 	var n0: int = tm.estrellas_de(cielo).size()
 	for k in tm._orden_estrellas.get(cielo, []).duplicate():
 		tm._quitar_estrella(cielo, int(k))

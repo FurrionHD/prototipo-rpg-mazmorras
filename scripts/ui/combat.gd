@@ -479,6 +479,17 @@ const HUECO_CUERPO_A_CUERPO := 30.0
 # de un enemigo (_abrir_turno_enemigo).
 var _pasiva_hecha: Dictionary = {}   # Combatant -> true
 
+# EL SET BOCA DE LAS SIMAS (18/11, la chupasimas): cada golpe FISICO de 'quien' que hace daño le cura una parte (con su
+# tope por turno, Combatant.boca_vida). Lo llaman el basico, el seguimiento, las habilidades no magicas y el riposte.
+func boca_simas_golpe(quien: Combatant, dmg: float) -> void:
+	if quien == null or not _aliados.has(quien):
+		return
+	var r: float = quien.boca_vida(dmg)
+	if r > 0.0:
+		_log_extra("🩸 La Boca de las simas le devuelve %s de vida a %s." % [_n(r), quien.nombre])
+		_update_hp()
+
+
 func _pasiva_al_golpearle(obj: Combatant, quien: Combatant, dmg: float = 0.0) -> void:
 	if obj == null or _pasiva_hecha.has(obj):
 		return
@@ -2707,6 +2718,7 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 			else Elementos.Elemento.NINGUNO, estilo_bas, 1.0, false, "", AbilityData.Gesto.AUTO, null, semilla_fx)
 		_apuntar_dano(obj, result.damage, _player)   # contador oculto de Cazador
 		_pasiva_al_golpearle(obj, _player, result.damage)
+		boca_simas_golpe(_player, result.damage)
 		# El filo imbuido tambien gasta lo que lo amplificaba (arma de Rayo sobre un Mojado).
 		if float(result.get("dmg_imbue", 0.0)) > 0.0:
 			magia._gastar_amplificadores(obj, _player.imbue_elemento)
@@ -3297,6 +3309,7 @@ func _disparar_un_seguimiento(esc: Combatant, obj: Combatant, pct: float, inst, 
 			esc.imbue_elemento if elem_dmg > 0.0 else Elementos.Elemento.NINGUNO, estilo)
 		_apuntar_dano(obj, dmg, esc)
 		_pasiva_al_golpearle(obj, esc, dmg)
+		boca_simas_golpe(esc, dmg)
 		_dps_add("Seguimiento (%s)" % arma, dmg)
 		conecto = true
 		# EXCELIA. Es un golpe de verdad y entrena como tal, con el mismo reto y el mismo peso de

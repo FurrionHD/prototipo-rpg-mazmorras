@@ -1,0 +1,227 @@
+# PRUEBA (sin ventana): LOS MUTANTES DE LA CHUPASIMAS (18/11, memoria chupasimas-mutante).
+#
+#   1. La ficha: la base con su Voluntad, las tres mutaciones (la Madre desde las dos) y sus kits.
+#   2. La COSTRA DE SANGRE: nace sin costra, con el tope en su vida maxima; con ella puesta el fisico entra a medias, el agua
+#      x1,3 y el rayo normal; sin ella, lo de siempre; rota no rebrota sola.
+#   3. BEBER MANA y el RAYO: lo bebido sale del mana de quien muerde y carga el rayo (con tope); el rayo pega segun la carga.
+#   4. La SED DE MANA: va a por el mago (tres de 20 y uno de 52: x1,86 y x0,71).
+#   5. Los SPRITES: cada mutante el suyo, y la variante con costra en el Coagulo y la Madre.
+#   6. El set BOCA DE LAS SIMAS: su runa, su glifo, su texto y lo que cura / devuelve con su tope por turno.
+extends Node
+
+const CE := preload("res://scripts/ui/combat_enemigos.gd")
+const CO := preload("res://scripts/ui/combat_objetivos.gd")
+
+var _mal := 0
+
+
+func _ok(cond: bool, que: String) -> void:
+	print(("  ok   " if cond else "  MAL: ") + que)
+	if not cond:
+		_mal += 1
+
+
+func _ready() -> void:
+	var ed: EnemyData = load("res://scenes/actors/enemy/chupasimas.tres")
+	_ficha(ed)
+	_costra(ed)
+	_mana_y_rayo(ed)
+	_sed()
+	_sprites(ed)
+	_pasivas(ed)
+	_set_boca(ed)
+	print("")
+	print("FIN: TODO BIEN" if _mal == 0 else "FIN: %d MAL" % _mal)
+	get_tree().quit(1 if _mal > 0 else 0)
+
+
+func _ficha(ed: EnemyData) -> void:
+	print("=== LA FICHA ===")
+	_ok([ed.resistencia, ed.fuerza, ed.destreza, ed.agilidad, ed.magia, ed.voluntad] == [32, 34, 28, 23, 12, 26],
+		"la base: R32 F34 D28 A23 M12 V26 (suma 155)")
+	var co: MutacionData = ed.mutacion_de(&"coagulo")
+	var vi: MutacionData = ed.mutacion_de(&"vidriada")
+	var ma: MutacionData = ed.mutacion_de(&"madre")
+	_ok(co != null and vi != null and ma != null, "las tres mutaciones")
+	if ma != null:
+		_ok(ma.grado == 2 and ma.desde.has(&"coagulo") and ma.desde.has(&"vidriada"), "la Madre sale de las dos")
+	if vi != null:
+		_ok(vi.habilidades.all(func(a): return a.es_magico) and vi.basico_propio != null and vi.basico_propio.es_magico,
+			"la Vidriada: todo su kit magico (tambien el basico)")
+		_ok(vi.habilidades.any(func(a): return a.rayo_mana) and vi.habilidades.any(func(a): return a.se_aparta > 0.0),
+			"la Vidriada lleva el Rayo y el Sorbo (que se aparta)")
+		_ok(not vi.habilidades.any(func(a): return a.pega), "la Vidriada no se pega")
+	if co != null:
+		_ok(not co.habilidades.any(func(a): return a.es_magico), "el Coagulo, todo fisico")
+	if ma != null:
+		var adh: Array = ma.habilidades.filter(func(a): return a.pega)
+		_ok(adh.size() == 1 and not adh[0].es_magico, "la Madre se pega con el Adherirse FISICO")
+		_ok(ma.habilidades.any(func(a): return a.robo_vida > 0.0 and a.roba_mana > 0.0 and a.es_magico),
+			"su Drenaje: magico, hace costra y bebe mana")
+		_ok(ma.suelta_con_rayo and ma.sed_de_mana and ma.costra_sangre > 0.0, "la Madre junta las dos pasivas")
+
+
+func _costra(ed: EnemyData) -> void:
+	print("=== LA COSTRA DE SANGRE ===")
+	var c: Combatant = ed.crear_combatant(0.5, true, false, &"coagulo")
+	_ok(is_zero_approx(c.costra) and is_equal_approx(c.costra_max, c.max_hp), "nace sin costra; tope = su vida maxima (%.1f)" % c.max_hp)
+	_ok(not c.con_costra_sangre(), "sin costra no cuenta")
+	# Las resistencias, con y sin costra.
+	var agua_sin: float = Elementos.mult_recibido(2, c)
+	var rayo_sin: float = Elementos.mult_recibido(3, c)
+	c.costra = 20.0
+	var agua_con: float = Elementos.mult_recibido(2, c)
+	var rayo_con: float = Elementos.mult_recibido(3, c)
+	_ok(is_equal_approx(agua_sin, 0.7) and is_equal_approx(rayo_sin, 1.5), "sin costra: agua x0,7, rayo x1,5 (%.2f, %.2f)" % [agua_sin, rayo_sin])
+	_ok(is_equal_approx(agua_con, 1.3) and is_equal_approx(rayo_con, 1.0), "con costra: agua x1,3, rayo x1,0 (%.2f, %.2f)" % [agua_con, rayo_con])
+	# El fisico, a medias con costra (misma semilla, sin esquiva).
+	var yo := Combatant.new("Yo", 1, Abilities.new(), 500.0, 20.0, 5.0, 5.0)
+	c.costra = 0.0
+	seed(3)
+	var d_sin: float = float(StatsMath.resolve_attack(yo, c, false, -1.0, 0.0, 0.0, false)["damage"])
+	c.costra = 20.0
+	seed(3)
+	var d_con: float = float(StatsMath.resolve_attack(yo, c, false, -1.0, 0.0, 0.0, false)["damage"])
+	_ok(is_equal_approx(d_con, d_sin * 0.5), "el fisico entra a medias con costra (%.2f -> %.2f)" % [d_sin, d_con])
+	# Rota no rebrota sola.
+	c.take_damage(999.0)
+	_ok(c.costra <= 0.0 and c.costra_espera == 0, "rota, no se pone a contar para rebrotar")
+	# Una mutacion SIN costra no la tiene.
+	var v: Combatant = ed.crear_combatant(0.5, true, false, &"vidriada")
+	_ok(v.costra_max <= 0.0 and not v.con_costra_sangre(), "la Vidriada no tiene costra")
+
+
+func _mana_y_rayo(ed: EnemyData) -> void:
+	print("=== BEBER MANA Y EL RAYO ===")
+	var v: Combatant = ed.crear_combatant(0.5, true, false, &"vidriada")
+	var mago := Combatant.new("Mago", 1, Abilities.new(), 100.0, 5.0, 5.0, 5.0)
+	mago.max_mp = 52.0
+	mago.current_mp = 52.0
+	var b: float = v.beber_mana(mago, 0.1)
+	_ok(is_equal_approx(b, 5.2) and is_equal_approx(mago.current_mp, 46.8) and is_equal_approx(v.mana_bebido, 5.2),
+		"bebe el 10 %% del mana MAXIMO (5,2 de 52) y le carga el rayo")
+	mago.current_mp = 1.0
+	_ok(is_equal_approx(v.beber_mana(mago, 0.1), 1.0), "no bebe mas de lo que le queda")
+	v.mana_bebido = 0.0
+	for i in 20:
+		mago.current_mp = 52.0
+		v.beber_mana(mago, 0.1)
+	_ok(is_equal_approx(v.mana_bebido, v.rayo_tope), "la carga tiene tope (%.1f)" % v.rayo_tope)
+	var rayo: AbilityData = load("res://resources/abilities/chupasimas_rayo_mana.tres")
+	v.mana_bebido = 0.0
+	_ok(is_equal_approx(CE._rayo_mult(v, rayo), 0.5), "rayo vacio: x0,5")
+	v.mana_bebido = 6.0
+	_ok(is_equal_approx(CE._rayo_mult(v, rayo), 1.22), "con 6 bebidos: x1,22")
+	v.mana_bebido = v.rayo_tope
+	_ok(is_equal_approx(CE._rayo_mult(v, rayo), 2.0), "lleno: x2 (tope)")
+	_ok(CE.rayo_listo(v), "lleno, lo suelta seguro")
+	v.mana_bebido = 2.0
+	var alguna: bool = false
+	for i in 200:
+		alguna = alguna or CE.rayo_listo(v)
+	_ok(not alguna, "con menos de 4, nunca")
+	v.mana_bebido = 6.0
+	var veces: int = 0
+	for i in 2000:
+		veces += 1 if CE.rayo_listo(v) else 0
+	_ok(veces > 350 and veces < 650, "con 6, alrededor del 25 %% (%d de 2000)" % veces)
+	var otra: AbilityData = load("res://resources/abilities/chupasimas_sorbo.tres")
+	_ok(is_equal_approx(CE._rayo_mult(v, otra), 1.0), "lo demas no se toca")
+
+
+func _sed() -> void:
+	print("=== SED DE MANA ===")
+	var g: Array = []
+	for mp in [20.0, 20.0, 20.0, 52.0]:
+		var c := Combatant.new("X", 1, Abilities.new(), 100.0, 5.0, 5.0, 5.0)
+		c.max_mp = mp
+		g.append(c)
+	_ok(is_equal_approx(CO.sed_de_mana_de(g[3], g), 52.0 / 28.0), "el mago (52 de media 28): x%.2f" % CO.sed_de_mana_de(g[3], g))
+	_ok(is_equal_approx(CO.sed_de_mana_de(g[0], g), 20.0 / 28.0), "los de 20: x%.2f" % CO.sed_de_mana_de(g[0], g))
+	(g[3] as Combatant).max_mp = 400.0
+	_ok(is_equal_approx(CO.sed_de_mana_de(g[3], g), 2.0), "con tope en x2")
+
+
+func _sprites(ed: EnemyData) -> void:
+	print("=== LOS SPRITES ===")
+	for m in [&"coagulo", &"vidriada", &"madre"]:
+		_ok(Chupasimas3DSprites.tiene_mutante(ed, m), "%s tiene su sprite" % m)
+		_ok(SpritesEnemigo.frames_de(ed, 0.5, true, m) != null, "%s carga" % m)
+	_ok(SpritesEnemigo.frames_variante(ed, &"coagulo", &"costra") != null, "el Coagulo tiene la variante con costra")
+	_ok(SpritesEnemigo.frames_variante(ed, &"madre", &"costra") != null, "la Madre tambien")
+	_ok(SpritesEnemigo.frames_variante(ed, &"vidriada", &"costra") == null, "la Vidriada no")
+	var sf: SpriteFrames = SpritesEnemigo.frames_de(ed, 0.5, true, &"madre")
+	_ok(sf != null and sf.has_animation(&"evolucion_coagulo_0") and sf.has_animation(&"rayo_0"),
+		"la Madre: las dos evoluciones y el rayo")
+	var sv: SpriteFrames = SpritesEnemigo.frames_de(ed, 0.5, true, &"vidriada")
+	_ok(sv != null and sv.has_animation(&"sorbo_0") and not sv.has_animation(&"adherido_0"),
+		"la Vidriada: sorbo, y sin adherido")
+
+
+# LAS PASIVAS A LA VISTA (18/11): cada una nace con la suya, no se puede disipar, y su texto sale de SUS numeros.
+func _pasivas(ed: EnemyData) -> void:
+	print("=== LAS PASIVAS A LA VISTA ===")
+	var co: Combatant = ed.crear_combatant(0.5, true, false, &"coagulo")
+	var vi: Combatant = ed.crear_combatant(0.5, true, false, &"vidriada")
+	var ma: Combatant = ed.crear_combatant(0.5, true, false, &"madre")
+	var C := StatusEffects.Id.COSTRA_SANGRE
+	var S := StatusEffects.Id.SED_MANA
+	_ok(co.has_status(C) and not co.has_status(S), "el Coagulo: Costra de sangre")
+	_ok(vi.has_status(S) and not vi.has_status(C), "la Vidriada: Sed de mana")
+	_ok(ma.has_status(C) and ma.has_status(S), "la Madre: las dos")
+	_ok(not StatusEffects.se_puede_disipar(C) and not StatusEffects.se_puede_disipar(S), "no se pueden disipar")
+	var chip_c: Array = StatusEffects.chip_de_grupo(co.statuses.filter(func(e): return e.id() == C), co)
+	var txt_c: String = String(chip_c[1])
+	print("     ficha: %s" % txt_c.replace("\n", " | "))
+	_ok(txt_c.contains("pasiva (no se puede disipar)") and txt_c.contains("150 % de lo drenado")
+		and txt_c.contains("50 % menos de daño físico") and txt_c.contains("30 % más de Daño de Agua")
+		and txt_c.contains("Rayo le afecta con normalidad") and txt_c.contains("no puede superar su vida máxima"),
+		"el texto de la Costra, con sus numeros")
+	co.costra_sangre = 2.0
+	var txt_c2: String = String(StatusEffects.chip_de_grupo(co.statuses.filter(func(e): return e.id() == C), co)[1])
+	_ok(txt_c2.contains("200 % de lo drenado"), "y sale del DATO (cambiado a 200 %, dice 200 %)")
+	var txt_s: String = String(StatusEffects.chip_de_grupo(vi.statuses.filter(func(e): return e.id() == S), vi)[1])
+	print("     ficha: %s" % txt_s.replace("\n", " | "))
+	_ok(txt_s.contains("Maná máximo") and txt_s.contains("la mitad") and txt_s.contains("el doble"),
+		"el texto de la Sed de mana")
+
+
+# EL SET BOCA DE LAS SIMAS (18/11): de arma, hibrido. Golpe fisico: 5 % del daño en vida; hechizo: 15 % de su coste en mana;
+# tope fijo por turno del portador (8 de vida, 3 de mana).
+func _set_boca(ed: EnemyData) -> void:
+	print("=== EL SET BOCA DE LAS SIMAS ===")
+	var s: RunaSetData = null
+	for x in Runas.sets():
+		if x.id == &"chupasimas":
+			s = x
+	_ok(s != null and s.nombre == "Boca de las simas" and s.tipo == RunaSetData.Tipo.ARMA, "el set existe y es de ARMA")
+	if s == null:
+		return
+	_ok(ed.drop_runa != null and ed.drop_runa == s.runa, "la chupasimas suelta su runa")
+	_ok(CeldaObjeto.GLIFO_SET.has(&"chupasimas") and CeldaObjeto.tonos_glifo(&"chupasimas", Color.RED)["=" ] == Color8(238, 228, 206),
+		"el glifo de la boca de anillo, con sus tonos")
+	var txt: String = Runas.efecto_txt(s)
+	print("     texto: %s" % txt)
+	_ok(txt.contains("5 % del daño que infligen") and txt.contains("15 % de su coste de maná")
+		and txt.contains("8 de vida y 3 de maná por turno"), "el texto, con los numeros del dato")
+	var yo := Combatant.new("Yo", 1, Abilities.new(), 100.0, 5.0, 5.0, 5.0)
+	yo.max_mp = 40.0
+	yo.current_mp = 10.0
+	yo.current_hp = 50.0
+	yo.runa_boca_vida = float(s.params["vida"])
+	yo.runa_boca_mana = float(s.params["mana"])
+	yo.runa_boca_tope_vida = float(s.params["tope_vida"])
+	yo.runa_boca_tope_mana = float(s.params["tope_mana"])
+	_ok(is_equal_approx(yo.boca_vida(60.0), 3.0) and is_equal_approx(yo.current_hp, 53.0), "un golpe de 60: +3 de vida")
+	_ok(is_equal_approx(yo.boca_vida(200.0), 5.0), "el siguiente de 200 (daria 10) se queda en lo que queda del tope (5)")
+	_ok(is_zero_approx(yo.boca_vida(100.0)), "con el tope gastado, nada")
+	_ok(is_equal_approx(yo.boca_mana(12.0), 1.8) and is_equal_approx(yo.current_mp, 11.8), "un hechizo de 12: +1,8 de mana")
+	_ok(is_equal_approx(yo.boca_mana(12.0), 1.2), "el segundo, hasta el tope de 3")
+	yo.tick_statuses()
+	_ok(is_equal_approx(yo.boca_vida(60.0), 3.0) and is_equal_approx(yo.boca_mana(10.0), 1.5), "en su turno siguiente, otra vez")
+	yo.current_hp = yo.max_hp
+	var vb: float = yo.boca_vida_turno
+	_ok(is_zero_approx(yo.boca_vida(60.0)) and is_equal_approx(yo.boca_vida_turno, vb), "con la vida llena no cura ni gasta tope")
+	var otro := Combatant.new("Otro", 1, Abilities.new(), 100.0, 5.0, 5.0, 5.0)
+	otro.current_hp = 50.0
+	_ok(is_zero_approx(otro.boca_vida(60.0)), "sin el set, nada")

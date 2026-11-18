@@ -165,7 +165,9 @@ func _correr() -> void:
 		efe._fx_golpe(e, uno, 5.0, false, false)
 		var perdio_o: float = h_o2 - otro.current_hp
 		var perdio_u: float = h_u2 - uno.current_hp
-		_ver(perdio_o > 0.0 and perdio_u > 0.0 and perdio_o < perdio_u * 1.6 and perdio_u < perdio_o * 1.6, "tope 2 rebotes: uno a cada uno (%.1f y %.1f)" % [perdio_o, perdio_u])
+		# (18/11) MARGEN x2: los dos llevan Electrizado, y al que le pega el rebote con el estado encima le entra x1,5; con la
+		# variacion del golpe (+-10 %) eso llega a x1,65 y el x1,6 de antes fallaba de vez en cuando sin nada roto.
+		_ver(perdio_o > 0.0 and perdio_u > 0.0 and perdio_o < perdio_u * 2.0 and perdio_u < perdio_o * 2.0, "tope 2 rebotes: uno a cada uno (%.1f y %.1f)" % [perdio_o, perdio_u])
 		e.rebote_mult = 0.0
 	print("8) EL CAPULLO")
 	_ver(e.es_inmune(StatusEffects.Id.QUEMADURA), "la Tejedora no se quema")
