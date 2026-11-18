@@ -134,6 +134,7 @@ func _maniqui_de_fila(d: Dictionary) -> Combatant:
 	c.sprite_t = float(d.get("spr_t", 0.5))
 	c.es_jefe = bool(d.get("jefe", false))
 	c.uid_formacion = String(d.get("uidf", ""))
+	c.runa_eco = bool(d.get("eco", false))   # (18/11) Ecolocalizacion: ver _fila_de_roster
 	# Y si es un MUTANTE, que es lo que decide su aura, su tinte y su tamaño (ver _marcar_mutante).
 	# Un roster de una version anterior no lo trae y se queda en false: el bicho se ve normal, que es
 	# exactamente lo que pasaba antes de esto.
@@ -246,6 +247,9 @@ func _fila_de_roster(lista: Array) -> Array:
 			"mutg": c.grado_mut,
 			# DE QUIEN ES el aliado, para colocarlo en su puesto de la formacion (ver _fila_visual_aliados).
 			"uidf": c.uid_formacion,
+			# (18/11) SI LLEVA ECOLOCALIZACION a 5 piezas: en su turno, el espejo tiene que ensenarle y dejarle elegir a los
+			# enemigos En las sombras (Combatant.ve_sombras lee el set de quien tiene el turno, y aqui eso es un maniqui).
+			"eco": c.runa_eco,
 			# EL EQUIPO Y EL ASPECTO del aliado, para que el espejo pueda montarle el muñeco. Los
 			# enemigos viajan con su sprite (spr/spr_t) y por eso SI se veian; los aliados no llevaban
 			# nada y salian de cuadrado de color con la cara pegada. Ver Game.pj_de_dict.
@@ -293,6 +297,7 @@ func aplicar_roster(roster: Dictionary) -> void:
 			_pantalla._huidos.erase(_pantalla._aliados[i])
 			_pantalla._aliados[i] = nuevo
 			_pantalla._gauge[nuevo] = 0.0
+		_pantalla._aliados[i].runa_eco = bool(d.get("eco", false))   # (18/11) si se lo pone o se lo quita
 		var fuera: bool = bool(d.get("huido", false))
 		if fuera:
 			_pantalla._huidos[_pantalla._aliados[i]] = true

@@ -6362,8 +6362,9 @@ func _chillon_pixel(arena: Node, ev: Dictionary, estilo: int, a: Combatant, v: C
 			if not v.has_status(StatusEffects.Id.A_OSCURAS):
 				return
 			EfectoPixel.lanzar(arena, "chillon", "farol", pies_v, 0, null, espera, -1.0, ritmo)
-			# BEBE LA LUZ: las motas, de su luz (9 celdas sobre la cabeza) al cuerpo del bicho.
-			if a.bebe_luz_vel <= 0.0 and a.bebe_luz_dano <= 0.0:
+			# BEBE LA LUZ: las motas, de su luz (9 celdas sobre la cabeza) al cuerpo del bicho. Por el ESTADO (su pasiva a la
+			# vista), que viaja: en el espejo el bicho es un maniqui sin los numeros de su ficha.
+			if not a.has_status(StatusEffects.Id.BEBE_LUZ):
 				return
 			var cu_a: Node2D = cuerpo_de(a)
 			var hasta: Vector2 = EfectoPixel.centro_sprite(cu_a, pies_de(a))

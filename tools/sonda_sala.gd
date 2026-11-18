@@ -284,4 +284,46 @@ func _hacer_orden(orden: String, nombre: String) -> String:
 					p.enemigos._enemy_use_ability(e, load("res://resources/abilities/%s.tres" % hab), vic)
 					return "ok:" + e.nombre
 			return "sin_" + String(mut)
+		"chillido_oscuro":
+			# (18/11, prueba_mut_chillon_espejo) El Apagaluces chilla (Chillido de oscuridad) al primero de los tuyos: en el
+			# cliente, la sombra por el suelo y, al que se queda A oscuras, su luz que se apaga y las motas.
+			var vic_o: Combatant = null
+			for a in p._aliados:
+				if a.is_alive():
+					vic_o = a
+					break
+			for c in p._enemies:
+				var e: Combatant = c
+				if e.is_alive() and e.mutacion == &"apagaluces" and vic_o != null:
+					p.enemigos._enemy_use_ability(e, load("res://resources/abilities/chillon_chillido_oscuro.tres"), vic_o)
+					return "ok:" + e.nombre
+			return "sin_apagaluces"
+		"soltar_cria":
+			# (18/11) La Piña suelta una cria (lo de cada turno suyo): en el cliente tiene que llegar con su sprite y Bebe la luz.
+			for c in p._enemies:
+				var e: Combatant = c
+				if e.is_alive() and e.mutacion == &"pina":
+					p.enemigos._soltar_cria(e)
+					return "ok:" + e.nombre
+			return "sin_pina"
+		"eco_sombras":
+			# (18/11) El primero de los tuyos con el set ECOLOCALIZACION a 5 piezas y el Apagaluces En las sombras: el set viaja
+			# en su fila del roster (se reenvia), y en su turno su espejo tiene que verlo y dejarle elegirlo.
+			var al_e: Combatant = null
+			for a in p._aliados:
+				if a.is_alive():
+					al_e = a
+					break
+			if al_e == null:
+				return "sin_aliado"
+			al_e.runa_eco = true
+			al_e.runa_eco_dano = 0.15
+			for c in p._enemies:
+				var e: Combatant = c
+				if e.is_alive() and e.mutacion == &"apagaluces":
+					e.sigilo_prob = 0.0
+					e.apply_status(StatusEffects.Id.EN_SOMBRAS)
+					Net.peleas.difundir_roster(p.espejo.roster_para_espejo(), p.pelea)
+					return "ok:" + al_e.nombre
+			return "sin_apagaluces"
 	return "orden_desconocida"
