@@ -29,3 +29,5 @@ costra_resist = {
 }
 sed_de_mana = true
 suelta_con_rayo = true
+; (18/11) a la vista en su ficha: StatusEffects.Id.COSTRA_SANGRE y SED_MANA
+pasivas_visibles = Array[int]([67, 68])

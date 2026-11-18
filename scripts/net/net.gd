@@ -196,7 +196,9 @@ const MAX_CONEXIONES := 32
 #   74 = (12/11) la polilla y sus mutantes: estados OJOS_INSOMNES 65 (la pasiva que se ve de la Polilla insomne) y
 #     CONCENTRACION 66 (el set de runas), el rotulo de PASIVA (CombatReacciones.Reaccion.PASIVA, con el estado en el peso) y la
 #     Polilla de luto (ficha nueva). Un build del 73 no sabria pintarlos.
-const PROTOCOLO := 74
+#   75 = (18/11) los mutantes de la chupasimas: estados COSTRA_SANGRE 67 y SED_MANA 68 (sus pasivas a la vista), la costra
+#     de sangre (la capa del Tocon que nace a 0 y no rebrota) y la variante 'costra' de sus hojas.
+const PROTOCOLO := 75
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

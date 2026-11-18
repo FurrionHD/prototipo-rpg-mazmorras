@@ -815,7 +815,7 @@ Solo tiene ojos para quien lo provocó: todo lo que haga irá contra ese persona
 			orden.append(e.id())
 		(por_estado[e.id()] as Array).append(e)
 	for id_est in orden:
-		out.append(StatusEffects.chip_de_grupo(por_estado[id_est]))
+		out.append(StatusEffects.chip_de_grupo(por_estado[id_est], c))
 	return out
 
 

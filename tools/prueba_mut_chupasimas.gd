@@ -27,6 +27,7 @@ func _ready() -> void:
 	_mana_y_rayo(ed)
 	_sed()
 	_sprites(ed)
+	_pasivas(ed)
 	print("")
 	print("FIN: TODO BIEN" if _mal == 0 else "FIN: %d MAL" % _mal)
 	get_tree().quit(1 if _mal > 0 else 0)
@@ -153,3 +154,31 @@ func _sprites(ed: EnemyData) -> void:
 	var sv: SpriteFrames = SpritesEnemigo.frames_de(ed, 0.5, true, &"vidriada")
 	_ok(sv != null and sv.has_animation(&"sorbo_0") and not sv.has_animation(&"adherido_0"),
 		"la Vidriada: sorbo, y sin adherido")
+
+
+# LAS PASIVAS A LA VISTA (18/11): cada una nace con la suya, no se puede disipar, y su texto sale de SUS numeros.
+func _pasivas(ed: EnemyData) -> void:
+	print("=== LAS PASIVAS A LA VISTA ===")
+	var co: Combatant = ed.crear_combatant(0.5, true, false, &"coagulo")
+	var vi: Combatant = ed.crear_combatant(0.5, true, false, &"vidriada")
+	var ma: Combatant = ed.crear_combatant(0.5, true, false, &"madre")
+	var C := StatusEffects.Id.COSTRA_SANGRE
+	var S := StatusEffects.Id.SED_MANA
+	_ok(co.has_status(C) and not co.has_status(S), "el Coagulo: Costra de sangre")
+	_ok(vi.has_status(S) and not vi.has_status(C), "la Vidriada: Sed de mana")
+	_ok(ma.has_status(C) and ma.has_status(S), "la Madre: las dos")
+	_ok(not StatusEffects.se_puede_disipar(C) and not StatusEffects.se_puede_disipar(S), "no se pueden disipar")
+	var chip_c: Array = StatusEffects.chip_de_grupo(co.statuses.filter(func(e): return e.id() == C), co)
+	var txt_c: String = String(chip_c[1])
+	print("     ficha: %s" % txt_c.replace("\n", " | "))
+	_ok(txt_c.contains("pasiva (no se puede disipar)") and txt_c.contains("150 % de lo drenado")
+		and txt_c.contains("50 % menos de daño físico") and txt_c.contains("30 % más de Daño de Agua")
+		and txt_c.contains("Rayo le afecta con normalidad") and txt_c.contains("no puede superar su vida máxima"),
+		"el texto de la Costra, con sus numeros")
+	co.costra_sangre = 2.0
+	var txt_c2: String = String(StatusEffects.chip_de_grupo(co.statuses.filter(func(e): return e.id() == C), co)[1])
+	_ok(txt_c2.contains("200 % de lo drenado"), "y sale del DATO (cambiado a 200 %, dice 200 %)")
+	var txt_s: String = String(StatusEffects.chip_de_grupo(vi.statuses.filter(func(e): return e.id() == S), vi)[1])
+	print("     ficha: %s" % txt_s.replace("\n", " | "))
+	_ok(txt_s.contains("Maná máximo") and txt_s.contains("la mitad") and txt_s.contains("el doble"),
+		"el texto de la Sed de mana")

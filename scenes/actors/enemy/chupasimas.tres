@@ -44,6 +44,8 @@ costra_resist = {
 2: 1.3,
 3: 1.0
 }
+; (18/11) a la vista en su ficha: StatusEffects.Id.COSTRA_SANGRE
+pasivas_visibles = Array[int]([67])
 
 [sub_resource type="Resource" id="MUT_vidriada"]
 script = ExtResource("20_mut")
@@ -56,6 +58,8 @@ basico_propio = ExtResource("25_bas")
 pesos = {"agilidad": 34, "destreza": 20, "fuerza": 14, "magia": 40, "resistencia": 24, "voluntad": 23}
 ; SED DE MANA: va a por el de mas mana (el mago). Todo su kit MAGICO sin elemento; no se pega.
 sed_de_mana = true
+; (18/11) a la vista en su ficha: StatusEffects.Id.SED_MANA
+pasivas_visibles = Array[int]([68])
 
 [resource]
 script = ExtResource("1")

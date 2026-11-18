@@ -58,7 +58,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	IMANTADO, ADHERIDO, LIMADURAS, EN_VUELO, ORBITA, CORAZA_IMAN, ELITROS, UNA_CABEZA,
 	INFECTADO, FLORECIDO,
 	CONGELADO, DESHIELO,
-	OJOS_INSOMNES, CONCENTRACION }
+	OJOS_INSOMNES, CONCENTRACION,
+	COSTRA_SANGRE, SED_MANA }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -675,6 +676,19 @@ static var _defs: Dictionary = {
 		"pasiva": true, "turns": 999, "menos_magia": true,
 		"descripcion": "Tiene más ojos que alas y ninguno se cierra.",
 	},
+	# (18/11, los mutantes de la CHUPASIMAS) sus dos pasivas, a la vista como la de la Insomne. "texto_portador": su texto
+	# sale de los numeros de QUIEN la lleva (Combatant.costra_* / la sed de mana), que se los dio su mutacion: el estado
+	# solo guarda una magnitud y estas tienen varias (ver Instance.resumen).
+	Id.COSTRA_SANGRE: {
+		"id": Id.COSTRA_SANGRE, "nombre": "Costra de sangre", "icono": "🧫", "color": Color(0.62, 0.18, 0.16),
+		"pasiva": true, "turns": 999, "texto_portador": true,
+		"descripcion": "Lo que se bebe no le alimenta: se le cuaja encima.",
+	},
+	Id.SED_MANA: {
+		"id": Id.SED_MANA, "nombre": "Sed de maná", "icono": "🫦", "color": Color(0.33, 0.6, 1.0),
+		"pasiva": true, "turns": 999, "texto_portador": true,
+		"descripcion": "Huele el maná. Al que más lleva, antes le encuentra.",
+	},
 	# EL SET CONCENTRACION (12/11, el de la Polilla insomne): cada frase bien recitada le pone una carga (hasta el tope del
 	# set) y fallar una se las quita todas (CombatMagia). Cada carga, + el daño magico que diga el set (mult_override). Dura
 	# la pelea: no se gasta por turnos y no sale de ella ("de_la_pelea").
@@ -987,7 +1001,8 @@ class Instance extends RefCounted:
 	# FICHA COMPLETA del estado (para el tooltip del combate). TODOS los numeros salen de los
 	# campos de esta instancia y de su definicion: la 'descripcion' del catalogo es solo
 	# SABOR y no repite ni una cifra (si lo hiciera, se quedaria vieja al tocar el balance).
-	func resumen() -> String:
+	# 'quien' = el que lo lleva (lo pasa el chip del combate): lo necesitan las pasivas con "texto_portador".
+	func resumen(quien = null) -> String:
 		# Cabecera: icono, nombre y lo que le queda, todo en una linea. Debajo, QUE TE HACE en
 		# frases cortas. Nada de parentesis explicando la mecanica por dentro: el tooltip se lee
 		# de un vistazo en mitad de un turno, no es documentacion.
@@ -1049,6 +1064,9 @@ class Instance extends RefCounted:
 		# Combatant.resiste_magia (asi el numero sale del dato y no del texto).
 		if bool(d.get("menos_magia", false)) and magnitude > 0.0:
 			lineas.append("El daño mágico que recibe se reduce en un %d %%." % roundi(magnitude * 100.0))
+		# (18/11) LAS PASIVAS DE LA CHUPASIMAS, con los numeros de quien la lleva.
+		if bool(d.get("texto_portador", false)) and quien != null:
+			lineas.append_array(StatusEffects.texto_pasiva_portador(id(), quien))
 		if bool(d.get("sin_objetos", false)):
 			lineas.append("No puede usar objetos.")
 		# LO QUE ANDA en su turno (el Congelado: 05/11, el jefe, "no tiene descripcion": salia mudo en la ficha).
@@ -1324,12 +1342,50 @@ static func efecto_legible(id: int, mult: float = 0.0, escala: float = 1.0) -> S
 # El chip va como [etiqueta, tooltip, icono (emoji), color, ultimo turno, CLAVE del icono pixel]. El emoji se queda: lo
 # usan el registro, la red y CombatFX (que busca el estado por el). La clave es el nombre del Id en minusculas, el
 # PNG de assets/ui/estados (05/11: los iconos en pixel art; StatusChip.de_par).
+# EL TEXTO DE LAS PASIVAS DE LA CHUPASIMAS (18/11, aprobado tal cual: "si, asi"), con los numeros de 'quien' (guia de
+# textos: "quien la tiene", cada % dice de que, los limites en frase aparte al final).
+static func texto_pasiva_portador(id_p: int, quien) -> PackedStringArray:
+	var out: PackedStringArray = []
+	if id_p == Id.COSTRA_SANGRE:
+		var agua: float = float(quien.costra_resist.get(Elementos.Elemento.AGUA, 1.0))
+		var rayo: float = float(quien.costra_resist.get(Elementos.Elemento.RAYO, 1.0))
+		var partes: Array = ["recibe un %d %% menos de daño físico" % roundi((1.0 - quien.costra_fisico) * 100.0)]
+		if agua > 1.0:
+			partes.append("un %d %% más de Daño de Agua" % roundi((agua - 1.0) * 100.0))
+		var frase: String = "Mientras tiene escudo, " + ", ".join(partes)
+		if is_equal_approx(rayo, 1.0):
+			frase += " y el Daño de Rayo le afecta con normalidad."
+		else:
+			frase += "."
+		out.append("Lo que drena quien la tiene, con Drenaje o mientras está adherida a alguien, se le convierte en un escudo equivalente al %d %% de lo drenado. %s Si un golpe le rompe el escudo, los siguientes golpes ya no se ven afectados." % [
+			roundi(quien.costra_sangre * 100.0), frase])
+		out.append("El escudo no puede superar su vida máxima.")
+	elif id_p == Id.SED_MANA:
+		out.append("Al elegir a quién atacar, prefiere a los que tienen más Maná máximo: la probabilidad de atacar a cada uno se multiplica por su Maná máximo frente a la media de su grupo.")
+		# (contraccion: «de el doble» -> «del doble»)
+		out.append(("Esa probabilidad no baja de %s ni pasa de %s." % [_veces(SED_MANA_MIN), _veces(SED_MANA_MAX)]).replace(" de el ", " del "))
+	return out
+
+
+static func _veces(x: float) -> String:
+	if is_equal_approx(x, 0.5):
+		return "la mitad"
+	if is_equal_approx(x, 2.0):
+		return "el doble"
+	return "x" + num(x)
+
+
+# SED DE MANA (18/11): el peso de objetivo de cada uno, por su mana maximo frente a la media, entre estos dos.
+const SED_MANA_MIN := 0.5
+const SED_MANA_MAX := 2.0
+
+
 static func clave_icono(id: int) -> String:
 	var k = Id.find_key(id)
 	return String(k).to_lower() if k != null else ""
 
 
-static func chip_de_grupo(insts: Array) -> Array:
+static func chip_de_grupo(insts: Array, quien = null) -> Array:
 	if insts.is_empty():
 		return ["", "", "", Color.WHITE, false, ""]
 	var larga: Instance = insts[0]
@@ -1348,7 +1404,7 @@ static func chip_de_grupo(insts: Array) -> Array:
 		for e in insts:
 			if e.magnitude > fuerte.magnitude:
 				fuerte = e
-		return [fuerte.etiqueta(), fuerte.resumen() + "\n\n%d quemaduras a la vez (arde la más fuerte): %s" % [
+		return [fuerte.etiqueta(), fuerte.resumen(quien) + "\n\n%d quemaduras a la vez (arde la más fuerte): %s" % [
 			insts.size(), ", ".join(turnos)], str(fuerte.d.get("icono", "?")), fuerte.d.get("color", Color.WHITE),
 			larga.turns == 1, clave_icono(fuerte.id())]
 	var ic: String = str(larga.d.get("icono", "?"))
@@ -1357,11 +1413,11 @@ static func chip_de_grupo(insts: Array) -> Array:
 	# puesto. Los permanentes (turns < 0) no parpadean nunca: no se van solos.
 	var ultimo: bool = larga.turns == 1
 	if insts.size() == 1:
-		return [larga.etiqueta(), larga.resumen(), ic, col, ultimo, clave_icono(larga.id())]
+		return [larga.etiqueta(), larga.resumen(quien), ic, col, ultimo, clave_icono(larga.id())]
 
 	# Mismo formato corto que etiqueta(): icono, stacks y lo que le queda. El daño total de todas
 	# las instancias juntas y el desglose por aplicacion van al tooltip, aqui debajo.
 	var etq: String = "%sx%d %s" % [ic, stacks_tot, larga.duracion_texto()]
-	var tip: String = larga.resumen() + "\n\n%d aplicaciones: %s" % [
+	var tip: String = larga.resumen(quien) + "\n\n%d aplicaciones: %s" % [
 		insts.size(), ", ".join(turnos)]
 	return [etq, tip, ic, col, ultimo, clave_icono(larga.id())]

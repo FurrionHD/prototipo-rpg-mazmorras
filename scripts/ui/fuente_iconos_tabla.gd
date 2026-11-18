@@ -107,4 +107,6 @@ const TABLA := {
 	"🌿": "florecido",
 	"👁": "ojos_insomnes",
 	"🕯": "concentracion",
+	"🧫": "costra_sangre",
+	"🫦": "sed_mana",
 }

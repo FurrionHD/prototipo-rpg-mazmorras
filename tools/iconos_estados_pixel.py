@@ -331,6 +331,18 @@ ICONOS = [
         ".....aa.....", "....abba....", "....abba....", ".....aa.....", ".....oo.....", "...oooooo...",
         "...occcdo...", "...occcdo...", "...occcdo...", "...occcdo...", "..oooooooo..", "............"),
         {'a': (255, 140, 50), 'b': (255, 236, 140), 'c': (238, 226, 200), 'd': (190, 172, 140), 'o': (60, 40, 30)}),
+    # (18/11, las pasivas de la chupasimas; elegidos por el jefe) LA POSTILLA AGRIETADA: una costra redonda casi curada, con
+    # la grieta roja en zigzag que la cruza (como las del Coagulo).
+    ("costra_sangre", "Costra de sangre", (0.62, 0.18, 0.16), (
+        "............", "...oooooo...", "..ocwccbbo..", ".occcabbbbo.", ".occbbabbbo.", ".ocbbabbbbo.",
+        ".ocbbbabbbo.", ".obbbbbabbo.", "..obbbbbabo.", "...oooooo...", "............", "............"),
+        {'a': (214, 44, 44), 'b': (96, 52, 40), 'c': (150, 90, 64), 'w': (196, 136, 104), 'o': (40, 16, 14)}),
+    # LA BOCA DE ANILLO CON MANA: la ventosa (disco morado, dientes de hueso) con la gota azul de mana dentro, a juego con el
+    # glifo de su set (Boca de las simas).
+    ("sed_mana", "Sed de maná", (0.33, 0.6, 1.0), (
+        "............", "...oooooo...", "..oddddddo..", ".odedededdo.", ".odebaabedo.", ".odeaaaaedo.",
+        ".odebaabedo.", ".oddededeoo.", "..oddddddo..", "...oooooo...", "............", "............"),
+        {'a': (84, 168, 255), 'b': (22, 10, 26), 'd': (78, 30, 96), 'e': (238, 228, 206), 'o': (30, 12, 36)}),
 ]
 
 
@@ -501,6 +513,7 @@ EMOJI = {
     "🪽": "en_vuelo", "💤": "una_cabeza", "❄": "congelacion", "🧊": "congelado", "💦": "deshielo", "🌑": "en_sombras", "🦷": "colmillos_rotos",
     "🔮": "foco", "⏳": "cargando", "🤺": "en_guardia", "😮": "sin_fuelle", "💚": "plato_remedio",
     "🧄": "plato_estomago", "🍀": "plato_fortuna", "🦠": "infectado", "🌿": "florecido", "👁": "ojos_insomnes", "🕯": "concentracion",
+    "🧫": "costra_sangre", "🫦": "sed_mana",
 }
 
 

@@ -285,7 +285,7 @@ static func sed_de_mana_de(c: Combatant, vivos: Array) -> float:
 	for a in vivos:
 		media += (a as Combatant).max_mp
 	media /= float(vivos.size())
-	return clampf(c.max_mp / maxf(media, 0.01), 0.5, 2.0)
+	return clampf(c.max_mp / maxf(media, 0.01), StatusEffects.SED_MANA_MIN, StatusEffects.SED_MANA_MAX)
 
 
 # ¿'c' esta cargando una habilidad o recitando un conjuro? (lo que se le puede cortar)
