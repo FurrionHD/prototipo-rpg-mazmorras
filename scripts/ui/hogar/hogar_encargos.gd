@@ -216,7 +216,8 @@ func _barra_progreso(padre: Control, t: float) -> void:
 	fondo.set_corner_radius_all(4)
 	var lleno := StyleBoxFlat.new()
 	lleno.bg_color = AMBAR
-	lleno.set_corner_radius_all(4)
+	lleno.set_corner_radius_all(0)
+	lleno.anti_aliasing = false
 	barra.add_theme_stylebox_override("background", fondo)
 	barra.add_theme_stylebox_override("fill", lleno)
 	padre.add_child(barra)
@@ -544,12 +545,13 @@ func _mover_reparto(g: int, v: int) -> void:
 		(d["l"] as Label).text = "%d%%" % nuevo
 
 
-# El deslizador del hogar: carril oscuro redondeado y el tramo lleno en AMBAR, el color de "lo que
+# El deslizador del hogar: carril oscuro CUADRADO (18/11: en pixel, como todos los del tema) y el tramo lleno en AMBAR, el color de "lo que
 # has elegido" en todo el menu (el marco de la celda marcada, los chips).
 func _estilo_deslizador(s: HSlider) -> void:
 	var carril := StyleBoxFlat.new()
 	carril.bg_color = Color(1, 1, 1, 0.08)
-	carril.set_corner_radius_all(4)
+	carril.set_corner_radius_all(0)
+	carril.anti_aliasing = false
 	carril.content_margin_top = 4
 	carril.content_margin_bottom = 4
 	var lleno := StyleBoxFlat.new()

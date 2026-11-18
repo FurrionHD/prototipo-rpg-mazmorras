@@ -182,7 +182,76 @@ static func tema_menus() -> Theme:
 	var aire := StyleBoxEmpty.new()
 	aire.set_content_margin_all(4)
 	t.set_stylebox("panel", "ScrollContainer", aire)
+	_tema_deslizadores(t)
 	return t
+
+
+# (18/11) LOS DESLIZADORES Y LAS BARRAS DE SCROLL EN PIXEL: los de Godot salian con la bola y la barra redondas («tenemos
+# que hacer estilo propio para estas cosas porque son redondas»). Todo cuadrado, sin suavizado, con el hierro de los
+# botones: el carril hundido, lo recorrido en hierro claro y un TIRADOR de bloque con su brillo y su sombra.
+const PX_HIERRO := Color(0.30, 0.30, 0.34)
+const PX_BRILLO := Color(0.56, 0.55, 0.56)
+const PX_SOMBRA := Color(0.14, 0.14, 0.16)
+const PX_HUNDIDO := Color(0.05, 0.05, 0.06)
+
+static func _caja_px(fondo: Color, borde: Color, grueso: int, alto_min: int = 0) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = fondo
+	sb.border_color = borde
+	sb.set_border_width_all(grueso)
+	sb.set_corner_radius_all(0)
+	sb.anti_aliasing = false
+	if alto_min > 0:
+		sb.content_margin_top = alto_min / 2.0
+		sb.content_margin_bottom = alto_min / 2.0
+	return sb
+
+
+# El tirador: un bloque de 'ancho' x 'alto' con borde oscuro, brillo arriba e izquierda y sombra abajo y derecha.
+static func _tirador_px(ancho: int, alto: int, cuerpo: Color) -> ImageTexture:
+	var img := Image.create(ancho, alto, false, Image.FORMAT_RGBA8)
+	img.fill(PX_SOMBRA.darkened(0.4))
+	img.fill_rect(Rect2i(1, 1, ancho - 2, alto - 2), cuerpo)
+	img.fill_rect(Rect2i(1, 1, ancho - 2, 1), cuerpo.lightened(0.35))
+	img.fill_rect(Rect2i(1, 1, 1, alto - 2), cuerpo.lightened(0.35))
+	img.fill_rect(Rect2i(1, alto - 2, ancho - 2, 1), cuerpo.darkened(0.35))
+	img.fill_rect(Rect2i(ancho - 2, 1, 1, alto - 2), cuerpo.darkened(0.35))
+	# la muesca del medio, para que se lea como algo que se agarra
+	if ancho >= 8 and alto >= 8:
+		var cx: int = ancho / 2 - 1
+		img.fill_rect(Rect2i(cx, 4, 1, alto - 8), cuerpo.darkened(0.35))
+		img.fill_rect(Rect2i(cx + 1, 4, 1, alto - 8), cuerpo.lightened(0.25))
+	return ImageTexture.create_from_image(img)
+
+
+static func _tema_deslizadores(t: Theme) -> void:
+	var carril := _caja_px(PX_HUNDIDO, PX_SOMBRA, 1, 6)
+	var recorrido := _caja_px(PX_HIERRO, PX_SOMBRA, 1, 6)
+	var recorrido_luz := _caja_px(PX_BRILLO.darkened(0.25), PX_SOMBRA, 1, 6)
+	for tipo in ["HSlider", "VSlider"]:
+		t.set_stylebox("slider", tipo, carril)
+		t.set_stylebox("grabber_area", tipo, recorrido)
+		t.set_stylebox("grabber_area_highlight", tipo, recorrido_luz)
+	var h_ancho: int = 10
+	var h_alto: int = 18
+	t.set_icon("grabber", "HSlider", _tirador_px(h_ancho, h_alto, Color(0.52, 0.52, 0.56)))
+	t.set_icon("grabber_highlight", "HSlider", _tirador_px(h_ancho, h_alto, Color(0.66, 0.64, 0.62)))
+	t.set_icon("grabber_disabled", "HSlider", _tirador_px(h_ancho, h_alto, Color(0.24, 0.24, 0.27)))
+	t.set_icon("grabber", "VSlider", _tirador_px(h_alto, h_ancho, Color(0.52, 0.52, 0.56)))
+	t.set_icon("grabber_highlight", "VSlider", _tirador_px(h_alto, h_ancho, Color(0.66, 0.64, 0.62)))
+	t.set_icon("grabber_disabled", "VSlider", _tirador_px(h_alto, h_ancho, Color(0.24, 0.24, 0.27)))
+	# LAS BARRAS DE SCROLL: carril hundido y un bloque de hierro que se aclara al pasar y al agarrarlo.
+	for tipo in ["VScrollBar", "HScrollBar"]:
+		# (el ANCHO de la barra lo dan los margenes de su caja: sin ellos se queda en 2 px y no se ve)
+		var c := _caja_px(PX_HUNDIDO, PX_SOMBRA, 1)
+		c.set_content_margin_all(5)
+		t.set_stylebox("scroll", tipo, c)
+		t.set_stylebox("scroll_focus", tipo, c)
+		for estado in [["grabber", Color(0.40, 0.40, 0.44)], ["grabber_highlight", Color(0.56, 0.55, 0.56)],
+				["grabber_pressed", Color(0.66, 0.60, 0.48)]]:
+			var g := _caja_px(estado[1], PX_SOMBRA.darkened(0.4), 1)
+			g.set_content_margin_all(4)
+			t.set_stylebox(estado[0], tipo, g)
 
 
 # ------------------------------------------------------------

@@ -10,6 +10,11 @@
 #     numeros que saltan al golpear. «1 decimal» es un TOPE, no un relleno: lo que por defecto va entero (la energia)
 #     sigue entero (su decision).
 #
+#  3. LOS CIRCULOS DE ALCANCE (18/11, su decision): por separado los de tus personajes y los de los enemigos, cada uno
+#     con cuando se ven (APAGADOS DE SERIE / solo el del turno y el apuntado / todos), su trazo (a puntos o a rayas, en
+#     pixel: AroPixel), su color libre con opacidad, el grosor y las medidas del trazo. Los lee ArenaCombate al pintar
+#     y CombatTactico._tick_alcances para saber de quien.
+#
 #  Ajustes de MAQUINA y no de partida, como los volumenes y la pantalla: viven en user://ajustes.cfg, en su seccion, y
 #  se LEE ANTES DE ESCRIBIR para no llevarse por delante las de Sonido y Ventana (ver prueba_ventana_ajustes).
 # ============================================================
@@ -36,6 +41,32 @@ const MODOS_DECIMALES := [
 
 var decimales: int = Decimales.DEFECTO
 
+# --- LOS CIRCULOS DE ALCANCE ---
+enum Alcance { APAGADO, TURNO, TODOS }
+const GRUPOS_ALCANCE := ["tuyos", "enemigos"]
+const MODOS_ALCANCE := [
+	{"id": Alcance.APAGADO, "nombre": "Apagados"},
+	{"id": Alcance.TURNO, "nombre": "Solo del turno"},   # el de quien juega y el que apuntas
+	{"id": Alcance.TODOS, "nombre": "Todos"},
+]
+const TRAZOS_ALCANCE := [
+	{"id": 1, "nombre": "A rayas"},    # AroPixel.Trazo.RAYAS
+	{"id": 0, "nombre": "A puntos"},   # AroPixel.Trazo.PUNTOS
+]
+# Lo de serie (y lo que pone «Restablecer»): el azul y el rojo de siempre, a rayas finas de 1 px.
+const ALCANCE_DEFECTO := {
+	"tuyos": {"modo": Alcance.APAGADO, "trazo": 1, "color": Color(0.45, 0.75, 1.0), "opacidad": 45, "tam": 1,
+		"largo": 6, "hueco": 4},
+	"enemigos": {"modo": Alcance.APAGADO, "trazo": 1, "color": Color(1.0, 0.4, 0.35), "opacidad": 45, "tam": 1,
+		"largo": 6, "hueco": 4},
+}
+# Los topes de cada mando (los usa Ajustes para sus deslizadores y _cargar para no fiarse del fichero).
+const ALCANCE_TOPES := {"opacidad": [10, 100], "tam": [1, 3], "largo": [1, 16], "hueco": [1, 16]}
+# El del turno y el apuntado, mas marcados que los demas: su opacidad sube esto (hasta el 100 %).
+const ALCANCE_EXTRA_FUERTE := 0.35
+
+var alcance: Dictionary = {}   # grupo -> {modo, trazo, color, opacidad, tam, largo, hueco}
+
 var _re_fmt: RegEx = null
 var _re_num: RegEx = null
 
@@ -55,6 +86,55 @@ func fijar_modo_cifras(m: int) -> void:
 func fijar_decimales(d: int) -> void:
 	decimales = clampi(d, 0, 2)
 	_guardar()
+
+
+# Un valor de los circulos de un grupo ("tuyos" / "enemigos"). Se aplica al momento y se guarda.
+# Mientras se arrastra un mando, guardar = false (se ve al momento sin escribir un fichero por pixel); al soltarlo, true.
+func fijar_alcance(grupo: String, clave: String, valor, guardar: bool = true) -> void:
+	if not alcance.has(grupo):
+		return
+	alcance[grupo][clave] = _sanear(clave, valor)
+	if guardar:
+		_guardar()
+
+
+func guardar_ajustes() -> void:
+	_guardar()
+
+
+func restablecer_alcance(grupo: String) -> void:
+	var modo: int = int(alcance.get(grupo, {}).get("modo", Alcance.APAGADO))
+	alcance[grupo] = (ALCANCE_DEFECTO[grupo] as Dictionary).duplicate()
+	alcance[grupo]["modo"] = modo   # restablece el aspecto; si se ven o no, lo deja como estaba
+	_guardar()
+
+
+# Si el aro de alguien se pinta: 'enemigo' dice su grupo y 'fuerte' si es el del turno o el apuntado.
+func ve_alcance(enemigo: bool, fuerte: bool) -> bool:
+	var m: int = int(alcance["enemigos" if enemigo else "tuyos"]["modo"])
+	return m == Alcance.TODOS or (m == Alcance.TURNO and fuerte)
+
+
+# El color con su opacidad (y el extra si es el del turno o el apuntado).
+func color_alcance(enemigo: bool, fuerte: bool) -> Color:
+	var a: Dictionary = alcance["enemigos" if enemigo else "tuyos"]
+	var alfa: float = float(a["opacidad"]) / 100.0
+	if fuerte:
+		alfa = minf(1.0, alfa + ALCANCE_EXTRA_FUERTE)
+	return Color(a["color"], alfa)
+
+
+func _sanear(clave: String, v):
+	match clave:
+		"modo":
+			return clampi(int(v), 0, 2)
+		"trazo":
+			return clampi(int(v), 0, 1)
+		"color":
+			return Color(v) if (v is Color) else Color.WHITE
+	if ALCANCE_TOPES.has(clave):
+		return clampi(int(v), int(ALCANCE_TOPES[clave][0]), int(ALCANCE_TOPES[clave][1]))
+	return v
 
 
 # ------------------------------------------------------------
@@ -131,6 +211,14 @@ func _cargar() -> void:
 		push_warning("[preferencias] no se pudo leer %s (error %d): por defecto" % [RUTA_AJUSTES, err])
 	AbilityData.modo_cifras = clampi(int(cfg.get_value(SECCION, "cifras", AbilityData.ModoCifras.LOS_DOS)), 0, 2)
 	decimales = clampi(int(cfg.get_value(SECCION, "decimales", Decimales.DEFECTO)), 0, 2)
+	for g in GRUPOS_ALCANCE:
+		var d: Dictionary = (ALCANCE_DEFECTO[g] as Dictionary).duplicate()
+		var leido = cfg.get_value(SECCION, "alcance_" + g, {})
+		if leido is Dictionary:
+			for k in d:
+				if leido.has(k):
+					d[k] = _sanear(k, leido[k])
+		alcance[g] = d
 
 
 func _guardar() -> void:
@@ -139,6 +227,8 @@ func _guardar() -> void:
 	cfg.load(RUTA_AJUSTES)
 	cfg.set_value(SECCION, "cifras", AbilityData.modo_cifras)
 	cfg.set_value(SECCION, "decimales", decimales)
+	for g in alcance:
+		cfg.set_value(SECCION, "alcance_" + g, alcance[g])
 	var err: int = cfg.save(RUTA_AJUSTES)
 	if err != OK:
 		push_warning("[preferencias] no se pudo guardar %s (error %d)" % [RUTA_AJUSTES, err])

@@ -87,6 +87,7 @@ func _correr() -> void:
 	var salida: String = OS.get_environment("ALCANCES_SALIDA")
 	if salida != "" and DisplayServer.get_name() != "headless":
 		await _esperar(20)
+		await RenderingServer.frame_post_draw   # sin esto la captura sale gris (aun no se ha pintado)
 		var img: Image = get_tree().root.get_viewport().get_texture().get_image()
 		img.save_png(salida + ".png")
 		print("     captura: %s.png" % salida)

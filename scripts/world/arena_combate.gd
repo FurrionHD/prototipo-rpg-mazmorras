@@ -366,14 +366,47 @@ func _limpiar() -> void:
 
 # LOS ALCANCES (los pone CombatTactico._tick_alcances cada fotograma): [centro, radio, es_enemigo, fuerte].
 var alcances: Array = []
-const COLOR_ALCANCE_TUYO := Color(0.45, 0.75, 1.0)
-const COLOR_ALCANCE_ENEMIGO := Color(1.0, 0.4, 0.35)
-const ALFA_ALCANCE := 0.22
-const ALFA_ALCANCE_FUERTE := 0.6
+# Como se ven (cuando, color, trazo) lo decide Preferencias (pestaña Juego, 18/11): de serie, APAGADOS.
+const AroPixel = preload("res://scripts/fx/aro_pixel.gd")
+# Los pinta un hijo propio con filtro NEAREST (pixeles nitidos sin tocar el filtro del resto de la arena), por detras
+# de lo que pinta la arena: las huellas de lo que se apunta quedan encima.
+var _aros: Node2D = null
+
+
+func _ready_aros() -> void:
+	if _aros != null:
+		return
+	_aros = Node2D.new()
+	_aros.name = "Aros"
+	_aros.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_aros.show_behind_parent = true
+	_aros.draw.connect(_pintar_aros)
+	add_child(_aros)
+
+
+func _pintar_aros() -> void:
+	if ajena:
+		return
+	for al in alcances:
+		var enemigo: bool = bool(al[2])
+		var fuerte: bool = bool(al[3])
+		if not Preferencias.ve_alcance(enemigo, fuerte):
+			continue
+		var a: Dictionary = Preferencias.alcance["enemigos" if enemigo else "tuyos"]
+		var tex: Texture2D = AroPixel.textura(float(al[1]), int(a["trazo"]), int(a["tam"]), int(a["largo"]),
+			int(a["hueco"]))
+		_aros.draw_texture(tex, AroPixel.esquina(al[0], tex), Preferencias.color_alcance(enemigo, fuerte))
+
+
+func _ready() -> void:
+	_ready_aros()
+
 
 func _process(delta: float) -> void:
 	_t += delta
 	queue_redraw()
+	if _aros != null:
+		_aros.queue_redraw()
 
 
 func _draw() -> void:
@@ -413,13 +446,8 @@ func _draw() -> void:
 		draw_arc(circulo_centro, circulo_radio, 0.0, TAU, 72, Color(base, 0.55 + 0.2 * late), 2.0)
 		draw_circle(circulo_centro, 3.0, Color(base, 0.8))   # de donde salio: su sitio al empezar
 
-	# 3b) LOS ALCANCES de todos (B4, playtest 11/10): un anillo fino a los pies de cada uno, azul los tuyos y rojo
-	# los de enfrente. Suaves, que se lean sin tapar la pelea; el del turno y el apuntado, marcados.
-	for al in alcances:
-		var col_al: Color = COLOR_ALCANCE_ENEMIGO if bool(al[2]) else COLOR_ALCANCE_TUYO
-		var fuerte: bool = bool(al[3])
-		draw_arc(al[0], float(al[1]), 0.0, TAU, 64, Color(col_al, ALFA_ALCANCE_FUERTE if fuerte else ALFA_ALCANCE),
-			2.0 if fuerte else 1.5)
+	# 3b) LOS ALCANCES (B4, playtest 11/10): los pinta _aros (ver _pintar_aros), en pixel y con lo que diga la
+	# pestaña Juego.
 
 	# 4) LAS HUELLAS: lo que tapa una habilidad mientras se apunta (y, las cargadas, mientras cargan).
 	# Tambien sin achatar. El NUCLEO (la zona de impacto, con el daño entero) va mas marcado.

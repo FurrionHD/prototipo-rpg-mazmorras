@@ -2,7 +2,9 @@
 #  settings_menu.gd  (Control creado por codigo)
 #  Los AJUSTES, en APARTADOS: SONIDO (los tres volumenes), GRAFICOS (modo de pantalla, vsync, limite de FPS, mostrar
 #  FPS y brillo) y JUEGO (como se
-#  escriben los numeros: las cifras de las fichas y los decimales; ver Preferencias).
+#  escriben los numeros: las cifras de las fichas y los decimales; ver Preferencias; y los CIRCULOS DE ALCANCE del mapa
+#  tactico, ajustes_alcance.gd). Un apartado que no cabe en el alto del panel (Juego, con los circulos) va con
+#  SCROLL: el panel no crece y no se sale de la pantalla.
 #  Se abren desde el menu del titulo, desde la pausa y desde el combate. Los apartados existen
 #  desde que hay mas de una clase de ajuste: una lista seguida de volumenes y pantallas mezclados
 #  no se lee, y ahi tiene que caber lo que venga despues (idioma, controles) sin mover nada.
@@ -45,6 +47,8 @@ const APARTADOS := [
 	{"clave": "graficos", "titulo": "Gráficos"},
 	{"clave": "juego", "titulo": "Juego"},
 ]
+# LOS QUE VAN CON SCROLL (su contenido es mas alto que el panel).
+const CON_SCROLL := ["juego"]
 # Alto fijo del cuerpo: lo que ocupa el apartado MAS ALTO (se mide al montarlos, ver _ready). Sin esto, el panel
 # encoge al cambiar de pestaña y el boton de Volver salta de sitio bajo el dedo.
 var _cuerpo: Control = null
@@ -62,6 +66,8 @@ var _cifras_fichas: OptionButton = null   # porcentaje / numero / los dos
 var _decimales: OptionButton = null       # enteros / 1 decimal / por defecto
 var _ej_cifras: Label = null   # el ejemplo de debajo de cada lista: se ve lo que hace sin ir a buscarlo
 var _ej_decimales: Label = null
+var _alcance: VBoxContainer = null   # los circulos de alcance (ajustes_alcance.gd)
+var _marcos: Dictionary = {}   # clave de apartado -> lo que se enseña/esconde (la caja, o su ScrollContainer)
 var _cuerpos: Dictionary = {}   # clave de apartado -> VBoxContainer
 var _pestanas: Dictionary = {}  # clave de apartado -> Button
 var _apartado: String = "sonido"
@@ -121,11 +127,22 @@ func _ready() -> void:
 	_cuerpo = cuerpo
 	vb.add_child(cuerpo)
 	for a in APARTADOS:
+		var clave: String = String(a["clave"])
 		var caja := VBoxContainer.new()
-		caja.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		caja.add_theme_constant_override("separation", 10)
-		cuerpo.add_child(caja)
-		_cuerpos[String(a["clave"])] = caja
+		if CON_SCROLL.has(clave):
+			var sc := ScrollContainer.new()
+			sc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+			caja.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			sc.add_child(caja)
+			cuerpo.add_child(sc)
+			_marcos[clave] = sc
+		else:
+			caja.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			cuerpo.add_child(caja)
+			_marcos[clave] = caja
+		_cuerpos[clave] = caja
 
 	for m in MANDOS:
 		_fila(_cuerpos["sonido"], String(m["clave"]), String(m["titulo"]))
@@ -165,11 +182,14 @@ func _ready() -> void:
 			_pintar_ejemplos())
 	_ej_decimales = _pista(_cuerpos["juego"])
 	_pintar_ejemplos()
+	_alcance = preload("res://scripts/ui/ajustes_alcance.gd").new()
+	_cuerpos["juego"].add_child(_alcance)
 
 	# EL ALTO del cuerpo = el del apartado mas alto (Graficos, hoy).
 	var alto: float = 0.0
-	for k in _cuerpos:
-		alto = maxf(alto, (_cuerpos[k] as Control).get_combined_minimum_size().y)
+	# (los de scroll no cuentan: se ajustan a este alto y lo que sobra se recorre)
+	for k in _marcos:
+		alto = maxf(alto, (_marcos[k] as Control).get_combined_minimum_size().y)
 	_cuerpo.custom_minimum_size = Vector2(ANCHO, alto)
 
 	_ir_a(_apartado)
@@ -387,8 +407,8 @@ func _pintar_ejemplos() -> void:
 # Cambia de apartado: se enseña su caja y su pestaña se enciende.
 func _ir_a(clave: String) -> void:
 	_apartado = clave
-	for k in _cuerpos:
-		(_cuerpos[k] as Control).visible = (k == clave)
+	for k in _marcos:
+		(_marcos[k] as Control).visible = (k == clave)
 	for k in _pestanas:
 		var b: Button = _pestanas[k]
 		b.add_theme_color_override("font_color",
@@ -439,6 +459,8 @@ func abrir() -> void:
 	if _decimales != null:
 		_decimales.select(_decimales.get_item_index(Preferencias.decimales))
 	_pintar_ejemplos()
+	if _alcance != null:
+		_alcance.refrescar()
 
 
 func cerrar() -> void:
@@ -447,4 +469,5 @@ func cerrar() -> void:
 	# por tanto sin drag_ended), aqui no se pierde.
 	Sonido.guardar_ajustes()
 	Ventana.guardar_ajustes()   # el brillo movido con el teclado, igual que los volumenes
+	Preferencias.guardar_ajustes()   # y los mandos de los circulos de alcance
 	cerrado.emit()

@@ -3,6 +3,8 @@
 # 1. Las cifras de las fichas: los tres modos llegan a AbilityData.modo_cifras y cambian el texto.
 # 2. Los decimales: enteros, 1 decimal (TOPE: lo entero sigue entero) y por defecto, en barras, registro y golpes.
 # 3. Se guardan en user://ajustes.cfg sin llevarse los volumenes ni la pantalla, y se vuelven a leer.
+# 5. Los CIRCULOS DE ALCANCE (18/11): apagados de serie, cuando se ven, su guardado, y el aro en PIXEL (AroPixel):
+#    nitido (cada pixel lleno o vacio), cerrado, a rayas o a puntos con su separacion, y del grosor que se pide.
 #
 # Se hace copia del fichero de verdad al empezar y se devuelve tal cual al terminar.
 extends Node
@@ -103,6 +105,8 @@ func _ready() -> void:
 	Preferencias.fijar_decimales(99)
 	_ok("decimales imposibles se recortan", Preferencias.decimales == 2)
 
+	_circulos()
+
 	AbilityData.modo_cifras = cifras_antes
 	Preferencias.decimales = dec_antes
 	_restaurar()
@@ -110,6 +114,99 @@ func _ready() -> void:
 	if _malos == 0:
 		print("FIN: TODO BIEN")
 	get_tree().quit(_malos)
+
+
+func _circulos() -> void:
+	var antes: Dictionary = Preferencias.alcance.duplicate(true)
+	var P = Preferencias
+	# De serie, apagados (los dos grupos), y un fichero sin la clave se lee apagado.
+	_ok("de serie: los circulos de los tuyos apagados", int(P.ALCANCE_DEFECTO["tuyos"]["modo"]) == P.Alcance.APAGADO)
+	_ok("de serie: los de los enemigos apagados", int(P.ALCANCE_DEFECTO["enemigos"]["modo"]) == P.Alcance.APAGADO)
+	var cfg := ConfigFile.new()
+	cfg.load(P.RUTA_AJUSTES)
+	if cfg.has_section_key(P.SECCION, "alcance_tuyos"):
+		cfg.erase_section_key(P.SECCION, "alcance_tuyos")
+	cfg.save(P.RUTA_AJUSTES)
+	P._cargar()
+	_ok("sin nada guardado, apagados", int(P.alcance["tuyos"]["modo"]) == P.Alcance.APAGADO)
+	_ok("apagado: ni el normal ni el del turno", not P.ve_alcance(false, false) and not P.ve_alcance(false, true))
+
+	# Cuando se ven, cada grupo por su lado.
+	P.fijar_alcance("tuyos", "modo", P.Alcance.TURNO)
+	P.fijar_alcance("enemigos", "modo", P.Alcance.TODOS)
+	_ok("solo del turno: el del turno si, el normal no", P.ve_alcance(false, true) and not P.ve_alcance(false, false))
+	_ok("todos: los enemigos se ven todos", P.ve_alcance(true, false) and P.ve_alcance(true, true))
+	P.fijar_alcance("tuyos", "opacidad", 40)
+	_ok("el del turno, mas marcado", P.color_alcance(false, true).a > P.color_alcance(false, false).a)
+	_ok("opacidad 40 %", is_equal_approx(P.color_alcance(false, false).a, 0.4))
+
+	# Guardado y releido, y lo de fuera de rango recortado.
+	P.fijar_alcance("enemigos", "color", Color(0.2, 0.9, 0.3))
+	P.fijar_alcance("enemigos", "trazo", 0)
+	P.fijar_alcance("enemigos", "hueco", 99)
+	_ok("una separacion imposible se recorta", int(P.alcance["enemigos"]["hueco"]) == int(P.ALCANCE_TOPES["hueco"][1]))
+	P.alcance = {}
+	P._cargar()
+	_ok("al releer: los tuyos solo del turno", int(P.alcance["tuyos"]["modo"]) == P.Alcance.TURNO)
+	_ok("al releer: el color de los enemigos", (P.alcance["enemigos"]["color"] as Color).is_equal_approx(Color(0.2, 0.9, 0.3)))
+	_ok("al releer: a puntos", int(P.alcance["enemigos"]["trazo"]) == 0)
+	P.restablecer_alcance("enemigos")
+	_ok("restablecer: vuelve el rojo", (P.alcance["enemigos"]["color"] as Color).is_equal_approx(P.ALCANCE_DEFECTO["enemigos"]["color"]))
+	_ok("restablecer no cambia si se ven", int(P.alcance["enemigos"]["modo"]) == P.Alcance.TODOS)
+
+	# EL ARO EN PIXEL
+	var A = preload("res://scripts/fx/aro_pixel.gd")
+	var rec: Array = A.recorrido(40)
+	var pegado: bool = true
+	for i in rec.size():
+		var a: Vector2i = rec[i]
+		var b: Vector2i = rec[(i + 1) % rec.size()]
+		if absi(a.x - b.x) > 1 or absi(a.y - b.y) > 1 or a == b:
+			pegado = false
+	_ok("el recorrido da la vuelta pixel a pixel, sin saltos ni repetidos", pegado)
+	var sin_l: bool = true
+	for i in rec.size():
+		var a: Vector2i = rec[i]
+		var c: Vector2i = rec[(i + 2) % rec.size()]
+		if absi(a.x - c.x) <= 1 and absi(a.y - c.y) <= 1:
+			sin_l = false
+	_ok("sin escalones dobles (pixeles de mas en la curva)", sin_l)
+	var entero: int = _llenos(A.textura(40.0, A.Trazo.RAYAS, 1, 1000, 1))
+	var rayas: int = _llenos(A.textura(40.0, A.Trazo.RAYAS, 1, 6, 4))
+	var puntos: int = _llenos(A.textura(40.0, A.Trazo.PUNTOS, 1, 6, 4))
+	var gordo: int = _llenos(A.textura(40.0, A.Trazo.PUNTOS, 2, 6, 4))
+	print("     pixeles: recorrido %d, rayas 6/4 %d, puntos /4 %d, puntos de 2 px %d" % [rec.size(), rayas, puntos, gordo])
+	_ok("a rayas 6/4: unas 6 de cada 10", absf(float(rayas) / float(rec.size()) - 0.6) < 0.06)
+	_ok("a puntos /4: uno de cada 5", absf(float(puntos) / float(rec.size()) - 0.2) < 0.04)
+	# (de 2 px el periodo es 2 + 4: caben menos puntos, pero cada uno es de 2 x 2)
+	_ok("puntos de 2 px: cada punto de 2 x 2", gordo == roundi(float(rec.size()) / 6.0) * 4)
+	_ok("nitido: cada pixel lleno o vacio (nada a medias)", _nitido(A.textura(40.0, A.Trazo.RAYAS, 2, 6, 4)))
+	_ok("una textura por estilo: la segunda vez es la misma",
+		A.textura(40.0, A.Trazo.RAYAS, 1, 6, 4) == A.textura(40.0, A.Trazo.RAYAS, 1, 6, 4))
+	_ok("con todo entero, el aro completo", entero >= rec.size() - 1)
+
+	P.alcance = antes
+	A._cache.clear()
+
+
+func _llenos(tex: Texture2D) -> int:
+	var img: Image = tex.get_image()
+	var n: int = 0
+	for y in img.get_height():
+		for x in img.get_width():
+			if img.get_pixel(x, y).a > 0.5:
+				n += 1
+	return n
+
+
+func _nitido(tex: Texture2D) -> bool:
+	var img: Image = tex.get_image()
+	for y in img.get_height():
+		for x in img.get_width():
+			var a: float = img.get_pixel(x, y).a
+			if a > 0.01 and a < 0.99:
+				return false
+	return true
 
 
 func _escrito_con(d: int) -> String:
