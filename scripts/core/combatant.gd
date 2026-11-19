@@ -1285,6 +1285,10 @@ func take_damage(amount: float, es_dot: bool = false) -> void:
 # SOLO HERRAMIENTAS (tools/simulador_peleas.gd, 19/11): si esta puesto, se le avisa de la vida que quita cada daño que entra
 # (ya con defensa, armadura, escudos y costras). En el juego esta siempre vacio.
 static var al_recibir: Callable = Callable()
+# Y DE QUE ESTADO venia cada parte del ultimo DoT ({nombre: daño antes de aguantes}), para repartirlo. Solo se rellena con el
+# gancho puesto.
+var ultimo_dot: Dictionary = {}
+var _dot_desglose: Dictionary = {}
 
 
 # LO QUE SE VE (04/11, playtest: "la capa de ambar se rompe al pulsar el boton"). El daño se resuelve al pulsar y el golpe
@@ -1933,6 +1937,8 @@ func tick_statuses() -> Dictionary:
 		if dmg > 0.0:
 			total_dmg += dmg
 			dot_labels.append("%s %.1f" % [str(e.d.get("icono", "?")), dmg])
+			if al_recibir.is_valid():
+				_dot_desglose[str(e.d.get("nombre", "?"))] = float(_dot_desglose.get(str(e.d.get("nombre", "?")), 0.0)) + dmg
 		if cura > 0.0:
 			total_heal += cura
 			heal_labels.append("%s %.1f" % [str(e.d.get("icono", "?")), cura])
@@ -1974,6 +1980,8 @@ func tick_statuses() -> Dictionary:
 	# no se puede "colar" dentro de la propia reduccion.
 	total_dmg *= status_dot_taken_mult()
 	if total_dmg > 0.0:
+		ultimo_dot = _dot_desglose.duplicate()   # (solo con el gancho del simulador puesto: si no, vacio)
+		_dot_desglose.clear()
 		take_damage(total_dmg, true)   # DoT: NO lo tapa el escudo del sequito (pega limpio)
 		# Y cada tick que AGUANTAS enseña Voluntad (08/10/2026). Solo a los personajes en pelea: fuera
 		# de ella no hay ficha a la que apuntarlo (pj_de_combatant devuelve null).

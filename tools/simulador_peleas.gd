@@ -41,12 +41,12 @@
 # SALIDA: una linea por pelea, 'R|...' (ver CABECERA). 'trozo=i/n' juega solo los casos i, i+n... (varios procesos).
 extends Node
 
-const CABECERA := "R|tanda|reglas|piso|grupo|escenario|arma|enemigo|mutacion|jefe|n_enem|t|gana|turnos_yo|turnos_el|vida_perdida|caidos|mp_gastado|dano_por_turno|dano_recibido_por_turno_suyo|segundos|acciones|fotogramas|ms_por_fotograma|pelea"
+const CABECERA := "R|tanda|reglas|piso|grupo|escenario|arma|enemigo|mutacion|jefe|n_enem|t|gana|turnos_yo|turnos_el|vida_perdida|caidos|mp_gastado|dano_por_turno|dano_recibido_por_turno_suyo|segundos|acciones|fotogramas|ms_por_fotograma|pelea|ciclos|dano_por_ciclo|estados_en_enemigos|estados_en_los_tuyos|n_seguida|repetir"
 # Una linea POR PERSONAJE de los tuyos en cada pelea (lo pidio: "daños de cada uno, cuanto tanquean con cada armadura, el
 # dps medio, cuanto hace cada arma en su turno, si alguno se queda sin energia demasiado rapido"):
-const CABECERA_P := "P|tanda|reglas|pelea|piso|grupo|escenario|n_enem|gana|rol|arma|armadura|vida_max|defensa|def_magica|mitig_fisica|mitig_magica|dano_hecho|dano_recibido|turnos|dano_por_turno|recibido_por_turno_enemigo|cayo|energia_media_al_empezar_turno|turnos_sin_energia|primer_turno_sin_energia|mp_gastado|turnos_sin_mana|primer_turno_sin_mana|pociones|acciones|nivel|tier|mejoras|fue/res/agi/des/mag/vol|ataque|velocidad|max_mp|max_energia|red_armadura|red_armadura_magica"
+const CABECERA_P := "P|tanda|reglas|pelea|piso|grupo|escenario|n_enem|gana|rol|arma|armadura|vida_max|defensa|def_magica|mitig_fisica|mitig_magica|dano_hecho|dano_recibido|turnos|dano_por_turno|recibido_por_turno_enemigo|cayo|energia_media_al_empezar_turno|turnos_sin_energia|primer_turno_sin_energia|mp_gastado|turnos_sin_mana|primer_turno_sin_mana|pociones|acciones|nivel|tier|mejoras|fue/res/agi/des/mag/vol|ataque|velocidad|max_mp|max_energia|red_armadura|red_armadura_magica|ciclos|dano_por_ciclo|turnos_por_ciclo|recibido_por_ciclo|dano_por_elemento"
 # Y una POR ENEMIGO (crias y refuerzos incluidos):
-const CABECERA_E := "E|tanda|reglas|pelea|piso|grupo|escenario|n_enem|gana|enemigo|mutacion|jefe|vida_max|ataque|defensa|def_magica|velocidad|dano_hecho|dano_recibido|turnos|dano_por_turno|muere|t|fue/res/agi/des/mag/vol|ataque_magico|red_armadura"
+const CABECERA_E := "E|tanda|reglas|pelea|piso|grupo|escenario|n_enem|gana|enemigo|mutacion|jefe|vida_max|ataque|defensa|def_magica|velocidad|dano_hecho|dano_recibido|turnos|dano_por_turno|muere|t|fue/res/agi/des/mag/vol|ataque_magico|red_armadura|ciclos|dano_por_ciclo|turnos_por_ciclo"
 const PISOS_NIVEL := 12
 # piso: [nivel, habilidad del nivel, [bakeados], tier, mejoras, piezas de armadura]  (la de tabla_formulas)
 const PROGRESION := {
@@ -57,9 +57,38 @@ const PROGRESION := {
 	12: [1, 700, [], 2, 7, 5],
 	13: [2, 100, [700.0], 3, 0, 5],
 	18: [2, 500, [700.0], 3, 7, 5],
+	24: [2, 800, [700.0], 4, 7, 5],   # el final del nivel 2: lo que se bakea al pasar al 3 (el 800 de abajo)
 	25: [3, 100, [700.0, 800.0], 5, 0, 5],
 	31: [3, 600, [700.0, 800.0], 6, 0, 5],
 }
+# EL PERSONAJE DE REFERENCIA DE CUALQUIER PISO (19/11, lo pidio: "todos los pisos del 1 al 12, con la armadura, las armas y
+# las stats que deberian llevar en ese piso"): las habilidades se interpolan en linea recta entre los pisos de PROGRESION
+# (los que aprobo); el tier sube cada 6 pisos; las mejoras van de +0 a +7 dentro de cada tier (+0 +1 +3 +4 +6 +7); dos
+# piezas de armadura en el piso 1 y el juego entero despues; nivel cada 12 pisos con lo bakeado de los anteriores.
+func _prog(piso: int) -> Array:
+	if PROGRESION.has(piso):
+		return PROGRESION[piso]
+	var nivel: int = 1 + (piso - 1) / PISOS_NIVEL
+	var claves: Array = PROGRESION.keys()
+	claves.sort()
+	var a: int = claves[0]
+	var b: int = claves[claves.size() - 1]
+	for k in claves:
+		if k <= piso and int(PROGRESION[k][0]) == nivel:
+			a = k
+		if k >= piso and int(PROGRESION[k][0]) == nivel and b > piso and (b < piso or k < b or int(PROGRESION[b][0]) != nivel):
+			b = k
+	if b < piso or int(PROGRESION[b][0]) != nivel:
+		b = a
+	var hab: float = float(PROGRESION[a][1])
+	if b != a:
+		hab = lerpf(float(PROGRESION[a][1]), float(PROGRESION[b][1]), float(piso - a) / float(b - a))
+	var tier: int = int(ceil(float(piso) / 6.0))
+	var dentro: int = (piso - 1) % 6   # 0..5 dentro del tier
+	var mejoras: int = int(round(7.0 * float(dentro) / 5.0))
+	return [nivel, int(round(hab)), PROGRESION[a][2], tier, mejoras, 2 if piso == 1 else 5]
+
+
 const JEFES := {6: "res://scenes/actors/enemy/rey_slime.tres", 12: "res://scenes/actors/enemy/guardian_rango.tres"}
 const TABLA_PISO := "res://resources/spawns/piso_comun.tres"
 const SLOTS := ["casco", "pecho", "manos", "pantalones", "botas"]
@@ -82,6 +111,15 @@ const DIST_SEGURA := 110.0     # el mago y el arquero se alejan del que este mas
 const TOPE_TURNOS := 200       # turnos de los tuyos (todos): mas = tablas
 const TOPE_SEGUNDOS := 45.0    # reloj de verdad por pelea: mas = atascada (se apunta y se sigue)
 const DIST_INICIO := 220.0
+# EL MUÑECO DE DPS (19/11): cada enemigo del piso con su defensa y su esquiva de verdad, pero con vida de sobra y sin hacer
+# daño (Game.volver_muneco modo 2 + dummy_dmg_out_mult 0). Se corta a los CICLOS_MUNECO: varias rotaciones enteras de
+# cada arma (energia, recargas, cargas), y su daño por ciclo sin que cuente lo que tarda en morir el enemigo.
+const CICLOS_MUNECO := 12.0
+const VIDA_MUNECO := 9999999.0
+# LA MAZMORRA SEGUIDA (19/11): peleas del piso una tras otra sin volver al pueblo: la vida, el mana y las pociones se
+# arrastran (el aguante no: se repone andando entre una y otra); el que cae se levanta con 1 si el grupo gana, como en el
+# juego. Se para al caer el grupo o a las SEGUIDA_MAX. La bolsa de la bajada: dos de vida por cabeza y dos de mana por mago.
+const SEGUIDA_MAX := 12
 
 var sala = null
 var _tanda := "sin_nombre"
@@ -92,12 +130,46 @@ var _escenarios: Array = ["uno"]
 var _veces := 1
 var _solo := ""
 var _arma := "mandobles"
+# TODAS LAS ARMAS (19/11, lo pidio: "pruebalas todas"): 'armas=daga,estoque,...' o 'armas=todas'. Cada una va en el hueco
+# del GUERRERO (las de distancia, con el perfil del arquero: sus stats, cuero y guardar la distancia); los demas roles no
+# cambian. Es una dimension mas de los casos.
+const ARMAS_TODAS := ["daga", "espada_corta", "espada_larga", "estoque", "hacha_grande", "mandobles", "martillo_grande",
+	"maza_peq", "punos", "arco", "ballesta",
+	# DOBLE ARMA Y ESCUDOS (19/11): 'principal+mano_secundaria' (un arma de resources/weapons o un escudo de resources/shields)
+	"daga+daga", "espada_corta+espada_corta", "maza_peq+maza_peq", "espada_corta+escudo_pequeno",
+	"espada_larga+escudo_normal", "maza_peq+escudo_normal"]
+# EL PERFIL DE CADA ARMA (19/11, lo pidio: "perfil de stats por arma"): como la llevaria quien la elige. Todos con el MISMO
+# presupuesto (tres stats al 100 % y dos a la mitad), para que ninguno gane por tener mas puntos. Las cuerpo a cuerpo
+# escalan su daño con la Fuerza (escala_destreza 0); lo que distingue a las ligeras es el critico (Destreza) y la esquiva
+# (Agilidad). Y su armadura: pesada -> placas, media -> hierro, agil y distancia -> cuero.
+const PERFILES := {
+	"pesado": [{"fuerza": 1.0, "resistencia": 1.0, "destreza": 1.0, "agilidad": 0.5, "voluntad": 0.5}, "placas"],
+	"medio": [{"fuerza": 1.0, "resistencia": 1.0, "agilidad": 1.0, "destreza": 0.5, "voluntad": 0.5}, "hierro"],
+	"agil": [{"fuerza": 1.0, "agilidad": 1.0, "destreza": 1.0, "resistencia": 0.5, "voluntad": 0.5}, "cuero"],
+	"distancia": [{"destreza": 1.0, "agilidad": 1.0, "fuerza": 1.0, "resistencia": 0.5, "voluntad": 0.5}, "cuero"],
+}
+const PERFIL_DE_ARMA := {"hacha_grande": "pesado", "mandobles": "pesado", "martillo_grande": "pesado",
+	"espada_corta": "medio", "espada_larga": "medio", "maza_peq": "medio", "punos": "medio",
+	"daga": "agil", "estoque": "agil", "arco": "distancia", "ballesta": "distancia"}
+const ARMAS_DISTANCIA := ["arco", "ballesta"]
+var _armas: Array = []
 var _trozo := 0
 var _trozos := 1
 var _escala_tiempo := 8.0
 var _sin_mutantes := false
 var _sin_jefes := false
 var _ver := false
+# REPETIR UNA PELEA (19/11): cada pelea saca en su linea R lo que hay que pasarle a 'repetir=' para volver a jugarla igual
+# (mismo piso, grupo, escenario, arma, enemigo, mutacion, SEMILLA y escala). Igual de verdad solo a la MISMA escala (el
+# azar y la barra van por fotogramas): para verla, grabarla con --write-movie y mirarla despacio.
+#   godot --fixed-fps 60 --path . res://tools/simulador_peleas.tscn --write-movie pelea.avi -- repetir=6,trio,piso,mandobles,-,-,123456,8
+var _semilla_fija := -1
+var _solo_mut := ""
+
+
+func _ver_progresion() -> void:
+	for p in range(1, 32):
+		print("[prog] piso %2d: %s" % [p, str(_prog(p))])
 
 
 func _ready() -> void:
@@ -112,13 +184,17 @@ func _empezar() -> void:
 	get_tree().current_scene = hueco
 	OS.set_environment("PRUEBA_SIN_MUTANTES", "1")   # los mutantes los pone el simulador, no salen solos
 	_leer_args()
+	if OS.get_cmdline_user_args().has("progresion"):
+		_ver_progresion()
+		get_tree().quit(0)
+		return
 	await _correr()
 	print("[sim] FIN")
 	get_tree().quit(0)
 
 
 func _leer_args() -> void:
-	_pisos = PROGRESION.keys()
+	_pisos = range(1, 13)   # del 1 al 12 (los de despues, pidiendolos: pisos=13,18,25...)
 	for a in OS.get_cmdline_user_args():
 		var kv: PackedStringArray = String(a).split("=", true, 1)
 		if kv.size() != 2:
@@ -131,12 +207,35 @@ func _leer_args() -> void:
 			"veces": _veces = maxi(1, int(kv[1]))
 			"solo": _solo = kv[1]
 			"arma": _arma = kv[1]
+			"escala_des":
+				# PROBAR SIN TOCAR EL JUEGO (19/11, su idea: "que las dagas escalen con destreza, y el estoque tambien o
+				# hibrido"): 'escala_des=daga:1,estoque:0.5' cambia la escala_destreza de esas armas SOLO en esta simulacion.
+				for par in kv[1].split(","):
+					var ab: PackedStringArray = par.split(":")
+					var w: WeaponData = load("res://resources/weapons/%s.tres" % ab[0])
+					if w != null and ab.size() == 2:
+						w.escala_destreza = float(ab[1])
+						print("[sim] %s: escala_destreza %.2f (solo en esta simulacion)" % [ab[0], w.escala_destreza])
+			"armas": _armas = ARMAS_TODAS.duplicate() if kv[1] == "todas" else Array(kv[1].split(","))
 			"tanda": _tanda = kv[1]
 			"reglas": _reglas = kv[1]
 			"escala": _escala_tiempo = maxf(1.0, float(kv[1]))
 			"sin_mutantes": _sin_mutantes = kv[1] == "1"
 			"sin_jefes": _sin_jefes = kv[1] == "1"
 			"ver": _ver = kv[1] == "1"
+			"repetir":
+				var r: PackedStringArray = kv[1].split(",")
+				if r.size() >= 8:
+					_pisos = [int(r[0])]
+					_grupos = [r[1]]
+					_escenarios = [r[2]]
+					_armas = [r[3]] if r[3] != "-" else []
+					_solo = r[4] if r[4] != "-" else ""
+					_solo_mut = r[5] if r[5] != "-" else ""
+					_semilla_fija = int(r[6])
+					_escala_tiempo = float(r[7])
+					_veces = 1
+					_ver = true
 			"pociones":
 				var pz: PackedStringArray = kv[1].split(",")
 				_pociones_vida = int(pz[0])
@@ -158,9 +257,20 @@ const REPARTO := {
 	"mago": {"magia": 1.0, "resistencia": 0.5, "agilidad": 0.5, "voluntad": 0.5, "fuerza": 0.25},
 }
 
-func _personaje(piso: int, rol: String, en_grupo: bool) -> PersonajeData:
-	var pr: Array = PROGRESION[piso]
+func _personaje(piso: int, rol: String, en_grupo: bool, arma_g: String = "") -> PersonajeData:
+	var arma_guerrero: String = arma_g if arma_g != "" else _arma
+	var partes_arma: PackedStringArray = arma_guerrero.split("+")
+	var principal: String = partes_arma[0]
+	var secundaria: String = partes_arma[1] if partes_arma.size() > 1 else ""
+	# El hueco del guerrero con un arma de distancia juega de arquero (stats, cuero, distancia), con ESA arma.
+	if rol == "guerrero" and principal in ARMAS_DISTANCIA:
+		rol = "arquero"
+	var pr: Array = _prog(piso)
 	var rep: Dictionary = REPARTO[rol]
+	var perfil: String = ""
+	if rol in ["guerrero", "arquero"] and PERFIL_DE_ARMA.has(principal):
+		perfil = PERFIL_DE_ARMA[principal]
+		rep = PERFILES[perfil][0]
 	var p := PersonajeData.new()
 	p.nombre = NOMBRES[rol]
 	p.set_meta("rol", rol)
@@ -186,7 +296,8 @@ func _personaje(piso: int, rol: String, en_grupo: bool) -> PersonajeData:
 	var h: int = int(pr[1])
 	for k in rep:
 		p.set(k, int(float(h) * float(rep[k])))
-	var armas := {"guerrero": _arma, "tanque": "espada_corta", "arquero": "arco", "mago": "baston"}
+	var armas := {"guerrero": principal, "tanque": "espada_corta", "arquero": principal if principal in ARMAS_DISTANCIA else "arco",
+		"mago": "baston"}
 	var armadura := {"guerrero": "placas", "tanque": "placas", "arquero": "cuero", "mago": "tela"}
 	p.equipped_main = load("res://resources/weapons/%s.tres" % armas[rol])
 	var mejora = Upgrades.POTENCIA if rol == "mago" else Upgrades.AGUDEZA
@@ -194,6 +305,15 @@ func _personaje(piso: int, rol: String, en_grupo: bool) -> PersonajeData:
 	if rol == "tanque":
 		p.equipped_off = load("res://resources/shields/escudo_grande.tres")
 		p.equip_meta["off"] = {"tier": int(pr[3]), "rareza": 0, "mejoras": {}, "durabilidad": 1.0, "banda": 0}
+	elif rol == "guerrero" and secundaria != "":
+		var ruta_off: String = "res://resources/shields/%s.tres" % secundaria
+		if not ResourceLoader.exists(ruta_off):
+			ruta_off = "res://resources/weapons/%s.tres" % secundaria
+		p.equipped_off = load(ruta_off)
+		var meta_off: Dictionary = {} if p.equipped_off is ShieldData else {Upgrades.AGUDEZA: int(pr[4])}
+		p.equip_meta["off"] = {"tier": int(pr[3]), "rareza": 0, "mejoras": meta_off, "durabilidad": 1.0, "banda": 0}
+	if perfil != "":
+		armadura[rol] = PERFILES[perfil][1]
 	for i in int(pr[5]):
 		var s: String = SLOTS[(i + 1) % 5] if int(pr[5]) < 5 else SLOTS[i]
 		p.set("equipped_" + s, load("res://resources/armor/%s_%s.tres" % [armadura[rol], s]))
@@ -279,13 +399,30 @@ func _enemigos_de(piso: int) -> Array:
 
 
 func _pasa_solo(ed: EnemyData) -> bool:
+	if _semilla_fija >= 0 and _solo != "" and ed != null:
+		return ed.resource_path.get_file().get_basename() == _solo
 	return _solo == "" or ed == null or Array(_solo.split(",")).any(func(q): return String(ed.resource_path.get_file().get_basename()).contains(q))
 
 
 func _casos() -> Array:
+	var base: Array = _casos_base()
+	if _solo_mut != "":
+		base = base.filter(func(c): return String(c[4]) == _solo_mut or (_solo_mut == "mutante" and c[5] and c[4] == &""))
+	var armas: Array = _armas if not _armas.is_empty() else [_arma]
+	var out: Array = []
+	for c in base:
+		if (GRUPOS[c[1]] as Array).has("guerrero"):
+			for a in armas:
+				out.append(c + [a])
+		else:
+			out.append(c + [""])
+	return out
+
+
+func _casos_base() -> Array:
 	var out: Array = []
 	for piso in _pisos:
-		if not PROGRESION.has(piso):
+		if piso < 1:
 			continue
 		for grupo in _grupos:
 			if not GRUPOS.has(grupo):
@@ -305,7 +442,7 @@ func _casos() -> Array:
 									out.append([piso, grupo, esc, ed, m.id, true, false])
 						if JEFES.has(piso) and not _sin_jefes and _pasa_solo(load(JEFES[piso])):
 							out.append([piso, grupo, esc, load(JEFES[piso]), &"", false, true])
-					"piso":
+					"piso", "seguida":
 						out.append([piso, grupo, esc, null, &"", false, false])
 					"manada":
 						for ed in _enemigos_de(piso):
@@ -314,6 +451,10 @@ func _casos() -> Array:
 					"jefe":
 						if JEFES.has(piso) and not _sin_jefes:
 							out.append([piso, grupo, esc, load(JEFES[piso]), &"", false, true])
+					"muneco":
+						for ed in _enemigos_de(piso):
+							if _pasa_solo(ed):
+								out.append([piso, grupo, esc, ed, &"", false, false])
 	return out
 
 
@@ -321,7 +462,7 @@ func _casos() -> Array:
 func _corro(caso: Array, n_grupo: int) -> Array:
 	var piso: int = caso[0]
 	match String(caso[2]):
-		"uno":
+		"uno", "muneco":
 			return [[caso[3], caso[4], caso[5], caso[6]]]
 		"manada":
 			var n: int = 3 + randi() % 3
@@ -329,7 +470,7 @@ func _corro(caso: Array, n_grupo: int) -> Array:
 			for _i in n:
 				out.append([caso[3], &"", false, false])
 			return out
-		"piso":
+		"piso", "seguida":
 			return _corro_del_piso(piso, _tirar_manada(n_grupo))
 		"jefe":
 			return [[caso[3], &"", false, true]] + _corro_del_piso(piso, maxi(1, _tirar_manada(n_grupo) - 1))
@@ -385,16 +526,17 @@ func _correr() -> void:
 	print(CABECERA)
 	print(CABECERA_P)
 	print(CABECERA_E)
+	print("S|tanda|reglas|piso|grupo|arma|peleas_ganadas|como_acaba|pociones_que_quedan|vida_al_acabar")
 	var montado: String = ""
 	var arrancada := false
 	for caso in mios:
-		var clave: String = "%d|%s" % [caso[0], caso[1]]
+		var clave: String = "%d|%s|%s" % [caso[0], caso[1], caso[7]]
 		if clave != montado:
 			# Otro piso u otro grupo: los personajes nuevos y la arena otra vez (el jugador trae a sus compañeros al entrar).
 			var roles: Array = GRUPOS[caso[1]]
 			var pjs: Array = []
 			for r in roles:
-				pjs.append(_personaje(caso[0], r, roles.size() > 1))
+				pjs.append(_personaje(caso[0], r, roles.size() > 1, caso[7]))
 			Game.party.assign(pjs)
 			Game.lider_idx = 0
 			Game.arena_piso_juego = caso[0]
@@ -406,6 +548,9 @@ func _correr() -> void:
 				return
 			montado = clave
 		for _v in _veces:
+			if String(caso[2]) == "seguida":
+				await _seguida(caso)
+				continue
 			var r: String = await _pelea(caso)
 			print(r)
 			for l in _lineas_extra:
@@ -439,6 +584,9 @@ var _por_accion: Dictionary = {}          # Combatant -> {accion: [usos, daño]}
 var _fuera: Dictionary = {"aliados": 0.0, "enemigos": 0.0}   # daño sin dueño claro (contraataques, DoT): por bando
 var _recursos: Dictionary = {}            # Combatant -> energia y mana turno a turno
 var _pociones: Dictionary = {}            # Combatant -> pociones que bebio o dio
+var _por_estado: Dictionary = {"aliados": {}, "enemigos": {}}   # bando que lo HACE -> {estado: daño} (los DoT)
+var _elem_de: Dictionary = {}             # Combatant -> elemento de lo que eligio
+var _por_elem: Dictionary = {}            # Combatant -> {elemento: daño}
 
 
 func _rol(c: Combatant) -> String:
@@ -447,21 +595,64 @@ func _rol(c: Combatant) -> String:
 
 
 func _linea_error(caso: Array, que: String) -> String:
-	return "R|%s|%s|%d|%s|%s|%s|%s|-|0|0|0|%s" % [_tanda, _reglas, caso[0], caso[1], caso[2], _arma,
+	return "R|%s|%s|%d|%s|%s|%s|%s|-|0|0|0|%s" % [_tanda, _reglas, caso[0], caso[1], caso[2], caso[7] if caso[7] != "" else "-",
 		caso[3].enemy_name if caso[3] != null else "-", que]
 
 
-func _pelea(caso: Array) -> String:
+# Una bajada entera: peleas hasta caer (o SEGUIDA_MAX). Cada pelea sale como las demas (escenario "seguida", con su numero
+# en 'n_seguida'), y al final una linea S con cuantas aguanto y como acabo.
+func _seguida(caso: Array) -> void:
+	for p in Game.party:
+		_reponer(p)
+	Game.ability_cooldowns_persist.clear()
+	_llenar_bolsa(caso[0], true)   # la bolsa de la bajada (dos y dos)
+	var ganadas: int = 0
+	var final: String = "TOPE"
+	for k in SEGUIDA_MAX:
+		_n_seguida = k + 1
+		var r: String = await _pelea(caso, false)
+		print(r)
+		for l in _lineas_extra:
+			print(l)
+		_lineas_extra.clear()
+		var cols: PackedStringArray = r.split("|")   # [12] = gana (ver CABECERA)
+		if cols.size() > 12 and cols[12] == "GANA":
+			ganadas += 1
+		else:
+			final = cols[12] if cols.size() > 12 else "ERROR"
+			break
+	var vida: Array = []
+	for p in Game.party:
+		vida.append("%s:%.0f" % [String(p.get_meta("rol", "?")), maxf(0.0, p.current_hp)])
+	print("S|%s|%s|%d|%s|%s|%d|%s|%d|%s" % [_tanda, _reglas, caso[0], caso[1], caso[7] if caso[7] != "" else "-", ganadas, final,
+		Game.consumibles_total(), ",".join(vida)])
+	_n_seguida = 0
+
+
+var _n_seguida := 0
+var _semilla := 0
+
+
+func _pelea(caso: Array, reponer: bool = true) -> String:
 	var piso: int = caso[0]
+	_semilla = _semilla_fija if _semilla_fija >= 0 else randi() % 2000000000
+	seed(_semilla)
 	var corro: Array = _corro(caso, Game.party.size())
 	if corro.is_empty():
 		return _linea_error(caso, "ERROR_SIN_ENEMIGOS")
 	for p in Game.party:
-		_reponer(p)
+		if reponer:
+			_reponer(p)
+		else:
+			# EN LA SEGUIDA solo vuelve el aguante (se repone andando); la vida y el mana, como salio de la anterior
+			var maxi_: float = 100.0 + Game.stat_consolidado("resistencia", p) * 0.075 + Game.stat_consolidado("agilidad", p) * 0.025
+			p.set_meta("aguante", [maxi_, maxi_])
+			p.remove_meta("sin_fuelle")
 		if String(p.get_meta("rol", "")) == "guerrero":
 			_poner_magias_guerrero(p, corro[0][0], corro[0][1])
-	Game.ability_cooldowns_persist.clear()
-	_llenar_bolsa(piso, corro.any(func(c): return c[3]))
+	if reponer:
+		Game.ability_cooldowns_persist.clear()
+		_llenar_bolsa(piso, corro.any(func(c): return c[3]))
 	var suelo: Node = sala.piso.primero(&"dungeon_floor")
 	if suelo != null and suelo.has_method("limpiar_arena"):
 		suelo.limpiar_arena()
@@ -476,8 +667,9 @@ func _pelea(caso: Array) -> String:
 	for i in corro.size():
 		var c: Array = corro[i]
 		var y: float = (float(i) - float(corro.size() - 1) * 0.5) * 55.0
+		var es_muneco: bool = String(caso[2]) == "muneco"
 		var nodo = suelo.crear_enemigo(c[0], centro + Vector2(DIST_INICIO * 0.5 + (0.0 if i % 2 == 0 else 40.0), y), 90.0,
-			t if i == 0 else randf(), 1 if c[2] else 0, c[3], {}, c[1])
+			t if i == 0 else randf(), 1 if c[2] else 0, c[3], {"modo": 2, "hp": VIDA_MUNECO} if es_muneco else {}, c[1])
 		if nodo != null:
 			nodos.append(nodo)
 			nodo.set_meta("t_sim", nodo.get("current_t") if nodo.get("current_t") != null else -1.0)
@@ -503,7 +695,14 @@ func _pelea(caso: Array) -> String:
 	_fuera = {"aliados": 0.0, "enemigos": 0.0}
 	_recursos.clear()
 	_pociones.clear()
+	_por_estado = {"aliados": {}, "enemigos": {}}
+	_elem_de.clear()
+	_por_elem.clear()
 	var aliados: Array = _cb._aliados.duplicate()
+	if _ver:
+		for a in aliados:
+			print("   [entra] %s vida %.1f/%.1f mana %.1f/%.1f energia %.1f/%.1f" % [a.nombre, a.current_hp, a.max_hp, a.current_mp,
+				a.max_mp, a.current_energy, a.max_energy])
 	_cb.turno_empieza.connect(_al_empezar_turno.bind(aliados))
 	Combatant.al_recibir = _al_recibir.bind(aliados)
 	var mitig: Dictionary = {}
@@ -514,6 +713,13 @@ func _pelea(caso: Array) -> String:
 		_cb._enemies[i].set_meta("t", float(nodos[i].get_meta("t_sim", -1.0)))
 	for e in _cb._enemies:
 		stats_e[e] = [e.max_hp, e.atk(), e.def_value(), e.mdef_value(), e.spd()]
+	# EL MUÑECO NO ACTUA NUNCA (19/11, lo pidio: "que no actue, que se quede para recibir daño y ya"): su barra casi no se
+	# llena (ni anda, ni pega, ni carga, ni se cura) y, por si acaso, lo que hiciera no quita nada.
+	if String(caso[2]) == "muneco":
+		for e in _cb._enemies:
+			e.dummy_speed_override = 0.0001
+			e.dummy_dmg_out_mult = 0.0
+			_cb._gauge[e] = 0.0
 	Engine.time_scale = _escala_tiempo
 	var vida0: Dictionary = {}
 	var mp0: float = 0.0
@@ -534,6 +740,9 @@ func _pelea(caso: Array) -> String:
 			break
 		if int(_cb._state) == 3:
 			resultado = "GANA" if not _cb._aliados_vivos().is_empty() else "PIERDE"
+			break
+		if String(caso[2]) == "muneco" and float(_cb.reloj_barra) / float(_cb.RELOJ_POR_CICLO) >= CICLOS_MUNECO:
+			resultado = "MUNECO"
 			break
 		var mios: int = 0
 		for a in aliados:
@@ -563,6 +772,12 @@ func _pelea(caso: Array) -> String:
 			mis_turnos += int(_turnos[c])
 		else:
 			sus_turnos += int(_turnos[c])
+	# LO QUE LE QUEDA va a su ficha (la mazmorra seguida lo arrastra): el que cae se levanta con 1 si el grupo gana.
+	for a in aliados:
+		var pj_a: PersonajeData = Game.pj_de_combatant(a)
+		if pj_a != null:
+			pj_a.current_hp = maxf(1.0, a.current_hp) if resultado == "GANA" else maxf(0.0, a.current_hp)
+			pj_a.current_mp = maxf(0.0, a.current_mp)
 	var perdida: float = 0.0
 	var perdida_abs: float = 0.0
 	var caidos: int = 0
@@ -584,12 +799,21 @@ func _pelea(caso: Array) -> String:
 		if c[2]:
 			mut_txt = String(c[1]) if c[1] != &"" else "mutante"
 	var linea: String = "R|%s|%s|%d|%s|%s|%s|%s|%s|%d|%d|%.2f|%s|%d|%d|%.3f|%d|%.1f|%.2f|%.2f|%.1f|%s|%d|%.1f" % [_tanda, _reglas,
-		piso, caso[1], caso[2], _arma, (e0[0] as EnemyData).enemy_name if String(caso[2]) != "piso" else _nombres_corro(corro),
+		piso, caso[1], caso[2], caso[7] if caso[7] != "" else "-", (e0[0] as EnemyData).enemy_name if String(caso[2]) != "piso" else _nombres_corro(corro),
 		mut_txt, 1 if corro.any(func(c): return c[3]) else 0, enems.size(), t, resultado, mis_turnos, sus_turnos, perdida,
 		caidos, mp0 - mp1, quitado / maxf(1.0, float(mis_turnos)), perdida_abs / maxf(1.0, float(sus_turnos)), seg,
 		",".join(acc), fotos, seg * 1000.0 / maxf(1.0, float(fotos))]
 	var pelea_id: String = "%d-%d" % [_trozo, _n_pelea]
-	linea += "|" + pelea_id
+	# LOS CICLOS (19/11, su definicion, como los 100 de accion de HSR): 1 ciclo = lo que tarda alguien con velocidad 5 (la
+	# base del jugador) en actuar dos veces. Solo corre cuando corre la barra (no mientras decides).
+	var ciclos: float = maxf(0.01, float(_cb.reloj_barra) / float(_cb.RELOJ_POR_CICLO)) if is_instance_valid(_cb) else 0.01
+	var ed0: EnemyData = corro[0][0]
+	var repetir: String = "%d,%s,%s,%s,%s,%s,%d,%s" % [piso, caso[1], caso[2], caso[7] if caso[7] != "" else "-",
+		ed0.resource_path.get_file().get_basename() if String(caso[2]) in ["uno", "manada", "muneco", "jefe"] else "-",
+		(String(caso[4]) if caso[4] != &"" else ("mutante" if caso[5] else "-")) if String(caso[2]) == "uno" else "-",
+		_semilla, str(_escala_tiempo)]
+	linea += "|%s|%.2f|%.2f|%s|%s|%d|%s" % [pelea_id, ciclos, quitado / ciclos, _txt_reparto(_por_estado["aliados"]),
+		_txt_reparto(_por_estado["enemigos"]), _n_seguida, repetir]
 	var comun: String = "%s|%s|%s|%d|%s|%s|%d|%s" % [_tanda, _reglas, pelea_id, piso, caso[1], caso[2], enems.size(), resultado]
 	for a in aliados:
 		var pj: PersonajeData = Game.pj_de_combatant(a)
@@ -600,6 +824,8 @@ func _pelea(caso: Array) -> String:
 		for k in pa:
 			acc_a.append("%s:%d:%.1f" % [k, int(pa[k][0]), float(pa[k][1])])
 		var arma_a: String = pj.equipped_main.resource_path.get_file().get_basename() if pj != null and pj.equipped_main != null else "-"
+		if pj != null and pj.equipped_off != null:
+			arma_a += "+" + pj.equipped_off.resource_path.get_file().get_basename()
 		_lineas_extra.append("P|%s|%s|%s|%s|%.1f|%.2f|%.2f|%.3f|%.3f|%.1f|%.1f|%d|%.2f|%.2f|%d|%.3f|%d|%d|%.1f|%d|%d|%d|%s" % [comun,
 			_rol(a), arma_a, _armadura_de(pj), a.max_hp, a.def_value(), a.mdef_value(), float(mitig[a][0]), float(mitig[a][1]),
 			float(_hecho.get(a, 0.0)), float(_recibido.get(a, 0.0)), n_t, float(_hecho.get(a, 0.0)) / maxf(1.0, float(n_t)),
@@ -607,8 +833,10 @@ func _pelea(caso: Array) -> String:
 			float(rec.get("en_suma", 0.0)) / maxf(1.0, float(rec.get("n", 0))), int(rec.get("sin_en", 0)),
 			int(rec.get("primer_en", -1)), _mp_gastado(a, rec), int(rec.get("sin_mp", 0)),
 			int(rec.get("primer_mp", -1)), int(_pociones.get(a, 0)), ",".join(acc_a)]
-			+ "|%d|%d|%d|%s|%.2f|%.2f|%.1f|%.1f|%.3f|%.3f" % [int(PROGRESION[piso][0]), int(PROGRESION[piso][3]),
-			int(PROGRESION[piso][4]), _habs(a), a.atk(), a.spd(), a.max_mp, a.max_energy, a.armor_reduction, a.armor_reduction_magica])
+			+ "|%d|%d|%d|%s|%.2f|%.2f|%.1f|%.1f|%.3f|%.3f" % [int(_prog(piso)[0]), int(_prog(piso)[3]),
+			int(_prog(piso)[4]), _habs(a), a.atk(), a.spd(), a.max_mp, a.max_energy, a.armor_reduction, a.armor_reduction_magica]
+			+ "|%.2f|%.2f|%.2f|%.2f|%s" % [ciclos, float(_hecho.get(a, 0.0)) / ciclos, float(n_t) / ciclos,
+			float(_recibido.get(a, 0.0)) / ciclos, _txt_reparto(_por_elem.get(a, {}))])
 	for e in enems:
 		var st: Array = stats_e.get(e, [e.max_hp, e.atk(), e.def_value(), e.mdef_value(), e.spd()])
 		var n_e: int = int(_turnos.get(e, 0))
@@ -618,7 +846,7 @@ func _pelea(caso: Array) -> String:
 			float(st[0]), float(st[1]), float(st[2]), float(st[3]), float(st[4]), float(_hecho.get(e, 0.0)),
 			float(_recibido.get(e, 0.0)), n_e, float(_hecho.get(e, 0.0)) / maxf(1.0, float(n_e)), 0 if e.is_alive() else 1]
 			+ "|%.2f|%s|%.2f|%.3f" % [float(e.get_meta("t", -1.0)), _habs(e), e.atk_magico() if e.abilities_eff().magia > 0 else 0.0,
-			e.armor_reduction])
+			e.armor_reduction] + "|%.2f|%.2f|%.2f" % [ciclos, float(_hecho.get(e, 0.0)) / ciclos, float(n_e) / ciclos])
 	if _ver:
 		print("   [fotogramas] ", _hist)
 		if is_instance_valid(_cb):
@@ -678,9 +906,24 @@ func _al_recibir(v: Combatant, dano: float, es_dot: bool, aliados: Array) -> voi
 	if es_dot or _actor == null or aliados.has(_actor) == v_aliado:
 		var bando: String = "enemigos" if v_aliado else "aliados"
 		_fuera[bando] = float(_fuera[bando]) + dano
+		if es_dot:
+			# repartido entre los estados que ardian, en proporcion (Combatant.ultimo_dot)
+			var des: Dictionary = v.ultimo_dot
+			var tot: float = 0.0
+			for k in des:
+				tot += float(des[k])
+			for k in des:
+				var parte: float = dano * float(des[k]) / maxf(tot, 0.0001)
+				_por_estado[bando][k] = float(_por_estado[bando].get(k, 0.0)) + parte
+			if des.is_empty():
+				_por_estado[bando]["?"] = float(_por_estado[bando].get("?", 0.0)) + dano
 		return
 	_hecho[_actor] = float(_hecho.get(_actor, 0.0)) + dano
 	if aliados.has(_actor):
+		var el: String = _elem_de.get(_actor, "fisico")
+		if not _por_elem.has(_actor):
+			_por_elem[_actor] = {}
+		_por_elem[_actor][el] = float(_por_elem[_actor].get(el, 0.0)) + dano
 		var k: String = _accion_de.get(_actor, "?")
 		if not _por_accion.has(_actor):
 			_por_accion[_actor] = {}
@@ -692,6 +935,14 @@ func _al_recibir(v: Combatant, dano: float, es_dot: bool, aliados: Array) -> voi
 # Lo que elige cada uno (y cuantas veces): el daño de su turno se le apunta a esto.
 func _eligio(yo: Combatant, que: String) -> void:
 	_accion_de[yo] = que
+	# EL ELEMENTO de lo que hace: el del hechizo; el de los golpes, fisico (o "fisico+fuego" con un Filo puesto).
+	var el: String = "fisico"
+	for sp in yo.spells:
+		if sp.nombre == que:
+			el = Elementos.nombre(sp.elemento).to_lower() if sp.elemento > 0 else "neutro"
+	if el == "fisico" and yo.imbue_elemento > 0 and (yo.imbue_usos > 0 or yo.imbue_pct > 0.0):
+		el = "fisico+" + Elementos.nombre(yo.imbue_elemento).to_lower()
+	_elem_de[yo] = el
 	if not _por_accion.has(yo):
 		_por_accion[yo] = {}
 	if not _por_accion[yo].has(que):
@@ -729,6 +980,16 @@ func _armadura_de(pj: PersonajeData) -> String:
 		return "-"
 	var n: String = pj.equipped_pecho.resource_path.get_file().get_basename()
 	return n.split("_")[0] + ("+escudo" if pj.equipped_off is ShieldData else "")
+
+
+# {cosa: daño} -> "cosa:daño,cosa:daño" (de mas a menos)
+func _txt_reparto(d: Dictionary) -> String:
+	var ks: Array = d.keys()
+	ks.sort_custom(func(a, b): return float(d[a]) > float(d[b]))
+	var out: Array = []
+	for k in ks:
+		out.append("%s:%.1f" % [String(k).replace(",", " ").replace(":", " ").replace("|", " "), float(d[k])])
+	return ",".join(out)
 
 
 func _nombres_corro(corro: Array) -> String:

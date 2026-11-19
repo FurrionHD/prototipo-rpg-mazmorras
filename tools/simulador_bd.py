@@ -28,7 +28,7 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parent.parent
 SALIDA = RAIZ / "tools" / "resultados_simulador"
 BD = SALIDA / "simulador.db"
-TABLAS = {"peleas": "", "personajes": "_personajes", "enemigos": "_enemigos"}
+TABLAS = {"peleas": "", "personajes": "_personajes", "enemigos": "_enemigos", "seguidas": "_seguidas"}
 
 
 def _col(n: str) -> str:
@@ -144,8 +144,8 @@ def comparar(a: str, b: str) -> None:
         print("%-34s %15s %15s %17s %15s" % ("piso %2d %-13s %-8s" % k, par(0, "%3.0f"), par(1, "%4.1f"), par(2, "%3.0f"),
                                               par(3, "%.2f")))
     print()
-    print("LOS TUYOS: por piso / rol / arma  (daño por turno, recibido por turno enemigo, mitigacion fisica, %% sin energia)")
-    q2 = """select piso, rol, arma, sum(dano_hecho) / max(sum(turnos), 1), avg(recibido_por_turno_enemigo),
+    print("LOS TUYOS: por piso / rol / arma  (daño por CICLO, recibido por ciclo, mitigacion fisica, %% sin energia)")
+    q2 = """select piso, rol, arma, sum(dano_hecho) / max(sum(ciclos), 0.01), sum(dano_recibido) / max(sum(ciclos), 0.01),
                avg(mitig_fisica) * 100, sum(turnos_sin_energia) * 100.0 / max(sum(turnos), 1)
             from personajes where tanda = ? group by piso, rol, arma"""
     pa = {r[:3]: r[3:] for r in bd.execute(q2, (a,))}
@@ -155,7 +155,7 @@ def comparar(a: str, b: str) -> None:
         y = pb.get(k, (None,) * 4)
         def par2(i, fmt):
             return "%s -> %s" % (fmt % x[i] if x[i] is not None else "  -", fmt % y[i] if y[i] is not None else "  -")
-        print("  piso %2d %-8s %-12s daño/t %s   recib/t %s   mitF %s%%   sinEN %s%%" % (k + (par2(0, "%5.1f"),
+        print("  piso %2d %-8s %-12s daño/c %s   recib/c %s   mitF %s%%   sinEN %s%%" % (k + (par2(0, "%5.1f"),
               par2(1, "%5.2f"), par2(2, "%3.0f"), par2(3, "%3.0f"))))
     bd.close()
 

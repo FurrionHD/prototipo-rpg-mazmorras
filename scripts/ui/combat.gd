@@ -227,6 +227,12 @@ var _timeline: Control = null
 # matar a dos de cuatro, esos dos estan muertos igual y tienen que dejar su cadaver.
 # 'enemy_estados_left' va tambien por indice: los estados con los que se queda cada superviviente
 # (el veneno le sigue corriendo por el mapa, ver Enemy._tick_estados_fuera).
+# EL RELOJ DE LA BARRA (19/11, el simulador de peleas): lo que ha avanzado la barra en toda la pelea, en "puntos por punto
+# de velocidad" (quien tenga velocidad V ha juntado V x esto). No cambia nada del juego: es para medir en CICLOS (1 ciclo
+# = lo que tarda alguien con velocidad 5, la base del jugador, en actuar dos veces = 40 de este reloj).
+var reloj_barra: float = 0.0
+const RELOJ_POR_CICLO := 2.0 * UMBRAL / 5.0
+
 # A quien le llega el turno por la barra (lo escucha el simulador de peleas, tools/simulador_peleas.gd).
 signal turno_empieza(c: Combatant)
 signal combat_finished(player_won: bool, hp_left: Array, mp_left: Array,
@@ -2039,6 +2045,7 @@ func _process(delta: float) -> void:
 	# se escala aqui: ya sale acortada de arrancar_cola, que devuelve segundos de verdad.
 	var datb: float = delta * _vel_pelea
 	var escala: float = _escala_barra()
+	reloj_barra += datb * escala
 
 	# CADA aliado llena SU barra con SU velocidad: el grupo no actua a la vez, se van alternando
 	# segun quien sea mas rapido (por eso meter a alguien agil cambia el ritmo de la pelea).
