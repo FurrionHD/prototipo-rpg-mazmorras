@@ -86,9 +86,24 @@ func _correr() -> void:
 			_ver(bool(al[3]) == (c == t._quien or c == objetivo), "%s: %s" % [c.nombre, "marcado" if bool(al[3]) else "suave"])
 	var salida: String = OS.get_environment("ALCANCES_SALIDA")
 	if salida != "" and DisplayServer.get_name() != "headless":
+		# LA PELEA SE PINTA EN EL SUBVIEWPORT DE LA SALA (Piso_N), no en la ventana: capturando la ventana salia gris.
+		# Se le pone a pintar siempre, con el tamaño de la pantalla, y su camara delante de los que pelean.
+		var vp: Viewport = arena.get_viewport()
+		if vp is SubViewport:
+			(vp as SubViewport).render_target_update_mode = SubViewport.UPDATE_ALWAYS
+			if (vp as SubViewport).size.x < 100:
+				(vp as SubViewport).size = Vector2i(1280, 720)
+		var cam: Camera2D = vp.get_camera_2d()
+		if cam != null and not arena.alcances.is_empty():
+			var c := Vector2.ZERO
+			for a in arena.alcances:
+				c += Vector2(a[0])
+			cam.zoom = Vector2.ONE * 1.6
+			cam.global_position = c / float(arena.alcances.size())
+			cam.reset_smoothing()
 		await _esperar(20)
-		await RenderingServer.frame_post_draw   # sin esto la captura sale gris (aun no se ha pintado)
-		var img: Image = get_tree().root.get_viewport().get_texture().get_image()
+		await RenderingServer.frame_post_draw
+		var img: Image = vp.get_texture().get_image()
 		img.save_png(salida + ".png")
 		print("     captura: %s.png" % salida)
 	print("FIN: TODO BIEN" if _mal == 0 else "FIN: %d MAL" % _mal)
