@@ -34,10 +34,10 @@ GODOT = Path(os.environ.get("LOCALAPPDATA", "")) / ("Microsoft/WinGet/Packages/"
 
 
 # CUANTOS GODOT A LA VEZ (19/11, el jefe: "¿seguro que el PC solo puede con 4?"): lo que quepa en la RAM LIBRE dejando
-# 1,5 GB de margen (~500 MB por Godot con la arena montada) y sin pasar de los nucleos menos dos ([[cuidado-con-la-ram]],
+# 1 GB de margen y uno menos (~500 MB por Godot con la arena montada) y sin pasar de los nucleos menos dos ([[cuidado-con-la-ram]],
 # [[no-ocupar-todos-los-nucleos]]). En el portatil saldra otra cuenta: por eso se mira al arrancar.
 MB_POR_GODOT = 500
-MARGEN_MB = 1500
+MARGEN_MB = 1000
 
 
 def ram_libre_mb() -> int:
@@ -60,7 +60,8 @@ def ram_libre_mb() -> int:
 def hilos_auto() -> int:
     por_ram = (ram_libre_mb() - MARGEN_MB) // MB_POR_GODOT
     por_cpu = max(1, (os.cpu_count() or 4) - 2)
-    return int(max(1, min(por_ram, por_cpu)))
+    # y UNO MENOS de los que caben (19/11, el jefe: "la proxima vez abre 1 menos para tener mas margen")
+    return int(max(1, min(por_ram, por_cpu) - 1))
 
 
 def lanzar(a) -> Path:
