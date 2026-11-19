@@ -368,6 +368,7 @@ func _limpiar() -> void:
 var alcances: Array = []
 # Como se ven (cuando, color, trazo) lo decide Preferencias (pestaña Juego, 18/11): de serie, APAGADOS.
 const AroPixel = preload("res://scripts/fx/aro_pixel.gd")
+const FormasPixel = preload("res://scripts/fx/formas_pixel.gd")
 # Los pinta un hijo propio con filtro NEAREST (pixeles nitidos sin tocar el filtro del resto de la arena), por detras
 # de lo que pinta la arena: las huellas de lo que se apunta quedan encima.
 var _aros: Node2D = null
@@ -466,17 +467,25 @@ func _draw() -> void:
 
 	# 4) LAS HUELLAS: lo que tapa una habilidad mientras se apunta (y, las cargadas, mientras cargan).
 	# Tambien sin achatar. El NUCLEO (la zona de impacto, con el daño entero) va mas marcado.
+	# (19/11) EN PIXEL y con el estilo de Ajustes > Juego > Ayudas visuales: el de su tipo (al apuntar, en el mapa, de
+	# los enemigos) y su nucleo aparte. La linea del escudazo lleva el estilo de apuntar pero sigue en blanco.
 	for clave in huellas:
 		if huellas_ocultas.has(clave):
 			continue
 		var h: Dictionary = huellas[clave]
 		var f = h["forma"]
-		var c: Color = h["color"]
-		CombatFormas.dibujar(f, self, Color(c, 0.6 + 0.3 * late))
+		var tipo: String = String(h.get("tipo", "apunte"))
+		var g: String = Preferencias.grupo_area(tipo)
+		var cols: Array = Preferencias.colores_area(g, late)
+		if tipo == "escudazo":
+			cols = [Color(h["color"], cols[0].a), Color(h["color"], cols[1].a)]
+		FormasPixel.dibujar(f, self, cols[0], cols[1], Preferencias.alcance[g])
 		var n: float = float(h["nucleo"])
 		if n > 0.0:
-			draw_circle(f.centro, n, Color(c, 0.30))
-			draw_arc(f.centro, n, 0.0, TAU, 48, Color(c, 0.9), 2.0)
+			var gn: String = Preferencias.grupo_nucleo(tipo)
+			var cn: Array = Preferencias.colores_area(gn, late)
+			draw_circle(f.centro, n, cn[1])
+			FormasPixel.arco(self, f.centro, n, 0.0, TAU, cn[0], Preferencias.alcance[gn])
 
 
 # La pelea de OTRO vista desde fuera: un tinte suave en las celdas de la pelea y el mismo borde a trazos.
@@ -501,9 +510,11 @@ var huellas: Dictionary = {}
 # CombatTactico._sombras_visibles cada fotograma.
 var huellas_ocultas: Dictionary = {}
 
+# 'tipo' dice de que grupo de Ayudas visuales es: "apunte" (la tuya al apuntar), "mapa" (la tuya o de un compañero ya
+# puesta), "enemigos", "escudazo" (la linea blanca dentro del tajo). El color, el del ajuste (salvo el escudazo).
 func poner_huella(clave: Variant, forma: RefCounted, nucleo: float = 0.0,
-		color: Color = Color(0.45, 0.85, 1.0)) -> void:
-	huellas[clave] = {"forma": forma, "nucleo": nucleo, "color": color}
+		color: Color = Color(0.45, 0.85, 1.0), tipo: String = "apunte") -> void:
+	huellas[clave] = {"forma": forma, "nucleo": nucleo, "color": color, "tipo": tipo}
 
 
 func quitar_huella(clave: Variant) -> void:

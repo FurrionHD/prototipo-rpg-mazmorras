@@ -18,7 +18,6 @@ const CombatTactico = preload("res://scripts/ui/combat_tactico.gd")
 
 # Sin respuesta a la pelea pedida en este rato (ya la tiene otro...), el sitio se olvida y vuelves a elegir.
 const ESPERA_PELEA := 5.0
-const COLOR_AREA := Color(0.45, 0.85, 1.0)
 const ALTO_LETRERO := 112.0
 
 var _jugador: Node2D = null
@@ -168,7 +167,9 @@ static func enemigo_en(f: RefCounted, jugador: Node2D) -> Node2D:
 
 func _draw() -> void:
 	if _forma != null:
-		CombatFormas.dibujar(_forma, self, Color(COLOR_AREA, 0.85))
+		# (19/11) En pixel y con el estilo de «Área al apuntar» (Ajustes > Juego > Ayudas visuales).
+		var cols: Array = Preferencias.colores_area("area_apunte", 0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 2.2))
+		preload("res://scripts/fx/formas_pixel.gd").dibujar(_forma, self, cols[0], cols[1], Preferencias.alcance["area_apunte"])
 
 
 func _actualizar_letrero() -> void:

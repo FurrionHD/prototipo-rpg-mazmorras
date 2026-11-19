@@ -206,6 +206,33 @@ func _circulos() -> void:
 	_ok("el disco del relleno, del mismo lado que el aro", disco.get_width() == A.textura(40.0, A.Trazo.CONTINUO, 1, 6, 4).get_width())
 	_ok("el disco, lleno como un circulo (pi r2)", absf(float(_llenos(disco)) / (PI * 40.5 * 40.5) - 1.0) < 0.03)
 
+	# LAS AREAS DE ATAQUE (19/11): cada tipo de huella a su grupo, su nucleo aparte, el latido y el dibujo en pixel.
+	_ok("areas: al apuntar", P.grupo_area("apunte") == "area_apunte")
+	_ok("areas: ya en el mapa", P.grupo_area("mapa") == "area_mapa")
+	_ok("areas: de los enemigos", P.grupo_area("enemigos") == "area_enemigos")
+	_ok("areas: el escudazo con el estilo de apuntar", P.grupo_area("escudazo") == "area_apunte")
+	_ok("areas: nucleo de cada bando", P.grupo_nucleo("enemigos") == "nucleo_enemigos" and P.grupo_nucleo("mapa") == "nucleo_tuyos")
+	for g in ["area_apunte", "area_mapa", "nucleo_tuyos", "area_enemigos", "nucleo_enemigos"]:
+		P.alcance[g] = (P.ALCANCE_DEFECTO[g] as Dictionary).duplicate()
+		_ok(g + ": sin Visibilidad (siempre se ve)", not P.alcance[g].has("modo"))
+	var quieto: Array = P.colores_area("nucleo_tuyos", 0.0)
+	_ok("nucleo: sin latido, igual en cualquier momento", quieto[0].is_equal_approx(P.colores_area("nucleo_tuyos", 1.0)[0]))
+	_ok("area: con latido, sube y baja", P.colores_area("area_mapa", 1.0)[0].a > P.colores_area("area_mapa", 0.0)[0].a)
+	P.fijar_alcance("area_mapa", "latido", false, false)
+	_ok("area: latido apagado, quieta", P.colores_area("area_mapa", 1.0)[0].is_equal_approx(P.colores_area("area_mapa", 0.0)[0]))
+	_ok("area: el relleno mas suave que el borde", P.colores_area("area_enemigos")[1].a < P.colores_area("area_enemigos")[0].a)
+	P.restablecer_alcance("area_mapa")
+	_ok("area: restablecer vuelve a latir y no le pone Visibilidad",
+		bool(P.alcance["area_mapa"]["latido"]) and not P.alcance["area_mapa"].has("modo"))
+	var FP = preload("res://scripts/fx/formas_pixel.gd")
+	var br: Array = FP.bresenham(Vector2i(0, 0), Vector2i(17, -6))
+	var seguido: bool = br[0] == Vector2i(0, 0) and br[-1] == Vector2i(17, -6)
+	for i in range(1, br.size()):
+		var d: Vector2i = (br[i] as Vector2i) - (br[i - 1] as Vector2i)
+		if absi(d.x) > 1 or absi(d.y) > 1:
+			seguido = false
+	_ok("borde en pixel: la linea va pixel a pixel de punta a punta", seguido and br.size() == 18)
+
 	P.alcance = antes
 	A._cache.clear()
 

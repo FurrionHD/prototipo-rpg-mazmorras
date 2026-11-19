@@ -1,7 +1,8 @@
 # ============================================================
 #  ajustes_alcance.gd  (VBoxContainer creado por codigo; Ajustes > Juego, con scroll)
-#  LOS CIRCULOS DEL MAPA TACTICO (18-19/11, sus decisiones). Dos botones, PERSONAJES y ENEMIGOS; cada uno abre debajo
-#  sus dos circulos, el de ALCANCE y el de MOVIMIENTO, cada uno con sus mandos (ajustes_circulo.gd). Pulsar otra vez el
+#  LAS AYUDAS VISUALES DEL MAPA TACTICO (18-19/11, sus decisiones). Dos botones, PERSONAJES y ENEMIGOS; cada uno abre
+#  debajo sus CIRCULOS (alcance y movimiento) y sus AREAS DE ATAQUE (los tuyos: al apuntar y ya en el mapa; los de los
+#  enemigos: en el mapa) con su NUCLEO, cada uno con sus mandos (ajustes_circulo.gd). Pulsar otra vez el
 #  abierto lo CIERRA, y de serie esta todo cerrado: «si no abulta un monton si es que metemos mas opciones en un futuro».
 #  Los de alcance vienen APAGADOS de serie; los de movimiento, visibles.
 # ============================================================
@@ -18,9 +19,11 @@ const GRIS := Color(0.62, 0.64, 0.70)
 # Cada bando: su boton y sus dos circulos (clave de Preferencias.alcance y titulo).
 const BANDOS := [
 	{"clave": "tuyos", "titulo": "Personajes", "circulos": [["tuyos", "Círculo de alcance"],
-		["mov_tuyos", "Círculo de movimiento"]]},
+		["mov_tuyos", "Círculo de movimiento"], ["area_apunte", "Área de ataque al apuntar"],
+		["area_mapa", "Área de ataque ya en el mapa"], ["nucleo_tuyos", "Núcleo de las áreas de ataque"]]},
 	{"clave": "enemigos", "titulo": "Enemigos", "circulos": [["enemigos", "Círculo de alcance"],
-		["mov_enemigos", "Círculo de movimiento"]]},
+		["mov_enemigos", "Círculo de movimiento"], ["area_enemigos", "Área de ataque en el mapa"],
+		["nucleo_enemigos", "Núcleo de las áreas de ataque"]]},
 ]
 
 var abierto: String = ""   # el bando abierto ("" = los dos cerrados)
@@ -33,7 +36,7 @@ func _ready() -> void:
 	add_theme_constant_override("separation", 6)
 
 	var tit := Label.new()
-	tit.text = "Círculos de movimiento y alcance"
+	tit.text = "Ayudas visuales"
 	tit.add_theme_font_size_override("font_size", 15)
 	tit.add_theme_color_override("font_color", AMBAR)
 	add_child(tit)

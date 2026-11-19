@@ -1,10 +1,12 @@
 # ============================================================
-#  ajustes_circulo.gd  (VBoxContainer creado por codigo; lo monta ajustes_alcance.gd, uno por circulo)
+#  ajustes_circulo.gd  (VBoxContainer creado por codigo; lo monta ajustes_alcance.gd, uno por circulo o area)
 #  LOS MANDOS DE UN CIRCULO del mapa tactico, atados a una clave de Preferencias.alcance:
 #   - de ALCANCE ("tuyos" / "enemigos"): visibilidad (apagados / solo del turno / todos), trazo a rayas o a puntos,
 #     color, opacidad, grosor, largo de la raya, separacion;
 #   - de MOVIMIENTO ("mov_tuyos" / "mov_enemigos"): visible u oculto, trazo continuo / rayas / puntos, color, opacidad
-#     del borde y del relleno, grosor, largo de la raya, separacion.
+#     del borde y del relleno, grosor, largo de la raya, separacion;
+#   - de AREA DE ATAQUE ("area_apunte" / "area_mapa" / "area_enemigos") y de NUCLEO ("nucleo_tuyos" /
+#     "nucleo_enemigos"): como el de movimiento pero sin Visibilidad (siempre se ven) y con LATIDO.
 #  Con su Restablecer y una MUESTRA pintada con la misma textura que el mapa (AroPixel).
 #  Quien manda es Preferencias: aqui solo se pinta lo suyo y se le dice lo que toca el jugador.
 # ============================================================
@@ -12,6 +14,7 @@
 extends VBoxContainer
 
 const AroPixel = preload("res://scripts/fx/aro_pixel.gd")
+const FormasPixel = preload("res://scripts/fx/formas_pixel.gd")
 
 const ANCHO := 420.0
 const HUECO := 12.0
@@ -21,11 +24,14 @@ const ALTO_MANDO := 40.0
 var clave: String = "tuyos"   # la de Preferencias.alcance
 var titulo: String = ""
 var movimiento: bool = false
+var area: bool = false      # area de ataque o nucleo
+var nucleo: bool = false
 var enemigo: bool = false
 
 var _modo: OptionButton = null
 var _trazo: OptionButton = null
 var _color: ColorPickerButton = null
+var _latido: CheckButton = null
 var _desl: Dictionary = {}    # clave -> HSlider
 var _cifra: Dictionary = {}   # clave -> Label
 var _caja: Dictionary = {}    # clave -> la caja del deslizador (para atenuarla)
@@ -34,7 +40,7 @@ var _muestra: Control = null
 
 # DESLIZADORES: [clave, titulo, unidad]
 func _deslizadores() -> Array:
-	if movimiento:
+	if movimiento or area:
 		return [["opacidad", "Opacidad del borde", " %"], ["relleno", "Opacidad del relleno", " %"],
 			["tam", "Grosor", " px"], ["largo", "Largo de la raya", " px"], ["hueco", "Separación", " px"]]
 	return [["opacidad", "Opacidad", " %"], ["tam", "Grosor", " px"], ["largo", "Largo de la raya", " px"],
@@ -44,6 +50,8 @@ func _deslizadores() -> Array:
 func _ready() -> void:
 	add_theme_constant_override("separation", 6)
 	movimiento = clave.begins_with("mov_")
+	nucleo = clave.begins_with("nucleo_")
+	area = clave.begins_with("area_") or nucleo
 	enemigo = clave.ends_with("enemigos")
 
 	var tit := Label.new()
@@ -54,17 +62,27 @@ func _ready() -> void:
 
 	# Las piezas, de dos en dos por fila, en este orden.
 	var piezas: Array = []
+	if not area:   # las areas siempre se ven
+		piezas.append(func(fila: Container) -> void:
+			_modo = _lista(fila, "Visibilidad", Preferencias.MODOS_MOVIMIENTO if movimiento else Preferencias.MODOS_ALCANCE,
+				func(id: int) -> void: Preferencias.fijar_alcance(clave, "modo", id)))
 	piezas.append(func(fila: Container) -> void:
-		_modo = _lista(fila, "Visibilidad", Preferencias.MODOS_MOVIMIENTO if movimiento else Preferencias.MODOS_ALCANCE,
-			func(id: int) -> void: Preferencias.fijar_alcance(clave, "modo", id)))
-	piezas.append(func(fila: Container) -> void:
-		_trazo = _lista(fila, "Trazo", Preferencias.TRAZOS_MOVIMIENTO if movimiento else Preferencias.TRAZOS_ALCANCE,
+		_trazo = _lista(fila, "Trazo", Preferencias.TRAZOS_MOVIMIENTO if movimiento or area else Preferencias.TRAZOS_ALCANCE,
 			func(id: int) -> void:
 				Preferencias.fijar_alcance(clave, "trazo", id)
 				_pintar()))
 	piezas.append(func(fila: Container) -> void: _color = _boton_color(_caja_titulo(fila, "Color")))
 	for d in _deslizadores():
 		piezas.append(func(fila: Container) -> void: _deslizador(fila, d[0], d[1], d[2]))
+	if area:
+		piezas.append(func(fila: Container) -> void:
+			_latido = CheckButton.new()
+			_latido.text = "Latido del borde"
+			_latido.custom_minimum_size = Vector2(MEDIO, ALTO_MANDO)
+			_latido.size_flags_vertical = Control.SIZE_SHRINK_END
+			_latido.add_theme_font_size_override("font_size", 14)
+			_latido.toggled.connect(func(on: bool) -> void: Preferencias.fijar_alcance(clave, "latido", on))
+			fila.add_child(_latido))
 	piezas.append(func(fila: Container) -> void:
 		var restab := Button.new()
 		restab.text = "Restablecer"
@@ -98,7 +116,10 @@ func refrescar() -> void:
 
 func _pintar() -> void:
 	var a: Dictionary = Preferencias.alcance[clave]
-	_modo.select(_modo.get_item_index(int(a["modo"])))
+	if _modo != null:
+		_modo.select(_modo.get_item_index(int(a["modo"])))
+	if _latido != null:
+		_latido.set_pressed_no_signal(bool(a.get("latido", false)))
 	_trazo.select(_trazo.get_item_index(int(a["trazo"])))
 	_color.color = a["color"]
 	for k in _desl:
@@ -127,6 +148,9 @@ func _pintar_muestra() -> void:
 	var r := Rect2(Vector2.ZERO, _muestra.size)
 	_muestra.draw_rect(r, Color(0.10, 0.10, 0.12))
 	_muestra.draw_rect(r, Color(0.3, 0.32, 0.38), false, 1.0)
+	if area:
+		_muestra_area()
+		return
 	var a: Dictionary = Preferencias.alcance[clave]
 	const ESCALA := 2.0
 	var tex: Texture2D = AroPixel.textura(12.0, int(a["trazo"]), int(a["tam"]), int(a["largo"]), int(a["hueco"]))
@@ -149,6 +173,28 @@ func _pintar_muestra() -> void:
 		var w: float = fuente.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
 		_muestra.draw_string(fuente, Vector2(cx - w * 0.5, _muestra.size.y - 4.0), txt, HORIZONTAL_ALIGNMENT_LEFT,
 			-1, 11, Color(0.6, 0.63, 0.7))
+
+
+# LA MUESTRA DE UN AREA: un cono de verdad (con sus cuñas) o, el nucleo, su aro con relleno; al doble, en pixel.
+func _muestra_area() -> void:
+	var a: Dictionary = Preferencias.alcance[clave]
+	var cols: Array = Preferencias.colores_area(clave)
+	const ESCALA := 2.0
+	var c := Vector2(_muestra.size.x * 0.5, 32.0)
+	_muestra.draw_set_transform((c - Vector2(0, 0)).round(), 0.0, Vector2(ESCALA, ESCALA))
+	if nucleo:
+		_muestra.draw_circle(Vector2.ZERO, 10.0, cols[1])
+		FormasPixel.arco(_muestra, Vector2.ZERO, 10.0, 0.0, TAU, cols[0], a)
+	else:
+		var f = CombatFormas.cono(Vector2(-14, 0), Vector2.RIGHT, 30.0, 50.0)   # de lado: cabe entero en la muestra
+		f.cunas = 3
+		FormasPixel.dibujar(f, _muestra, cols[0], cols[1], a)
+	_muestra.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var fuente: Font = get_theme_default_font()
+	var txt: String = "Núcleo" if nucleo else "Área de ataque"
+	var w: float = fuente.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+	_muestra.draw_string(fuente, Vector2(c.x - w * 0.5, _muestra.size.y - 4.0), txt, HORIZONTAL_ALIGNMENT_LEFT,
+		-1, 11, Color(0.6, 0.63, 0.7))
 
 
 # ------------------------------------------------------------

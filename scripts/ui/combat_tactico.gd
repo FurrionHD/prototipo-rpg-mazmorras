@@ -623,7 +623,7 @@ func _pintar_huellas_canto(vistos: Dictionary) -> void:
 			continue
 		var clave: StringName = StringName("canto_%d" % _pantalla._aliados.find(c))
 		_huellas_canto[c] = clave
-		arena.poner_huella(clave, forma_hechizo(spell, c, vistos[c][2]), 0.0, COLOR_CARGA)
+		arena.poner_huella(clave, forma_hechizo(spell, c, vistos[c][2]), 0.0, COLOR_CARGA, "mapa")
 
 
 func _tick_circulos() -> void:
@@ -2350,7 +2350,7 @@ func _refrescar_apunte(raton: Vector2) -> void:
 	if arena != null:
 		arena.poner_huella(CLAVE_APUNTE, f, _apuntando.forma_nucleo)
 		if f_esc != null:
-			arena.poner_huella(CLAVE_APUNTE_ESCUDO, f_esc, 0.0, COLOR_ESCUDAZO)
+			arena.poner_huella(CLAVE_APUNTE_ESCUDO, f_esc, 0.0, COLOR_ESCUDAZO, "escudazo")
 	# Y a los demas: si llevo la pelea la apunto en la lista que reparto; si soy espejo, se la mando.
 	_anotar_huella_red(_quien, CLASE_APUNTANDO, f, _apuntando.forma_nucleo)
 	_anotar_huella_red(_quien, CLASE_ESCUDAZO, f_esc, 0.0)
@@ -2556,7 +2556,7 @@ func guardar_carga(c: Combatant, ab: AbilityData) -> void:
 	var f = forma_de(ab, c, apunte)
 	var arena: ArenaCombate = _arena()
 	if arena != null:
-		arena.poner_huella(c, f, ab.forma_nucleo, COLOR_CARGA)
+		arena.poner_huella(c, f, ab.forma_nucleo, COLOR_CARGA, "mapa")
 	_anotar_huella_red(c, CLASE_CARGA, f, ab.forma_nucleo)
 	# Y se queda con el arma en alto mientras carga (ver _animar).
 	var cu: Node2D = cuerpo_de(c)
@@ -2841,12 +2841,12 @@ func guardar_carga_enemigo(e: Combatant, ab: AbilityData, preferido: Combatant =
 	_cargas[e] = [ab, f.centro, f]
 	var arena: ArenaCombate = _arena()
 	if arena != null:
-		arena.poner_huella(e, f, ab.forma_nucleo, COLOR_ENEMIGO)
+		arena.poner_huella(e, f, ab.forma_nucleo, COLOR_ENEMIGO, "enemigos")
 	_anotar_huella_red(e, CLASE_CARGA, f, ab.forma_nucleo)
 	var pis = pisoton_de(ab, f)
 	if pis != null:
 		if arena != null:
-			arena.poner_huella(_clave_pisoton(e), pis, 0.0, COLOR_ENEMIGO)
+			arena.poner_huella(_clave_pisoton(e), pis, 0.0, COLOR_ENEMIGO, "enemigos")
 		_anotar_huella_red(e, CLASE_PISOTON, pis, 0.0)
 	_encarar(e, f.centro_util())
 
@@ -2917,7 +2917,7 @@ func _marcar_presa(e: Combatant, presa: Combatant) -> void:
 	var f = _forma_marca(presa)
 	var arena: ArenaCombate = _arena()
 	if arena != null:
-		arena.poner_huella(e, f, 0.0, COLOR_ENEMIGO)
+		arena.poner_huella(e, f, 0.0, COLOR_ENEMIGO, "enemigos")
 	_anotar_huella_red(e, CLASE_CARGA, f, 0.0)
 	var d: Array = _cargas.get(e, [])
 	if d.size() >= 2:
@@ -3772,9 +3772,12 @@ func aplicar_huellas(d: PackedFloat32Array) -> void:
 		var clave: String = "red_%d_%d" % [int(x[0]), int(x[1])]
 		var col: Color = COLOR_CARGA if int(x[1]) == CLASE_CARGA \
 			else (COLOR_ESCUDAZO if int(x[1]) == CLASE_ESCUDAZO else COLOR_APUNTE)
+		var tipo: String = "mapa" if int(x[1]) == CLASE_CARGA \
+			else ("escudazo" if int(x[1]) == CLASE_ESCUDAZO else "apunte")
 		if _pantalla._enemies.has(c):
 			col = COLOR_ENEMIGO
-		arena.poner_huella(clave, x[2], x[3], col)
+			tipo = "enemigos"
+		arena.poner_huella(clave, x[2], x[3], col, tipo)
 		_claves_red.append(clave)
 	for clave_v in _charco_vis.keys():
 		if not clave_v in charcos_vivos:

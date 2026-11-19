@@ -17,6 +17,9 @@
 #     Y EL CIRCULO DE MOVIMIENTO (19/11, el grande del turno: hasta donde te mueves), en el mismo diccionario, uno por
 #     bando ("mov_tuyos", "mov_enemigos"): visible de serie, trazo continuo/rayas/puntos, color, opacidad del borde y
 #     del relleno, grosor y medidas del trazo.
+#     Y LAS AREAS DE ATAQUE (19/11, las huellas, en pixel: FormasPixel): la tuya AL APUNTAR, la tuya (y de compañeros) YA
+#     EN EL MAPA, la de los ENEMIGOS y el NUCLEO de cada bando, con color, opacidad del borde y del relleno, trazo,
+#     grosor, medidas y LATIDO. Siempre se ven (no tienen Visibilidad).
 #
 #  Ajustes de MAQUINA y no de partida, como los volumenes y la pantalla: viven en user://ajustes.cfg, en su seccion, y
 #  se LEE ANTES DE ESCRIBIR para no llevarse por delante las de Sonido y Ventana (ver prueba_ventana_ajustes).
@@ -46,7 +49,10 @@ var decimales: int = Decimales.DEFECTO
 
 # --- LOS CIRCULOS DE ALCANCE ---
 enum Alcance { APAGADO, TURNO, TODOS }
-const GRUPOS_ALCANCE := ["tuyos", "enemigos", "mov_tuyos", "mov_enemigos"]
+const GRUPOS_ALCANCE := ["tuyos", "enemigos", "mov_tuyos", "mov_enemigos", "area_apunte", "area_mapa", "nucleo_tuyos",
+	"area_enemigos", "nucleo_enemigos"]
+# De que grupo es cada huella (el «tipo» que le pone CombatTactico al ponerla) y su nucleo.
+const AREA_DE_TIPO := {"apunte": "area_apunte", "escudazo": "area_apunte", "mapa": "area_mapa", "enemigos": "area_enemigos"}
 const MODOS_ALCANCE := [
 	{"id": Alcance.APAGADO, "nombre": "Apagados"},
 	{"id": Alcance.TURNO, "nombre": "Solo del turno"},   # el de quien juega y el que apuntas
@@ -76,9 +82,20 @@ const ALCANCE_DEFECTO := {
 		"tam": 1, "largo": 6, "hueco": 4},
 	"mov_enemigos": {"modo": Alcance.TODOS, "trazo": 2, "color": Color(1.0, 0.45, 0.35), "opacidad": 70, "relleno": 10,
 		"tam": 1, "largo": 6, "hueco": 4},
+	# LAS AREAS: los colores y las opacidades de antes (borde ~75 % latiendo, relleno ~17 %; nucleo 90 y 30, quieto).
+	"area_apunte": {"trazo": 2, "color": Color(0.45, 0.85, 1.0), "opacidad": 75, "relleno": 17, "tam": 1, "largo": 6,
+		"hueco": 4, "latido": true},
+	"area_mapa": {"trazo": 2, "color": Color(0.35, 0.5, 1.0), "opacidad": 75, "relleno": 17, "tam": 1, "largo": 6,
+		"hueco": 4, "latido": true},
+	"nucleo_tuyos": {"trazo": 2, "color": Color(0.45, 0.85, 1.0), "opacidad": 90, "relleno": 30, "tam": 1, "largo": 6,
+		"hueco": 4, "latido": false},
+	"area_enemigos": {"trazo": 2, "color": Color(1.0, 0.3, 0.25), "opacidad": 75, "relleno": 17, "tam": 1, "largo": 6,
+		"hueco": 4, "latido": true},
+	"nucleo_enemigos": {"trazo": 2, "color": Color(1.0, 0.3, 0.25), "opacidad": 90, "relleno": 30, "tam": 1, "largo": 6,
+		"hueco": 4, "latido": false},
 }
 # Los topes de cada mando (los usa Ajustes para sus deslizadores y _cargar para no fiarse del fichero).
-const ALCANCE_TOPES := {"opacidad": [10, 100], "tam": [1, 3], "largo": [1, 16], "hueco": [1, 16], "relleno": [0, 40]}
+const ALCANCE_TOPES := {"opacidad": [10, 100], "tam": [1, 3], "largo": [1, 16], "hueco": [1, 16], "relleno": [0, 60]}
 # El del turno y el apuntado, mas marcados que los demas: su opacidad sube esto (hasta el 100 %).
 const ALCANCE_EXTRA_FUERTE := 0.35
 
@@ -120,9 +137,10 @@ func guardar_ajustes() -> void:
 
 
 func restablecer_alcance(grupo: String) -> void:
-	var modo: int = int(alcance.get(grupo, {}).get("modo", Alcance.APAGADO))
+	var antes: Dictionary = alcance.get(grupo, {})
 	alcance[grupo] = (ALCANCE_DEFECTO[grupo] as Dictionary).duplicate()
-	alcance[grupo]["modo"] = modo   # restablece el aspecto; si se ven o no, lo deja como estaba
+	if antes.has("modo"):
+		alcance[grupo]["modo"] = antes["modo"]   # restablece el aspecto; si se ven o no, lo deja como estaba
 	_guardar()
 
 
@@ -142,6 +160,24 @@ func color_movimiento(enemigo: bool, relleno: bool = false) -> Color:
 	return Color(m["color"], float(m["relleno" if relleno else "opacidad"]) / 100.0)
 
 
+# LAS AREAS: el grupo de una huella por su tipo, y el de su nucleo.
+func grupo_area(tipo: String) -> String:
+	return String(AREA_DE_TIPO.get(tipo, "area_apunte"))
+
+
+func grupo_nucleo(tipo: String) -> String:
+	return "nucleo_enemigos" if tipo == "enemigos" else "nucleo_tuyos"
+
+
+# Borde y relleno de un grupo de area; 'late' (0..1) es el latido del mapa, que solo cuenta si el grupo late.
+func colores_area(grupo: String, late: float = 0.5) -> Array:
+	var a: Dictionary = alcance[grupo]
+	var borde := Color(a["color"], float(a["opacidad"]) / 100.0)
+	if bool(a.get("latido", false)):
+		borde.a = clampf(borde.a * (0.8 + 0.4 * late), 0.0, 1.0)
+	return [borde, Color(a["color"], float(a["relleno"]) / 100.0)]
+
+
 # El color con su opacidad (y el extra si es el del turno o el apuntado).
 func color_alcance(enemigo: bool, fuerte: bool) -> Color:
 	var a: Dictionary = alcance["enemigos" if enemigo else "tuyos"]
@@ -159,6 +195,8 @@ func _sanear(clave: String, v):
 			return clampi(int(v), 0, 2)
 		"color":
 			return Color(v) if (v is Color) else Color.WHITE
+		"latido":
+			return bool(v)
 	if ALCANCE_TOPES.has(clave):
 		return clampi(int(v), int(ALCANCE_TOPES[clave][0]), int(ALCANCE_TOPES[clave][1]))
 	return v

@@ -224,6 +224,28 @@ static func _tirador_px(ancho: int, alto: int, cuerpo: Color) -> ImageTexture:
 	return ImageTexture.create_from_image(img)
 
 
+static func _interruptor_px(encendido: bool, apagado: bool) -> ImageTexture:
+	const AN := 30
+	const AL := 16
+	var img := Image.create(AN, AL, false, Image.FORMAT_RGBA8)
+	img.fill(PX_SOMBRA.darkened(0.4))
+	var ranura: Color = Color(0.62, 0.45, 0.22) if encendido else PX_HUNDIDO
+	if apagado:
+		ranura = ranura.darkened(0.4)
+	img.fill_rect(Rect2i(1, 1, AN - 2, AL - 2), ranura)
+	# el bloque que se mueve: a la derecha encendido, a la izquierda apagado
+	var cuerpo: Color = Color(0.92, 0.72, 0.38) if encendido else Color(0.52, 0.52, 0.56)
+	if apagado:
+		cuerpo = cuerpo.darkened(0.45)
+	var x0: int = AN - 2 - 12 if encendido else 2
+	img.fill_rect(Rect2i(x0, 2, 12, AL - 4), cuerpo)
+	img.fill_rect(Rect2i(x0, 2, 12, 1), cuerpo.lightened(0.35))
+	img.fill_rect(Rect2i(x0, 2, 1, AL - 4), cuerpo.lightened(0.35))
+	img.fill_rect(Rect2i(x0, AL - 3, 12, 1), cuerpo.darkened(0.35))
+	img.fill_rect(Rect2i(x0 + 11, 2, 1, AL - 4), cuerpo.darkened(0.35))
+	return ImageTexture.create_from_image(img)
+
+
 static func _tema_deslizadores(t: Theme) -> void:
 	var carril := _caja_px(PX_HUNDIDO, PX_SOMBRA, 1, 6)
 	var recorrido := _caja_px(PX_HIERRO, PX_SOMBRA, 1, 6)
@@ -240,6 +262,12 @@ static func _tema_deslizadores(t: Theme) -> void:
 	t.set_icon("grabber", "VSlider", _tirador_px(h_alto, h_ancho, Color(0.52, 0.52, 0.56)))
 	t.set_icon("grabber_highlight", "VSlider", _tirador_px(h_alto, h_ancho, Color(0.66, 0.64, 0.62)))
 	t.set_icon("grabber_disabled", "VSlider", _tirador_px(h_alto, h_ancho, Color(0.24, 0.24, 0.27)))
+	# LOS INTERRUPTORES (CheckButton: VSync, Mostrar FPS, Latido...): una ranura cuadrada con un bloque que va a un
+	# lado o al otro; encendido, la ranura en ambar.
+	t.set_icon("unchecked", "CheckButton", _interruptor_px(false, false))
+	t.set_icon("checked", "CheckButton", _interruptor_px(true, false))
+	t.set_icon("unchecked_disabled", "CheckButton", _interruptor_px(false, true))
+	t.set_icon("checked_disabled", "CheckButton", _interruptor_px(true, true))
 	# LAS BARRAS DE SCROLL: carril hundido y un bloque de hierro que se aclara al pasar y al agarrarlo.
 	for tipo in ["VScrollBar", "HScrollBar"]:
 		# (el ANCHO de la barra lo dan los margenes de su caja: sin ellos se queda en 2 px y no se ve)
