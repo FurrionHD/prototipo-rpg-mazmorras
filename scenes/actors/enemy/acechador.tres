@@ -8,11 +8,25 @@
 [ext_resource type="Resource" uid="uid://d1yqkr3nvx8ba" path="res://resources/abilities/acechador_dentellada.tres" id="6_mor"]
 [ext_resource type="Resource" path="res://resources/materials/carne_bestia.tres" id="7_carne"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_acechador.tres" id="8_nuc"]
+[ext_resource type="Script" path="res://scripts/actors/enemy/mutacion_data.gd" id="20_mut"]
+[ext_resource type="Resource" path="res://resources/mutaciones/acechador_cazador.tres" id="23_caz"]
 
 [sub_resource type="Resource" id="SA_san"]
 script = ExtResource("2_sa")
 estado = 1
 prob = 0.6
+
+; LOS MUTANTES DEL ACECHADOR (19/11, memoria acechador-mutante), una linea:
+;     Acechador --> SOMBRA SIN ROSTRO (sigilo: se funde en las sombras) --> CAZADOR LUNAR (resources/mutaciones)
+; La Sombra pega todo FISICO, con el kit de siempre (Zarpazo doble, Salto a la yugular, Dentellada). Su pasiva
+; (Paciencia del cazador) llega en su paso. Stats de tools/tabla_acechador (vida 587 en el piso 10).
+[sub_resource type="Resource" id="MUT_sombra"]
+script = ExtResource("20_mut")
+id = &"sombra"
+nombre = "Sombra sin rostro"
+grado = 1
+sprite = &"sombra"
+pesos = {"agilidad": 50, "destreza": 36, "fuerza": 56, "magia": 2, "resistencia": 30, "voluntad": 4}
 
 [resource]
 script = ExtResource("1_g8nro")
@@ -23,11 +37,14 @@ centro_suelo = 0.44
 color = Color(0.3, 0.27, 0.24, 1)
 escala_visual = 1.8
 sprite_gen = &"acechador"
-fuerza = 58
-resistencia = 40
+; (19/11, memoria acechador-mutante) estrena VOLUNTAD, misma suma 178: el basico pega igual que antes
+; (tools/tabla_acechador).
+fuerza = 56
+resistencia = 38
 destreza = 30
-agilidad = 45
-magia = 5
+agilidad = 44
+magia = 4
+voluntad = 6
 franja_low = 0.35
 franja_high = 0.85
 base_hp = 70.0
@@ -59,6 +76,7 @@ fx_basico = 15
 resist_aturdir = 0.15
 habilidades = [ExtResource("4_zar"), ExtResource("5_emb"), ExtResource("6_mor")]
 prob_habilidad = 0.6
+mutaciones = Array[ExtResource("20_mut")]([SubResource("MUT_sombra"), ExtResource("23_caz")])
 ; ALCANCE del basico en el mapa (30/09).
 alcance = 20.0
 ; PASIVA OLOR A SANGRE (30/09): va siempre a por quien sangra (si nadie, al de menos vida) y le pega un 30% mas.

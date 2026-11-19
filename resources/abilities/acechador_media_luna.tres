@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+
+; LA MEDIA LUNA (19/11, memoria acechador-mutante): la del CAZADOR LUNAR. MAGICA DE OSCURIDAD, sin carga, recarga 3: un
+; zarpazo en arco que deja una LUNA CRECIENTE delante, en CONO ANCHO Y CORTO (2 casillas, 150 grados). Pega 1,2 (x1,52 del
+; basico normal a cada uno; en luna llena x2,1, tools/tabla_acechador). Desde las sombras cuenta como golpe desde las
+; sombras (su paso). Su efecto en pixel llega en el paso de efectos.
+[resource]
+script = ExtResource("1")
+nombre = "Media luna"
+descripcion = "Un zarpazo que no llega a tocarte. Lo que te alcanza es lo que deja en el aire: una luna creciente, fría, que corta al pasar."
+coste_energia = 0.0
+dano_mult = 1.2
+es_magico = true
+elemento_golpe = 5
+area_modo = 1
+area_max = 99
+area_secundario = 1.0
+area_efectos_secundarios = true
+area_prob_secundario = 1.0
+forma = 2
+forma_apunte = 1
+forma_radio = 64.0
+forma_apertura = 150.0
+fx_estilo = 17
+fx_anim = &"media_luna"
+cooldown = 3

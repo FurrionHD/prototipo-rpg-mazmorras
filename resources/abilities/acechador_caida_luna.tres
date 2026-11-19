@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+
+; LA CAIDA DE LA LUNA (19/11, memoria acechador-mutante; su eleccion "si solo Media luna es magico de nada nos sirve"): la
+; del CAZADOR LUNAR. MAGICA DE OSCURIDAD, se CARGA 1 turno (aulla a la luna), recarga 4, un CIRCULO de 3 casillas de ancho
+; donde apunte; pega 1,6 (x2,0 del basico normal a cada uno; en luna llena x2,85 y sale tras el retraso del 50 %). El haz
+; cae DESDE LA LUNA DEL CIELO (su paso de efectos).
+[resource]
+script = ExtResource("1")
+nombre = "Caída de la luna"
+descripcion = "Aúlla una sola vez y se queda mirando arriba. Si miras donde mira él, ya es tarde: la luz está bajando."
+coste_energia = 0.0
+dano_mult = 1.6
+es_magico = true
+elemento_golpe = 5
+area_modo = 1
+area_max = 99
+area_secundario = 1.0
+area_efectos_secundarios = true
+area_prob_secundario = 1.0
+forma = 1
+forma_apunte = 3
+forma_radio = 48.0
+forma_rango = 160.0
+fx_estilo = 17
+cooldown = 4
+carga_turnos = 1
+fx_anim_carga = &"aullido"
+fx_anim = &"aullido"
+fx_anim_interrumpe = &"idle"
