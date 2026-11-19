@@ -2526,7 +2526,13 @@ func _mostrar_volver() -> void:
 
 # Donde esta el raton EN EL MUNDO: la pantalla va en una capa aparte, pero el suelo lo pinta la
 # camara, asi que se deshace su transformacion.
+# SOLO HERRAMIENTAS (tools/simulador_peleas.gd, 19/11): el piloto automatico apunta aqui en vez de con el raton, y el resto
+# del apuntado va por su camino de siempre. En el juego es siempre null.
+var raton_simulado = null
+
 func _raton_en_mundo() -> Vector2:
+	if raton_simulado != null:
+		return raton_simulado
 	var vp: Viewport = _pantalla.get_viewport()
 	return vp.get_canvas_transform().affine_inverse() * vp.get_mouse_position()
 

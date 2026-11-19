@@ -227,6 +227,8 @@ var _timeline: Control = null
 # matar a dos de cuatro, esos dos estan muertos igual y tienen que dejar su cadaver.
 # 'enemy_estados_left' va tambien por indice: los estados con los que se queda cada superviviente
 # (el veneno le sigue corriendo por el mapa, ver Enemy._tick_estados_fuera).
+# A quien le llega el turno por la barra (lo escucha el simulador de peleas, tools/simulador_peleas.gd).
+signal turno_empieza(c: Combatant)
 signal combat_finished(player_won: bool, hp_left: Array, mp_left: Array,
 	energy_left: Array, muertos: Array, enemy_hp_left: Array, duenos: Array,
 	enemy_estados_left: Array)
@@ -2081,6 +2083,7 @@ func _process(delta: float) -> void:
 			mejor = e
 	if _gauge[mejor] >= UMBRAL:
 		_gauge[mejor] -= UMBRAL
+		turno_empieza.emit(mejor)
 		if _aliados.has(mejor):
 			_player = mejor   # a partir de aqui, "el jugador" es este
 			_begin_player_turn()
