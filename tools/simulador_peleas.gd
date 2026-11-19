@@ -44,7 +44,7 @@ extends Node
 const CABECERA := "R|tanda|reglas|piso|grupo|escenario|arma|enemigo|mutacion|jefe|n_enem|t|gana|turnos_yo|turnos_el|vida_perdida|caidos|mp_gastado|dano_por_turno|dano_recibido_por_turno_suyo|segundos|acciones|fotogramas|ms_por_fotograma|pelea|ciclos|dano_por_ciclo|estados_en_enemigos|estados_en_los_tuyos|n_seguida|repetir|vel_ref_piso|vel_ciclo|emboscada"
 # Una linea POR PERSONAJE de los tuyos en cada pelea (lo pidio: "daños de cada uno, cuanto tanquean con cada armadura, el
 # dps medio, cuanto hace cada arma en su turno, si alguno se queda sin energia demasiado rapido"):
-const CABECERA_P := "P|tanda|reglas|pelea|piso|grupo|escenario|n_enem|gana|rol|arma|armadura|vida_max|defensa|def_magica|mitig_fisica|mitig_magica|dano_hecho|dano_recibido|turnos|dano_por_turno|recibido_por_turno_enemigo|cayo|energia_media_al_empezar_turno|turnos_sin_energia|primer_turno_sin_energia|mp_gastado|turnos_sin_mana|primer_turno_sin_mana|pociones|acciones|nivel|tier|mejoras|fue/res/agi/des/mag/vol|ataque|velocidad|max_mp|max_energia|red_armadura|red_armadura_magica|ciclos|dano_por_ciclo|turnos_por_ciclo|recibido_por_ciclo|dano_por_elemento|habilidades_puestas"
+const CABECERA_P := "P|tanda|reglas|pelea|piso|grupo|escenario|n_enem|gana|rol|arma|armadura|vida_max|defensa|def_magica|mitig_fisica|mitig_magica|dano_hecho|dano_recibido|turnos|dano_por_turno|recibido_por_turno_enemigo|cayo|energia_media_al_empezar_turno|turnos_sin_energia|primer_turno_sin_energia|mp_gastado|turnos_sin_mana|primer_turno_sin_mana|pociones|acciones|nivel|tier|mejoras|fue/res/agi/des/mag/vol|ataque|velocidad|max_mp|max_energia|red_armadura|red_armadura_magica|ciclos|dano_por_ciclo|turnos_por_ciclo|recibido_por_ciclo|dano_por_elemento|habilidades_puestas|equipo"
 # Y una POR ENEMIGO (crias y refuerzos incluidos):
 const CABECERA_E := "E|tanda|reglas|pelea|piso|grupo|escenario|n_enem|gana|enemigo|mutacion|jefe|vida_max|ataque|defensa|def_magica|velocidad|dano_hecho|dano_recibido|turnos|dano_por_turno|muere|t|fue/res/agi/des/mag/vol|ataque_magico|red_armadura|ciclos|dano_por_ciclo|turnos_por_ciclo"
 const PISOS_NIVEL := 12
@@ -90,6 +90,111 @@ func _prog(piso: int) -> Array:
 	var dentro: int = (piso - 1) % 6   # 0..5 dentro del tier
 	var mejoras: int = int(round(7.0 * float(dentro) / 5.0))
 	return [nivel, int(round(hab)), PROGRESION[a][2], tier, mejoras, 2 if piso == 1 else 5]
+
+
+# EL EQUIPO CON SUERTE (19/11, su tabla: "dependiendo del piso... las probs que tienen de salir"; memoria
+# simulador-equipo-por-piso). Cada pieza tira su RAREZA y su MEJORA en cada pelea (con la semilla de la pelea: 'repetir'
+# la saca igual) y se apunta (columna 'equipo' de las P). Por la POSICION del piso dentro de su tier (1..6): equipo nuevo
+# cada 6 pisos. Pesos de Comun, Poco comun, Raro, Epico, Legendario, Mitico:
+const RAREZA_POSICION := {
+	1: [100.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+	2: [80.0, 20.0, 0.0, 0.0, 0.0, 0.0],
+	3: [50.0, 40.0, 10.0, 0.0, 0.0, 0.0],
+	4: [20.0, 40.0, 30.0, 9.0, 1.0, 0.0],
+	5: [0.0, 20.0, 40.0, 37.0, 3.0, 0.0],
+	6: [0.0, 0.0, 0.0, 85.0, 13.0, 2.0],
+}
+# Las mejoras, de la una a la otra al azar ("entre bajo y con suerte": en el 6 de +5 a +7).
+const MEJORA_POSICION := {1: [0, 0], 2: [0, 1], 3: [0, 2], 4: [1, 4], 5: [3, 6], 6: [5, 7]}
+# DEL TIER 2 EN ADELANTE se repite "un poco mejor": su primer piso tira como el 2 (ya sabes hacerlo) y en cada tier un 10 %
+# de cada rareza sube a la siguiente (como mucho un 20 %).
+const RAREZA_ID := ["comun", "poco_comun", "raro", "epico", "legendario", "mitico", "obra_maestra", "pristino"]   # sin acentos: van a CSV
+const SUBE_POR_TIER := 0.1
+const SUBE_TOPE := 0.2
+
+func _posicion_equipo(piso: int) -> int:
+	var pos: int = (piso - 1) % 6 + 1
+	return pos if piso <= 6 else mini(6, pos + 1)
+
+
+func _pesos_rareza(piso: int) -> Array:
+	var w: Array = (RAREZA_POSICION[_posicion_equipo(piso)] as Array).duplicate()
+	var f: float = minf(SUBE_TOPE, SUBE_POR_TIER * float(int(ceil(float(piso) / 6.0)) - 1))
+	if f > 0.0:
+		for i in range(w.size() - 2, -1, -1):   # de arriba abajo: lo que sube no vuelve a subir
+			var pasa: float = float(w[i]) * f
+			w[i] = float(w[i]) - pasa
+			w[i + 1] = float(w[i + 1]) + pasa
+	return w
+
+
+# 'equipo=fijo' (19/11, para COMPARAR armas o sets: que la suerte no meta ruido): la rareza MAS PROBABLE del piso, la mejora
+# del MEDIO de su rango y, en el piso 1, siempre las mismas dos piezas. 'suerte' (de serie): la tirada.
+var _equipo := "suerte"
+
+func _tirar_rareza(piso: int) -> int:
+	var w: Array = _pesos_rareza(piso)
+	if _equipo == "fijo":
+		var mejor: int = 0
+		for i in w.size():
+			if float(w[i]) > float(w[mejor]):
+				mejor = i
+		return mejor
+	var total: float = 0.0
+	for x in w:
+		total += float(x)
+	var t: float = randf() * total
+	for i in w.size():
+		t -= float(w[i])
+		if t <= 0.0:
+			return i
+	return 0
+
+
+# La tirada de TODO lo que lleva puesto 'p' en esta pelea (y, en el piso 1, cuantas piezas: 1-3).
+func _tirar_equipo(p: PersonajeData, piso: int) -> void:
+	var juego: Dictionary = p.get_meta("armadura_entera", {})
+	var lleva: Array = SLOTS.duplicate()
+	if piso == 1:
+		if _equipo == "fijo":
+			lleva = ["pecho", "manos"]
+		else:
+			lleva.shuffle()
+			lleva = lleva.slice(0, randi_range(1, 3))
+	for s in SLOTS:
+		if juego.has(s):
+			p.set("equipped_" + s, juego[s] if lleva.has(s) else null)
+	var mj: Array = MEJORA_POSICION[_posicion_equipo(piso)]
+	for slot in p.equip_meta.keys():
+		if slot in SLOTS and not lleva.has(slot):
+			continue
+		var m: Dictionary = p.equip_meta[slot]
+		m["rareza"] = _tirar_rareza(piso)
+		var n: int = int(round((float(mj[0]) + float(mj[1])) * 0.5)) if _equipo == "fijo" else randi_range(int(mj[0]), int(mj[1]))
+		var mejoras: Dictionary = m.get("mejoras", {})
+		for k in mejoras.keys():
+			mejoras[k] = n
+		m["mejoras"] = mejoras
+
+
+# Lo que le ha tocado, para la columna 'equipo': "main:Raro+3,casco:Epico+5,...".
+func _txt_equipo(p: PersonajeData) -> String:
+	if p == null:
+		return ""
+	var out: Array = []
+	for slot in ["main", "off"] + SLOTS:
+		if slot in SLOTS and p.get("equipped_" + slot) == null:
+			continue
+		if slot == "off" and p.equipped_off == null:
+			continue
+		if not p.equip_meta.has(slot):
+			continue
+		var m: Dictionary = p.equip_meta[slot]
+		var n: int = 0
+		for v in (m.get("mejoras", {}) as Dictionary).values():
+			n = maxi(n, int(v))
+		out.append("%s:%s+%d" % [slot, RAREZA_ID[int(m["rareza"])], n])
+	return ",".join(out)
 
 
 const JEFES := {6: "res://scenes/actors/enemy/rey_slime.tres", 12: "res://scenes/actors/enemy/guardian_rango.tres"}
@@ -183,7 +288,8 @@ static func equipos_todos() -> Array:
 	return out
 var _trozo := 0
 var _desde := 0        # 'desde=K': empieza en su caso K (lo relanza simulador.py tras un tope de memoria o una caida)
-var _tope_mb := 0.0    # 'tope_mb=N': pasada esa memoria (estatica, MB) se sale al acabar el caso
+var _tope_mb := 0.0
+var _caer_en := 0      # 'caer_en=N' (PRUEBA del relevo): el Godot se estrella a proposito tras N peleas, solo en su primera vida    # 'tope_mb=N': pasada esa memoria (estatica, MB) se sale al acabar el caso
 var _trozos := 1
 var _escala_tiempo := 2.0   # (19/11) x2 da lo mismo que x1; x8 no (ver simulador.py)
 var _sin_mutantes := false
@@ -288,6 +394,10 @@ func _leer_args() -> void:
 				var pz: PackedStringArray = kv[1].split(",")
 				_pociones_vida = int(pz[0])
 				_pociones_mana = int(pz[1]) if pz.size() > 1 else 0
+			"caer_en":
+				_caer_en = int(kv[1])
+			"equipo":
+				_equipo = kv[1]
 			"desde":
 				_desde = int(kv[1])
 			"tope_mb":
@@ -368,22 +478,26 @@ func _personaje(piso: int, rol: String, en_grupo: bool, arma_g: String = "") -> 
 	p.equip_meta["main"] = {"tier": int(pr[3]), "rareza": 0, "mejoras": {mejora: int(pr[4])}, "durabilidad": 1.0, "banda": 0}
 	if rol == "tanque":
 		p.equipped_off = load("res://resources/shields/escudo_grande.tres")
-		p.equip_meta["off"] = {"tier": int(pr[3]), "rareza": 0, "mejoras": {}, "durabilidad": 1.0, "banda": 0}
+		p.equip_meta["off"] = {"tier": int(pr[3]), "rareza": 0, "mejoras": {Upgrades.DUREZA: int(pr[4])}, "durabilidad": 1.0, "banda": 0}
 	elif rol == "guerrero" and secundaria != "":
 		var ruta_off: String = "res://resources/shields/%s.tres" % secundaria
 		if not ResourceLoader.exists(ruta_off):
 			ruta_off = "res://resources/weapons/%s.tres" % secundaria
 		p.equipped_off = load(ruta_off)
-		var meta_off: Dictionary = {} if p.equipped_off is ShieldData else {Upgrades.AGUDEZA: int(pr[4])}
+		# (19/11) el escudo tambien se mejora (Dureza: +10 % de su defensa por mejora, como la armadura)
+		var meta_off: Dictionary = {Upgrades.DUREZA: int(pr[4])} if p.equipped_off is ShieldData else {Upgrades.AGUDEZA: int(pr[4])}
 		p.equip_meta["off"] = {"tier": int(pr[3]), "rareza": 0, "mejoras": meta_off, "durabilidad": 1.0, "banda": 0}
 	if perfil != "":
 		armadura[rol] = PERFILES[perfil][1]
 	if armadura_forzada != "" and rol in ["guerrero", "arquero"]:
 		armadura[rol] = armadura_forzada
-	for i in int(pr[5]):
-		var s: String = SLOTS[(i + 1) % 5] if int(pr[5]) < 5 else SLOTS[i]
-		p.set("equipped_" + s, load("res://resources/armor/%s_%s.tres" % [armadura[rol], s]))
+	# TODA la armadura montada y guardada: en el piso 1 cada pelea se queda con 1-3 piezas al azar (ver _tirar_equipo).
+	var juego: Dictionary = {}
+	for s in SLOTS:
+		juego[s] = load("res://resources/armor/%s_%s.tres" % [armadura[rol], s])
+		p.set("equipped_" + s, juego[s])
 		p.equip_meta[s] = {"tier": int(pr[3]), "rareza": 0, "mejoras": {Upgrades.DUREZA: int(pr[4])}, "durabilidad": 1.0, "banda": 0}
+	p.set_meta("armadura_entera", juego)
 	# Las habilidades del arma: todas sabidas; las cuatro primeras puestas (el tanque, las suyas).
 	p.habilidades_aprendidas = Game.pool_habilidades(p).duplicate()
 	if rol == "tanque":
@@ -738,6 +852,8 @@ func _correr() -> void:
 			for l in _lineas_extra:
 				print(l)
 			_lineas_extra.clear()
+			if _caer_en > 0 and _desde == 0 and _n_pelea >= _caer_en:
+				OS.crash("caer_en: caida de prueba para el relevo de simulador.py")   # solo en su primera vida
 		print("[sim] CASO_HECHO %d" % j)   # por donde va: si el Godot se cae, simulador.py sigue desde el siguiente
 
 
@@ -937,6 +1053,7 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 		return _linea_error(caso, "ERROR_SIN_ENEMIGOS")
 	for p in Game.party:
 		if reponer:
+			_tirar_equipo(p, piso)   # antes de reponer: la vida y el aguante salen ya del equipo de esta pelea
 			_reponer(p)
 		else:
 			# EN LA SEGUIDA solo vuelve el aguante (se repone andando); la vida y el mana, como salio de la anterior
@@ -1162,12 +1279,13 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 			+ "|%.2f|%.2f|%.2f|%.2f|%s" % [ciclos, float(_hecho.get(a, 0.0)) / ciclos, float(n_t) / ciclos,
 			float(_recibido.get(a, 0.0)) / ciclos, _txt_reparto(_por_elem.get(a, {}))]
 			+ "|" + ";".join(Game.habilidades_equipadas(pj).map(func(ab): return ab.nombre)) if pj != null else "")
+		_lineas_extra[_lineas_extra.size() - 1] += "|" + _txt_equipo(pj)
 	for e in enems:
 		var st: Array = stats_e.get(e, [e.max_hp, e.atk(), e.def_value(), e.mdef_value(), e.spd()])
 		var n_e: int = int(_turnos.get(e, 0))
 		var mut_e: String = String(e.get("mutacion")) if e.get("mutacion") != null else ""
 		_lineas_extra.append("E|%s|%s|%s|%d|%.1f|%.2f|%.2f|%.2f|%.2f|%.1f|%.1f|%d|%.2f|%d" % [comun, e.nombre,
-			mut_e if mut_e != "" else "-", 1 if e.get("es_boss") else 0,
+			mut_e if mut_e != "" else "-", 1 if e.get("es_jefe") else 0,
 			float(st[0]), float(st[1]), float(st[2]), float(st[3]), float(st[4]), float(_hecho.get(e, 0.0)),
 			float(_recibido.get(e, 0.0)), n_e, float(_hecho.get(e, 0.0)) / maxf(1.0, float(n_e)), 0 if e.is_alive() else 1]
 			+ "|%.2f|%s|%.2f|%.3f" % [float(e.get_meta("t", -1.0)), _habs(e), e.atk_magico() if e.abilities_eff().magia > 0 else 0.0,

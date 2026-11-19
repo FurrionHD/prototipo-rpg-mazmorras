@@ -70,7 +70,7 @@ def _args_godot(a) -> list:
         a.pisos = ",".join(str(i) for i in range(1, a.pisos_hasta + 1))
     extra = ["veces=%d" % a.veces, "tanda=%s" % a.tanda, "reglas=%s" % a.reglas, "escala=%s" % a.escala]
     for k in ("pisos", "clases", "grupos", "escenarios", "solo", "arma", "armas", "armaduras", "sets", "pociones", "escala_des",
-              "vel_enemigos", "iniciativa"):
+              "vel_enemigos", "iniciativa", "equipo"):
         v = getattr(a, k)
         if v:
             extra.append("%s=%s" % (k, v))
@@ -78,6 +78,8 @@ def _args_godot(a) -> list:
         extra.append("sin_mutantes=1")
     if a.sin_jefes:
         extra.append("sin_jefes=1")
+    if a.caer_en > 0:
+        extra.append("caer_en=%d" % a.caer_en)
     return extra
 
 
@@ -694,6 +696,7 @@ def main():
     ap.add_argument("--tanda", default="hoy")
     ap.add_argument("--reglas", default="hoy", help="hoy | nuevas (formula multiplicativa, defensa K por piso con tope 75 %%, enemigos con nivel)")
     ap.add_argument("--vel-enemigos", dest="vel_enemigos", default="", help="relativa (de serie: la de su piso de origen frente a los personajes) | bakeada")
+    ap.add_argument("--equipo", default="", help="suerte (de serie: cada pieza tira rareza y mejora por su piso) | fijo (la mas probable y la mejora del medio: para comparar armas o sets)")
     ap.add_argument("--iniciativa", default="", help="mixta (de serie: mitad tuya, mitad te emboscan) | tuya | suya")
     ap.add_argument("--pisos-hasta", dest="pisos_hasta", type=int, default=0, help="atajo: pisos=1..N (p. ej. 36)")
     # (19/11) x2 DE SERIE: comprobado que da lo mismo que x1 (el ritmo del juego) y x8 NO (los enemigos sacaban mas turnos
@@ -708,6 +711,7 @@ def main():
     ap.add_argument("--resumen", default="")
     ap.add_argument("--repetir", default="", help="la columna 'repetir' de una pelea: la vuelve a jugar igual, con ventana, y la graba en video")
     ap.add_argument("--corto", action="store_true", help="solo el resumen por piso y clase")
+    ap.add_argument("--caer-en", dest="caer_en", type=int, default=0, help="PRUEBA: cada Godot se estrella tras N peleas (una vez) para probar el relevo")
     ap.add_argument("--contar", action="store_true", help="solo dice cuantas peleas saldrian (no juega ninguna)")
     a = ap.parse_args()
     if a.contar:

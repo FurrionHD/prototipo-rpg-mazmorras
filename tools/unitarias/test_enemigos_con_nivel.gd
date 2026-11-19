@@ -1,6 +1,8 @@
 extends "res://tools/unitarias/caso.gd"
 # Cubre: res://scripts/actors/enemy/enemy_data.gd
 # Cubre: res://scripts/core/stats_math.gd
+# Cubre: res://scenes/actors/enemy/rey_slime.tres
+# Cubre: res://scenes/actors/enemy/guardian_rango.tres
 # ENEMIGOS CON NIVEL (reglas nuevas, StatsMath.nivel_enemigos; 19/11). El bakeo de nivel paso del simulador
 # (_bakear_enemigo, solo a los que abrian la pelea) a EnemyData.crear_combatant, para que lo cojan TAMBIEN las crias,
 # invocados y refuerzos de mitad de pelea. Aqui: que da lo MISMO que el bakeo viejo del simulador (copiado tal cual), que
@@ -75,3 +77,15 @@ func test_la_costra_sale_de_la_vida_bakeada() -> void:
 	var c: Combatant = _con(true, 2, 0.0, func(): return ed.crear_combatant(0.5, true, false, &"ambarino", 6))
 	cierto(c.costra_max > 0.0, "el ambarino trae costra")
 	cerca(c.costra_max, c.max_hp * 0.2, 0.01, "costra = 20 % de su vida YA bakeada")
+
+
+# LA VIDA DE LOS JEFES CON LAS REGLAS NUEVAS (19/11, base_hp_reglas_nuevas en su ficha): solo con el interruptor; con las
+# de hoy, la de siempre (base_hp).
+func test_vida_de_jefe_solo_con_reglas_nuevas() -> void:
+	for ruta in ["res://scenes/actors/enemy/rey_slime.tres", "res://scenes/actors/enemy/guardian_rango.tres"]:
+		var ed: EnemyData = load(ruta)
+		cierto(ed.base_hp_reglas_nuevas > 0.0, "%s trae su vida para las reglas nuevas" % ruta.get_file())
+		var hoy: Combatant = _con(false, 1, 0.0, func(): return ed.crear_combatant(0.5, false, true, &"", 6))
+		cerca(hoy.base_hp, ed.base_hp * Game.enemy_floor_stat_factor(6), 0.01, "con las de hoy, base_hp de siempre")
+		var nuevas: Combatant = _con(true, 1, 0.0, func(): return ed.crear_combatant(0.5, false, true, &"", 6))
+		cerca(nuevas.base_hp, ed.base_hp_reglas_nuevas * Game.enemy_floor_stat_factor(6), 0.01, "con las nuevas, la suya")

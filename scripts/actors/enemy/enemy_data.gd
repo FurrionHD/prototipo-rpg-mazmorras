@@ -226,6 +226,10 @@ func color_visual(t: float) -> Color:
 # OJO: esto es solo la BASE. Encima suman las 5 habilidades del bicho (la Resistencia
 # aporta vida y defensa, la Agilidad velocidad...), repartidas por sus PESOS de abajo.
 @export var base_hp: float = 28.0
+# LA VIDA BASE CON LAS REGLAS NUEVAS (StatsMath.reglas_nuevas; 19/11, su decision): con la formula multiplicativa los JEFES
+# salian inflados (el Rey slime x2,3, el Minotauro x3,4). 0 = la de siempre (base_hp); un jefe pone aqui la suya. Con las
+# reglas de hoy no se usa: el juego no cambia hasta encender el interruptor.
+@export var base_hp_reglas_nuevas: float = 0.0
 @export var base_attack: float = 3.0
 @export var base_defense: float = 3.0
 # DEFENSA MAGICA base (espejo de base_defense, pero contra hechizos). Un bicho sin esto recibe
@@ -829,7 +833,7 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	var m_atk: float = float(mm["atk"]) if mutante else 1.0
 	var m_def: float = float(mm["def"]) if mutante else 1.0
 	var c := Combatant.new(nombre_mostrado(mutante, mutacion), level, crear_abilities(t, mutacion if mutante else &"", pis),
-		base_hp * fstat * m_hp,
+		(base_hp_reglas_nuevas if StatsMath.reglas_nuevas and base_hp_reglas_nuevas > 0.0 else base_hp) * fstat * m_hp,
 		base_attack * fstat * m_atk,
 		base_defense * fstat * m_def,
 		base_speed)
