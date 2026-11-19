@@ -41,7 +41,7 @@
 # SALIDA: una linea por pelea, 'R|...' (ver CABECERA). 'trozo=i/n' juega solo los casos i, i+n... (varios procesos).
 extends Node
 
-const CABECERA := "R|tanda|reglas|piso|grupo|escenario|arma|enemigo|mutacion|jefe|n_enem|t|gana|turnos_yo|turnos_el|vida_perdida|caidos|mp_gastado|dano_por_turno|dano_recibido_por_turno_suyo|segundos|acciones|fotogramas|ms_por_fotograma|pelea|ciclos|dano_por_ciclo|estados_en_enemigos|estados_en_los_tuyos|n_seguida|repetir|vel_ref_piso|vel_ciclo"
+const CABECERA := "R|tanda|reglas|piso|grupo|escenario|arma|enemigo|mutacion|jefe|n_enem|t|gana|turnos_yo|turnos_el|vida_perdida|caidos|mp_gastado|dano_por_turno|dano_recibido_por_turno_suyo|segundos|acciones|fotogramas|ms_por_fotograma|pelea|ciclos|dano_por_ciclo|estados_en_enemigos|estados_en_los_tuyos|n_seguida|repetir|vel_ref_piso|vel_ciclo|emboscada"
 # Una linea POR PERSONAJE de los tuyos en cada pelea (lo pidio: "daños de cada uno, cuanto tanquean con cada armadura, el
 # dps medio, cuanto hace cada arma en su turno, si alguno se queda sin energia demasiado rapido"):
 const CABECERA_P := "P|tanda|reglas|pelea|piso|grupo|escenario|n_enem|gana|rol|arma|armadura|vida_max|defensa|def_magica|mitig_fisica|mitig_magica|dano_hecho|dano_recibido|turnos|dano_por_turno|recibido_por_turno_enemigo|cayo|energia_media_al_empezar_turno|turnos_sin_energia|primer_turno_sin_energia|mp_gastado|turnos_sin_mana|primer_turno_sin_mana|pociones|acciones|nivel|tier|mejoras|fue/res/agi/des/mag/vol|ataque|velocidad|max_mp|max_energia|red_armadura|red_armadura_magica|ciclos|dano_por_ciclo|turnos_por_ciclo|recibido_por_ciclo|dano_por_elemento|habilidades_puestas"
@@ -183,7 +183,7 @@ static func equipos_todos() -> Array:
 	return out
 var _trozo := 0
 var _trozos := 1
-var _escala_tiempo := 8.0
+var _escala_tiempo := 2.0   # (19/11) x2 da lo mismo que x1; x8 no (ver simulador.py)
 var _sin_mutantes := false
 var _sin_jefes := false
 var _ver := false
@@ -259,6 +259,7 @@ func _leer_args() -> void:
 			"sin_jefes": _sin_jefes = kv[1] == "1"
 			"ver": _ver = kv[1] == "1"
 			"vel_enemigos": _vel_enemigos = kv[1]
+			"iniciativa": _iniciativa = kv[1]
 			"repetir":
 				var r: PackedStringArray = kv[1].split(",")
 				if r.size() >= 8:
@@ -457,6 +458,10 @@ func _piso_local(piso: int) -> int:
 #     la bakea como el resto (se dispara: la rata del 25 a 148).
 var _vel_ref_cache: Dictionary = {}
 var _vel_enemigos := "relativa"
+# QUIEN EMPIEZA (19/11): 'mixta' (de serie) = la mitad de las peleas las empiezas tu y la otra mitad te emboscan ellos;
+# 'tuya' (como antes: siempre "¡Ataque por la espalda!") o 'suya'. Se apunta en cada pelea (columna emboscada).
+var _iniciativa := "mixta"
+var _emboscada := false
 
 # (19/11, corregido) EL PERSONAJE MEDIO, no el mas agil: la media de la velocidad de los cuatro roles de referencia (tanque,
 # guerrero, arquero y mago) con su arma, en ese piso. Con el guerrero agil solo, bakear la Agilidad con la multiplicativa le
@@ -499,16 +504,23 @@ func _bakear_enemigo(e: Combatant, ed: EnemyData, t: float, nivel: int, piso: in
 # ------------------------------------------------------------
 #  LOS CASOS: [piso, grupo, escenario, enemigo (EnemyData o null), mutacion, mutante, jefe]
 # ------------------------------------------------------------
+# LOS ENEMIGOS QUE SALEN DE VERDAD EN ESE PISO (19/11): los que la tabla del piso (piso_comun y sus familias) tiene
+# disponibles alli, como los elige el juego (SpawnTable.disponibles). Antes se suponian rangos a mano (piso_min + 3 cuando
+# no habia piso_max) y se colaban o faltaban bichos.
 func _enemigos_de(piso: int) -> Array:
 	var out: Array = []
-	for f in DirAccess.get_files_at("res://resources/spawns"):
-		if not f.ends_with(".tres"):
-			continue
-		for en in load("res://resources/spawns/" + f).entradas:
-			var p1: int = int(en.piso_max) if int(en.piso_max) > 0 else int(en.piso_min) + 3
-			if int(en.piso_min) <= piso and piso <= p1 and en.enemy_data != null and not out.has(en.enemy_data):
-				out.append(en.enemy_data)
+	_recoger_de_tabla(load(TABLA_PISO), piso, out, 0)
 	return out
+
+
+func _recoger_de_tabla(tabla, piso: int, out: Array, hondo: int) -> void:
+	if tabla == null or hondo > 6:
+		return
+	for en in tabla.disponibles(piso):
+		if en.es_familia():
+			_recoger_de_tabla(en.tabla, piso, out, hondo + 1)
+		elif en.enemy_data != null and not out.has(en.enemy_data):
+			out.append(en.enemy_data)
 
 
 func _pasa_solo(ed: EnemyData) -> bool:
@@ -826,7 +838,8 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 		return _linea_error(caso, "ERROR_NO_NACE")
 	await _esperar(3)
 	var t0: int = Time.get_ticks_msec()
-	_cb = await sala.pelear(nodos, false)
+	_emboscada = _iniciativa == "suya" or (_iniciativa == "mixta" and randf() < 0.5)
+	_cb = await sala.pelear(nodos, _emboscada)
 	if _cb == null:
 		return _linea_error(caso, "ERROR_NO_ABRE")
 	_cb._aplicar_velocidad(4.0)
@@ -971,8 +984,8 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 		ed0.resource_path.get_file().get_basename() if String(caso[2]) in ["uno", "manada", "muneco", "jefe"] else "-",
 		(String(caso[4]) if caso[4] != &"" else ("mutante" if caso[5] else "-")) if String(caso[2]) == "uno" else "-",
 		_semilla, str(_escala_tiempo)]
-	linea += "|%s|%.2f|%.2f|%s|%s|%d|%s|%.2f|%.2f" % [pelea_id, ciclos, quitado / ciclos, _txt_reparto(_por_estado["aliados"]),
-		_txt_reparto(_por_estado["enemigos"]), _n_seguida, repetir, _vel_ref(piso), _vel_ciclo(piso)]
+	linea += "|%s|%.2f|%.2f|%s|%s|%d|%s|%.2f|%.2f|%d" % [pelea_id, ciclos, quitado / ciclos, _txt_reparto(_por_estado["aliados"]),
+		_txt_reparto(_por_estado["enemigos"]), _n_seguida, repetir, _vel_ref(piso), _vel_ciclo(piso), 1 if _emboscada else 0]
 	var comun: String = "%s|%s|%s|%d|%s|%s|%d|%s" % [_tanda, _reglas, pelea_id, piso, caso[1], caso[2], enems.size(), resultado]
 	for a in aliados:
 		var pj: PersonajeData = Game.pj_de_combatant(a)

@@ -73,7 +73,7 @@ def lanzar(a) -> Path:
         a.pisos = ",".join(str(i) for i in range(1, a.pisos_hasta + 1))
     extra = ["veces=%d" % a.veces, "tanda=%s" % a.tanda, "reglas=%s" % a.reglas, "escala=%s" % a.escala]
     for k in ("pisos", "clases", "grupos", "escenarios", "solo", "arma", "armas", "armaduras", "sets", "pociones", "escala_des",
-              "vel_enemigos"):
+              "vel_enemigos", "iniciativa"):
         v = getattr(a, k)
         if v:
             extra.append("%s=%s" % (k, v))
@@ -541,8 +541,11 @@ def main():
     ap.add_argument("--tanda", default="hoy")
     ap.add_argument("--reglas", default="hoy", help="hoy | nuevas (formula multiplicativa, defensa K por piso con tope 75 %%, enemigos con nivel)")
     ap.add_argument("--vel-enemigos", dest="vel_enemigos", default="", help="relativa (de serie: la de su piso de origen frente a los personajes) | bakeada")
+    ap.add_argument("--iniciativa", default="", help="mixta (de serie: mitad tuya, mitad te emboscan) | tuya | suya")
     ap.add_argument("--pisos-hasta", dest="pisos_hasta", type=int, default=0, help="atajo: pisos=1..N (p. ej. 36)")
-    ap.add_argument("--escala", default="8")
+    # (19/11) x2 DE SERIE: comprobado que da lo mismo que x1 (el ritmo del juego) y x8 NO (los enemigos sacaban mas turnos
+    # y las peleas duraban el doble de ciclos); x8 solo iba un 15 % mas rapido.
+    ap.add_argument("--escala", default="2")
     ap.add_argument("--tope", type=int, default=3 * 3600)
     ap.add_argument("--sin-mutantes", action="store_true")
     ap.add_argument("--sin-jefes", action="store_true")
