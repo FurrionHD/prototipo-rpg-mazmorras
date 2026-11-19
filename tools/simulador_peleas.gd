@@ -839,10 +839,21 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 	await _esperar(3)
 	var t0: int = Time.get_ticks_msec()
 	_emboscada = _iniciativa == "suya" or (_iniciativa == "mixta" and randf() < 0.5)
+	# NO SIEMPRE EL MISMO (19/11, lo pidio): la emboscada se la lleva el primero de la lista (el que dispara la pelea en el
+	# juego): se baraja el corro para que sea uno distinto cada vez.
+	nodos.shuffle()
 	_cb = await sala.pelear(nodos, _emboscada)
 	if _cb == null:
 		return _linea_error(caso, "ERROR_NO_ABRE")
 	_cb._aplicar_velocidad(4.0)
+	# ...y del lado de aca, la ventaja del LIDER (en el juego siempre el; aqui siempre el tanque) a uno de los tuyos al azar.
+	if not _emboscada and _cb._aliados.size() > 1 and int(_cb._state) != 1:
+		var lider: Combatant = _cb._aliados[0]
+		var ventaja: float = float(_cb._gauge.get(lider, 0.0))
+		var otro: Combatant = _cb._aliados[randi() % _cb._aliados.size()]
+		if otro != lider and ventaja >= float(_cb.INICIATIVA_VENTAJA) * 0.9:
+			_cb._gauge[lider] = float(_cb._gauge.get(otro, 0.0))
+			_cb._gauge[otro] = ventaja
 	_turnos.clear()
 	_acciones.clear()
 	_plan = {}
