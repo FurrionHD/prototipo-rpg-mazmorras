@@ -1276,7 +1276,15 @@ func take_damage(amount: float, es_dot: bool = false) -> void:
 		if amount > 0.0 and has_status(StatusEffects.Id.EN_SOMBRAS):
 			_quitar_status(StatusEffects.Id.EN_SOMBRAS)
 			print("[sombras] %s: el golpe le saca de las sombras" % nombre)
+	var antes_hp: float = current_hp
 	current_hp = maxf(0.0, current_hp - amount)
+	if al_recibir.is_valid():
+		al_recibir.call(self, antes_hp - current_hp, es_dot)
+
+
+# SOLO HERRAMIENTAS (tools/simulador_peleas.gd, 19/11): si esta puesto, se le avisa de la vida que quita cada daño que entra
+# (ya con defensa, armadura, escudos y costras). En el juego esta siempre vacio.
+static var al_recibir: Callable = Callable()
 
 
 # LO QUE SE VE (04/11, playtest: "la capa de ambar se rompe al pulsar el boton"). El daño se resuelve al pulsar y el golpe
