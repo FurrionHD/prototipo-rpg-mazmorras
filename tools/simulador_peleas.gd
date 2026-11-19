@@ -24,11 +24,11 @@
 #   piso    un corro como sale en el piso: su tamaño de la tabla de manada del juego segun cuantos vais
 #           (Enemy.MANADA_POR_GRUPO) y cada bicho de la tabla de spawns del piso, con su 2 % de mutante
 #   manada  3-5 del mismo (las areas y el reparto de golpes)
-#   jefe    el jefe del piso con su sequito (un corro del piso alrededor)
+#   jefe    el jefe del piso SOLO (19/11): lo que salga en la pelea lo saca el (sus invocaciones)
 #
 # EL PILOTO, por rol (cada turno):
-#   - TODOS: con un «¡Apartate!» encima (la huella de lo que carga un enemigo) primero se sale (el tanque no: aguanta en
-#     Defender, delante de los suyos). El mago y el arquero guardan la distancia (se alejan del que tengan encima).
+#   - TODOS: con un «¡Apartate!» encima (la huella de lo que carga un enemigo) primero se salen, el tanque tambien (19/11);
+#     solo si no hay sitio a salvo, Defender. Y andando hacia su objetivo no se vuelven a meter: antes se paran y Defender. El mago y el arquero guardan la distancia (se alejan del que tengan encima).
 #   - tanque: Muro sobre el fragil (mago/arquero) si va tocado; Provocacion si hay alguien cerca de los fragiles; si no
 #     su golpe que mas pega o Atacar, al enemigo que mas cerca este de los fragiles.
 #   - guerrero / arquero: el Filo y el Manto al empezar (el guerrero); la habilidad que mas pega o Atacar; objetivo:
@@ -750,7 +750,9 @@ func _corro(caso: Array, n_grupo: int) -> Array:
 		"piso", "seguida":
 			return _corro_del_piso(_piso_local(piso), _tirar_manada(n_grupo))
 		"jefe":
-			return [[caso[3], &"", false, true]] + _corro_del_piso(_piso_local(piso), maxi(1, _tirar_manada(n_grupo) - 1))
+			# EL JEFE SOLO (19/11, el: "los jefes seran solo el jefe; si invocan o aparecen enemigos, que sean por ellos"):
+			# antes le acompañaba un corro del piso (5 enemigos de media en el 6) y las derrotas salian infladas.
+			return [[caso[3], &"", false, true]]
 	return []
 
 
@@ -1716,15 +1718,16 @@ func _pilotar() -> void:
 		_quieto = 0
 		_mejor_dist = INF
 		_pos_antes = tm.pies_de(yo)
-		# ¿ME CAE ENCIMA LO QUE ESTA CARGANDO? (el «¡Apartate!»): fuera de su huella. El tanque no: aguanta delante.
+		# ¿ME CAE ENCIMA LO QUE ESTA CARGANDO? (el «¡Apartate!»): fuera de su huella, SIEMPRE y TODOS (19/11, el: "los
+		# jugadores si se apartan, incluso si tienen que saltarse algun turno para no recibir daño"; antes el tanque se
+		# quedaba aguantando). Solo si no hay ningun sitio a salvo a su alcance, Defender donde esta.
 		var sitio = _sitio_a_salvo(yo)
 		if sitio != null:
-			if _rol(yo) == "tanque" and _cb._action_buttons.get(3) != null and not _cb._action_buttons[3].disabled:
-				_plan = {"que": "defender", "quien": yo, "turno": turno_id, "obj": obj}
-				_apuntar_accion("tanque aguanta")
-			else:
-				_plan["huir_a"] = sitio
-				_apuntar_accion("%s se aparta" % _rol(yo))
+			_plan["huir_a"] = sitio
+			_apuntar_accion("%s se aparta" % _rol(yo))
+		elif _me_pilla_carga(yo) and _cb._action_buttons.get(3) != null and not _cb._action_buttons[3].disabled:
+			_plan = {"que": "defender", "quien": yo, "turno": turno_id, "obj": obj}
+			_apuntar_accion("%s aguanta" % _rol(yo))
 		# EL MAGO Y EL ARQUERO GUARDAN LA DISTANCIA: si tienen a alguien encima, un paso atras antes de nada.
 		elif _rol(yo) in ["mago", "arquero"] and not _plan.has("huir_a"):
 			var atras = _sitio_lejos(yo)
@@ -1772,8 +1775,15 @@ func _pilotar() -> void:
 			_quieto = 0
 			_mejor_dist = dist
 		_pasos += 1
-		if _quieto < 6 and _pasos < 240:
-			_andar_hacia((tm.pies_de(hacia_quien) - p).normalized())
+		# SIN VOLVER A METERSE en lo que estan cargando (19/11): si el paso siguiente pisa una huella cargada, se para aqui y
+		# Defender (prefiere perder el turno a comerse la carga).
+		var dir: Vector2 = (tm.pies_de(hacia_quien) - p).normalized()
+		var paso_v: float = maxf(4.0, tm.VEL_PASEO * get_process_delta_time() * float(_cb._vel_pelea)) * 3.0
+		if not _me_pilla_carga(yo, null, true) and _me_pilla_carga(yo, p + dir * paso_v, true):
+			_apuntar_accion("%s no se mete" % _rol(yo))
+			_plan = {"que": "defender", "quien": yo, "turno": turno_id, "obj": obj}
+		elif _quieto < 6 and _pasos < 240:
+			_andar_hacia(dir)
 			return
 		# SE HA ATASCADO CONTRA SU CUERPO sin llegar (19/11: el muñeco del piso 1, cualquiera que no se mueva): RODEARLE, a un
 		# hueco libre de su alrededor mas cerca que donde esta. Una vez por turno.
@@ -1821,6 +1831,19 @@ func _pilotar() -> void:
 			_eligio(yo, que)
 			_plan["hecho"] = true
 		b.pressed.emit()
+
+
+# ¿Me pilla (en 'pies', o donde estoy) alguna de las huellas que estan cargando los enemigos?
+# 'holgado': con margen (para no volver a meterse); sin el, la medida justa (¿de verdad me pilla?).
+func _me_pilla_carga(yo: Combatant, pies = null, holgado: bool = false) -> bool:
+	var tm = _cb.turno_mapa
+	var formas: Array = []
+	for e in _cb._enemies:
+		if e.is_alive():
+			var d: Array = tm._cargas.get(e, [])
+			if d.size() >= 3 and d[2] != null:
+				formas.append(d[2])
+	return not formas.is_empty() and tm._en_peligro(yo, tm.pies_de(yo) if pies == null else pies, formas, holgado)
 
 
 # Las huellas de lo que estan cargando los enemigos (fijas en el suelo); si me pilla alguna, el sitio mas cerca dentro de
