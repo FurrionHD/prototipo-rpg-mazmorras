@@ -87,6 +87,13 @@ def lanzar(a) -> Path:
                 w.writerow(tablas[k][0])
             w.writerows(tablas[k][1])
     filas = tablas["R"][1]
+    # y a la base de datos local, para comparar tandas a lo grande (tools/simulador_bd.py)
+    try:
+        sys.path.insert(0, str(RAIZ / "tools"))
+        import simulador_bd
+        simulador_bd.meter(a.tanda, " ".join(extra))
+    except Exception as ex:   # la BD no puede tumbar la tanda: los CSV ya estan
+        print("[simulador] no se pudo meter en la BD: %s" % ex)
     dur = time.time() - t0
     print("[simulador] %d peleas en %.0f s (%.1f por minuto) -> %s" % (len(filas), dur, len(filas) * 60.0 / max(dur, 1), destino))
     return destino
