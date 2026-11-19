@@ -1722,7 +1722,12 @@ func _pilotar() -> void:
 		# jugadores si se apartan, incluso si tienen que saltarse algun turno para no recibir daño"; antes el tanque se
 		# quedaba aguantando). Solo si no hay ningun sitio a salvo a su alcance, Defender donde esta.
 		var sitio = _sitio_a_salvo(yo)
-		if sitio != null:
+		if _plan.has("ir_a"):
+			# EL GOLPE COLOCADO: su sitio ya es seguro y desde el llega
+			_plan["huir_a"] = _plan["ir_a"]
+			if (_plan["ir_a"] as Vector2).distance_to(tm.pies_de(yo)) > 2.0:
+				_apuntar_accion("%s se coloca" % _rol(yo))
+		elif sitio != null:
 			_plan["huir_a"] = sitio
 			_apuntar_accion("%s se aparta" % _rol(yo))
 		elif _me_pilla_carga(yo) and _cb._action_buttons.get(3) != null and not _cb._action_buttons[3].disabled:
@@ -1781,7 +1786,7 @@ func _pilotar() -> void:
 		var paso_v: float = maxf(4.0, tm.VEL_PASEO * get_process_delta_time() * float(_cb._vel_pelea)) * 3.0
 		if not _me_pilla_carga(yo, null, true) and _me_pilla_carga(yo, p + dir * paso_v, true):
 			_apuntar_accion("%s no se mete" % _rol(yo))
-			_plan = {"que": "defender", "quien": yo, "turno": turno_id, "obj": obj}
+			_plan = _plan_util(yo, turno_id, obj)
 		elif _quieto < 6 and _pasos < 240:
 			_andar_hacia(dir)
 			return
@@ -1800,8 +1805,8 @@ func _pilotar() -> void:
 				_mejor_dist = INF
 				_apuntar_accion("%s rodea" % _rol(yo))
 				return
-		# no llega (se acabo el circulo): defender
-		_plan = {"que": "defender", "quien": yo, "turno": turno_id, "obj": obj}
+		# no llega (se acabo el circulo): algo util o Defender
+		_plan = _plan_util(yo, turno_id, obj)
 	_soltar_teclas()
 	if tm._andando:
 		return   # parandose: un fotograma
@@ -1928,7 +1933,156 @@ func _mejor_golpe(yo: Combatant, oculto: bool) -> AbilityData:
 	return mejor
 
 
+# EL GOLPE COLOCADO (19/11, el: "si se mueve para ponerse en otra posicion y lo tiene a rango con alguna habilidad o
+# ataque que le pueda alcanzar, lo ataca, no pasa de turno"; "la linea gorda del mandoble puede pegarle al mino a
+# suficiente distancia como para no recibir el golpe"). Como un jugador: de cada SITIO SEGURO de su circulo (fuera de lo
+# que cargan los enemigos) prueba el basico y cada habilidad lista contra cada enemigo, con el DAÑO ESPERADO DE VERDAD
+# (CombatHabilidades.dano_de_habilidad_contra: golpes, manos, esquiva, critico, defensa; sumando a todos los que pilla
+# su huella) y se queda con lo que mas quita. Su objetivo preferido (el del rol) vale un poco mas. El que no es tanque
+# prefiere pegar QUEDANDOSE FUERA del alcance del enemigo. null = desde ningun sitio llega a nadie.
+const PREFERIDO_MULT := 1.25
+const DESDE_FUERA_MULT := 1.3
+
+func _plan_colocado(yo: Combatant, preferido: Combatant):
+	var tm = _cb.turno_mapa
+	var cuerpo: Node2D = tm.cuerpo_de(yo)
+	if cuerpo == null:
+		return null
+	var enemigos: Array = _cb._enemies.filter(func(e): return e.is_alive())
+	if enemigos.is_empty():
+		return null
+	var opciones: Array = [null]   # null = el basico
+	for ab in yo.abilities_combate:
+		if _habilidad_lista(yo, ab) and ab.dano_mult > 0.0 and ab.objetivo_aliado != AbilityData.Objetivo.ALIADO and not ab.forma_a_aliados:
+			opciones.append(ab)
+	# el daño esperado de cada opcion contra cada enemigo (no depende del sitio): la media de unas tiradas
+	var dano: Dictionary = {}
+	for ab in opciones:
+		for e in enemigos:
+			var t: float = 0.0
+			for _i in 4:
+				t += maxf(0.0, float(_cb.habilidades.dano_de_habilidad_contra(yo, ab, e)))
+			dano[[ab, e]] = t / 4.0
+	var sitios: Array = _sitios_alcanzables(yo)
+	var pies0: Vector2 = tm.pies_de(yo)
+	var tanque: bool = _rol(yo) == "tanque"
+	var mejor = null
+	var mejor_v: float = 0.0
+	for q in sitios:
+		if _me_pilla_carga(yo, q, true):
+			continue
+		# ¿desde aqui le pegan sin moverse? (lo cerca que queda del enemigo mas cercano, con su alcance)
+		var fuera: bool = true
+		for e in enemigos:
+			if tm._hueco_desde(yo, q, e) <= tm.alcance_de(e) + 10.0:
+				fuera = false
+				break
+		for ab in opciones:
+			var huella: bool = ab != null and tm.usa_huella(ab)
+			for blanco in enemigos:
+				var v: float = 0.0
+				var pilla_pref: bool = false
+				if huella:
+					var f = CombatFormas.de_habilidad_mapa(ab, q, tm.radio_pisa(yo), tm.alcance_de(yo), tm.pies_de(blanco), 0.0)
+					for e in enemigos:
+						if f.toca(tm.bulto_de(e)):
+							v += float(dano[[ab, e]])
+							pilla_pref = pilla_pref or e == preferido
+				else:
+					if blanco.no_elegible() or (blanco.volando() and not yo.a_distancia):
+						continue
+					if tm._hueco_desde(yo, q, blanco) > tm.alcance_de(yo):
+						continue
+					v = float(dano[[ab, blanco]])
+					pilla_pref = blanco == preferido
+				if v <= 0.0:
+					continue
+				if pilla_pref:
+					v *= PREFERIDO_MULT
+				if fuera and not tanque:
+					v *= DESDE_FUERA_MULT
+				v -= q.distance_to(pies0) * 0.001   # a igualdad, el que menos anda
+				if v > mejor_v:
+					mejor_v = v
+					mejor = {"q": q, "ab": ab, "obj": blanco, "huella": huella}
+	if mejor == null:
+		return null
+	var plan: Dictionary = {"obj": mejor["obj"], "ir_a": mejor["q"]}
+	if mejor["ab"] == null:
+		plan["que"] = "atacar"
+		plan["rango"] = -1.0
+	else:
+		plan["que"] = "habilidad"
+		plan["nombre"] = (mejor["ab"] as AbilityData).nombre
+		plan["rango"] = 99999.0 if mejor["huella"] else -1.0
+	return plan
+
+
+# Donde puede ponerse este turno (con sus pies): donde esta y lo que alcanza andando dentro de su circulo.
+func _sitios_alcanzables(yo: Combatant) -> Array:
+	var tm = _cb.turno_mapa
+	var cuerpo: Node2D = tm.cuerpo_de(yo)
+	var pies0: Vector2 = tm.pies_de(yo)
+	var sitios: Array = [pies0]
+	if cuerpo == null:
+		return sitios
+	var radio: float = float(tm._radio)
+	for k in 24:
+		var dir := Vector2.RIGHT.rotated(TAU * float(k) / 24.0)
+		var dist: float = 20.0
+		while dist <= radio:
+			var q: Vector2 = pies0 + dir * dist
+			var en_cuerpo: Vector2 = cuerpo.global_position + (q - pies0)
+			if tm._inicio.distance_to(en_cuerpo) <= radio and tm._puede_estar(en_cuerpo, cuerpo):
+				sitios.append(q)
+			dist += 15.0
+	return sitios
+
+
+# EL SITIO PARA LANZAR (19/11, el: "el mago las puede tirar muchas desde lejos y recolocar un poco cada turno"): de los
+# sitios seguros desde los que su hechizo llega a 'blanco' (a 'rango' de sus pies), el que mas le aleja del enemigo mas
+# cercano (hasta DIST_COMODA: mas lejos no hace falta) y, a igualdad, el que menos anda. null = desde ninguno.
+const DIST_COMODA := 220.0
+
+func _sitio_para_lanzar(yo: Combatant, blanco: Combatant, rango: float):
+	var tm = _cb.turno_mapa
+	var enemigos: Array = _cb._enemies.filter(func(e): return e.is_alive())
+	var pies0: Vector2 = tm.pies_de(yo)
+	var mejor = null
+	var mejor_v: float = -INF
+	for q in _sitios_alcanzables(yo):
+		if _me_pilla_carga(yo, q, true) or q.distance_to(tm.pies_de(blanco)) > rango:
+			continue
+		var lejos: float = DIST_COMODA
+		for e in enemigos:
+			lejos = minf(lejos, q.distance_to(tm.pies_de(e)))
+		var v: float = lejos - q.distance_to(pies0) * 0.05
+		if v > mejor_v:
+			mejor_v = v
+			mejor = q
+	return mejor
+
+
+# Si no llega con nada desde ningun sitio seguro: ALGO UTIL antes que Defender a secas (19/11): curarse si va tocado,
+# el tanque Provocar si la tiene lista.
+func _plan_util(yo: Combatant, turno_id: int, obj: Combatant) -> Dictionary:
+	if yo.current_hp / maxf(1.0, yo.max_hp) < 0.8:
+		for s in yo.spells:
+			if s.tipo == SpellData.TipoEfecto.CURACION and s.coste_mana <= yo.current_mp:
+				_apuntar_accion("%s se cura (no llega)" % _rol(yo))
+				return {"que": "magia", "nombre": s.nombre, "rango": 99999.0, "aliado": yo, "quien": yo, "turno": turno_id, "obj": obj}
+	if _rol(yo) == "tanque":
+		var prov: AbilityData = _habilidad_por_nombre(yo, "provocacion")
+		if prov != null and _habilidad_lista(yo, prov):
+			_apuntar_accion("tanque provoca (no llega)")
+			return {"que": "habilidad", "nombre": prov.nombre, "rango": 99999.0, "quien": yo, "turno": turno_id, "obj": obj}
+	return {"que": "defender", "quien": yo, "turno": turno_id, "obj": obj}
+
+
 func _plan_golpe(yo: Combatant, obj: Combatant) -> Dictionary:
+	var colocado = _plan_colocado(yo, obj)
+	if colocado != null:
+		return colocado
 	var oculto: bool = obj.no_elegible()
 	var ab: AbilityData = _mejor_golpe(yo, oculto)
 	if ab != null:
@@ -2106,6 +2260,11 @@ func _plan_hechizo(yo: Combatant):
 				mejor_d = d
 				mejor = {"que": "magia", "nombre": s.nombre, "obj": e,
 					"rango": s.forma_rango * 0.85 if s.forma_rango > 0.0 else 99999.0}
+	# Y DESDE DONDE (19/11): un sitio seguro desde el que llegue, lo mas lejos que pueda de ellos
+	if mejor != null:
+		var q = _sitio_para_lanzar(yo, mejor["obj"], minf(float(mejor["rango"]), 99999.0))
+		if q != null:
+			mejor["ir_a"] = q
 	return mejor
 
 
