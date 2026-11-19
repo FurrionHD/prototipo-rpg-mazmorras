@@ -34,9 +34,9 @@ GODOT = Path(os.environ.get("LOCALAPPDATA", "")) / ("Microsoft/WinGet/Packages/"
 
 
 # CUANTOS GODOT A LA VEZ (19/11, el jefe: "¿seguro que el PC solo puede con 4?"): lo que quepa en la RAM LIBRE dejando
-# 1 GB de margen y uno menos (~500 MB por Godot con la arena montada) y sin pasar de los nucleos menos dos ([[cuidado-con-la-ram]],
+# 1 GB de margen y uno menos (~600 MB por Godot con la arena montada) y sin pasar de los nucleos menos dos ([[cuidado-con-la-ram]],
 # [[no-ocupar-todos-los-nucleos]]). En el portatil saldra otra cuenta: por eso se mira al arrancar.
-MB_POR_GODOT = 500
+MB_POR_GODOT = 600
 MARGEN_MB = 1000
 
 
