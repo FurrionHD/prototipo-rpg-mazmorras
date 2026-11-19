@@ -1115,7 +1115,8 @@ func _init(nombre_: String, level_: int, abilities_: Abilities,
 	base_defense = base_defense_
 	base_speed = base_speed_
 
-	max_hp = StatsMath.max_hp_value(abilities, level, base_hp)
+	max_hp = StatsMath.max_hp_jugador(abilities, base_hp) if StatsMath.reglas_nuevas \
+		else StatsMath.max_hp_value(abilities, level, base_hp)
 	current_hp = max_hp
 	max_mp = StatsMath.max_mp_value(abilities, level)
 	current_mp = max_mp
@@ -1177,7 +1178,7 @@ func def_value() -> float:
 	# la coraza, no los huesos. Por eso va aqui y no multiplicando el resultado como Vulnerable.
 	var base: float = base_defense + extra_defense * status_def_flat_mult()
 	var ab: Abilities = abilities_eff()
-	var d: float = StatsMath.defense_jugador(ab, base) if stats_multiplicativas \
+	var d: float = StatsMath.defense_jugador(ab, base) if _multiplicativa() \
 		else StatsMath.defense_value(ab, level, base)
 	return d * status_def_mult() * (1.0 + runa_def_pct)
 func spd() -> float:
@@ -1197,8 +1198,15 @@ func cast_spd() -> float: return _spd_base() * cast_velocidad_mult * status_spd_
 # Velocidad "cruda" segun la Agilidad (multiplicativa en el jugador, aditiva en los enemigos).
 func _spd_base() -> float:
 	var ab: Abilities = abilities_eff()
-	return StatsMath.speed_jugador(ab, base_speed + runa_vel) if stats_multiplicativas \
+	return StatsMath.speed_jugador(ab, base_speed + runa_vel) if _multiplicativa() \
 		else StatsMath.speed_value(ab, level, base_speed)
+
+
+# ¿Sus stats van por la formula MULTIPLICATIVA? El jugador siempre; los enemigos solo con las reglas nuevas encendidas
+# (StatsMath.reglas_nuevas, de serie apagadas). Ojo: stats_multiplicativas TAMBIEN significa "es personaje" (Voluntad,
+# fichas...): por eso no se toca, se pregunta aqui.
+func _multiplicativa() -> bool:
+	return stats_multiplicativas or StatsMath.reglas_nuevas
 
 # Penalizacion de velocidad de la postura de guardia (1.0 = sin postura).
 func _guardia_spd() -> float: return guardia_spd_mult if en_guardia else 1.0
@@ -2314,6 +2322,8 @@ func mdef_value() -> float:
 	var ab := abilities_eff()
 	if stats_multiplicativas:
 		return StatsMath.magic_jugador(ab, base_magic + extra_magic_def) * (1.0 + runa_mdef_pct)
+	if StatsMath.reglas_nuevas:
+		return StatsMath.magic_jugador(ab, base_magic)
 	return StatsMath.magic_value(ab, level, base_magic)
 
 

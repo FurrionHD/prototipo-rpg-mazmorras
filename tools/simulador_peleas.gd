@@ -41,7 +41,7 @@
 # SALIDA: una linea por pelea, 'R|...' (ver CABECERA). 'trozo=i/n' juega solo los casos i, i+n... (varios procesos).
 extends Node
 
-const CABECERA := "R|tanda|reglas|piso|grupo|escenario|arma|enemigo|mutacion|jefe|n_enem|t|gana|turnos_yo|turnos_el|vida_perdida|caidos|mp_gastado|dano_por_turno|dano_recibido_por_turno_suyo|segundos|acciones|fotogramas|ms_por_fotograma|pelea|ciclos|dano_por_ciclo|estados_en_enemigos|estados_en_los_tuyos|n_seguida|repetir"
+const CABECERA := "R|tanda|reglas|piso|grupo|escenario|arma|enemigo|mutacion|jefe|n_enem|t|gana|turnos_yo|turnos_el|vida_perdida|caidos|mp_gastado|dano_por_turno|dano_recibido_por_turno_suyo|segundos|acciones|fotogramas|ms_por_fotograma|pelea|ciclos|dano_por_ciclo|estados_en_enemigos|estados_en_los_tuyos|n_seguida|repetir|vel_ref_piso|vel_ciclo"
 # Una linea POR PERSONAJE de los tuyos en cada pelea (lo pidio: "daños de cada uno, cuanto tanquean con cada armadura, el
 # dps medio, cuanto hace cada arma en su turno, si alguno se queda sin energia demasiado rapido"):
 const CABECERA_P := "P|tanda|reglas|pelea|piso|grupo|escenario|n_enem|gana|rol|arma|armadura|vida_max|defensa|def_magica|mitig_fisica|mitig_magica|dano_hecho|dano_recibido|turnos|dano_por_turno|recibido_por_turno_enemigo|cayo|energia_media_al_empezar_turno|turnos_sin_energia|primer_turno_sin_energia|mp_gastado|turnos_sin_mana|primer_turno_sin_mana|pociones|acciones|nivel|tier|mejoras|fue/res/agi/des/mag/vol|ataque|velocidad|max_mp|max_energia|red_armadura|red_armadura_magica|ciclos|dano_por_ciclo|turnos_por_ciclo|recibido_por_ciclo|dano_por_elemento|habilidades_puestas"
@@ -249,11 +249,16 @@ func _leer_args() -> void:
 			"sets": _sets_todos = kv[1] == "todos"
 			"armaduras": _armaduras = ARMADURAS_TODAS.duplicate() if kv[1] == "todas" else Array(kv[1].split(","))
 			"tanda": _tanda = kv[1]
-			"reglas": _reglas = kv[1]
+			"reglas":
+				_reglas = kv[1]
+				# LAS REGLAS NUEVAS (StatsMath.reglas_nuevas): formula multiplicativa para los enemigos, defensa con K por piso
+				# y tope del 75 %, y ENEMIGOS CON NIVEL en los pisos 13-36 (ver _piso_local).
+				StatsMath.reglas_nuevas = _reglas == "nuevas"
 			"escala": _escala_tiempo = maxf(1.0, float(kv[1]))
 			"sin_mutantes": _sin_mutantes = kv[1] == "1"
 			"sin_jefes": _sin_jefes = kv[1] == "1"
 			"ver": _ver = kv[1] == "1"
+			"vel_enemigos": _vel_enemigos = kv[1]
 			"repetir":
 				var r: PackedStringArray = kv[1].split(",")
 				if r.size() >= 8:
@@ -431,6 +436,66 @@ func _llenar_bolsa(piso: int, jefe: bool) -> void:
 		Game.add_consumable(load("res://resources/consumables/pocion_mana_%s.tres" % tam), m)
 
 
+# ENEMIGOS CON NIVEL (reglas nuevas; memoria stats-misma-formula-todos, "espejo del jugador"): cada nivel ocupa 12
+# pisos. En el piso P salen los enemigos de su PISO LOCAL (13 -> los del 1 ... 24 -> los del 12, 25 -> los del 1...) con
+# sus habilidades y sus stats de ese piso local, y al subir cada nivel BAKEAN sus bases como el jugador: con lo que
+# tendrian al final del nivel anterior (sus habilidades del piso 12) x1,1. Con las reglas de hoy, el piso tal cual.
+func _nivel_enemigo(piso: int) -> int:
+	return 1 + (piso - 1) / PISOS_NIVEL if StatsMath.reglas_nuevas else 1
+
+
+func _piso_local(piso: int) -> int:
+	return piso - PISOS_NIVEL * (_nivel_enemigo(piso) - 1)
+
+
+# LA VELOCIDAD DE REFERENCIA DE CADA PISO (19/11, su idea): la del PERSONAJE MEDIO de ese piso (ver _vel_ref). Sirve
+# para dos cosas:
+#   - EL CICLO DE CADA NIVEL (ver _vel_ciclo): 2 turnos con la de su primer piso (5 en el 1-12, ~15 en el 13-24, ~41 en el
+#     25-36), y asi el daño y los turnos por ciclo se comparan entre pisos.
+#   - LA VELOCIDAD DE LOS ENEMIGOS CON NIVEL ("relativa"): la de su piso local x (la de referencia de este piso / la de su
+#     piso local): conserva lo rapido o lento que era frente a los personajes de su piso de origen. 'vel_enemigos=bakeada'
+#     la bakea como el resto (se dispara: la rata del 25 a 148).
+var _vel_ref_cache: Dictionary = {}
+var _vel_enemigos := "relativa"
+
+# (19/11, corregido) EL PERSONAJE MEDIO, no el mas agil: la media de la velocidad de los cuatro roles de referencia (tanque,
+# guerrero, arquero y mago) con su arma, en ese piso. Con el guerrero agil solo, bakear la Agilidad con la multiplicativa le
+# llevaba a 387 en el 36 frente a los ~79 del grupo de verdad, y los enemigos iban al ritmo del mas rapido posible.
+# EL CICLO VA POR NIVEL (19/11, su indicacion: "del 1 al 12 un ciclo son dos turnos de 5; del 13 al 24, de ~15; del 25 al
+# 36, de lo que salga"): la velocidad del personaje medio AL EMPEZAR el nivel (pisos 1, 13, 25...); en el nivel 1, 5 justo.
+func _vel_ciclo(piso: int) -> float:
+	var nivel: int = 1 + (piso - 1) / PISOS_NIVEL
+	return 5.0 if nivel == 1 else _vel_ref(PISOS_NIVEL * (nivel - 1) + 1)
+
+
+func _vel_ref(piso: int) -> float:
+	if not _vel_ref_cache.has(piso):
+		var suma: float = 0.0
+		for rol in ["tanque", "guerrero", "arquero", "mago"]:
+			var c: Combatant = Game.crear_player_combatant(_personaje(piso, rol, rol != "guerrero", "mandobles" if rol == "guerrero" else ""))
+			suma += c.spd()
+		_vel_ref_cache[piso] = maxf(0.1, suma / 4.0)
+	return float(_vel_ref_cache[piso])
+
+
+# Bakea a 'e' (nacido en su piso local) los niveles que le faltan: sus bases como las del jugador al subir.
+func _bakear_enemigo(e: Combatant, ed: EnemyData, t: float, nivel: int, piso: int) -> void:
+	if nivel <= 1 or ed == null:
+		return
+	var vel0: float = e.base_speed
+	for _n in nivel - 1:
+		var ab: Abilities = ed.crear_abilities(t, e.mutacion, PISOS_NIVEL)
+		e.base_hp = StatsMath.max_hp_jugador(ab, e.base_hp) * 1.1
+		e.base_attack = e.base_attack * StatsMath.fuerza_factor(float(ab.fuerza)) * 1.1
+		e.base_defense = StatsMath.defense_jugador(ab, e.base_defense) * 1.1
+		e.base_speed = StatsMath.speed_jugador(ab, e.base_speed) * 1.1
+		e.base_magic = StatsMath.magic_jugador(ab, e.base_magic) * 1.1
+	if _vel_enemigos == "relativa":
+		e.base_speed = vel0 * _vel_ref(piso) / _vel_ref(_piso_local(piso))
+	e.max_hp = StatsMath.max_hp_jugador(e.abilities, e.base_hp)
+	e.current_hp = e.max_hp
+
+
 # ------------------------------------------------------------
 #  LOS CASOS: [piso, grupo, escenario, enemigo (EnemyData o null), mutacion, mutante, jefe]
 # ------------------------------------------------------------
@@ -509,9 +574,10 @@ func _casos_base() -> Array:
 			if not GRUPOS.has(grupo):
 				continue
 			for esc in _escenarios:
+				var loc: int = _piso_local(piso)
 				match esc:
 					"uno":
-						for ed in _enemigos_de(piso):
+						for ed in _enemigos_de(loc):
 							if not _pasa_solo(ed):
 								continue
 							out.append([piso, grupo, esc, ed, &"", false, false])
@@ -521,19 +587,19 @@ func _casos_base() -> Array:
 									out.append([piso, grupo, esc, ed, &"", true, false])
 								for m in muts:
 									out.append([piso, grupo, esc, ed, m.id, true, false])
-						if JEFES.has(piso) and not _sin_jefes and _pasa_solo(load(JEFES[piso])):
-							out.append([piso, grupo, esc, load(JEFES[piso]), &"", false, true])
+						if JEFES.has(loc) and not _sin_jefes and _pasa_solo(load(JEFES[loc])):
+							out.append([piso, grupo, esc, load(JEFES[loc]), &"", false, true])
 					"piso", "seguida":
 						out.append([piso, grupo, esc, null, &"", false, false])
 					"manada":
-						for ed in _enemigos_de(piso):
+						for ed in _enemigos_de(loc):
 							if _pasa_solo(ed):
 								out.append([piso, grupo, esc, ed, &"", false, false])
 					"jefe":
-						if JEFES.has(piso) and not _sin_jefes:
-							out.append([piso, grupo, esc, load(JEFES[piso]), &"", false, true])
+						if JEFES.has(loc) and not _sin_jefes:
+							out.append([piso, grupo, esc, load(JEFES[loc]), &"", false, true])
 					"muneco":
-						for ed in _enemigos_de(piso):
+						for ed in _enemigos_de(loc):
 							if _pasa_solo(ed):
 								out.append([piso, grupo, esc, ed, &"", false, false])
 	return out
@@ -552,9 +618,9 @@ func _corro(caso: Array, n_grupo: int) -> Array:
 				out.append([caso[3], &"", false, false])
 			return out
 		"piso", "seguida":
-			return _corro_del_piso(piso, _tirar_manada(n_grupo))
+			return _corro_del_piso(_piso_local(piso), _tirar_manada(n_grupo))
 		"jefe":
-			return [[caso[3], &"", false, true]] + _corro_del_piso(piso, maxi(1, _tirar_manada(n_grupo) - 1))
+			return [[caso[3], &"", false, true]] + _corro_del_piso(_piso_local(piso), maxi(1, _tirar_manada(n_grupo) - 1))
 	return []
 
 
@@ -620,7 +686,8 @@ func _correr() -> void:
 				pjs.append(_personaje(caso[0], r, roles.size() > 1, caso[7]))
 			Game.party.assign(pjs)
 			Game.lider_idx = 0
-			Game.arena_piso_juego = caso[0]
+			Game.arena_piso_juego = _piso_local(caso[0])
+			StatsMath.tier_forzado = int(ceil(float(caso[0]) / 6.0)) if StatsMath.reglas_nuevas else -1
 			var ok: bool = await sala.remontar(Game.PISO_ARENA) if arrancada \
 				else await sala.arrancar("simulador_peleas_%d" % _trozo, Game.PISO_ARENA, 424242, false)
 			arrancada = true
@@ -793,6 +860,8 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 	var stats_e: Dictionary = {}
 	for i in mini(nodos.size(), _cb._enemies.size()):
 		_cb._enemies[i].set_meta("t", float(nodos[i].get_meta("t_sim", -1.0)))
+		if String(caso[2]) != "muneco":
+			_bakear_enemigo(_cb._enemies[i], nodos[i].get("data"), float(nodos[i].get_meta("t_sim", 0.5)), _nivel_enemigo(piso), piso)
 	for e in _cb._enemies:
 		stats_e[e] = [e.max_hp, e.atk(), e.def_value(), e.mdef_value(), e.spd()]
 	# EL MUÑECO NO ACTUA NUNCA (19/11, lo pidio: "que no actue, que se quede para recibir daño y ya"): su barra casi no se
@@ -830,7 +899,7 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 		if int(_cb._state) == 3:
 			resultado = "GANA" if not _cb._aliados_vivos().is_empty() else "PIERDE"
 			break
-		if String(caso[2]) == "muneco" and float(_cb.reloj_barra) / float(_cb.RELOJ_POR_CICLO) >= CICLOS_MUNECO:
+		if String(caso[2]) == "muneco" and float(_cb.reloj_barra) * _vel_ciclo(piso) / (2.0 * float(_cb.UMBRAL)) >= CICLOS_MUNECO:
 			resultado = "MUNECO"
 			break
 		var mios: int = 0
@@ -895,14 +964,15 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 	var pelea_id: String = "%d-%d" % [_trozo, _n_pelea]
 	# LOS CICLOS (19/11, su definicion, como los 100 de accion de HSR): 1 ciclo = lo que tarda alguien con velocidad 5 (la
 	# base del jugador) en actuar dos veces. Solo corre cuando corre la barra (no mientras decides).
-	var ciclos: float = maxf(0.01, float(_cb.reloj_barra) / float(_cb.RELOJ_POR_CICLO)) if is_instance_valid(_cb) else 0.01
+	# (19/11, su idea) CADA PISO CON SU CICLO: 2 turnos con la velocidad de referencia de ESE piso (ver _vel_ref).
+	var ciclos: float = maxf(0.01, float(_cb.reloj_barra) * _vel_ciclo(piso) / (2.0 * float(_cb.UMBRAL))) if is_instance_valid(_cb) else 0.01
 	var ed0: EnemyData = corro[0][0]
 	var repetir: String = "%d,%s,%s,%s,%s,%s,%d,%s" % [piso, caso[1], caso[2], caso[7] if caso[7] != "" else "-",
 		ed0.resource_path.get_file().get_basename() if String(caso[2]) in ["uno", "manada", "muneco", "jefe"] else "-",
 		(String(caso[4]) if caso[4] != &"" else ("mutante" if caso[5] else "-")) if String(caso[2]) == "uno" else "-",
 		_semilla, str(_escala_tiempo)]
-	linea += "|%s|%.2f|%.2f|%s|%s|%d|%s" % [pelea_id, ciclos, quitado / ciclos, _txt_reparto(_por_estado["aliados"]),
-		_txt_reparto(_por_estado["enemigos"]), _n_seguida, repetir]
+	linea += "|%s|%.2f|%.2f|%s|%s|%d|%s|%.2f|%.2f" % [pelea_id, ciclos, quitado / ciclos, _txt_reparto(_por_estado["aliados"]),
+		_txt_reparto(_por_estado["enemigos"]), _n_seguida, repetir, _vel_ref(piso), _vel_ciclo(piso)]
 	var comun: String = "%s|%s|%s|%d|%s|%s|%d|%s" % [_tanda, _reglas, pelea_id, piso, caso[1], caso[2], enems.size(), resultado]
 	for a in aliados:
 		var pj: PersonajeData = Game.pj_de_combatant(a)

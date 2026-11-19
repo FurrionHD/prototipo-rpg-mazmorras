@@ -69,8 +69,11 @@ def lanzar(a) -> Path:
         a.hilos = hilos_auto()
         print("[simulador] %d Godot a la vez (RAM libre %d MB, %d nucleos)" % (a.hilos, ram_libre_mb(), os.cpu_count() or 0))
     SALIDA.mkdir(parents=True, exist_ok=True)
+    if a.pisos_hasta > 0 and not a.pisos:
+        a.pisos = ",".join(str(i) for i in range(1, a.pisos_hasta + 1))
     extra = ["veces=%d" % a.veces, "tanda=%s" % a.tanda, "reglas=%s" % a.reglas, "escala=%s" % a.escala]
-    for k in ("pisos", "clases", "grupos", "escenarios", "solo", "arma", "armas", "armaduras", "sets", "pociones", "escala_des"):
+    for k in ("pisos", "clases", "grupos", "escenarios", "solo", "arma", "armas", "armaduras", "sets", "pociones", "escala_des",
+              "vel_enemigos"):
         v = getattr(a, k)
         if v:
             extra.append("%s=%s" % (k, v))
@@ -253,7 +256,7 @@ def resumen_personajes(ruta: Path) -> None:
             continue
         print("  piso %2d %-8s %-12s %-26s %6d usos  %8.1f por uso" % (k[0], k[1], k[2], k[3][:26], u, d / u))
     print()
-    print("CICLO = lo que tarda alguien con velocidad 5 en actuar dos veces (solo corre cuando corre la barra)."
+    print("CICLO = 2 turnos con la velocidad de su NIVEL: 5 en los pisos 1-12, la del personaje medio del 13 (~15) en el 13-24, la del 25 (~41) en el 25-36 (solo corre cuando corre la barra)."
           " daño/c = daño que hace por ciclo; turn/c = cuantas veces actua por ciclo; vel = su velocidad; daño/t = por turno"
           " suyo; recib/c = lo que recibe por ciclo;")
     print("daño/t = daño que hace por turno suyo; recib/t = lo que recibe por turno de los enemigos; mitF/mitM = lo que su"
@@ -536,7 +539,9 @@ def main():
     ap.add_argument("--sets", default="", help="todos = cada combinacion de 4 habilidades que pueda llevar cada equipo (¡muchas!)")
     ap.add_argument("--armaduras", default="", help="todas (tela, cuero, hierro, placas) o una lista: el hueco del guerrero la lleva en vez de la de su perfil")
     ap.add_argument("--tanda", default="hoy")
-    ap.add_argument("--reglas", default="hoy")
+    ap.add_argument("--reglas", default="hoy", help="hoy | nuevas (formula multiplicativa, defensa K por piso con tope 75 %%, enemigos con nivel)")
+    ap.add_argument("--vel-enemigos", dest="vel_enemigos", default="", help="relativa (de serie: la de su piso de origen frente a los personajes) | bakeada")
+    ap.add_argument("--pisos-hasta", dest="pisos_hasta", type=int, default=0, help="atajo: pisos=1..N (p. ej. 36)")
     ap.add_argument("--escala", default="8")
     ap.add_argument("--tope", type=int, default=3 * 3600)
     ap.add_argument("--sin-mutantes", action="store_true")

@@ -260,7 +260,34 @@ const ESCUDO_DEF_A_ATAQUE := 0.7
 # Devuelve FLOAT (con decimales) para NO perder precision: asi mejoras pequeñas
 # (4.31 -> 4.65) se notan en vez de redondearse ambas a "4". Minimo 0.1.
 static func damage(attack: float, defense: float) -> float:
-	return maxf(0.1, attack * MITIGATION_K / (MITIGATION_K + defense))
+	return maxf(0.1, attack * factor_defensa(defense))
+
+
+# ============================================================
+#  LAS REGLAS NUEVAS (19/11/2026, memoria stats-misma-formula-todos), APAGADAS DE SERIE: solo las enciende el simulador de
+#  peleas (tools/simulador_peleas.gd, reglas=nuevas) para compararlas con las de hoy. Hasta que el jefe lo decida, el juego
+#  no cambia nada.
+#   1. Los ENEMIGOS con la formula MULTIPLICATIVA del jugador (vida, defensa, velocidad, defensa magica): ver
+#      Combatant._multiplicativa.
+#   2. LA DEFENSA estilo Diablo 3 / WoW: lo que quita = def / (def + K), con K = 30 x 2,2^(tier del piso - 1) (pisos 1-6
+#      igual que hoy) y TOPE del 75 %. Fisica y magica igual, en los dos sentidos.
+# ============================================================
+static var reglas_nuevas := false
+static var tier_forzado := -1          # el tier del piso para la K (el simulador lo fija; -1 = el del piso actual)
+const K_CRECE_POR_TIER := 2.2
+const TOPE_DEFENSA := 0.75
+
+static func k_defensa() -> float:
+	if not reglas_nuevas:
+		return MITIGATION_K
+	var tier: int = tier_forzado if tier_forzado > 0 else int(ceil(float(maxi(1, Game.current_floor)) / 6.0))
+	return MITIGATION_K * pow(K_CRECE_POR_TIER, float(tier - 1))
+
+# Lo que deja pasar la defensa 'def' (1 = todo): K / (K + def); con las reglas nuevas, nunca menos de 1 - TOPE_DEFENSA.
+static func factor_defensa(defense: float) -> float:
+	var k: float = k_defensa()
+	var f: float = k / (k + maxf(defense, 0.0))
+	return maxf(f, 1.0 - TOPE_DEFENSA) if reglas_nuevas else f
 
 
 # ============================================================
@@ -488,7 +515,7 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# paras, no el arañazo que te queda despues de pararlo, porque si no el tanque vive clavado en el
 	# suelo del clamp: tiene mucha vida Y mucha mitigacion, o sea doble castigo por hacer su trabajo.
 	# Va como factor acumulado y NO repitiendo el pipeline aparte: dos copias se desincronizan.
-	var mitig := MITIGATION_K / (MITIGATION_K + def_val)
+	var mitig := factor_defensa(def_val)
 	# Variacion aleatoria por golpe (±DAMAGE_VARIANCE), estilo Terraria.
 	var variacion: float = randf_range(1.0 - DAMAGE_VARIANCE, 1.0 + DAMAGE_VARIANCE)
 	dmg *= variacion
@@ -620,7 +647,7 @@ static func resolve_magico_enemigo(attacker: Combatant, defender: Combatant, pue
 			"evade_p": evade_p, "crit_p": crit_p, "aturde_p": 0.0, "magico": true}
 	var mdef := defender.mdef_value() + (defender.defend_mdef if defending else 0.0)
 	var dmg := damage(attacker.atk_magico(), mdef)
-	var mitig := MITIGATION_K / (MITIGATION_K + mdef)
+	var mitig := factor_defensa(mdef)
 	dmg *= randf_range(1.0 - DAMAGE_VARIANCE, 1.0 + DAMAGE_VARIANCE)
 	var is_crit := false
 	if crit_p > 0.0 and randf() < crit_p:
