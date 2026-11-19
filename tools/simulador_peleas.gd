@@ -153,6 +153,27 @@ const PERFIL_DE_ARMA := {"hacha_grande": "pesado", "mandobles": "pesado", "marti
 	"daga": "agil", "estoque": "agil", "arco": "distancia", "ballesta": "distancia"}
 const ARMAS_DISTANCIA := ["arco", "ballesta"]
 var _armas: Array = []
+# TODAS LAS ARMADURAS (19/11, lo pidio: "todas las armas con todos los tipos de armadura, una daga y un broquel, hacha con
+# cuero"): 'armaduras=todas' o una lista; el hueco del guerrero lleva esa en vez de la de su perfil. Cada equipo se apunta
+# como 'arma@armadura'.
+const ARMADURAS_TODAS := ["tela", "cuero", "hierro", "placas"]
+var _armaduras: Array = []
+
+
+# TODAS LAS COMBINACIONES LEGALES de manos: las de una mano solas, dobles (si se puede) y con escudo pequeño (broquel),
+# normal y grande; las de dos manos solas; arco y ballesta.
+static func equipos_todos() -> Array:
+	var out: Array = []
+	for w in ["daga", "espada_corta", "espada_larga", "estoque", "maza_peq", "punos"]:
+		out.append(w)
+		var wd: WeaponData = load("res://resources/weapons/%s.tres" % w)
+		if wd.puede_dual:
+			out.append("%s+%s" % [w, w])
+		for e in ["escudo_pequeno", "escudo_normal", "escudo_grande"]:
+			out.append("%s+%s" % [w, e])
+	for w in ["hacha_grande", "mandobles", "martillo_grande", "arco", "ballesta"]:
+		out.append(w)
+	return out
 var _trozo := 0
 var _trozos := 1
 var _escala_tiempo := 8.0
@@ -216,7 +237,8 @@ func _leer_args() -> void:
 					if w != null and ab.size() == 2:
 						w.escala_destreza = float(ab[1])
 						print("[sim] %s: escala_destreza %.2f (solo en esta simulacion)" % [ab[0], w.escala_destreza])
-			"armas": _armas = ARMAS_TODAS.duplicate() if kv[1] == "todas" else Array(kv[1].split(","))
+			"armas": _armas = equipos_todos() if kv[1] == "todas" else (ARMAS_TODAS.duplicate() if kv[1] == "basicas" else Array(kv[1].split(",")))
+			"armaduras": _armaduras = ARMADURAS_TODAS.duplicate() if kv[1] == "todas" else Array(kv[1].split(","))
 			"tanda": _tanda = kv[1]
 			"reglas": _reglas = kv[1]
 			"escala": _escala_tiempo = maxf(1.0, float(kv[1]))
@@ -259,6 +281,10 @@ const REPARTO := {
 
 func _personaje(piso: int, rol: String, en_grupo: bool, arma_g: String = "") -> PersonajeData:
 	var arma_guerrero: String = arma_g if arma_g != "" else _arma
+	var armadura_forzada: String = ""
+	if arma_guerrero.contains("@"):
+		armadura_forzada = arma_guerrero.get_slice("@", 1)
+		arma_guerrero = arma_guerrero.get_slice("@", 0)
 	var partes_arma: PackedStringArray = arma_guerrero.split("+")
 	var principal: String = partes_arma[0]
 	var secundaria: String = partes_arma[1] if partes_arma.size() > 1 else ""
@@ -314,6 +340,8 @@ func _personaje(piso: int, rol: String, en_grupo: bool, arma_g: String = "") -> 
 		p.equip_meta["off"] = {"tier": int(pr[3]), "rareza": 0, "mejoras": meta_off, "durabilidad": 1.0, "banda": 0}
 	if perfil != "":
 		armadura[rol] = PERFILES[perfil][1]
+	if armadura_forzada != "" and rol in ["guerrero", "arquero"]:
+		armadura[rol] = armadura_forzada
 	for i in int(pr[5]):
 		var s: String = SLOTS[(i + 1) % 5] if int(pr[5]) < 5 else SLOTS[i]
 		p.set("equipped_" + s, load("res://resources/armor/%s_%s.tres" % [armadura[rol], s]))
@@ -409,6 +437,12 @@ func _casos() -> Array:
 	if _solo_mut != "":
 		base = base.filter(func(c): return String(c[4]) == _solo_mut or (_solo_mut == "mutante" and c[5] and c[4] == &""))
 	var armas: Array = _armas if not _armas.is_empty() else [_arma]
+	if not _armaduras.is_empty():
+		var con: Array = []
+		for a in armas:
+			for ar in _armaduras:
+				con.append("%s@%s" % [a, ar])
+		armas = con
 	var out: Array = []
 	for c in base:
 		if (GRUPOS[c[1]] as Array).has("guerrero"):

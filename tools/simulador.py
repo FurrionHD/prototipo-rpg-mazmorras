@@ -36,7 +36,7 @@ GODOT = Path(os.environ.get("LOCALAPPDATA", "")) / ("Microsoft/WinGet/Packages/"
 def lanzar(a) -> Path:
     SALIDA.mkdir(parents=True, exist_ok=True)
     extra = ["veces=%d" % a.veces, "tanda=%s" % a.tanda, "reglas=%s" % a.reglas, "escala=%s" % a.escala]
-    for k in ("pisos", "clases", "grupos", "escenarios", "solo", "arma", "armas", "pociones", "escala_des"):
+    for k in ("pisos", "clases", "grupos", "escenarios", "solo", "arma", "armas", "armaduras", "pociones", "escala_des"):
         v = getattr(a, k)
         if v:
             extra.append("%s=%s" % (k, v))
@@ -263,17 +263,17 @@ def ranking_armas(base: str) -> None:
         return
     with open(rp, encoding="utf-8") as f:
         filas = [r for r in csv.DictReader(f, delimiter=";") if r["rol"] in ("guerrero", "arquero")]
-    if len({r["arma"] for r in filas}) < 2:
+    if len({(r["arma"], r["armadura"]) for r in filas}) < 2:
         return
     def med(xs):
         xs = sorted(xs)
         return xs[len(xs) // 2] if xs else 0.0
     por_piso = defaultdict(lambda: defaultdict(list))
     for r in filas:
-        por_piso[int(r["piso"])][r["arma"]].append(r)
+        por_piso[int(r["piso"])]["%s @%s" % (r["arma"], r["armadura"])].append(r)
     print()
     print("RANKING DE ARMAS POR PISO (daño por ciclo contra el muñeco = lo puro; y en las peleas de verdad)")
-    print("  %-34s %8s %7s %7s %8s | %6s %6s %8s %6s" % ("", "muñeco", "turn/c", "daño/t", "vs med", "gana", "cae",
+    print("  %-44s %8s %7s %7s %8s | %6s %6s %8s %6s" % ("", "muñeco", "turn/c", "daño/t", "vs med", "gana", "cae",
           "daño/c", "%sinEN"))
     for piso in sorted(por_piso):
         armas = por_piso[piso]
@@ -297,7 +297,7 @@ def ranking_armas(base: str) -> None:
             if puro[a] is not None and mediana > 0:
                 d = puro[a] / mediana - 1.0
                 marca = "%+5.0f%%%s" % (100 * d, "  << FLOJA" if d < -BANDA else ("  >> FUERTE" if d > BANDA else ""))
-            print("  %-34s %8s %7s %7s %8s | %5s %5s %8s %5.0f%%  %s" % (
+            print("  %-44s %8s %7s %7s %8s | %5s %5s %8s %5.0f%%  %s" % (
                 a, "%.1f" % puro[a] if puro[a] is not None else "-",
                 "%.2f" % (tm / cm) if cm > 0 else "-",
                 "%.1f" % (sum(_f(r["dano_hecho"]) for r in m) / tm) if tm > 0 else "-",
@@ -468,7 +468,8 @@ def main():
     ap.add_argument("--pociones", default="", help="vida,mana por pelea (por defecto una de vida por cabeza y una de mana si va mago)")
     ap.add_argument("--solo", default="")
     ap.add_argument("--arma", default="")
-    ap.add_argument("--armas", default="", help="todas, o una lista: cada una en el hueco del guerrero (las de distancia, de arquero)")
+    ap.add_argument("--armas", default="", help="todas (todas las combinaciones de manos), basicas (las once solas), o una lista 'daga+escudo_pequeno,...'")
+    ap.add_argument("--armaduras", default="", help="todas (tela, cuero, hierro, placas) o una lista: el hueco del guerrero la lleva en vez de la de su perfil")
     ap.add_argument("--tanda", default="hoy")
     ap.add_argument("--reglas", default="hoy")
     ap.add_argument("--escala", default="8")
