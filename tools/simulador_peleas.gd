@@ -182,6 +182,8 @@ static func equipos_todos() -> Array:
 		out.append(w)
 	return out
 var _trozo := 0
+var _desde := 0        # 'desde=K': empieza en su caso K (lo relanza simulador.py tras un tope de memoria o una caida)
+var _tope_mb := 0.0    # 'tope_mb=N': pasada esa memoria (estatica, MB) se sale al acabar el caso
 var _trozos := 1
 var _escala_tiempo := 2.0   # (19/11) x2 da lo mismo que x1; x8 no (ver simulador.py)
 var _sin_mutantes := false
@@ -218,6 +220,15 @@ func _empezar() -> void:
 		get_tree().quit(0)
 		return
 	await _correr()
+	_marca("entre_peleas")
+	var tot: float = 0.0
+	for k in _crono:
+		if not String(k).begins_with("~"):
+			tot += float(_crono[k])
+	var partes: Array = []
+	for k in _crono:
+		partes.append("%s %.1f s (%.0f %%)" % [k, float(_crono[k]) / 1000.0, 100.0 * float(_crono[k]) / maxf(1.0, tot)])
+	print("[sim] TIEMPOS ", ", ".join(partes))
 	print("[sim] FIN")
 	get_tree().quit(0)
 
@@ -277,6 +288,14 @@ func _leer_args() -> void:
 				var pz: PackedStringArray = kv[1].split(",")
 				_pociones_vida = int(pz[0])
 				_pociones_mana = int(pz[1]) if pz.size() > 1 else 0
+			"desde":
+				_desde = int(kv[1])
+			"tope_mb":
+				_tope_mb = float(kv[1])
+			"apagar":
+				_apagar = kv[1].split(",")
+			"auditar":
+				_auditar = kv[1] == "1"
 			"trozo":
 				var t: PackedStringArray = kv[1].split("/")
 				_trozo = int(t[0])
@@ -483,22 +502,7 @@ func _vel_ref(piso: int) -> float:
 	return float(_vel_ref_cache[piso])
 
 
-# Bakea a 'e' (nacido en su piso local) los niveles que le faltan: sus bases como las del jugador al subir.
-func _bakear_enemigo(e: Combatant, ed: EnemyData, t: float, nivel: int, piso: int) -> void:
-	if nivel <= 1 or ed == null:
-		return
-	var vel0: float = e.base_speed
-	for _n in nivel - 1:
-		var ab: Abilities = ed.crear_abilities(t, e.mutacion, PISOS_NIVEL)
-		e.base_hp = StatsMath.max_hp_jugador(ab, e.base_hp) * 1.1
-		e.base_attack = e.base_attack * StatsMath.fuerza_factor(float(ab.fuerza)) * 1.1
-		e.base_defense = StatsMath.defense_jugador(ab, e.base_defense) * 1.1
-		e.base_speed = StatsMath.speed_jugador(ab, e.base_speed) * 1.1
-		e.base_magic = StatsMath.magic_jugador(ab, e.base_magic) * 1.1
-	if _vel_enemigos == "relativa":
-		e.base_speed = vel0 * _vel_ref(piso) / _vel_ref(_piso_local(piso))
-	e.max_hp = StatsMath.max_hp_jugador(e.abilities, e.base_hp)
-	e.current_hp = e.max_hp
+# (El bakeo de los enemigos con nivel lo hace ya el juego: EnemyData._bakear_nivel, ver StatsMath.nivel_enemigos.)
 
 
 # ------------------------------------------------------------
@@ -681,14 +685,27 @@ func _correr() -> void:
 	for i in casos.size():
 		if i % _trozos == _trozo:
 			mios.append(casos[i])
+	_n_pelea = _desde * 10000   # al relanzar desde un caso, ids de pelea que no repiten los de antes (las P y E van por el)
 	print("[sim] %d casos (de %d) x %d veces" % [mios.size(), casos.size(), _veces])
+	if OS.get_cmdline_user_args().has("contar"):
+		# simulador.py --contar: solo cuantas peleas saldrian (para calcular cuanto tarda una tanda), sin jugar ninguna
+		print("[sim] CONTAR %d" % (casos.size() * _veces))
+		return
 	print(CABECERA)
 	print(CABECERA_P)
 	print(CABECERA_E)
 	print("S|tanda|reglas|piso|grupo|arma|peleas_ganadas|como_acaba|pociones_que_quedan|vida_al_acabar")
 	var montado: String = ""
 	var arrancada := false
-	for caso in mios:
+	for j in mios.size():
+		if j < _desde:
+			continue
+		if j > _desde and _tope_mb > 0 and OS.get_static_memory_usage() / 1048576.0 > _tope_mb:
+			# TOPE DE MEMORIA (19/11): la memoria se va calentando (poses, hojas de cada color...) y en tandas de horas un
+			# Godot pasaba del GB. Se sale limpio y simulador.py lo relanza desde aqui.
+			print("[sim] SALGO POR MEMORIA %d (%.0f MB)" % [j, OS.get_static_memory_usage() / 1048576.0])
+			return
+		var caso: Array = mios[j]
 		var clave: String = "%d|%s|%s" % [caso[0], caso[1], caso[7]]
 		if clave != montado:
 			# Otro piso u otro grupo: los personajes nuevos y la arena otra vez (el jugador trae a sus compañeros al entrar).
@@ -707,6 +724,11 @@ func _correr() -> void:
 				print("[sim] MAL: no se monta la arena del piso %d" % caso[0])
 				return
 			montado = clave
+		# EL NIVEL DE LOS ENEMIGOS (reglas nuevas): lo bakea el juego al nacer cada uno (EnemyData.crear_combatant), tambien a
+		# las crias y refuerzos de mitad de pelea. El muñeco, sin nivel (como antes).
+		StatsMath.nivel_enemigos = 1 if String(caso[2]) == "muneco" else _nivel_enemigo(caso[0])
+		StatsMath.vel_enemigos_factor = _vel_ref(caso[0]) / _vel_ref(_piso_local(caso[0])) \
+			if _vel_enemigos == "relativa" and StatsMath.nivel_enemigos > 1 else 0.0
 		for _v in _veces:
 			if String(caso[2]) == "seguida":
 				await _seguida(caso)
@@ -716,6 +738,7 @@ func _correr() -> void:
 			for l in _lineas_extra:
 				print(l)
 			_lineas_extra.clear()
+		print("[sim] CASO_HECHO %d" % j)   # por donde va: si el Godot se cae, simulador.py sigue desde el siguiente
 
 
 # ------------------------------------------------------------
@@ -794,7 +817,118 @@ var _n_seguida := 0
 var _semilla := 0
 
 
+# CRONOMETROS (19/11, para optimizar el simulador): ms gastados en cada tramo, sumados; salen al acabar ("[sim] TIEMPOS").
+var _crono: Dictionary = {}
+var _crono_t := 0
+
+func _marca(tramo: String) -> void:
+	var ahora: int = Time.get_ticks_usec()
+	if _crono_t > 0:
+		_crono[tramo] = float(_crono.get(tramo, 0.0)) + (ahora - _crono_t) / 1000.0
+	_crono_t = ahora
+
+
+# APAGAR (apagar=a.gd,b.gd; experimento para medir que cuesta): los nodos con esos scripts dejan de procesarse en la pelea.
+var _apagar: PackedStringArray = []
+
+func _apagar_scripts() -> void:
+	for nd in get_tree().root.find_children("*", "", true, false):
+		var sc = nd.get_script()
+		if sc != null and _apagar.has(sc.resource_path.get_file()):
+			nd.set_process(false)
+			nd.set_physics_process(false)
+
+
+# LO QUE CRECE (auditar=1, cada 20 peleas): el tamaño de cada array/diccionario de los autoloads y de las variables estaticas
+# de los scripts cargados, y los que han crecido desde la vez anterior. Para cazar fugas de memoria.
+var _tam_antes: Dictionary = {}
+var _estaticas: Array = []
+var _claves_dibujo: Dictionary = {}
+
+# Cuantas ENTRADAS (no bytes: lo que se queda con objetos ocupa poco en bytes); en los diccionarios, tambien las de dentro.
+func _tam(v) -> int:
+	if v is Dictionary:
+		var t: int = v.size()
+		for x in v.values():
+			if x is Array or x is Dictionary:
+				t += x.size()
+		return t
+	if v is Array:
+		return v.size()
+	return -1
+
+
+func _lo_que_crece() -> void:
+	var ahora: Dictionary = {}
+	for nd in get_tree().root.find_children("*", "", true, false):
+		if nd.get_script() == null:
+			continue
+		for pr in nd.get_property_list():
+			if int(pr["usage"]) & PROPERTY_USAGE_SCRIPT_VARIABLE == 0:
+				continue
+			var t: int = _tam(nd.get(pr["name"]))
+			if t > 0:
+				ahora["%s:%s.%s" % [nd.get_script().resource_path.get_file(), nd.name, pr["name"]]] = t
+	# y las static var de todos los scripts (cargados con load: es la misma clase que usa el juego)
+	if _estaticas.is_empty():
+		var re := RegEx.create_from_string("(?m)^static var ([A-Za-z_0-9]+)")
+		var pila: Array = ["res://scripts"]
+		while not pila.is_empty():
+			var dir: String = pila.pop_back()
+			for sub in DirAccess.get_directories_at(dir):
+				pila.append(dir + "/" + sub)
+			for a in DirAccess.get_files_at(dir):
+				if a.ends_with(".gd"):
+					for m in re.search_all(FileAccess.get_file_as_string(dir + "/" + a)):
+						_estaticas.append([dir + "/" + a, m.get_string(1)])
+	for e in _estaticas:
+		if not ResourceLoader.has_cached(e[0]):
+			continue
+		var t2: int = _tam(load(e[0]).get(e[1]))
+		if t2 > 0:
+			ahora["static %s.%s" % [String(e[0]).get_file(), e[1]]] = t2
+	var crecen: Array = []
+	for k in ahora:
+		var d: int = int(ahora[k]) - int(_tam_antes.get(k, ahora[k]))
+		if d > 10:
+			crecen.append([k, d, ahora[k]])
+	crecen.sort_custom(func(a, b): return a[1] > b[1])
+	print("[crece] ", ", ".join(crecen.slice(0, 15).map(func(c): return "%s +%d (%d)" % [c[0], c[1], c[2]])))
+	_tam_antes = ahora
+	# las texturas NUEVAS de la cache de dibujo del combate: de donde salen (deberian ser siempre las mismas)
+	var cd: Dictionary = load("res://scripts/ui/combat_tactico.gd").get("_cache_dibujo")
+	var nuevas: Dictionary = {}
+	for k in cd:
+		if not _claves_dibujo.has(k):
+			var o = instance_from_id(int(k))
+			var q: String = "libre"
+			if o is AtlasTexture:
+				var at: Texture2D = (o as AtlasTexture).atlas
+				q = "Atlas de %s %s" % [at.get_class() if at != null else "?", at.resource_path if at != null and at.resource_path != "" else ("%dx%d" % [at.get_width(), at.get_height()] if at != null else "")]
+			elif o is Texture2D:
+				q = "%s %s %dx%d" % [o.get_class(), (o as Texture2D).resource_path, (o as Texture2D).get_width(), (o as Texture2D).get_height()]
+			nuevas[q] = int(nuevas.get(q, 0)) + 1
+	_claves_dibujo = cd.duplicate()
+	print("[crece] texturas nuevas en _cache_dibujo: ", nuevas)
+
+
+# AUDITAR (auditar=1): en el fotograma 60 de cada pelea, que nodos se estan procesando (por script), para buscar lo caro.
+var _auditar := false
+
+func _auditar_proceso() -> void:
+	var cuenta: Dictionary = {}
+	for nd in get_tree().root.find_children("*", "", true, false):
+		if nd.is_processing() or nd.is_physics_processing():
+			var sc = nd.get_script()
+			var k: String = nd.get_class() + (":" + sc.resource_path.get_file() if sc != null else "") + (" P" if nd.is_processing() else "") + (" F" if nd.is_physics_processing() else "")
+			cuenta[k] = int(cuenta.get(k, 0)) + 1
+	var ks: Array = cuenta.keys()
+	ks.sort_custom(func(a, b): return int(cuenta[a]) > int(cuenta[b]))
+	print("[auditar] ", ", ".join(ks.map(func(k): return "%s x%d" % [k, cuenta[k]])))
+
+
 func _pelea(caso: Array, reponer: bool = true) -> String:
+	_marca("entre_peleas")
 	var piso: int = caso[0]
 	_semilla = _semilla_fija if _semilla_fija >= 0 else randi() % 2000000000
 	seed(_semilla)
@@ -842,7 +976,9 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 	# NO SIEMPRE EL MISMO (19/11, lo pidio): la emboscada se la lleva el primero de la lista (el que dispara la pelea en el
 	# juego): se baraja el corro para que sea uno distinto cada vez.
 	nodos.shuffle()
+	_marca("preparar")
 	_cb = await sala.pelear(nodos, _emboscada)
+	_marca("abrir")
 	if _cb == null:
 		return _linea_error(caso, "ERROR_NO_ABRE")
 	_cb._aplicar_velocidad(4.0)
@@ -884,8 +1020,6 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 	var stats_e: Dictionary = {}
 	for i in mini(nodos.size(), _cb._enemies.size()):
 		_cb._enemies[i].set_meta("t", float(nodos[i].get_meta("t_sim", -1.0)))
-		if String(caso[2]) != "muneco":
-			_bakear_enemigo(_cb._enemies[i], nodos[i].get("data"), float(nodos[i].get_meta("t_sim", 0.5)), _nivel_enemigo(piso), piso)
 	for e in _cb._enemies:
 		stats_e[e] = [e.max_hp, e.atk(), e.def_value(), e.mdef_value(), e.spd()]
 	# EL MUÑECO NO ACTUA NUNCA (19/11, lo pidio: "que no actue, que se quede para recibir daño y ya"): su barra casi no se
@@ -937,7 +1071,14 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 			resultado = "ATASCADA"
 			_volcar_atasco()
 			break
+		var tp: int = Time.get_ticks_usec()
 		_pilotar()
+		_crono["~piloto"] = float(_crono.get("~piloto", 0.0)) + (Time.get_ticks_usec() - tp) / 1000.0
+		if not _apagar.is_empty() and fotos % 20 == 1:
+			_apagar_scripts()
+		if _auditar and fotos == 60:
+			_auditar_proceso()
+	_marca("pelea")
 	_soltar_teclas()
 	Engine.time_scale = 1.0
 	Combatant.al_recibir = Callable()
@@ -1036,7 +1177,17 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 		if is_instance_valid(_cb):
 			for l in _cb._log_lines:
 				print("   LOG ", l)
+	_marca("apuntar")
 	await _cerrar()
+	_marca("cerrar")
+	if _n_pelea % 20 == 0:
+		# LA MEMORIA cada 20 peleas (19/11: se cazo una fuga de ~0,6 MB por pelea): si algo crece sin parar, sale aqui.
+		print("[sim] MEMORIA pelea %d: %.0f MB, objetos %d, nodos %d, huerfanos %d, recursos %d" % [_n_pelea,
+			Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0, Performance.get_monitor(Performance.OBJECT_COUNT),
+			Performance.get_monitor(Performance.OBJECT_NODE_COUNT), Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT),
+			Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT)])
+		if _auditar:
+			_lo_que_crece()
 	return linea
 
 

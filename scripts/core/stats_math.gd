@@ -274,6 +274,14 @@ static func damage(attack: float, defense: float) -> float:
 # ============================================================
 static var reglas_nuevas := false
 static var tier_forzado := -1          # el tier del piso para la K (el simulador lo fija; -1 = el del piso actual)
+#   3. ENEMIGOS CON NIVEL ("espejo del jugador", cada nivel = PISOS_NIVEL pisos): el que nace con nivel_enemigos > 1 bakea
+#      sus bases como el jugador al subir (EnemyData._bakear_nivel). Va en EnemyData.crear_combatant para que lo cojan
+#      TODOS los que entran en la pelea, tambien las crias, invocados y refuerzos que llegan a mitad (19/11: antes solo
+#      lo hacia el simulador con los que abrian la pelea). Hoy lo fija solo el simulador; de serie 1 = nada.
+#      vel_enemigos_factor > 0: su velocidad no se bakea, se queda la de nacer x esto (la "relativa" del simulador).
+const PISOS_NIVEL := 12
+static var nivel_enemigos := 1
+static var vel_enemigos_factor := 0.0
 const K_CRECE_POR_TIER := 2.2
 const TOPE_DEFENSA := 0.75
 

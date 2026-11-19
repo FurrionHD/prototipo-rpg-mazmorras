@@ -800,6 +800,24 @@ func siguiente_mutacion(mutante: bool, id: StringName) -> Dictionary:
 	return {"mut": false, "id": &""}
 
 
+# Los niveles que le faltan a 'c' (nacido con las stats de su piso): sus bases como las del jugador al subir de nivel, con
+# las habilidades que tendria al final de cada nivel (su piso PISOS_NIVEL) y x1,1. La velocidad, si vel_enemigos_factor > 0,
+# no se bakea: la de nacer x ese factor.
+func _bakear_nivel(c: Combatant, t: float, mutacion: StringName) -> void:
+	var vel0: float = c.base_speed
+	for _n in StatsMath.nivel_enemigos - 1:
+		var ab: Abilities = crear_abilities(t, mutacion, StatsMath.PISOS_NIVEL)
+		c.base_hp = StatsMath.max_hp_jugador(ab, c.base_hp) * 1.1
+		c.base_attack = c.base_attack * StatsMath.fuerza_factor(float(ab.fuerza)) * 1.1
+		c.base_defense = StatsMath.defense_jugador(ab, c.base_defense) * 1.1
+		c.base_speed = StatsMath.speed_jugador(ab, c.base_speed) * 1.1
+		c.base_magic = StatsMath.magic_jugador(ab, c.base_magic) * 1.1
+	if StatsMath.vel_enemigos_factor > 0.0:
+		c.base_speed = vel0 * StatsMath.vel_enemigos_factor
+	c.max_hp = StatsMath.max_hp_jugador(c.abilities, c.base_hp)
+	c.current_hp = c.max_hp
+
+
 func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = false,
 		mutacion: StringName = &"", piso: int = -1) -> Combatant:
 	var pis: int = Game.current_floor if piso < 0 else piso
@@ -818,6 +836,10 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	# Defensa MAGICA: escala con la profundidad igual (raiz) que la fisica, para que la magia
 	# no se despegue del resto a medida que bajas de piso.
 	c.base_magic = base_magic * sqrt(fstat) * m_atk
+	# ENEMIGOS CON NIVEL (reglas nuevas, ver StatsMath.nivel_enemigos): aqui, ANTES de todo lo que lee su vida maxima
+	# (la costra de ambar, la vida de las crias...), y para todos los que nacen, no solo los que abren la pelea.
+	if StatsMath.reglas_nuevas and StatsMath.nivel_enemigos > 1:
+		_bakear_nivel(c, t, mutacion if mutante else &"")
 	# Estados que aplica al golpear (pegajoso/veneno, KAN-58 Fase 3).
 	c.on_hit = al_golpear
 	c.al_ser_golpeado = al_ser_golpeado

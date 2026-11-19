@@ -2198,6 +2198,7 @@ func _clave_pisoton(c: Combatant) -> String:
 #   - cada fotograma es un AtlasTexture RECORTADO: lo pintado (su region) va dentro de un lienzo mas
 #     grande, y su sitio dentro de el lo dice su MARGIN.
 static var _cache_dibujo := {}
+const TOPE_CACHE_DIBUJO := 20000
 
 # LO PINTADO DE TODAS LAS CAPAS de un muñeco (cuerpo, cabeza, pelo, ropa, arma...), juntas: rect_dibujo se queda en la
 # primera. Lo usa la burbuja del escudo de agua (09/10), que tiene que envolver al personaje entero.
@@ -2269,6 +2270,9 @@ static func _pintado_local(spr: AnimatedSprite2D, anim: StringName, marco: int) 
 	if _cache_dibujo.has(clave):
 		r = _cache_dibujo[clave]
 	else:
+		# CON TOPE (19/11): ver TOPE_CACHE en combat_figuras_mapa.gd (las texturas de los bichos vuelven con otro id y lo viejo se quedaba).
+		if _cache_dibujo.size() >= TOPE_CACHE_DIBUJO:
+			_cache_dibujo.clear()
 		r = Rect2(Vector2.ZERO, tex.get_size())   # sin recorte: el lienzo entero
 		if tex is AtlasTexture:
 			var at: AtlasTexture = tex

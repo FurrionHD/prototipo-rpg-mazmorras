@@ -19,6 +19,7 @@ nucleos menos dos; --hilos N lo fuerza.
 Salida: tools/resultados_simulador/<tanda>.csv (+ <tanda>_<i>.txt, la salida cruda de cada Godot).
 """
 import argparse
+import re
 import csv
 import os
 import subprocess
@@ -36,7 +37,7 @@ GODOT = Path(os.environ.get("LOCALAPPDATA", "")) / ("Microsoft/WinGet/Packages/"
 # CUANTOS GODOT A LA VEZ (19/11, el jefe: "¿seguro que el PC solo puede con 4?"): lo que quepa en la RAM LIBRE dejando
 # 1 GB de margen y uno menos (~600 MB por Godot con la arena montada) y sin pasar de los nucleos menos dos ([[cuidado-con-la-ram]],
 # [[no-ocupar-todos-los-nucleos]]). En el portatil saldra otra cuenta: por eso se mira al arrancar.
-MB_POR_GODOT = 600
+MB_POR_GODOT = 900   # (19/11) medido: ~550 al arrancar y hasta ~1000 antes del tope de memoria (--tope-mb)
 MARGEN_MB = 1000
 
 
@@ -64,11 +65,7 @@ def hilos_auto() -> int:
     return int(max(1, min(por_ram, por_cpu) - 1))
 
 
-def lanzar(a) -> Path:
-    if a.hilos <= 0:
-        a.hilos = hilos_auto()
-        print("[simulador] %d Godot a la vez (RAM libre %d MB, %d nucleos)" % (a.hilos, ram_libre_mb(), os.cpu_count() or 0))
-    SALIDA.mkdir(parents=True, exist_ok=True)
+def _args_godot(a) -> list:
     if a.pisos_hasta > 0 and not a.pisos:
         a.pisos = ",".join(str(i) for i in range(1, a.pisos_hasta + 1))
     extra = ["veces=%d" % a.veces, "tanda=%s" % a.tanda, "reglas=%s" % a.reglas, "escala=%s" % a.escala]
@@ -81,34 +78,56 @@ def lanzar(a) -> Path:
         extra.append("sin_mutantes=1")
     if a.sin_jefes:
         extra.append("sin_jefes=1")
-    procs = []
+    return extra
+
+
+# (19/11) Cuantas peleas saldrian con estos argumentos, sin jugar ninguna (un solo Godot, unos segundos): para saber si
+# una tanda cabe en la tarde. Devuelve -1 si Godot no lo dice.
+def contar(a) -> int:
+    cmd = [str(GODOT), "--headless", "--path", str(RAIZ), "res://tools/simulador_peleas.tscn", "--", "trozo=0/1", "contar"] + _args_godot(a)
+    r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(RAIZ))
+    for l in r.stdout.splitlines():
+        if l.startswith("[sim] CONTAR "):
+            return int(l.split()[2])
+    return -1
+
+
+def lanzar(a) -> Path:
+    if a.hilos <= 0:
+        a.hilos = hilos_auto()
+        print("[simulador] %d Godot a la vez (RAM libre %d MB, %d nucleos)" % (a.hilos, ram_libre_mb(), os.cpu_count() or 0))
+    SALIDA.mkdir(parents=True, exist_ok=True)
+    extra = _args_godot(a)
     t0 = time.time()
-    for i in range(a.hilos):
-        crudo = SALIDA / ("%s_%d.txt" % (a.tanda, i))
-        f = open(crudo, "w", encoding="utf-8")
-        cmd = [str(GODOT), "--headless", "--fixed-fps", "60", "--path", str(RAIZ), "res://tools/simulador_peleas.tscn",
-               "--", "trozo=%d/%d" % (i, a.hilos)] + extra
-        procs.append((subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT, cwd=str(RAIZ)), f, crudo))
+    trozos = [Trozo(i, a.hilos, a.tanda, extra + (["tope_mb=%d" % a.tope_mb] if a.tope_mb > 0 else [])) for i in range(a.hilos)]
+    for t in trozos:
+        t.lanzar()
     print("[simulador] %d Godot en marcha (%s)" % (a.hilos, " ".join(extra)))
     hechas_antes = -1
-    while any(p.poll() is None for p, _, _ in procs):
+    while any(t.vivo() for t in trozos):
         time.sleep(5)
         if time.time() - t0 > a.tope:
             print("[simulador] TOPE de %d s: los paro" % a.tope)
-            for p, _, _ in procs:
-                p.kill()
+            for t in trozos:
+                t.parar()
             break
-        hechas = sum(_contar(c) for _, _, c in procs)
+        for t in trozos:
+            t.revisar()   # el que acabo sin FIN (tope de memoria o caida) se relanza desde su caso siguiente
+        hechas = sum(t.peleas() for t in trozos)
         if hechas != hechas_antes and int(time.time() - t0) % 30 < 5:
             print("[simulador] %4d peleas  (%.0f s)" % (hechas, time.time() - t0))
             hechas_antes = hechas
-    for p, f, _ in procs:
-        p.wait()
-        f.close()
+    for t in trozos:
+        t.parar(esperar=True)
+    relanzados = sum(len(t.partes) - 1 for t in trozos)
+    saltados = [c for t in trozos for c in t.saltados]
+    if relanzados:
+        print("[simulador] %d relanzamientos (tope de memoria o caidas)%s" % (relanzados,
+              "; casos SALTADOS por tumbar al Godot dos veces: " + ", ".join(saltados) if saltados else ""))
     # juntar: R (una por pelea), P (una por personaje tuyo y pelea), E (una por enemigo y pelea)
     tablas = {"R": [None, []], "P": [None, []], "E": [None, []], "S": [None, []]}
-    for _, _, crudo in procs:
-        for l in crudo.read_text(encoding="utf-8", errors="replace").splitlines():
+    for t in trozos:
+        for l in t.lineas_validas():
             if len(l) < 2 or l[1] != "|" or l[0] not in tablas:
                 continue
             partes = l.split("|")[1:]
@@ -134,6 +153,83 @@ def lanzar(a) -> Path:
     dur = time.time() - t0
     print("[simulador] %d peleas en %.0f s (%.1f por minuto) -> %s" % (len(filas), dur, len(filas) * 60.0 / max(dur, 1), destino))
     return destino
+
+
+# UN TROZO DE LA TANDA (19/11): su Godot y, si hace falta, los que le relevan. Cada Godot dice "[sim] CASO_HECHO j" al acabar
+# cada caso; si se sale por el tope de memoria ("SALGO POR MEMORIA j") o se cae, se lanza otro con desde=j siguiente en otro
+# fichero (<tanda>_<i>_p<n>.txt). De una caida solo vale lo escrito hasta su ultimo caso hecho (el caso a medias se repite
+# entero); si el mismo caso tumba al Godot dos veces seguidas, se salta.
+class Trozo:
+    def __init__(self, i, n, tanda, extra):
+        self.i, self.n, self.tanda, self.extra = i, n, tanda, extra
+        self.partes = []   # [ruta, fichero, proceso]
+        self.desde = 0
+        self.caidas_aqui = 0
+        self.saltados = []
+        self.acabado = False
+
+    def lanzar(self):
+        k = len(self.partes)
+        crudo = SALIDA / ("%s_%d.txt" % (self.tanda, self.i) if k == 0 else "%s_%d_p%d.txt" % (self.tanda, self.i, k))
+        f = open(crudo, "w", encoding="utf-8")
+        cmd = [str(GODOT), "--headless", "--fixed-fps", "60", "--path", str(RAIZ), "res://tools/simulador_peleas.tscn",
+               "--", "trozo=%d/%d" % (self.i, self.n), "desde=%d" % self.desde] + self.extra
+        self.partes.append([crudo, f, subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT, cwd=str(RAIZ))])
+
+    def vivo(self):
+        return not self.acabado
+
+    def revisar(self):
+        if self.acabado or self.partes[-1][2].poll() is None:
+            return
+        crudo, f, _ = self.partes[-1]
+        f.close()
+        texto = crudo.read_text(encoding="utf-8", errors="replace")
+        memoria = re.search(r"\[sim\] SALGO POR MEMORIA (\d+)", texto)
+        hechos = [int(x) for x in re.findall(r"\[sim\] CASO_HECHO (\d+)", texto)]
+        if memoria:
+            self.desde, self.caidas_aqui = int(memoria.group(1)), 0
+        elif "[sim] FIN" in texto:
+            self.acabado = True
+            return
+        else:
+            siguiente = (max(hechos) + 1) if hechos else self.desde
+            self.caidas_aqui = self.caidas_aqui + 1 if siguiente == self.desde else 1
+            self.desde = siguiente
+            if self.caidas_aqui >= 2:
+                self.saltados.append("trozo %d caso %d" % (self.i, self.desde))
+                print("[simulador] el caso %d del trozo %d tumba al Godot dos veces: me lo salto" % (self.desde, self.i))
+                self.desde += 1
+                self.caidas_aqui = 0
+            print("[simulador] el Godot del trozo %d se ha caido: sigo desde su caso %d" % (self.i, self.desde))
+        self.lanzar()
+
+    def parar(self, esperar=False):
+        for _, f, pr in self.partes:
+            if pr.poll() is None:
+                if esperar:
+                    pr.wait()
+                else:
+                    pr.kill()
+            if not f.closed:
+                f.close()
+        self.acabado = True
+
+    def peleas(self):
+        return sum(_contar(c) for c, _, _ in self.partes)
+
+    # Las lineas que valen: de cada parte que se cayo, solo hasta su ultimo CASO_HECHO (lo de despues se repitio).
+    def lineas_validas(self):
+        out = []
+        for k, (crudo, _, _) in enumerate(self.partes):
+            lineas = crudo.read_text(encoding="utf-8", errors="replace").splitlines()
+            texto = "\n".join(lineas)
+            if "[sim] FIN" not in texto and "SALGO POR MEMORIA" not in texto:
+                ult = max((n for n, l in enumerate(lineas) if l.startswith("[sim] CASO_HECHO")), default=-1)
+                cab = [l for l in lineas if l[:2] in ("R|", "P|", "E|", "S|") and l.split("|")[1] == "tanda"]
+                lineas = cab + lineas[:ult + 1]
+            out.extend(lineas)
+        return out
 
 
 def _contar(crudo: Path) -> int:
@@ -603,13 +699,20 @@ def main():
     # (19/11) x2 DE SERIE: comprobado que da lo mismo que x1 (el ritmo del juego) y x8 NO (los enemigos sacaban mas turnos
     # y las peleas duraban el doble de ciclos); x8 solo iba un 15 % mas rapido.
     ap.add_argument("--escala", default="2")
-    ap.add_argument("--tope", type=int, default=3 * 3600)
+    ap.add_argument("--tope", type=int, default=8 * 3600, help="segundos que puede durar la tanda entera")
+    # (19/11) LA MEMORIA de cada Godot se va calentando (poses, hojas de cada color...) y en tandas de horas pasaba del GB:
+    # pasado este tope (memoria estatica, MB) se sale al acabar su caso y se relanza desde ahi. 0 = sin tope.
+    ap.add_argument("--tope-mb", dest="tope_mb", type=int, default=750)
     ap.add_argument("--sin-mutantes", action="store_true")
     ap.add_argument("--sin-jefes", action="store_true")
     ap.add_argument("--resumen", default="")
     ap.add_argument("--repetir", default="", help="la columna 'repetir' de una pelea: la vuelve a jugar igual, con ventana, y la graba en video")
     ap.add_argument("--corto", action="store_true", help="solo el resumen por piso y clase")
+    ap.add_argument("--contar", action="store_true", help="solo dice cuantas peleas saldrian (no juega ninguna)")
     a = ap.parse_args()
+    if a.contar:
+        print("[simulador] %s: %d peleas" % (a.tanda, contar(a)))
+        return
     if a.repetir:
         SALIDA.mkdir(parents=True, exist_ok=True)
         video = SALIDA / ("repetida_%s.avi" % a.repetir.replace(",", "_"))

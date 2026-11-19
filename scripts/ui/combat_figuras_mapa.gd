@@ -305,6 +305,10 @@ func _rect_cuerpo_px(cuerpo: Node2D) -> Rect2:
 # se queda quieto.
 static var _cache_pintado := {}
 static var _cache_pose := {}
+# CON TOPE (19/11, el simulador cazo que crecian sin parar): las texturas de los bichos se sueltan al salir del piso y al
+# volver se leen de nuevo, con otro id, y lo viejo se quedaba aqui para siempre. Pasado el tope se vacian (se rehacen
+# solas, cada entrada es una medida de un momento).
+const TOPE_CACHE := 20000
 
 
 # LO QUE OCUPA LA POSE ENTERA, no el fotograma suelto: el mayor de todos los fotogramas de la
@@ -320,6 +324,8 @@ func _tam_pose(spr: AnimatedSprite2D) -> Vector2:
 	var clave: String = "%d/%s" % [sf.get_instance_id(), spr.animation]
 	if _cache_pose.has(clave):
 		return _cache_pose[clave]
+	if _cache_pose.size() >= TOPE_CACHE:
+		_cache_pose.clear()
 	var tam := Vector2.ZERO
 	for i in sf.get_frame_count(spr.animation):
 		var t: Texture2D = sf.get_frame_texture(spr.animation, i)
@@ -337,6 +343,8 @@ func _centro_pose(spr: AnimatedSprite2D) -> Vector2:
 	var sf: SpriteFrames = spr.sprite_frames
 	var clave: String = "%d/%s" % [sf.get_instance_id(), spr.animation]
 	if not _cache_centro.has(clave):
+		if _cache_centro.size() >= TOPE_CACHE:
+			_cache_centro.clear()
 		var c := Vector2.ZERO
 		for i in sf.get_frame_count(spr.animation):
 			var at := sf.get_frame_texture(spr.animation, i) as AtlasTexture
@@ -349,9 +357,13 @@ func _centro_pose(spr: AnimatedSprite2D) -> Vector2:
 
 
 func _pintado_de(tex: Texture2D) -> Rect2i:
-	var clave: int = tex.get_rid().get_id()
+	# (19/11) POR LA TEXTURA, no por su RID: todos los AtlasTexture de una hoja comparten el RID de la hoja, asi que con
+	# las hojas horneadas (un atlas por bicho) TODOS sus fotogramas se quedaban con la caja del primero que se midio.
+	var clave: int = tex.get_instance_id()
 	if _cache_pintado.has(clave):
 		return _cache_pintado[clave]
+	if _cache_pintado.size() >= TOPE_CACHE:
+		_cache_pintado.clear()
 	var r := Rect2i(Vector2i.ZERO, tex.get_size())
 	var usado: Rect2i = SpriteLienzo.caja_pintada(tex)["caja"]
 	# Una textura entera transparente (un fotograma en blanco) devolveria un rect vacio: en ese
