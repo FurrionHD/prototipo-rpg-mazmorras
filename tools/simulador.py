@@ -440,6 +440,63 @@ def resumen_sets(base: str) -> None:
             print("      %7.1f  %s   (el peor)" % (val[orden[-1]], orden[-1]))
 
 
+# LA REVISION DE VELOCIDAD (19/11, lo pidio antes del lanzamiento definitivo: "si algun enemigo actua demasiado o muy
+# poco, o los aliados aun actuan demasiadas veces"): por piso, los turnos por ciclo de los tuyos (cada uno) y de cada
+# enemigo, y el cociente. Marca: enemigo < 0,3 o > 3 veces lo de los tuyos; piso donde los tuyos actuan mas del doble
+# (o menos de la mitad) que el enemigo medio. Y los errores del juego que hayan salido en la salida de los Godot.
+def revision_velocidad(base: str) -> None:
+    rp, re_ = Path(base + "_personajes.csv"), Path(base + "_enemigos.csv")
+    if not rp.exists() or not re_.exists():
+        return
+    with open(rp, encoding="utf-8") as f:
+        pers = [r for r in csv.DictReader(f, delimiter=";") if r.get("escenario") != "muneco"]
+    with open(re_, encoding="utf-8") as f:
+        enems = [r for r in csv.DictReader(f, delimiter=";") if r.get("escenario") != "muneco"]
+    if not pers or "turnos_por_ciclo" not in pers[0]:
+        return
+    tuyo = defaultdict(list)
+    for r in pers:
+        tuyo[int(r["piso"])].append(_f(r["turnos_por_ciclo"]))
+    suyo = defaultdict(lambda: defaultdict(list))
+    for r in enems:
+        suyo[int(r["piso"])][r["enemigo"]].append(_f(r["turnos_por_ciclo"]))
+    avisos = []
+    print()
+    print("REVISION DE VELOCIDAD: turnos por ciclo (cada uno) de los tuyos y de los enemigos, y tuyos / suyos")
+    print("  %5s %7s %7s %7s   %s" % ("piso", "tuyos", "suyos", "t/s", "los que se salen"))
+    for piso in sorted(tuyo):
+        t = sum(tuyo[piso]) / len(tuyo[piso])
+        todos = [x for xs in suyo[piso].values() for x in xs]
+        sm = sum(todos) / len(todos) if todos else 0.0
+        fuera = []
+        for en, xs in sorted(suyo[piso].items()):
+            m = sum(xs) / len(xs)
+            if t > 0 and (m < 0.3 * t or m > 3.0 * t):
+                fuera.append("%s %.2f" % (en, m))
+                avisos.append("piso %d: %s actua %.2f por ciclo frente a %.2f de los tuyos (x%.1f)" % (piso, en, m, t, m / t))
+        ratio = t / sm if sm > 0 else float("inf")
+        if ratio > 2.0 or ratio < 0.5:
+            avisos.append("piso %d: los tuyos actuan %.1f veces lo que el enemigo medio" % (piso, ratio))
+        print("  %5d %7.2f %7.2f %7.2f   %s" % (piso, t, sm, ratio, ", ".join(fuera)))
+    # los errores del juego en la salida cruda de los Godot
+    errores = defaultdict(int)
+    for crudo in Path(base).parent.glob(Path(base).name + "_[0-9]*.txt"):
+        texto = crudo.read_text(encoding="utf-8", errors="replace").splitlines()
+        for i, l in enumerate(texto):
+            if "SCRIPT ERROR" in l:
+                donde = texto[i + 1].strip() if i + 1 < len(texto) else ""
+                errores[(l.strip()[:110], donde[:90])] += 1
+    print()
+    print("ERRORES DEL JUEGO EN LA TANDA (%d distintos)" % len(errores))
+    for (e, d), n in sorted(errores.items(), key=lambda x: -x[1]):
+        print("  %4d x %s  %s" % (n, e, d))
+    if avisos:
+        print()
+        print("VELOCIDADES QUE SE SALEN (%d)" % len(avisos))
+        for a in avisos:
+            print("  - " + a)
+
+
 # EL DETECTOR DE RAREZAS (19/11): avisa solo de lo que se sale, para no tener que leerse las tablas enteras.
 def rarezas(base: str) -> None:
     avisos = []
@@ -574,6 +631,7 @@ def main():
     resumen_seguidas(base)
     ranking_armas(base)
     resumen_sets(base)
+    revision_velocidad(base)
     rarezas(base)
 
 
