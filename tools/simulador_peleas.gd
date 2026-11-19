@@ -49,17 +49,20 @@ const CABECERA_P := "P|tanda|reglas|pelea|piso|grupo|escenario|n_enem|gana|rol|a
 const CABECERA_E := "E|tanda|reglas|pelea|piso|grupo|escenario|n_enem|gana|enemigo|mutacion|jefe|vida_max|ataque|defensa|def_magica|velocidad|dano_hecho|dano_recibido|turnos|dano_por_turno|muere|t|fue/res/agi/des/mag/vol|ataque_magico|red_armadura|ciclos|dano_por_ciclo|turnos_por_ciclo"
 const PISOS_NIVEL := 12
 # piso: [nivel, habilidad del nivel, [bakeados], tier, mejoras, piezas de armadura]  (la de tabla_formulas)
+# 19/11: 750 AL FINAL DE CADA NIVEL (pisos 12, 24 y 36) y 750 lo que se bakea al subir (su indicacion: "pon 750 en todos y
+# asi es mejor media"; antes 700 y 800).
 const PROGRESION := {
 	1: [1, 50, [], 1, 0, 2],
 	2: [1, 100, [], 1, 1, 5],
 	6: [1, 350, [], 1, 7, 5],
 	7: [1, 400, [], 2, 0, 5],
-	12: [1, 700, [], 2, 7, 5],
-	13: [2, 100, [700.0], 3, 0, 5],
-	18: [2, 500, [700.0], 3, 7, 5],
-	24: [2, 800, [700.0], 4, 7, 5],   # el final del nivel 2: lo que se bakea al pasar al 3 (el 800 de abajo)
-	25: [3, 100, [700.0, 800.0], 5, 0, 5],
-	31: [3, 600, [700.0, 800.0], 6, 0, 5],
+	12: [1, 750, [], 2, 7, 5],
+	13: [2, 100, [750.0], 3, 0, 5],
+	18: [2, 500, [750.0], 3, 7, 5],
+	24: [2, 750, [750.0], 4, 7, 5],
+	25: [3, 100, [750.0, 750.0], 5, 0, 5],
+	31: [3, 600, [750.0, 750.0], 6, 0, 5],
+	36: [3, 750, [750.0, 750.0], 6, 7, 5],
 }
 # EL PERSONAJE DE REFERENCIA DE CUALQUIER PISO (19/11, lo pidio: "todos los pisos del 1 al 12, con la armadura, las armas y
 # las stats que deberian llevar en ese piso"): las habilidades se interpolan en linea recta entre los pisos de PROGRESION
@@ -193,7 +196,7 @@ var _solo_mut := ""
 
 
 func _ver_progresion() -> void:
-	for p in range(1, 32):
+	for p in range(1, 37):
 		print("[prog] piso %2d: %s" % [p, str(_prog(p))])
 
 
