@@ -207,6 +207,7 @@ func _empezar() -> void:
 	var hueco := Node.new()
 	get_tree().root.add_child(hueco)
 	get_tree().current_scene = hueco
+	_hueco = hueco
 	OS.set_environment("PRUEBA_SIN_MUTANTES", "1")   # los mutantes los pone el simulador, no salen solos
 	_leer_args()
 	if OS.get_cmdline_user_args().has("progresion"):
@@ -650,6 +651,7 @@ var _usado: Dictionary = {}   # Combatant -> {"manto": true, "buff": true}
 var _apuntes := 0
 var _hist: Dictionary = {}
 var _rehacer_arena := false
+var _hueco: Node = null
 # LA MEDICION de cada pelea
 var _n_pelea := 0
 var _lineas_extra: Array = []
@@ -812,6 +814,13 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 		if _ver and is_instance_valid(_cb):
 			var k: String = "st%d fase%d" % [int(_cb._state), int(_cb.turno_mapa._fase)]
 			_hist[k] = int(_hist.get(k, 0)) + 1
+			_hist["~nodos"] = int(_hist.get("~nodos", 0)) + int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT))
+			_hist["~ms_proceso"] = float(_hist.get("~ms_proceso", 0.0)) + Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
+			_hist["~ms_fisica"] = float(_hist.get("~ms_fisica", 0.0)) + Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0
+			var efx: int = 0
+			for n in get_tree().root.find_children("*", "EfectoPixel", true, false):
+				efx += 1
+			_hist["~efectos_pixel"] = int(_hist.get("~efectos_pixel", 0)) + efx
 		if not is_instance_valid(_cb):
 			resultado = "CERRADA"
 			break
@@ -1121,6 +1130,35 @@ func _cerrar() -> void:
 	await _esperar(2)
 	# Si han caido, la arena puede haberles sacado: se vuelve a montar (y al grupo dentro). Tambien tras una pelea atascada
 	# o en tablas: que lo que se quedara roto no se arrastre a las siguientes.
+	# EL PUEBLO FUERA (19/11): al perder, el juego te manda al pueblo (Net.pisos.viajar_al_pueblo) y se cargaba ENTERO de fondo
+	# (~1500 nodos: casas, humo, antorchas, sonidos) y se quedaba vivo el resto de la tanda, procesandose en cada fotograma.
+	var habia_pueblo := false
+	for h in get_tree().root.get_children():
+		if h.scene_file_path == "res://scenes/levels/town.tscn":
+			habia_pueblo = true
+			# ANTES de quitarlo: hay quien lee la escena actual (la puerta de la arena al montarse). El viaje al pueblo CAMBIA DE
+			# ESCENA y se lleva por delante nuestro nodo vacio: si ya no esta, uno nuevo.
+			if not is_instance_valid(_hueco):
+				_hueco = Node.new()
+				get_tree().root.add_child(_hueco)
+			get_tree().current_scene = _hueco
+			h.queue_free()
+	if habia_pueblo:
+		await _esperar(2)
+		_rehacer_arena = true
+	if _ver:
+		# QUE SE QUEDA COLGADO tras cada pelea (por clase y nombre de script), lo mas numeroso
+		var cuenta: Dictionary = {}
+		for n in get_tree().root.find_children("*", "", true, false):
+			var sc = n.get_script()
+			var k: String = n.get_class() + (":" + sc.resource_path.get_file() if sc != null else "")
+			cuenta[k] = int(cuenta.get(k, 0)) + 1
+		var ks: Array = cuenta.keys()
+		ks.sort_custom(func(a, b): return cuenta[a] > cuenta[b])
+		for h in get_tree().root.get_children():
+			print("   [raiz] %s (%s) escena=%s hijos=%d" % [h.name, h.get_class(), h.scene_file_path, h.find_children("*", "", true, false).size()])
+		print("   [nodos tras la pelea] total %d: %s" % [get_tree().root.find_children("*", "", true, false).size(),
+			", ".join(ks.slice(0, 12).map(func(k): return "%s=%d" % [k, cuenta[k]]))])
 	if _rehacer_arena or not Game.es_arena() or not is_instance_valid(sala.jugador):
 		_rehacer_arena = false
 		await sala.remontar(Game.PISO_ARENA)
