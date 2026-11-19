@@ -14,6 +14,9 @@
 #     con cuando se ven (APAGADOS DE SERIE / solo el del turno y el apuntado / todos), su trazo (a puntos o a rayas, en
 #     pixel: AroPixel), su color libre con opacidad, el grosor y las medidas del trazo. Los lee ArenaCombate al pintar
 #     y CombatTactico._tick_alcances para saber de quien.
+#     Y EL CIRCULO DE MOVIMIENTO (19/11, el grande del turno: hasta donde te mueves), en el mismo diccionario, uno por
+#     bando ("mov_tuyos", "mov_enemigos"): visible de serie, trazo continuo/rayas/puntos, color, opacidad del borde y
+#     del relleno, grosor y medidas del trazo.
 #
 #  Ajustes de MAQUINA y no de partida, como los volumenes y la pantalla: viven en user://ajustes.cfg, en su seccion, y
 #  se LEE ANTES DE ESCRIBIR para no llevarse por delante las de Sonido y Ventana (ver prueba_ventana_ajustes).
@@ -43,11 +46,20 @@ var decimales: int = Decimales.DEFECTO
 
 # --- LOS CIRCULOS DE ALCANCE ---
 enum Alcance { APAGADO, TURNO, TODOS }
-const GRUPOS_ALCANCE := ["tuyos", "enemigos"]
+const GRUPOS_ALCANCE := ["tuyos", "enemigos", "mov_tuyos", "mov_enemigos"]
 const MODOS_ALCANCE := [
 	{"id": Alcance.APAGADO, "nombre": "Apagados"},
 	{"id": Alcance.TURNO, "nombre": "Solo del turno"},   # el de quien juega y el que apuntas
 	{"id": Alcance.TODOS, "nombre": "Todos"},
+]
+const MODOS_MOVIMIENTO := [
+	{"id": Alcance.TODOS, "nombre": "Visible"},
+	{"id": Alcance.APAGADO, "nombre": "Oculto"},
+]
+const TRAZOS_MOVIMIENTO := [
+	{"id": 2, "nombre": "Continuo"},   # AroPixel.Trazo.CONTINUO
+	{"id": 1, "nombre": "A rayas"},
+	{"id": 0, "nombre": "A puntos"},
 ]
 const TRAZOS_ALCANCE := [
 	{"id": 1, "nombre": "A rayas"},    # AroPixel.Trazo.RAYAS
@@ -59,9 +71,14 @@ const ALCANCE_DEFECTO := {
 		"largo": 6, "hueco": 4},
 	"enemigos": {"modo": Alcance.APAGADO, "trazo": 1, "color": Color(1.0, 0.4, 0.35), "opacidad": 45, "tam": 1,
 		"largo": 6, "hueco": 4},
+	# El de movimiento SE VE de serie (sin el no sabes hasta donde llegas): los colores de siempre, borde continuo.
+	"mov_tuyos": {"modo": Alcance.TODOS, "trazo": 2, "color": Color(0.45, 0.85, 1.0), "opacidad": 70, "relleno": 10,
+		"tam": 1, "largo": 6, "hueco": 4},
+	"mov_enemigos": {"modo": Alcance.TODOS, "trazo": 2, "color": Color(1.0, 0.45, 0.35), "opacidad": 70, "relleno": 10,
+		"tam": 1, "largo": 6, "hueco": 4},
 }
 # Los topes de cada mando (los usa Ajustes para sus deslizadores y _cargar para no fiarse del fichero).
-const ALCANCE_TOPES := {"opacidad": [10, 100], "tam": [1, 3], "largo": [1, 16], "hueco": [1, 16]}
+const ALCANCE_TOPES := {"opacidad": [10, 100], "tam": [1, 3], "largo": [1, 16], "hueco": [1, 16], "relleno": [0, 40]}
 # El del turno y el apuntado, mas marcados que los demas: su opacidad sube esto (hasta el 100 %).
 const ALCANCE_EXTRA_FUERTE := 0.35
 
@@ -115,6 +132,16 @@ func ve_alcance(enemigo: bool, fuerte: bool) -> bool:
 	return m == Alcance.TODOS or (m == Alcance.TURNO and fuerte)
 
 
+# EL CIRCULO DE MOVIMIENTO: si se ve, y el color de su borde y de su relleno (del tuyo o del de un enemigo).
+func ve_movimiento(enemigo: bool) -> bool:
+	return int(alcance["mov_enemigos" if enemigo else "mov_tuyos"]["modo"]) != Alcance.APAGADO
+
+
+func color_movimiento(enemigo: bool, relleno: bool = false) -> Color:
+	var m: Dictionary = alcance["mov_enemigos" if enemigo else "mov_tuyos"]
+	return Color(m["color"], float(m["relleno" if relleno else "opacidad"]) / 100.0)
+
+
 # El color con su opacidad (y el extra si es el del turno o el apuntado).
 func color_alcance(enemigo: bool, fuerte: bool) -> Color:
 	var a: Dictionary = alcance["enemigos" if enemigo else "tuyos"]
@@ -129,7 +156,7 @@ func _sanear(clave: String, v):
 		"modo":
 			return clampi(int(v), 0, 2)
 		"trazo":
-			return clampi(int(v), 0, 1)
+			return clampi(int(v), 0, 2)
 		"color":
 			return Color(v) if (v is Color) else Color.WHITE
 	if ALCANCE_TOPES.has(clave):

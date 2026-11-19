@@ -387,6 +387,7 @@ func _ready_aros() -> void:
 func _pintar_aros() -> void:
 	if ajena:
 		return
+	_pintar_movimiento()
 	for al in alcances:
 		var enemigo: bool = bool(al[2])
 		var fuerte: bool = bool(al[3])
@@ -396,6 +397,24 @@ func _pintar_aros() -> void:
 		var tex: Texture2D = AroPixel.textura(float(al[1]), int(a["trazo"]), int(a["tam"]), int(a["largo"]),
 			int(a["hueco"]))
 		_aros.draw_texture(tex, AroPixel.esquina(al[0], tex), Preferencias.color_alcance(enemigo, fuerte))
+
+
+# EL CIRCULO DE MOVIMIENTO (hasta donde se mueve el del turno), en pixel: relleno suave, el borde con su trazo (latiendo
+# despacio, como antes) y un punto en su sitio de salida.
+func _pintar_movimiento() -> void:
+	if circulo_radio <= 0.0 or not Preferencias.ve_movimiento(circulo_enemigo):
+		return
+	var m: Dictionary = Preferencias.alcance["mov_enemigos" if circulo_enemigo else "mov_tuyos"]
+	var relleno: Color = Preferencias.color_movimiento(circulo_enemigo, true)
+	if relleno.a > 0.0:
+		var disco: Texture2D = AroPixel.disco(circulo_radio)
+		_aros.draw_texture(disco, AroPixel.esquina(circulo_centro, disco), relleno)
+	var tex: Texture2D = AroPixel.textura(circulo_radio, int(m["trazo"]), int(m["tam"]), int(m["largo"]),
+		int(m["hueco"]))
+	var borde: Color = Preferencias.color_movimiento(circulo_enemigo)
+	borde.a *= 0.8 + 0.2 * (0.5 + 0.5 * sin(_t * 2.2))
+	_aros.draw_texture(tex, AroPixel.esquina(circulo_centro, tex), borde)
+	_aros.draw_rect(Rect2(circulo_centro.round() - Vector2(2, 2), Vector2(4, 4)), Color(borde, 0.85))
 
 
 func _ready() -> void:
@@ -440,11 +459,7 @@ func _draw() -> void:
 		_trazos(tr["a"], tr["b"], col)
 
 	# 3) EL CIRCULO DE MOVIMIENTO, sin achatar (es suelo, como el rectangulo).
-	if circulo_radio > 0.0:
-		var base: Color = Color(1.0, 0.45, 0.35) if circulo_enemigo else Color(0.45, 0.85, 1.0)
-		draw_circle(circulo_centro, circulo_radio, Color(base, 0.10))
-		draw_arc(circulo_centro, circulo_radio, 0.0, TAU, 72, Color(base, 0.55 + 0.2 * late), 2.0)
-		draw_circle(circulo_centro, 3.0, Color(base, 0.8))   # de donde salio: su sitio al empezar
+	# (19/11) Lo pinta _aros, en pixel y con lo que diga la pestaña Juego (ver _pintar_movimiento).
 
 	# 3b) LOS ALCANCES (B4, playtest 11/10): los pinta _aros (ver _pintar_aros), en pixel y con lo que diga la
 	# pestaña Juego.

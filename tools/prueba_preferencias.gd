@@ -185,6 +185,27 @@ func _circulos() -> void:
 		A.textura(40.0, A.Trazo.RAYAS, 1, 6, 4) == A.textura(40.0, A.Trazo.RAYAS, 1, 6, 4))
 	_ok("con todo entero, el aro completo", entero >= rec.size() - 1)
 
+	# EL CIRCULO DE MOVIMIENTO (19/11): uno por bando, se ve de serie, continuo, con su relleno y su color.
+	for g in ["mov_tuyos", "mov_enemigos"]:
+		_ok(g + ": visible de serie", int(P.ALCANCE_DEFECTO[g]["modo"]) != P.Alcance.APAGADO)
+		_ok(g + ": continuo de serie", int(P.ALCANCE_DEFECTO[g]["trazo"]) == A.Trazo.CONTINUO)
+		P.alcance[g] = (P.ALCANCE_DEFECTO[g] as Dictionary).duplicate()
+	_ok("movimiento: se ven los dos", P.ve_movimiento(false) and P.ve_movimiento(true))
+	_ok("movimiento: el del enemigo con su color", P.color_movimiento(true).is_equal_approx(
+		Color(P.ALCANCE_DEFECTO["mov_enemigos"]["color"], 0.7)))
+	_ok("movimiento: el relleno mas suave que el borde", P.color_movimiento(false, true).a < P.color_movimiento(false).a)
+	P.fijar_alcance("mov_enemigos", "modo", P.Alcance.APAGADO, false)
+	_ok("movimiento: ocultar el de los enemigos no oculta el tuyo", not P.ve_movimiento(true) and P.ve_movimiento(false))
+	P.fijar_alcance("mov_tuyos", "trazo", A.Trazo.PUNTOS, false)
+	_ok("movimiento: cada bando con su trazo", int(P.alcance["mov_enemigos"]["trazo"]) == A.Trazo.CONTINUO)
+	P.fijar_alcance("mov_tuyos", "relleno", 99, false)
+	_ok("movimiento: un relleno imposible se recorta", int(P.alcance["mov_tuyos"]["relleno"]) == int(P.ALCANCE_TOPES["relleno"][1]))
+	var cont: int = _llenos(A.textura(40.0, A.Trazo.CONTINUO, 1, 6, 4))
+	_ok("continuo: el aro entero, sin huecos", cont == rec.size())
+	var disco: Texture2D = A.disco(40.0)
+	_ok("el disco del relleno, del mismo lado que el aro", disco.get_width() == A.textura(40.0, A.Trazo.CONTINUO, 1, 6, 4).get_width())
+	_ok("el disco, lleno como un circulo (pi r2)", absf(float(_llenos(disco)) / (PI * 40.5 * 40.5) - 1.0) < 0.03)
+
 	P.alcance = antes
 	A._cache.clear()
 

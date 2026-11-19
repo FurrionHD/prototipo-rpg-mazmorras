@@ -10,7 +10,7 @@
 
 extends RefCounted
 
-enum Trazo { PUNTOS, RAYAS }
+enum Trazo { PUNTOS, RAYAS, CONTINUO }
 
 const MAX_CACHE := 96
 
@@ -38,7 +38,7 @@ static func textura(radio: float, trazo: int, tam: int, largo: int, hueco: int) 
 	# punto no se pega al primero.
 	var periodo: int = (tam if trazo == Trazo.PUNTOS else largo) + hueco
 	var veces: int = maxi(1, roundi(float(n) / float(periodo)))
-	var lleno: float = float(tam if trazo == Trazo.PUNTOS else largo) / float(periodo)
+	var lleno: float = 1.0 if trazo == Trazo.CONTINUO else float(tam if trazo == Trazo.PUNTOS else largo) / float(periodo)
 	var c0: int = r + 1
 	var ultimo_punto: int = -1
 	for i in n:
@@ -59,6 +59,28 @@ static func textura(radio: float, trazo: int, tam: int, largo: int, hueco: int) 
 				var y: int = c0 + p.y - o + dy
 				if x >= 0 and y >= 0 and x < lado and y < lado:
 					img.set_pixel(x, y, Color.WHITE)
+	var tex := ImageTexture.create_from_image(img)
+	_cache[clave] = tex
+	return tex
+
+
+# UN DISCO LLENO de radio 'radio', en pixeles enteros (el relleno del circulo de movimiento). Mismo lado que la textura
+# del aro de 1 px del mismo radio, para que caigan uno encima del otro.
+static func disco(radio: float) -> ImageTexture:
+	var r: int = maxi(2, roundi(radio))
+	var clave: String = "disco|%d" % r
+	if _cache.has(clave):
+		return _cache[clave]
+	if _cache.size() >= MAX_CACHE:
+		_cache.clear()
+	var lado: int = 2 * r + 3
+	var img := Image.create(lado, lado, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var c0: int = r + 1
+	var r2: float = (float(r) + 0.5) * (float(r) + 0.5)
+	for y in range(-r, r + 1):
+		var mitad: int = int(floor(sqrt(maxf(r2 - float(y * y), 0.0))))
+		img.fill_rect(Rect2i(c0 - mitad, c0 + y, 2 * mitad + 1, 1), Color.WHITE)
 	var tex := ImageTexture.create_from_image(img)
 	_cache[clave] = tex
 	return tex
