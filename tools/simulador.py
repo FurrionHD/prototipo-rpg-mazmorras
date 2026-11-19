@@ -14,8 +14,8 @@ pruebas, con un piloto automatico que juega como un jugador (ver la cabecera de 
   python tools/simulador.py --armas todas --grupos solo_guerrero,trio --escenarios uno,piso,jefe --tanda armas   # TODAS las armas
   python tools/simulador.py --resumen tools/resultados_simulador/hoy.csv   # solo rehacer el resumen de un CSV
 
-Cada Godot ocupa ~300-400 MB: con poca RAM libre, menos --hilos ([[cuidado-con-la-ram]]). Por defecto la mitad de los
-nucleos menos uno, con tope 4.
+Cada Godot ocupa ~450-500 MB: por defecto se lanzan los que quepan en la RAM LIBRE (dejando 1,5 GB) sin pasar de los
+nucleos menos dos; --hilos N lo fuerza.
 Salida: tools/resultados_simulador/<tanda>.csv (+ <tanda>_<i>.txt, la salida cruda de cada Godot).
 """
 import argparse
@@ -33,10 +33,43 @@ GODOT = Path(os.environ.get("LOCALAPPDATA", "")) / ("Microsoft/WinGet/Packages/"
     "GodotEngine.GodotEngine_Microsoft.Winget.Source_8wekyb3d8bbwe/Godot_v4.7-stable_win64_console.exe")
 
 
+# CUANTOS GODOT A LA VEZ (19/11, el jefe: "¿seguro que el PC solo puede con 4?"): lo que quepa en la RAM LIBRE dejando
+# 1,5 GB de margen (~500 MB por Godot con la arena montada) y sin pasar de los nucleos menos dos ([[cuidado-con-la-ram]],
+# [[no-ocupar-todos-los-nucleos]]). En el portatil saldra otra cuenta: por eso se mira al arrancar.
+MB_POR_GODOT = 500
+MARGEN_MB = 1500
+
+
+def ram_libre_mb() -> int:
+    try:
+        import ctypes
+
+        class MEM(ctypes.Structure):
+            _fields_ = [("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong), ("ullTotalPhys", ctypes.c_ulonglong),
+                        ("ullAvailPhys", ctypes.c_ulonglong), ("ullTotalPageFile", ctypes.c_ulonglong),
+                        ("ullAvailPageFile", ctypes.c_ulonglong), ("ullTotalVirtual", ctypes.c_ulonglong),
+                        ("ullAvailVirtual", ctypes.c_ulonglong), ("sullAvailExtendedVirtual", ctypes.c_ulonglong)]
+        m = MEM()
+        m.dwLength = ctypes.sizeof(MEM)
+        ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m))
+        return int(m.ullAvailPhys / (1024 * 1024))
+    except Exception:
+        return 4000
+
+
+def hilos_auto() -> int:
+    por_ram = (ram_libre_mb() - MARGEN_MB) // MB_POR_GODOT
+    por_cpu = max(1, (os.cpu_count() or 4) - 2)
+    return int(max(1, min(por_ram, por_cpu)))
+
+
 def lanzar(a) -> Path:
+    if a.hilos <= 0:
+        a.hilos = hilos_auto()
+        print("[simulador] %d Godot a la vez (RAM libre %d MB, %d nucleos)" % (a.hilos, ram_libre_mb(), os.cpu_count() or 0))
     SALIDA.mkdir(parents=True, exist_ok=True)
     extra = ["veces=%d" % a.veces, "tanda=%s" % a.tanda, "reglas=%s" % a.reglas, "escala=%s" % a.escala]
-    for k in ("pisos", "clases", "grupos", "escenarios", "solo", "arma", "armas", "armaduras", "pociones", "escala_des"):
+    for k in ("pisos", "clases", "grupos", "escenarios", "solo", "arma", "armas", "armaduras", "sets", "pociones", "escala_des"):
         v = getattr(a, k)
         if v:
             extra.append("%s=%s" % (k, v))
@@ -150,6 +183,8 @@ def resumen(ruta: Path, detalle: bool = True) -> None:
             return r["escenario"]
         return "uno-jefe" if r["jefe"] == "1" else ("uno-mutante" if r["mutacion"] != "-" else "uno-normal")
     for (piso, grupo, t), rs in sorted(bloque(lambda r: (int(r["piso"]), r.get("grupo", r.get("clase", "")), tipo(r))).items()):
+        if t == "muneco":
+            continue   # el muñeco no muere: va en el ranking de armas
         print("%-36s %s" % ("piso %2d %-13s %-12s" % (piso, grupo, t), linea(rs)))
     if not detalle:
         return
@@ -373,6 +408,34 @@ def resumen_seguidas(base: str) -> None:
             sum(_f(r["pociones_que_quedan"]) for r in rs) / len(rs)))
 
 
+# LOS SETS DE HABILIDADES: por piso y equipo, los sets ordenados por daño por ciclo contra el muñeco (los 5 mejores y el peor).
+def resumen_sets(base: str) -> None:
+    ruta = Path(base + "_personajes.csv")
+    if not ruta.exists():
+        return
+    with open(ruta, encoding="utf-8") as f:
+        filas = [r for r in csv.DictReader(f, delimiter=";") if r.get("habilidades_puestas") and r["escenario"] == "muneco"
+                 and r["rol"] in ("guerrero", "arquero")]
+    g = defaultdict(lambda: defaultdict(list))
+    for r in filas:
+        g[(int(r["piso"]), r["arma"], r["armadura"])][r["habilidades_puestas"]].append(r)
+    if not any(len(v) > 1 for v in g.values()):
+        return
+    print()
+    print("SETS DE HABILIDADES (daño por ciclo contra el muñeco; los 5 mejores y el peor de cada equipo)")
+    for k in sorted(g):
+        sets = g[k]
+        if len(sets) < 2:
+            continue
+        val = {st: sum(_f(r["dano_hecho"]) for r in rs) / max(sum(_f(r.get("ciclos", "0")) for r in rs), 0.01) for st, rs in sets.items()}
+        orden = sorted(val, key=lambda st: -val[st])
+        print("  piso %2d %s @%s" % k)
+        for st in orden[:5]:
+            print("      %7.1f  %s" % (val[st], st))
+        if len(orden) > 5:
+            print("      %7.1f  %s   (el peor)" % (val[orden[-1]], orden[-1]))
+
+
 # EL DETECTOR DE RAREZAS (19/11): avisa solo de lo que se sale, para no tener que leerse las tablas enteras.
 def rarezas(base: str) -> None:
     avisos = []
@@ -458,7 +521,7 @@ def main():
     except (AttributeError, ValueError):
         pass
     ap = argparse.ArgumentParser()
-    ap.add_argument("--hilos", type=int, default=max(1, min(4, (os.cpu_count() or 4) // 2 - 1)))
+    ap.add_argument("--hilos", type=int, default=0, help="cuantos Godot a la vez (0 = los que quepan en la RAM libre)")
     ap.add_argument("--veces", type=int, default=3)
     ap.add_argument("--pisos", default="")
     ap.add_argument("--clases", default="", help="guerrero,mago = grupos solo_guerrero,solo_mago (lo de antes)")
@@ -469,6 +532,7 @@ def main():
     ap.add_argument("--solo", default="")
     ap.add_argument("--arma", default="")
     ap.add_argument("--armas", default="", help="todas (todas las combinaciones de manos), basicas (las once solas), o una lista 'daga+escudo_pequeno,...'")
+    ap.add_argument("--sets", default="", help="todos = cada combinacion de 4 habilidades que pueda llevar cada equipo (¡muchas!)")
     ap.add_argument("--armaduras", default="", help="todas (tela, cuero, hierro, placas) o una lista: el hueco del guerrero la lleva en vez de la de su perfil")
     ap.add_argument("--tanda", default="hoy")
     ap.add_argument("--reglas", default="hoy")
@@ -500,6 +564,7 @@ def main():
     estados_y_elementos(base)
     resumen_seguidas(base)
     ranking_armas(base)
+    resumen_sets(base)
     rarezas(base)
 
 

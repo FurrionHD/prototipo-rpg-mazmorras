@@ -44,7 +44,7 @@ extends Node
 const CABECERA := "R|tanda|reglas|piso|grupo|escenario|arma|enemigo|mutacion|jefe|n_enem|t|gana|turnos_yo|turnos_el|vida_perdida|caidos|mp_gastado|dano_por_turno|dano_recibido_por_turno_suyo|segundos|acciones|fotogramas|ms_por_fotograma|pelea|ciclos|dano_por_ciclo|estados_en_enemigos|estados_en_los_tuyos|n_seguida|repetir"
 # Una linea POR PERSONAJE de los tuyos en cada pelea (lo pidio: "daños de cada uno, cuanto tanquean con cada armadura, el
 # dps medio, cuanto hace cada arma en su turno, si alguno se queda sin energia demasiado rapido"):
-const CABECERA_P := "P|tanda|reglas|pelea|piso|grupo|escenario|n_enem|gana|rol|arma|armadura|vida_max|defensa|def_magica|mitig_fisica|mitig_magica|dano_hecho|dano_recibido|turnos|dano_por_turno|recibido_por_turno_enemigo|cayo|energia_media_al_empezar_turno|turnos_sin_energia|primer_turno_sin_energia|mp_gastado|turnos_sin_mana|primer_turno_sin_mana|pociones|acciones|nivel|tier|mejoras|fue/res/agi/des/mag/vol|ataque|velocidad|max_mp|max_energia|red_armadura|red_armadura_magica|ciclos|dano_por_ciclo|turnos_por_ciclo|recibido_por_ciclo|dano_por_elemento"
+const CABECERA_P := "P|tanda|reglas|pelea|piso|grupo|escenario|n_enem|gana|rol|arma|armadura|vida_max|defensa|def_magica|mitig_fisica|mitig_magica|dano_hecho|dano_recibido|turnos|dano_por_turno|recibido_por_turno_enemigo|cayo|energia_media_al_empezar_turno|turnos_sin_energia|primer_turno_sin_energia|mp_gastado|turnos_sin_mana|primer_turno_sin_mana|pociones|acciones|nivel|tier|mejoras|fue/res/agi/des/mag/vol|ataque|velocidad|max_mp|max_energia|red_armadura|red_armadura_magica|ciclos|dano_por_ciclo|turnos_por_ciclo|recibido_por_ciclo|dano_por_elemento|habilidades_puestas"
 # Y una POR ENEMIGO (crias y refuerzos incluidos):
 const CABECERA_E := "E|tanda|reglas|pelea|piso|grupo|escenario|n_enem|gana|enemigo|mutacion|jefe|vida_max|ataque|defensa|def_magica|velocidad|dano_hecho|dano_recibido|turnos|dano_por_turno|muere|t|fue/res/agi/des/mag/vol|ataque_magico|red_armadura|ciclos|dano_por_ciclo|turnos_por_ciclo"
 const PISOS_NIVEL := 12
@@ -158,6 +158,10 @@ var _armas: Array = []
 # como 'arma@armadura'.
 const ARMADURAS_TODAS := ["tela", "cuero", "hierro", "placas"]
 var _armaduras: Array = []
+# LOS SETS DE HABILIDADES (19/11, lo pidio: "solo tenemos 4 huecos y hay armas con 6, y con escudo se juntan"): 'sets=todos'
+# prueba CADA combinacion de 4 de las que puede llevar ese equipo (las del arma, las de la otra mano y las del escudo). Se
+# apunta como 'arma@armadura#hab1;hab2;hab3;hab4'. Sin esto, las 4 primeras (el autorrelleno del juego).
+var _sets_todos := false
 
 
 # TODAS LAS COMBINACIONES LEGALES de manos: las de una mano solas, dobles (si se puede) y con escudo pequeño (broquel),
@@ -238,6 +242,7 @@ func _leer_args() -> void:
 						w.escala_destreza = float(ab[1])
 						print("[sim] %s: escala_destreza %.2f (solo en esta simulacion)" % [ab[0], w.escala_destreza])
 			"armas": _armas = equipos_todos() if kv[1] == "todas" else (ARMAS_TODAS.duplicate() if kv[1] == "basicas" else Array(kv[1].split(",")))
+			"sets": _sets_todos = kv[1] == "todos"
 			"armaduras": _armaduras = ARMADURAS_TODAS.duplicate() if kv[1] == "todas" else Array(kv[1].split(","))
 			"tanda": _tanda = kv[1]
 			"reglas": _reglas = kv[1]
@@ -281,6 +286,10 @@ const REPARTO := {
 
 func _personaje(piso: int, rol: String, en_grupo: bool, arma_g: String = "") -> PersonajeData:
 	var arma_guerrero: String = arma_g if arma_g != "" else _arma
+	var set_forzado: Array = []
+	if arma_guerrero.contains("#"):
+		set_forzado = Array(arma_guerrero.get_slice("#", 1).split(";"))
+		arma_guerrero = arma_guerrero.get_slice("#", 0)
 	var armadura_forzada: String = ""
 	if arma_guerrero.contains("@"):
 		armadura_forzada = arma_guerrero.get_slice("@", 1)
@@ -353,6 +362,13 @@ func _personaje(piso: int, rol: String, en_grupo: bool, arma_g: String = "") -> 
 		for n in HABS_TANQUE:
 			set_t.append(load("res://resources/abilities/%s.tres" % n))
 		p.loadout_habilidades[Game.clave_loadout(p)] = set_t
+	elif not set_forzado.is_empty() and rol in ["guerrero", "arquero"]:
+		var set_g: Array = []
+		for n in set_forzado:
+			set_g.append(load("res://resources/abilities/%s.tres" % n))
+		while set_g.size() < Game.MAX_HABILIDADES:
+			set_g.append(null)
+		p.loadout_habilidades[Game.clave_loadout(p)] = set_g
 	var magias: Array = []
 	match rol:
 		"mago": magias = MAGIAS_MAGO_GRUPO if en_grupo else MAGIAS_MAGO
@@ -443,6 +459,20 @@ func _casos() -> Array:
 			for ar in _armaduras:
 				con.append("%s@%s" % [a, ar])
 		armas = con
+	if _sets_todos:
+		var con_sets: Array = []
+		var vistos: Dictionary = {}
+		for a in armas:
+			var pj: PersonajeData = _personaje(1, "guerrero", false, a)
+			var pool: Array = Game.pool_habilidades(pj)
+			var nombres: Array = pool.map(func(ab): return ab.resource_path.get_file().get_basename())
+			for combo in _combinaciones(nombres, mini(4, nombres.size())):
+				var clave: String = "%s#%s" % [a, ";".join(combo)]
+				if not vistos.has(clave):
+					vistos[clave] = true
+					con_sets.append(clave)
+		armas = con_sets
+		print("[sim] sets de habilidades: %d equipos con sus sets" % armas.size())
 	var out: Array = []
 	for c in base:
 		if (GRUPOS[c[1]] as Array).has("guerrero"):
@@ -450,6 +480,19 @@ func _casos() -> Array:
 				out.append(c + [a])
 		else:
 			out.append(c + [""])
+	return out
+
+
+# Todas las combinaciones de 'k' elementos de 'lista' (en su orden).
+static func _combinaciones(lista: Array, k: int) -> Array:
+	if k <= 0:
+		return [[]]
+	if lista.size() < k:
+		return []
+	var out: Array = []
+	for i in lista.size() - k + 1:
+		for resto in _combinaciones(lista.slice(i + 1), k - 1):
+			out.append([lista[i]] + resto)
 	return out
 
 
@@ -870,7 +913,8 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 			+ "|%d|%d|%d|%s|%.2f|%.2f|%.1f|%.1f|%.3f|%.3f" % [int(_prog(piso)[0]), int(_prog(piso)[3]),
 			int(_prog(piso)[4]), _habs(a), a.atk(), a.spd(), a.max_mp, a.max_energy, a.armor_reduction, a.armor_reduction_magica]
 			+ "|%.2f|%.2f|%.2f|%.2f|%s" % [ciclos, float(_hecho.get(a, 0.0)) / ciclos, float(n_t) / ciclos,
-			float(_recibido.get(a, 0.0)) / ciclos, _txt_reparto(_por_elem.get(a, {}))])
+			float(_recibido.get(a, 0.0)) / ciclos, _txt_reparto(_por_elem.get(a, {}))]
+			+ "|" + ";".join(Game.habilidades_equipadas(pj).map(func(ab): return ab.nombre)) if pj != null else "")
 	for e in enems:
 		var st: Array = stats_e.get(e, [e.max_hp, e.atk(), e.def_value(), e.mdef_value(), e.spd()])
 		var n_e: int = int(_turnos.get(e, 0))
@@ -1289,7 +1333,8 @@ func _pilotar() -> void:
 			for k in ["obj", "aliado"]:
 				if ver_plan.get(k) != null:
 					ver_plan[k] = (ver_plan[k] as Combatant).nombre
-			print("   [piloto] %s turno %d plan %s" % [yo.nombre, turno_id, str(ver_plan)])
+			print("   [piloto] %s turno %d plan %s | dist %.0f llega %s radio %.0f pies %s" % [yo.nombre, turno_id, str(ver_plan),
+				tm.pies_de(yo).distance_to(tm.pies_de(obj)), str(tm.llega(yo, obj)), float(tm._radio), str(tm.pies_de(yo).round())])
 	if _plan.has("huir_a"):
 		var p0: Vector2 = tm.pies_de(yo)
 		var meta: Vector2 = _plan["huir_a"]
@@ -1326,6 +1371,21 @@ func _pilotar() -> void:
 		if _quieto < 6 and _pasos < 240:
 			_andar_hacia((tm.pies_de(hacia_quien) - p).normalized())
 			return
+		# SE HA ATASCADO CONTRA SU CUERPO sin llegar (19/11: el muñeco del piso 1, cualquiera que no se mueva): RODEARLE, a un
+		# hueco libre de su alrededor mas cerca que donde esta. Una vez por turno.
+		if not _plan.get("rodeado", false):
+			_plan["rodeado"] = true
+			var de: Vector2 = tm.pies_de(hacia_quien)
+			var ahora: float = p.distance_to(de)
+			var rodeo = _buscar_sitio(yo, func(q): return q.distance_to(de) < ahora - 8.0 and q.distance_to(de) > 12.0,
+				func(q): return q.distance_to(de))
+			if rodeo != null:
+				_plan["huir_a"] = rodeo
+				_quieto = 0
+				_pasos = 0
+				_mejor_dist = INF
+				_apuntar_accion("%s rodea" % _rol(yo))
+				return
 		# no llega (se acabo el circulo): defender
 		_plan = {"que": "defender", "quien": yo, "turno": turno_id, "obj": obj}
 	_soltar_teclas()
