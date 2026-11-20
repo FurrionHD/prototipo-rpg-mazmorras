@@ -1115,7 +1115,8 @@ func _init(nombre_: String, level_: int, abilities_: Abilities,
 	base_defense = base_defense_
 	base_speed = base_speed_
 
-	max_hp = StatsMath.max_hp_value(abilities, level, base_hp)
+	max_hp = StatsMath.max_hp_jugador(abilities, base_hp) if StatsMath.reglas_nuevas \
+		else StatsMath.max_hp_value(abilities, level, base_hp)
 	current_hp = max_hp
 	max_mp = StatsMath.max_mp_value(abilities, level)
 	current_mp = max_mp
@@ -1177,7 +1178,7 @@ func def_value() -> float:
 	# la coraza, no los huesos. Por eso va aqui y no multiplicando el resultado como Vulnerable.
 	var base: float = base_defense + extra_defense * status_def_flat_mult()
 	var ab: Abilities = abilities_eff()
-	var d: float = StatsMath.defense_jugador(ab, base) if stats_multiplicativas \
+	var d: float = StatsMath.defense_jugador(ab, base) if _multiplicativa() \
 		else StatsMath.defense_value(ab, level, base)
 	return d * status_def_mult() * (1.0 + runa_def_pct)
 func spd() -> float:
@@ -1197,8 +1198,15 @@ func cast_spd() -> float: return _spd_base() * cast_velocidad_mult * status_spd_
 # Velocidad "cruda" segun la Agilidad (multiplicativa en el jugador, aditiva en los enemigos).
 func _spd_base() -> float:
 	var ab: Abilities = abilities_eff()
-	return StatsMath.speed_jugador(ab, base_speed + runa_vel) if stats_multiplicativas \
+	return StatsMath.speed_jugador(ab, base_speed + runa_vel) if _multiplicativa() \
 		else StatsMath.speed_value(ab, level, base_speed)
+
+
+# ¿Sus stats van por la formula MULTIPLICATIVA? El jugador siempre; los enemigos solo con las reglas nuevas encendidas
+# (StatsMath.reglas_nuevas, de serie apagadas). Ojo: stats_multiplicativas TAMBIEN significa "es personaje" (Voluntad,
+# fichas...): por eso no se toca, se pregunta aqui.
+func _multiplicativa() -> bool:
+	return stats_multiplicativas or StatsMath.reglas_nuevas
 
 # Penalizacion de velocidad de la postura de guardia (1.0 = sin postura).
 func _guardia_spd() -> float: return guardia_spd_mult if en_guardia else 1.0
@@ -1276,7 +1284,23 @@ func take_damage(amount: float, es_dot: bool = false) -> void:
 		if amount > 0.0 and has_status(StatusEffects.Id.EN_SOMBRAS):
 			_quitar_status(StatusEffects.Id.EN_SOMBRAS)
 			print("[sombras] %s: el golpe le saca de las sombras" % nombre)
+	var antes_hp: float = current_hp
 	current_hp = maxf(0.0, current_hp - amount)
+	if al_recibir.is_valid():
+		al_recibir.call(self, antes_hp - current_hp, es_dot)
+
+
+# SOLO HERRAMIENTAS (tools/simulador_peleas.gd, 19/11): si esta puesto, se le avisa de la vida que quita cada daño que entra
+# (ya con defensa, armadura, escudos y costras). En el juego esta siempre vacio.
+static var al_recibir: Callable = Callable()
+# Y EL ELEMENTO del golpe que esta entrando (20/11): lo ponen los golpes de hechizo (CombatMagia) justo antes de
+# take_damage y lo quitan despues, para que el simulador parta el daño de un hechizo de varios elementos (la Tormenta: agua y
+# rayo) golpe a golpe. -1 = no lo dice (golpes de arma, DoT...). En el juego no lo lee nadie.
+static var elem_golpe: int = -1
+# Y DE QUE ESTADO venia cada parte del ultimo DoT ({nombre: daño antes de aguantes}), para repartirlo. Solo se rellena con el
+# gancho puesto.
+var ultimo_dot: Dictionary = {}
+var _dot_desglose: Dictionary = {}
 
 
 # LO QUE SE VE (04/11, playtest: "la capa de ambar se rompe al pulsar el boton"). El daño se resuelve al pulsar y el golpe
@@ -1925,6 +1949,8 @@ func tick_statuses() -> Dictionary:
 		if dmg > 0.0:
 			total_dmg += dmg
 			dot_labels.append("%s %.1f" % [str(e.d.get("icono", "?")), dmg])
+			if al_recibir.is_valid():
+				_dot_desglose[str(e.d.get("nombre", "?"))] = float(_dot_desglose.get(str(e.d.get("nombre", "?")), 0.0)) + dmg
 		if cura > 0.0:
 			total_heal += cura
 			heal_labels.append("%s %.1f" % [str(e.d.get("icono", "?")), cura])
@@ -1966,6 +1992,8 @@ func tick_statuses() -> Dictionary:
 	# no se puede "colar" dentro de la propia reduccion.
 	total_dmg *= status_dot_taken_mult()
 	if total_dmg > 0.0:
+		ultimo_dot = _dot_desglose.duplicate()   # (solo con el gancho del simulador puesto: si no, vacio)
+		_dot_desglose.clear()
 		take_damage(total_dmg, true)   # DoT: NO lo tapa el escudo del sequito (pega limpio)
 		# Y cada tick que AGUANTAS enseña Voluntad (08/10/2026). Solo a los personajes en pelea: fuera
 		# de ella no hay ficha a la que apuntarlo (pj_de_combatant devuelve null).
@@ -2298,6 +2326,8 @@ func mdef_value() -> float:
 	var ab := abilities_eff()
 	if stats_multiplicativas:
 		return StatsMath.magic_jugador(ab, base_magic + extra_magic_def) * (1.0 + runa_mdef_pct)
+	if StatsMath.reglas_nuevas:
+		return StatsMath.magic_jugador(ab, base_magic)
 	return StatsMath.magic_value(ab, level, base_magic)
 
 

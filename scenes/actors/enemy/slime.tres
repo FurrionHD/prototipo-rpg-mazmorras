@@ -53,6 +53,8 @@ espinas = true
 
 [resource]
 script = ExtResource("1_g8nro")
+base_speed = 4.5
+base_defense = 6.0
 drop_runa = ExtResource("99_runa")
 dureza = 0.5
 centro_suelo = 0.57

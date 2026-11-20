@@ -160,9 +160,27 @@ func _guion() -> void:
 	_ok(p._aliados.size() > 0 and p._aliados[0].runa_eco, "mi maniqui sabe que lleva Ecolocalizacion (%.1f s)" % t_e)
 	await _hasta(func(): return apa != null and apa.en_sombras(), 6.0)
 	_ok(apa != null and apa.en_sombras(), "el Apagaluces esta En las sombras en mi pantalla")
-	var t_t := await _hasta(func(): return p._state == p.State.WAITING_PLAYER and p._player == p._aliados[0], 40.0)
+	# (19/11) MI GRUPO SON DOS (Agirato y Catalardio) y los dos los llevo yo: si le toca antes a Catalardio, la pelea le
+	# espera a EL y nadie le movia (fallaba 2 de 5: "llega mi turno (40 s)", segun quien llegara antes en la barra). Como
+	# haria el jugador, se le pone a defender y se sigue esperando el de Agirato.
+	var t_t := 0.0
+	var pasados := 0
+	while t_t < 40.0:
+		if p._state == p.State.WAITING_PLAYER and p._player == p._aliados[0]:
+			break
+		if p._state == p.State.WAITING_PLAYER and p._player != null and p._aliados.has(p._player):
+			print("[dev] le toca a %s (no es el que espero): defiende" % p._player.nombre)
+			p._accion_defender()
+			pasados += 1
+			await _esperar(0.5)
+			t_t += 0.5
+			continue
+		await _esperar(0.1)
+		t_t += 0.1
+	if not (p._state == p.State.WAITING_PLAYER and p._player == p._aliados[0]):
+		print("[dev] sin mi turno: estado %s, turno de %s" % [str(p._state), p._player.nombre if p._player != null else "-"])
 	await _esperar(0.3)
-	_ok(p._state == p.State.WAITING_PLAYER and p._player == p._aliados[0], "llega mi turno (%.1f s)" % t_t)
+	_ok(p._state == p.State.WAITING_PLAYER and p._player == p._aliados[0], "llega mi turno (%.1f s; pase %d de otro mio)" % [t_t, pasados])
 	_ok(Combatant.ve_sombras and apa != null and not apa.no_elegible(), "en mi turno puedo elegir al escondido")
 	var cu_a: Node2D = t.cuerpo_de(apa) if apa != null else null
 	_ok(cu_a != null and cu_a.visible, "y se le ve (a medias)")

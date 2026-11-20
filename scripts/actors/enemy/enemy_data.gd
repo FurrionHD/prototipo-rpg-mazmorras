@@ -226,6 +226,10 @@ func color_visual(t: float) -> Color:
 # OJO: esto es solo la BASE. Encima suman las 5 habilidades del bicho (la Resistencia
 # aporta vida y defensa, la Agilidad velocidad...), repartidas por sus PESOS de abajo.
 @export var base_hp: float = 28.0
+# LA VIDA BASE CON LAS REGLAS NUEVAS (StatsMath.reglas_nuevas; 19/11, su decision): con la formula multiplicativa los JEFES
+# salian inflados (el Rey slime x2,3, el Minotauro x3,4). 0 = la de siempre (base_hp); un jefe pone aqui la suya. Con las
+# reglas de hoy no se usa: el juego no cambia hasta encender el interruptor.
+@export var base_hp_reglas_nuevas: float = 0.0
 @export var base_attack: float = 3.0
 @export var base_defense: float = 3.0
 # DEFENSA MAGICA base (espejo de base_defense, pero contra hechizos). Un bicho sin esto recibe
@@ -613,6 +617,12 @@ const MUTANTE2_PROB := 0.005
 const MUT_HP := 2.60
 const MUT_ATAQUE := 1.45
 const MUT_DEFENSA := 1.60
+# CON LAS REGLAS NUEVAS (20/11): x1,3 el de 1a mutacion y x1,45 el de 2a ("el intermedio es lo suyo sin duda"), junto con la
+# defensa de las fichas de los enemigos al DOBLE el mismo dia. Comparado (con la tanda del 19/11): con x1,6/x1,9 el mutante
+# era un 13-22 % mas duro de pegar que el normal de su piso y con x1,15/x1,25 casi nada (-1 % en los pisos 31-36); el
+# intermedio, en medio. Los jefes mutantes siguen con su tabla y las reglas de hoy con MUT_DEFENSA / MUT2_DEFENSA.
+const MUT_DEFENSA_NUEVAS := 1.30
+const MUT2_DEFENSA_NUEVAS := 1.45
 # Resiste y mete estados como si fuera de bastante mas abajo: un mutante al que le entra todo a la
 # primera no da ninguna sensacion de mini-jefe.
 const MUT_ESTADOS := 1.50
@@ -800,6 +810,49 @@ func siguiente_mutacion(mutante: bool, id: StringName) -> Dictionary:
 	return {"mut": false, "id": &""}
 
 
+# Los niveles que le faltan a 'c' (nacido con las stats de su piso): sus bases como las del jugador al subir de nivel, con
+# un FONDO PLANO de habilidades (FONDO_NIVEL en todas) y x1,1. La velocidad, si vel_enemigos_factor > 0, no se bakea: la de
+# nacer x ese factor.
+# (20/11, el jefe: "dejar unas stats de fondo estaticas, 700 en todo... asi nunca se va a disparar ninguna stat porque su
+# nivel 3 se va a calcular sobre unos numeros planos"): antes cada nivel se bakeaba con SUS habilidades del piso 12, y el
+# reparto de cada uno se volvia a multiplicar en cada nivel: el chillon piña (Resistencia x2) pasaba de x5,3 de vida en el
+# tier 1 a x11,6 en el 3 y el escarabajo saeta (x0,3) de x1,4 a x0,33; y la Magia y la Voluntad, bajas en casi todos,
+# se quedaban atras. Con el fondo plano todos crecen IGUAL por nivel y su reparto cuenta una sola vez (sus habilidades de
+# ahora, en la vida maxima de abajo y en combate).
+const FONDO_NIVEL := 700
+static var _fondo: Abilities = null
+
+
+static func fondo_nivel() -> Abilities:
+	if _fondo == null:
+		_fondo = Abilities.new()
+		for clave in ["fuerza", "resistencia", "destreza", "agilidad", "magia", "voluntad"]:
+			_fondo.set(clave, FONDO_NIVEL)
+	return _fondo
+
+
+func _bakear_nivel(c: Combatant) -> void:
+	var vel0: float = c.base_speed
+	var ab: Abilities = fondo_nivel()
+	for _n in StatsMath.nivel_enemigos - 1:
+		c.base_hp = StatsMath.max_hp_jugador(ab, c.base_hp) * 1.1
+		c.base_attack = c.base_attack * StatsMath.fuerza_factor(float(ab.fuerza)) * 1.1
+		c.base_defense = StatsMath.defense_jugador(ab, c.base_defense) * 1.1
+		c.base_speed = StatsMath.speed_jugador(ab, c.base_speed) * 1.1
+		c.base_magic = StatsMath.magic_jugador(ab, c.base_magic) * 1.1
+	if StatsMath.vel_enemigos_factor > 0.0:
+		c.base_speed = vel0 * StatsMath.vel_enemigos_factor
+	c.max_hp = StatsMath.max_hp_jugador(c.abilities, c.base_hp)
+	c.current_hp = c.max_hp
+
+
+# EL MULTIPLICADOR DEL MUTANTE VA UNA SOLA VEZ, SOBRE SUS STATS YA CALCULADAS (20/11, el jefe: "sacar primero el enemigo
+# como si fuese normal con sus nuevas stats y luego multiplicarlas"). Aunque m_hp/m_def/m_atk se meten aqui en la BASE, todas
+# las formulas de despues (max_hp_jugador, defense_jugador, magic_jugador y cada nivel de _bakear_nivel) son LINEALES en la
+# base: da lo mismo que multiplicar al final. Lo que sale por encima o por debajo de x2,6 respecto al bicho normal es SU
+# reparto de habilidades de mutante (mas Resistencia = mas vida), y eso es a proposito: uno mas defensivo aguanta mas. Con el
+# fondo plano de _bakear_nivel ese reparto cuenta UNA vez y la proporcion se mantiene en todos los tiers.
+# Lo comprueban test_enemigos_con_nivel.gd (test_mutante_multiplica_una_vez_sus_stats, test_mutante_misma_proporcion_en_cada_tier).
 func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = false,
 		mutacion: StringName = &"", piso: int = -1) -> Combatant:
 	var pis: int = Game.current_floor if piso < 0 else piso
@@ -810,14 +863,20 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	var m_hp: float = float(mm["hp"]) if mutante else 1.0
 	var m_atk: float = float(mm["atk"]) if mutante else 1.0
 	var m_def: float = float(mm["def"]) if mutante else 1.0
+	if mutante and StatsMath.reglas_nuevas and not es_jefe:
+		m_def = MUT2_DEFENSA_NUEVAS if grado_de(mutante, mutacion) >= 2 else MUT_DEFENSA_NUEVAS
 	var c := Combatant.new(nombre_mostrado(mutante, mutacion), level, crear_abilities(t, mutacion if mutante else &"", pis),
-		base_hp * fstat * m_hp,
+		(base_hp_reglas_nuevas if StatsMath.reglas_nuevas and base_hp_reglas_nuevas > 0.0 else base_hp) * fstat * m_hp,
 		base_attack * fstat * m_atk,
 		base_defense * fstat * m_def,
 		base_speed)
 	# Defensa MAGICA: escala con la profundidad igual (raiz) que la fisica, para que la magia
 	# no se despegue del resto a medida que bajas de piso.
 	c.base_magic = base_magic * sqrt(fstat) * m_atk
+	# ENEMIGOS CON NIVEL (reglas nuevas, ver StatsMath.nivel_enemigos): aqui, ANTES de todo lo que lee su vida maxima
+	# (la costra de ambar, la vida de las crias...), y para todos los que nacen, no solo los que abren la pelea.
+	if StatsMath.reglas_nuevas and StatsMath.nivel_enemigos > 1:
+		_bakear_nivel(c)
 	# Estados que aplica al golpear (pegajoso/veneno, KAN-58 Fase 3).
 	c.on_hit = al_golpear
 	c.al_ser_golpeado = al_ser_golpeado

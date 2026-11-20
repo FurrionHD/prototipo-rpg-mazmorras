@@ -422,8 +422,14 @@ func _ready() -> void:
 	_ready_aros()
 
 
+# SIN PANTALLA NO SE PINTA (19/11, al perfilar el simulador): la sala de verdad y el simulador corren sin ventana y nadie ve
+# la arena, pero repintarla cada fotograma (las huellas en pixel van pixel a pixel) se comia ~20 % del fotograma de la pelea.
+static var _sin_pantalla: bool = DisplayServer.get_name() == "headless"
+
 func _process(delta: float) -> void:
 	_t += delta
+	if _sin_pantalla:
+		return
 	queue_redraw()
 	if _aros != null:
 		_aros.queue_redraw()

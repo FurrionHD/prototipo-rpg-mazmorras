@@ -21,6 +21,6 @@ escala_destreza = 0.5
 bloqueo = 0.04
 dano_tipo = 0
 aturdir_base = 0.0
-energia_ataque = 42.0
+energia_ataque = 55.0
 valor_base = 560
 habilidades = [ExtResource("h0"), ExtResource("h1"), ExtResource("h2"), ExtResource("h3"), ExtResource("h4")]

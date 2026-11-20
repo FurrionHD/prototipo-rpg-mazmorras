@@ -148,7 +148,10 @@ const DEFEND_ENERGY_COST := 15.0
 # rebalance): las habilidades ahora gastan mucho mas, asi que pegar basico tiene que devolver
 # energia de verdad -> el ritmo es habilidad -> un par de basicos para recargar -> habilidad,
 # en vez de spamear habilidades. PROVISIONAL -> Excel.
-const ATTACK_ENERGY_REGEN := 28.0
+# (20/11) Subido un 30 % a todas las armas (28 -> 36; las de 35 -> 45 y las de 42 -> 55): el simulador vio que todas
+# empezaban el 49-73 % de sus turnos sin energia para su habilidad mas barata (el jefe: "subir la energia por golpe de las
+# armas en general para que no tengan que pegar tantos basicos").
+const ATTACK_ENERGY_REGEN := 36.0
 # PASAR el turno en el mapa tambien repone energia (lo pidio el usuario el 24/09), pero MENOS que
 # pegar: si repusiera lo mismo, quedarse quieto saldria gratis. Fraccion de lo que da tu basico.
 const PASAR_ENERGIA_FRAC := 0.5
@@ -227,6 +230,14 @@ var _timeline: Control = null
 # matar a dos de cuatro, esos dos estan muertos igual y tienen que dejar su cadaver.
 # 'enemy_estados_left' va tambien por indice: los estados con los que se queda cada superviviente
 # (el veneno le sigue corriendo por el mapa, ver Enemy._tick_estados_fuera).
+# EL RELOJ DE LA BARRA (19/11, el simulador de peleas): lo que ha avanzado la barra en toda la pelea, en "puntos por punto
+# de velocidad" (quien tenga velocidad V ha juntado V x esto). No cambia nada del juego: es para medir en CICLOS (1 ciclo
+# = lo que tarda alguien con velocidad 5, la base del jugador, en actuar dos veces = 40 de este reloj).
+var reloj_barra: float = 0.0
+const RELOJ_POR_CICLO := 2.0 * UMBRAL / 5.0
+
+# A quien le llega el turno por la barra (lo escucha el simulador de peleas, tools/simulador_peleas.gd).
+signal turno_empieza(c: Combatant)
 signal combat_finished(player_won: bool, hp_left: Array, mp_left: Array,
 	energy_left: Array, muertos: Array, enemy_hp_left: Array, duenos: Array,
 	enemy_estados_left: Array)
@@ -2037,6 +2048,7 @@ func _process(delta: float) -> void:
 	# se escala aqui: ya sale acortada de arrancar_cola, que devuelve segundos de verdad.
 	var datb: float = delta * _vel_pelea
 	var escala: float = _escala_barra()
+	reloj_barra += datb * escala
 
 	# CADA aliado llena SU barra con SU velocidad: el grupo no actua a la vez, se van alternando
 	# segun quien sea mas rapido (por eso meter a alguien agil cambia el ritmo de la pelea).
@@ -2081,6 +2093,7 @@ func _process(delta: float) -> void:
 			mejor = e
 	if _gauge[mejor] >= UMBRAL:
 		_gauge[mejor] -= UMBRAL
+		turno_empieza.emit(mejor)
 		if _aliados.has(mejor):
 			_player = mejor   # a partir de aqui, "el jugador" es este
 			_begin_player_turn()
