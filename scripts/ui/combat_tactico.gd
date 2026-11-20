@@ -4536,30 +4536,43 @@ func _tick_raices() -> void:
 # EL OLOR A SANGRE (30/09, la pasiva del acechador): mientras haya un acechador vivo en la pelea, a cada uno de los
 # tuyos que sangra le sube un hilo de vaho rojo (FieraAire.vaho): "a este lo huele". Como las raices, se mira el estado
 # cada fotograma (el sangrado ya viaja al espejo) y lo ven todos sin mandar nada.
-var _olor: Dictionary = {}   # Combatant -> FieraAire
+var _olor: Dictionary = {}   # Combatant -> cuando sale su siguiente mota (ms)
+# (20/11, en pixel: la lamina aprobada del acechador) ya no es un hilo de vaho: de quien sangra salen MOTAS ROJAS que vuelan
+# ondulando al HOCICO del acechador que lo huele (el mas cercano). Cada pocas decimas, una.
+const OLOR_CADA := Vector2(0.35, 0.6)
+const OLOR_VUELO := 0.9
+const OLOR_ARCO := 9.0
 
 func _tick_olor() -> void:
 	var arena: ArenaCombate = _arena()
 	if arena == null:
 		return
-	var huele: bool = false
+	var huelen: Array = []
 	for e in _pantalla._enemies:
-		if (e as Combatant).is_alive() and (e as Combatant).olor_sangre_mult != 1.0:
-			huele = true
-			break
+		if (e as Combatant).is_alive() and (e as Combatant).olor_sangre_mult != 1.0 and cuerpo_de(e) != null \
+				and not (e as Combatant).en_sombras():
+			huelen.append(e)
+	var ahora: int = Time.get_ticks_msec()
 	for c in _pantalla._aliados:
-		var sangra: bool = huele and (c as Combatant).is_alive() and (c as Combatant).has_status(StatusEffects.Id.SANGRADO) \
-			and cuerpo_de(c) != null
-		var n = _olor.get(c)
-		if sangra:
-			if n == null or not is_instance_valid(n):
-				n = FieraAire.vaho(arena, bulto_de(c), _cod(c))
-				_olor[c] = n
-			n.call("seguir", bulto_de(c))
-		elif n != null:
+		var sangra: bool = not huelen.is_empty() and (c as Combatant).is_alive() \
+			and (c as Combatant).has_status(StatusEffects.Id.SANGRADO) and cuerpo_de(c) != null
+		if not sangra:
 			_olor.erase(c)
-			if is_instance_valid(n):
-				n.call("secar")
+			continue
+		if ahora < int(_olor.get(c, 0)):
+			continue
+		_olor[c] = ahora + int(randf_range(OLOR_CADA.x, OLOR_CADA.y) * 1000.0)
+		var pies_c: Vector2 = pies_de(c)
+		var cerca: Combatant = huelen[0]
+		for e in huelen:
+			if pies_de(e).distance_squared_to(pies_c) < pies_de(cerca).distance_squared_to(pies_c):
+				cerca = e
+		var b: Rect2 = bulto_de(cerca)
+		var hocico: Vector2 = Vector2(b.end.x if pies_c.x > pies_de(cerca).x else b.position.x, b.get_center().y)
+		var desde: Vector2 = bulto_de(c).get_center() + Vector2(randf_range(-3.0, 3.0), randf_range(-4.0, 2.0)) * CELDA_PX
+		var m: EfectoPixel = EfectoPixel.lanzar(arena, "acechador", "olor_entra", hocico, 0, null, OLOR_VUELO, -1.0, 1.0)
+		if m != null:
+			m.poner_vuelo("acechador", "olor", desde, hocico, OLOR_ARCO * CELDA_PX * randf_range(0.6, 1.4), OLOR_VUELO)
 
 
 # LA CARNE QUE SE CIERRA (30/09, la pasiva de la aberracion): cuando se cura (su vida sube), las pustulas sobre ella;
@@ -4606,11 +4619,7 @@ func _quitar_carne() -> void:
 
 
 func _quitar_olor() -> void:
-	for c in _olor.keys():
-		var n = _olor[c]
-		if n != null and is_instance_valid(n):
-			n.call("secar")
-	_olor.clear()
+	_olor.clear()   # (20/11) las motas son efectos sueltos que se acaban solos
 
 
 func _quitar_raices() -> void:
@@ -5738,6 +5747,9 @@ func _on_impacto(ev: Dictionary) -> void:
 	if cuerpo == null or arena == null:
 		return
 	var a: Combatant = _de_bloque(ev["ba"])
+	# (20/11) el acechador en pixel ya trae su sangre en la hoja (CombatTactico._acechador_pixel)
+	if a != null and _de_los_acechadores(cuerpo_de(a)) and estilo in _ESTILOS_ACECHADOR:
+		return
 	var r: Rect2 = bulto_de(v)
 	var pies_v: Vector2 = pies_de(v)
 	var desde: Vector2 = r.get_center() if r.has_area() else pies_v + Vector2(0.0, -12.0)
@@ -6333,6 +6345,49 @@ func _chupasimas_recibe(arena: Node, ev: Dictionary, v: Combatant, vuelo: float,
 #                 usa el mismo estilo: a quien se queda A oscuras se le apaga la luz y, si quien chilla Bebe la luz, unas
 #                 motas de luz vuelan de el al bicho.
 # Lo del suelo (la sombra del Chillido de oscuridad y las ondas del normal) lo pinta SueloRoto (CHILLON_SOMBRA/CONO).
+# (20/11) EL ACECHADOR Y SUS MUTANTES (la Sombra sin rostro pega con su mismo kit; el Cazador, su basico y su Salto), en
+# pixel y sin rejilla (los de su lamina aprobada, tools/sprites_sdf/acechador_efectos_horno.py). Por cada uno que recibe:
+#   FIERA_FAUCES      el basico: las fauces se cierran y destello
+#   FIERA_ZARPA       cada golpe del Zarpazo doble: tres zarpazos, el primero con una mano y el segundo con la otra
+#   FIERA_YUGULAR     el Salto: la estela oscura en arco desde donde despega y, al caer, el bocado con la sangre
+#   FIERA_DENTELLADA  cada mordisco: el bocado con la sangre (la sangre va en la hoja: no se suma la de SangreMapa)
+const _ESTILOS_ACECHADOR := [CombatFX.Estilo.FIERA_FAUCES, CombatFX.Estilo.FIERA_ZARPA, CombatFX.Estilo.FIERA_YUGULAR,
+	CombatFX.Estilo.FIERA_DENTELLADA]
+const _ACECHADOR_TOCA := {"fauces": 3.0 / 16.0, "fauces_sangre": 3.0 / 14.0, "zarpa": 2.0 / 16.0}
+const _ESTELA_SALTO := 6.0 / 14.0   # de que despega a que muerde, en la hoja de la estela
+
+
+# ¿Es un acechador (el normal o sus mutantes)? Por su ficha.
+func _de_los_acechadores(cuerpo: Node2D) -> bool:
+	if cuerpo == null:
+		return false
+	var ed = cuerpo.get("data")
+	return ed is EnemyData and (ed as EnemyData).sprite_gen == &"acechador"
+
+
+func _acechador_pixel(arena: Node, ev: Dictionary, estilo: int, a: Combatant, v: Combatant, vuelo: float,
+		ritmo: float) -> void:
+	var pies_v: Vector2 = pies_de(v)
+	var hacia: Vector2 = pies_v - pies_de(a)
+	var dir: int = SpriteLienzo.dir8(hacia) if hacia.length_squared() > 1.0 else 0
+	var espera: float = maxf(vuelo, 0.0)
+	match estilo:
+		CombatFX.Estilo.FIERA_FAUCES:
+			EfectoPixel.lanzar(arena, "acechador", "fauces", pies_v, dir, null,
+				maxf(espera - float(_ACECHADOR_TOCA["fauces"]), 0.0), -1.0, ritmo)
+		CombatFX.Estilo.FIERA_ZARPA:
+			var hoja: String = "zarpa_i" if int(ev.get("tanda", 0)) % 2 == 0 else "zarpa_d"
+			EfectoPixel.lanzar(arena, "acechador", hoja, pies_v, 0, null,
+				maxf(espera - float(_ACECHADOR_TOCA["zarpa"]), 0.0), -1.0, ritmo)
+		CombatFX.Estilo.FIERA_YUGULAR:
+			EfectoPixel.lanzar(arena, "acechador", "estela", pies_de(a), dir, null, maxf(espera - _ESTELA_SALTO, 0.0), -1.0, ritmo)
+			EfectoPixel.lanzar(arena, "acechador", "fauces_sangre", pies_v, dir, null,
+				maxf(espera - float(_ACECHADOR_TOCA["fauces_sangre"]), 0.0), -1.0, ritmo)
+		CombatFX.Estilo.FIERA_DENTELLADA:
+			EfectoPixel.lanzar(arena, "acechador", "fauces_sangre", pies_v, dir, null,
+				maxf(espera - float(_ACECHADOR_TOCA["fauces_sangre"]), 0.0), -1.0, ritmo)
+
+
 const _ESTILOS_CHILLON := [CombatFX.Estilo.SIMA_PALETOS, CombatFX.Estilo.SIMA_OIDOS]
 const _CHILLON_FPS := 12.0
 const _PALETOS_TOCA := 2.0     # el marco en que se clavan (el que cae con el golpe)
@@ -7198,6 +7253,11 @@ func _dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	# LA POLILLA Y SUS MUTANTES EN PIXEL (12/11, tools/sprites_sdf/polilla_efectos_horno.py).
 	if estilo in _ESTILOS_POLILLA and a != null and _de_las_polillas(cuerpo_de(a)):
 		_polilla_pixel(arena, estilo, a, v, vuelo, ritmo)
+		return
+	# EL ACECHADOR Y SUS MUTANTES EN PIXEL (20/11, tools/sprites_sdf/acechador_efectos_horno.py). Antes que FieraAire:
+	# el Zarpazo lo comparte con la bestia acorazada, que sigue con lo suyo.
+	if estilo in _ESTILOS_ACECHADOR and a != null and _de_los_acechadores(cuerpo_de(a)):
+		_acechador_pixel(arena, ev, estilo, a, v, vuelo, ritmo)
 		return
 	# EL CHILLON Y SUS MUTANTES EN PIXEL (18/11, tools/sprites_sdf/chillon_efectos_horno.py).
 	if estilo in _ESTILOS_CHILLON and a != null and _de_los_chillones(cuerpo_de(a)):

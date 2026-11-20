@@ -209,6 +209,7 @@ func _pelea() -> void:
 	var d1: float = float(en._enemy_resolver_golpes(so, zarpa, yo, 1, 1.0, false, false).get("total", 0.0))
 	print("     golpe sin Paciencia %.1f, con ella %.1f" % [d0, d1])
 	_ok(d0 > 0.0 and absf(d1 / d0 - 1.5) < 0.02, "con la cuenta llena pega un 50 %% mas (x%.2f)" % (d1 / maxf(d0, 0.001)))
+	await _efectos(combat, so, yo)
 	await _cazador(combat, ca, yo)
 
 
@@ -287,4 +288,52 @@ func _cazador(combat: Node, ca: Combatant, yo: Combatant) -> void:
 	en._enemy_resolver_golpes(ca, ml, yo, 1, 1.0, false, false)
 	en.fin_de_turno(ca)
 	_ok(ca.paciencia_carga == 0, "contra uno sin marca, si (%d)" % ca.paciencia_carga)
+
+
+func _hojas_de(arena: Node) -> Array:
+	var out: Array = []
+	for n in arena.get_children():
+		if n is EfectoPixel and n.has_meta("hoja"):
+			out.append(String(n.get_meta("hoja")))
+	return out
+
+
+# (20/11) LOS EFECTOS DEL ACECHADOR EN PIXEL (los de su lamina aprobada, acechador_efectos_horno): las hojas, cada golpe con
+# la suya y el Olor a sangre (motas de quien sangra a su hocico; no mientras esta en las sombras).
+func _efectos(combat: Node, so: Combatant, yo: Combatant) -> void:
+	print("=== LOS EFECTOS EN PIXEL (el normal y la Sombra) ===")
+	var hojas: Dictionary = (load("res://scripts/fx/efectos_pixel_datos.gd").HOJAS as Dictionary).get("acechador", {})
+	var faltan: Array = ["fauces", "fauces_sangre", "zarpa_i", "zarpa_d", "estela", "olor", "olor_entra"].filter(
+		func(h): return not hojas.has(h))
+	_ok(faltan.is_empty(), "las hojas horneadas (faltan %s)" % str(faltan))
+	_ok(int((hojas.get("fauces", {}) as Dictionary).get("filas", 0)) == 5 and int((hojas.get("estela", {}) as Dictionary).get("filas", 0)) == 5,
+		"las fauces y la estela, con 5 direcciones")
+	var tm = combat.turno_mapa
+	var arena: Node = tm._arena()
+	_ok(tm._de_los_acechadores(tm.cuerpo_de(so)), "la Sombra cuenta como acechador (pega con su kit)")
+	var E := CombatFX.Estilo
+	for par in [[E.FIERA_FAUCES, "fauces"], [E.FIERA_DENTELLADA, "fauces_sangre"]]:
+		tm._acechador_pixel(arena, {}, par[0], so, yo, 0.0, 1.0)
+		_ok(_hojas_de(arena).has(par[1]), "%s: %s" % [E.find_key(par[0]), par[1]])
+	tm._acechador_pixel(arena, {}, E.FIERA_YUGULAR, so, yo, 0.0, 1.0)
+	var hy: Array = _hojas_de(arena)
+	_ok(hy.has("estela") and hy.count("fauces_sangre") >= 2, "la Yugular: la estela del salto y el bocado con sangre")
+	tm._acechador_pixel(arena, {"tanda": 0}, E.FIERA_ZARPA, so, yo, 0.0, 1.0)
+	tm._acechador_pixel(arena, {"tanda": 1}, E.FIERA_ZARPA, so, yo, 0.0, 1.0)
+	var hz: Array = _hojas_de(arena)
+	_ok(hz.has("zarpa_i") and hz.has("zarpa_d"), "el Zarpazo doble: un golpe con cada mano")
+	# EL OLOR A SANGRE: motas de quien sangra al acechador; escondido, no (le delataria)
+	yo.apply_status(StatusEffects.Id.SANGRADO, 3, 1.0)
+	for e in combat._enemies:
+		if not e.en_sombras():
+			e.apply_status(StatusEffects.Id.EN_SOMBRAS)
+	tm._olor.clear()
+	var antes: int = _hojas_de(arena).count("olor_entra")
+	tm._tick_olor()
+	_ok(_hojas_de(arena).count("olor_entra") == antes, "escondidos, el olor no les delata")
+	so.salir_de_sombras()
+	tm._olor.clear()
+	tm._tick_olor()
+	_ok(_hojas_de(arena).count("olor_entra") > antes, "a la vista, de quien sangra vuela una mota a su hocico")
+	await _esperar(2)
 
