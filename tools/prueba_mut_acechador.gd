@@ -288,6 +288,7 @@ func _cazador(combat: Node, ca: Combatant, yo: Combatant) -> void:
 	en._enemy_resolver_golpes(ca, ml, yo, 1, 1.0, false, false)
 	en.fin_de_turno(ca)
 	_ok(ca.paciencia_carga == 0, "contra uno sin marca, si (%d)" % ca.paciencia_carga)
+	await _efectos_cazador(combat, ca, yo)
 
 
 func _hojas_de(arena: Node) -> Array:
@@ -335,5 +336,45 @@ func _efectos(combat: Node, so: Combatant, yo: Combatant) -> void:
 	tm._olor.clear()
 	tm._tick_olor()
 	_ok(_hojas_de(arena).count("olor_entra") > antes, "a la vista, de quien sangra vuela una mota a su hocico")
+	await _esperar(2)
+
+
+# (20/11) LOS EFECTOS DEL CAZADOR (y el fundirse/emerger de los dos) en pixel, en la pelea.
+func _efectos_cazador(combat: Node, ca: Combatant, yo: Combatant) -> void:
+	print("=== LOS EFECTOS DEL CAZADOR EN PIXEL ===")
+	var hojas: Dictionary = (load("res://scripts/fx/efectos_pixel_datos.gd").HOJAS as Dictionary).get("acechador", {})
+	var faltan: Array = ["marca", "media_luna", "charco_sombra", "charco_cazador", "emerge_sombra", "emerge_cazador"].filter(
+		func(h): return not hojas.has(h))
+	_ok(faltan.is_empty(), "las hojas horneadas (faltan %s)" % str(faltan))
+	var tm = combat.turno_mapa
+	var arena: Node = tm._arena()
+	# LA MARCA: la creciente sobre quien la lleva, mientras la lleve
+	yo.apply_status(StatusEffects.Id.MARCA_LUNA, 3)
+	tm._tick_marcas()
+	_ok(_hojas_de(arena).has("marca"), "con la Marca de la luna, la creciente sobre su cabeza")
+	yo.statuses = yo.statuses.filter(func(x): return x.id() != StatusEffects.Id.MARCA_LUNA)
+	tm._tick_marcas()
+	await _esperar(2)
+	_ok(not _hojas_de(arena).has("marca"), "y se va con ella")
+	# LA MEDIA LUNA: una hoja por accion aunque pille a varios
+	var ev := {"anim": &"media_luna", "semilla": 4242}
+	tm._media_luna_pixel(arena, ev, ca, yo, 0.0, 1.0)
+	tm._media_luna_pixel(arena, ev, ca, yo, 0.0, 1.0)
+	_ok(_hojas_de(arena).count("media_luna") == 1, "la Media luna: una hoja de luna por accion (%d)" % _hojas_de(arena).count("media_luna"))
+	# FUNDIRSE / EMERGER (el Cazador: niebla azul)
+	var cu: Node2D = tm.cuerpo_de(ca)
+	if not ca.en_sombras():
+		ca.apply_status(StatusEffects.Id.EN_SOMBRAS)
+	cu.remove_meta(&"ya_peleando")
+	tm._en_sombras.erase(cu)
+	tm._sombras_visibles(false, 0.016)
+	_ok(not _hojas_de(arena).has("charco_cazador"), "escondido desde el principio: no se funde (ya estaba)")
+	ca.salir_de_sombras()
+	tm._sombras_visibles(false, 0.016)
+	_ok(_hojas_de(arena).has("emerge_cazador"), "al salir: los ojos en el charco y se abre (la niebla azul)")
+	ca.apply_status(StatusEffects.Id.EN_SOMBRAS)
+	tm._sombras_visibles(false, 0.016)
+	_ok(_hojas_de(arena).has("charco_cazador"), "al volver a esconderse: el charco de niebla")
+	_ok(cu.visible and int(cu.get_meta(&"fundiendo_hasta", 0)) > Time.get_ticks_msec(), "y se le ve mientras se funde")
 	await _esperar(2)
 

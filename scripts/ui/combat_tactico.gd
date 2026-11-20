@@ -438,6 +438,7 @@ func desmontar() -> void:
 	olvidar_pegadas()
 	_quitar_raices()
 	_quitar_olor()
+	_quitar_marcas()
 	_quitar_carne()
 	DistanciaAire.quitar_clavadas(Game.get_tree())   # lo clavado se va con la pelea (lo que aguanta cae al suelo)
 	_sigilo_visible(true)
@@ -522,6 +523,10 @@ func _sombras_visibles(quitar: bool, dt: float = 0.0) -> void:
 			if not _en_sombras.has(cu):
 				_en_sombras[cu] = randf_range(ONDA_PRIMERA.x, ONDA_PRIMERA.y)
 				print("[sombras] %s desaparece" % e.nombre)
+				_al_fundirse(e, cu)
+			# (20/11) mientras se funde (su animacion), aun se le ve
+			if Time.get_ticks_msec() < int(cu.get_meta(&"fundiendo_hasta", 0)):
+				continue
 			# (18/11) ECOLOCALIZACION: en el turno de quien lleva el set (Combatant.ve_sombras) se le ve A MEDIAS y se le
 			# puede elegir; en el de los demas, escondido como siempre.
 			var spr_v = cu.get("_sprite")
@@ -551,6 +556,8 @@ func _sombras_visibles(quitar: bool, dt: float = 0.0) -> void:
 			continue
 		_en_sombras.erase(cu)
 		if is_instance_valid(cu):
+			if not quitar:
+				_al_emerger(cu)
 			(cu as Node2D).remove_meta(OCULTA_PELEA)
 			(cu as Node2D).visible = true
 			var spr_f = (cu as Node2D).get("_sprite")
@@ -1511,6 +1518,7 @@ func tick(delta: float) -> bool:
 	_tick_costra()
 	_tick_hinchazon()
 	_tick_olor()
+	_tick_marcas()
 	_tick_carne()
 	_tick_presas_carga()
 	_tick_enroscados()
@@ -6388,6 +6396,92 @@ func _acechador_pixel(arena: Node, ev: Dictionary, estilo: int, a: Combatant, v:
 				maxf(espera - float(_ACECHADOR_TOCA["fauces_sangre"]), 0.0), -1.0, ritmo)
 
 
+const _GESTOS_CAZADOR := [&"media_luna", &"marca", &"aullido"]
+var _media_luna_hecha: Dictionary = {}   # "quien:semilla" -> ms (una hoja por accion, no una por cada uno que pilla)
+
+
+func _media_luna_pixel(arena: Node, ev: Dictionary, a: Combatant, v: Combatant, vuelo: float, ritmo: float) -> void:
+	var clave: String = "%d:%d" % [a.get_instance_id(), int(ev.get("semilla", 0))]
+	var ahora: int = Time.get_ticks_msec()
+	for k in _media_luna_hecha.keys():
+		if ahora - int(_media_luna_hecha[k]) > 3000:
+			_media_luna_hecha.erase(k)
+	if _media_luna_hecha.has(clave):
+		return
+	_media_luna_hecha[clave] = ahora
+	var hacia: Vector2 = pies_de(v) - pies_de(a)
+	var n: Vector2 = hacia.normalized() if hacia.length_squared() > 1.0 else Vector2.RIGHT
+	# de su frente: un poco por delante de su bulto y a la altura del pecho
+	var frente: Vector2 = pies_de(a) + n * bulto_de(a).size.x * 0.3 - Vector2(0.0, 8.0 * CELDA_PX)
+	EfectoPixel.lanzar(arena, "acechador", "media_luna", frente, SpriteLienzo.dir8(n), null,
+		maxf(vuelo - 2.0 / 18.0, 0.0), -1.0, ritmo)
+
+
+# (20/11) LA MARCA DE LA LUNA a la vista: mientras alguien la lleve (el estado viaja al espejo), la creciente sobre su
+# cabeza (la B de su lamina), pegada a el. Se mira cada fotograma, como el olor.
+var _marcas: Dictionary = {}   # Combatant -> EfectoPixel
+
+func _tick_marcas() -> void:
+	var arena: ArenaCombate = _arena()
+	if arena == null:
+		return
+	for c in _pantalla._aliados + _pantalla._enemies:
+		var cb: Combatant = c
+		var lleva: bool = cb.is_alive() and cb.has_status(StatusEffects.Id.MARCA_LUNA) and cuerpo_de(cb) != null
+		var n = _marcas.get(cb)
+		if lleva and (n == null or not is_instance_valid(n)):
+			var b: Rect2 = bulto_de(cb)
+			n = EfectoPixel.lanzar(arena, "acechador", "marca", Vector2(b.get_center().x, b.position.y - 2.0 * CELDA_PX), 0,
+				cuerpo_de(cb))
+			_marcas[cb] = n
+		elif not lleva and n != null:
+			_marcas.erase(cb)
+			if is_instance_valid(n):
+				(n as Node).queue_free()
+
+
+func _quitar_marcas() -> void:
+	for c in _marcas:
+		if is_instance_valid(_marcas[c]):
+			(_marcas[c] as Node).queue_free()
+	_marcas.clear()
+
+
+# (20/11) FUNDIRSE Y EMERGER de los mutantes del acechador (la A de su lamina): al esconderse, su animacion de fundirse y
+# el charco de humo (la Sombra) o de niebla azul (el Cazador), y no desaparece hasta acabarla; al salir, los ojos se
+# encienden en el charco y se abre. Al empezar la pelea ya escondido, nada (no se ha fundido: ya estaba).
+const FUNDIRSE_MS := 850
+
+func _variante_sombra(e: Combatant) -> String:
+	return "cazador" if e.mutacion == &"cazador" else "sombra"
+
+
+func _al_fundirse(e: Combatant, cu: Node2D) -> void:
+	if e.paciencia_turnos <= 0 or not _de_los_acechadores(cu):
+		return
+	if not cu.has_meta(&"ya_peleando"):
+		cu.set_meta(&"ya_peleando", true)
+		return
+	var arena: ArenaCombate = _arena()
+	if arena != null:
+		EfectoPixel.lanzar(arena, "acechador", "charco_" + _variante_sombra(e), pies_de(e))
+	if _tiene_anim_bicho(cu, "fundirse") or _tiene_anim_bicho(cu, "fundirse_0"):
+		gesto_bicho_en_mapa(e, &"fundirse", -1.0)
+		cu.set_meta(&"fundiendo_hasta", Time.get_ticks_msec() + FUNDIRSE_MS)
+
+
+func _al_emerger(cu: Node2D) -> void:
+	cu.remove_meta(&"fundiendo_hasta")
+	cu.set_meta(&"ya_peleando", true)
+	for e in _pantalla._enemies:
+		if cuerpo_de(e) == cu:
+			if (e as Combatant).is_alive() and (e as Combatant).paciencia_turnos > 0 and _de_los_acechadores(cu):
+				var arena: ArenaCombate = _arena()
+				if arena != null:
+					EfectoPixel.lanzar(arena, "acechador", "emerge_" + _variante_sombra(e), pies_de(e))
+			return
+
+
 const _ESTILOS_CHILLON := [CombatFX.Estilo.SIMA_PALETOS, CombatFX.Estilo.SIMA_OIDOS]
 const _CHILLON_FPS := 12.0
 const _PALETOS_TOCA := 2.0     # el marco en que se clavan (el que cae con el golpe)
@@ -7258,6 +7352,12 @@ func _dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	# el Zarpazo lo comparte con la bestia acorazada, que sigue con lo suyo.
 	if estilo in _ESTILOS_ACECHADOR and a != null and _de_los_acechadores(cuerpo_de(a)):
 		_acechador_pixel(arena, ev, estilo, a, v, vuelo, ritmo)
+		return
+	# Y LAS DEL CAZADOR LUNAR por su gesto (llevan un estilo generico): la MEDIA LUNA, su hoja de luna una vez por accion;
+	# la MARCA (la creciente la pone _tick_marcas mientras dure) y la CAIDA (la luna del cielo) no pintan nada sobre cada uno.
+	if a != null and _de_los_acechadores(cuerpo_de(a)) and StringName(ev.get("anim", &"")) in _GESTOS_CAZADOR:
+		if StringName(ev.get("anim", &"")) == &"media_luna":
+			_media_luna_pixel(arena, ev, a, v, vuelo, ritmo)
 		return
 	# EL CHILLON Y SUS MUTANTES EN PIXEL (18/11, tools/sprites_sdf/chillon_efectos_horno.py).
 	if estilo in _ESTILOS_CHILLON and a != null and _de_los_chillones(cuerpo_de(a)):

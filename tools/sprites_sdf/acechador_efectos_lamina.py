@@ -97,7 +97,7 @@ def marca_b(a, hx, hy, f):
 
 
 # ------------------------------------------------------------------ LA MEDIA LUNA
-def media_luna(a, s, bx, by, f, version):
+def media_luna(a, s, bx, by, f, version, eje=0.0):
     """La hoja de luna en arco de 150 grados delante (hacia el ESTE): sale del zarpazo (f 4), se abre hasta el borde (R) y
     se deshace en motas."""
     R = 64.0 / UNIDAD
@@ -110,7 +110,7 @@ def media_luna(a, s, bx, by, f, version):
     if vida <= 0:
         return
     dist = np.sqrt((XX - bx) ** 2 + ((YY - by) / 0.8) ** 2)
-    ang = np.arctan2((YY - by) / 0.8, XX - bx)
+    ang = (np.arctan2((YY - by) / 0.8, XX - bx) - eje + math.pi) % math.tau - math.pi   # respecto a hacia donde ataca
     mitad = math.radians(75)
     dentro = np.abs(ang) <= mitad
     # el grosor: gruesa en el medio, afilada en las puntas (forma de creciente)
@@ -132,7 +132,7 @@ def media_luna(a, s, bx, by, f, version):
     if e >= 6:
         rnd = random.Random(5)
         for _ in range(16):
-            an = rnd.uniform(-mitad, mitad)
+            an = rnd.uniform(-mitad, mitad) + eje
             rr = rnd.uniform(R * 0.6, R)
             x, y = bx + math.cos(an) * rr, by + math.sin(an) * rr * 0.8 - (e - 6) * 1.5
             if rnd.random() < vida:
