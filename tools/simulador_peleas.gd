@@ -44,7 +44,7 @@ extends Node
 const CABECERA := "R|tanda|reglas|piso|grupo|escenario|arma|enemigo|mutacion|jefe|n_enem|t|gana|turnos_yo|turnos_el|vida_perdida|caidos|mp_gastado|dano_por_turno|dano_recibido_por_turno_suyo|segundos|acciones|fotogramas|ms_por_fotograma|pelea|ciclos|dano_por_ciclo|estados_en_enemigos|estados_en_los_tuyos|n_seguida|repetir|vel_ref_piso|vel_ciclo|emboscada"
 # Una linea POR PERSONAJE de los tuyos en cada pelea (lo pidio: "daños de cada uno, cuanto tanquean con cada armadura, el
 # dps medio, cuanto hace cada arma en su turno, si alguno se queda sin energia demasiado rapido"):
-const CABECERA_P := "P|tanda|reglas|pelea|piso|grupo|escenario|n_enem|gana|rol|arma|armadura|vida_max|defensa|def_magica|mitig_fisica|mitig_magica|dano_hecho|dano_recibido|turnos|dano_por_turno|recibido_por_turno_enemigo|cayo|energia_media_al_empezar_turno|turnos_sin_energia|primer_turno_sin_energia|mp_gastado|turnos_sin_mana|primer_turno_sin_mana|pociones|acciones|nivel|tier|mejoras|fue/res/agi/des/mag/vol|ataque|velocidad|max_mp|max_energia|red_armadura|red_armadura_magica|ciclos|dano_por_ciclo|turnos_por_ciclo|recibido_por_ciclo|dano_por_elemento|habilidades_puestas|equipo"
+const CABECERA_P := "P|tanda|reglas|pelea|piso|grupo|escenario|n_enem|gana|rol|arma|armadura|vida_max|defensa|def_magica|mitig_fisica|mitig_magica|dano_hecho|dano_recibido|turnos|dano_por_turno|recibido_por_turno_enemigo|cayo|energia_media_al_empezar_turno|turnos_sin_energia|primer_turno_sin_energia|mp_gastado|turnos_sin_mana|primer_turno_sin_mana|pociones|acciones|nivel|tier|mejoras|fue/res/agi/des/mag/vol|ataque|velocidad|max_mp|max_energia|red_armadura|red_armadura_magica|ciclos|dano_por_ciclo|turnos_por_ciclo|recibido_por_ciclo|dano_por_elemento|habilidades_puestas|equipo|objetivos_por_accion|principal_resto_por_accion"
 # Y una POR ENEMIGO (crias y refuerzos incluidos):
 const CABECERA_E := "E|tanda|reglas|pelea|piso|grupo|escenario|n_enem|gana|enemigo|mutacion|jefe|vida_max|ataque|defensa|def_magica|velocidad|dano_hecho|dano_recibido|turnos|dano_por_turno|muere|t|fue/res/agi/des/mag/vol|ataque_magico|red_armadura|ciclos|dano_por_ciclo|turnos_por_ciclo"
 const PISOS_NIVEL := 12
@@ -211,6 +211,9 @@ const NOMBRES := {"guerrero": "Guerrero", "tanque": "Tanque", "arquero": "Arquer
 const MAGIAS_MAGO := ["pulso_menor", "brasa", "chorro_agua", "tormenta", "voragine_sombra", "vendaje_de_luz"]
 const MAGIAS_MAGO_GRUPO := ["pulso_menor", "fortaleza", "chorro_agua", "tormenta", "voragine_sombra", "vendaje_de_luz"]
 const FILOS := ["filo_ardiente", "filo_fulgurante", "filo_torrente", "filo_radiante", "filo_umbrio"]
+# Los 14 hechizos de DAÑO del juego (20/11): antes el mago llevaba siempre los mismos 5 y los otros 9 no se probaban nunca.
+const MAGIAS_DANO := ["pulso_menor", "pulso_arcano", "brasa", "bola_fuego", "mar_de_brasas", "chorro_agua", "rayo", "descarga",
+	"tormenta", "venablo_de_tormenta", "shock_termico", "estallido_solar", "eclipse", "voragine_sombra"]
 const MAGIAS_GUERRERO := ["manto_brasas", "vendaje_de_luz"]
 const HABS_TANQUE := ["provocacion", "muro_guardian", "golpe_escudo_grande", "tajo_quebrantador"]
 const VIDA_CURA := 0.45
@@ -224,6 +227,28 @@ const DIST_INICIO := 220.0
 # cada arma (energia, recargas, cargas), y su daño por ciclo sin que cuente lo que tarda en morir el enemigo.
 const CICLOS_MUNECO := 12.0
 const VIDA_MUNECO := 9999999.0
+# EL CORRO DE MUÑECOS (20/11, el jefe con un dibujo: "enemigos alrededor para probar las de daño en area en una situacion
+# real; unos a los lados pero en la parte de adelante para conos o barridos, y otros mas adelante para conos largos o magias
+# de area"): escenario 'munecos', 10 muñecos del mismo enemigo alrededor del tuyo, que mira hacia +x (de donde salen). Sitio
+# respecto a tus pies: x hacia delante, y hacia tu derecha. Se mide el daño por ciclo SUMANDO todos y a cuantos pilla cada
+# golpe (columna objetivos_por_accion). 'muneco' (uno solo) sigue igual, para comparar daño a uno contra daño en area.
+const ESC_MUNECO := ["muneco", "munecos", "munecos_juntos"]
+const CORRO_MUNECOS := [
+	Vector2(0, 55),                                          # pegado a ti
+	Vector2(-40, -130), Vector2(-40, 130),                   # a los lados, un poco por detras
+	Vector2(-120, 0),                                        # detras
+	Vector2(120, -110), Vector2(130, 0), Vector2(120, 110),  # delante (conos y barridos)
+	Vector2(260, -190), Vector2(280, 0), Vector2(260, 190),  # lejos (conos largos, magias de area)
+]
+# LOS MUÑECOS JUNTOS (20/11, el jefe: "hay ataques como la tormenta que tienen daño de area pero no muy amplio: otra prueba en
+# la que los enemigos esten mas cerca entre si"): escenario 'munecos_juntos', un grupo apretado delante de ti (centro a 170):
+# uno en medio, 6 pegados alrededor a 45 y 3 por fuera a 95. Un area pequeña (bola de fuego, radio 65) pilla el nucleo y una
+# grande (tormenta 110, eclipse 140) a todos, asi se ve la diferencia de radio.
+const MUNECOS_JUNTOS := [
+	Vector2(170, 0),
+	Vector2(215, 0), Vector2(192, 39), Vector2(148, 39), Vector2(125, 0), Vector2(148, -39), Vector2(192, -39),
+	Vector2(265, 0), Vector2(122, 82), Vector2(122, -82),
+]
 # LA MAZMORRA SEGUIDA (19/11): peleas del piso una tras otra sin volver al pueblo: la vida, el mana y las pociones se
 # arrastran (el aguante no: se repone andando entre una y otra); el que cae se levanta con 1 si el grupo gana, como en el
 # juego. Se para al caer el grupo o a las SEGUIDA_MAX. La bolsa de la bajada: dos de vida por cabeza y dos de mana por mago.
@@ -262,6 +287,7 @@ const PERFIL_DE_ARMA := {"hacha_grande": "pesado", "mandobles": "pesado", "marti
 	"daga": "agil", "estoque": "agil", "arco": "distancia", "ballesta": "distancia"}
 const ARMAS_DISTANCIA := ["arco", "ballesta"]
 var _armas: Array = []
+var _magias: Array = []
 # TODAS LAS ARMADURAS (19/11, lo pidio: "todas las armas con todos los tipos de armadura, una daga y un broquel, hacha con
 # cuero"): 'armaduras=todas' o una lista; el hueco del guerrero lleva esa en vez de la de su perfil. Cada equipo se apunta
 # como 'arma@armadura'.
@@ -365,6 +391,10 @@ func _leer_args() -> void:
 						print("[sim] %s: escala_destreza %.2f (solo en esta simulacion)" % [ab[0], w.escala_destreza])
 			"armas": _armas = equipos_todos() if kv[1] == "todas" else (ARMAS_TODAS.duplicate() if kv[1] == "basicas" else Array(kv[1].split(",")))
 			"sets": _sets_todos = kv[1] == "todos"
+			# LOS HECHIZOS DEL MAGO (20/11, el jefe: "hemos hablado mucho de las armas pero no he visto nada de los magos"):
+			# 'magias=todas' = cada hechizo de DAÑO solo (MAGIAS_DANO); o juegos a mano 'magias=tormenta;rayo,brasa'. Va en los
+			# grupos con mago y SIN guerrero (solo_mago): cada juego es un caso mas, y sale en la columna 'arma' como '~juego'.
+			"magias": _magias = MAGIAS_DANO.duplicate() if kv[1] == "todas" else Array(kv[1].split(","))
 			"armaduras": _armaduras = ARMADURAS_TODAS.duplicate() if kv[1] == "todas" else Array(kv[1].split(","))
 			"tanda": _tanda = kv[1]
 			"reglas":
@@ -433,6 +463,10 @@ const REPARTO := {
 }
 
 func _personaje(piso: int, rol: String, en_grupo: bool, arma_g: String = "") -> PersonajeData:
+	var magias_forzadas: Array = []
+	if arma_g.begins_with("~"):
+		magias_forzadas = Array(arma_g.substr(1).split(";"))
+		arma_g = ""
 	var arma_guerrero: String = arma_g if arma_g != "" else _arma
 	var set_forzado: Array = []
 	if arma_guerrero.contains("#"):
@@ -525,7 +559,7 @@ func _personaje(piso: int, rol: String, en_grupo: bool, arma_g: String = "") -> 
 		p.loadout_habilidades[Game.clave_loadout(p)] = set_g
 	var magias: Array = []
 	match rol:
-		"mago": magias = MAGIAS_MAGO_GRUPO if en_grupo else MAGIAS_MAGO
+		"mago": magias = magias_forzadas if not magias_forzadas.is_empty() else (MAGIAS_MAGO_GRUPO if en_grupo else MAGIAS_MAGO)
 		"guerrero": magias = MAGIAS_GUERRERO + FILOS
 	var hz: Array = []
 	for m in magias:
@@ -688,6 +722,9 @@ func _casos() -> Array:
 		if (GRUPOS[c[1]] as Array).has("guerrero"):
 			for a in armas:
 				out.append(c + [a])
+		elif not _magias.is_empty() and (GRUPOS[c[1]] as Array).has("mago"):
+			for m in _magias:
+				out.append(c + ["~" + String(m)])
 		else:
 			out.append(c + [""])
 	return out
@@ -739,7 +776,7 @@ func _casos_base() -> Array:
 					"jefe":
 						if JEFES.has(loc) and not _sin_jefes:
 							out.append([piso, grupo, esc, load(JEFES[loc]), &"", false, true])
-					"muneco":
+					"muneco", "munecos", "munecos_juntos":
 						for ed in _enemigos_de(loc):
 							if _pasa_solo(ed):
 								out.append([piso, grupo, esc, ed, &"", false, false])
@@ -752,6 +789,11 @@ func _corro(caso: Array, n_grupo: int) -> Array:
 	match String(caso[2]):
 		"uno", "muneco":
 			return [[caso[3], caso[4], caso[5], caso[6]]]
+		"munecos", "munecos_juntos":
+			var corro_m: Array = []
+			for _i in (CORRO_MUNECOS if String(caso[2]) == "munecos" else MUNECOS_JUNTOS).size():
+				corro_m.append([caso[3], &"", false, false])
+			return corro_m
 		"manada":
 			var n: int = 3 + randi() % 3
 			var out: Array = []
@@ -853,7 +895,7 @@ func _correr() -> void:
 			montado = clave
 		# EL NIVEL DE LOS ENEMIGOS (reglas nuevas): lo bakea el juego al nacer cada uno (EnemyData.crear_combatant), tambien a
 		# las crias y refuerzos de mitad de pelea. El muñeco, sin nivel (como antes).
-		StatsMath.nivel_enemigos = 1 if String(caso[2]) == "muneco" else _nivel_enemigo(caso[0])
+		StatsMath.nivel_enemigos = 1 if String(caso[2]) in ESC_MUNECO else _nivel_enemigo(caso[0])
 		StatsMath.vel_enemigos_factor = _vel_ref(caso[0]) / _vel_ref(_piso_local(caso[0])) \
 			if _vel_enemigos == "relativa" and StatsMath.nivel_enemigos > 1 else 0.0
 		for _v in _veces:
@@ -893,7 +935,9 @@ var _actor: Combatant = null              # el del turno (a quien se le apunta e
 var _accion_de: Dictionary = {}           # Combatant -> lo ultimo que eligio (el daño de su turno va a esa accion)
 var _hecho: Dictionary = {}               # Combatant -> daño hecho
 var _recibido: Dictionary = {}            # Combatant -> daño recibido (la vida que le quitaron, ya con todo)
-var _por_accion: Dictionary = {}          # Combatant -> {accion: [usos, daño]}
+var _por_accion: Dictionary = {}          # Combatant -> {accion: [usos, daño, enemigos pillados (uno por uso y enemigo)]}
+var _pillados: Dictionary = {}            # Combatant -> {enemigo: daño} del uso en curso
+var _uso_de: Dictionary = {}              # Combatant -> accion del uso en curso (la de _pillados)
 var _fuera: Dictionary = {"aliados": 0.0, "enemigos": 0.0}   # daño sin dueño claro (contraataques, DoT): por bando
 var _recursos: Dictionary = {}            # Combatant -> energia y mana turno a turno
 var _pociones: Dictionary = {}            # Combatant -> pociones que bebio o dio
@@ -1089,12 +1133,17 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 	await _esperar(2)
 	var nodos: Array = []
 	var t: float = randf()
+	var en_corro: bool = String(caso[2]) in ["munecos", "munecos_juntos"]
+	var sitios_corro: Array = CORRO_MUNECOS if String(caso[2]) == "munecos" else MUNECOS_JUNTOS
 	for i in corro.size():
 		var c: Array = corro[i]
 		var y: float = (float(i) - float(corro.size() - 1) * 0.5) * 55.0
-		var es_muneco: bool = String(caso[2]) == "muneco"
-		var nodo = suelo.crear_enemigo(c[0], centro + Vector2(DIST_INICIO * 0.5 + (0.0 if i % 2 == 0 else 40.0), y), 90.0,
-			t if i == 0 else randf(), 1 if c[2] else 0, c[3], {"modo": 2, "hp": VIDA_MUNECO} if es_muneco else {}, c[1])
+		var es_muneco: bool = String(caso[2]) in ESC_MUNECO
+		var sitio: Vector2 = centro + Vector2(DIST_INICIO * 0.5 + (0.0 if i % 2 == 0 else 40.0), y)
+		if en_corro:
+			sitio = centro - Vector2(DIST_INICIO * 0.5, 0) + sitios_corro[i % sitios_corro.size()]
+		var nodo = suelo.crear_enemigo(c[0], sitio, 90.0,
+			t if (i == 0 or en_corro) else randf(), 1 if c[2] else 0, c[3], {"modo": 2, "hp": VIDA_MUNECO} if es_muneco else {}, c[1])
 		if nodo != null:
 			nodos.append(nodo)
 			nodo.set_meta("t_sim", nodo.get("current_t") if nodo.get("current_t") != null else -1.0)
@@ -1131,6 +1180,8 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 	_hecho.clear()
 	_recibido.clear()
 	_por_accion.clear()
+	_pillados.clear()
+	_uso_de.clear()
 	_fuera = {"aliados": 0.0, "enemigos": 0.0}
 	_recursos.clear()
 	_pociones.clear()
@@ -1154,7 +1205,7 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 		stats_e[e] = [e.max_hp, e.atk(), e.def_value(), e.mdef_value(), e.spd()]
 	# EL MUÑECO NO ACTUA NUNCA (19/11, lo pidio: "que no actue, que se quede para recibir daño y ya"): su barra casi no se
 	# llena (ni anda, ni pega, ni carga, ni se cura) y, por si acaso, lo que hiciera no quita nada.
-	if String(caso[2]) == "muneco":
+	if String(caso[2]) in ESC_MUNECO:
 		for e in _cb._enemies:
 			e.dummy_speed_override = 0.0001
 			e.dummy_dmg_out_mult = 0.0
@@ -1187,7 +1238,7 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 		if int(_cb._state) == 3:
 			resultado = "GANA" if not _cb._aliados_vivos().is_empty() else "PIERDE"
 			break
-		if String(caso[2]) == "muneco" and float(_cb.reloj_barra) * _vel_ciclo(piso) / (2.0 * float(_cb.UMBRAL)) >= CICLOS_MUNECO:
+		if String(caso[2]) in ESC_MUNECO and float(_cb.reloj_barra) * _vel_ciclo(piso) / (2.0 * float(_cb.UMBRAL)) >= CICLOS_MUNECO:
 			resultado = "MUNECO"
 			break
 		var mios: int = 0
@@ -1263,7 +1314,7 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 	var ciclos: float = maxf(0.01, float(_cb.reloj_barra) * _vel_ciclo(piso) / (2.0 * float(_cb.UMBRAL))) if is_instance_valid(_cb) else 0.01
 	var ed0: EnemyData = corro[0][0]
 	var repetir: String = "%d,%s,%s,%s,%s,%s,%d,%s" % [piso, caso[1], caso[2], caso[7] if caso[7] != "" else "-",
-		ed0.resource_path.get_file().get_basename() if String(caso[2]) in ["uno", "manada", "muneco", "jefe"] else "-",
+		ed0.resource_path.get_file().get_basename() if String(caso[2]) in ["uno", "manada", "muneco", "munecos", "munecos_juntos", "jefe"] else "-",
 		(String(caso[4]) if caso[4] != &"" else ("mutante" if caso[5] else "-")) if String(caso[2]) == "uno" else "-",
 		_semilla, str(_escala_tiempo)]
 	linea += "|%s|%.2f|%.2f|%s|%s|%d|%s|%.2f|%.2f|%d" % [pelea_id, ciclos, quitado / ciclos, _txt_reparto(_por_estado["aliados"]),
@@ -1274,6 +1325,7 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 		var rec: Dictionary = _recursos.get(a, {})
 		var n_t: int = int(_turnos.get(a, 0))
 		var acc_a: Array = []
+		_cerrar_uso(a)
 		var pa: Dictionary = _por_accion.get(a, {})
 		for k in pa:
 			acc_a.append("%s:%d:%.1f" % [k, int(pa[k][0]), float(pa[k][1])])
@@ -1293,6 +1345,17 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 			float(_recibido.get(a, 0.0)) / ciclos, _txt_reparto(_por_elem.get(a, {}))]
 			+ "|" + ";".join(Game.habilidades_equipadas(pj).map(func(ab): return ab.nombre)) if pj != null else "")
 		_lineas_extra[_lineas_extra.size() - 1] += "|" + _txt_equipo(pj)
+		# A CUANTOS PILLA CADA ACCION (20/11): "accion:enemigos pillados en total" (entre sus usos de la columna acciones).
+		var obj_a: Array = []
+		for k in pa:
+			obj_a.append("%s:%d" % [k, int(pa[k][2]) if (pa[k] as Array).size() > 2 else 0])
+		_lineas_extra[_lineas_extra.size() - 1] += "|" + ",".join(obj_a)
+		# Y EL DAÑO de cada accion partido: "accion:al principal:al resto" (sumado entre sus usos).
+		var rep_a: Array = []
+		for k in pa:
+			var fila_k: Array = pa[k]
+			rep_a.append("%s:%.1f:%.1f" % [k, float(fila_k[3]) if fila_k.size() > 3 else 0.0, float(fila_k[4]) if fila_k.size() > 4 else 0.0])
+		_lineas_extra[_lineas_extra.size() - 1] += "|" + ",".join(rep_a)
 	for e in enems:
 		var st: Array = stats_e.get(e, [e.max_hp, e.atk(), e.def_value(), e.mdef_value(), e.spd()])
 		var n_e: int = int(_turnos.get(e, 0))
@@ -1354,6 +1417,12 @@ func _al_empezar_turno(c: Combatant, aliados: Array) -> void:
 	var baja: float = float(r["mp_ant"]) - c.current_mp
 	if baja > 0.0:
 		r["mp_baja"] = float(r["mp_baja"]) + baja
+	# CONTRA LOS MUÑECOS, MANA DE SOBRA (20/11, acordado con el jefe): el muñeco mide lo que hace CADA hechizo con su tiempo de
+	# recitado, no cuanto maná queda (12 ciclos seguidos sin la recarga de fin de pelea no pasan en el juego: en las peleas de
+	# piso el mago se quedaba sin maná el 0-2 % de sus turnos). Se rellena al empezar cada turno; el gastado se sigue
+	# contando (daño por punto de maná), y el maná de verdad se mira en las peleas de piso.
+	if _cb != null and not _cb._enemies.is_empty() and _cb._enemies.all(func(e): return e.es_dummy):
+		c.current_mp = c.max_mp
 	r["mp_ant"] = c.current_mp
 	_recursos[c] = r
 
@@ -1394,12 +1463,45 @@ func _al_recibir(v: Combatant, dano: float, es_dot: bool, aliados: Array) -> voi
 		if not _por_accion.has(_actor):
 			_por_accion[_actor] = {}
 		if not _por_accion[_actor].has(k):
-			_por_accion[_actor][k] = [0, 0.0]
+			_por_accion[_actor][k] = [0, 0.0, 0, 0.0, 0.0]
 		_por_accion[_actor][k][1] = float(_por_accion[_actor][k][1]) + dano
+		# A CUANTOS PILLA (20/11): cada enemigo distinto que recibe daño de esta accion cuenta una vez por uso; y lo que se lleva
+		# cada uno en este uso, para separar al PRINCIPAL del resto al cerrarlo (_cerrar_uso).
+		var pillados: Dictionary = _pillados.get(_actor, {})
+		if not pillados.has(v):
+			pillados[v] = 0.0
+			_por_accion[_actor][k][2] = int(_por_accion[_actor][k][2]) + 1
+		pillados[v] = float(pillados[v]) + dano
+		_pillados[_actor] = pillados
+		_uso_de[_actor] = k
+
+
+# EL PRINCIPAL Y EL RESTO DE UN USO (20/11, el jefe: "la tormenta: los golpes de rayo pegan en area pero los de agua no; el
+# rayo a secas hace daño de area y luego los rebotes; quiero saber daño a un objetivo, en un grupo, con enemigos separados"):
+# el principal es el que mas se lleva de ese uso; el resto (area, salpicon, rebotes) va aparte. Se cierra al elegir la
+# siguiente accion y al acabar la pelea.
+func _cerrar_uso(yo: Combatant) -> void:
+	var d: Dictionary = _pillados.get(yo, {})
+	var k: String = _uso_de.get(yo, "")
+	if d.is_empty() or k == "" or not _por_accion.has(yo) or not _por_accion[yo].has(k):
+		_pillados[yo] = {}
+		return
+	var principal: float = 0.0
+	var total: float = 0.0
+	for v in d:
+		principal = maxf(principal, float(d[v]))
+		total += float(d[v])
+	var fila: Array = _por_accion[yo][k]
+	while fila.size() < 5:
+		fila.append(0.0)
+	fila[3] = float(fila[3]) + principal
+	fila[4] = float(fila[4]) + total - principal
+	_pillados[yo] = {}
 
 
 # Lo que elige cada uno (y cuantas veces): el daño de su turno se le apunta a esto.
 func _eligio(yo: Combatant, que: String) -> void:
+	_cerrar_uso(yo)
 	_accion_de[yo] = que
 	# EL ELEMENTO de lo que hace: el del hechizo; el de los golpes, fisico (o "fisico+fuego" con un Filo puesto).
 	var el: String = "fisico"
@@ -1412,7 +1514,7 @@ func _eligio(yo: Combatant, que: String) -> void:
 	if not _por_accion.has(yo):
 		_por_accion[yo] = {}
 	if not _por_accion[yo].has(que):
-		_por_accion[yo][que] = [0, 0.0]
+		_por_accion[yo][que] = [0, 0.0, 0, 0.0, 0.0]
 	_por_accion[yo][que][0] = int(_por_accion[yo][que][0]) + 1
 
 
@@ -2232,6 +2334,16 @@ func _plan_cura(yo: Combatant, solo_yo: bool):
 	return {"que": "magia", "nombre": cura.nombre, "rango": 99999.0, "aliado": peor}
 
 
+# HASTA DONDE LLEGA UN HECHIZO desde los pies del mago (20/11): el cono, la linea y el rectangulo SALEN de el, asi que
+# llegan lo que mide su largo (forma_radio); el resto, lo lejos que puede caer su centro (forma_rango). 0 = a cualquier
+# distancia. Antes solo se miraba forma_rango, que las lineas no tienen: el mago lanzaba el Torrente (200) y el Pulso (150)
+# desde 220 y casi nunca daba al muñeco solo (pillaba a 0,1 por lanzamiento).
+static func _alcance_hechizo(s: SpellData) -> float:
+	if int(s.forma) in [CombatFormas.Tipo.CONO, CombatFormas.Tipo.LINEA, CombatFormas.Tipo.RECTANGULO] and s.forma_radio > 0.0:
+		return s.forma_radio
+	return s.forma_rango
+
+
 # EL MAGO: el hechizo y el sitio que mas daño esperan por turno de recitado (contando a cuantos pilla el area), entre los
 # que puede pagar. Con alguien encima o algo cargado contra el, solo los de una frase (no le tiran el conjuro).
 func _plan_hechizo(yo: Combatant):
@@ -2244,6 +2356,10 @@ func _plan_hechizo(yo: Combatant):
 		return null
 	var cerca: Combatant = _mas_cerca(tm.pies_de(yo), lista)
 	var apurado: bool = _sitio_a_salvo(yo) != null or (cerca != null and tm.pies_de(cerca).distance_to(tm.pies_de(yo)) < DIST_SEGURA)
+	# (20/11) Los MUÑECOS no pegan: con un muñeco al lado no hay prisa, y recita los hechizos largos (en el corro, con uno
+	# pegado, solo lanzaba los de una frase y los demas no se median nunca).
+	if lista.all(func(e): return e.es_dummy):
+		apurado = false
 	var mejor = null
 	var mejor_d: float = 0.0
 	for s in yo.spells:
@@ -2269,8 +2385,9 @@ func _plan_hechizo(yo: Combatant):
 			d /= float(maxi(1, s.frases.size()))
 			if d > mejor_d:
 				mejor_d = d
+				var llega: float = _alcance_hechizo(s)
 				mejor = {"que": "magia", "nombre": s.nombre, "obj": e,
-					"rango": s.forma_rango * 0.85 if s.forma_rango > 0.0 else 99999.0}
+					"rango": llega * 0.85 if llega > 0.0 else 99999.0}
 	# Y DESDE DONDE (19/11): un sitio seguro desde el que llegue, lo mas lejos que pueda de ellos
 	if mejor != null:
 		var q = _sitio_para_lanzar(yo, mejor["obj"], minf(float(mejor["rango"]), 99999.0))

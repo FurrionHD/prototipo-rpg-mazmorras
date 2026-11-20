@@ -69,7 +69,7 @@ def _args_godot(a) -> list:
     if a.pisos_hasta > 0 and not a.pisos:
         a.pisos = ",".join(str(i) for i in range(1, a.pisos_hasta + 1))
     extra = ["veces=%d" % a.veces, "tanda=%s" % a.tanda, "reglas=%s" % a.reglas, "escala=%s" % a.escala]
-    for k in ("pisos", "clases", "grupos", "escenarios", "solo", "arma", "armas", "armaduras", "sets", "pociones", "escala_des",
+    for k in ("pisos", "clases", "grupos", "escenarios", "solo", "arma", "armas", "armaduras", "sets", "magias", "pociones", "escala_des",
               "vel_enemigos", "iniciativa", "equipo"):
         v = getattr(a, k)
         if v:
@@ -293,7 +293,7 @@ def resumen(ruta: Path, detalle: bool = True) -> None:
             return r["escenario"]
         return "uno-jefe" if r["jefe"] == "1" else ("uno-mutante" if r["mutacion"] != "-" else "uno-normal")
     for (piso, grupo, t), rs in sorted(bloque(lambda r: (int(r["piso"]), r.get("grupo", r.get("clase", "")), tipo(r))).items()):
-        if t == "muneco":
+        if t in ("muneco", "munecos", "munecos_juntos"):
             continue   # el muñeco no muere: va en el ranking de armas
         print("%-36s %s" % ("piso %2d %-13s %-12s" % (piso, grupo, t), linea(rs)))
     if not detalle:
@@ -433,7 +433,7 @@ def ranking_armas(base: str) -> None:
         for a in orden:
             rs = armas[a]
             m = [r for r in rs if r["escenario"] == "muneco"]
-            v = [r for r in rs if r["escenario"] != "muneco"]
+            v = [r for r in rs if r["escenario"] not in ("muneco", "munecos", "munecos_juntos")]
             tm = sum(_f(r["turnos"]) for r in m)
             cm = sum(_f(r.get("ciclos", "0")) for r in m)
             cv = sum(_f(r.get("ciclos", "0")) for r in v)
@@ -462,7 +462,7 @@ def estados_y_elementos(base: str) -> None:
             return []
         with open(ruta, encoding="utf-8") as f:
             return list(csv.DictReader(f, delimiter=";"))
-    peleas = [r for r in leer(".csv") if r.get("escenario") != "muneco"]
+    peleas = [r for r in leer(".csv") if r.get("escenario") not in ("muneco", "munecos", "munecos_juntos")]
     pers = leer("_personajes.csv")
     if not peleas or "estados_en_enemigos" not in peleas[0]:
         return
@@ -555,9 +555,9 @@ def revision_velocidad(base: str) -> None:
     if not rp.exists() or not re_.exists():
         return
     with open(rp, encoding="utf-8") as f:
-        pers = [r for r in csv.DictReader(f, delimiter=";") if r.get("escenario") != "muneco"]
+        pers = [r for r in csv.DictReader(f, delimiter=";") if r.get("escenario") not in ("muneco", "munecos", "munecos_juntos")]
     with open(re_, encoding="utf-8") as f:
-        enems = [r for r in csv.DictReader(f, delimiter=";") if r.get("escenario") != "muneco"]
+        enems = [r for r in csv.DictReader(f, delimiter=";") if r.get("escenario") not in ("muneco", "munecos", "munecos_juntos")]
     if not pers or "turnos_por_ciclo" not in pers[0]:
         return
     tuyo = defaultdict(list)
@@ -621,7 +621,7 @@ def rarezas(base: str) -> None:
         avisos.append("%d peleas raras (atascadas/tablas/errores), p. ej. piso %s %s contra %s%s" % (len(raras), raras[0]["piso"],
                       raras[0]["grupo"], raras[0]["enemigo"],
                       ("  -> repetirla: python tools/simulador.py --repetir %s" % raras[0]["repetir"]) if raras[0].get("repetir") else ""))
-    reales = [r for r in peleas if r.get("escenario") != "muneco"]
+    reales = [r for r in peleas if r.get("escenario") not in ("muneco", "munecos", "munecos_juntos")]
     largas = [r for r in reales if _f(r.get("ciclos", "0")) > 30]
     if largas:
         avisos.append("%d peleas de mas de 30 ciclos (la mas larga: %.0f, piso %s %s contra %s)" % (len(largas),
@@ -629,7 +629,7 @@ def rarezas(base: str) -> None:
     # enemigos que casi nadie mata, o que no hacen nada
     g = defaultdict(list)
     for r in enems:
-        if r.get("escenario") != "muneco":
+        if r.get("escenario") not in ("muneco", "munecos", "munecos_juntos"):
             g[(r["piso"], r["enemigo"], r["mutacion"])].append(r)
     for (piso, en, mut), rs in sorted(g.items()):
         if len(rs) < 3:
@@ -647,7 +647,7 @@ def rarezas(base: str) -> None:
     # los tuyos: siempre caen, nunca gastan energia, se quedan secos, acciones que no hacen nada
     g2 = defaultdict(list)
     for r in pers:
-        if r.get("escenario") != "muneco":
+        if r.get("escenario") not in ("muneco", "munecos", "munecos_juntos"):
             g2[(r["piso"], r["rol"], r["arma"])].append(r)
     for (piso, rol, arma), rs in sorted(g2.items()):
         if len(rs) < 3:
@@ -700,6 +700,7 @@ def main():
     ap.add_argument("--arma", default="")
     ap.add_argument("--armas", default="", help="todas (todas las combinaciones de manos), basicas (las once solas), o una lista 'daga+escudo_pequeno,...'")
     ap.add_argument("--sets", default="", help="todos = cada combinacion de 4 habilidades que pueda llevar cada equipo (¡muchas!)")
+    ap.add_argument("--magias", default="", help="todas = cada hechizo de daño solo, en el mago (grupos sin guerrero); o juegos a mano 'a;b,c'")
     ap.add_argument("--armaduras", default="", help="todas (tela, cuero, hierro, placas) o una lista: el hueco del guerrero la lleva en vez de la de su perfil")
     ap.add_argument("--tanda", default="hoy")
     ap.add_argument("--reglas", default="hoy", help="hoy | nuevas (formula multiplicativa, defensa K por piso con tope 75 %%, enemigos con nivel)")
