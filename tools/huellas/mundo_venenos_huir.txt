@@ -13,32 +13,156 @@ f32 PULSA Habilidad
 f35 PULSA _ability_box: Bastonazo  (26 EN)
 f36 LOG ⏳ Agirato ochinan prepara Bastonazo. Si queda Aturdido, se interrumpe.
 f36 Agirato ochinan hp=198.795 mp=14.485 en=151.425
-f62 LOG ⏳ 1. Araña de las simas prepara Telaraña. ¡Apártate! Si queda Aturdido, se interrumpe.
+f61 LOG ⏳ 1. Araña de las simas prepara Telaraña. ¡Apártate! Si queda Aturdido, se interrumpe.
 f95 LOG ¡Turno de Daniel! Elige una acción.
 f97 PULSA Atacar
-f98 LOG Daniel golpea con Maza pequeña e inflige 5,44 de daño.  Retrasa a 1. Araña de las simas en la barra de turno. 💫
-f98 Araña de las simas hp=50.611 mp=20.429 en=0.000
+f98 LOG Daniel golpea con Maza pequeña e inflige 4,98 de daño.  Retrasa a 1. Araña de las simas en la barra de turno. 💫
+f98 Araña de las simas hp=51.069 mp=20.429 en=0.000
 f149 LOG Ya se puede soltar Bastonazo: elige el objetivo.
 f151 PULSA ⚡ ¡Soltar Bastonazo!
-f152 LOG … 12,29 de daño.  Recupera 0,2 de maná. 🔷  Causa Lento.
+f152 LOG … 11,25 de daño.  Recupera 0,2 de maná. 🔷  Causa Lento.
 f152 Agirato ochinan hp=198.795 mp=14.685 en=151.425
-f152 Araña de las simas hp=38.320 mp=20.429 en=0.000
-f204 LOG ¡Turno de Dasui! Elige una acción.
-f206 PULSA Defender
-f207 LOG Dasui se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️
-f207 Dasui hp=199.642 mp=20.000 en=166.300
-f209 LOG ¡Turno de Catalardio! Elige una acción.
-f211 PULSA Objeto
-f214 PULSA _objeto_box: Poción de maná media  x3
-f217 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  15/37 🔷)
-f218 LOG Catalardio le da Poción de maná media a Agirato ochinan. 🔷 29 de maná: 10 ahora y 19 durante los 2 turnos siguientes.
-f218 Agirato ochinan hp=198.795 mp=24.479 en=151.425
-f219 LOG ⏳ 3. Jabalí prepara Embestida. ¡Apártate! Si queda Aturdido, se interrumpe.
-f280 LOG 2. Trent ataca a Daniel y le inflige 0,45 de daño.  Causa Veneno a Daniel.
-f280 Daniel hp=190.537 mp=20.000 en=181.025
-f337 LOG … falla el golpe.
-f409 LOG ¡Turno de Agirato ochinan! Elige una acción.
-f409 Agirato ochinan hp=198.795 mp=34.694 en=151.425
-f411 PULSA Huir
-f412 LOG Habéis escapado. 🏃  (Dejáis atrás 3 enemigos en pie)
-FIN f412 estado=3
+f152 Araña de las simas hp=39.822 mp=20.429 en=0.000
+f203 LOG Daniel esquiva el ataque de 3. Jabalí. 💨
+f255 LOG ¡Turno de Dasui! Elige una acción.
+f257 PULSA Defender
+f258 LOG Dasui se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️
+f258 Dasui hp=199.642 mp=20.000 en=166.300
+f260 LOG ¡Turno de Catalardio! Elige una acción.
+f262 PULSA Objeto
+f265 PULSA _objeto_box: Poción de maná media  x3
+f268 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  15/37 🔷)
+f269 LOG Catalardio le da Poción de maná media a Agirato ochinan. 🔷 29 de maná: 10 ahora y 19 durante los 2 turnos siguientes.
+f269 Agirato ochinan hp=198.795 mp=24.479 en=151.425
+f285 LOG ⏳ 2. Trent prepara Ramazo. ¡Apártate! Si queda Aturdido, se interrumpe.
+f354 LOG ¡Turno de Agirato ochinan! Elige una acción.
+f354 Agirato ochinan hp=198.795 mp=34.694 en=151.425
+f356 PULSA Huir
+f357 LOG Agirato ochinan intenta huir, pero Araña de las simas se lo impide (tenía un 62 % de probabilidad de huir).
+f359 LOG ¡Turno de Daniel! Elige una acción.
+f361 PULSA Atacar
+f362 LOG 💫 Araña de las simas pierde Telaraña: no puede seguir así.
+f362 Araña de las simas hp=32.109 mp=20.429 en=0.000
+f413 LOG … 0,82 de daño en total (aciertan 2 de 2 golpes).
+f413 Daniel hp=190.172 mp=20.000 en=181.025
+f473 LOG ⏳ 3. Jabalí prepara Embestida. ¡Apártate! Si queda Aturdido, se interrumpe.
+f505 LOG 1. Araña de las simas pierde el turno: está Aturdido. 💫
+f538 LOG ¡Turno de Dasui! Elige una acción.
+f540 PULSA Habilidad
+f543 PULSA _ability_box: Tajo devastador  (72 EN)
+f544 LOG ⏳ Dasui prepara Tajo devastador. Si queda Aturdido, se interrumpe.
+f544 Dasui hp=199.642 mp=20.000 en=94.300
+f550 LOG ¡Turno de Catalardio! Elige una acción.
+f552 PULSA Atacar
+f553 LOG Catalardio golpea con Martillo grande e inflige 12,11 de daño.
+f553 Araña de las simas hp=19.996 mp=20.429 en=0.000
+f626 LOG … 0,38 de daño.  Causa Aturdido.
+f626 Catalardio hp=198.355 mp=24.620 en=181.275
+f685 LOG Ya se puede soltar Tajo devastador: elige el objetivo.
+f687 PULSA ⚡ ¡Soltar Tajo devastador!
+f688 LOG … 25,86 de daño.
+f688 Araña de las simas hp=0.000 mp=20.429 en=0.000
+f754 LOG ¡Turno de Agirato ochinan! Elige una acción.
+f754 Agirato ochinan hp=198.795 mp=36.500 en=151.425
+f756 PULSA Defender
+f757 LOG Agirato ochinan se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️
+f757 Agirato ochinan hp=198.795 mp=36.500 en=136.425
+f764 LOG ¡Turno de Daniel! Elige una acción.
+f766 PULSA Objeto
+f769 PULSA _objeto_box: Poción de maná media  x2
+f772 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  37/37 🔷)
+f773 LOG Daniel le da Poción de maná media a Agirato ochinan. 🔷 29 de maná: 10 ahora y 19 durante los 2 turnos siguientes.
+f791 LOG ⏳ 2. Trent prepara Raíces atenazantes. ¡Apártate! Si queda Aturdido, se interrumpe.
+f824 LOG Catalardio pierde el turno: está Aturdido. 💫
+f872 LOG 3. Jabalí ataca a Daniel y le inflige 0,54 de daño.
+f872 Daniel hp=189.629 mp=20.000 en=181.025
+f928 LOG ¡Turno de Dasui! Elige una acción.
+f930 PULSA Huir
+f931 LOG Dasui intenta huir, pero Jabalí se lo impide (tenía un 72 % de probabilidad de huir).
+f939 LOG ¡Turno de Agirato ochinan! Elige una acción.
+f941 PULSA Magia
+f944 PULSA _spell_box: Eclipse  (19,33 de maná)
+f945 LOG 🔮 Eclipse — recita la frase 1/4:
+f947 PULSA frase Luz y oscuridad
+f948 LOG ✓ Frase correcta. Sigue en el próximo turno.
+f948 Agirato ochinan hp=198.795 mp=36.500 en=172.425
+f956 LOG … 0,09 de daño.
+f956 Dasui hp=199.557 mp=20.000 en=94.300
+f1010 LOG ¡Turno de Daniel! Elige una acción.
+f1012 PULSA Habilidad
+f1015 PULSA _ability_box: Golpe demoledor  (42 EN)
+f1016 LOG ⏳ Daniel prepara Golpe demoledor. Si queda Aturdido, se interrumpe.
+f1016 Daniel hp=189.629 mp=20.000 en=139.025
+f1044 LOG ¡Turno de Catalardio! Elige una acción.
+f1046 PULSA Atacar
+f1047 LOG Catalardio golpea con Martillo grande e inflige 10,55 de daño.  Retrasa a 2. Trent en la barra de turno. 💫
+f1047 Trent hp=59.403 mp=20.594 en=0.000
+f1100 LOG Ya se puede soltar Golpe demoledor: elige el objetivo.
+f1102 PULSA ⚡ ¡Soltar Golpe demoledor!
+f1103 LOG … 12,35 de daño en total: 2. Trent (7,41), 3. Jabalí (4,94)  Causa Aturdido.
+f1103 Trent hp=51.997 mp=20.594 en=0.000
+f1103 Jabalí hp=49.660 mp=20.330 en=0.000
+f1161 LOG ⏳ 3. Jabalí prepara Pisotón. ¡Apártate! Si queda Aturdido, se interrumpe.
+f1199 LOG ¡Turno de Dasui! Elige una acción.
+f1201 PULSA Defender
+f1202 LOG Dasui se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️
+f1202 Dasui hp=199.557 mp=20.000 en=79.300
+f1227 LOG … 0,88 de daño en total (aciertan 2 de 2 golpes).
+f1227 Daniel hp=188.752 mp=20.000 en=139.025
+f1285 LOG 🔮 Eclipse — recita la frase 2/4:
+f1287 PULSA frase Oscuridad y luz
+f1288 LOG ✓ Frase correcta. Sigue en el próximo turno.
+f1288 Agirato ochinan hp=198.795 mp=36.500 en=177.425
+f1310 LOG ¡Turno de Daniel! Elige una acción.
+f1312 PULSA Huir
+f1313 LOG Daniel intenta huir, pero Jabalí se lo impide (tenía un 71 % de probabilidad de huir).
+f1316 LOG ¡Turno de Catalardio! Elige una acción.
+f1318 PULSA Atacar
+f1319 LOG Catalardio golpea con Martillo grande e inflige 12,07 de daño.
+f1319 Trent hp=39.923 mp=20.594 en=0.000
+f1383 LOG ¡Turno de Dasui! Elige una acción.
+f1385 PULSA Habilidad
+f1388 PULSA _ability_box: atras (apagados: Tajo devastador  (72 EN)  ⏳1 [⛔ Se recarga en 1 turno])
+f1391 PULSA Atacar
+f1392 LOG ¡Crítico! Dasui golpea con Mandobles e inflige 15,54 de daño. 💥
+f1392 Dasui hp=199.557 mp=20.000 en=121.300
+f1392 Trent hp=24.380 mp=20.594 en=0.000
+f1453 LOG 2. Trent pierde el turno: está Aturdido. 💫
+f1489 LOG 🔮 Eclipse — recita la frase 3/4:
+f1491 PULSA frase Feliz aniversario 20
+f1492 LOG ✓ Frase correcta. Sigue en el próximo turno.
+f1499 LOG ¡Crítico! 3. Jabalí ataca a Daniel y le inflige 0,6 de daño. 💥
+f1499 Daniel hp=188.149 mp=20.000 en=139.025
+f1572 LOG ¡Turno de Daniel! Elige una acción.
+f1574 PULSA Atacar
+f1575 LOG Daniel golpea con Maza pequeña e inflige 4,9 de daño.
+f1575 Daniel hp=188.149 mp=20.000 en=174.025
+f1575 Trent hp=19.477 mp=20.594 en=0.000
+f1637 LOG ¡Turno de Catalardio! Elige una acción.
+f1639 PULSA Defender
+f1640 LOG Catalardio se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️
+f1640 Catalardio hp=198.355 mp=24.620 en=166.275
+f1649 LOG ¡Turno de Dasui! Elige una acción.
+f1651 PULSA Objeto
+f1654 PULSA _objeto_box: Poción de maná media  x1
+f1657 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  37/37 🔷)
+f1658 LOG Dasui le da Poción de maná media a Agirato ochinan. 🔷 29 de maná: 10 ahora y 19 durante los 2 turnos siguientes.
+f1661 LOG 🔮 Eclipse — recita la frase 4/4:
+f1663 PULSA frase Kingdom Hearts
+f1664 LOG ✓ ¡Conjuro completo! Se puede lanzar en el próximo turno.
+f1681 LOG ⏳ 3. Jabalí prepara Cornada. ¡Apártate! Si queda Aturdido, se interrumpe.
+f1717 LOG ⏳ 2. Trent prepara Ramazo. ¡Apártate! Si queda Aturdido, se interrumpe.
+f1763 LOG ¡Turno de Daniel! Elige una acción.
+f1765 PULSA Atacar
+f1766 LOG Daniel golpea con Maza pequeña e inflige 5,36 de daño.
+f1766 Daniel hp=188.149 mp=20.000 en=181.025
+f1766 Trent hp=14.119 mp=20.594 en=0.000
+f1829 LOG … 0,65 de daño.
+f1829 Daniel hp=187.497 mp=20.000 en=181.025
+f1886 LOG El conjuro está listo. ¡Lánzalo!
+f1888 PULSA 🔥 ¡Lanzar Eclipse!
+f1889 LOG ¡Victoria contra 3 enemigos! 🎉  Recupera 1,94 de maná. 🔷
+f1889 Agirato ochinan hp=198.795 mp=19.110 en=177.425
+f1889 Trent hp=0.000 mp=20.594 en=0.000
+f1889 Jabalí hp=0.000 mp=20.330 en=0.000
+FIN f1889 estado=3

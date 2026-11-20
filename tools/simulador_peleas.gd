@@ -247,11 +247,12 @@ const ARMAS_TODAS := ["daga", "espada_corta", "espada_larga", "estoque", "hacha_
 	"daga+daga", "espada_corta+espada_corta", "maza_peq+maza_peq", "espada_corta+escudo_pequeno",
 	"espada_larga+escudo_normal", "maza_peq+escudo_normal"]
 # EL PERFIL DE CADA ARMA (19/11, lo pidio: "perfil de stats por arma"): como la llevaria quien la elige. Todos con el MISMO
-# presupuesto (tres stats al 100 % y dos a la mitad), para que ninguno gane por tener mas puntos. Las cuerpo a cuerpo
+# presupuesto (tres stats al 100 % y dos a la mitad; la AGILIDAD aparte desde el 20/11, ver REPARTO). Las cuerpo a cuerpo
 # escalan su daño con la Fuerza (escala_destreza 0); lo que distingue a las ligeras es el critico (Destreza) y la esquiva
-# (Agilidad). Y su armadura: pesada -> placas, media -> hierro, agil y distancia -> cuero.
+# (Agilidad). Y su armadura: pesada y media -> hierro, agil y distancia -> cuero. (20/11, el jefe: "guerrero es mas probable
+# que tenga hierro o hierro ligero mas que placas, para actuar mas"; las placas, para el tanque.)
 const PERFILES := {
-	"pesado": [{"fuerza": 1.0, "resistencia": 1.0, "destreza": 1.0, "agilidad": 0.5, "voluntad": 0.5}, "placas"],
+	"pesado": [{"fuerza": 1.0, "resistencia": 1.0, "destreza": 1.0, "agilidad": 0.85, "voluntad": 0.5}, "hierro"],
 	"medio": [{"fuerza": 1.0, "resistencia": 1.0, "agilidad": 1.0, "destreza": 0.5, "voluntad": 0.5}, "hierro"],
 	"agil": [{"fuerza": 1.0, "agilidad": 1.0, "destreza": 1.0, "resistencia": 0.5, "voluntad": 0.5}, "cuero"],
 	"distancia": [{"destreza": 1.0, "agilidad": 1.0, "fuerza": 1.0, "resistencia": 0.5, "voluntad": 0.5}, "cuero"],
@@ -416,11 +417,19 @@ func _leer_args() -> void:
 #  LOS PERSONAJES DE REFERENCIA
 # ------------------------------------------------------------
 # Cuanto de la habilidad del nivel va a cada stat, por rol (1 = toda, 0.5 = la mitad...).
+# LA AGILIDAD (20/11, el jefe: "un mago tendra siempre o casi siempre la agilidad y la magia a la par, para castear rapido;
+# un dps aun llevando un arma pesada sube la agi para actuar mas rapido; y los trabajos de recoleccion le dan parte de sus
+# recompensas a los demas personajes: el mas lento, el tanque, a lo mejor 550 de agi y el mas rapido, uno con dagas, 850,
+# no 350"): con la habilidad del nivel a 750, el tanque x0,73 (~550), el pesado x0,85 (~640) y el resto x1,0 (750). El
+# agil (dagas, estoque) tambien a 750 y no a 850: con su arma (daga x1,35, estoque x1,2) ya iba a 31-35 contra 13 del
+# minotauro del piso 12 ("si no bajalo a 750"). Antes medio mundo iba a la mitad (375) y los enemigos actuaban el doble.
+# La DESTREZA del mago a la mitad, como las secundarias de los demas ("destreza claro que tiene que tener"); la MAGIA, 0 en
+# todos menos el mago ("no la usan").
 const REPARTO := {
 	"guerrero": {"fuerza": 1.0, "resistencia": 1.0, "agilidad": 1.0, "destreza": 0.5, "voluntad": 0.5},
-	"tanque": {"fuerza": 1.0, "resistencia": 1.0, "agilidad": 0.5, "destreza": 0.5, "voluntad": 0.5},
+	"tanque": {"fuerza": 1.0, "resistencia": 1.0, "agilidad": 0.73, "destreza": 0.5, "voluntad": 0.5},
 	"arquero": {"fuerza": 1.0, "resistencia": 0.5, "agilidad": 1.0, "destreza": 1.0, "voluntad": 0.5},
-	"mago": {"magia": 1.0, "resistencia": 0.5, "agilidad": 0.5, "voluntad": 0.5, "fuerza": 0.25},
+	"mago": {"magia": 1.0, "resistencia": 0.5, "agilidad": 1.0, "voluntad": 0.5, "fuerza": 0.25, "destreza": 0.5},
 }
 
 func _personaje(piso: int, rol: String, en_grupo: bool, arma_g: String = "") -> PersonajeData:
@@ -442,7 +451,9 @@ func _personaje(piso: int, rol: String, en_grupo: bool, arma_g: String = "") -> 
 	var pr: Array = _prog(piso)
 	var rep: Dictionary = REPARTO[rol]
 	var perfil: String = ""
-	if rol in ["guerrero", "arquero"] and PERFIL_DE_ARMA.has(principal):
+	# (20/11) SOLO quien lleva ESA arma: el arquero de los grupos cogia el perfil del arma del GUERRERO (el mandoble ->
+	# "pesado", con placas, Agilidad a la mitad y Resistencia entera) en vez del suyo; ahora va con su reparto y su cuero.
+	if (rol == "guerrero" or (rol == "arquero" and principal in ARMAS_DISTANCIA)) and PERFIL_DE_ARMA.has(principal):
 		perfil = PERFIL_DE_ARMA[principal]
 		rep = PERFILES[perfil][0]
 	var p := PersonajeData.new()
@@ -472,7 +483,7 @@ func _personaje(piso: int, rol: String, en_grupo: bool, arma_g: String = "") -> 
 		p.set(k, int(float(h) * float(rep[k])))
 	var armas := {"guerrero": principal, "tanque": "espada_corta", "arquero": principal if principal in ARMAS_DISTANCIA else "arco",
 		"mago": "baston"}
-	var armadura := {"guerrero": "placas", "tanque": "placas", "arquero": "cuero", "mago": "tela"}
+	var armadura := {"guerrero": "hierro", "tanque": "placas", "arquero": "cuero", "mago": "tela"}
 	p.equipped_main = load("res://resources/weapons/%s.tres" % armas[rol])
 	var mejora = Upgrades.POTENCIA if rol == "mago" else Upgrades.AGUDEZA
 	p.equip_meta["main"] = {"tier": int(pr[3]), "rareza": 0, "mejoras": {mejora: int(pr[4])}, "durabilidad": 1.0, "banda": 0}

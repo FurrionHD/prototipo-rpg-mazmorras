@@ -38,7 +38,7 @@ GODOT = Path(os.environ.get("LOCALAPPDATA", "")) / ("Microsoft/WinGet/Packages/"
 # 1 GB de margen y uno menos (~600 MB por Godot con la arena montada) y sin pasar de los nucleos menos dos ([[cuidado-con-la-ram]],
 # [[no-ocupar-todos-los-nucleos]]). En el portatil saldra otra cuenta: por eso se mira al arrancar.
 MB_POR_GODOT = 900   # (19/11) medido: ~550 al arrancar y hasta ~1000 antes del tope de memoria (--tope-mb)
-MARGEN_MB = 1000
+MARGEN_MB = 600   # (19/11 noche, el jefe: "usa mas ram y mas cpu, dejaste mucho margen"): con 6 Godot sobraban 3,6 GB y 73 % de CPU
 
 
 def ram_libre_mb() -> int:
@@ -61,8 +61,8 @@ def ram_libre_mb() -> int:
 def hilos_auto() -> int:
     por_ram = (ram_libre_mb() - MARGEN_MB) // MB_POR_GODOT
     por_cpu = max(1, (os.cpu_count() or 4) - 2)
-    # y UNO MENOS de los que caben (19/11, el jefe: "la proxima vez abre 1 menos para tener mas margen")
-    return int(max(1, min(por_ram, por_cpu) - 1))
+    # (19/11 noche) SIN el "uno menos" de la tarde: el jefe pidio apurar mas la RAM y la CPU (iba lento con margen de sobra)
+    return int(max(1, min(por_ram, por_cpu)))
 
 
 def _args_godot(a) -> list:
@@ -102,6 +102,14 @@ def lanzar(a) -> Path:
     extra = _args_godot(a)
     t0 = time.time()
     trozos = [Trozo(i, a.hilos, a.tanda, extra + (["tope_mb=%d" % a.tope_mb] if a.tope_mb > 0 else [])) for i in range(a.hilos)]
+    # REANUDAR una tanda cortada por el tope (20/11): --reanudar K0,K1,... = el caso por el que sigue cada trozo (el siguiente
+    # a su ultimo CASO_HECHO); hace falta el MISMO numero de trozos (--hilos) que la tanda cortada y otro nombre de --tanda.
+    if a.reanudar:
+        desdes = [int(x) for x in a.reanudar.split(",")]
+        if len(desdes) != a.hilos:
+            raise SystemExit("[simulador] --reanudar trae %d trozos y hay %d hilos" % (len(desdes), a.hilos))
+        for t, k in zip(trozos, desdes):
+            t.desde = k
     for t in trozos:
         t.lanzar()
     print("[simulador] %d Godot en marcha (%s)" % (a.hilos, " ".join(extra)))
@@ -703,6 +711,7 @@ def main():
     # y las peleas duraban el doble de ciclos); x8 solo iba un 15 % mas rapido.
     ap.add_argument("--escala", default="2")
     ap.add_argument("--tope", type=int, default=8 * 3600, help="segundos que puede durar la tanda entera")
+    ap.add_argument("--reanudar", default="", help="K0,K1,...: el caso por el que sigue cada trozo de una tanda cortada (mismo --hilos)")
     # (19/11) LA MEMORIA de cada Godot se va calentando (poses, hojas de cada color...) y en tandas de horas pasaba del GB:
     # pasado este tope (memoria estatica, MB) se sale al acabar su caso y se relanza desde ahi. 0 = sin tope.
     ap.add_argument("--tope-mb", dest="tope_mb", type=int, default=750)

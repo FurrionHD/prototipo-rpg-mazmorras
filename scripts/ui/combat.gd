@@ -148,7 +148,10 @@ const DEFEND_ENERGY_COST := 15.0
 # rebalance): las habilidades ahora gastan mucho mas, asi que pegar basico tiene que devolver
 # energia de verdad -> el ritmo es habilidad -> un par de basicos para recargar -> habilidad,
 # en vez de spamear habilidades. PROVISIONAL -> Excel.
-const ATTACK_ENERGY_REGEN := 28.0
+# (20/11) Subido un 30 % a todas las armas (28 -> 36; las de 35 -> 45 y las de 42 -> 55): el simulador vio que todas
+# empezaban el 49-73 % de sus turnos sin energia para su habilidad mas barata (el jefe: "subir la energia por golpe de las
+# armas en general para que no tengan que pegar tantos basicos").
+const ATTACK_ENERGY_REGEN := 36.0
 # PASAR el turno en el mapa tambien repone energia (lo pidio el usuario el 24/09), pero MENOS que
 # pegar: si repusiera lo mismo, quedarse quieto saldria gratis. Fraccion de lo que da tu basico.
 const PASAR_ENERGIA_FRAC := 0.5

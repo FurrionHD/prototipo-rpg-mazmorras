@@ -12,11 +12,13 @@ const SLIME := "res://scenes/actors/enemy/slime.tres"
 const TRENT := "res://scenes/actors/enemy/trent.tres"
 
 
-# El de tools/simulador_peleas.gd hasta el 19/11, tal cual.
-func _bakeo_viejo(e: Combatant, ed: EnemyData, t: float, nivel: int, vel_factor: float) -> void:
+# El de tools/simulador_peleas.gd hasta el 19/11, pero (20/11) con el FONDO PLANO: 700 en todas las habilidades en cada nivel.
+func _bakeo_viejo(e: Combatant, _ed: EnemyData, _t: float, nivel: int, vel_factor: float) -> void:
 	var vel0: float = e.base_speed
+	var ab := Abilities.new()
+	for clave in ["fuerza", "resistencia", "destreza", "agilidad", "magia", "voluntad"]:
+		ab.set(clave, 700)
 	for _n in nivel - 1:
-		var ab: Abilities = ed.crear_abilities(t, e.mutacion, 12)
 		e.base_hp = StatsMath.max_hp_jugador(ab, e.base_hp) * 1.1
 		e.base_attack = e.base_attack * StatsMath.fuerza_factor(float(ab.fuerza)) * 1.1
 		e.base_defense = StatsMath.defense_jugador(ab, e.base_defense) * 1.1
@@ -77,6 +79,61 @@ func test_la_costra_sale_de_la_vida_bakeada() -> void:
 	var c: Combatant = _con(true, 2, 0.0, func(): return ed.crear_combatant(0.5, true, false, &"ambarino", 6))
 	cierto(c.costra_max > 0.0, "el ambarino trae costra")
 	cerca(c.costra_max, c.max_hp * 0.2, 0.01, "costra = 20 % de su vida YA bakeada")
+
+
+# EL MULTIPLICADOR DEL MUTANTE, UNA SOLA VEZ (20/11): con las reglas nuevas el mutante sale IGUAL que calcular el bicho
+# "como si fuera normal" pero con SUS habilidades de mutante (y sus niveles) y multiplicar AL FINAL: vida x2,6 (x3,6 la 2a
+# mutacion), defensa x1,15 (x1,25) y defensa magica x su multiplicador de ataque. Su reparto (mas Resistencia, mas rapido...)
+# SI cuenta: por eso respecto al slime normal no es justo x2,6.
+func test_mutante_multiplica_una_vez_sus_stats() -> void:
+	var ed: EnemyData = load(SLIME)
+	var t := 0.6
+	var piso := 9
+	for caso in [[&"brotado", EnemyData.MUT_HP, EnemyData.MUT_DEFENSA_NUEVAS, EnemyData.MUT_ATAQUE],
+			[&"brotado_punzante", EnemyData.MUT2_HP, EnemyData.MUT2_DEFENSA_NUEVAS, EnemyData.MUT2_ATAQUE]]:
+		for nivel in [1, 2, 3]:
+			var m: Combatant = _con(true, nivel, 0.0, func(): return ed.crear_combatant(t, true, false, caso[0], piso))
+			# "como si fuera normal con sus nuevas stats": el bicho sin multiplicadores, con las habilidades del mutante
+			var sin: Combatant = _con(true, 1, 0.0, func(): return ed.crear_combatant(t, false, false, &"", piso))
+			sin.abilities = ed.crear_abilities(t, caso[0], piso)
+			sin.mutacion = caso[0]
+			_bakeo_viejo(sin, ed, t, nivel, 0.0)
+			var r0: bool = StatsMath.reglas_nuevas
+			StatsMath.reglas_nuevas = true
+			cerca(m.max_hp, sin.max_hp * caso[1], 0.01, "%s nivel %d: vida = la suya x%.2f" % [caso[0], nivel, caso[1]])
+			cerca(m.def_value(), sin.def_value() * caso[2], 0.01, "%s nivel %d: defensa = la suya x%.2f" % [caso[0], nivel, caso[2]])
+			cerca(m.mdef_value(), sin.mdef_value() * caso[3], 0.01, "%s nivel %d: defensa magica = la suya x%.2f" % [caso[0], nivel, caso[3]])
+			StatsMath.reglas_nuevas = r0
+			cierto(m.current_hp == m.max_hp, "nace con la vida llena")
+
+
+# EL FONDO PLANO (20/11): la proporcion vida mutante / vida normal es LA MISMA en el nivel 1, 2 y 3, tambien en un mutante
+# con un reparto muy distinto del suyo (el chillon piña, Resistencia x2; antes x5,3 -> x11,6). Y lo mismo la defensa.
+func test_mutante_misma_proporcion_en_cada_tier() -> void:
+	for par in [["res://scenes/actors/enemy/chillon.tres", &"pina"], [SLIME, &"brotado"]]:
+		var ed: EnemyData = load(par[0])
+		var prop: Array = []
+		for nivel in [1, 2, 3]:
+			var nm: Array = _con(true, nivel, 0.0, func():
+				return [ed.crear_combatant(0.5, false, false, &"", 10), ed.crear_combatant(0.5, true, false, par[1], 10)])
+			var r0: bool = StatsMath.reglas_nuevas
+			StatsMath.reglas_nuevas = true
+			prop.append([nm[1].max_hp / nm[0].max_hp, nm[1].def_value() / nm[0].def_value()])
+			StatsMath.reglas_nuevas = r0
+		for i in [1, 2]:
+			cerca(prop[i][0], prop[0][0], 0.001, "%s: vida x%.2f en el nivel %d como en el 1" % [par[1], prop[i][0], i + 1])
+			cerca(prop[i][1], prop[0][1], 0.001, "%s: defensa en el nivel %d como en el 1" % [par[1], i + 1])
+
+
+# Con las reglas de hoy el mutante no cambia: su vida sale como siempre (aditiva, con su reparto de habilidades).
+func test_mutante_con_reglas_de_hoy_como_siempre() -> void:
+	var ed: EnemyData = load(SLIME)
+	var m: Combatant = _con(false, 1, 0.0, func(): return ed.crear_combatant(0.6, true, false, &"brotado", 9))
+	var esperado: float = StatsMath.max_hp_value(ed.crear_abilities(0.6, &"brotado", 9), m.level,
+		ed.base_hp * Game.enemy_floor_stat_factor(9) * EnemyData.MUT_HP)
+	cerca(m.max_hp, esperado, 0.01, "vida del mutante con las de hoy, la de siempre")
+	cerca(m.base_defense, ed.base_defense * Game.enemy_floor_stat_factor(9) * EnemyData.MUT_DEFENSA, 0.01,
+		"defensa base x1,6 con las de hoy")
 
 
 # LA VIDA DE LOS JEFES CON LAS REGLAS NUEVAS (19/11, base_hp_reglas_nuevas en su ficha): solo con el interruptor; con las

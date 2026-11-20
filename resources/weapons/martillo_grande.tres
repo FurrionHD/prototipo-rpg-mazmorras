@@ -20,6 +20,6 @@ crit_bonus = -0.025
 bloqueo = 0.08
 dano_tipo = 1
 aturdir_base = 0.25
-energia_ataque = 42.0
+energia_ataque = 55.0
 habilidades = [ExtResource("2"), ExtResource("3"), ExtResource("n0_rompec"), ExtResource("n1_martil"), ExtResource("n2_temblo")]
 valor_base = 560

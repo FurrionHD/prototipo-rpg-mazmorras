@@ -61,7 +61,7 @@ voluntad = 24
 ; (12/11) un poco MAS FUERTE que el pavon: vida 58 -> 66 y ataque +10 %. El mismo kit.
 base_hp = 66.0
 base_attack = 5.5
-base_defense = 3.2
+base_defense = 6.4
 base_speed = 5.2
 crystal_category_min = 6
 crystal_category_max = 8

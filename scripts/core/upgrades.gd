@@ -561,14 +561,23 @@ static func shield_categories() -> Array:
 # arregla un castigo, les da una identidad. Espada larga y maza, a medio camino; las grandes, nada.
 # Solo come la defensa del CUERPO (def_value): ni el escudo con el que te paran ni la reduccion % de
 # la armadura, que son otra cosa.
+# (20/11, el jefe: "una reduccion de defensa mas el ignorar ya te hacen la vida muy god... vamos a bajar a 12 % las que mas
+# ignoran y poner 5 % a las que tienen 0"): con la defensa nueva (tope del 75 %) se bajan. Las ligeras 25 -> 12 %, la
+# ballesta 20 -> 10 %, espada larga y maza 12 -> 8 % (para que sigan por debajo de las ligeras) y las que no tenian, 5 %.
+# El baston no: es arma magica y penetracion_arma ya le da 0.
 const PENETRACION_POR_TIPO := {
-	WeaponData.Tipo.DAGA: 0.25,
-	WeaponData.Tipo.ESTOQUE: 0.25,
-	WeaponData.Tipo.ESPADA_CORTA: 0.25,
-	WeaponData.Tipo.ESPADA_LARGA: 0.12,
-	WeaponData.Tipo.MAZA_PEQ: 0.12,
-	# La BALLESTA: el virote atraviesa la chapa (02/10). El arco, nada: muchos disparos flojos.
-	WeaponData.Tipo.BALLESTA: 0.20,
+	WeaponData.Tipo.DAGA: 0.12,
+	WeaponData.Tipo.ESTOQUE: 0.12,
+	WeaponData.Tipo.ESPADA_CORTA: 0.12,
+	WeaponData.Tipo.ESPADA_LARGA: 0.08,
+	WeaponData.Tipo.MAZA_PEQ: 0.08,
+	# La BALLESTA: el virote atraviesa la chapa (02/10).
+	WeaponData.Tipo.BALLESTA: 0.10,
+	WeaponData.Tipo.PUNOS: 0.05,
+	WeaponData.Tipo.MANDOBLE: 0.05,
+	WeaponData.Tipo.HACHA_GRANDE: 0.05,
+	WeaponData.Tipo.MARTILLO_GRANDE: 0.05,
+	WeaponData.Tipo.ARCO: 0.05,
 }
 
 static func penetracion_arma(w: WeaponData) -> float:
