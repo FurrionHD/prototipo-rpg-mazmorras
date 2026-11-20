@@ -72,11 +72,14 @@ def filas_con_alfa(fn, modulos, *args, **kw):
             for k in range(2):
                 col = np.zeros(pasadas[0][j][i][k].shape[:2] + (3,), np.float32)
                 n = np.zeros(pasadas[0][j][i][k].shape[:2], np.float32)
+                # (20/11) CON EL ALFA DE VERDAD de cada pasada, no solo "sale o no": lo que la lamina pinta semitransparente
+                # (mezcla(), el resplandor de la Marca de la luna) salia OPACO en el juego, una bola azul. El color, pesado
+                # por su alfa. Lo de trama sigue igual (alfa 255 en unas pasadas y 0 en otras).
                 for p in pasadas:
                     c = np.asarray(p[j][i][k]).astype(np.float32)
-                    hay = c[:, :, 3] > 0
-                    col[hay] += c[hay, :3]
-                    n[hay] += 1
+                    al = c[:, :, 3] / 255.0
+                    col += c[:, :, :3] * al[..., None]
+                    n += al
                 res = np.zeros(col.shape[:2] + (4,), np.uint8)
                 hay = n > 0
                 res[hay, :3] = np.clip(col[hay] / n[hay, None] + 0.5, 0, 255).astype(np.uint8)

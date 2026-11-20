@@ -506,6 +506,12 @@ const ONDA_PRIMERA := Vector2(10.0, 15.0)   # la primera, tras esconderse
 var _en_sombras: Dictionary = {}   # cuerpo -> segundos que faltan para la siguiente onda
 const ALFA_ECO := 0.5   # (18/11) lo que se le ve al escondido en el turno de quien lleva Ecolocalizacion
 
+# ¿Se le ve? (en las sombras y sin la ecolocalizacion de quien mira): el que no, no enseña nada que lo delate -su circulo
+# de movimiento, su alcance, sus huellas-.
+func _escondido(c: Combatant) -> bool:
+	return c != null and c.en_sombras() and not Combatant.ve_sombras
+
+
 func _sombras_visibles(quitar: bool, dt: float = 0.0) -> void:
 	var siguen: Dictionary = {}
 	var ocultas: Dictionary = {}
@@ -543,6 +549,10 @@ func _sombras_visibles(quitar: bool, dt: float = 0.0) -> void:
 			if cu.visible:
 				cu.visible = false
 			cu.set_meta(OCULTA_PELEA, true)
+			# (20/11, el jefe: "muestra su circulo de movimiento incluso estando en sigilo, es invisible") si se esconde con su
+			# turno en marcha, su circulo se va con el
+			if e == _quien and _arena() != null:
+				_arena().quitar_circulo()
 			_en_sombras[cu] = float(_en_sombras[cu]) - dt
 			if float(_en_sombras[cu]) <= 0.0:
 				_en_sombras[cu] = randf_range(ONDA_CADA.x, ONDA_CADA.y)
@@ -4812,7 +4822,7 @@ func turno_enemigo(e: Combatant) -> void:
 			_pantalla._state = _pantalla.State.PAUSED
 			_pantalla._pause_left = INF
 			var arena0: ArenaCombate = _arena()
-			if arena0 != null:
+			if arena0 != null and not _escondido(e):
 				arena0.poner_circulo(_inicio, _radio, true)
 			return
 	# Aturdido pierde el turno de todas formas: andar y luego no hacer nada seria contarlo mal. Y el
@@ -4850,7 +4860,7 @@ func turno_enemigo(e: Combatant) -> void:
 	_pantalla._state = _pantalla.State.PAUSED
 	_pantalla._pause_left = INF
 	var arena: ArenaCombate = _arena()
-	if arena != null:
+	if arena != null and not _escondido(e):
 		arena.poner_circulo(_inicio, _radio, true)
 
 
@@ -6398,7 +6408,7 @@ func _acechador_pixel(arena: Node, ev: Dictionary, estilo: int, a: Combatant, v:
 				maxf(espera - float(_ACECHADOR_TOCA["fauces_sangre"]), 0.0), -1.0, ritmo)
 
 
-const _GESTOS_CAZADOR := [&"media_luna", &"marca", &"aullido"]
+const UNA_POR_ACCION_MS := 1200   # los golpes de UNA accion llegan dentro de este rato
 var _media_luna_hecha: Dictionary = {}   # "quien:semilla" -> ms (una hoja por accion, no una por cada uno que pilla)
 
 
@@ -6423,6 +6433,9 @@ func _tick_luna() -> void:
 		_luna = LunaCielo.crear(arena, Vector2(r.get_center().x, r.position.y + r.size.y * 0.22))
 	_luna.poner_fase(maxi(caz.fase_luna, 0))
 	_luna.poner_puntos(caz.paciencia_carga)
+	# (20/11, el jefe: "que la luna empiece a temblar en cuanto aulle, para que se sepa que va a caer") mientras CARGA la
+	# Caida, la luna tiembla. 'charging' viaja al espejo con su estado: tiembla en todas las pantallas.
+	_luna.temblar(caz.charging != null and int(caz.charging.fx_estilo) == CombatFX.Estilo.LUNA_CAIDA)
 
 
 func _quitar_luna() -> void:
@@ -6433,21 +6446,30 @@ func _quitar_luna() -> void:
 
 # LA CAIDA DE LA LUNA (su idea): la luna de la pelea cae sobre ellos justo cuando pega y vuelve flotando. Una por accion.
 func _caida_luna(ev: Dictionary, a: Combatant, v: Combatant, vuelo: float) -> void:
-	var clave: String = "caida:%d:%d" % [a.get_instance_id(), int(ev.get("semilla", 0))]
+	# UNA POR ACCION aunque pille a varios: cada golpe trae su semilla, asi que va por quien la lanza y un rato (no por
+	# la semilla, que con tres alcanzados la hacia caer tres veces)
+	var clave: String = "caida:%d" % a.get_instance_id()
+	var ahora: int = Time.get_ticks_msec()
+	for k in _media_luna_hecha.keys():
+		if ahora - int(_media_luna_hecha[k]) > UNA_POR_ACCION_MS:
+			_media_luna_hecha.erase(k)
 	if _media_luna_hecha.has(clave):
 		return
-	_media_luna_hecha[clave] = Time.get_ticks_msec()
+	_media_luna_hecha[clave] = ahora
 	_tick_luna()
 	if _luna == null or not is_instance_valid(_luna):
 		return
-	_luna.caer(pies_de(v), maxf(vuelo - LunaCielo.T_CAE, 0.0))
+	# 'vuelo' es tiempo de la pelea: en segundos reales, partido por escala_tiempo (y la luna, a su ritmo)
+	var esc: float = _pantalla._fx.escala_tiempo if _pantalla._fx != null else CombatFX.RITMO_BASE
+	var r: float = _ritmo_cuerpo()
+	_luna.caer(pies_de(v), maxf(vuelo / maxf(esc, 0.01) - (LunaCielo.T_ALZA + LunaCielo.T_CAE) / r, 0.0), r)
 
 
 func _media_luna_pixel(arena: Node, ev: Dictionary, a: Combatant, v: Combatant, vuelo: float, ritmo: float) -> void:
-	var clave: String = "%d:%d" % [a.get_instance_id(), int(ev.get("semilla", 0))]
+	var clave: String = "media:%d" % a.get_instance_id()   # (una por accion: ver _caida_luna)
 	var ahora: int = Time.get_ticks_msec()
 	for k in _media_luna_hecha.keys():
-		if ahora - int(_media_luna_hecha[k]) > 3000:
+		if ahora - int(_media_luna_hecha[k]) > UNA_POR_ACCION_MS:
 			_media_luna_hecha.erase(k)
 	if _media_luna_hecha.has(clave):
 		return
@@ -6464,6 +6486,8 @@ func _media_luna_pixel(arena: Node, ev: Dictionary, a: Combatant, v: Combatant, 
 # cabeza (la B de su lamina), pegada a el. Se mira cada fotograma, como el olor.
 var _marcas: Dictionary = {}   # Combatant -> EfectoPixel
 
+const MARCA_ALTO := 8.0   # celdas de su lamina por encima de la cabeza (la creciente mide ~13 de alto)
+
 func _tick_marcas() -> void:
 	var arena: ArenaCombate = _arena()
 	if arena == null:
@@ -6473,8 +6497,14 @@ func _tick_marcas() -> void:
 		var lleva: bool = cb.is_alive() and cb.has_status(StatusEffects.Id.MARCA_LUNA) and cuerpo_de(cb) != null
 		var n = _marcas.get(cb)
 		if lleva and (n == null or not is_instance_valid(n)):
-			var b: Rect2 = bulto_de(cb)
-			n = EfectoPixel.lanzar(arena, "acechador", "marca", Vector2(b.get_center().x, b.position.y - 2.0 * CELDA_PX), 0,
+			# (20/11, lo vio el jefe) sobre la CABEZA del DIBUJO (bulto_visual), no sobre lo que recibe los golpes (bulto_de,
+			# en los marcados a mano son los pies: quedaba a media altura). La luna va centrada en su ancla: un radio arriba.
+			var b: Rect2 = bulto_visual(cb)
+			var tope: float = b.position.y
+			# LOS TUYOS: su caja (PoseJugador.CAJA_CUERPO) es la de los pies; la cabeza esta a ALTO_MUNDO sobre ellos
+			if _pantalla._aliados.has(cb):
+				tope = pies_de(cb).y - PoseJugador.ALTO_MUNDO
+			n = EfectoPixel.lanzar(arena, "acechador", "marca", Vector2(b.get_center().x, tope - MARCA_ALTO * CELDA_PX), 0,
 				cuerpo_de(cb))
 			_marcas[cb] = n
 		elif not lleva and n != null:
@@ -6500,7 +6530,9 @@ func _variante_sombra(e: Combatant) -> String:
 
 
 func _al_fundirse(e: Combatant, cu: Node2D) -> void:
-	if e.paciencia_turnos <= 0 or not _de_los_acechadores(cu):
+	# (20/11, lo vio el jefe en multi: se escondia "sin transicion") por su PASIVA A LA VISTA (PACIENCIA), que viaja: en el
+	# espejo el bicho es un maniqui y paciencia_turnos (de su ficha) vale 0.
+	if not e.has_status(StatusEffects.Id.PACIENCIA) or not _de_los_acechadores(cu):
 		return
 	if not cu.has_meta(&"ya_peleando"):
 		cu.set_meta(&"ya_peleando", true)
@@ -6518,7 +6550,7 @@ func _al_emerger(cu: Node2D) -> void:
 	cu.set_meta(&"ya_peleando", true)
 	for e in _pantalla._enemies:
 		if cuerpo_de(e) == cu:
-			if (e as Combatant).is_alive() and (e as Combatant).paciencia_turnos > 0 and _de_los_acechadores(cu):
+			if (e as Combatant).is_alive() and (e as Combatant).has_status(StatusEffects.Id.PACIENCIA) and _de_los_acechadores(cu):
 				var arena: ArenaCombate = _arena()
 				if arena != null:
 					EfectoPixel.lanzar(arena, "acechador", "emerge_" + _variante_sombra(e), pies_de(e))
@@ -7398,11 +7430,14 @@ func _dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		return
 	# Y LAS DEL CAZADOR LUNAR por su gesto (llevan un estilo generico): la MEDIA LUNA, su hoja de luna una vez por accion;
 	# la MARCA (la creciente la pone _tick_marcas mientras dure) y la CAIDA (la luna del cielo) no pintan nada sobre cada uno.
-	if a != null and _de_los_acechadores(cuerpo_de(a)) and StringName(ev.get("anim", &"")) in _GESTOS_CAZADOR:
-		if StringName(ev.get("anim", &"")) == &"media_luna":
-			_media_luna_pixel(arena, ev, a, v, vuelo, ritmo)
-		elif StringName(ev.get("anim", &"")) == &"aullido":
-			_caida_luna(ev, a, v, vuelo)
+	# (20/11) por SU ESTILO (CombatFX.Estilo.LUNA_*): con el del chillido no llegaban nunca aqui.
+	if estilo == CombatFX.Estilo.LUNA_MEDIA and a != null:
+		_media_luna_pixel(arena, ev, a, v, vuelo, ritmo)
+		return
+	if estilo == CombatFX.Estilo.LUNA_CAIDA and a != null:
+		_caida_luna(ev, a, v, vuelo)
+		return
+	if estilo == CombatFX.Estilo.LUNA_MARCA:
 		return
 	# EL CHILLON Y SUS MUTANTES EN PIXEL (18/11, tools/sprites_sdf/chillon_efectos_horno.py).
 	if estilo in _ESTILOS_CHILLON and a != null and _de_los_chillones(cuerpo_de(a)):
@@ -7985,12 +8020,23 @@ func _bajo_de(c: Combatant) -> Vector2:
 
 
 # ¿Queda el nodo 'p' encima de alguien vivo que no sea 'c' (enemigo o de los tuyos)?
+const MARGEN_PISAR := 3.0
+
 func _hay_otro_en(c: Combatant, p: Vector2, excluir: Array = []) -> bool:
+	var mi_caja: Rect2 = Rect2()
+	if cuerpo_de(c) != null:
+		mi_caja = bulto_de(c)
+		mi_caja.position += p - pos_de(c)
 	for grupo in [_pantalla._enemies, _pantalla._aliados]:
 		for o in grupo:
 			if o == c or excluir.has(o) or not (o as Combatant).is_alive() or cuerpo_de(o) == null:
 				continue
 			if p.distance_to(pos_de(o)) < SEPARACION:
+				return true
+			# (20/11, el jefe: el Cazador "se mete fisicamente dentro del personaje") Y POR LAS CAJAS DE LOS CUERPOS: con
+			# solo los 22 px entre nodos, un bicho largo (el lobo) caia del salto encima de su presa. Su caja en 'p' no puede
+			# pisar la del otro (con un margen de tolerancia, para que pegados de lado si quepan).
+			if mi_caja.size.x > 0.0 and mi_caja.grow(-MARGEN_PISAR).intersects(bulto_de(o).grow(-MARGEN_PISAR)):
 				return true
 	return false
 
@@ -8340,7 +8386,8 @@ var _gestos_bicho: Dictionary = {}   # cuerpo -> {t, dur, encaje, cola, sostener
 # LAS QUE NO SE AJUSTAN AL GOLPE: el gesto dura lo que va del arranque al ultimo golpe mas un pelin, y estas tienen su
 # propio reloj. La rodada del escarabajo cruza la linea en InsectoAire.T_RODADA (los golpes le van llegando por el
 # camino) y luego se desenrosca; el Caparazon se aplasta a 0,44 s, que es cuando sale el reflejo.
-const _GESTO_A_SU_RITMO := ["rodar", "caparazon", "arremeter", "embestir", "pasada"]
+const _CARGA_UNA_VEZ := ["aullido"]
+const _GESTO_A_SU_RITMO :=["rodar", "caparazon", "arremeter", "embestir", "pasada"]
 # LAS EMBESTIDAS CON SU HOJA EN TRES TRAMOS (10/10, el jefe: "primero se agacha que de tiempo a verlo... y luego embiste
 # y cuando termina ya se levanta"): hasta que pega, quieto en el primer marco; mientras cruza su linea (Desliz.EMBISTE),
 # los marcos de 'bucle' en bucle; al llegar, de 'levanta' al final a su ritmo. La hoja de la Cornada ya los trae: 0-1
@@ -8355,14 +8402,15 @@ func gesto_bicho_en_mapa(c: Combatant, pide: StringName, dur: float, encaje: boo
 	if encaje and _gestos_bicho.has(cuerpo) and not bool(_gestos_bicho[cuerpo]["encaje"]):
 		return
 	var partes: PackedStringArray = String(pide).split(">", false)
-	# Sin animacion pedida (el ataque basico): la 'basico' del bicho si la tiene (29/09, el cabezazo de la rata);
-	# si no, _poner_anim_bicho cae a su embestida de siempre.
-	var base: String = "encaje" if encaje else (partes[0] if not partes.is_empty() else "basico")
-	# UN NOMBRE QUE SOLO DICE SU TIEMPO (30/09, EnemyData.anim_basico, "golpe_6_8"...): si el sprite no tiene esa
-	# animacion, hace la de siempre -- su 'basico' (y la alternancia de brazos de abajo) o su embestida --; el tiempo de
-	# golpe ya lo ha puesto CombatFX con ese nombre (IMPACTO_ANIM_MAPA).
-	if not encaje and base != "basico" and not _tiene_anim_bicho(cuerpo, base) and not _tiene_anim_bicho(cuerpo, base + "_0"):
-		base = "basico"
+	var base: String = "encaje" if encaje else _base_de_gesto(cuerpo, partes)
+	# (20/11, el jefe: "aulla dos veces el lunar para tirar la luna") SOLTAR LO QUE YA HIZO AL CARGAR: si su pose de carga es
+	# esta misma animacion (el aullido de la Caida), al soltar no la repite: deja la pose y lo que se ve es lo que suelta.
+	if not encaje and not sostener and _gestos_bicho.has(cuerpo):
+		var g0: Dictionary = _gestos_bicho[cuerpo]
+		if bool(g0["sostener"]) and String(g0.get("carga", "")) == base:
+			_gestos_bicho.erase(cuerpo)
+			_soltar_gesto_bicho(cuerpo)
+			return
 	# LOS QUE ALTERNAN DE BRAZO (30/09, la segadora): si tiene 'basico_der', un basico con cada brazo. El lado se queda
 	# apuntado en el cuerpo para que el efecto salga de esa mano (_on_dibujo_mapa, INSECTO_TAJO).
 	if base == "basico" and _tiene_anim_bicho(cuerpo, "basico_der"):
@@ -8376,14 +8424,17 @@ func gesto_bicho_en_mapa(c: Combatant, pide: StringName, dur: float, encaje: boo
 		return
 	# Las que van A SU RITMO digan lo que digan los golpes (_GESTO_A_SU_RITMO). Salvo embistiendo: entonces su gesto
 	# dura lo que tarda en cruzar (CombatFX.alargar_embestida).
-	if base in _GESTO_A_SU_RITMO and emb.is_empty():
+	# (20/11) Y TODOS LOS DEMAS TAMBIEN: el golpe espera a la hoja (CombatFX._hoja_del_cuerpo), asi que la hoja ya no se
+	# aprieta al hueco del gesto. Solo el encaje (la sacudida del que recibe) se ajusta a lo suyo.
+	if not encaje and emb.is_empty():
 		dur = -1.0
 	var natural: float = _poner_anim_bicho(cuerpo, base, dur, not encaje)
 	if natural < 0.0:
 		return
 	cuerpo.set_meta("gesto_pelea", true)
-	_gestos_bicho[cuerpo] = {"t": 0.0, "dur": maxf(dur if dur > 0.0 else natural, 0.2), "encaje": encaje,
-		"cola": partes.slice(1) if not encaje else PackedStringArray(), "sostener": sostener}
+	_gestos_bicho[cuerpo] = {"t": 0.0, "dur": maxf(dur if dur > 0.0 else natural / _ritmo_cuerpo(), 0.2), "encaje": encaje,
+		"cola": partes.slice(1) if not encaje else PackedStringArray(), "sostener": sostener,
+		"carga": base if sostener else ""}
 	if not encaje and _pixel != null:
 		_pixel.al_gesto(c, cuerpo, base, float(_gestos_bicho[cuerpo]["dur"]))
 
@@ -8434,6 +8485,71 @@ func _marco_embestida(sp: AnimatedSprite2D, m: Dictionary, t: float) -> void:
 		sp.frame = f
 
 
+# LA ANIMACION CON QUE HARA 'pide' (partida por '>': la primera). Sin animacion pedida (el ataque basico): la 'basico' del
+# bicho si la tiene (29/09, el cabezazo de la rata); si no, _poner_anim_bicho cae a su embestida de siempre.
+# UN NOMBRE QUE SOLO DICE SU TIEMPO (30/09, EnemyData.anim_basico, "golpe_6_8"...): si el sprite no tiene esa animacion, hace
+# la de siempre -- su 'basico' (y la alternancia de brazos) o su embestida --; su tiempo de golpe es el de ese nombre
+# (CombatFX.IMPACTO_ANIM_MAPA).
+func _base_de_gesto(cuerpo: Node2D, partes: PackedStringArray) -> String:
+	var base: String = partes[0] if not partes.is_empty() else "basico"
+	if base != "basico" and not _tiene_anim_bicho(cuerpo, base) and not _tiene_anim_bicho(cuerpo, base + "_0"):
+		base = "basico"
+	return base
+
+
+# A QUE RITMO VA EL CUERPO: a sus fps a velocidad normal, y al doble a x2 (la pelea corre a escala_tiempo, que a velocidad
+# normal es RITMO_BASE).
+func _ritmo_cuerpo() -> float:
+	var esc: float = _pantalla._fx.escala_tiempo if _pantalla._fx != null else CombatFX.RITMO_BASE
+	return maxf(esc / CombatFX.RITMO_BASE, 0.05)
+
+
+# PARA CombatFX.hoja_cuerpo (20/11, "que el golpe llegue con la animacion"): de la hoja con que el bicho de 'b' hara 'pide',
+# CUANDO TOCA y CUANTO DURA (segundos de la hoja, a sus fps). -1 si no es un bicho con cuerpo y hoja, o si embiste (esa la
+# lleva su desliz en tramos). Cuando toca:
+#   - si su nombre tiene tiempo apuntado (CombatFX.IMPACTO_ANIM_MAPA), ese;
+#   - si no tiene la animacion y cae a su EMBESTIDA, al 0,55 de ella (los generadores la descargan ahi: slime, miconido...);
+#   - si la tiene sin tiempo apuntado, CombatFX.T_ANIM_ADELANTO (a lo que se dibujaron los basicos: "muerde a 0,16").
+const TOCA_EMBESTIDA := 0.55
+
+func hoja_de_gesto(b: Dictionary, pide: String) -> Vector2:
+	var nada := Vector2(-1.0, -1.0)
+	var c: Combatant = _de_bloque(b)
+	if c == null or not _pantalla._enemies.has(c) or not _embestida_en_curso(c).is_empty():
+		return nada
+	var cuerpo: Node2D = cuerpo_de(c)
+	if cuerpo == null:
+		return nada
+	var sp = cuerpo.get("_sprite")
+	if not (sp is AnimatedSprite2D) or (sp as AnimatedSprite2D).sprite_frames == null:
+		return nada
+	var frames: SpriteFrames = (sp as AnimatedSprite2D).sprite_frames
+	var partes: PackedStringArray = pide.split(">", false)
+	var base: String = _base_de_gesto(cuerpo, partes)
+	if base in _GESTO_A_SU_RITMO:
+		return nada
+	var anim: StringName = &""
+	var de_embestida: bool = false
+	for nombre in [base, "embestida"]:
+		for d in 8:
+			if frames.has_animation(StringName("%s_%d" % [nombre, d])):
+				anim = StringName("%s_%d" % [nombre, d])
+				break
+		if anim != &"":
+			de_embestida = nombre == "embestida"
+			break
+	if anim == &"":
+		return nada
+	var natural: float = float(frames.get_frame_count(anim)) / maxf(frames.get_animation_speed(anim), 0.1)
+	var primera: String = partes[0] if not partes.is_empty() else ""
+	var toca: float = CombatFX.T_ANIM_ADELANTO
+	if CombatFX.IMPACTO_ANIM_MAPA.has(primera):
+		toca = float(CombatFX.IMPACTO_ANIM_MAPA[primera])
+	elif de_embestida:
+		toca = natural * TOCA_EMBESTIDA
+	return Vector2(minf(toca, natural), natural)
+
+
 func _tiene_anim_bicho(cuerpo: Node2D, base: String) -> bool:
 	var sp = cuerpo.get("_sprite")
 	return sp is AnimatedSprite2D and (sp as AnimatedSprite2D).sprite_frames != null \
@@ -8458,7 +8574,7 @@ func _poner_anim_bicho(cuerpo: Node2D, base: String, dur: float, o_embestida: bo
 		return -1.0
 	var fps: float = maxf(frames.get_animation_speed(anim), 0.1)
 	var natural: float = float(frames.get_frame_count(anim)) / fps
-	(sp as AnimatedSprite2D).speed_scale = clampf(natural / dur, 0.25, 6.0) if dur > 0.0 else 1.0
+	(sp as AnimatedSprite2D).speed_scale = clampf(natural / dur, 0.25, 6.0) if dur > 0.0 else _ritmo_cuerpo()
 	(sp as AnimatedSprite2D).play(anim)
 	(sp as AnimatedSprite2D).frame = 0
 	if cuerpo.get("_anim_actual") != null:
@@ -8489,9 +8605,14 @@ func _tick_gestos_bicho(delta: float) -> void:
 			g["t"] = 0.0
 			g["dur"] = maxf(natural, 0.05)   # si no la tiene, pasa a la siguiente
 			continue
-		# LA POSE DE CARGA se queda: si la animacion no es de bucle (la ignicion), vuelve a empezar.
+		# LA POSE DE CARGA se queda: si la animacion no es de bucle (la ignicion), vuelve a empezar. Salvo las que se hacen
+		# UNA VEZ (_CARGA_UNA_VEZ, el aullido: aullar sin parar hasta su turno parecia un bucle): despues, quieto esperando.
 		if bool(g["sostener"]):
 			var sp = cuerpo.get("_sprite")
+			if String(g.get("carga", "")) in _CARGA_UNA_VEZ:
+				if sp is AnimatedSprite2D and not (sp as AnimatedSprite2D).is_playing():
+					_poner_anim_bicho(cuerpo, "idle", -1.0, false)
+				continue
 			if sp is AnimatedSprite2D and not (sp as AnimatedSprite2D).is_playing():
 				(sp as AnimatedSprite2D).play()
 				(sp as AnimatedSprite2D).frame = 0

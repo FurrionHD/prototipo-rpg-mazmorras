@@ -787,6 +787,10 @@ static func sin_mutantes() -> bool:
 func tirar_mutacion() -> Dictionary:
 	if sin_mutantes():
 		return {"mut": false, "id": &""}
+	# SOLO PARA PROBAR (20/11): con PRUEBA_MUTANTE=<id> (cazador, sombra...) nace siempre esa mutacion, si es suya.
+	var mut_f: StringName = StringName(OS.get_environment("PRUEBA_MUTANTE"))
+	if mut_f != &"" and mutacion_de(mut_f) != null:
+		return {"mut": true, "id": mut_f}
 	var r: float = randf()
 	var de2: Array = _de_grado(2)
 	if not de2.is_empty() and r < MUTANTE2_PROB:

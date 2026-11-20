@@ -169,6 +169,14 @@ def escena(p):
         if m in ('crin', 'luna') and funde > 0.5:
             return 'humo'
         return m
+    # LA PUNTA DE LA COLA DE LUZ del Cazador (20/11): sus ultimos tramos ('crin' de la cola) en luna, en la cola de verdad
+    # (antes era una pieza aparte que flotaba suelta detras: memoria pixeles-colados-piezas-sin-hueso)
+    if VAR == 'cazador':
+        L2 = Piezas()
+        L2.sombras = getattr(L, 'sombras', [])
+        for fn, m, g, k, Xh, nh in L:
+            L2.append((fn, 'luna' if (g == 'cola' and m == 'crin') else m, g, k, Xh, nh))
+        L = L2
     return _remap(L, mat)
 
 

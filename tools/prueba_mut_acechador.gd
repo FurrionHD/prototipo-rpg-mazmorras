@@ -298,7 +298,29 @@ func _cazador(combat: Node, ca: Combatant, yo: Combatant) -> void:
 	_ok(ca.paciencia_carga == 0, "sin marca: suelta el +50 %% y vuelve a 0 (%d)" % ca.paciencia_carga)
 	_caida_por_fase(en, ca, yo)
 	await _efectos_cazador(combat, ca, yo)
+	await _ritmo_de_las_hojas(combat, ca)
 	await _luna_del_cielo(combat, ca, yo)
+
+
+# (20/11, el jefe: "lo suyo es hacer que el golpe llegue con la animacion, no al reves") la hoja del cuerpo va a SU ritmo
+# aunque el gesto le de poco hueco, y CombatFX sabe cuando toca y cuanto dura (para esperarla).
+func _ritmo_de_las_hojas(combat: Node, ca: Combatant) -> void:
+	print("=== EL GOLPE LLEGA CON LA HOJA ===")
+	var tm = combat.turno_mapa
+	var b: Dictionary = combat._bloque_de(ca)
+	var h: Vector2 = tm.hoja_de_gesto(b, "")
+	_ok(h.x >= 0.0 and h.y >= h.x, "su basico: toca a %.2f s de una hoja de %.2f s" % [h.x, h.y])
+	var hm: Vector2 = tm.hoja_de_gesto(b, "media_luna")
+	_ok(hm.x >= 0.0 and hm.y > 0.0, "la Media luna tambien (%.2f de %.2f)" % [hm.x, hm.y])
+	_ok(combat._fx.hoja_cuerpo.is_valid(), "y CombatFX la pregunta")
+	var ev := {"ba": b, "anim": &""}
+	_ok(is_equal_approx(combat._fx._adelanto_anim(ev), h.x * CombatFX.RITMO_BASE),
+		"el gesto arranca lo que tarda la hoja en tocar (%.3f)" % combat._fx._adelanto_anim(ev))
+	tm.gesto_bicho_en_mapa(ca, &"", 0.05)   # un hueco ridiculo: antes la apretaba x6
+	var sp: AnimatedSprite2D = tm.cuerpo_de(ca).get("_sprite")
+	_ok(is_equal_approx(sp.speed_scale, tm._ritmo_cuerpo()),
+		"con un hueco corto la hoja NO se aprieta (x%.2f, su ritmo x%.2f)" % [sp.speed_scale, tm._ritmo_cuerpo()])
+	await _esperar(2)
 
 
 func _hojas_de(arena: Node) -> Array:
@@ -362,15 +384,47 @@ func _efectos_cazador(combat: Node, ca: Combatant, yo: Combatant) -> void:
 	yo.apply_status(StatusEffects.Id.MARCA_LUNA, 3)
 	tm._tick_marcas()
 	_ok(_hojas_de(arena).has("marca"), "con la Marca de la luna, la creciente sobre su cabeza")
+	var mk = tm._marcas.get(yo)
+	_ok(mk != null and (mk as Node2D).global_position.y < tm.pies_de(yo).y - PoseJugador.ALTO_MUNDO,
+		"POR ENCIMA de la cabeza (no a media altura): %.0f, la cabeza en %.0f" % [(mk as Node2D).global_position.y if mk != null
+		else 0.0, tm.pies_de(yo).y - PoseJugador.ALTO_MUNDO])
 	yo.statuses = yo.statuses.filter(func(x): return x.id() != StatusEffects.Id.MARCA_LUNA)
 	tm._tick_marcas()
 	await _esperar(2)
 	_ok(not _hojas_de(arena).has("marca"), "y se va con ella")
-	# LA MEDIA LUNA: una hoja por accion aunque pille a varios
-	var ev := {"anim": &"media_luna", "semilla": 4242}
+	# LA MEDIA LUNA: una hoja por accion aunque pille a varios (antes, que se acaben las de las pruebas de arriba)
+	await get_tree().create_timer(2.0, true).timeout
+	tm._media_luna_hecha.clear()
+	var ev := {"semilla": 4242}
 	tm._media_luna_pixel(arena, ev, ca, yo, 0.0, 1.0)
 	tm._media_luna_pixel(arena, ev, ca, yo, 0.0, 1.0)
 	_ok(_hojas_de(arena).count("media_luna") == 1, "la Media luna: una hoja de luna por accion (%d)" % _hojas_de(arena).count("media_luna"))
+	# (20/11) Y POR EL CAMINO DE VERDAD (con el estilo del chillido no se pintaba nada en el juego)
+	await get_tree().create_timer(2.0, true).timeout
+	tm._media_luna_hecha.clear()
+	var antes_ml: int = _hojas_de(arena).count("media_luna")
+	# (pegado a 'yo': su cono es corto, 2 casillas)
+	tm._colocar(ca, tm.cuerpo_de(ca), tm.pos_de(yo) + Vector2(70.0, 0.0))
+	ca.salir_de_sombras()
+	combat.enemigos._enemy_use_ability(ca, load("res://resources/abilities/acechador_media_luna.tres"), yo)
+	var vista: bool = false
+	for _i in 60:
+		await get_tree().create_timer(0.03, true).timeout
+		if _hojas_de(arena).count("media_luna") > antes_ml:
+			vista = true
+			break
+	_ok(vista, "la Media luna de verdad (su habilidad) pinta su hoja")
+	# (20/11) LA MARCA DE VERDAD: en la pelea que se juega sola la usaba y no se la ponia a nadie
+	yo.statuses = yo.statuses.filter(func(x): return x.id() != StatusEffects.Id.MARCA_LUNA)
+	# (se puede resistir, como cualquier estado: se prueba unas cuantas veces)
+	for _i in 8:
+		ca.ability_cooldowns.clear()
+		combat.enemigos._enemy_use_ability(ca, load("res://resources/abilities/acechador_marca_luna.tres"), yo)
+		await _esperar(3)
+		if yo.has_status(StatusEffects.Id.MARCA_LUNA):
+			break
+	_ok(yo.has_status(StatusEffects.Id.MARCA_LUNA), "la Marca de verdad (su habilidad) se la pone (a 70 px)")
+	yo.statuses = yo.statuses.filter(func(x): return x.id() != StatusEffects.Id.MARCA_LUNA)
 	# FUNDIRSE / EMERGER (el Cazador: niebla azul)
 	var cu: Node2D = tm.cuerpo_de(ca)
 	if not ca.en_sombras():
@@ -386,6 +440,16 @@ func _efectos_cazador(combat: Node, ca: Combatant, yo: Combatant) -> void:
 	tm._sombras_visibles(false, 0.016)
 	_ok(_hojas_de(arena).has("charco_cazador"), "al volver a esconderse: el charco de niebla")
 	_ok(cu.visible and int(cu.get_meta(&"fundiendo_hasta", 0)) > Time.get_ticks_msec(), "y se le ve mientras se funde")
+	# (20/11) EN EL ESPEJO el bicho es un maniqui sin los numeros de su ficha (paciencia_turnos = 0): tambien se funde
+	var pt: int = ca.paciencia_turnos
+	ca.paciencia_turnos = 0
+	ca.salir_de_sombras()
+	tm._sombras_visibles(false, 0.016)
+	cu.remove_meta(&"fundiendo_hasta")
+	ca.apply_status(StatusEffects.Id.EN_SOMBRAS)
+	tm._sombras_visibles(false, 0.016)
+	_ok(int(cu.get_meta(&"fundiendo_hasta", 0)) > Time.get_ticks_msec(), "en el espejo (sin sus numeros) tambien se funde")
+	ca.paciencia_turnos = pt
 	await _esperar(2)
 
 
@@ -411,10 +475,40 @@ func _luna_del_cielo(combat: Node, ca: Combatant, yo: Combatant) -> void:
 	ca.fase_luna = Combatant.FASE_MENGUANTE
 	tm._tick_luna()
 	_ok(luna.fase == Combatant.FASE_MENGUANTE and luna.puntos == 3, "cambia de fase y de puntos con el")
+	# (20/11, el jefe: "que dibujes como se llena o se vacia, no una transparencia") de llena a menguante, la siguiente: el paso
+	_ok(is_instance_valid(luna._paso) and String(luna._paso.get_meta("hoja", "")) == "luna_paso_llena",
+		"a la siguiente fase, la sombra se corre (luna_paso_llena), sin fundido")
+	# (20/11, idea del jefe) mientras CARGA la Caida, la luna tiembla; al soltarla cae y deja de temblar
+	var cl0: AbilityData = load("res://resources/abilities/acechador_caida_luna.tres")
+	var carga_antes: AbilityData = ca.charging
+	ca.charging = cl0
+	tm._tick_luna()
+	_ok(luna.temblando, "cargando la Caida, la luna tiembla")
+	ca.charging = carga_antes
+	tm._tick_luna()
+	luna.caer(luna.global_position + Vector2(0, 40), 0.0)
+	_ok(not luna.temblando, "y al caer deja de temblar")
+	# EL AULLIDO NO SE REPITE: cargando aulla (una vez); al soltar, si su pose de carga es ese mismo aullido, no lo repite
+	var cu_l: Node2D = tm.cuerpo_de(ca)
+	tm.gesto_bicho_en_mapa(ca, &"aullido", -1.0, false, true)
+	_ok(tm._gestos_bicho.has(cu_l) and String(tm._gestos_bicho[cu_l].get("carga", "")) == "aullido", "cargando: aulla")
+	tm.gesto_bicho_en_mapa(ca, &"aullido", 1.0)
+	_ok(not tm._gestos_bicho.has(cu_l), "al soltar la Caida no vuelve a aullar")
+	await get_tree().create_timer(LunaCielo.T_ALZA + LunaCielo.T_CAE + 0.5, true).timeout
+	# (20/11, el jefe: "no le he visto tirarme la luna ni una sola vez") POR EL CAMINO DE VERDAD: la habilidad, su cola de
+	# golpes y el dibujo (no llamando a _caida_luna a mano)
+	luna.caidas = 0
+	var cl_ya: AbilityData = (load("res://resources/abilities/acechador_caida_luna.tres") as AbilityData).duplicate()
+	cl_ya.carga_turnos = 0
+	combat.enemigos._enemy_use_ability(ca, cl_ya, yo)
+	await get_tree().create_timer(2.0, true).timeout
+	_ok(luna.caidas == 1, "la Caida de verdad (su habilidad) hace caer la luna UNA vez (%d)" % luna.caidas)
 	# LA CAIDA: baja hasta ellos, suelta el golpe y vuelve
 	var sitio: Vector2 = luna.global_position
-	tm._caida_luna({"anim": &"aullido", "semilla": 99}, ca, yo, 0.0)
-	await get_tree().create_timer(LunaCielo.T_CAE + 0.2, true).timeout   # (por tiempo: sin ventana los marcos vuelan)
+	tm._media_luna_hecha.clear()
+	tm._caida_luna({"semilla": 99}, ca, yo, 0.0)
+	# (por tiempo: sin ventana los marcos vuelan) se alza, cae y pega
+	await get_tree().create_timer((LunaCielo.T_ALZA + LunaCielo.T_CAE) / tm._ritmo_cuerpo() + 0.2, true).timeout
 	_ok(_hojas_de(arena).has("luna_golpe"), "la Caida: cae sobre ellos y suelta el golpe")
 	_ok(luna.global_position.distance_to(sitio) > 5.0, "y aun no ha vuelto a su sitio (vuelve despacio)")
 	# EL CAZADOR CAE: la luna se va

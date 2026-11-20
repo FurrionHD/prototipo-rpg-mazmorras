@@ -163,7 +163,9 @@ def humo(largo_lomo, largo_cola, cola_entera):
                 base._elip(add, q, (1.9, 2.2, 1.7), 'humo', 0.6, 'humo_cola_bulto%d' % i)
             pt = q
             giro = 0.2 if i < 6 else -0.12
-            d = _unit(rx(-giro) @ d + V((0.035 * math.sin(i * 0.8), 0.0, 0.0)))
+            # (20/11, el jefe: "se le cuelan pixeles") CON EL BARRIDO DE LA COLA ('cola', como acechador_sdf): sin el, esto se
+            # quedaba quieto mientras la cola barria y se veia un trozo suelto debajo
+            d = _unit(rx(-giro) @ d + V((0.035 * math.sin(i * 0.8) + 0.07 * p.get('cola', 0.0), 0.0, 0.0)))
         # EL VIENTRE Y LOS CODOS: hilachas cortas que cuelgan
         for s in (-1, 1):
             for y in (4.0, -3.0, -8.0):
@@ -234,15 +236,9 @@ def lobo(frente, cola_luz):
             ca = base.CABEZA
             _creciente(add, ca + V((0.0, 0.9, 2.7)), (1.0, 0.0, 0.0), (0.0, -0.35, 1.0), 1.5, 0.5, 'luna_frente',
                        'cabeza', abre=180)
-        if cola_luz:
-            pt = base.COLA_NACE.astype(float); d = _unit(V((0.0, -0.75, -0.25)))
-            for i in range(12):
-                q = pt + d * 1.3
-                if i >= 9:
-                    base._elip(add, q, (1.0, 1.3, 1.0), 'luna', 0.3, 'cola_luz')
-                pt = q
-                giro = 0.2 if i < 6 else -0.12
-                d = _unit(rx(-giro) @ d + V((0.035 * math.sin(i * 0.8), 0.0, 0.0)))
+        # LA PUNTA DE LA COLA DE LUZ: ya NO es una pieza aparte (20/11, el jefe: "se le cuelan pixeles"): seguia el camino de
+        # la cola del acechador normal, y la del cuerpo recio es otra, asi que flotaba suelta detras. Ahora la punta es la
+        # cola de verdad, pintada de luna (acechador_mut_sdf.escena: los ultimos tramos de la cola, 'crin' -> 'luna').
     return extra
 
 

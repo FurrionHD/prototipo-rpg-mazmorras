@@ -23,6 +23,6 @@ forma = 2
 forma_apunte = 1
 forma_radio = 64.0
 forma_apertura = 150.0
-fx_estilo = 17
+fx_estilo = 237
 fx_anim = &"media_luna"
 cooldown = 3

@@ -43,6 +43,13 @@ func elegir(piso: int, profundidad: int = 0) -> EnemyData:
 	if profundidad >= MAX_PROFUNDIDAD:
 		push_warning("[spawns] tablas anidadas demasiado hondo (¿una tabla se apunta a si misma?)")
 		return null
+	# SOLO PARA PROBAR (20/11, el jefe quiere pelear contra el Cazador lunar en su partida): con PRUEBA_ENEMIGO=acechador
+	# en el entorno, todo lo que nace es ese bicho (scenes/actors/enemy/<nombre>.tres). Junto con PRUEBA_MUTANTE.
+	var forzado: String = OS.get_environment("PRUEBA_ENEMIGO")
+	if profundidad == 0 and forzado != "":
+		var d_f: EnemyData = load("res://scenes/actors/enemy/%s.tres" % forzado) as EnemyData
+		if d_f != null:
+			return d_f
 	var e: SpawnEntry = _tirar(piso)
 	if e == null:
 		return null

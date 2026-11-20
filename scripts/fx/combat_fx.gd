@@ -489,7 +489,10 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		# Tentaculos que cuelgan, las chispas del Electrizado (Descarga, Mirada chispeante, El ojo se abre) y la pasiva
 		# conductora de la Masa galvanica (la descarga que salta a quien le pega).
 		ABERRACION_CHISPAZO = 232, ABERRACION_RAYO = 233, ABERRACION_CUELGAN = 234, ABERRACION_CHISPAS = 235,
-		ABERRACION_CONDUCTORA = 236 }
+		ABERRACION_CONDUCTORA = 236,
+		# (20/11) EL CAZADOR LUNAR en pixel: la Media luna (su hoja), la Marca (la creciente la pone _tick_marcas) y la
+		# Caida (cae la luna del cielo). Antes iban con CHILLIDO, que no esta en DIBUJO_MAPA: en el juego no salia nada.
+		LUNA_MEDIA = 237, LUNA_MARCA = 238, LUNA_CAIDA = 239 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -559,6 +562,8 @@ const DIBUJO_MAPA := [Estilo.CRIA_LANZADA, Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA
 	# y la aberracion en pixel (13/11).
 	Estilo.ABERRACION_CHISPAZO, Estilo.ABERRACION_RAYO, Estilo.ABERRACION_CUELGAN, Estilo.ABERRACION_CHISPAS,
 	Estilo.ABERRACION_CONDUCTORA,
+	# y el Cazador lunar (20/11).
+	Estilo.LUNA_MEDIA, Estilo.LUNA_MARCA, Estilo.LUNA_CAIDA,
 	# y las pasivas del repaso y los avisos (PasivaAire, 30/09).
 	Estilo.PASIVA_LLAMADA, Estilo.PASIVA_ARDE, Estilo.PASIVA_DESTELLO,
 	Estilo.AVISO_INTERRUMPIDO, Estilo.AVISO_RETRASO, Estilo.AVISO_INMUNE, Estilo.AVISO_REACCION,
@@ -758,6 +763,9 @@ const T_VUELO := {
 	# (13/11) la aberracion en pixel: el chispazo y la descarga que salta tardan un pelo; las chispas, EN el golpe.
 	Estilo.ABERRACION_CHISPAZO: 0.06, Estilo.ABERRACION_RAYO: 0.02, Estilo.ABERRACION_CUELGAN: 0.04,
 	Estilo.ABERRACION_CHISPAS: 0.02, Estilo.ABERRACION_CONDUCTORA: 0.04,
+	# (20/11) la hoja de luna sale del zarpazo un pelo antes; la luna del cielo se ALZA y CAE en lo que dura (LunaCielo.T_ALZA +
+	# T_CAE, en segundos reales: 1,1 s x RITMO_BASE; el jefe: "es muy epico, lo suyo es que dure un poco mas"). VUELO_ESPERA.
+	Estilo.LUNA_MEDIA: 0.12, Estilo.LUNA_MARCA: 0.02, Estilo.LUNA_CAIDA: 0.8,
 	# Las pasivas y los avisos salen EN el golpe (la lengua de fuego sale del golpe y viaja por su cuenta).
 	Estilo.PASIVA_LLAMADA: 0.02, Estilo.PASIVA_ARDE: 0.02, Estilo.PASIVA_DESTELLO: 0.02,
 	Estilo.AVISO_INTERRUMPIDO: 0.02, Estilo.AVISO_RETRASO: 0.02, Estilo.AVISO_INMUNE: 0.02, Estilo.AVISO_REACCION: 0.02,
@@ -1998,6 +2006,11 @@ func arrancar_cola() -> float:
 	# relativos entre tandas quedan intactos; y va DESPUES del bucle de arriba a proposito, porque
 	# tocar los 't' antes descuadraria pos_tanda y el reparto de sin_dibujo.
 	var desfase: float = maxf(_adelanto_de_gestos() - arranque, 0.0)
+	if rect_en_mapa.is_valid():
+		for ev in _cola:
+			var est_v: int = int(ev.get("estilo", Estilo.MELEE))
+			if est_v in VUELO_ESPERA:
+				desfase = maxf(desfase, float(T_VUELO.get(est_v, 0.0)) - float(ev["t"]))
 	if desfase > 0.0:
 		desfase = minf(desfase, TOPE_GESTO)
 		for i in n:
@@ -2087,6 +2100,10 @@ const Z_VIAJE := 5
 # Tope de lo que un gesto puede alargar el turno. Es el cinturon: un plan mal calculado no puede
 # dejar la pelea colgada esperando a un bicho.
 const TOPE_GESTO := 1.20
+# LOS DIBUJOS LARGOS A LOS QUE EL GOLPE ESPERA ENTEROS (20/11, la Caida de la luna): el turno se retrasa lo que haga falta para
+# que su T_VUELO quepa antes del golpe. Sin esto, un vuelo mas largo que el arranque (0,22) salia a la vez que el turno y el
+# golpe caia antes de que llegara la luna. Solo los de la lista: a los demas les vale el arranque de siempre.
+const VUELO_ESPERA := [Estilo.LUNA_CAIDA]
 # EL SALTO: lo que tarda en coger aire, en caer y en recogerse. Coger aire es lo mas largo a
 # proposito -- es la parte que avisa de que viene el pepino, y un ataque asi tiene que verse venir.
 const T_SALTO_AIRE := 0.55
@@ -2424,8 +2441,10 @@ func _plan_animar(ev: Dictionary, vistos: Dictionary) -> void:
 		# retrasa toda la cola (el recorte se hace despues, al desplazar).
 		"t_ini": cuando[0] - _adelanto_anim(ev),
 		"t_imp": cuando[0],
-		# LA EMBESTIDA: el gesto le dura hasta que acaba de cruzar su linea (y recogerse).
-		"t_fin": maxf(cuando[cuando.size() - 1], cuando[0] + maxf(embiste, 0.0)) + T_ANIM_COLA,
+		# LA EMBESTIDA: el gesto le dura hasta que acaba de cruzar su linea (y recogerse). Y LA HOJA ENTERA: hasta que acaba
+		# (_hoja_del_cuerpo), o el siguiente le montaria su turno encima.
+		"t_fin": maxf(maxf(cuando[cuando.size() - 1], cuando[0] + maxf(embiste, 0.0)) + T_ANIM_COLA,
+			cuando[0] - _adelanto_anim(ev) + maxf(_hoja_del_cuerpo(ev).y, 0.0) * RITMO_BASE if embiste <= 0.0 else 0.0),
 		"embiste": embiste,
 		"golpes": cuando,
 		"manos": manos,
@@ -2441,11 +2460,29 @@ func _plan_animar(ev: Dictionary, vistos: Dictionary) -> void:
 # Lo que el gesto empieza antes de su primer golpe: el de siempre, o EN EL MAPA lo que tarda el arma de
 # su animacion en tocar (IMPACTO_ANIM_MAPA, en segundos reales -> tiempo de animacion).
 func _adelanto_anim(ev: Dictionary) -> float:
+	var hoja: Vector2 = _hoja_del_cuerpo(ev)
+	if hoja.x >= 0.0:
+		return hoja.x * RITMO_BASE
 	if rect_en_mapa.is_valid():
 		var imp = IMPACTO_ANIM_MAPA.get(String(ev.get("anim", "")))
 		if imp != null:
 			return float(imp)
 	return T_ANIM_ADELANTO
+
+
+# EL GOLPE LLEGA CON LA ANIMACION, NO AL REVES (20/11, el jefe: "veo que algunas animaciones son demasiado rapidas, no da
+# tiempo a verlas"; "lo suyo es hacer que el golpe llegue con la animacion"). Antes el cuerpo del bicho tenia el hueco del
+# gesto (0,16 antes del golpe + 0,18 despues) y su hoja se APRETABA ahi (hasta x2,5 el micónido). Ahora el mapa la pone a SU
+# ritmo y aqui se pregunta, para el que pega, CUANDO TOCA su hoja y CUANTO DURA (Vector2, segundos de la hoja a sus fps; -1 si
+# no es un bicho del mapa con hoja): el gesto arranca eso antes del golpe y no se cierra hasta que la hoja acaba.
+# Lo pone el mapa (CombatTactico.hoja_de_gesto). Segundos de la hoja -> tiempo de la pelea: x RITMO_BASE (a velocidad normal
+# la pelea corre a 0,7 y el cuerpo, a ritmo/RITMO_BASE: a sus fps).
+var hoja_cuerpo: Callable = Callable()
+
+func _hoja_del_cuerpo(ev: Dictionary) -> Vector2:
+	if not rect_en_mapa.is_valid() or not hoja_cuerpo.is_valid():
+		return Vector2(-1.0, -1.0)
+	return hoja_cuerpo.call(ev["ba"], String(ev.get("anim", "")))
 
 
 # EL SALTO: coger aire, hincharse hasta cubrir a todos los que va a golpear, y dejarse caer encima.

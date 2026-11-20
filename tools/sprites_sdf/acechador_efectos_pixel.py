@@ -157,10 +157,10 @@ def mezcla(a, m, col, alfa):
 def haces(a, cx, cy, f, fase, sem=3):
     """Los haces de luz: cuñas finas desde la luna hacia fuera, cada una con su angulo al azar; nacen y se apagan por
     turnos (cada una en su tramo del ciclo) y al renacer cambian de angulo: nunca salen siempre del mismo lado."""
-    if fase == 'nueva':
+    fuerza = _fuerza(fase, 0.55)
+    if fuerza <= 0.0:
         return
     rnd = random.Random(sem)
-    fuerza = {'creciente': 0.55, 'llena': 1.0, 'menguante': 0.55}[fase]
     ang = np.arctan2(YY - cy, XX - cx)
     dist = np.sqrt((XX - cx) ** 2 + (YY - cy) ** 2)
     for k in range(5):
@@ -182,22 +182,49 @@ def haces(a, cx, cy, f, fase, sem=3):
 
 def resplandor(a, cx, cy, f, fase):
     """El brillo que la rodea, suave, que respira."""
-    if fase == 'nueva':
+    fuerza = _fuerza(fase, 0.6)
+    if fuerza <= 0.0:
         return
-    fuerza = {'creciente': 0.6, 'llena': 1.0, 'menguante': 0.6}[fase]
     resp = 0.85 + 0.15 * math.sin(f / N_ANIM * math.tau)
     dist = np.sqrt((XX - cx) ** 2 + (YY - cy) ** 2)
     alfa = np.clip(1.0 - (dist - R) / 10.0, 0, 1) ** 1.6 * 0.6 * fuerza * resp
     mezcla(a, dist > R - 0.5, (170, 190, 255), alfa)
 
 
+# LA FASE COMO UN PUNTO DEL CICLO (20/11, el jefe: "la transicion es que dibujes como se llena o se vacia"): 0 nueva,
+# 1 creciente, 2 llena, 3 menguante, 4 = nueva otra vez. Los enteros son las cuatro de siempre, igual que antes; entre
+# medias la sombra (el mismo disco desplazado) se va corriendo: sale por la izquierda hasta llena y entra por la derecha.
+def _p_de(fase):
+    return float(FASES.index(fase)) if isinstance(fase, str) else float(fase) % 4.0
+
+
+def _suave(u):
+    u = min(max(u, 0.0), 1.0)
+    return u * u * (3.0 - 2.0 * u)
+
+
+def _fuerza(fase, media):
+    """Lo que brilla (resplandor y haces): 0 en nueva, 'media' en creciente/menguante, 1 en llena; entre medias, a medias."""
+    p = _p_de(fase)
+    tabla = [0.0, media, 1.0, media, 0.0]
+    i = int(p)
+    return tabla[i] + (tabla[min(i + 1, 4)] - tabla[i]) * _suave(p - i)
+
+
+def _desplaza(p):
+    """Cuanto se corre el disco de la sombra (en radios; negativo = a la izquierda)."""
+    tramo = [(0.0, 0.62), (0.62, 2.1), (2.1, 0.62), (0.62, 0.0)]
+    i = min(int(p), 3)
+    a, b = tramo[i]
+    k = a + (b - a) * _suave(p - i)
+    return -k if p < 2.0 else k
+
+
 def oscuro_de_en(fase, cx, cy):
     d = disco_m(cx, cy, R)
-    if fase == 'nueva':
+    off = _desplaza(_p_de(fase)) * R
+    if abs(off) < 0.01:
         return d
-    if fase == 'llena':
-        return np.zeros_like(d)
-    off = -R * 0.62 if fase == 'creciente' else R * 0.62
     return d & disco_m(cx + off, cy, R)
 
 
@@ -237,6 +264,46 @@ def puntos_arriba(a, nivel, f=0, tope=3):
         poner(a, disco_m(x, y, 2.4), AMBAR[2] if k < nivel else CARBON)
         if k < nivel:
             a[int(y - 1), int(x - 1)] = (*AMBAR[3], 255)
+
+
+N_PASO = N_ANIM   # el paso de una fase a la siguiente dura lo que un vaiven: empieza y acaba en el marco 0 del bucle
+
+
+def luna_paso(a, desde, i):
+    """El marco 'i' del paso de la fase 'desde' a la siguiente (la sombra corriendose), con el vaiven del bucle."""
+    luna_viva(a, desde + _suave(i / (N_PASO - 1)), i)
+
+
+def lamina_pasos():
+    os.makedirs(SALIDA, exist_ok=True)
+    zoom = 3
+    rot = 200
+    cols = list(range(0, N_PASO, 2)) + [N_PASO - 1]
+    img = Image.new('RGB', (rot + len(cols) * (W * zoom + 6), 4 * (H * zoom + 26) + 10), (24, 22, 26))
+    pinta = ImageDraw.Draw(img)
+    gif = []
+    for j in range(4):
+        y = 10 + j * (H * zoom + 26)
+        pinta.text((10, y + 10), 'DE %s\nA %s\n(%d marcos a 10 fps)' % (FASES[j].upper(), FASES[(j + 1) % 4].upper(), N_PASO),
+                   fill=(230, 226, 214))
+        for c, i in enumerate(cols):
+            a = nuevo()
+            luna_paso(a, j, i)
+            img.paste(componer(a).resize((W * zoom, H * zoom), Image.NEAREST), (rot + c * (W * zoom + 6), y))
+            pinta.text((rot + c * (W * zoom + 6) + 4, y + H * zoom + 4), 'marco %d' % i, fill=(200, 200, 210))
+        for i in range(N_PASO):
+            a = nuevo()
+            luna_paso(a, j, i)
+            gif.append(componer(a).resize((W * 4, H * 4), Image.NEAREST))
+        for f in range(N_ANIM):   # y un vaiven quieto en la fase a la que llega
+            a = nuevo()
+            luna_viva(a, FASES[(j + 1) % 4], f)
+            gif.append(componer(a).resize((W * 4, H * 4), Image.NEAREST))
+    ruta = os.path.join(SALIDA, 'luna_pasos.png')
+    img.save(ruta)
+    gif[0].save(os.path.join(SALIDA, 'luna_pasos.gif'), save_all=True, append_images=gif[1:], duration=100, loop=0)
+    print(ruta)
+    return ruta
 
 
 def principal_v2():
@@ -349,6 +416,14 @@ def hornear_luna():
             luna_viva(a, fase, f)
             out.append((s, a))
         d['luna_' + fase] = ho.guardar_efecto('acechador', 'luna_' + fase, [out], [(CX, CY)], 10.0, True)
+    # LOS PASOS de una fase a la siguiente (no bucle: al acabar, LunaCielo pone la fase a la que llega)
+    for j, fase in enumerate(FASES):
+        out = []
+        for i in range(N_PASO):
+            s, a = nuevo(), nuevo()
+            luna_paso(a, j, i)
+            out.append((s, a))
+        d['luna_paso_' + fase] = ho.guardar_efecto('acechador', 'luna_paso_' + fase, [out], [(CX, CY)], 10.0)
     for nivel in range(4):
         out = []
         for f in range(N_ANIM):
@@ -390,6 +465,11 @@ if __name__ == '__main__':
     import sys
     if '--hornear' in sys.argv:
         hornear_luna()
+    elif '--pasos' in sys.argv:
+        r = lamina_pasos()
+        if os.name == 'nt' and '--abrir' in sys.argv:
+            import subprocess
+            subprocess.Popen(['mspaint', r])
     else:
         r = principal() if '--v1' in sys.argv else principal_v2()
         if os.name == 'nt' and '--abrir' in sys.argv:
