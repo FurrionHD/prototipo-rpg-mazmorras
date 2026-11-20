@@ -19,3 +19,6 @@ desde = Array[StringName]([&"sombra"])
 habilidades = Array[ExtResource("2_ab")]([ExtResource("3_sal"), ExtResource("4_med"), ExtResource("5_cai")])
 sprite = &"cazador"
 pesos = {"agilidad": 38, "destreza": 26, "fuerza": 34, "magia": 42, "resistencia": 30, "voluntad": 8}
+paciencia_turnos = 3
+paciencia_extra = 0.5
+pasivas_visibles = Array[int]([72])

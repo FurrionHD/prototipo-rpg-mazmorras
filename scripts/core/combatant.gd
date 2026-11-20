@@ -511,6 +511,13 @@ var devuelve_corte_frac: float = 0.0
 var resiste_magia: float = 1.0
 var sigilo_prob: float = 0.0
 var salto_esquiva: float = 0.0
+# (20/11, los del acechador) PACIENCIA DEL CAZADOR (ver MutacionData): turnos que hacen falta, el extra del golpe, lo que
+# lleva cargado y si el golpe de ESTE turno sale desde las sombras (y si llego a soltarlo).
+var paciencia_turnos: int = 0
+var paciencia_extra: float = 0.5
+var paciencia_carga: int = 0
+var paciencia_golpe: bool = false
+var paciencia_soltada: bool = false
 # (05/11, los de la Segadora, ver MutacionData) ZONA DE SIEGA, CORTES DE VIENTO y VUELO CORTO.
 var zona_siega: float = 0.0
 var cortes_viento: float = 0.0
@@ -1428,6 +1435,13 @@ static var ve_sombras: bool = false
 
 
 # EN LAS SOMBRAS (30/10): ni se le ve ni se le puede elegir de objetivo; las areas si le dan.
+# (20/11) Sale de las sombras sin que le peguen (el acechador al atacar desde ellas).
+func salir_de_sombras() -> void:
+	if has_status(StatusEffects.Id.EN_SOMBRAS):
+		_quitar_status(StatusEffects.Id.EN_SOMBRAS)
+		print("[sombras] %s sale de las sombras" % nombre)
+
+
 func en_sombras() -> bool:
 	return has_status(StatusEffects.Id.EN_SOMBRAS)
 

@@ -27,6 +27,9 @@ nombre = "Sombra sin rostro"
 grado = 1
 sprite = &"sombra"
 pesos = {"agilidad": 50, "destreza": 36, "fuerza": 56, "magia": 2, "resistencia": 30, "voluntad": 4}
+paciencia_turnos = 3
+paciencia_extra = 0.5
+pasivas_visibles = Array[int]([72])
 
 [resource]
 script = ExtResource("1_g8nro")

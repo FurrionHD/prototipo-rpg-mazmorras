@@ -202,7 +202,9 @@ const MAX_CONEXIONES := 32
 #        instantanea y en el roster).
 #   77 = (18/11) el set Ecolocalizacion del chillon: "eco" en la fila de cada aliado del roster (en su turno, su espejo ve
 #        y deja elegir a los enemigos En las sombras).
-const PROTOCOLO := 77
+#   78 = (20/11) los mutantes del acechador: estado PACIENCIA 72 (Paciencia del cazador, su pasiva a la vista; viaja por su
+#        id) y el acechador que se funde en las sombras al acabar cada turno suyo.
+const PROTOCOLO := 78
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

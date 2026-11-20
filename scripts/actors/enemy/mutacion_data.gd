@@ -110,6 +110,13 @@ class_name MutacionData
 # SIGILO DE VERDAD (la sombria): al EMPEZAR su turno, sigilo_prob de desaparecer (Id.EN_SOMBRAS): no se le ve, ni su
 # vida ni sus huellas, no se le puede elegir de objetivo (solo le dan las AREAS) y sale al recibir un golpe.
 @export var sigilo_prob: float = 0.0
+# (20/11, los mutantes del ACECHADOR) PACIENCIA DEL CAZADOR (la Sombra sin rostro y el Cazador lunar): al ACABAR cada
+# turno suyo se funde SIEMPRE en las sombras (Id.EN_SOMBRAS, sin tirada); cada turno suyo que EMPIEZA aun escondido (nadie
+# le ha dado entre medias) suma uno; con paciencia_turnos, su golpe de ese turno sale DESDE LAS SOMBRAS con
+# +paciencia_extra y la cuenta vuelve a 0. Si le dan, ese turno no suma, pero lo que llevaba no se pierde. Al atacar desde
+# las sombras sale a la vista (hasta que acaba su turno). 0 = no.
+@export var paciencia_turnos: int = 0
+@export var paciencia_extra: float = 0.5
 # SE APARTA DE UN SALTO (la sombria): al ESQUIVAR un golpe cuerpo a cuerpo, salta 'salto_esquiva' px hacia atras.
 @export var salto_esquiva: float = 0.0
 # (05/11, los mutantes de la SEGADORA; plan elegant-popping-firefly, numeros provisionales)

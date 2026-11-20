@@ -112,4 +112,5 @@ const TABLA := {
 	"🏮": "a_oscuras",
 	"🌘": "bebe_luz",
 	"🍇": "racimo",
+	"🐺": "paciencia",
 }

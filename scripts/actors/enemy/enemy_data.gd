@@ -981,6 +981,9 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		c.resiste_magia = mdat2.resiste_magia
 		c.sigilo_prob = mdat2.sigilo_prob
 		c.salto_esquiva = mdat2.salto_esquiva
+		# (20/11, los del acechador) Paciencia del cazador.
+		c.paciencia_turnos = mdat2.paciencia_turnos
+		c.paciencia_extra = mdat2.paciencia_extra
 		# (05/11, los de la Segadora) zona de siega, cortes de viento y vuelo corto (el alcance va abajo, con el suyo).
 		c.zona_siega = mdat2.zona_siega
 		c.cortes_viento = mdat2.cortes_viento

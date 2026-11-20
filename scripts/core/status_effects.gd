@@ -60,7 +60,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	CONGELADO, DESHIELO,
 	OJOS_INSOMNES, CONCENTRACION,
 	COSTRA_SANGRE, SED_MANA,
-	A_OSCURAS, BEBE_LUZ, RACIMO }
+	A_OSCURAS, BEBE_LUZ, RACIMO,
+	PACIENCIA }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -708,6 +709,13 @@ static var _defs: Dictionary = {
 		"id": Id.RACIMO, "nombre": "Racimo", "icono": "🍇", "color": Color(0.35, 0.33, 0.4),
 		"pasiva": true, "turns": 999, "texto_portador": true,
 		"descripcion": "Para llegar a la del centro hay que apartar a todas las demás.",
+	},
+	# (20/11, los mutantes del ACECHADOR) PACIENCIA DEL CAZADOR, a la vista como las de antes (los numeros, de quien la
+	# tiene: Combatant.paciencia_*). Lo que hace lo hacen CombatEnemigos (fin_de_turno y el golpe) y Combatant.
+	Id.PACIENCIA: {
+		"id": Id.PACIENCIA, "nombre": "Paciencia del cazador", "icono": "🐺", "color": Color(0.85, 0.55, 0.2),
+		"pasiva": true, "turns": 999, "texto_portador": true,
+		"descripcion": "No tiene prisa. Tú tampoco deberías, pero la tienes.",
 	},
 	# EL SET CONCENTRACION (12/11, el de la Polilla insomne): cada frase bien recitada le pone una carga (hasta el tope del
 	# set) y fallar una se las quita todas (CombatMagia). Cada carga, + el daño magico que diga el set (mult_override). Dura
@@ -1393,6 +1401,11 @@ static func texto_pasiva_portador(id_p: int, quien) -> PackedStringArray:
 			ceili(quien.racimo_reduce / maxf(quien.racimo_por_cria, 0.001) - 0.001)])
 		out.append("Al empezar cada uno de sus turnos suelta una cría, sin gastar el turno.")
 		out.append("Hasta un máximo de %d crías a la vez." % quien.crias_tope)
+	elif id_p == Id.PACIENCIA:
+		out.append("Al acabar cada uno de sus turnos, quien la tiene se funde con las sombras: no se le puede elegir como objetivo y solo le alcanzan los ataques en área. Recibir un golpe o atacar le saca de ellas.")
+		out.append("Cada turno suyo que empieza aún en las sombras le da una carga. Con %d cargas, su ataque de ese turno inflige un %d %% más de daño y las cargas vuelven a 0." % [
+			quien.paciencia_turnos, roundi(quien.paciencia_extra * 100.0)])
+		out.append("Si le golpean, ese turno no suma carga, pero no pierde las que tenía.")
 	elif id_p == Id.SED_MANA:
 		out.append("Al elegir a quién atacar, prefiere a los que tienen más Maná máximo: la probabilidad de atacar a cada uno se multiplica por su Maná máximo frente a la media de su grupo.")
 		# (contraccion: «de el doble» -> «del doble»)

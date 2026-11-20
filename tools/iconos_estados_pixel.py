@@ -354,6 +354,12 @@ ICONOS = [
     ("racimo", "Racimo", (0.35, 0.33, 0.4), (
         "....o..o....", "...obbbbo...", "..obwbbwbo..", ".obbbbbbbbo.", "obwbwbbwbwbo", "obbbbbbbbbbo", ".obwbwbwbwo.", ".obbbbbbbbo.", "..obwbbwbo..", "...obbbbo...", "....obbo....", ".....oo....."),
         {'b': (30, 30, 40), 'w': (220, 222, 228)}),
+    # (20/11, la pasiva del acechador mutante; elegida por el jefe en tools/iconos_acechador_versiones.py, la C: "este es
+    # god") PACIENCIA DEL CAZADOR = el lobo en la sombra, con el ojo encendido.
+    ("paciencia", "Paciencia del cazador", (0.85, 0.55, 0.2), (
+        "............", "...b...b....", "...bb.bb....", "...bbbbbb...", "..bbbbbbbb..", "..bbbbabbbbb",
+        ".bbbbbbbbbbb", ".bbbbbbbbbbw", "bbbbbbbbbbb.", "hbbbbbbbb...", ".hbbbbbb....", "..h.hh......"),
+        {'a': (255, 226, 140), 'b': (16, 16, 26), 'h': (96, 88, 120), 'w': (70, 64, 80)}),
 ]
 
 
@@ -525,6 +531,7 @@ EMOJI = {
     "🔮": "foco", "⏳": "cargando", "🤺": "en_guardia", "😮": "sin_fuelle", "💚": "plato_remedio",
     "🧄": "plato_estomago", "🍀": "plato_fortuna", "🦠": "infectado", "🌿": "florecido", "👁": "ojos_insomnes", "🕯": "concentracion",
     "🧫": "costra_sangre", "🫦": "sed_mana", "🏮": "a_oscuras", "🌘": "bebe_luz", "🍇": "racimo",
+    "🐺": "paciencia",
 }
 
 

@@ -128,6 +128,7 @@ func _enemy_turn(e: Combatant) -> void:
 			and randf() < e.sigilo_prob:
 		e.apply_status(StatusEffects.Id.EN_SOMBRAS)
 		_pantalla._set_log("%s se funde con las sombras. 🌑" % _pantalla._etq(e))
+	paciencia_al_empezar(e, bool(ev.stunned))
 	# BARRO COCIDO: se le va secando (o enfriando) turno a turno.
 	if e.ablandado > 0:
 		e.ablandado -= 1
@@ -321,6 +322,7 @@ func _enemy_turn(e: Combatant) -> void:
 	if e.energia_de_jugador:
 		e.regen_energy(e.energia_regen if e.energia_regen > 0.0 else _pantalla.ATTACK_ENERGY_REGEN)
 		e.set_meta(&"gasta_imbue", true)
+	var m_pac: float = _paciencia_mult(e)   # (20/11) la Paciencia del cazador, tambien en el basico
 	var result := StatsMath.resolve_attack(e, obj, defendiendo, -1.0, 0.0, 0.0,
 		not (e.orbita and obj.has_status(StatusEffects.Id.IMANTADO)))
 	_pantalla._aplicar_pasivas(result, e, obj)
@@ -356,10 +358,10 @@ func _enemy_turn(e: Combatant) -> void:
 		_pantalla._pausa_lectura()
 		return
 
-	var dmg: float = result.damage * e.dummy_dmg_out_mult   # Saco = 0 (no pega)
+	var dmg: float = result.damage * e.dummy_dmg_out_mult * m_pac   # Saco = 0 (no pega)
 	# El MISMO golpe sin defensa, armadura ni bloqueo (ver StatsMath 'mitig'). Se calcula AQUI y no mas
 	# abajo porque lo miran dos cosas: el contador de bloqueo (justo debajo) y la excelia de Resistencia.
-	var dmg_bruto: float = float(result.get("dmg_sin_mitigar", dmg))
+	var dmg_bruto: float = float(result.get("dmg_sin_mitigar", dmg / m_pac)) * m_pac
 	dmg *= _runa_corona_mult(obj)
 	obj.take_damage(dmg)
 	_runas_al_encajar(e, obj, true)
@@ -1324,6 +1326,49 @@ func campo_magnetico(c: Combatant) -> void:
 
 
 # LAS CARGAS (03/11, las arañas mutantes, ver MutacionData). Una mas; en cuanto llega al tope, estalla. Solo quien lleva la pelea.
+# (20/11) PACIENCIA DEL CAZADOR (el acechador mutante), al EMPEZAR su turno: empezarlo AUN escondido = un turno entero en
+# las sombras (+1). Con la cuenta llena, el golpe de este turno sale desde las sombras (_enemy_resolver_golpes_).
+func paciencia_al_empezar(e: Combatant, aturdido: bool) -> void:
+	if e.paciencia_turnos <= 0 or _pantalla._espejo:
+		return
+	e.paciencia_golpe = false
+	e.paciencia_soltada = false
+	if e.en_sombras() and not aturdido:
+		e.paciencia_carga = mini(e.paciencia_carga + 1, e.paciencia_turnos)
+		print("[paciencia] %s: %d/%d" % [e.nombre, e.paciencia_carga, e.paciencia_turnos])
+	if e.paciencia_carga >= e.paciencia_turnos and e.en_sombras():
+		e.paciencia_golpe = true
+
+
+# (20/11) PACIENCIA DEL CAZADOR en su golpe (el basico y las habilidades): con la cuenta llena, x(1 + paciencia_extra) a
+# todo lo de esa accion (a todos los que pille); y atacar le saca de las sombras. Se suelta aunque falle.
+func _paciencia_mult(e: Combatant) -> float:
+	var m: float = 1.0
+	if e.paciencia_golpe:
+		m = 1.0 + e.paciencia_extra
+		if not e.paciencia_soltada:
+			e.paciencia_soltada = true
+			_pantalla._log_extra("🌑 %s ataca desde las sombras: +%d %% de daño." % [_pantalla._etq(e),
+				roundi(e.paciencia_extra * 100.0)])
+	if e.paciencia_turnos > 0 and e.en_sombras() and not _pantalla._espejo:
+		e.salir_de_sombras()
+	return m
+
+
+# (20/11) AL ACABAR SU TURNO (lo llama CombatPantalla al dar el turno al siguiente): PACIENCIA DEL CAZADOR. Si soltó el
+# golpe desde las sombras, la cuenta vuelve a 0; y se funde en las sombras SIEMPRE (vivo y si no lo esta ya).
+func fin_de_turno(e: Combatant) -> void:
+	if e == null or e.paciencia_turnos <= 0 or _pantalla._espejo or not _pantalla._enemies.has(e):
+		return
+	if e.paciencia_soltada:
+		e.paciencia_carga = 0
+	e.paciencia_golpe = false
+	e.paciencia_soltada = false
+	if e.is_alive() and not e.en_sombras():
+		e.apply_status(StatusEffects.Id.EN_SOMBRAS)
+		_pantalla._set_log("%s se funde con las sombras. 🌑" % _pantalla._etq(e))
+
+
 func sumar_carga(e: Combatant) -> void:
 	if e == null or e.carga_elemento < 0 or _pantalla._espejo or not e.is_alive():
 		return
@@ -2038,6 +2083,7 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 	# DESDE LAS SOMBRAS (30/10, el Mordisco sombrio: AbilityData.primero_infalible_en_sombras): el primer bocado no se ve
 	# venir, asi que no se esquiva.
 	var desde_sombras: bool = ab != null and ab.primero_infalible_en_sombras and e.en_sombras() and tanda_base == 0
+	escala *= _paciencia_mult(e)
 	# POR LA ESPALDA (30/10, el Mordisco a traicion): si su salto le dejo detras de 't', duele mas.
 	if ab != null and ab.extra_espalda > 0.0 and _pantalla.tactico and _pantalla.turno_mapa.por_la_espalda(e, t):
 		escala *= 1.0 + ab.extra_espalda

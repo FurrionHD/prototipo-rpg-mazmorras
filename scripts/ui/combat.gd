@@ -238,6 +238,7 @@ const RELOJ_POR_CICLO := 2.0 * UMBRAL / 5.0
 
 # A quien le llega el turno por la barra (lo escucha el simulador de peleas, tools/simulador_peleas.gd).
 signal turno_empieza(c: Combatant)
+var _ultimo_turno: Combatant = null   # (20/11) el ultimo que jugo turno (para cerrarlo al dar el siguiente)
 signal combat_finished(player_won: bool, hp_left: Array, mp_left: Array,
 	energy_left: Array, muertos: Array, enemy_hp_left: Array, duenos: Array,
 	enemy_estados_left: Array)
@@ -2093,6 +2094,10 @@ func _process(delta: float) -> void:
 			mejor = e
 	if _gauge[mejor] >= UMBRAL:
 		_gauge[mejor] -= UMBRAL
+		# (20/11) EL QUE ACABA DE JUGAR cierra su turno (la Paciencia del cazador: se funde en las sombras).
+		if _ultimo_turno != null:
+			enemigos.fin_de_turno(_ultimo_turno)
+		_ultimo_turno = mejor
 		turno_empieza.emit(mejor)
 		if _aliados.has(mejor):
 			_player = mejor   # a partir de aqui, "el jugador" es este
