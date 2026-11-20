@@ -1267,7 +1267,9 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 		ultimo_mult = mult
 		if bool(res.get("crit", false)):
 			hubo_crit = true
+		Combatant.elem_golpe = elem   # (20/11) solo para el simulador: de que elemento es ESTE golpe
 		objetivo.take_damage(dmg)
+		Combatant.elem_golpe = -1
 		_pantalla.fuego_al_musgo(objetivo, elem)
 		# (12/11) SU PASIVA ACTUA: los Ojos en vela de la Polilla insomne (le entra menos magia): su nombre encima.
 		_pantalla.reacciones.pasiva_magia(lanzador, objetivo)
@@ -1431,7 +1433,9 @@ func _resolver_dispersa(spell: SpellData, foco: float, puntos: Array = [], dentr
 			var res: Dictionary = StatsMath.resolve_spell(_lanza(), obj, spell, elem, float(t.escala) / float(n))
 			var dmg: float = float(res.damage) * foco
 			var mult: float = float(res.get("mult_elem", 1.0))
+			Combatant.elem_golpe = elem   # (20/11) solo para el simulador: de que elemento es ESTA bola
 			obj.take_damage(dmg)
+			Combatant.elem_golpe = -1
 			# EL GOLPE SE VE. Faltaba: la dispersion era la UNICA ruta de daño que no pasaba por
 			# _fx_golpe, y por eso Tormenta y Andanada -los dos hechizos mas gordos- no sacaban ni
 			# un numero ni un temblor. Se veian menos que un puñetazo.

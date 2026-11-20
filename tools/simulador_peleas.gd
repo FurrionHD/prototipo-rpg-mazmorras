@@ -44,7 +44,7 @@ extends Node
 const CABECERA := "R|tanda|reglas|piso|grupo|escenario|arma|enemigo|mutacion|jefe|n_enem|t|gana|turnos_yo|turnos_el|vida_perdida|caidos|mp_gastado|dano_por_turno|dano_recibido_por_turno_suyo|segundos|acciones|fotogramas|ms_por_fotograma|pelea|ciclos|dano_por_ciclo|estados_en_enemigos|estados_en_los_tuyos|n_seguida|repetir|vel_ref_piso|vel_ciclo|emboscada"
 # Una linea POR PERSONAJE de los tuyos en cada pelea (lo pidio: "daños de cada uno, cuanto tanquean con cada armadura, el
 # dps medio, cuanto hace cada arma en su turno, si alguno se queda sin energia demasiado rapido"):
-const CABECERA_P := "P|tanda|reglas|pelea|piso|grupo|escenario|n_enem|gana|rol|arma|armadura|vida_max|defensa|def_magica|mitig_fisica|mitig_magica|dano_hecho|dano_recibido|turnos|dano_por_turno|recibido_por_turno_enemigo|cayo|energia_media_al_empezar_turno|turnos_sin_energia|primer_turno_sin_energia|mp_gastado|turnos_sin_mana|primer_turno_sin_mana|pociones|acciones|nivel|tier|mejoras|fue/res/agi/des/mag/vol|ataque|velocidad|max_mp|max_energia|red_armadura|red_armadura_magica|ciclos|dano_por_ciclo|turnos_por_ciclo|recibido_por_ciclo|dano_por_elemento|habilidades_puestas|equipo|objetivos_por_accion|principal_resto_por_accion"
+const CABECERA_P := "P|tanda|reglas|pelea|piso|grupo|escenario|n_enem|gana|rol|arma|armadura|vida_max|defensa|def_magica|mitig_fisica|mitig_magica|dano_hecho|dano_recibido|turnos|dano_por_turno|recibido_por_turno_enemigo|cayo|energia_media_al_empezar_turno|turnos_sin_energia|primer_turno_sin_energia|mp_gastado|turnos_sin_mana|primer_turno_sin_mana|pociones|acciones|nivel|tier|mejoras|fue/res/agi/des/mag/vol|ataque|velocidad|max_mp|max_energia|red_armadura|red_armadura_magica|ciclos|dano_por_ciclo|turnos_por_ciclo|recibido_por_ciclo|dano_por_elemento|habilidades_puestas|equipo|objetivos_por_accion|principal_resto_por_accion|elemento_por_accion|medio_por_pillado"
 # Y una POR ENEMIGO (crias y refuerzos incluidos):
 const CABECERA_E := "E|tanda|reglas|pelea|piso|grupo|escenario|n_enem|gana|enemigo|mutacion|jefe|vida_max|ataque|defensa|def_magica|velocidad|dano_hecho|dano_recibido|turnos|dano_por_turno|muere|t|fue/res/agi/des/mag/vol|ataque_magico|red_armadura|ciclos|dano_por_ciclo|turnos_por_ciclo"
 const PISOS_NIVEL := 12
@@ -944,6 +944,7 @@ var _pociones: Dictionary = {}            # Combatant -> pociones que bebio o di
 var _por_estado: Dictionary = {"aliados": {}, "enemigos": {}}   # bando que lo HACE -> {estado: daño} (los DoT)
 var _elem_de: Dictionary = {}             # Combatant -> elemento de lo que eligio
 var _por_elem: Dictionary = {}            # Combatant -> {elemento: daño}
+var _elem_accion: Dictionary = {}         # Combatant -> {accion: {elemento: daño}} (golpe a golpe, Combatant.elem_golpe)
 
 
 func _rol(c: Combatant) -> String:
@@ -1188,6 +1189,7 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 	_por_estado = {"aliados": {}, "enemigos": {}}
 	_elem_de.clear()
 	_por_elem.clear()
+	_elem_accion.clear()
 	var aliados: Array = _cb._aliados.duplicate()
 	if _ver:
 		for a in aliados:
@@ -1351,11 +1353,36 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 			obj_a.append("%s:%d" % [k, int(pa[k][2]) if (pa[k] as Array).size() > 2 else 0])
 		_lineas_extra[_lineas_extra.size() - 1] += "|" + ",".join(obj_a)
 		# Y EL DAÑO de cada accion partido: "accion:al principal:al resto" (sumado entre sus usos).
+		# LOS DISPERSOS NO TIENEN PRINCIPAL (20/11, el jefe: "la tormenta no tiene objetivo principal: sus golpes caen al azar
+		# sobre los del area"): el que mas se lleva engaña, asi que no se apuntan aqui; para ellos, medio_por_pillado.
+		var dispersos: Dictionary = {}
+		for sp in a.spells:
+			if sp.dispersa:
+				dispersos[sp.nombre] = true
 		var rep_a: Array = []
 		for k in pa:
+			if dispersos.has(k):
+				continue
 			var fila_k: Array = pa[k]
 			rep_a.append("%s:%.1f:%.1f" % [k, float(fila_k[3]) if fila_k.size() > 3 else 0.0, float(fila_k[4]) if fila_k.size() > 4 else 0.0])
 		_lineas_extra[_lineas_extra.size() - 1] += "|" + ",".join(rep_a)
+		# EL DAÑO DE CADA ACCION POR ELEMENTO: "accion:agua=N/rayo=N" (golpe a golpe).
+		var el_a: Array = []
+		var ea: Dictionary = _elem_accion.get(a, {})
+		for k in ea:
+			var partes: Array = []
+			for e_n in ea[k]:
+				partes.append("%s=%.1f" % [e_n, float(ea[k][e_n])])
+			el_a.append("%s:%s" % [k, "/".join(partes)])
+		_lineas_extra[_lineas_extra.size() - 1] += "|" + ",".join(el_a)
+		# Y EL DAÑO MEDIO POR ENEMIGO PILLADO: "accion:daño/pillados" (cada enemigo cuenta una vez por uso). Es la cifra de los
+		# dispersos; en los demas tambien sirve.
+		var med_a: Array = []
+		for k in pa:
+			var n_p: int = int(pa[k][2]) if (pa[k] as Array).size() > 2 else 0
+			if n_p > 0:
+				med_a.append("%s:%.1f" % [k, float(pa[k][1]) / float(n_p)])
+		_lineas_extra[_lineas_extra.size() - 1] += "|" + ",".join(med_a)
 	for e in enems:
 		var st: Array = stats_e.get(e, [e.max_hp, e.atk(), e.def_value(), e.mdef_value(), e.spd()])
 		var n_e: int = int(_turnos.get(e, 0))
@@ -1455,7 +1482,11 @@ func _al_recibir(v: Combatant, dano: float, es_dot: bool, aliados: Array) -> voi
 		return
 	_hecho[_actor] = float(_hecho.get(_actor, 0.0)) + dano
 	if aliados.has(_actor):
+		# EL ELEMENTO DE ESTE GOLPE (20/11, el jefe: "que diga el elemento de cada golpe: la tormenta, rayo en area y agua
+		# no"): el que dice el golpe de hechizo (Combatant.elem_golpe); si no lo dice, el de la accion (_eligio).
 		var el: String = _elem_de.get(_actor, "fisico")
+		if Combatant.elem_golpe >= 0:
+			el = Elementos.nombre(Combatant.elem_golpe).to_lower() if Combatant.elem_golpe > 0 else "neutro"
 		if not _por_elem.has(_actor):
 			_por_elem[_actor] = {}
 		_por_elem[_actor][el] = float(_por_elem[_actor].get(el, 0.0)) + dano
@@ -1465,6 +1496,11 @@ func _al_recibir(v: Combatant, dano: float, es_dot: bool, aliados: Array) -> voi
 		if not _por_accion[_actor].has(k):
 			_por_accion[_actor][k] = [0, 0.0, 0, 0.0, 0.0]
 		_por_accion[_actor][k][1] = float(_por_accion[_actor][k][1]) + dano
+		if not _elem_accion.has(_actor):
+			_elem_accion[_actor] = {}
+		var ek: Dictionary = _elem_accion[_actor].get(k, {})
+		ek[el] = float(ek.get(el, 0.0)) + dano
+		_elem_accion[_actor][k] = ek
 		# A CUANTOS PILLA (20/11): cada enemigo distinto que recibe daño de esta accion cuenta una vez por uso; y lo que se lleva
 		# cada uno en este uso, para separar al PRINCIPAL del resto al cerrarlo (_cerrar_uso).
 		var pillados: Dictionary = _pillados.get(_actor, {})

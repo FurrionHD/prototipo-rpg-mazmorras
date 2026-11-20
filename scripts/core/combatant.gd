@@ -1293,6 +1293,10 @@ func take_damage(amount: float, es_dot: bool = false) -> void:
 # SOLO HERRAMIENTAS (tools/simulador_peleas.gd, 19/11): si esta puesto, se le avisa de la vida que quita cada daño que entra
 # (ya con defensa, armadura, escudos y costras). En el juego esta siempre vacio.
 static var al_recibir: Callable = Callable()
+# Y EL ELEMENTO del golpe que esta entrando (20/11): lo ponen los golpes de hechizo (CombatMagia) justo antes de
+# take_damage y lo quitan despues, para que el simulador parta el daño de un hechizo de varios elementos (la Tormenta: agua y
+# rayo) golpe a golpe. -1 = no lo dice (golpes de arma, DoT...). En el juego no lo lee nadie.
+static var elem_golpe: int = -1
 # Y DE QUE ESTADO venia cada parte del ultimo DoT ({nombre: daño antes de aguantes}), para repartirlo. Solo se rellena con el
 # gancho puesto.
 var ultimo_dot: Dictionary = {}
