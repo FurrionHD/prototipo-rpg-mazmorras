@@ -1,11 +1,28 @@
 [gd_resource type="Resource" script_class="AbilityData" format=3]
 
 [ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_ceguera"]
+script = ExtResource("2")
+estado = 33
+prob = 1.0
+turns = 2
+solo_fase_luna = 0
+
+[sub_resource type="Resource" id="SA_lento"]
+script = ExtResource("2")
+estado = 3
+prob = 1.0
+turns = 2
+solo_fase_luna = 1
 
 ; LA CAIDA DE LA LUNA (19/11, memoria acechador-mutante; su eleccion "si solo Media luna es magico de nada nos sirve"): la
 ; del CAZADOR LUNAR. MAGICA DE OSCURIDAD, se CARGA 1 turno (aulla a la luna), recarga 4, un CIRCULO de 3 casillas de ancho
 ; donde apunte; pega 1,6 (x2,0 del basico normal a cada uno; en luna llena x2,85 y sale tras el retraso del 50 %). El haz
 ; cae DESDE LA LUNA DEL CIELO (su paso de efectos).
+; (20/11, su idea) SEGUN LA FASE en que la lanza: NUEVA = Ceguera 2 turnos (cae una luna negra); CRECIENTE = Lento 2
+; turnos; LLENA = la gorda (+40 % magico y sin cargar, de su pasiva); MENGUANTE = se cura un 30 % del daño que hace.
 [resource]
 script = ExtResource("1")
 nombre = "Caída de la luna"
@@ -29,3 +46,6 @@ carga_turnos = 1
 fx_anim_carga = &"aullido"
 fx_anim = &"aullido"
 fx_anim_interrumpe = &"idle"
+efectos = [SubResource("SA_ceguera"), SubResource("SA_lento")]
+robo_vida = 0.3
+robo_vida_fase = 3

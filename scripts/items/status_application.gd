@@ -47,3 +47,6 @@ class_name StatusApplication
 # de elementos: es lo que ata cada estado a su elemento sin campos a medida (la Tormenta
 # MOJA con sus golpes de Agua y ELECTRIZA/aturde con los de Rayo).
 @export var elemento_req: int = -1
+# (20/11, el Cazador lunar) SOLO EN ESA FASE DE LA LUNA de quien la lanza (Combatant.FASE_NUEVA..FASE_MENGUANTE). -1 = en
+# todas. La Caida de la luna: Ceguera en la nueva, Lento en la creciente (CombatEnemigos._enemy_tirar_efectos).
+@export var solo_fase_luna: int = -1

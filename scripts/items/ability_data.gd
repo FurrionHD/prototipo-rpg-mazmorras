@@ -56,6 +56,16 @@ class_name AbilityData
 # Vale para las DOS ramas. Lo estrena el Drenaje del chupasimas, pero está en AbilityData y no en
 # el enemigo a propósito: el día que una técnica del jugador robe vida, funciona sola.
 @export var robo_vida: float = 0.0
+# (20/11, el Cazador lunar) El robo de vida SOLO en esa fase de la luna de quien la lanza (-1 = siempre): la Caida de la
+# luna en la menguante. Ver robo_vida_en().
+@export var robo_vida_fase: int = -1
+
+const FASES_LUNA_TXT := ["luna nueva", "luna creciente", "luna llena", "luna menguante"]
+
+
+# Lo que roba con la fase de la luna de quien la lanza (-1 = no tiene fases).
+func robo_vida_en(fase: int) -> float:
+	return robo_vida if robo_vida_fase < 0 or fase == robo_vida_fase else 0.0
 # (18/11, los mutantes de la chupasimas) BEBE MANA: le quita a quien muerde esta parte de su mana MAXIMO, una vez por uso
 # (si conecta algun golpe), y lo que bebe CARGA el Rayo de mana de quien la usa (Combatant.mana_bebido).
 @export var roba_mana: float = 0.0
@@ -1159,6 +1169,7 @@ func resumen(manos: int = 1, de_enemigo: bool = false, quien = null) -> String:
 	var est: String = _texto_estados(manos, de_enemigo)
 	if est != "":
 		l.append(est)
+	l.append_array(_texto_fases_luna(de_enemigo))
 	if es_imbuicion():
 		var nom_est: String = str(StatusEffects.def(imbue_estado).get("nombre", "?"))
 		var doble: String = "" if imbue_prob_doble <= 0.0 \
@@ -1302,8 +1313,8 @@ func _texto_estados(manos: int = 1, de_enemigo: bool = false) -> String:
 	var a_los_mios: Array = []
 	var por_crit: Array = []       # los que SOLO salen si el golpe critea (a.solo_crit)
 	for a in efectos:
-		if a == null or int(a.estado) < 0:
-			continue
+		if a == null or int(a.estado) < 0 or int(a.solo_fase_luna) >= 0:
+			continue   # (los de una fase de la luna van aparte: _texto_fases_luna)
 		var e: Array = _efecto_partes(a)
 		if bool(a.solo_crit):
 			por_crit.append(e)
@@ -1438,6 +1449,25 @@ func _y(cosas) -> String:
 	if v.size() <= 1:
 		return "" if v.is_empty() else v[0]
 	return "%s y %s" % [", ".join(v.slice(0, v.size() - 1)), v[v.size() - 1]]
+
+
+# (20/11, el Cazador lunar) LO QUE HACE SEGUN LA FASE DE LA LUNA en que la lanza: una linea por fase, en su orden.
+func _texto_fases_luna(de_enemigo: bool) -> Array:
+	var out: Array = []
+	var en_area: bool = (es_area() or int(_forma_para_texto()[0]) > 0) and not forma_solo_primero
+	var rec: String = "objetivo" if de_enemigo else "enemigo"
+	var quien_r: String = ("cada %s alcanzado" % rec) if en_area else ("ese %s" % rec)
+	for f in FASES_LUNA_TXT.size():
+		var lista: Array = []
+		for a in efectos:
+			if a != null and int(a.estado) >= 0 and int(a.solo_fase_luna) == f and a.en_objetivo:
+				lista.append(_efecto_partes(a))
+		if not lista.is_empty():
+			out.append(_frase_causar("En %s, tiene" % FASES_LUNA_TXT[f], lista, quien_r))
+		if robo_vida > 0.0 and robo_vida_fase == f:
+			out.append("En %s, %sse cura un %s del daño que hace." % [FASES_LUNA_TXT[f],
+				"" if de_enemigo else "quien la usa ", _pct_txt(robo_vida)])
+	return out
 
 
 # UN estado que aplica, en piezas: [probabilidad en %, nombre, " durante 3 turnos (Ataque +25 %)"].

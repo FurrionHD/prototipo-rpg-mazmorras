@@ -296,6 +296,7 @@ func _cazador(combat: Node, ca: Combatant, yo: Combatant) -> void:
 	_soltar_hasta_acertar(en, ca, ml, yo)
 	en.fin_de_turno(ca)
 	_ok(ca.paciencia_carga == 0, "sin marca: suelta el +50 %% y vuelve a 0 (%d)" % ca.paciencia_carga)
+	_caida_por_fase(en, ca, yo)
 	await _efectos_cazador(combat, ca, yo)
 	await _luna_del_cielo(combat, ca, yo)
 
@@ -429,3 +430,48 @@ func _soltar_hasta_acertar(en, ca: Combatant, ab: AbilityData, yo: Combatant) ->
 		if float(r.get("total", 0.0)) > 0.0:
 			return
 
+
+# (20/11, su idea) LA CAIDA DE LA LUNA SEGUN LA FASE: nueva = Ceguera, creciente = Lento, llena = nada mas, menguante = cura.
+func _caida_por_fase(en, ca: Combatant, yo: Combatant) -> void:
+	print("=== LA CAIDA SEGUN LA FASE ===")
+	var cl: AbilityData = load("res://resources/abilities/acechador_caida_luna.tres")
+	var ficha: String = cl.resumen(1, true)
+	print(ficha)
+	_ok(ficha.contains("En luna nueva") and ficha.contains("Acierto") and ficha.contains("En luna creciente")
+		and ficha.contains("En luna menguante, se cura un 30 % del daño"), "la ficha dice lo de cada fase")
+	var limpio := func():
+		yo.statuses = yo.statuses.filter(func(x): return x.id() != StatusEffects.Id.CEGUERA and x.id() != StatusEffects.Id.LENTO)
+	var pilla := func(fase: int, id_est: int) -> bool:
+		ca.fase_luna = fase
+		for _i in 40:
+			limpio.call()
+			en._enemy_tirar_efectos(ca, cl, yo, 1.0, "objetivo")
+			if yo.has_status(id_est):
+				return true
+		return false
+	_ok(pilla.call(Combatant.FASE_NUEVA, StatusEffects.Id.CEGUERA), "nueva: deja Ceguera")
+	_ok(not yo.has_status(StatusEffects.Id.LENTO), "nueva: y no Lento")
+	_ok(pilla.call(Combatant.FASE_CRECIENTE, StatusEffects.Id.LENTO), "creciente: deja Lento")
+	_ok(not yo.has_status(StatusEffects.Id.CEGUERA), "creciente: y no Ceguera")
+	_ok(not pilla.call(Combatant.FASE_LLENA, StatusEffects.Id.CEGUERA) and not pilla.call(Combatant.FASE_LLENA, StatusEffects.Id.LENTO),
+		"llena: ni Ceguera ni Lento (es la gorda)")
+	limpio.call()
+	# la cura, solo en la menguante
+	ca.paciencia_golpe = false
+	for f in [Combatant.FASE_MENGUANTE, Combatant.FASE_LLENA]:
+		ca.fase_luna = f
+		ca.current_hp = ca.max_hp * 0.5
+		var r: Dictionary = {}
+		for _i in 30:
+			yo.current_hp = yo.max_hp
+			var antes: float = ca.current_hp
+			r = en._enemy_resolver_golpes(ca, cl, yo, 1, 1.0, false, false)
+			if float(r.get("total", 0.0)) > 0.0:
+				var cura: float = ca.current_hp - antes
+				if f == Combatant.FASE_MENGUANTE:
+					_ok(absf(cura - float(r["total"]) * 0.3) < 0.5, "menguante: se cura el 30 %% del daño (%.1f de %.1f)" % [cura, float(r["total"])])
+				else:
+					_ok(is_zero_approx(cura), "fuera de la menguante no se cura (%.1f)" % cura)
+				break
+	ca.current_hp = ca.max_hp
+	yo.current_hp = yo.max_hp

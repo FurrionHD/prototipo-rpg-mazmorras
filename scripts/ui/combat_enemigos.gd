@@ -195,7 +195,7 @@ func _enemy_turn(e: Combatant) -> void:
 		if pegada != null:
 			var chupa: AbilityData = null
 			for ab in e.habilidades:
-				if ab.robo_vida > 0.0:
+				if ab.robo_vida > 0.0 and ab.robo_vida_fase < 0:
 					chupa = ab
 			if chupa != null:
 				_enemy_use_ability(e, chupa, pegada)
@@ -2186,15 +2186,15 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 			# ROBO DE VIDA del bicho (el Drenaje del chupasimas). Sobre el daño YA MITIGADO: contra
 			# alguien con armadura, drenar le rinde poco, y esa es la gracia -- va a por el que va
 			# ligero. Se acumula para decirlo UNA vez en el log y no una por golpe.
-			if ab.robo_vida > 0.0 and e.costra_sangre > 0.0:
+			if ab.robo_vida_en(e.fase_luna) > 0.0 and e.costra_sangre > 0.0:
 				# LA COSTRA DE SANGRE (18/11): lo que chupa no le cura, se le vuelve costra (x costra_sangre del daño, hasta
 				# su vida maxima). La capa es la del Tocon: se come los golpes antes que la vida.
 				var antes_c: float = e.costra
 				e.costra = minf(e.costra + dmg * e.costra_sangre, e.costra_max)
 				e.costra_rota = false
 				costra_hecha += e.costra - antes_c
-			elif ab.robo_vida > 0.0:
-				var cur: float = dmg * ab.robo_vida
+			elif ab.robo_vida_en(e.fase_luna) > 0.0:   # (20/11: la Caida de la luna, solo en la menguante)
+				var cur: float = dmg * ab.robo_vida_en(e.fase_luna)
 				e.heal(cur)
 				robado += cur
 			_pantalla.efectos._fx_golpe(e, t, dmg, result.crit, false, e.elemento_ataque, estilo_g, peso_rayo(e, ab), false,
@@ -2498,6 +2498,9 @@ func _enemy_tirar_efectos(e: Combatant, ab: AbilityData, victima: Combatant, esc
 	var out: Array = []
 	for a in ab.efectos:
 		if a.estado < 0:
+			continue
+		# (20/11) los de UNA FASE DE LA LUNA (la Caida del Cazador lunar), solo si la lanza en esa fase
+		if int(a.solo_fase_luna) >= 0 and e.fase_luna != int(a.solo_fase_luna):
 			continue
 		var al_jugador: bool = a.en_objetivo
 		if filtro == "objetivo" and not al_jugador:
