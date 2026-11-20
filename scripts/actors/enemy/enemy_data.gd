@@ -984,6 +984,14 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		# (20/11, los del acechador) Paciencia del cazador.
 		c.paciencia_turnos = mdat2.paciencia_turnos
 		c.paciencia_extra = mdat2.paciencia_extra
+		# (20/11, su respuesta) EMPIEZA LA PELEA YA ESCONDIDO.
+		if mdat2.paciencia_turnos > 0:
+			c.apply_status(StatusEffects.Id.EN_SOMBRAS)
+		# (20/11, el Cazador lunar) las fases de la luna.
+		c.fases_luna = mdat2.fases_luna
+		c.luna_vel = mdat2.luna_vel
+		c.luna_magia = mdat2.luna_magia
+		c.luna_cura = mdat2.luna_cura
 		# (05/11, los de la Segadora) zona de siega, cortes de viento y vuelo corto (el alcance va abajo, con el suyo).
 		c.zona_siega = mdat2.zona_siega
 		c.cortes_viento = mdat2.cortes_viento

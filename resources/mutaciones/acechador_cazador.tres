@@ -5,20 +5,29 @@
 [ext_resource type="Resource" path="res://resources/abilities/acechador_salto.tres" id="3_sal"]
 [ext_resource type="Resource" path="res://resources/abilities/acechador_media_luna.tres" id="4_med"]
 [ext_resource type="Resource" path="res://resources/abilities/acechador_caida_luna.tres" id="5_cai"]
+[ext_resource type="Resource" path="res://resources/abilities/acechador_marca_luna.tres" id="6_mar"]
 
 ; EL CAZADOR LUNAR (19/11, memoria acechador-mutante): el RANGO 2 del acechador, desde la Sombra sin rostro. Un lobo de luna
 ; grande que CONSERVA EL SIGILO de la Sombra y suma la magia de lunas ("cazador mixto", su eleccion): basico y Salto a la
 ; yugular FISICOS, Media luna y Caida de la luna MAGICAS de Oscuridad. "MAS MAGO" en los stats (tools/tabla_acechador:
-; vida 818 en el piso 10, basico x1,20, magia x1,27). La Marca de la luna, las fases y Luz de luna llegan en sus pasos.
+; vida 818 en el piso 10, basico x1,20, magia x1,27). (20/11) + la Marca de la luna, las Fases de la luna y Luz de luna.
 [resource]
 script = ExtResource("1_mut")
 id = &"cazador"
 nombre = "Cazador lunar"
 grado = 2
 desde = Array[StringName]([&"sombra"])
-habilidades = Array[ExtResource("2_ab")]([ExtResource("3_sal"), ExtResource("4_med"), ExtResource("5_cai")])
+habilidades = Array[ExtResource("2_ab")]([ExtResource("3_sal"), ExtResource("4_med"), ExtResource("5_cai"), ExtResource("6_mar")])
 sprite = &"cazador"
 pesos = {"agilidad": 38, "destreza": 26, "fuerza": 34, "magia": 42, "resistencia": 30, "voluntad": 8}
 paciencia_turnos = 3
 paciencia_extra = 0.5
-pasivas_visibles = Array[int]([72])
+pasivas_visibles = Array[int]([72, 74, 75])
+fases_luna = true
+luna_vel = 0.2
+luna_magia = 0.4
+luna_cura = 0.06
+resist_elemental = {
+4: 1.0,
+5: 0.7
+}

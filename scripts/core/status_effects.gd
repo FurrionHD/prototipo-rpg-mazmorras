@@ -61,7 +61,7 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	OJOS_INSOMNES, CONCENTRACION,
 	COSTRA_SANGRE, SED_MANA,
 	A_OSCURAS, BEBE_LUZ, RACIMO,
-	PACIENCIA }
+	PACIENCIA, MARCA_LUNA, FASES_LUNA, LUZ_LUNA }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -716,6 +716,24 @@ static var _defs: Dictionary = {
 		"id": Id.PACIENCIA, "nombre": "Paciencia del cazador", "icono": "🐺", "color": Color(0.85, 0.55, 0.2),
 		"pasiva": true, "turns": 999, "texto_portador": true,
 		"descripcion": "No tiene prisa. Tú tampoco deberías, pero la tienes.",
+	},
+	# (20/11, el Cazador lunar) LA MARCA DE LA LUNA (su habilidad, 3 turnos, recarga 4): contra el marcado, su golpe desde
+	# las sombras no le vacia la Paciencia (CombatEnemigos._paciencia_mult). Y sus otras dos pasivas a la vista: FASES DE
+	# LA LUNA (la magnitud = la fase de este turno, 0 nueva .. 3 menguante) y LUZ DE LUNA.
+	Id.MARCA_LUNA: {
+		"id": Id.MARCA_LUNA, "nombre": "Marca de la luna", "icono": "🌙", "color": Color(0.75, 0.8, 1.0),
+		"turns": 3, "debuff": true,
+		"descripcion": "Una lunita encima. Bonita. Significa que algo te ha elegido.",
+	},
+	Id.FASES_LUNA: {
+		"id": Id.FASES_LUNA, "nombre": "Fases de la luna", "icono": "🌗", "color": Color(0.6, 0.65, 0.9),
+		"pasiva": true, "turns": 999, "texto_portador": true,
+		"descripcion": "Cada noche es una luna distinta. Cada luna, un cazador distinto.",
+	},
+	Id.LUZ_LUNA: {
+		"id": Id.LUZ_LUNA, "nombre": "Luz de luna", "icono": "🌕", "color": Color(0.85, 0.9, 1.0),
+		"pasiva": true, "turns": 999, "texto_portador": true,
+		"descripcion": "La luz que a otros les quema, a este le sienta de maravilla.",
 	},
 	# EL SET CONCENTRACION (12/11, el de la Polilla insomne): cada frase bien recitada le pone una carga (hasta el tope del
 	# set) y fallar una se las quita todas (CombatMagia). Cada carga, + el daño magico que diga el set (mult_override). Dura
@@ -1405,7 +1423,16 @@ static func texto_pasiva_portador(id_p: int, quien) -> PackedStringArray:
 		out.append("Al acabar cada uno de sus turnos, quien la tiene se funde con las sombras: no se le puede elegir como objetivo y solo le alcanzan los ataques en área. Recibir un golpe o atacar le saca de ellas.")
 		out.append("Cada turno suyo que empieza aún en las sombras le da una carga. Con %d cargas, su ataque de ese turno inflige un %d %% más de daño y las cargas vuelven a 0." % [
 			quien.paciencia_turnos, roundi(quien.paciencia_extra * 100.0)])
-		out.append("Si le golpean, ese turno no suma carga, pero no pierde las que tenía.")
+		out.append("Si le golpean, ese turno no suma carga, pero no pierde las que tenía. Si el golpe es contra alguien con la Marca de la luna, no gasta las cargas.")
+	elif id_p == Id.FASES_LUNA:
+		out.append("Cada uno de sus turnos cambia la fase de la luna: nueva, creciente, llena y menguante, y vuelta a empezar.")
+		out.append("Luna nueva: los golpes no le sacan de las sombras. Luna creciente: su velocidad aumenta en un %d %%. Luna llena: el daño mágico que inflige aumenta en un %d %% y sus habilidades de carga salen sin esperar al turno siguiente. Luna menguante: recupera un %d %% de su vida máxima." % [
+			roundi(quien.luna_vel * 100.0), roundi(quien.luna_magia * 100.0), roundi(quien.luna_cura * 100.0)])
+		if quien.fase_luna >= 0:
+			out.append("Ahora: luna %s." % ["nueva", "creciente", "llena", "menguante"][clampi(quien.fase_luna, 0, 3)])
+	elif id_p == Id.LUZ_LUNA:
+		out.append("La luz de la luna le protege: el Daño de Luz le afecta con normalidad, en vez de hacerle más daño como al resto de los acechadores.")
+		out.append("En luna menguante, recupera un %d %% de su vida máxima al empezar su turno." % roundi(quien.luna_cura * 100.0))
 	elif id_p == Id.SED_MANA:
 		out.append("Al elegir a quién atacar, prefiere a los que tienen más Maná máximo: la probabilidad de atacar a cada uno se multiplica por su Maná máximo frente a la media de su grupo.")
 		# (contraccion: «de el doble» -> «del doble»)

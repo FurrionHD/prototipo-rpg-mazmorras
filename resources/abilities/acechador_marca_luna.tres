@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+; LA MARCA DE LA LUNA (20/11, memoria acechador-mutante; su eleccion: recarga 4 y gasta el turno): la del CAZADOR LUNAR.
+; No pega: le pone la MARCA DE LA LUNA (StatusEffects, 3 turnos) a uno que tenga a tiro (circulito LIBRE a 160). Contra el
+; marcado, su golpe desde las sombras no le vacia la Paciencia (CombatEnemigos._paciencia_mult): esperar, marcar y cazar.
+[sub_resource type="Resource" id="SA_marca"]
+script = ExtResource("2")
+estado = 73
+prob = 1.0
+turns = 3
+
+[resource]
+script = ExtResource("1")
+nombre = "Marca de la luna"
+descripcion = "Te mira. Levanta una pata y te señala. Encima de ti aparece una lunita, y eso no es buena señal."
+coste_energia = 0.0
+dano_mult = 0.0
+area_modo = 1
+area_max = 1
+efectos = [SubResource("SA_marca")]
+fx_anim = &"marca"
+fx_estilo = 17
+cooldown = 4
+forma = 1
+forma_apunte = 3
+forma_radio = 14.0
+forma_rango = 160.0

@@ -113,4 +113,8 @@ const TABLA := {
 	"🌘": "bebe_luz",
 	"🍇": "racimo",
 	"🐺": "paciencia",
+	"🌙": "marca_luna",
+	"🌗": "fases_luna",
+	"🌕": "luz_luna",
+	"🌒": "fases_luna",
 }

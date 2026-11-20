@@ -128,6 +128,7 @@ func _enemy_turn(e: Combatant) -> void:
 			and randf() < e.sigilo_prob:
 		e.apply_status(StatusEffects.Id.EN_SOMBRAS)
 		_pantalla._set_log("%s se funde con las sombras. 🌑" % _pantalla._etq(e))
+	fase_de_luna(e)
 	paciencia_al_empezar(e, bool(ev.stunned))
 	# BARRO COCIDO: se le va secando (o enfriando) turno a turno.
 	if e.ablandado > 0:
@@ -322,7 +323,7 @@ func _enemy_turn(e: Combatant) -> void:
 	if e.energia_de_jugador:
 		e.regen_energy(e.energia_regen if e.energia_regen > 0.0 else _pantalla.ATTACK_ENERGY_REGEN)
 		e.set_meta(&"gasta_imbue", true)
-	var m_pac: float = _paciencia_mult(e)   # (20/11) la Paciencia del cazador, tambien en el basico
+	var m_pac: float = _paciencia_mult(e, obj)   # (20/11) la Paciencia del cazador, tambien en el basico
 	var result := StatsMath.resolve_attack(e, obj, defendiendo, -1.0, 0.0, 0.0,
 		not (e.orbita and obj.has_status(StatusEffects.Id.IMANTADO)))
 	_pantalla._aplicar_pasivas(result, e, obj)
@@ -1326,6 +1327,25 @@ func campo_magnetico(c: Combatant) -> void:
 
 
 # LAS CARGAS (03/11, las arañas mutantes, ver MutacionData). Una mas; en cuanto llega al tope, estalla. Solo quien lleva la pelea.
+# (20/11) LAS FASES DE LA LUNA (el Cazador lunar), al EMPEZAR su turno: la siguiente (la primera, nueva). La fase va en
+# la magnitud de su pasiva a la vista (FASES_LUNA), que viaja a los espejos como cualquier estado. En MENGUANTE se cura.
+const NOMBRE_FASE := ["🌑 Luna nueva", "🌒 Luna creciente", "🌕 Luna llena", "🌘 Luna menguante"]
+
+func fase_de_luna(e: Combatant) -> void:
+	if not e.fases_luna or _pantalla._espejo:
+		return
+	e.fase_luna = e.turnos_luna % 4
+	e.turnos_luna += 1
+	e.apply_status(StatusEffects.Id.FASES_LUNA, 999, float(e.fase_luna))
+	_pantalla._log_extra("%s sobre %s." % [NOMBRE_FASE[e.fase_luna], _pantalla._etq(e)])
+	if e.fase_luna == Combatant.FASE_MENGUANTE and e.is_alive() and e.current_hp < e.max_hp:
+		var antes: float = e.current_hp
+		e.heal(e.max_hp * e.luna_cura)
+		_pantalla._update_hp()
+		_pantalla._set_log("La luz de la luna le cierra las heridas a %s (+%d). 🌘" % [_pantalla._etq(e),
+			roundi(e.current_hp - antes)])
+
+
 # (20/11) PACIENCIA DEL CAZADOR (el acechador mutante), al EMPEZAR su turno: empezarlo AUN escondido = un turno entero en
 # las sombras (+1). Con la cuenta llena, el golpe de este turno sale desde las sombras (_enemy_resolver_golpes_).
 func paciencia_al_empezar(e: Combatant, aturdido: bool) -> void:
@@ -1333,6 +1353,7 @@ func paciencia_al_empezar(e: Combatant, aturdido: bool) -> void:
 		return
 	e.paciencia_golpe = false
 	e.paciencia_soltada = false
+	e.paciencia_gasta = false
 	if e.en_sombras() and not aturdido:
 		e.paciencia_carga = mini(e.paciencia_carga + 1, e.paciencia_turnos)
 		print("[paciencia] %s: %d/%d" % [e.nombre, e.paciencia_carga, e.paciencia_turnos])
@@ -1342,10 +1363,12 @@ func paciencia_al_empezar(e: Combatant, aturdido: bool) -> void:
 
 # (20/11) PACIENCIA DEL CAZADOR en su golpe (el basico y las habilidades): con la cuenta llena, x(1 + paciencia_extra) a
 # todo lo de esa accion (a todos los que pille); y atacar le saca de las sombras. Se suelta aunque falle.
-func _paciencia_mult(e: Combatant) -> float:
+func _paciencia_mult(e: Combatant, t: Combatant = null) -> float:
 	var m: float = 1.0
 	if e.paciencia_golpe:
 		m = 1.0 + e.paciencia_extra
+		if t == null or not t.has_status(StatusEffects.Id.MARCA_LUNA):
+			e.paciencia_gasta = true
 		if not e.paciencia_soltada:
 			e.paciencia_soltada = true
 			_pantalla._log_extra("🌑 %s ataca desde las sombras: +%d %% de daño." % [_pantalla._etq(e),
@@ -1360,10 +1383,12 @@ func _paciencia_mult(e: Combatant) -> float:
 func fin_de_turno(e: Combatant) -> void:
 	if e == null or e.paciencia_turnos <= 0 or _pantalla._espejo or not _pantalla._enemies.has(e):
 		return
-	if e.paciencia_soltada:
+	# (contra el MARCADO por la Marca de la luna no se vacia: solo si le ha dado a alguien sin ella)
+	if e.paciencia_soltada and e.paciencia_gasta:
 		e.paciencia_carga = 0
 	e.paciencia_golpe = false
 	e.paciencia_soltada = false
+	e.paciencia_gasta = false
 	if e.is_alive() and not e.en_sombras():
 		e.apply_status(StatusEffects.Id.EN_SOMBRAS)
 		_pantalla._set_log("%s se funde con las sombras. 🌑" % _pantalla._etq(e))
@@ -1532,8 +1557,11 @@ func _llega_retrasada(e: Combatant) -> void:
 	e.retrasando = false
 	var victima = _victima_retraso.get(e)
 	_victima_retraso.erase(e)
-	# DE CARGA: ahora empieza la carga de siempre (con la huella que ya eligio, si la tiene).
-	if ab.carga_turnos > 0:
+	# DE CARGA: ahora empieza la carga de siempre (con la huella que ya eligio, si la tiene). En LUNA LLENA (el Cazador
+	# lunar, 20/11) no espera: sale ya, tras el retraso de todas.
+	if ab.carga_turnos > 0 and e.fase_luna == Combatant.FASE_LLENA:
+		_pantalla._log_extra("🌕 Con la luna llena, %s no necesita cargar %s." % [_pantalla._etq(e), ab.nombre])
+	elif ab.carga_turnos > 0:
 		_enemy_begin_charge(e, ab, victima if victima is Combatant else null, true)
 		return
 	e.charging = null
@@ -2083,7 +2111,10 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 	# DESDE LAS SOMBRAS (30/10, el Mordisco sombrio: AbilityData.primero_infalible_en_sombras): el primer bocado no se ve
 	# venir, asi que no se esquiva.
 	var desde_sombras: bool = ab != null and ab.primero_infalible_en_sombras and e.en_sombras() and tanda_base == 0
-	escala *= _paciencia_mult(e)
+	escala *= _paciencia_mult(e, t)
+	# (20/11) LA LUNA LLENA del Cazador lunar: +luna_magia a lo magico que inflige.
+	if magico and e.fase_luna == Combatant.FASE_LLENA:
+		escala *= 1.0 + e.luna_magia
 	# POR LA ESPALDA (30/10, el Mordisco a traicion): si su salto le dejo detras de 't', duele mas.
 	if ab != null and ab.extra_espalda > 0.0 and _pantalla.tactico and _pantalla.turno_mapa.por_la_espalda(e, t):
 		escala *= 1.0 + ab.extra_espalda

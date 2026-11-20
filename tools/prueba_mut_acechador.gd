@@ -8,6 +8,10 @@
 #   4. (20/11) PACIENCIA DEL CAZADOR, en una pelea de verdad: a la vista con su texto; se funde al acabar cada turno suyo;
 #      cada turno que empieza escondido suma (aturdido o tras recibir un golpe, no; lo cargado no se pierde); con 3, su
 #      golpe sale desde las sombras (+50 %%, le saca de ellas) y al acabar el turno vuelve a 0 y se funde otra vez.
+#      Los dos EMPIEZAN LA PELEA YA ESCONDIDOS.
+#   5. (20/11) EL CAZADOR LUNAR: las FASES DE LA LUNA (nueva: los golpes no le sacan; creciente: +20 %% de velocidad; llena:
+#      +40 %% a lo magico y la de carga sale sin esperar; menguante: +6 %% de vida), la MARCA DE LA LUNA (contra el marcado no
+#      gasta la Paciencia) y LUZ DE LUNA (la Luz le hace x1,0), sus pasivas a la vista con su texto y sus iconos.
 extends Node
 
 const ACECHADOR := "res://scenes/actors/enemy/acechador.tres"
@@ -66,9 +70,10 @@ func _ficha(ed: EnemyData) -> void:
 		"del normal a la Sombra y de la Sombra al Cazador")
 	_ok(so.habilidades.is_empty(), "la Sombra: el kit de siempre, todo fisico (Zarpazo doble, Salto, Dentellada)")
 	var noms: Array = ca.habilidades.map(func(a): return a.nombre)
-	_ok(noms == ["Salto a la yugular", "Media luna", "Caída de la luna"], "el Cazador: Salto, Media luna y Caída de la luna (%s)" % str(noms))
+	_ok(noms == ["Salto a la yugular", "Media luna", "Caída de la luna", "Marca de la luna"],
+		"el Cazador: Salto, Media luna, Caída de la luna y Marca de la luna (%s)" % str(noms))
 	var fis: Array = ca.habilidades.filter(func(a): return not a.es_magico).map(func(a): return a.nombre)
-	_ok(fis == ["Salto a la yugular"], "el Cazador mixto: el Salto fisico, las dos de luna magicas")
+	_ok(fis == ["Salto a la yugular", "Marca de la luna"], "el Cazador mixto: el Salto fisico, las dos de luna magicas (la Marca no pega)")
 	# LA VIDA DE VERDAD en el piso 10, con los multiplicadores de mutante (la de la tabla)
 	var piso_antes: int = Game.current_floor
 	Game.current_floor = 10
@@ -128,6 +133,7 @@ func _pelea() -> void:
 		_ok(false, "arranca la sala")
 		return
 	sala.poner(ACECHADOR, Vector2(150, 0), {"mutacion": "sombra"})
+	sala.poner(ACECHADOR, Vector2(150, 90), {"mutacion": "cazador"})
 	await _esperar(20)
 	if (await sala.pelear(get_tree().get_nodes_in_group("enemy"), false)) == null:
 		_ok(false, "se abre la pelea")
@@ -143,9 +149,12 @@ func _pelea() -> void:
 		_ok(false, "encuentro la pantalla de combate")
 		return
 	var so: Combatant = null
+	var ca: Combatant = null
 	for e in combat._enemies:
 		if e.mutacion == &"sombra":
 			so = e
+		elif e.mutacion == &"cazador":
+			ca = e
 	_ok(so != null, "la Sombra sin rostro en la pelea")
 	if so == null:
 		return
@@ -160,7 +169,8 @@ func _pelea() -> void:
 	_ok(txt.contains("3 cargas") and txt.contains("50 %"), "su texto con sus numeros: %s" % txt)
 	_ok(FileAccess.file_exists("res://assets/ui/estados/paciencia.png"), "con su icono en pixel (el lobo en la sombra)")
 	# SE FUNDE al acabar su turno
-	_ok(not so.en_sombras(), "empieza la pelea a la vista")
+	_ok(so.en_sombras() and ca != null and ca.en_sombras(), "los dos empiezan la pelea ya escondidos")
+	so.salir_de_sombras()
 	en.fin_de_turno(so)
 	_ok(so.en_sombras(), "al acabar su turno se funde en las sombras")
 	# CARGA: cada turno que empieza escondido, +1
@@ -199,4 +209,82 @@ func _pelea() -> void:
 	var d1: float = float(en._enemy_resolver_golpes(so, zarpa, yo, 1, 1.0, false, false).get("total", 0.0))
 	print("     golpe sin Paciencia %.1f, con ella %.1f" % [d0, d1])
 	_ok(d0 > 0.0 and absf(d1 / d0 - 1.5) < 0.02, "con la cuenta llena pega un 50 %% mas (x%.2f)" % (d1 / maxf(d0, 0.001)))
+	await _cazador(combat, ca, yo)
+
+
+func _cazador(combat: Node, ca: Combatant, yo: Combatant) -> void:
+	print("=== EL CAZADOR LUNAR (en una pelea) ===")
+	_ok(ca != null, "el Cazador lunar en la pelea")
+	if ca == null:
+		return
+	var en: Variant = combat.enemigos
+	for id_p in [StatusEffects.Id.PACIENCIA, StatusEffects.Id.FASES_LUNA, StatusEffects.Id.LUZ_LUNA]:
+		_ok(ca.has_status(id_p), "a la vista: %s" % StatusEffects.def(id_p)["nombre"])
+		var clave: String = StatusEffects.clave_icono(id_p)
+		_ok(FileAccess.file_exists("res://assets/ui/estados/%s.png" % clave), "con su icono (%s)" % clave)
+	_ok(FileAccess.file_exists("res://assets/ui/estados/marca_luna.png"), "la Marca de la luna con su icono")
+	var txt: String = " ".join(StatusEffects.texto_pasiva_portador(StatusEffects.Id.FASES_LUNA, ca))
+	_ok(txt.contains("20 %") and txt.contains("40 %") and txt.contains("6 %"), "las fases con sus numeros: %s" % txt)
+	# LUZ DE LUNA: la Luz, x1,0 (el acechador, x1,5)
+	_ok(is_equal_approx(float(ca.resist_elemental.get(Elementos.Elemento.LUZ, 0.0)), 1.0)
+		and is_equal_approx(float(ca.resist_elemental.get(Elementos.Elemento.OSCURIDAD, 0.0)), 0.7),
+		"Luz de luna: la Luz le hace x1,0 (la Oscuridad, x0,7 como siempre)")
+	# NUEVA: los golpes no le sacan de las sombras
+	en.fase_de_luna(ca)
+	_ok(ca.fase_luna == Combatant.FASE_NUEVA and ca.has_status(StatusEffects.Id.FASES_LUNA), "su primer turno: luna nueva")
+	if not ca.en_sombras():
+		ca.apply_status(StatusEffects.Id.EN_SOMBRAS)
+	ca.take_damage(1.0)
+	_ok(ca.en_sombras(), "en luna nueva, el golpe no le saca de las sombras")
+	# CRECIENTE: +20 % de velocidad
+	var v0: float = ca.spd()
+	en.fase_de_luna(ca)
+	_ok(ca.fase_luna == Combatant.FASE_CRECIENTE and absf(ca.spd() / v0 - 1.2) < 0.01, "creciente: +20 %% de velocidad (x%.2f)" % (ca.spd() / v0))
+	ca.take_damage(1.0)
+	_ok(not ca.en_sombras(), "fuera de la nueva, el golpe si le saca")
+	# LLENA: +40 % a lo magico
+	en.fase_de_luna(ca)
+	_ok(ca.fase_luna == Combatant.FASE_LLENA, "luego, luna llena")
+	var ml: AbilityData = load("res://resources/abilities/acechador_media_luna.tres")
+	ca.paciencia_golpe = false
+	seed(11)
+	var d_llena: float = float(en._enemy_resolver_golpes(ca, ml, yo, 1, 1.0, false, false).get("total", 0.0))
+	ca.fase_luna = Combatant.FASE_CRECIENTE
+	seed(11)
+	var d_otra: float = float(en._enemy_resolver_golpes(ca, ml, yo, 1, 1.0, false, false).get("total", 0.0))
+	ca.fase_luna = Combatant.FASE_LLENA
+	print("     Media luna fuera de la llena %.2f, en la llena %.2f" % [d_otra, d_llena])
+	_ok(d_otra > 0.0 and absf(d_llena / d_otra - 1.4) < 0.03, "llena: lo magico pega un 40 %% mas (x%.2f)" % (d_llena / maxf(d_otra, 0.001)))
+	# y la de CARGA sale sin esperar (tras el retraso de todas)
+	var cl: AbilityData = load("res://resources/abilities/acechador_caida_luna.tres")
+	ca.charging = cl
+	ca.retrasando = true
+	en._llega_retrasada(ca)
+	_ok(ca.charging == null and ca.charge_left == 0, "llena: la Caída de la luna sale sin cargar")
+	# MENGUANTE: recupera un 6 % de su vida maxima
+	ca.current_hp = ca.max_hp * 0.5
+	en.fase_de_luna(ca)
+	_ok(ca.fase_luna == Combatant.FASE_MENGUANTE and absf(ca.current_hp - ca.max_hp * 0.56) < 0.5,
+		"menguante: recupera un 6 %% de su vida maxima (%.0f de %.0f)" % [ca.current_hp, ca.max_hp])
+	en.fase_de_luna(ca)
+	_ok(ca.fase_luna == Combatant.FASE_NUEVA, "y vuelta a la nueva")
+	# LA MARCA: contra el marcado, el golpe desde las sombras no vacia la Paciencia
+	var mar: AbilityData = load("res://resources/abilities/acechador_marca_luna.tres")
+	_ok(mar.dano_mult == 0.0 and mar.cooldown == 4 and mar.efectos.size() == 1
+		and mar.efectos[0].estado == StatusEffects.Id.MARCA_LUNA and mar.efectos[0].turns == 3,
+		"Marca de la luna: no pega, recarga 4, marca 3 turnos")
+	yo.apply_status(StatusEffects.Id.MARCA_LUNA, 3)
+	ca.paciencia_carga = 3
+	if not ca.en_sombras():
+		ca.apply_status(StatusEffects.Id.EN_SOMBRAS)
+	en.paciencia_al_empezar(ca, false)
+	_ok(ca.paciencia_golpe, "con la Paciencia llena")
+	en._enemy_resolver_golpes(ca, ml, yo, 1, 1.0, false, false)
+	en.fin_de_turno(ca)
+	_ok(ca.paciencia_carga == 3, "contra el marcado, el golpe desde las sombras no gasta las cargas (%d)" % ca.paciencia_carga)
+	yo.statuses = yo.statuses.filter(func(x): return x.id() != StatusEffects.Id.MARCA_LUNA)
+	en.paciencia_al_empezar(ca, false)
+	en._enemy_resolver_golpes(ca, ml, yo, 1, 1.0, false, false)
+	en.fin_de_turno(ca)
+	_ok(ca.paciencia_carga == 0, "contra uno sin marca, si (%d)" % ca.paciencia_carga)
 

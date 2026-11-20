@@ -518,6 +518,18 @@ var paciencia_extra: float = 0.5
 var paciencia_carga: int = 0
 var paciencia_golpe: bool = false
 var paciencia_soltada: bool = false
+var paciencia_gasta: bool = false   # le ha dado a alguien SIN la Marca de la luna (entonces si vacia la cuenta)
+# (20/11, el Cazador lunar) FASES DE LA LUNA (ver MutacionData): la de ESTE turno suyo (-1 = no tiene) y cuantas lleva.
+const FASE_NUEVA := 0
+const FASE_CRECIENTE := 1
+const FASE_LLENA := 2
+const FASE_MENGUANTE := 3
+var fases_luna: bool = false
+var fase_luna: int = -1
+var turnos_luna: int = 0
+var luna_vel: float = 0.2
+var luna_magia: float = 0.4
+var luna_cura: float = 0.06
 # (05/11, los de la Segadora, ver MutacionData) ZONA DE SIEGA, CORTES DE VIENTO y VUELO CORTO.
 var zona_siega: float = 0.0
 var cortes_viento: float = 0.0
@@ -1191,7 +1203,13 @@ func def_value() -> float:
 func spd() -> float:
 	if dummy_speed_override >= 0.0:
 		return dummy_speed_override   # modo prueba: velocidad estandar fija
-	return _spd_base() * velocidad_mult * status_spd_mult() * _guardia_spd() * imbue_spd_mult * mult_bebe_luz_vel()
+	return _spd_base() * velocidad_mult * status_spd_mult() * _guardia_spd() * imbue_spd_mult * mult_bebe_luz_vel() \
+		* mult_luna_vel()
+
+
+# (20/11) LA LUNA CRECIENTE del Cazador lunar: mas rapido ese turno.
+func mult_luna_vel() -> float:
+	return 1.0 + luna_vel if fase_luna == FASE_CRECIENTE else 1.0
 # La velocidad con la que se decide QUIEN ES EL MAS RAPIDO de la pelea (ver combat._escala_barra):
 # la de verdad sin lo pasajero (estados, guardia, imbuicion), para que un Ralentizado frene al que lo
 # lleva en vez de acelerar al resto.
@@ -1288,7 +1306,8 @@ func take_damage(amount: float, es_dot: bool = false) -> void:
 		_golpe_recibido = maxf(amount, 0.0)
 		_golpe_frame = Engine.get_process_frames()
 		# EL QUE ESTA EN LAS SOMBRAS sale al encajar un golpe de verdad (30/10, la rata sombria). El veneno no le saca.
-		if amount > 0.0 and has_status(StatusEffects.Id.EN_SOMBRAS):
+		# (20/11) En LUNA NUEVA (el Cazador lunar) los golpes no le sacan.
+		if amount > 0.0 and has_status(StatusEffects.Id.EN_SOMBRAS) and fase_luna != FASE_NUEVA:
 			_quitar_status(StatusEffects.Id.EN_SOMBRAS)
 			print("[sombras] %s: el golpe le saca de las sombras" % nombre)
 	var antes_hp: float = current_hp

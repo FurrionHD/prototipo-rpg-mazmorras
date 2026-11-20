@@ -360,6 +360,20 @@ ICONOS = [
         "............", "...b...b....", "...bb.bb....", "...bbbbbb...", "..bbbbbbbb..", "..bbbbabbbbb",
         ".bbbbbbbbbbb", ".bbbbbbbbbbw", "bbbbbbbbbbb.", "hbbbbbbbb...", ".hbbbbbb....", "..h.hh......"),
         {'a': (255, 226, 140), 'b': (16, 16, 26), 'h': (96, 88, 120), 'w': (70, 64, 80)}),
+    # (20/11, el Cazador lunar; elegidos por el jefe en tools/iconos_acechador_versiones.py) MARCA DE LA LUNA = la
+    # creciente y la estrella (B); FASES DE LA LUNA = la luna a medias con sus puntos (B); LUZ DE LUNA = la llena (A).
+    ("marca_luna", "Marca de la luna", (0.75, 0.8, 1.0), (
+        "............", "....wwww....", "...wwll.....", "..wwl.......", "..wl...s....", ".wwl..sss...",
+        ".wwl...s....", "..wl........", "..wwl.......", "...wwll.....", "....wwww....", "............"),
+        {'w': (226, 236, 255), 'l': (170, 182, 222), 's': (190, 170, 240)}),
+    ("fases_luna", "Fases de la luna", (0.6, 0.65, 0.9), (
+        ".....p......", "............", "....bbww....", "...bbbwww...", "...bbbwww...", ".p.bbbwww.p.",
+        "...bbbwww...", "...bbbwww...", "....bbww....", "............", ".....p......", "............"),
+        {'b': (40, 46, 86), 'w': (226, 236, 255), 'p': (240, 170, 40)}),
+    ("luz_luna", "Luz de luna", (0.85, 0.9, 1.0), (
+        "............", "....hhhh....", "...hwwwwh...", "..hwwlwwwh..", "..hwwwwwwh..", "..hwwwwlwh..",
+        "..hwlwwwwh..", "..hwwwwwwh..", "...hwwwwh...", "....hhhh....", "............", "............"),
+        {'h': (120, 140, 210), 'w': (226, 236, 255), 'l': (170, 182, 222)}),
 ]
 
 
@@ -531,7 +545,7 @@ EMOJI = {
     "🔮": "foco", "⏳": "cargando", "🤺": "en_guardia", "😮": "sin_fuelle", "💚": "plato_remedio",
     "🧄": "plato_estomago", "🍀": "plato_fortuna", "🦠": "infectado", "🌿": "florecido", "👁": "ojos_insomnes", "🕯": "concentracion",
     "🧫": "costra_sangre", "🫦": "sed_mana", "🏮": "a_oscuras", "🌘": "bebe_luz", "🍇": "racimo",
-    "🐺": "paciencia",
+    "🐺": "paciencia", "🌙": "marca_luna", "🌗": "fases_luna", "🌕": "luz_luna", "🌒": "fases_luna",
 }
 
 

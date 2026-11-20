@@ -117,6 +117,14 @@ class_name MutacionData
 # las sombras sale a la vista (hasta que acaba su turno). 0 = no.
 @export var paciencia_turnos: int = 0
 @export var paciencia_extra: float = 0.5
+# (20/11, el CAZADOR LUNAR) FASES DE LA LUNA: una por turno suyo (nueva, creciente, llena, menguante, y vuelta). NUEVA = los
+# golpes no le sacan de las sombras (hasta su turno siguiente); CRECIENTE = +luna_vel de velocidad; LLENA = +luna_magia al
+# daño magico que inflige y sus habilidades de carga salen sin esperar (tras el retraso de todas); MENGUANTE = recupera
+# luna_cura de su vida maxima al empezar el turno (eso es su LUZ DE LUNA).
+@export var fases_luna: bool = false
+@export var luna_vel: float = 0.2
+@export var luna_magia: float = 0.4
+@export var luna_cura: float = 0.06
 # SE APARTA DE UN SALTO (la sombria): al ESQUIVAR un golpe cuerpo a cuerpo, salta 'salto_esquiva' px hacia atras.
 @export var salto_esquiva: float = 0.0
 # (05/11, los mutantes de la SEGADORA; plan elegant-popping-firefly, numeros provisionales)
