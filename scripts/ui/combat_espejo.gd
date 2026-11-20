@@ -447,7 +447,9 @@ func _valores(lista: Array, aliados: bool = false) -> Array:
 			# garrapata del ambar (su hoja).
 			# Y las cargas de las arañas mutantes: lo que se ve de lo cargada que esta.
 			# Y lo que le falta a la capa para volver (los puntos de encima: TacticoTrent).
-			[c.costra, c.costra_max, c.hinchazon, c.cargas, c.carga_tope, c.costra_espera, c.costra_turnos],
+			# (20/11) Y la FASE DE LA LUNA y la PACIENCIA del acechador mutante (la luna del cielo y sus puntos).
+			[c.costra, c.costra_max, c.hinchazon, c.cargas, c.carga_tope, c.costra_espera, c.costra_turnos, c.fase_luna,
+				c.paciencia_carga],
 			# El campo 13, LOS ESTADOS (04/11, playtest: la rata 'en las sombras' se veia entera). El maniqui no tenia ninguno, y
 			# todo lo que se pinta preguntandole a su estado (las sombras, el sigilo, la resina, la savia, la furia del rey...)
 			# decia que no en el espejo, que es donde se juega de verdad: la pelea la lleva la sala.
@@ -1737,6 +1739,9 @@ func _volcar(lista: Array, valores: Array) -> void:
 			if (v[12] as Array).size() >= 7:
 				lista[i].costra_espera = int(v[12][5])
 				lista[i].costra_turnos = int(v[12][6])
+			if (v[12] as Array).size() >= 9:
+				lista[i].fase_luna = int(v[12][7])
+				lista[i].paciencia_carga = int(v[12][8])
 		if v.size() > 13:
 			_volcar_estados(lista[i], v[13])
 		if v.size() > 14:

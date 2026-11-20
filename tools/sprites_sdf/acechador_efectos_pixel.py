@@ -326,8 +326,72 @@ def principal():
     return ruta
 
 
+# ------------------------------------------------------------------ AL JUEGO (20/11): LA LUNA DEL CIELO HORNEADA
+#   luna_nueva / luna_creciente / luna_llena / luna_menguante   (bucle de N_ANIM) la luna aprobada, con su vaiven, haces y
+#                                                               resplandor. Origen = su centro (sin el vaiven)
+#   puntos_0 .. puntos_3   (bucle de N_ANIM, al mismo vaiven) los puntos de la Paciencia encima
+#   luna_estela            la estela de luz de la CAIDA, hacia arriba (el codigo la gira hacia de donde viene)
+#   luna_golpe             (suelo + aire) el GOLPE al caer: destello, el anillo que se abre y esquirlas de luna
+def _creciente_m(cx, cy, r, abre, giro):
+    ox, oy = math.cos(giro) * r * abre, math.sin(giro) * r * abre
+    return disco_m(cx, cy, r) & ~disco_m(cx - ox, cy - oy, r)
+
+
+def hornear_luna():
+    import sys
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import horno_efectos as ho
+    d = {}
+    for fase in FASES:
+        out = []
+        for f in range(N_ANIM):
+            s, a = nuevo(), nuevo()
+            luna_viva(a, fase, f)
+            out.append((s, a))
+        d['luna_' + fase] = ho.guardar_efecto('acechador', 'luna_' + fase, [out], [(CX, CY)], 10.0, True)
+    for nivel in range(4):
+        out = []
+        for f in range(N_ANIM):
+            s, a = nuevo(), nuevo()
+            puntos_arriba(a, nivel, f)
+            out.append((s, a))
+        d['puntos_%d' % nivel] = ho.guardar_efecto('acechador', 'puntos_%d' % nivel, [out], [(CX, CY)], 10.0, True)
+    # la estela: hacia ARRIBA desde el centro, ancha y transparente, que se afila
+    s, a = nuevo(), nuevo()
+    proy = CY - YY
+    lado = np.abs(XX - CX)
+    m = (proy > 0) & (proy < 44) & (lado < 13 * (1 - proy / 52))
+    mezcla(a, m, (190, 206, 255), np.clip(1 - proy / 44, 0, 1) * 0.45)
+    d['luna_estela'] = ho.guardar_efecto('acechador', 'luna_estela', [[(s, a)]], [(CX, CY)], 10.0, True)
+    # el golpe
+    out = []
+    Rg = 42.0
+    dist = np.sqrt((XX - CX) ** 2 + ((YY - CY) / 0.8) ** 2)
+    for e in range(8):
+        s, a = nuevo(), nuevo()
+        vida = 1 - e / 8.0
+        if e <= 1:
+            mezcla(a, dist < Rg * 0.9, (235, 242, 255), (0.7 if e == 0 else 0.4) * np.clip(1 - dist / (Rg * 0.9), 0, 1))
+        rr = Rg * 0.6 * (0.5 + 0.8 * (1 - (1 - min(1, e / 4)) ** 3))
+        mezcla(s, (dist <= rr) & (dist > rr - 3), (230, 238, 255), 0.9 * vida)
+        mezcla(s, dist < Rg * 0.6, (90, 110, 190), 0.25 * vida)
+        rnd = random.Random(2)
+        for i in range(8):
+            an = rnd.uniform(0, math.tau)
+            dd = 6 + e * rnd.uniform(3, 5)
+            x, y = CX + math.cos(an) * dd, CY + math.sin(an) * dd * 0.8 - 8 + e * e * 0.5
+            mezcla(a, _creciente_m(x, y, 2.6, 0.55, an), FRIA2[3], vida)
+        out.append((s, a))
+    d['luna_golpe'] = ho.guardar_efecto('acechador', 'luna_golpe', [out], [(CX, CY)], 14.0)
+    ho.sumar('acechador', d)
+
+
 if __name__ == '__main__':
     import sys
-    r = principal() if '--v1' in sys.argv else principal_v2()
-    if os.name == 'nt':
-        os.startfile(r)
+    if '--hornear' in sys.argv:
+        hornear_luna()
+    else:
+        r = principal() if '--v1' in sys.argv else principal_v2()
+        if os.name == 'nt' and '--abrir' in sys.argv:
+            import subprocess
+            subprocess.Popen(['mspaint', r])   # (con Paint: memoria abrir-con-paint)

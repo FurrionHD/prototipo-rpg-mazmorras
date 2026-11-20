@@ -6693,6 +6693,9 @@ func radio_lampara(piso: int = -1) -> float:
 	# ahora: la ficha que enseña "en el piso X tendrias" (piso pedido) no se ve afectada.
 	if piso < 0 and a_oscuras():
 		return Vision.RADIO_MINIMO
+	# (20/11) LA LUNA DEL CIELO del Cazador lunar: los farolillos se apagan y alumbra ella (LunaCielo, Niebla._focos).
+	if piso < 0 and LunaCielo.hay(get_tree()):
+		return Vision.RADIO_MINIMO
 	var m: Dictionary = item_meta.get(equipped_lampara, {})
 	var mejoras: int = int((m.get("mejoras", {}) as Dictionary).get(Upgrades.LUMINOSIDAD, 0))
 	var pot: float = Lampara.potencia(int(m.get("tier", 1)),

@@ -289,6 +289,7 @@ func _cazador(combat: Node, ca: Combatant, yo: Combatant) -> void:
 	en.fin_de_turno(ca)
 	_ok(ca.paciencia_carga == 0, "contra uno sin marca, si (%d)" % ca.paciencia_carga)
 	await _efectos_cazador(combat, ca, yo)
+	await _luna_del_cielo(combat, ca, yo)
 
 
 func _hojas_de(arena: Node) -> Array:
@@ -377,4 +378,38 @@ func _efectos_cazador(combat: Node, ca: Combatant, yo: Combatant) -> void:
 	_ok(_hojas_de(arena).has("charco_cazador"), "al volver a esconderse: el charco de niebla")
 	_ok(cu.visible and int(cu.get_meta(&"fundiendo_hasta", 0)) > Time.get_ticks_msec(), "y se le ve mientras se funde")
 	await _esperar(2)
+
+
+# (20/11) LA LUNA DEL CIELO: sale con el Cazador, con su fase y sus puntos; apaga los farolillos; la Caida la baja y
+# suelta el golpe; se va cuando cae el Cazador.
+func _luna_del_cielo(combat: Node, ca: Combatant, yo: Combatant) -> void:
+	print("=== LA LUNA DEL CIELO ===")
+	var tm = combat.turno_mapa
+	var arena: Node = tm._arena()
+	ca.fase_luna = Combatant.FASE_LLENA
+	ca.paciencia_carga = 2
+	tm._tick_luna()
+	var luna: LunaCielo = get_tree().get_first_node_in_group(LunaCielo.GRUPO)
+	_ok(luna != null, "con el Cazador en la pelea, la luna en el cielo")
+	if luna == null:
+		return
+	_ok(luna.fase == Combatant.FASE_LLENA and luna.puntos == 2, "con su fase (llena) y los puntos de su Paciencia (2)")
+	_ok(arena.rect.has_point(luna.global_position), "sobre la pelea")
+	_ok(is_equal_approx(Game.radio_lampara(), Vision.RADIO_MINIMO), "los farolillos se apagan (la luz es ella)")
+	var f: Dictionary = luna.foco()
+	_ok(float(f["intensidad"]) < 1.0 and float(f["radio"]) > 0.0, "y alumbra ella, tenue")
+	ca.paciencia_carga = 3
+	ca.fase_luna = Combatant.FASE_MENGUANTE
+	tm._tick_luna()
+	_ok(luna.fase == Combatant.FASE_MENGUANTE and luna.puntos == 3, "cambia de fase y de puntos con el")
+	# LA CAIDA: baja hasta ellos, suelta el golpe y vuelve
+	var sitio: Vector2 = luna.global_position
+	tm._caida_luna({"anim": &"aullido", "semilla": 99}, ca, yo, 0.0)
+	await get_tree().create_timer(LunaCielo.T_CAE + 0.2, true).timeout   # (por tiempo: sin ventana los marcos vuelan)
+	_ok(_hojas_de(arena).has("luna_golpe"), "la Caida: cae sobre ellos y suelta el golpe")
+	_ok(luna.global_position.distance_to(sitio) > 5.0, "y aun no ha vuelto a su sitio (vuelve despacio)")
+	# EL CAZADOR CAE: la luna se va
+	ca.current_hp = 0.0
+	tm._tick_luna()
+	_ok(not LunaCielo.hay(get_tree()), "cae el Cazador: la luna se va (y los farolillos vuelven)")
 

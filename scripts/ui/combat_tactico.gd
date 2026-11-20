@@ -439,6 +439,7 @@ func desmontar() -> void:
 	_quitar_raices()
 	_quitar_olor()
 	_quitar_marcas()
+	_quitar_luna()
 	_quitar_carne()
 	DistanciaAire.quitar_clavadas(Game.get_tree())   # lo clavado se va con la pelea (lo que aguanta cae al suelo)
 	_sigilo_visible(true)
@@ -1519,6 +1520,7 @@ func tick(delta: float) -> bool:
 	_tick_hinchazon()
 	_tick_olor()
 	_tick_marcas()
+	_tick_luna()
 	_tick_carne()
 	_tick_presas_carga()
 	_tick_enroscados()
@@ -6400,6 +6402,47 @@ const _GESTOS_CAZADOR := [&"media_luna", &"marca", &"aullido"]
 var _media_luna_hecha: Dictionary = {}   # "quien:semilla" -> ms (una hoja por accion, no una por cada uno que pilla)
 
 
+# (20/11) LA LUNA DEL CIELO (LunaCielo): mientras haya un Cazador lunar vivo (su pasiva FASES_LUNA, que viaja), flota sobre
+# el centro de la pelea con su fase y los puntos de su Paciencia (los dos viajan al espejo: combat_espejo, campo 12).
+var _luna: LunaCielo = null
+
+func _tick_luna() -> void:
+	var arena: ArenaCombate = _arena()
+	if arena == null:
+		return
+	var caz: Combatant = null
+	for e in _pantalla._enemies:
+		if (e as Combatant).is_alive() and (e as Combatant).has_status(StatusEffects.Id.FASES_LUNA):
+			caz = e
+			break
+	if caz == null:
+		_quitar_luna()
+		return
+	if _luna == null or not is_instance_valid(_luna):
+		var r: Rect2 = arena.rect
+		_luna = LunaCielo.crear(arena, Vector2(r.get_center().x, r.position.y + r.size.y * 0.22))
+	_luna.poner_fase(maxi(caz.fase_luna, 0))
+	_luna.poner_puntos(caz.paciencia_carga)
+
+
+func _quitar_luna() -> void:
+	if _luna != null and is_instance_valid(_luna):
+		_luna.irse()
+	_luna = null
+
+
+# LA CAIDA DE LA LUNA (su idea): la luna de la pelea cae sobre ellos justo cuando pega y vuelve flotando. Una por accion.
+func _caida_luna(ev: Dictionary, a: Combatant, v: Combatant, vuelo: float) -> void:
+	var clave: String = "caida:%d:%d" % [a.get_instance_id(), int(ev.get("semilla", 0))]
+	if _media_luna_hecha.has(clave):
+		return
+	_media_luna_hecha[clave] = Time.get_ticks_msec()
+	_tick_luna()
+	if _luna == null or not is_instance_valid(_luna):
+		return
+	_luna.caer(pies_de(v), maxf(vuelo - LunaCielo.T_CAE, 0.0))
+
+
 func _media_luna_pixel(arena: Node, ev: Dictionary, a: Combatant, v: Combatant, vuelo: float, ritmo: float) -> void:
 	var clave: String = "%d:%d" % [a.get_instance_id(), int(ev.get("semilla", 0))]
 	var ahora: int = Time.get_ticks_msec()
@@ -7358,6 +7401,8 @@ func _dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	if a != null and _de_los_acechadores(cuerpo_de(a)) and StringName(ev.get("anim", &"")) in _GESTOS_CAZADOR:
 		if StringName(ev.get("anim", &"")) == &"media_luna":
 			_media_luna_pixel(arena, ev, a, v, vuelo, ritmo)
+		elif StringName(ev.get("anim", &"")) == &"aullido":
+			_caida_luna(ev, a, v, vuelo)
 		return
 	# EL CHILLON Y SUS MUTANTES EN PIXEL (18/11, tools/sprites_sdf/chillon_efectos_horno.py).
 	if estilo in _ESTILOS_CHILLON and a != null and _de_los_chillones(cuerpo_de(a)):

@@ -270,6 +270,10 @@ func _focos(jugador: Node2D) -> Array:
 	if Net.activo:
 		Net.jugadores.anunciar_luz()
 	var out: Array = [{"pos": jugador.global_position, "radio": r}]
+	# (20/11) LA LUNA DEL CIELO del Cazador lunar: la luz de la pelea, tenue (LunaCielo.foco).
+	for l in get_tree().get_nodes_in_group(LunaCielo.GRUPO):
+		if is_instance_valid(l):
+			out.append((l as LunaCielo).foco())
 	# Los compañeros de tu grupo van pegados a ti, pero su luz cuenta: en una esquina, el que va
 	# detras te alumbra el trozo que tu ya has dejado atras.
 	for a in get_tree().get_nodes_in_group("aliado"):
