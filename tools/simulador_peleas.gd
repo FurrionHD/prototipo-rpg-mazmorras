@@ -44,7 +44,7 @@ extends Node
 const CABECERA := "R|tanda|reglas|piso|grupo|escenario|arma|enemigo|mutacion|jefe|n_enem|t|gana|turnos_yo|turnos_el|vida_perdida|caidos|mp_gastado|dano_por_turno|dano_recibido_por_turno_suyo|segundos|acciones|fotogramas|ms_por_fotograma|pelea|ciclos|dano_por_ciclo|estados_en_enemigos|estados_en_los_tuyos|n_seguida|repetir|vel_ref_piso|vel_ciclo|emboscada"
 # Una linea POR PERSONAJE de los tuyos en cada pelea (lo pidio: "daños de cada uno, cuanto tanquean con cada armadura, el
 # dps medio, cuanto hace cada arma en su turno, si alguno se queda sin energia demasiado rapido"):
-const CABECERA_P := "P|tanda|reglas|pelea|piso|grupo|escenario|n_enem|gana|rol|arma|armadura|vida_max|defensa|def_magica|mitig_fisica|mitig_magica|dano_hecho|dano_recibido|turnos|dano_por_turno|recibido_por_turno_enemigo|cayo|energia_media_al_empezar_turno|turnos_sin_energia|primer_turno_sin_energia|mp_gastado|turnos_sin_mana|primer_turno_sin_mana|pociones|acciones|nivel|tier|mejoras|fue/res/agi/des/mag/vol|ataque|velocidad|max_mp|max_energia|red_armadura|red_armadura_magica|ciclos|dano_por_ciclo|turnos_por_ciclo|recibido_por_ciclo|dano_por_elemento|habilidades_puestas|equipo|objetivos_por_accion|principal_resto_por_accion|elemento_por_accion|medio_por_pillado"
+const CABECERA_P := "P|tanda|reglas|pelea|piso|grupo|escenario|n_enem|gana|rol|arma|armadura|vida_max|defensa|def_magica|mitig_fisica|mitig_magica|dano_hecho|dano_recibido|turnos|dano_por_turno|recibido_por_turno_enemigo|cayo|energia_media_al_empezar_turno|turnos_sin_energia|primer_turno_sin_energia|mp_gastado|turnos_sin_mana|primer_turno_sin_mana|pociones|acciones|nivel|tier|mejoras|fue/res/agi/des/mag/vol|ataque|velocidad|max_mp|max_energia|red_armadura|red_armadura_magica|ciclos|dano_por_ciclo|turnos_por_ciclo|recibido_por_ciclo|dano_por_elemento|habilidades_puestas|equipo|objetivos_por_accion|principal_resto_por_accion|elemento_por_accion|medio_por_pillado|mejor_golpe_por_accion|enemigo_por_accion"
 # Y una POR ENEMIGO (crias y refuerzos incluidos):
 const CABECERA_E := "E|tanda|reglas|pelea|piso|grupo|escenario|n_enem|gana|enemigo|mutacion|jefe|vida_max|ataque|defensa|def_magica|velocidad|dano_hecho|dano_recibido|turnos|dano_por_turno|muere|t|fue/res/agi/des/mag/vol|ataque_magico|red_armadura|ciclos|dano_por_ciclo|turnos_por_ciclo"
 const PISOS_NIVEL := 12
@@ -944,6 +944,7 @@ var _pociones: Dictionary = {}            # Combatant -> pociones que bebio o di
 var _por_estado: Dictionary = {"aliados": {}, "enemigos": {}}   # bando que lo HACE -> {estado: daño} (los DoT)
 var _elem_de: Dictionary = {}             # Combatant -> elemento de lo que eligio
 var _por_elem: Dictionary = {}            # Combatant -> {elemento: daño}
+var _enem_accion: Dictionary = {}         # Combatant -> {accion: {nombre del enemigo: daño}}
 var _elem_accion: Dictionary = {}         # Combatant -> {accion: {elemento: daño}} (golpe a golpe, Combatant.elem_golpe)
 
 
@@ -1190,6 +1191,7 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 	_elem_de.clear()
 	_por_elem.clear()
 	_elem_accion.clear()
+	_enem_accion.clear()
 	var aliados: Array = _cb._aliados.duplicate()
 	if _ver:
 		for a in aliados:
@@ -1383,6 +1385,22 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 			if n_p > 0:
 				med_a.append("%s:%.1f" % [k, float(pa[k][1]) / float(n_p)])
 		_lineas_extra[_lineas_extra.size() - 1] += "|" + ",".join(med_a)
+		# EL MEJOR GOLPE de cada accion: "accion:el golpe mas gordo:el mejor uso entero".
+		var mej_a: Array = []
+		for k in pa:
+			var f_m: Array = pa[k]
+			if f_m.size() > 6 and float(f_m[1]) > 0.0:
+				mej_a.append("%s:%.1f:%.1f" % [k, float(f_m[5]), float(f_m[6])])
+		_lineas_extra[_lineas_extra.size() - 1] += "|" + ",".join(mej_a)
+		# Y A CADA ENEMIGO: "accion:Jabalí=N/Trent=N".
+		var en_a: Array = []
+		var na: Dictionary = _enem_accion.get(a, {})
+		for k in na:
+			var partes_n: Array = []
+			for nom in na[k]:
+				partes_n.append("%s=%.1f" % [String(nom).replace(",", " ").replace(":", " ").replace("/", " ").replace("=", " "), float(na[k][nom])])
+			en_a.append("%s:%s" % [k, "/".join(partes_n)])
+		_lineas_extra[_lineas_extra.size() - 1] += "|" + ",".join(en_a)
 	for e in enems:
 		var st: Array = stats_e.get(e, [e.max_hp, e.atk(), e.def_value(), e.mdef_value(), e.spd()])
 		var n_e: int = int(_turnos.get(e, 0))
@@ -1494,13 +1512,24 @@ func _al_recibir(v: Combatant, dano: float, es_dot: bool, aliados: Array) -> voi
 		if not _por_accion.has(_actor):
 			_por_accion[_actor] = {}
 		if not _por_accion[_actor].has(k):
-			_por_accion[_actor][k] = [0, 0.0, 0, 0.0, 0.0]
+			_por_accion[_actor][k] = [0, 0.0, 0, 0.0, 0.0, 0.0, 0.0]
 		_por_accion[_actor][k][1] = float(_por_accion[_actor][k][1]) + dano
 		if not _elem_accion.has(_actor):
 			_elem_accion[_actor] = {}
 		var ek: Dictionary = _elem_accion[_actor].get(k, {})
 		ek[el] = float(ek.get(el, 0.0)) + dano
 		_elem_accion[_actor][k] = ek
+		# A QUE ENEMIGO (20/11, el jefe: "cuanto hizo una habilidad especifica a cada enemigo"): por su nombre (mutante incluido).
+		if not _enem_accion.has(_actor):
+			_enem_accion[_actor] = {}
+		var nk: Dictionary = _enem_accion[_actor].get(k, {})
+		nk[v.nombre] = float(nk.get(v.nombre, 0.0)) + dano
+		_enem_accion[_actor][k] = nk
+		# EL MEJOR GOLPE (20/11, el jefe: "su mejor golpe"): el daño mas gordo que entra de una vez a un enemigo.
+		var fila_g: Array = _por_accion[_actor][k]
+		while fila_g.size() < 7:
+			fila_g.append(0.0)
+		fila_g[5] = maxf(float(fila_g[5]), dano)
 		# A CUANTOS PILLA (20/11): cada enemigo distinto que recibe daño de esta accion cuenta una vez por uso; y lo que se lleva
 		# cada uno en este uso, para separar al PRINCIPAL del resto al cerrarlo (_cerrar_uso).
 		var pillados: Dictionary = _pillados.get(_actor, {})
@@ -1532,6 +1561,9 @@ func _cerrar_uso(yo: Combatant) -> void:
 		fila.append(0.0)
 	fila[3] = float(fila[3]) + principal
 	fila[4] = float(fila[4]) + total - principal
+	while fila.size() < 7:
+		fila.append(0.0)
+	fila[6] = maxf(float(fila[6]), total)   # el mejor USO entero (todos sus golpes, a todos los que pilla)
 	_pillados[yo] = {}
 
 
@@ -1550,7 +1582,7 @@ func _eligio(yo: Combatant, que: String) -> void:
 	if not _por_accion.has(yo):
 		_por_accion[yo] = {}
 	if not _por_accion[yo].has(que):
-		_por_accion[yo][que] = [0, 0.0, 0, 0.0, 0.0]
+		_por_accion[yo][que] = [0, 0.0, 0, 0.0, 0.0, 0.0, 0.0]
 	_por_accion[yo][que][0] = int(_por_accion[yo][que][0]) + 1
 
 

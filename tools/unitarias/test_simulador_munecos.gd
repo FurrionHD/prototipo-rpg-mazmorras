@@ -93,7 +93,8 @@ func test_el_mago_sabe_hasta_donde_llega_cada_hechizo() -> void:
 # que hechizos van sin principal (los dispersos: sus golpes caen al azar entre los del area).
 func test_elemento_por_golpe_y_dispersos_sin_principal() -> void:
 	var cab: String = _sim().CABECERA_P
-	cierto(cab.ends_with("|elemento_por_accion|medio_por_pillado"), "las columnas nuevas, al final (la BD las añade sola)")
+	cierto(cab.ends_with("|elemento_por_accion|medio_por_pillado|mejor_golpe_por_accion|enemigo_por_accion"),
+		"las columnas nuevas, al final (la BD las añade sola)")
 	igual(Combatant.elem_golpe, -1, "fuera de un golpe de hechizo el gancho no dice elemento")
 	var tormenta: SpellData = load("res://resources/spells/tormenta.tres")
 	cierto(tormenta.dispersa and tormenta.elemento_mix.size() == 2, "la Tormenta es dispersa y de dos elementos")
