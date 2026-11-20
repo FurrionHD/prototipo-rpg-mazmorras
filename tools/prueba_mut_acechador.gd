@@ -280,14 +280,22 @@ func _cazador(combat: Node, ca: Combatant, yo: Combatant) -> void:
 		ca.apply_status(StatusEffects.Id.EN_SOMBRAS)
 	en.paciencia_al_empezar(ca, false)
 	_ok(ca.paciencia_golpe, "con la Paciencia llena")
-	en._enemy_resolver_golpes(ca, ml, yo, 1, 1.0, false, false)
+	_soltar_hasta_acertar(en, ca, ml, yo)
 	en.fin_de_turno(ca)
-	_ok(ca.paciencia_carga == 3, "contra el marcado, el golpe desde las sombras no gasta las cargas (%d)" % ca.paciencia_carga)
-	yo.statuses = yo.statuses.filter(func(x): return x.id() != StatusEffects.Id.MARCA_LUNA)
+	_ok(ca.paciencia_carga == 1, "con la Marca: suelta el +50 %%, vuelve a 0 y el acierto al marcado ya suma 1 (%d)" % ca.paciencia_carga)
+	ca.salir_de_sombras()   # (empieza a la vista: aqui solo cuenta la Marca, no la sombra)
 	en.paciencia_al_empezar(ca, false)
-	en._enemy_resolver_golpes(ca, ml, yo, 1, 1.0, false, false)
+	_soltar_hasta_acertar(en, ca, ml, yo)
+	_soltar_hasta_acertar(en, ca, ml, yo)
 	en.fin_de_turno(ca)
-	_ok(ca.paciencia_carga == 0, "contra uno sin marca, si (%d)" % ca.paciencia_carga)
+	_ok(ca.paciencia_carga == 2, "UNO por ataque aunque acierte varias veces (%d)" % ca.paciencia_carga)
+	yo.statuses = yo.statuses.filter(func(x): return x.id() != StatusEffects.Id.MARCA_LUNA)
+	ca.paciencia_carga = 3
+	ca.apply_status(StatusEffects.Id.EN_SOMBRAS)
+	en.paciencia_al_empezar(ca, false)
+	_soltar_hasta_acertar(en, ca, ml, yo)
+	en.fin_de_turno(ca)
+	_ok(ca.paciencia_carga == 0, "sin marca: suelta el +50 %% y vuelve a 0 (%d)" % ca.paciencia_carga)
 	await _efectos_cazador(combat, ca, yo)
 	await _luna_del_cielo(combat, ca, yo)
 
@@ -412,4 +420,12 @@ func _luna_del_cielo(combat: Node, ca: Combatant, yo: Combatant) -> void:
 	ca.current_hp = 0.0
 	tm._tick_luna()
 	_ok(not LunaCielo.hay(get_tree()), "cae el Cazador: la luna se va (y los farolillos vuelven)")
+
+
+# Ataca con 'ab' hasta que acierte (el golpe se puede esquivar: la prueba no depende del azar).
+func _soltar_hasta_acertar(en, ca: Combatant, ab: AbilityData, yo: Combatant) -> void:
+	for _i in 30:
+		var r: Dictionary = en._enemy_resolver_golpes(ca, ab, yo, 1, 1.0, false, false)
+		if float(r.get("total", 0.0)) > 0.0:
+			return
 

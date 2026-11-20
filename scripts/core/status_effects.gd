@@ -717,8 +717,8 @@ static var _defs: Dictionary = {
 		"pasiva": true, "turns": 999, "texto_portador": true,
 		"descripcion": "No tiene prisa. Tú tampoco deberías, pero la tienes.",
 	},
-	# (20/11, el Cazador lunar) LA MARCA DE LA LUNA (su habilidad, 3 turnos, recarga 4): contra el marcado, su golpe desde
-	# las sombras no le vacia la Paciencia (CombatEnemigos._paciencia_mult). Y sus otras dos pasivas a la vista: FASES DE
+	# (20/11, el Cazador lunar) LA MARCA DE LA LUNA (su habilidad, 3 turnos, recarga 4): cada ataque suyo que acierta al
+	# marcado le da +1 a la Paciencia (CombatEnemigos.fin_de_turno; antes no la vaciaba y estaba rota, decision del jefe). Y sus otras dos pasivas a la vista: FASES DE
 	# LA LUNA (la magnitud = la fase de este turno, 0 nueva .. 3 menguante) y LUZ DE LUNA.
 	Id.MARCA_LUNA: {
 		"id": Id.MARCA_LUNA, "nombre": "Marca de la luna", "icono": "🌙", "color": Color(0.75, 0.8, 1.0),
@@ -1423,7 +1423,8 @@ static func texto_pasiva_portador(id_p: int, quien) -> PackedStringArray:
 		out.append("Al acabar cada uno de sus turnos, quien la tiene se funde con las sombras: no se le puede elegir como objetivo y solo le alcanzan los ataques en área. Recibir un golpe o atacar le saca de ellas.")
 		out.append("Cada turno suyo que empieza aún en las sombras le da una carga. Con %d cargas, su ataque de ese turno inflige un %d %% más de daño y las cargas vuelven a 0." % [
 			quien.paciencia_turnos, roundi(quien.paciencia_extra * 100.0)])
-		out.append("Si le golpean, ese turno no suma carga, pero no pierde las que tenía. Si el golpe es contra alguien con la Marca de la luna, no gasta las cargas.")
+		out.append("Si le golpean, ese turno no suma carga, pero no pierde las que tenía.")
+		out.append("Cada vez que uno de sus ataques acierta a alguien con la Marca de la luna, gana una carga más (una por ataque).")
 	elif id_p == Id.FASES_LUNA:
 		out.append("Cada uno de sus turnos cambia la fase de la luna: nueva, creciente, llena y menguante, y vuelta a empezar.")
 		out.append("Luna nueva: los golpes no le sacan de las sombras. Luna creciente: su velocidad aumenta en un %d %%. Luna llena: el daño mágico que inflige aumenta en un %d %% y sus habilidades de carga salen sin esperar al turno siguiente. Luna menguante: recupera un %d %% de su vida máxima." % [

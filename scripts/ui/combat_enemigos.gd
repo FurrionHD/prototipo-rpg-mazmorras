@@ -360,6 +360,8 @@ func _enemy_turn(e: Combatant) -> void:
 		return
 
 	var dmg: float = result.damage * e.dummy_dmg_out_mult * m_pac   # Saco = 0 (no pega)
+	if e.paciencia_turnos > 0 and obj.has_status(StatusEffects.Id.MARCA_LUNA):
+		e.paciencia_marca = true   # (20/11) el basico ha acertado al marcado: +1 a la Paciencia al acabar el turno
 	# El MISMO golpe sin defensa, armadura ni bloqueo (ver StatsMath 'mitig'). Se calcula AQUI y no mas
 	# abajo porque lo miran dos cosas: el contador de bloqueo (justo debajo) y la excelia de Resistencia.
 	var dmg_bruto: float = float(result.get("dmg_sin_mitigar", dmg / m_pac)) * m_pac
@@ -1353,7 +1355,7 @@ func paciencia_al_empezar(e: Combatant, aturdido: bool) -> void:
 		return
 	e.paciencia_golpe = false
 	e.paciencia_soltada = false
-	e.paciencia_gasta = false
+	e.paciencia_marca = false
 	if e.en_sombras() and not aturdido:
 		e.paciencia_carga = mini(e.paciencia_carga + 1, e.paciencia_turnos)
 		print("[paciencia] %s: %d/%d" % [e.nombre, e.paciencia_carga, e.paciencia_turnos])
@@ -1367,8 +1369,6 @@ func _paciencia_mult(e: Combatant, t: Combatant = null) -> float:
 	var m: float = 1.0
 	if e.paciencia_golpe:
 		m = 1.0 + e.paciencia_extra
-		if t == null or not t.has_status(StatusEffects.Id.MARCA_LUNA):
-			e.paciencia_gasta = true
 		if not e.paciencia_soltada:
 			e.paciencia_soltada = true
 			_pantalla._log_extra("🌑 %s ataca desde las sombras: +%d %% de daño." % [_pantalla._etq(e),
@@ -1383,12 +1383,17 @@ func _paciencia_mult(e: Combatant, t: Combatant = null) -> float:
 func fin_de_turno(e: Combatant) -> void:
 	if e == null or e.paciencia_turnos <= 0 or _pantalla._espejo or not _pantalla._enemies.has(e):
 		return
-	# (contra el MARCADO por la Marca de la luna no se vacia: solo si le ha dado a alguien sin ella)
-	if e.paciencia_soltada and e.paciencia_gasta:
+	if e.paciencia_soltada:
 		e.paciencia_carga = 0
+	# (20/11, el jefe: "algo menos roto") LA MARCA DE LA LUNA: si este turno su ataque ha ACERTADO a alguien con la marca,
+	# +1 a la Paciencia (UNO por ataque, aunque pille a varios o de varios golpes). Despues de vaciarla: si ese mismo golpe
+	# soltaba el +50 %, el +1 ya cuenta para la siguiente.
+	if e.paciencia_marca:
+		e.paciencia_carga = mini(e.paciencia_carga + 1, e.paciencia_turnos)
+		print("[paciencia] %s: le da al marcado -> %d/%d" % [e.nombre, e.paciencia_carga, e.paciencia_turnos])
 	e.paciencia_golpe = false
 	e.paciencia_soltada = false
-	e.paciencia_gasta = false
+	e.paciencia_marca = false
 	if e.is_alive() and not e.en_sombras():
 		e.apply_status(StatusEffects.Id.EN_SOMBRAS)
 		_pantalla._set_log("%s se funde con las sombras. 🌑" % _pantalla._etq(e))
@@ -2209,6 +2214,8 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 			# que en el golpe basico.
 			total_bruto += dmg_bruto
 			conecto += 1
+			if e.paciencia_turnos > 0 and t.has_status(StatusEffects.Id.MARCA_LUNA):
+				e.paciencia_marca = true   # (20/11) le ha dado al marcado: +1 a la Paciencia al acabar el turno
 			rastro.append({"t": "💥" + _pantalla._n(dmg) if result.crit else _pantalla._n(dmg), "c": t})
 			var et := "[%s] golpe %d: %s %.2f" % [t.nombre, i + 1, ("CRITICO 💥" if result.crit else "acierta"), dmg]
 			if ab.efectos_por_golpe and aplicar_efectos:

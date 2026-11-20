@@ -4,8 +4,8 @@
 [ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
 
 ; LA MARCA DE LA LUNA (20/11, memoria acechador-mutante; su eleccion: recarga 4 y gasta el turno): la del CAZADOR LUNAR.
-; No pega: le pone la MARCA DE LA LUNA (StatusEffects, 3 turnos) a uno que tenga a tiro (circulito LIBRE a 160). Contra el
-; marcado, su golpe desde las sombras no le vacia la Paciencia (CombatEnemigos._paciencia_mult): esperar, marcar y cazar.
+; No pega: le pone la MARCA DE LA LUNA (StatusEffects, 3 turnos) a uno que tenga a tiro (circulito LIBRE a 160). Cada
+; ataque suyo que acierta al marcado le da +1 a la Paciencia (CombatEnemigos.fin_de_turno): esperar, marcar y cazar.
 [sub_resource type="Resource" id="SA_marca"]
 script = ExtResource("2")
 estado = 73
