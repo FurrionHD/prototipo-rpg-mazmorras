@@ -67,11 +67,27 @@ TRANSLUCIDOS = ('humo',) + tuple('funde_%s_%d' % (m, k) for m in CUERPO for k in
 MODELO = Modelo(ESCALA, LIENZO[:2], LIENZO[2:], MAT, (0.02, 0.02, 0.03), suaves=('cuerpo', 'cabeza'), brillan=BRILLAN,
                 corta_suelo=True, translucidos=TRANSLUCIDOS, alfa=0.72)
 K_PATA = 1.35 if VAR == 'sombra' else 1.45
+# (20/11, el jefe: "cuando te dije de hacerla mas ancha nos pasamos, miramos algun lobo de verdad") EL CUERPO DEL LOBO, a
+# elegir (LOBO_CUERPO, solo el cazador; ELIGIO LA B el 20/11): A el de antes (patas x1,45, barril x1,12, pecho ancho); B LOBO DE VERDAD (patas
+# largas y no tan gordas, pecho hondo pero ESTRECHO de lado, cintura algo recogida; el volumen, en la melena); C a medias.
+CUERPOS_LOBO = {
+    'A': dict(k_pata=1.45, tronco_x=1.0, pecho_x=1.0, vientre_z=1.0, largo=0.0),
+    'B': dict(k_pata=1.15, tronco_x=0.72, pecho_x=0.72, vientre_z=0.7, largo=3.0),
+    'C': dict(k_pata=1.3, tronco_x=0.85, pecho_x=0.85, vientre_z=0.85, largo=1.6),
+    # D: la B con las patas aun mas largas y el cuerpo mas CORTO de delante a atras (de perfil el de hoy es el doble de
+    # largo que de alto; un lobo, de la cruz a la grupa, poco mas que su altura)
+    'D': dict(k_pata=1.15, tronco_x=0.72, pecho_x=0.72, vientre_z=0.7, largo=5.5, estira=-0.15),
+}
+CUERPO_LOBO = CUERPOS_LOBO[os.environ.get('LOBO_CUERPO', 'B')] if VAR == 'cazador' else dict(largo=0.0)
+if VAR == 'cazador':
+    K_PATA = CUERPO_LOBO['k_pata']
+    for _k in ('tronco_x', 'pecho_x', 'vientre_z'):
+        vers.ANCHO_LOBO[_k] = CUERPO_LOBO[_k]
 # el tamaño de lo que era, respecto al nuevo (la evolucion crece de ahi)
 ESC_DESDE = (1.8 if VAR == 'sombra' else 2.05) / ESCALA
 
 # EL PORTE DEL LOBO: erguido (pecho alto y cabeza arriba), sumado a cada pose; se le quita al caer muerto.
-LOBO = dict(empina=0.55, cabeza=5.2, hocico=-1.0)
+LOBO = dict(empina=0.55, cabeza=5.2, hocico=-1.0, alza=CUERPO_LOBO['largo'], estira=CUERPO_LOBO.get('estira', 0.0))
 
 
 # ------------------------------------------------------------
@@ -107,7 +123,8 @@ def escena(p):
     try:
         X = _huesos(p)
         # el cuerpo recio sin los ojos redondos del de base
-        L = vers._sin_ojos_base(vers.escena_recia(p, 1.0 + (K_PATA - 1.0) * p.get('recio', 1.0)))
+        L = vers._sin_ojos_base(vers.escena_recia(p, 1.0 + (K_PATA - 1.0) * p.get('recio', 1.0),
+                                                   CUERPO_LOBO['largo'] * p.get('recio', 1.0)))
         e2 = Escena(X)
         add = e2.add
 
@@ -115,7 +132,8 @@ def escena(p):
             add(fn, mat, k, grupo, 'crece' if hueso == 'raiz' else hueso)
 
         if p.get('recio', 1.0) > 0.05:
-            vers.tronco(add, p, (1.0 if VAR == 'sombra' else 1.12) * p.get('recio', 1.0))
+            k_tr = (1.0 if VAR == 'sombra' else 1.12) * p.get('recio', 1.0)
+            vers.tronco(add, p, k_tr, k_tr * (1.0 if VAR == 'sombra' else CUERPO_LOBO['tronco_x']))
         if VAR == 'sombra':
             if p.get('crece', 1.0) > 0.03:
                 vers.humo(6.0, 4.2, True)(add_crece, p)
@@ -213,28 +231,45 @@ def a_emerger(t):
 
 
 def a_comer(t):
-    # COME EL CRISTAL: baja la cabeza al suelo y MUERDE tres veces
+    # COME EL CRISTAL: baja la cabeza al suelo y MUERDE tres veces.
+    # (20/11, el jefe: mejorarlo como el aullido, [[poses-articular-no-girar]]) el CUELLO baja y la cabeza GIRA hasta
+    # poner el hocico al suelo ('mira' negativo), y cada mordisco cabecea un poco mas abajo; el pecho baja algo con ella.
+    # Al Cazador se le quita el porte erguido mientras come (si no, la cabeza se quedaria arriba).
     m = 0.5 - 0.5 * math.cos(2 * math.pi * 3 * _paso(t, 0.15, 0.85))
     baja = _paso(t, 0.0, 0.15) * (1.0 - _paso(t, 0.85, 1.0))
-    p = base.POSE(cabeza=-2.6 * baja - 0.8 * m, hocico=1.2 * baja + 0.6 * m, boca=0.2 + 0.8 * m * baja,
-                  agacha=0.35 * baja, cola=0.5 * math.sin(2 * math.pi * t * 2))
+    porte = LOBO if VAR == 'cazador' else {}
+    # (el cuerpo NO se inclina: la grupa se queda donde esta; solo baja el cuello)
+    p = base.POSE(cabeza=(-5.4 - porte.get('cabeza', 0.0)) * baja - 0.7 * m,
+                  hocico=(0.4 - porte.get('hocico', 0.0)) * baja + 0.4 * m,
+                  mira=-0.9 * baja - 0.2 * m * baja, boca=0.2 + 0.8 * m * baja,
+                  empina=-porte.get('empina', 0.0) * 0.5 * baja,
+                  cola=0.5 * math.sin(2 * math.pi * 2 * t))
     return lobo(lambda _t: p)(t)
 
 
 def a_media_luna(t):
-    # UN ZARPAZO EN ARCO ENORME con la derecha: se empina, la mano sube alta por un lado y barre de punta a punta
-    alza = tramos(t, [(0.0, 0.0), (0.25, 1.3), (0.45, 1.1), (0.62, 0.3), (0.8, 0.0), (1.0, 0.0)])
+    # UN ZARPAZO EN ARCO ENORME con la derecha: se empina, la mano sube alta por un lado y barre de punta a punta.
+    # (20/11, el jefe: "de lado se nota poco") ademas el arco va DE ARRIBA ABAJO: la mano se echa atras por encima de la
+    # cabeza mientras se empina, y baja por delante hasta el suelo mientras se lanza (de perfil se ve la media luna).
+    alza = tramos(t, [(0.0, 0.0), (0.25, 1.6), (0.45, 1.2), (0.62, 0.35), (0.8, 0.0), (1.0, 0.0)])
     barre = tramos(t, [(0.0, 0.0), (0.25, 1.4), (0.5, -1.6), (0.62, -1.2), (0.8, 0.0), (1.0, 0.0)])
-    p = base.POSE(zd_alza=alza, zd_barre=barre, empina=0.9 * alza, boca=0.6 * alza, cabeza=0.6,
-                  avance=tramos(t, [(0.0, 0.0), (0.25, -0.6), (0.5, 1.6), (1.0, 0.0)]), cola=0.5 * math.sin(2 * math.pi * t))
+    dy = tramos(t, [(0.0, 0.0), (0.25, -7.0), (0.42, 1.0), (0.55, 4.0), (0.7, 2.0), (0.85, 0.0), (1.0, 0.0)])
+    dz = tramos(t, [(0.0, 0.0), (0.25, 5.0), (0.42, 0.0), (0.55, -9.0), (0.7, -5.0), (0.85, 0.0), (1.0, 0.0)])
+    emp = tramos(t, [(0.0, 0.0), (0.25, 2.0), (0.42, 0.6), (0.55, -0.9), (0.7, -0.5), (0.85, 0.0), (1.0, 0.0)])
+    p = base.POSE(zd_alza=alza, zd_barre=barre, zd_dy=dy, zd_dz=dz, empina=emp, boca=0.6 * alza, cabeza=0.6,
+                  agacha=0.35 * _paso(t, 0.4, 0.55) * (1.0 - _paso(t, 0.7, 0.9)),
+                  avance=tramos(t, [(0.0, 0.0), (0.25, -1.0), (0.55, 2.6), (1.0, 0.0)]), cola=0.5 * math.sin(2 * math.pi * t))
     return lobo(lambda _t: p)(t)
 
 
 def a_aullido(t):
-    # CAIDA DE LA LUNA: se sienta sobre los cuartos traseros, alza el hocico al cielo y AULLA, y aguanta (la carga)
+    # CAIDA DE LA LUNA: alza el hocico al cielo y AULLA, y aguanta (la carga)
     sube = _paso(t, 0.0, 0.3) * (1.0 - _paso(t, 0.88, 1.0))
-    p = base.POSE(empina=1.3 * sube, cabeza=7.0 * sube, hocico=-2.4 * sube, boca=0.9 * _paso(t, 0.25, 0.4) *
-                  (1.0 - _paso(t, 0.85, 0.95)), agacha=0.25 * sube, cola=-0.4 * sube,
+    # (20/11, el jefe con su foto, Desktop/ataques_mapa/enemigos/acechador/referencia/aullido_lobo.png: "no se dobla, se
+    # dobla tieso para arriba") COMO UN LOBO DE VERDAD: las cuatro patas en el suelo y el cuerpo casi como en quieto; lo
+    # que sube es el CUELLO, que se estira hacia arriba, y la CABEZA, que gira hasta poner el hocico al cielo ('mira').
+    p = base.POSE(empina=0.35 * sube, cabeza=9.5 * sube, hocico=-0.8 * sube, mira=1.3 * sube, boca=0.9 * _paso(t, 0.25, 0.4) *
+                  (1.0 - _paso(t, 0.85, 0.95)), cola=-0.6 * sube,
                   sacude=0.25 * math.sin(2 * math.pi * t * 6) * _paso(t, 0.35, 0.45) * (1.0 - _paso(t, 0.8, 0.88)))
     return lobo(lambda _t: p)(t)
 

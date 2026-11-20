@@ -4,6 +4,7 @@
 #      sus stats, sus kits y la vida de verdad en el piso 10 (la del juego: 490 y 656; la tabla del 17/11 la inflaba).
 #   2. Las habilidades nuevas del Cazador: Media luna (cono ancho y corto, magica de Oscuridad, sin carga) y Caida de la luna
 #      (circulo donde apunte, magica de Oscuridad, carga 1 turno).
+#   3. (20/11) Los sprites horneados: cada mutante con el SUYO (antes salian con el del normal) y sus animaciones.
 extends Node
 
 var _mal := 0
@@ -19,6 +20,7 @@ func _ready() -> void:
 	var ed: EnemyData = load("res://scenes/actors/enemy/acechador.tres")
 	_ficha(ed)
 	_habilidades()
+	_sprites(ed)
 	print("")
 	print("FIN: TODO BIEN" if _mal == 0 else "FIN: %d MAL" % _mal)
 	get_tree().quit(1 if _mal > 0 else 0)
@@ -78,3 +80,17 @@ func _habilidades() -> void:
 		and is_equal_approx(cl.forma_radio, 48.0), "Caída de la luna: circulo de 3 casillas de ancho donde apunte")
 	_ok(is_equal_approx(cl.dano_mult, 1.6) and cl.cooldown == 4 and cl.carga_turnos == 1,
 		"Caída de la luna: 1,6, recarga 4, carga 1 turno")
+
+
+func _sprites(ed: EnemyData) -> void:
+	print("=== LOS SPRITES ===")
+	for par in [[&"sombra", ["idle_0", "zarpazo_0", "yugular_0", "fundirse_0", "emerger_0", "comer_0", "evolucion_0"]],
+			[&"cazador", ["idle_0", "yugular_0", "media_luna_0", "aullido_0", "marca_0", "fundirse_0", "emerger_0", "comer_0",
+				"evolucion_0"]]]:
+		_ok(Acechador3DSprites.tiene_mutante(ed, par[0]), "%s tiene su sprite" % par[0])
+		var sf: SpriteFrames = SpritesEnemigo.frames_de(ed, 0.5, true, par[0])
+		var faltan: Array = (par[1] as Array).filter(func(a): return sf == null or not sf.has_animation(StringName(a)))
+		_ok(faltan.is_empty(), "%s: con sus animaciones (faltan %s)" % [par[0], str(faltan)])
+	var sc: SpriteFrames = SpritesEnemigo.frames_de(ed, 0.5, true, &"cazador")
+	_ok(sc != null and not sc.has_animation(&"zarpazo_0"), "el Cazador ya no usa el Zarpazo doble")
+	_ok(not Acechador3DSprites.tiene_mutante(ed, &""), "el normal sigue con el suyo (con el tinte del piso)")

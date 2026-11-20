@@ -84,16 +84,26 @@ def _sin_ojos(L):
 #  MAS RECIOS (19/11: "aun parecen un poco flacuchines, como su primera forma basada en un galgo"): las patas del de base
 #  con los radios mas gordos y el tronco relleno (sin la cintura recogida del galgo)
 # ------------------------------------------------------------
-def escena_recia(p, k_pata):
+def escena_recia(p, k_pata, largo=0.0):
+    # (20/11) 'largo' = PATAS MAS LARGAS: el cuerpo sube 'largo' (alza en la pose) y las patas se estiran desde el suelo
+    # para seguir apoyadas (z -> z * (1 + largo / 13) - largo, que con el +largo de la raiz deja el pie en su sitio).
     viejo_cono, viejo_elip = base._cono, base._elip
 
+    def _z(q, es_pata):
+        q = V(q, dtype=float)
+        if es_pata and largo != 0.0:
+            q = V((q[0], q[1], q[2] * (1.0 + largo / 13.0) - largo))
+        return q
+
     def cono(add, a, b, ra, rb, mat, k=0.0, grupo='cuerpo', hueso='raiz'):
-        f = k_pata if str(grupo).startswith('pata') else 1.0
-        viejo_cono(add, a, b, ra * f, rb * f, mat, k, grupo, hueso)
+        es = str(grupo).startswith('pata')
+        f = k_pata if es else 1.0
+        viejo_cono(add, _z(a, es), _z(b, es), ra * f, rb * f, mat, k, grupo, hueso)
 
     def elip(add, c, r, mat, k=0.0, grupo='cuerpo', hueso='raiz'):
-        f = k_pata if str(grupo).startswith('pata') else 1.0
-        viejo_elip(add, c, tuple(x * f for x in r), mat, k, grupo, hueso)
+        es = str(grupo).startswith('pata')
+        f = k_pata if es else 1.0
+        viejo_elip(add, _z(c, es), tuple(x * f for x in r), mat, k, grupo, hueso)
 
     base._cono, base._elip = cono, elip
     try:
@@ -102,11 +112,16 @@ def escena_recia(p, k_pata):
         base._cono, base._elip = viejo_cono, viejo_elip
 
 
-def tronco(add, p, k=1.0):
-    """El barril: rellena la cintura y el vientre (el galgo la lleva recogida)."""
-    base._elip(add, (0.0, -1.6, 13.4), (4.8 * k, 9.4, 4.4 * k), 'piel', 2.0)
-    base._elip(add, (0.0, 0.6, 11.4), (4.0 * k, 7.0, 3.0 * k), 'piel', 2.0)
-    base._elip(add, (0.0, -9.0, 15.8), (5.4 * k, 5.4, 4.8 * k), 'piel', 2.0)
+# (20/11) EL ANCHO DEL LOBO (lo cambia acechador_mut_sdf segun LOBO_CUERPO): el tronco de lado y el pecho/cuello extra.
+ANCHO_LOBO = {'tronco_x': 1.0, 'pecho_x': 1.0, 'vientre_z': 1.0}
+
+
+def tronco(add, p, k=1.0, kx=None):
+    """El barril: rellena la cintura y el vientre (el galgo la lleva recogida). kx = el ancho de lado (por defecto k)."""
+    kx = k if kx is None else kx
+    base._elip(add, (0.0, -1.6, 13.4), (4.8 * kx, 9.4, 4.4 * k), 'piel', 2.0)
+    base._elip(add, (0.0, 0.6, 11.4), (4.0 * kx, 7.0, 3.0 * k * ANCHO_LOBO['vientre_z']), 'piel', 2.0)
+    base._elip(add, (0.0, -9.0, 15.8), (5.4 * kx, 5.4, 4.8 * k), 'piel', 2.0)
 
 
 # ------------------------------------------------------------
@@ -190,10 +205,10 @@ def _creciente(add, c, u, v, R, grueso, grupo, hueso='raiz', abre=0.0):
 
 def lobo(frente, cola_luz):
     def extra(add, p):
-        tronco(add, p, 1.12)
+        tronco(add, p, 1.12, 1.12 * ANCHO_LOBO['tronco_x'])
         # MAS CUERPO: el pecho hondo y ancho y un cuello GRUESO (el galgo pasa a lobo grande)
-        base._elip(add, (0.0, 6.6, 12.4), (5.6, 5.2, 5.4), 'piel', 1.4)
-        base._elip(add, (0.0, -8.6, 16.2), (5.0, 5.0, 4.6), 'piel', 1.4)
+        base._elip(add, (0.0, 6.6, 12.4), (5.6 * ANCHO_LOBO['pecho_x'], 5.2, 5.4), 'piel', 1.4)
+        base._elip(add, (0.0, -8.6, 16.2), (5.0 * ANCHO_LOBO['pecho_x'], 5.0, 4.6), 'piel', 1.4)
         base._cono(add, (0.0, 8.6, 14.0), V((0.0, 13.0, 12.8)) + base._off_cabeza(p), 3.6, 2.8, 'piel', 1.6)
         # LA MELENA EN VOLUMEN: una gola de pelo luminoso alrededor del cuello
         base._elip(add, (0.0, 9.6, 13.8), (4.6, 3.0, 4.4), 'crin', 0.0, 'melena_bulto')
@@ -213,7 +228,8 @@ def lobo(frente, cola_luz):
         # LOS CRECIENTES DE LOS HOMBROS: de canto, mirando afuera
         for s in (-1, 1):
             # por FUERA de la melena (antes quedaban medio tapados) y mas grandes
-            _creciente(add, (6.6 * s, 3.2, 14.4), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0), 3.6, 1.05, 'luna_hombro%d' % s)
+            # (20/11, el jefe: "casi no se ven a este tamaño") aun mas grandes, gruesos y algo mas afuera
+            _creciente(add, (7.4 * s, 3.2, 14.8), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0), 4.6, 1.45, 'luna_hombro%d' % s)
         if frente:
             ca = base.CABEZA
             _creciente(add, ca + V((0.0, 0.9, 2.7)), (1.0, 0.0, 0.0), (0.0, -0.35, 1.0), 1.5, 0.5, 'luna_frente',

@@ -76,7 +76,10 @@ def huesos(p):
     # La cabeza va EXAGERADA (x1,35 desde la base del craneo), como en el viejo: a su tamaño real sale de 8 px y el
     # contorno se come los colmillos y la boca, que es justo lo que se tiene que leer. Se DISPARA (hocico), sube y baja
     # (cabeza) y se sacude de lado (sacude) desplazandose, como en el viejo; el cuello se estira detras.
-    X['cabeza'] = comp(raiz, comp((np.eye(3), _off_cabeza(p)), sobre(CABEZA - V((0.0, 2.6, 0.6)), np.eye(3) * 1.35)))
+    # (20/11, el aullido del Cazador lunar) 'mira' = la cabeza GIRA hacia arriba sobre la base del craneo (radianes; el
+    # hocico al cielo). 0 en todo lo demas: el normal y la Sombra no cambian.
+    X['cabeza'] = comp(raiz, comp((np.eye(3), _off_cabeza(p)), sobre(CABEZA - V((0.0, 2.6, 0.6)),
+                                                                       rx(-p.get('mira', 0.0)) @ (np.eye(3) * 1.35))))
     # LA MANDIBULA baja sobre su bisagra al abrir la boca.
     X['mandibula'] = comp(X['cabeza'], sobre(CABEZA + V((0.0, 0.2, -1.4)), rx(p['boca'] * 0.5)))
     return X
@@ -103,6 +106,9 @@ def _pata_delantera(add, p, s):
         hom = V((2.6 * s, 7.0, 12.8))
         # (Alta y adelantada de sobra: con lo justo del viejo, en 3D la mano no asomaba del perfil del pecho.)
         mano = V((s * (3.4 + al * 1.6) + ba * 3.5 * s, 6.6 + al * 10.5, 8.0 + al * 8.0))
+        # (20/11, la Media luna del Cazador lunar) un arco DE ARRIBA ABAJO que se lee de perfil: la mano se echa atras y
+        # arriba (dy < 0, dz > 0) y baja por delante. 0 en todo lo demas (el normal y la Sombra no cambian).
+        mano = mano + V((0.0, p.get('zi_dy' if s < 0 else 'zd_dy', 0.0), p.get('zi_dz' if s < 0 else 'zd_dz', 0.0)))
         codo = (hom + mano) * 0.5 + V((0.6 * s, -0.6, -1.4))
         _cono(add, hom, codo, 2.4, 1.6, 'piel', 0.8, g)
         _cono(add, codo, mano, 1.5, 1.15, 'pata', 0.6, g)
