@@ -173,11 +173,15 @@ func _probar_pegada(combat, t, e, al: Array) -> void:
 	t._pegadas[e]["hp"] = e.current_hp
 	hp_e0 = e.current_hp
 	combat.enemigos._enemy_turn(e)
+	# (20/11) LOS TURNOS QUE LE QUEDAN, YA: se gastan en el momento (gastar_turno_pegada). Mirarlo tras la espera era una
+	# carrera: la pelea sigue corriendo y si en esos 1,5 s le tocaba su turno de verdad, gastaba otro (desde que el turno de
+	# un bicho dura lo que su animacion, 1 de cada pocas).
+	var quedan: int = int(t._pegadas[e]["turnos"]) if t._pegadas.has(e) else -1
 	combat._fx.arrancar_cola()
 	await _segundos(1.5)
 	_ver(presa.current_hp < hp0, "en su turno le chupa (%.1f)" % (hp0 - presa.current_hp))
 	_ver(e.current_hp > hp_e0, "y se cura con lo que chupa")
-	_ver(t.pegada_de(e) == presa and int(t._pegadas[e]["turnos"]) == t.PEGADA_TURNOS - 1, "le queda un turno menos")
+	_ver(t.pegada_de(e) == presa and quedan == t.PEGADA_TURNOS - 1, "le queda un turno menos (%d)" % quedan)
 	# Se despega a los 3 turnos suyos.
 	t.gastar_turno_pegada(e)
 	t.gastar_turno_pegada(e)

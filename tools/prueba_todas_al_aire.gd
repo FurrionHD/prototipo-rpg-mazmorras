@@ -181,6 +181,10 @@ func _una(combat, t, quien: Combatant, otros: Array, ab: AbilityData, enemigo: b
 		_saltadas += 1
 		return
 	await _esperar_a(func() -> bool: return t._deslices.is_empty() and t._saltos.is_empty(), 6.0)
+	# (20/11) Y QUE ACABE LA COLA DEL GOLPE DE ANTES: desde que el golpe espera a la animacion del bicho (CombatFX.hoja_cuerpo),
+	# su turno dura lo que su hoja; el juego no da el turno hasta que acaba, y la prueba tampoco puede (los golpes de esta
+	# habilidad se contaban en la cola de la anterior, que aun corria).
+	await _esperar_a(func() -> bool: return combat._fx == null or not combat._fx.ocupado(), 6.0)
 	_separar(t, quien, otros)
 	await _esperar(3)
 	var a0: int = _golpes_a(combat, quien, otros)
@@ -258,6 +262,10 @@ func _no_pegan(combat, t, e: Combatant, al: Array) -> void:
 
 func _magia(combat, t, quien: Combatant, otros: Array, sp: SpellData) -> void:
 	await _esperar_a(func() -> bool: return t._deslices.is_empty() and t._saltos.is_empty(), 6.0)
+	# (20/11) Y QUE ACABE LA COLA DEL GOLPE DE ANTES: desde que el golpe espera a la animacion del bicho (CombatFX.hoja_cuerpo),
+	# su turno dura lo que su hoja; el juego no da el turno hasta que acaba, y la prueba tampoco puede (los golpes de esta
+	# habilidad se contaban en la cola de la anterior, que aun corria).
+	await _esperar_a(func() -> bool: return combat._fx == null or not combat._fx.ocupado(), 6.0)
 	_separar(t, quien, otros)
 	await _esperar(3)
 	var lejos: Vector2 = (t.pies_de(quien) - t.pies_de(otros[0])).normalized()
