@@ -205,7 +205,9 @@ const MAX_CONEXIONES := 32
 #   78 = (20/11) los mutantes del acechador: estado PACIENCIA 72 (Paciencia del cazador, su pasiva a la vista; viaja por su
 #        id) y el acechador que se funde en las sombras al acabar cada turno suyo; MARCA_LUNA 73, FASES_LUNA 74 (la fase en
 #        su magnitud) y LUZ_LUNA 75 del Cazador lunar.
-const PROTOCOLO := 78
+#   79 = (20/11) el set Noche de luna del acechador: estado NOCHE_LUNA 76 (la fase del portador en su magnitud; viaja por
+#        su id).
+const PROTOCOLO := 79
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

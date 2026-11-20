@@ -363,6 +363,9 @@ func recitar_frase(idx: int, opciones: Array, nombre: String, largo: int, seq: i
 	_pintar_test(idx, opciones, nombre, largo, "")
 
 
+# (20/11) La luna llena del set Noche de luna ya dio su frase de mas en este turno (Combatant -> su turnos_luna).
+var _luna_extra: Dictionary = {}
+
 # ESPEJO: el sitio elegido antes de seguir recitando, hasta que salga con la respuesta a la frase.
 var _punto_canto: Variant = null
 
@@ -417,6 +420,21 @@ func _responder_frase(elegida: String, correcta: String) -> void:
 		# atras media barra (la siguiente tarda turno y medio), el mismo medio turno que pagan las habilidades. Una vez.
 		if _pantalla._cast_index == 1 and _pantalla.retrasa_hechizo(_pantalla._cast_spell):
 			_pantalla.retrasar_tras_frase(_pantalla._player)
+		# (20/11) LA LUNA LLENA del set Noche de luna: ese turno recita DOS frases (una vez por turno). Si el hechizo es de
+		# una sola frase, se lanza ese mismo turno. Por _mostrar_test/_mostrar_disparo: si es de otro jugador, se le pide a el.
+		var yo: Combatant = _pantalla._player
+		if yo.luna_dos_frases() and int(_luna_extra.get(yo, -1)) != yo.turnos_luna:
+			_luna_extra[yo] = yo.turnos_luna
+			if _pantalla._cast_index < _pantalla._cast_spell.longitud():
+				_pantalla._set_log("🌕 La luna llena: %s recita otra frase este turno." % yo.nombre, "x")
+				_pantalla._state = _pantalla.State.WAITING_PLAYER
+				_mostrar_test(_pantalla._cast_index)
+				return
+			if _pantalla._cast_spell.longitud() == 1:
+				_pantalla._set_log("🌕 La luna llena: %s lo lanza este mismo turno." % yo.nombre, "x")
+				_pantalla._state = _pantalla.State.WAITING_PLAYER
+				_mostrar_disparo()
+				return
 		_pantalla._state = _pantalla.State.ADVANCING
 	else:
 		_backfire(elegida, correcta)

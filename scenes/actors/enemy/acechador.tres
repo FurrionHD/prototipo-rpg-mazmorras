@@ -10,6 +10,7 @@
 [ext_resource type="Resource" path="res://resources/materials/nucleo_acechador.tres" id="8_nuc"]
 [ext_resource type="Script" path="res://scripts/actors/enemy/mutacion_data.gd" id="20_mut"]
 [ext_resource type="Resource" path="res://resources/mutaciones/acechador_cazador.tres" id="23_caz"]
+[ext_resource type="Resource" path="res://resources/materials/runa_acechador.tres" id="24_runa"]
 
 [sub_resource type="Resource" id="SA_san"]
 script = ExtResource("2_sa")
@@ -70,6 +71,8 @@ drop_extra_chance = 0.1
 drop_extra_max = 2
 drop_piso_debut = 10
 drop_piso_pleno = 12
+; (20/11) la runa del set Noche de luna: la sueltan sus mutantes
+drop_runa = ExtResource("24_runa")
 al_golpear = [SubResource("SA_san")]
 resist_elemental = {
 4: 1.5,

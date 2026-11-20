@@ -10093,6 +10093,7 @@ const _MANIFIESTO_MATERIALES := [
 	"res://resources/materials/runa_aberracion.tres",   # (13/11) la del set Jaula de Faraday
 	"res://resources/materials/runa_chupasimas.tres",   # (18/11) la del set Boca de las simas
 	"res://resources/materials/runa_chillon.tres",   # (18/11) la del set Ecolocalizacion
+	"res://resources/materials/runa_acechador.tres",   # (20/11) la del set Noche de luna
 	"res://resources/materials/sanguinaria.tres", "res://resources/materials/seta_simas.tres",
 	"res://resources/materials/tablon_anillada.tres",
 	"res://resources/materials/tablon_calcinada.tres",

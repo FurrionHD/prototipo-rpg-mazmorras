@@ -530,6 +530,27 @@ var turnos_luna: int = 0
 var luna_vel: float = 0.2
 var luna_magia: float = 0.4
 var luna_cura: float = 0.06
+# (20/11) EL SET NOCHE DE LUNA (runas del acechador, Runas.aplicar): los turnos del portador ciclan las mismas fases (fase_luna,
+# turnos_luna; luna_vel, luna_magia y luna_cura con los numeros del set) y ademas: Esquiva en NUEVA (runa_luna_esq) y, en
+# LLENA, el daño magico y recitar dos frases (CombatMagia._responder_frase). runa_vel_recitado: sus 2 piezas.
+var runa_luna: bool = false
+var runa_luna_esq: float = 0.0
+var runa_vel_recitado: float = 0.0
+
+
+# La Esquiva de mas en LUNA NUEVA del set (StatsMath, como un buff de esquiva).
+func luna_esquiva() -> float:
+	return runa_luna_esq if runa_luna and fase_luna == FASE_NUEVA else 0.0
+
+
+# El daño magico de mas en LUNA LLENA del set (StatsMath, el de los hechizos). El del Cazador va por su lado.
+func mult_luna_magia_runa() -> float:
+	return 1.0 + luna_magia if runa_luna and fase_luna == FASE_LLENA else 1.0
+
+
+# ¿Recita dos frases este turno? (LUNA LLENA del set)
+func luna_dos_frases() -> bool:
+	return runa_luna and fase_luna == FASE_LLENA
 # (05/11, los de la Segadora, ver MutacionData) ZONA DE SIEGA, CORTES DE VIENTO y VUELO CORTO.
 var zona_siega: float = 0.0
 var cortes_viento: float = 0.0
@@ -1219,7 +1240,7 @@ func spd_referencia() -> float:
 	return _spd_base() * velocidad_mult
 # Velocidad al CASTEAR (KAN-95): igual que spd() pero con la velocidad de casteo.
 # El imbue entra en las DOS igual que los estados: el manto te ligerea entero, no solo al pegar.
-func cast_spd() -> float: return _spd_base() * cast_velocidad_mult * status_spd_mult() * _guardia_spd() * imbue_spd_mult
+func cast_spd() -> float: return _spd_base() * cast_velocidad_mult * status_spd_mult() * _guardia_spd() * imbue_spd_mult * (1.0 + runa_vel_recitado)
 # Velocidad "cruda" segun la Agilidad (multiplicativa en el jugador, aditiva en los enemigos).
 func _spd_base() -> float:
 	var ab: Abilities = abilities_eff()

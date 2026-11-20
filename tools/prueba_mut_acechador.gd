@@ -299,7 +299,125 @@ func _cazador(combat: Node, ca: Combatant, yo: Combatant) -> void:
 	_caida_por_fase(en, ca, yo)
 	await _efectos_cazador(combat, ca, yo)
 	await _ritmo_de_las_hojas(combat, ca)
+	await _set_noche_luna(combat, ca, yo)
 	await _luna_del_cielo(combat, ca, yo)
+
+
+# (20/11) EL SET NOCHE DE LUNA (armadura, magos): 2 piezas Velocidad de recitado +8 %; 5 piezas, sus turnos ciclan las fases:
+# nueva Esquiva +15 %, creciente Velocidad +10 %, llena daño magico +24 % y DOS frases (el de una frase sale ya), menguante +6 %.
+func _set_noche_luna(combat: Node, ca: Combatant, yo: Combatant) -> void:
+	print("=== EL SET NOCHE DE LUNA ===")
+	var sd: RunaSetData = Runas.set_por_id(&"acechador")
+	_ok(sd != null and sd.nombre == "Noche de luna" and sd.tipo == RunaSetData.Tipo.ARMADURA, "el set existe y es de armadura")
+	if sd == null:
+		return
+	_ok(is_equal_approx(float(sd.bonus_2p.get("vel_recitado", 0.0)), 0.08), "2 piezas: Velocidad de recitado +8 %")
+	var ed: EnemyData = load("res://scenes/actors/enemy/acechador.tres")
+	_ok(sd.runa != null and sd.runa.id == &"runa_acechador" and ed.drop_runa == sd.runa, "la runa de la noche, la sueltan sus mutantes")
+	var txt: String = Runas.descripcion_set(sd)
+	print("     texto: %s" % txt.replace("\n", " | "))
+	_ok(txt.contains("Velocidad de recitado +8 %") and txt.contains("Esquiva del portador aumenta en un 15 %")
+		and txt.contains("aumenta en un 10 %") and txt.contains("aumenta en un 24 %") and txt.contains("un 6 % de su vida"),
+		"su texto, con sus numeros")
+	_ok(CeldaObjeto.GLIFO_SET.has(&"acechador") and CeldaObjeto.tonos_glifo(&"acechador", Color.RED)["#"] == Color8(222, 236, 255),
+		"el glifo de la creciente y la estrella, con sus tonos")
+	# LAS PIEZAS, en un personaje de verdad
+	var pj := PersonajeData.new()
+	var slots := {"equipped_casco": "cuero_casco", "equipped_pecho": "cuero_pecho", "equipped_manos": "cuero_manos",
+		"equipped_pantalones": "cuero_pantalones", "equipped_botas": "cuero_botas"}
+	var n: int = 0
+	for slot in slots:
+		var it: Resource = Game.crear_item(load("res://resources/armor/%s.tres" % slots[slot]), 1, 1, {}, false)
+		Game.meta_de(it)["runas"] = {"set": "acechador", "subs": []}
+		pj.set(slot, it)
+		n += 1
+		if n == 2:
+			var c2 := Combatant.new("Dos", 1, Abilities.new(), 100.0, 5.0, 5.0, 5.0)
+			var v0: float = c2.cast_spd()
+			Runas.aplicar(c2, pj)
+			_ok(is_equal_approx(c2.cast_spd() / v0, 1.08) and not c2.runa_luna,
+				"con 2 piezas: recita un 8 %% mas rapido (x%.2f) y sin el efecto de 5" % (c2.cast_spd() / v0))
+	var c5 := Combatant.new("Cinco", 1, Abilities.new(), 100.0, 5.0, 5.0, 5.0)
+	Runas.aplicar(c5, pj)
+	_ok(c5.runa_luna and is_equal_approx(c5.runa_luna_esq, 0.15) and is_equal_approx(c5.luna_vel, 0.10)
+		and is_equal_approx(c5.luna_magia, 0.24) and is_equal_approx(c5.luna_cura, 0.06), "con 5 piezas: el efecto, con sus numeros")
+	# EN LA PELEA: sus turnos ciclan las fases (con los numeros del set)
+	var antes := [yo.runa_luna, yo.runa_luna_esq, yo.luna_vel, yo.luna_magia, yo.luna_cura, yo.fase_luna, yo.turnos_luna]
+	yo.runa_luna = true
+	yo.runa_luna_esq = 0.15
+	yo.luna_vel = 0.10
+	yo.luna_magia = 0.24
+	yo.luna_cura = 0.06
+	yo.turnos_luna = 0
+	var en = combat.enemigos
+	var v_base: float = yo.spd()
+	en.fase_de_luna_runa(yo)
+	var inst = yo.get_status(StatusEffects.Id.NOCHE_LUNA) if yo.has_method("get_status") else null
+	var chip: Array = StatusEffects.chip_de_grupo(yo.statuses.filter(func(s): return s.id() == StatusEffects.Id.NOCHE_LUNA), yo)
+	_ok(yo.fase_luna == Combatant.FASE_NUEVA and yo.has_status(StatusEffects.Id.NOCHE_LUNA) and String(chip[5]) == "noche_luna_0",
+		"su primer turno: luna nueva, con su chip (%s)" % chip[5])
+	_ok(is_equal_approx(yo.luna_esquiva(), 0.15), "en luna nueva, +15 % de Esquiva")
+	_ok(StatusChip.textura("noche_luna_0") != null and StatusChip.textura("noche_luna_3") != null, "las lunitas de su chip, dibujadas")
+	en.fase_de_luna_runa(yo)
+	_ok(yo.fase_luna == Combatant.FASE_CRECIENTE and is_equal_approx(yo.spd() / v_base, 1.10) and is_equal_approx(yo.luna_esquiva(), 0.0),
+		"luna creciente: Velocidad x%.2f (y sin la Esquiva)" % (yo.spd() / v_base))
+	en.fase_de_luna_runa(yo)
+	_ok(yo.fase_luna == Combatant.FASE_LLENA and is_equal_approx(yo.mult_luna_magia_runa(), 1.24) and yo.luna_dos_frases(),
+		"luna llena: daño magico x1,24 y dos frases")
+	# DOS FRASES EN LUNA LLENA: un hechizo de dos se recita entero este turno; el de una sale ya
+	var tm = combat.turno_mapa
+	var bola: SpellData = load("res://resources/spells/bola_fuego.tres")
+	var mp0: float = yo.current_mp
+	yo.current_mp = yo.max_mp + 999.0
+	combat._casteos.erase(yo)
+	combat._player = yo
+	combat._state = combat.State.WAITING_PLAYER
+	combat.magia._elegir_hechizo(bola, null, tm.pies_de(ca))
+	combat.magia._responder_frase(bola.frases[0], bola.frases[0])
+	_ok(combat._cast_index == 1 and combat._state == combat.State.WAITING_PLAYER,
+		"luna llena: tras la primera frase, la segunda en el mismo turno (va por la %d)" % (combat._cast_index + 1))
+	combat.magia._responder_frase(bola.frases[1], bola.frases[1])
+	_ok(combat._cast_index == 2 and combat._state == combat.State.ADVANCING, "y tras la segunda, el turno se acaba (listo para el siguiente)")
+	combat.magia._limpiar_casteo()
+	combat._casteos.erase(yo)
+	# el de UNA frase, al siguiente turno de luna llena (una vez por turno: la cuenta es su turnos_luna)
+	yo.turnos_luna += 4
+	var desc: SpellData = load("res://resources/spells/descarga.tres")
+	combat._player = yo
+	combat._state = combat.State.WAITING_PLAYER
+	var vivos0: int = combat._enemies.size()
+	combat.magia._elegir_hechizo(desc, null, tm.pies_de(ca))
+	combat.magia._responder_frase(desc.frases[0], desc.frases[0])
+	_ok(combat._cast_index == 1 and combat._state == combat.State.WAITING_PLAYER,
+		"luna llena: el de una frase se puede lanzar ese mismo turno (su turno sigue, con el conjuro listo)")
+	combat.magia._disparar_hechizo()
+	_ok(not combat._casteos.has(yo) and combat._cast_spell == null, "y lanzandolo, sale (ya no queda recitando)")
+	combat.magia._limpiar_casteo()
+	combat._casteos.erase(yo)
+	yo.turnos_luna -= 4
+	# MENGUANTE: se cura un 6 % de su vida maxima
+	en.fase_de_luna_runa(yo)
+	yo.current_hp = yo.max_hp * 0.5
+	yo.turnos_luna -= 1
+	var hp0: float = yo.current_hp
+	en.fase_de_luna_runa(yo)
+	_ok(yo.fase_luna == Combatant.FASE_MENGUANTE and is_equal_approx(yo.current_hp - hp0, yo.max_hp * 0.06),
+		"luna menguante: +%.1f de vida (6 %% de %.0f)" % [yo.current_hp - hp0, yo.max_hp])
+	en.fase_de_luna_runa(yo)
+	_ok(yo.fase_luna == Combatant.FASE_NUEVA, "y vuelta a empezar: luna nueva")
+	# LO DEJA COMO ESTABA (la pelea sigue en las pruebas de despues)
+	yo.runa_luna = antes[0]
+	yo.runa_luna_esq = antes[1]
+	yo.luna_vel = antes[2]
+	yo.luna_magia = antes[3]
+	yo.luna_cura = antes[4]
+	yo.fase_luna = antes[5]
+	yo.turnos_luna = antes[6]
+	yo.current_mp = mp0
+	yo.current_hp = yo.max_hp
+	yo.statuses = yo.statuses.filter(func(s): return s.id() != StatusEffects.Id.NOCHE_LUNA)
+	combat._state = combat.State.ADVANCING
+	await _esperar(2)
 
 
 # (20/11, el jefe: "lo suyo es hacer que el golpe llegue con la animacion, no al reves") la hoja del cuerpo va a SU ritmo

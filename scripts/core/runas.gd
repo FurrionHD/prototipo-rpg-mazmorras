@@ -59,6 +59,8 @@ const _BASE := {
 	"cura_recibida": ["Curación recibida", 0.04, 0.08, "tier", [0, 0, 50]],
 	"menos_dot": ["Menos daño con el tiempo", 0.04, 0.08, "tier", [0, 0, 50]],
 	"evasion": ["Esquiva", 0.01, 0.03, "fijo", [0, 0, 40]],
+	# (20/11) SOLO de un set (Noche de luna, 2 piezas): peso 0, nunca sale en una tirada.
+	"vel_recitado": ["Velocidad de recitado", 0.08, 0.08, "fijo", [0, 0, 0]],
 }
 # Daño de UN elemento (arma) y resistencia a UN elemento (armadura): el peso de 60 repartido entre los cinco.
 const PESO_ELEM_DANO := 12
@@ -134,7 +136,8 @@ const RUTAS_SETS := ["res://resources/runas/set_slime.tres", "res://resources/ru
 	"res://resources/runas/set_escarabajo.tres", "res://resources/runas/set_ciempies.tres",
 	"res://resources/runas/set_segadora.tres", "res://resources/runas/set_miconido.tres",
 	"res://resources/runas/set_polilla.tres", "res://resources/runas/set_aberracion.tres",
-	"res://resources/runas/set_chupasimas.tres", "res://resources/runas/set_chillon.tres"]
+	"res://resources/runas/set_chupasimas.tres", "res://resources/runas/set_chillon.tres",
+	"res://resources/runas/set_acechador.tres"]
 static var _sets: Array = []
 
 static func sets() -> Array:
@@ -408,6 +411,9 @@ static func efecto_txt(s: RunaSetData) -> String:
 		&"ecolocalizacion":
 			return "El portador no puede quedar Cegado ni A oscuras. En los turnos del portador, los enemigos que están en las sombras se ven y el portador puede elegirlos como objetivo. El daño que inflige el portador a los enemigos en sigilo o en las sombras aumenta en un %s." % [
 				_pct(p, "dano", 0.15)]
+		&"noche_luna":
+			return "Cada turno del portador cambia la fase de la luna: nueva, creciente, llena y menguante, y vuelta a empezar. Luna nueva: la Esquiva del portador aumenta en un %s. Luna creciente: la Velocidad del portador aumenta en un %s. Luna llena: el daño mágico que inflige el portador aumenta en un %s y, si está recitando un hechizo, recita dos frases en ese turno en vez de una (un hechizo de una sola frase se lanza en ese mismo turno). Luna menguante: el portador recupera un %s de su vida máxima al empezar su turno." % [
+				_pct(p, "esquiva", 0.15), _pct(p, "vel", 0.10), _pct(p, "magia", 0.24), _pct(p, "cura", 0.06)]
 		&"cielo":
 			return "El Daño de Luz y el Daño de Oscuridad del portador aumentan en un %s. Cuando el portador asesta un golpe crítico, tiene un %s de probabilidad base de causar Ceguera al objetivo." % [
 				_pct(p, "dano", 0.20), _pct(p, "ciego", 0.20)]
@@ -547,6 +553,17 @@ static func aplicar(c: Combatant, p: PersonajeData) -> void:
 	c.runa_cura_recibida = float(t.get("cura_recibida", 0.0))
 	c.runa_menos_dot = float(t.get("menos_dot", 0.0))
 	c.runa_vel = float(t.get("velocidad", 0.0))
+	c.runa_vel_recitado = float(t.get("vel_recitado", 0.0))
+	# (20/11) NOCHE DE LUNA: sus turnos ciclan las fases (CombatEnemigos.fase_de_luna_runa) con los numeros del set.
+	var noche: Dictionary = efecto_activo(p, &"noche_luna")
+	c.runa_luna = not noche.is_empty()
+	c.runa_luna_esq = float(noche.get("esquiva", 0.0))
+	if c.runa_luna:
+		c.luna_vel = float(noche.get("vel", 0.10))
+		c.luna_magia = float(noche.get("magia", 0.24))
+		c.luna_cura = float(noche.get("cura", 0.06))
+	elif not c.fases_luna:
+		c.fase_luna = -1
 	# --- LOS SETS (efectos especiales) ---
 	var cielo: Dictionary = efecto_activo(p, &"cielo")
 	if not cielo.is_empty():

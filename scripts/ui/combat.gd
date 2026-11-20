@@ -2200,6 +2200,8 @@ func _begin_player_turn() -> void:
 	registro.abrir(_player)
 	enemigos.turno_junto_al_iman(_player)
 	enemigos.campo_magnetico(_player)
+	# (20/11) EL SET NOCHE DE LUNA: la fase de este turno (y en menguante, se cura).
+	enemigos.fase_de_luna_runa(_player)
 	_update_hp()
 	if not _player.is_alive():
 		_set_log("%s cae por el daño de sus estados. ☠" % _player.nombre, "s")

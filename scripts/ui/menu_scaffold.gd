@@ -703,6 +703,8 @@ static func filas_runas(vb: VBoxContainer, pj: PersonajeData, ancho: int = 170, 
 		lineas.append(["Resistencia a " + e, float(t.get("res_" + e, 0.0))])
 	lineas.append(["Curación recibida", float(t.get("cura_recibida", 0.0))])
 	lineas.append(["Menos daño con el tiempo", float(t.get("menos_dot", 0.0))])
+	# (20/11) la del set Noche de luna (2 piezas): sin fila propia en los atributos
+	lineas.append(["Velocidad de recitado", float(t.get("vel_recitado", 0.0))])
 	var n: int = 0
 	for l in lineas:
 		if float(l[1]) > 0.0001:

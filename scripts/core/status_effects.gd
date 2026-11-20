@@ -61,7 +61,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	OJOS_INSOMNES, CONCENTRACION,
 	COSTRA_SANGRE, SED_MANA,
 	A_OSCURAS, BEBE_LUZ, RACIMO,
-	PACIENCIA, MARCA_LUNA, FASES_LUNA, LUZ_LUNA }
+	PACIENCIA, MARCA_LUNA, FASES_LUNA, LUZ_LUNA,
+	NOCHE_LUNA }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -734,6 +735,13 @@ static var _defs: Dictionary = {
 		"id": Id.LUZ_LUNA, "nombre": "Luz de luna", "icono": "🌕", "color": Color(0.85, 0.9, 1.0),
 		"pasiva": true, "turns": 999, "texto_portador": true,
 		"descripcion": "La luz que a otros les quema, a este le sienta de maravilla.",
+	},
+	# (20/11) EL SET NOCHE DE LUNA (runas del acechador): la fase de ESTE turno del portador va en su magnitud (0 nueva .. 3
+	# menguante; CombatEnemigos.fase_de_luna_runa) y su chip enseña la lunita de esa fase (clave_icono_de). Dura la pelea.
+	Id.NOCHE_LUNA: {
+		"id": Id.NOCHE_LUNA, "nombre": "Noche de luna", "icono": "🌗", "color": Color(0.62, 0.66, 0.95),
+		"turns": 999, "de_la_pelea": true, "texto_portador": true,
+		"descripcion": "Lleva puesta la noche. Cada vez que le toca, la luna es otra.",
 	},
 	# EL SET CONCENTRACION (12/11, el de la Polilla insomne): cada frase bien recitada le pone una carga (hasta el tope del
 	# set) y fallar una se las quita todas (CombatMagia). Cada carga, + el daño magico que diga el set (mult_override). Dura
@@ -1434,6 +1442,13 @@ static func texto_pasiva_portador(id_p: int, quien) -> PackedStringArray:
 	elif id_p == Id.LUZ_LUNA:
 		out.append("La luz de la luna le protege: el Daño de Luz le afecta con normalidad, en vez de hacerle más daño como al resto de los acechadores.")
 		out.append("En luna menguante, recupera un %d %% de su vida máxima al empezar su turno." % roundi(quien.luna_cura * 100.0))
+	elif id_p == Id.NOCHE_LUNA:
+		out.append("Cada turno suyo cambia la fase de la luna: nueva, creciente, llena y menguante, y vuelta a empezar.")
+		out.append("Luna nueva: su Esquiva aumenta en un %d %%. Luna creciente: su Velocidad aumenta en un %d %%. Luna llena: el daño mágico que inflige aumenta en un %d %% y, si está recitando, recita dos frases en ese turno (un hechizo de una sola frase se lanza ese mismo turno). Luna menguante: recupera un %d %% de su vida máxima al empezar su turno." % [
+			roundi(quien.runa_luna_esq * 100.0), roundi(quien.luna_vel * 100.0), roundi(quien.luna_magia * 100.0),
+			roundi(quien.luna_cura * 100.0)])
+		if quien.fase_luna >= 0:
+			out.append("Ahora: luna %s." % ["nueva", "creciente", "llena", "menguante"][clampi(quien.fase_luna, 0, 3)])
 	elif id_p == Id.SED_MANA:
 		out.append("Al elegir a quién atacar, prefiere a los que tienen más Maná máximo: la probabilidad de atacar a cada uno se multiplica por su Maná máximo frente a la media de su grupo.")
 		# (contraccion: «de el doble» -> «del doble»)
@@ -1452,6 +1467,13 @@ static func _veces(x: float) -> String:
 # SED DE MANA (18/11): el peso de objetivo de cada uno, por su mana maximo frente a la media, entre estos dos.
 const SED_MANA_MIN := 0.5
 const SED_MANA_MAX := 2.0
+
+
+# (20/11) La del chip de UNA instancia: la de su id, salvo NOCHE_LUNA, que enseña la lunita de su fase (su magnitud).
+static func clave_icono_de(inst: Instance) -> String:
+	if inst.id() == Id.NOCHE_LUNA:
+		return "noche_luna_%d" % clampi(int(inst.magnitude), 0, 3)
+	return clave_icono(inst.id())
 
 
 static func clave_icono(id: int) -> String:
@@ -1487,7 +1509,7 @@ static func chip_de_grupo(insts: Array, quien = null) -> Array:
 	# puesto. Los permanentes (turns < 0) no parpadean nunca: no se van solos.
 	var ultimo: bool = larga.turns == 1
 	if insts.size() == 1:
-		return [larga.etiqueta(), larga.resumen(quien), ic, col, ultimo, clave_icono(larga.id())]
+		return [larga.etiqueta(), larga.resumen(quien), ic, col, ultimo, clave_icono_de(larga)]
 
 	# Mismo formato corto que etiqueta(): icono, stacks y lo que le queda. El daño total de todas
 	# las instancias juntas y el desglose por aplicacion van al tooltip, aqui debajo.

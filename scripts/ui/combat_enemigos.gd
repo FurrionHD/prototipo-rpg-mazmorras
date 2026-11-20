@@ -1348,6 +1348,24 @@ func fase_de_luna(e: Combatant) -> void:
 			roundi(e.current_hp - antes)])
 
 
+# (20/11) EL SET NOCHE DE LUNA (runas del acechador), al EMPEZAR el turno de uno de los tuyos que lo lleve: lo mismo que al
+# Cazador, con los numeros del set (Runas.aplicar). La fase va en la magnitud de su estado NOCHE_LUNA (su chip, con la
+# lunita de la fase), que viaja a los espejos.
+func fase_de_luna_runa(c: Combatant) -> void:
+	if not c.runa_luna or _pantalla._espejo:
+		return
+	c.fase_luna = c.turnos_luna % 4
+	c.turnos_luna += 1
+	c.apply_status(StatusEffects.Id.NOCHE_LUNA, 999, float(c.fase_luna))
+	_pantalla._log_extra("%s sobre %s (Noche de luna)." % [NOMBRE_FASE[c.fase_luna], _pantalla._etq(c)])
+	if c.fase_luna == Combatant.FASE_MENGUANTE and c.is_alive() and c.current_hp < c.max_hp:
+		var antes: float = c.current_hp
+		c.heal(c.max_hp * c.luna_cura)
+		_pantalla._update_hp()
+		_pantalla._set_log("La luz de la luna le cierra las heridas a %s (+%d). 🌘" % [_pantalla._etq(c),
+			roundi(c.current_hp - antes)])
+
+
 # (20/11) PACIENCIA DEL CAZADOR (el acechador mutante), al EMPEZAR su turno: empezarlo AUN escondido = un turno entero en
 # las sombras (+1). Con la cuenta llena, el golpe de este turno sale desde las sombras (_enemy_resolver_golpes_).
 func paciencia_al_empezar(e: Combatant, aturdido: bool) -> void:

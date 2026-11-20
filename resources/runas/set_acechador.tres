@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="RunaSetData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/runa_set_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/materials/cuero_placado.tres" id="2_mat"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_acechador.tres" id="3_nuc"]
+[ext_resource type="Resource" path="res://resources/materials/runa_acechador.tres" id="4_runa"]
+
+; NOCHE DE LUNA (17/11, su eleccion "ESPEJO DEL CAZADOR"; memoria acechador-mutante), set de ARMADURA para MAGOS del
+; acechador. 2 piezas: Velocidad de recitado +8 %. 5 piezas: los turnos del portador CICLAN las fases de la luna (nueva,
+; creciente, llena, menguante; su chip con la lunita de la fase) y cada una da una cosa: NUEVA Esquiva +15 %; CRECIENTE
+; Velocidad +10 %; LLENA el daño magico que inflige +24 % y, si recita, ese turno recita DOS frases (uno de una frase sale
+; ese mismo turno); MENGUANTE recupera un 6 % de su vida maxima. Calibrado con los de armadura: cada cosa 1 de cada 4 turnos.
+[resource]
+script = ExtResource("1")
+id = &"acechador"
+nombre = "Noche de luna"
+tipo = 1
+material = ExtResource("2_mat")
+nucleo = ExtResource("3_nuc")
+coste_material = 6
+coste_nucleo = 3
+runa = ExtResource("4_runa")
+bonus_2p = {"vel_recitado": 0.08}
+efecto = &"noche_luna"
+params = {"esquiva": 0.15, "vel": 0.1, "magia": 0.24, "cura": 0.06}
+metadata/_custom_type_script = "res://scripts/items/runa_set_data.gd"

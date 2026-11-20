@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"runa_acechador"
+nombre = "Runa de la noche"
+descripcion = "Una piedra azul oscuro con una luna que no es la misma cada vez que la miras."
+familia = 0
+tipo = 13
+tier = 1
+exigencia = 0.0
+peso_base = 0.1
+valor_base = 180
+; el disco del sello es este oscurecido un 35 %: el azul noche (0,10 / 0,13 / 0,30) de tools/glifos_luna.py
+color = Color(0.154, 0.2, 0.462, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

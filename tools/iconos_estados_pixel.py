@@ -374,6 +374,29 @@ ICONOS = [
         "............", "....hhhh....", "...hwwwwh...", "..hwwlwwwh..", "..hwwwwwwh..", "..hwwwwlwh..",
         "..hwlwwwwh..", "..hwwwwwwh..", "...hwwwwh...", "....hhhh....", "............", "............"),
         {'h': (120, 140, 210), 'w': (226, 236, 255), 'l': (170, 182, 222)}),
+    # (20/11) EL SET NOCHE DE LUNA (armadura del acechador mutante): la fase de ESTE turno del portador, una lunita por fase
+    # (el disco de la Luz de luna, la parte con luz segun la fase) con la estrella lila de su glifo (la C).
+    # El de su id (StatusEffects.clave_icono: todo estado tiene el suyo) = la creciente; el chip enseña el de su fase.
+    ("noche_luna", "Noche de luna", (0.62, 0.66, 0.95), (
+        "..........s.", "....hhww.sss", "...hbbwww.s.", "..hbbbwwww..", "..hbbbwwww..", "..hbbbwwww..",
+        "..hbbbwwww..", "..hbbbwwww..", "...hbbwww...", "....hhww....", "............", "............"),
+        {'w': (226, 236, 255), 'l': (170, 182, 222), 'b': (40, 46, 86), 'h': (96, 108, 170), 's': (190, 170, 240)}),
+    ("noche_luna_0", "Noche de luna (luna nueva)", (0.62, 0.66, 0.95), (
+        "..........s.", "....hhhh.sss", "...hbbbbh.s.", "..hbbbbbbh..", "..hbbbbbbh..", "..hbbbbbbh..",
+        "..hbbbbbbh..", "..hbbbbbbh..", "...hbbbbh...", "....hhhh....", "............", "............"),
+        {'w': (226, 236, 255), 'l': (170, 182, 222), 'b': (40, 46, 86), 'h': (96, 108, 170), 's': (190, 170, 240)}),
+    ("noche_luna_1", "Noche de luna (luna creciente)", (0.62, 0.66, 0.95), (
+        "..........s.", "....hhww.sss", "...hbbwww.s.", "..hbbbwwww..", "..hbbbwwww..", "..hbbbwwww..",
+        "..hbbbwwww..", "..hbbbwwww..", "...hbbwww...", "....hhww....", "............", "............"),
+        {'w': (226, 236, 255), 'l': (170, 182, 222), 'b': (40, 46, 86), 'h': (96, 108, 170), 's': (190, 170, 240)}),
+    ("noche_luna_2", "Noche de luna (luna llena)", (0.62, 0.66, 0.95), (
+        "..........s.", "....wwww.sss", "...wwwwww.s.", "..wwwlwwww..", "..wwwwwwww..", "..wwwwwlww..",
+        "..wwlwwwww..", "..wwwwwwww..", "...wwwwww...", "....wwww....", "............", "............"),
+        {'w': (226, 236, 255), 'l': (170, 182, 222), 'b': (40, 46, 86), 'h': (96, 108, 170), 's': (190, 170, 240)}),
+    ("noche_luna_3", "Noche de luna (luna menguante)", (0.62, 0.66, 0.95), (
+        "..........s.", "....wwhh.sss", "...wwwbbh.s.", "..wwwwbbbh..", "..wwwwbbbh..", "..wwwwbbbh..",
+        "..wwwwbbbh..", "..wwwwbbbh..", "...wwwbbh...", "....wwhh....", "............", "............"),
+        {'w': (226, 236, 255), 'l': (170, 182, 222), 'b': (40, 46, 86), 'h': (96, 108, 170), 's': (190, 170, 240)}),
 ]
 
 

@@ -115,7 +115,7 @@ def es_de_red(nombre: str) -> bool:
                           "prueba_magia_cargada_red", "prueba_orden_dibujo", "prueba_barras_registro", "prueba_lista_enemigos", "prueba_huida_lider", "prueba_playtest_exe_04_11", "prueba_carga_piso",
                           "prueba_jugador_no_monta", "prueba_niebla_quieto", "prueba_zona_ajena",
                           "prueba_arena", "prueba_bd_altf4", "prueba_mut_miconido_espejo", "prueba_mut_polilla_espejo", "prueba_mut_aberracion_espejo",
-                          "prueba_mut_chupasimas_espejo", "prueba_mut_chillon_espejo",
+                          "prueba_mut_chupasimas_espejo", "prueba_mut_chillon_espejo", "prueba_mut_acechador_espejo",
                           # (29/10) los canales y la barrera con un rele que pierde paquetes (puertos fijos)
                           "prueba_canales_perdidas"})
 
@@ -169,6 +169,7 @@ COMO_SE_LANZA = {
     "prueba_mut_aberracion_espejo": NUBE_LOCAL, # (13/11) la aberracion y sus mutantes vistos desde el cliente, por su sala
     "prueba_mut_chupasimas_espejo": NUBE_LOCAL, # (18/11) la chupasimas y sus mutantes vistas desde el cliente, por su sala
     "prueba_mut_chillon_espejo": NUBE_LOCAL,    # (18/11) el chillon, sus mutantes, la cria y el set Ecolocalizacion desde el cliente
+    "prueba_mut_acechador_espejo": NUBE_LOCAL,  # (20/11) el acechador, sus mutantes, la luna del cielo y el set Noche de luna desde el cliente
 }
 
 # LAS QUE VAN DE UNA EN UNA aunque no sean de red: tocan las mismas ranuras de guardado (user://, la ranura 97...) y

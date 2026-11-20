@@ -561,6 +561,10 @@ const GLIFO_SET := {
 	# cabeza de murcielago (gris), '=' los ojos ciegos y la boca, '#' las ondas del eco. Con SUS tonos (GLIFO_TONOS_CHILLON).
 	&"chillon": ["+.......+", "++.....++", "+++++++++", "+=+++++=+", ".+++++++.", "..+++++..", "...+=+...",
 		".#.....#.", "#.#...#.#"],
+	# (17/11, eligio el jefe de tools/glifos_luna.py) el set Noche de luna del acechador, la C CRECIENTE Y ESTRELLA: '#' la
+	# luna (blanco azulado), '+' la estrella (lila). Con SUS tonos (GLIFO_TONOS_ACECHADOR). El disco azul noche sale de su runa.
+	&"acechador": ["...###...", "..##.....", ".##....+.", ".##...+#+", ".##....+.", ".##......", ".##......",
+		"..##.....", "...###..."],
 }
 # El ACENTO de cada set ('='); sin entrada, su runa oscurecida. El tono claro ('+') es su runa aclarada.
 const GLIFO_ACENTO := {
@@ -588,6 +592,8 @@ const GLIFO_TONOS_ABERRACION := {"#": Color8(110, 235, 255), "+": Color8(205, 16
 const GLIFO_TONOS_CHUPASIMAS := {"#": Color8(200, 40, 54), "+": Color8(84, 168, 255), "=": Color8(238, 228, 206)}
 # Los de la lamina aprobada (glifos_eco.TONOS). El disco pizarra sale de su runa (runa_chillon.color, oscurecido).
 const GLIFO_TONOS_CHILLON := {"#": Color8(200, 228, 255), "+": Color8(128, 140, 156), "=": Color8(18, 18, 24)}
+# Los de la lamina aprobada (glifos_luna.TONOS). El disco azul noche sale de su runa (runa_acechador.color, oscurecido).
+const GLIFO_TONOS_ACECHADOR := {"#": Color8(222, 236, 255), "+": Color8(150, 140, 215), "=": Color8(14, 14, 26)}
 
 
 static func tonos_glifo(id: StringName, col: Color) -> Dictionary:
@@ -603,6 +609,8 @@ static func tonos_glifo(id: StringName, col: Color) -> Dictionary:
 		return GLIFO_TONOS_CHUPASIMAS
 	if id == &"chillon":
 		return GLIFO_TONOS_CHILLON
+	if id == &"acechador":
+		return GLIFO_TONOS_ACECHADOR
 	return {"+": col.lightened(0.55), "=": GLIFO_ACENTO.get(id, col.darkened(0.45))}
 
 

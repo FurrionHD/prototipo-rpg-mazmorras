@@ -448,8 +448,10 @@ func _valores(lista: Array, aliados: bool = false) -> Array:
 			# Y las cargas de las arañas mutantes: lo que se ve de lo cargada que esta.
 			# Y lo que le falta a la capa para volver (los puntos de encima: TacticoTrent).
 			# (20/11) Y la FASE DE LA LUNA y la PACIENCIA del acechador mutante (la luna del cielo y sus puntos).
+			# (20/11, prueba_mut_acechador_espejo) Y LO QUE CARGA (su id de red; -1 nada): en el espejo nadie lo ponia, y sin el
+			# ni la luna temblaba mientras el Cazador carga la Caida ni se veia la pose de carga de ningun bicho.
 			[c.costra, c.costra_max, c.hinchazon, c.cargas, c.carga_tope, c.costra_espera, c.costra_turnos, c.fase_luna,
-				c.paciencia_carga],
+				c.paciencia_carga, IdsRed.de(c.charging) if c.charging != null else -1],
 			# El campo 13, LOS ESTADOS (04/11, playtest: la rata 'en las sombras' se veia entera). El maniqui no tenia ninguno, y
 			# todo lo que se pinta preguntandole a su estado (las sombras, el sigilo, la resina, la savia, la furia del rey...)
 			# decia que no en el espejo, que es donde se juega de verdad: la pelea la lleva la sala.
@@ -464,7 +466,8 @@ func _valores(lista: Array, aliados: bool = false) -> Array:
 func _estados_red(c: Combatant) -> Array:
 	var out: Array = []
 	for e in c.statuses:
-		out.append([e.id(), e.turns, e.stacks])
+		# (20/11) Y SU NUMERO: la fase del set Noche de luna va en la magnitud (y el de los demas, en su ficha del espejo).
+		out.append([e.id(), e.turns, e.stacks, snappedf(e.magnitude, 0.01)])
 	return out
 
 
@@ -1742,6 +1745,11 @@ func _volcar(lista: Array, valores: Array) -> void:
 			if (v[12] as Array).size() >= 9:
 				lista[i].fase_luna = int(v[12][7])
 				lista[i].paciencia_carga = int(v[12][8])
+			if (v[12] as Array).size() >= 10:
+				var id_carga: int = int(v[12][9])
+				var carga_r: AbilityData = IdsRed.cargar(id_carga) as AbilityData if id_carga >= 0 else null
+				if lista[i].charging != carga_r:
+					lista[i].charging = carga_r
 		if v.size() > 13:
 			_volcar_estados(lista[i], v[13])
 		if v.size() > 14:
@@ -1767,6 +1775,8 @@ func _volcar_estados(c: Combatant, estados: Array) -> void:
 		var def: Dictionary = StatusEffects.def(int(e[0]))
 		if not def.is_empty():
 			var inst := StatusEffects.Instance.new(def, int(e[1]), int(e[2]))
+			if (e as Array).size() > 3:
+				inst.magnitude = float(e[3])
 			# (12/11) LA PASIVA QUE SE VE (Ojos en vela): su numero no viaja, sale del propio bicho (su mutacion ya esta aqui)
 			if bool(def.get("menos_magia", false)):
 				inst.magnitude = 1.0 - _resiste_magia_de(c)

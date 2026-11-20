@@ -326,4 +326,63 @@ func _hacer_orden(orden: String, nombre: String) -> String:
 					Net.peleas.difundir_roster(p.espejo.roster_para_espejo(), p.pelea)
 					return "ok:" + al_e.nombre
 			return "sin_apagaluces"
+		"acechador_media_luna", "acechador_marca", "acechador_caida", "acechador_cargar":
+			# (20/11, prueba_mut_acechador_espejo) EL CAZADOR LUNAR, a 70 px del primero de los tuyos (como prueba_mut_acechador),
+			# suelta lo suyo: la Media luna, la Marca (se puede resistir: hasta 8 veces), la Caida (sin cargar) o EMPIEZA A
+			# CARGAR la Caida (en el cliente la luna tiene que temblar).
+			var vic_l: Combatant = null
+			for a in p._aliados:
+				if a.is_alive():
+					vic_l = a
+					break
+			for c in p._enemies:
+				var e: Combatant = c
+				if not (e.is_alive() and e.mutacion == &"cazador" and vic_l != null):
+					continue
+				var tm = p.turno_mapa
+				tm._colocar(e, tm.cuerpo_de(e), tm.pos_de(vic_l) + Vector2(70.0, 0.0))
+				var cl: AbilityData = load("res://resources/abilities/acechador_caida_luna.tres")
+				match orden:
+					"acechador_media_luna":
+						p.enemigos._enemy_use_ability(e, load("res://resources/abilities/acechador_media_luna.tres"), vic_l)
+					"acechador_marca":
+						for _i in 8:
+							p.enemigos._enemy_use_ability(e, load("res://resources/abilities/acechador_marca_luna.tres"), vic_l)
+							if vic_l.has_status(StatusEffects.Id.MARCA_LUNA):
+								break
+					"acechador_caida":
+						var ya: AbilityData = cl.duplicate()
+						ya.carga_turnos = 0
+						e.charging = null
+						p.enemigos._enemy_use_ability(e, ya, vic_l)
+					"acechador_cargar":
+						p.enemigos._enemy_begin_charge(e, cl, vic_l)
+				p._update_hp()
+				return "ok:" + vic_l.nombre
+			return "sin_cazador"
+		"acechador_esconder":
+			# (20/11) La Sombra sin rostro se funde en las sombras: en el cliente su cuerpo se va (y no deja ver su circulo).
+			for c in p._enemies:
+				var e: Combatant = c
+				if e.is_alive() and e.mutacion == &"sombra":
+					e.apply_status(StatusEffects.Id.EN_SOMBRAS)
+					p._update_hp()
+					return "ok:" + e.nombre
+			return "sin_sombra"
+		"noche_luna":
+			# (20/11) El primero de los tuyos con el set NOCHE DE LUNA en su luna LLENA: en el cliente, su chip con la lunita
+			# llena (el estado NOCHE_LUNA viaja con su fase en la magnitud).
+			for a in p._aliados:
+				var al: Combatant = a
+				if al.is_alive():
+					al.runa_luna = true
+					al.runa_luna_esq = 0.15
+					al.luna_vel = 0.10
+					al.luna_magia = 0.24
+					al.luna_cura = 0.06
+					al.turnos_luna = Combatant.FASE_LLENA
+					p.enemigos.fase_de_luna_runa(al)
+					p._update_hp()
+					return "ok:" + al.nombre
+			return "sin_aliado"
 	return "orden_desconocida"

@@ -473,7 +473,7 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# Esquiva EXTRA de HABILIDADES/BUFFS (0 = ninguna). Si hay, SUMA a la esquiva y ademas
 	# ROMPE el tope normal: puedes pasar del EVADE_MAX de 0.35 hasta EVADE_MAX_BUFF (0.65).
 	# Generico: hoy lo alimenta la postura del estoque, manana cualquier buff de esquiva.
-	var evasion_extra := defender.evasion_bonus + defender.status_evade_flat()
+	var evasion_extra := defender.evasion_bonus + defender.status_evade_flat() + defender.luna_esquiva()   # (20/11) + la luna nueva del set Noche de luna
 	var evade_cap := EVADE_MAX_BUFF if evasion_extra > 0.0 else EVADE_MAX
 	# ACIERTO del atacante mas lo que le pongan sus ESTADOS. La Ceguera va aqui en negativo, con lo
 	# que sube la esquiva del otro sin tocarsela: pega peor EL, contra todo el mundo. Como esto es la
@@ -642,7 +642,7 @@ static func resolve_magico_enemigo(attacker: Combatant, defender: Combatant, pue
 		defending: bool = false) -> Dictionary:
 	var atk_dex := attacker.hab("destreza")
 	var def_agi := defender.hab("agilidad")
-	var evasion_extra := defender.evasion_bonus + defender.status_evade_flat()
+	var evasion_extra := defender.evasion_bonus + defender.status_evade_flat() + defender.luna_esquiva()   # (20/11) + la luna nueva del set Noche de luna
 	var evade_cap := EVADE_MAX_BUFF if evasion_extra > 0.0 else EVADE_MAX
 	var acierto := attacker.precision + attacker.status_precision_flat()
 	var evade_p := clampf(evade_chance(def_agi, atk_dex) - defender.evasion_penal - acierto + evasion_extra, 0.0, evade_cap)
@@ -775,7 +775,7 @@ static func resolve_spell(attacker: Combatant, defender: Combatant, spell: Spell
 	dmg *= defender.mult_pasiva_recibido()
 	# RUNAS (08/10): daño de ese elemento, contra jefes/mutantes y por cargas de veneno, y el daño final magico.
 	dmg *= (1.0 + float(attacker.runa_dano_elem.get(elem, 0.0))) * attacker.runa_mult_contra(defender) \
-		* (1.0 + attacker.runa_final_mag)
+		* (1.0 + attacker.runa_final_mag) * attacker.mult_luna_magia_runa()
 	_runa_crit_ciego(attacker, defender, is_crit)
 	# La luz le corta la regeneracion a la aberracion; el agua ablanda al golem (Combatant.recibe_elemento).
 	defender.recibe_elemento(elem)
