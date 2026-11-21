@@ -69,7 +69,7 @@ def _args_godot(a) -> list:
     if a.pisos_hasta > 0 and not a.pisos:
         a.pisos = ",".join(str(i) for i in range(1, a.pisos_hasta + 1))
     extra = ["veces=%d" % a.veces, "tanda=%s" % a.tanda, "reglas=%s" % a.reglas, "escala=%s" % a.escala]
-    for k in ("pisos", "clases", "grupos", "escenarios", "solo", "arma", "armas", "armaduras", "sets", "magias", "pociones", "escala_des",
+    for k in ("pisos", "clases", "grupos", "escenarios", "solo", "arma", "armas", "armaduras", "sets", "magias", "pociones", "mana", "escala_des",
               "vel_enemigos", "iniciativa", "equipo"):
         v = getattr(a, k)
         if v:
@@ -702,6 +702,7 @@ def main():
     ap.add_argument("--sets", default="", help="todos = cada combinacion de 4 habilidades que pueda llevar cada equipo (¡muchas!)")
     ap.add_argument("--magias", default="", help="todas = cada hechizo de daño solo, en el mago (grupos sin guerrero); o juegos a mano 'a;b,c'")
     ap.add_argument("--armaduras", default="", help="todas (tela, cuero, hierro, placas) o una lista: el hueco del guerrero la lleva en vez de la de su perfil")
+    ap.add_argument("--mana", default="", help="real = contra los muñecos el mago gasta su mana y bebe pociones sin fin, de una en una (no rellena cada turno)")
     ap.add_argument("--tanda", default="hoy")
     ap.add_argument("--reglas", default="hoy", help="hoy | nuevas (formula multiplicativa, defensa K por piso con tope 75 %%, enemigos con nivel)")
     ap.add_argument("--vel-enemigos", dest="vel_enemigos", default="", help="relativa (de serie: la de su piso de origen frente a los personajes) | bakeada")

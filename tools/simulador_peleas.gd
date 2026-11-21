@@ -421,6 +421,10 @@ func _leer_args() -> void:
 					_escala_tiempo = float(r[7])
 					_veces = 1
 					_ver = true
+			# EL MANA DE VERDAD (21/11, el jefe: "pociones de mana infinitas, pero que tenga que esperar a que se le regenere
+			# para tirarla de nuevo; si juegas con un mago iras preparado"): 'mana=real' = contra los muñecos NO se rellena el
+			# mana cada turno, y el mago lleva pociones de mana SIN FIN, pero no bebe otra mientras la anterior suelta mana.
+			"mana": _mana_real = kv[1] == "real"
 			"pociones":
 				var pz: PackedStringArray = kv[1].split(",")
 				_pociones_vida = int(pz[0])
@@ -600,6 +604,8 @@ func _reponer(p: PersonajeData) -> void:
 # piso (menor hasta el 6, media despues). 'pociones=v,m' cambia cuantas (0,0 = sin pociones).
 var _pociones_vida := -1
 var _pociones_mana := -1
+var _mana_real := false
+const POCIONES_SIN_FIN := 999
 
 func _llenar_bolsa(piso: int, jefe: bool) -> void:
 	Game.consumables.clear()
@@ -609,10 +615,16 @@ func _llenar_bolsa(piso: int, jefe: bool) -> void:
 	var por: int = 2 if jefe else 1
 	var v: int = _pociones_vida if _pociones_vida >= 0 else Game.party.size() * por
 	var m: int = _pociones_mana if _pociones_mana >= 0 else magos * por
+	# con 'mana=real', sin fin; y la mejor que hay para el piso (del 13 en adelante no hay mas que la media +3)
+	var tam_m: String = tam
+	if _mana_real and magos > 0:
+		m = POCIONES_SIN_FIN
+		if piso > 12:
+			tam_m = "media_3"
 	if v > 0:
 		Game.add_consumable(load("res://resources/consumables/pocion_%s.tres" % tam), v)
 	if m > 0:
-		Game.add_consumable(load("res://resources/consumables/pocion_mana_%s.tres" % tam), m)
+		Game.add_consumable(load("res://resources/consumables/pocion_mana_%s.tres" % tam_m), m)
 
 
 # ENEMIGOS CON NIVEL (reglas nuevas; memoria stats-misma-formula-todos, "espejo del jugador"): cada nivel ocupa 12
@@ -1466,7 +1478,8 @@ func _al_empezar_turno(c: Combatant, aliados: Array) -> void:
 	# recitado, no cuanto maná queda (12 ciclos seguidos sin la recarga de fin de pelea no pasan en el juego: en las peleas de
 	# piso el mago se quedaba sin maná el 0-2 % de sus turnos). Se rellena al empezar cada turno; el gastado se sigue
 	# contando (daño por punto de maná), y el maná de verdad se mira en las peleas de piso.
-	if _cb != null and not _cb._enemies.is_empty() and _cb._enemies.all(func(e): return e.es_dummy):
+	# Con 'mana=real' no: gasta el suyo y bebe (ver _plan_pocion).
+	if not _mana_real and _cb != null and not _cb._enemies.is_empty() and _cb._enemies.all(func(e): return e.es_dummy):
 		c.current_mp = c.max_mp
 	r["mp_ant"] = c.current_mp
 	_recursos[c] = r
@@ -2372,7 +2385,8 @@ func _plan_pocion(yo: Combatant, rol: String):
 				peor = a
 		if peor != null:
 			return {"que": "objeto", "nombre": vida.nombre, "aliado": peor, "rango": 99999.0}
-	if mana != null and rol == "mago":
+	# con 'mana=real': no bebe otra mientras la anterior aun le esta soltando mana
+	if mana != null and rol == "mago" and not (_mana_real and yo.regen_mana_turnos_pendientes() > 0):
 		var barato: float = INF
 		for s in yo.spells:
 			if s.tipo == SpellData.TipoEfecto.ATAQUE:
