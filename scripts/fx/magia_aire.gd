@@ -236,7 +236,7 @@ static func area(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, esper
 	e.forma = f
 	e._semilla = semilla
 	e._rng.seed = hash(semilla)
-	e._ritmo = maxf(BarridoAire.ritmo, 0.05)
+	e._ritmo = maxf(BarridoAire.ritmo, 0.05) / lento(m)
 	e._t = -espera * e._ritmo
 	e.z_as_relative = false
 	e.z_index = SueloRoto.Z_SUELO
@@ -248,7 +248,21 @@ static func area(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, esper
 
 
 # CUANDO LE LLEGA a 'p', en segundos desde que se lanza.
+# MAS DESPACIO (21/11, el jefe: "torrente, eclipse y algunas magias son demasiado rapidas, no da tiempo a apreciarlas"):
+# cuantas veces mas lento va el dibujo de cada una. Se estira TODO a la vez (su reloj, cuando llega el golpe -retraso- y
+# cuando sale -t_salir-), asi que el daño sigue cayendo con el dibujo.
+const LENTO := {Modo.OLA: 1.6, Modo.LLUVIA: 1.3, Modo.ANDANADA: 1.3}
+
+static func lento(m: int) -> float:
+	return float(LENTO.get(m, 1.0))
+
+
+# CUANDO LE LLEGA a 'p', en segundos desde que se lanza (ya estirado por lento()).
 static func retraso(m: int, f: CombatFormas.Forma, p: Vector2) -> float:
+	return _retraso_base(m, f, p) * lento(m)
+
+
+static func _retraso_base(m: int, f: CombatFormas.Forma, p: Vector2) -> float:
 	if f == null:
 		return 0.0
 	var o: Vector2 = SueloRoto.origen_de(f)
@@ -288,6 +302,10 @@ static func retraso(m: int, f: CombatFormas.Forma, p: Vector2) -> float:
 
 
 static func t_salir(m: int) -> float:
+	return _t_salir_base(m) * lento(m)
+
+
+static func _t_salir_base(m: int) -> float:
 	match m:
 		Modo.ALIENTO: return T_ALIENTO
 		Modo.LLUVIA: return T_FRENTE + T_CAIDA

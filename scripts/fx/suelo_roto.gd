@@ -502,6 +502,13 @@ static func origen_de(f: CombatFormas.Forma) -> Vector2:
 
 # CUANDO LE LLEGA a un CUERPO (su caja en mundo): por su punto mas cercano al origen, que es por donde
 # le alcanza la rotura (la misma regla que el golpe: le da a quien le toca el cuerpo).
+# (21/11) ¿Su dibujo corre al RITMO DE LA PELEA? Los que delega en las clases *Aire (desde GIRO: magias, armas, enemigos;
+# las de EfectoPixel tambien, con BarridoAire.ritmo) si; el SueloRoto propio (grietas, fragmentos, estallido, estela, corte)
+# va en segundos de verdad. Lo mira CombatFX.arrancar_cola para poner el golpe cuando le llega el dibujo.
+static func al_ritmo_de_pelea(t: int) -> bool:
+	return t >= Tipo.GIRO
+
+
 static func retraso_caja(f: CombatFormas.Forma, r: Rect2, t: int = Tipo.GRIETAS) -> float:
 	if f == null:
 		return 0.0

@@ -191,6 +191,11 @@ const FILO_DETRAS := 50.0
 const FILO_IMPACTO := 0.32   # cuando llega el corte (aprox.: justo tras el golpe del arma)
 const FILO_TINTE := Color(0.62, 1.0, 0.8, 0.8)   # el viento: el mismo efecto tenido de verde palido
 var _filo_on: bool = false
+# ATAQUES_VIVO=1 (21/11, el jefe: "me enseñas todas las magias en tamaño real con su aspecto nuevo, en movimiento?"): sin
+# fotos, una direccion, al zoom del juego (1,8) y a su velocidad de verdad (cada momento de 1/60 en 1/60); en bucle.
+var _vivo: bool = OS.get_environment("ATAQUES_VIVO") != ""
+const ZOOM_JUEGO := 1.8
+const DIR_VIVO := 2   # E
 var _filo_ab: AbilityData = null
 var _filo_f = null
 var _filo_yo: Vector2 = Vector2.ZERO
@@ -478,6 +483,20 @@ func _correr() -> void:
 			else MOMENTOS.get(ab.suelo_roto, []))))
 		if arma == "magia":
 			tiempos = MOMENTOS_MAGIA.get(nom, [])
+		if _vivo and not tiempos.is_empty():
+			# lo que dura, estirado si es de las que van MAS DESPACIO
+			var lento_v: float = 1.0
+			if hechizo != null and int(hechizo.suelo_mapa) >= SueloRoto.Tipo.MAGIA_SOL:
+				lento_v = MagiaMayor.lento(int(hechizo.suelo_mapa) - SueloRoto.Tipo.MAGIA_SOL)
+			elif hechizo != null and int(hechizo.suelo_mapa) >= SueloRoto.Tipo.MAGIA_ALIENTO:
+				lento_v = MagiaAire.lento(int(hechizo.suelo_mapa) - SueloRoto.Tipo.MAGIA_ALIENTO)
+			var fin: float = float(tiempos.max()) * lento_v + 0.5
+			var densos: Array = []
+			var tt: float = 0.0
+			while tt <= fin:
+				densos.append(tt)
+				tt += 1.0 / 60.0
+			tiempos = densos
 		var cols: int = 1 + tiempos.size()
 		# El zoom de toda la hoja: que quepa la forma mas larga de esta habilidad, en cualquier direccion.
 		var f0 = CombatFormas.de_habilidad_mapa(ab, yo, PISA, ALCANCE[arma], yo + Vector2(70, 0))
@@ -490,9 +509,11 @@ func _correr() -> void:
 		# ATAQUES_ACERCA=3 -> tres veces mas cerca (para mirar un efecto de cerca).
 		var acerca: float = maxf(float(OS.get_environment("ATAQUES_ACERCA")), 1.0) if OS.get_environment("ATAQUES_ACERCA") != "" else 1.0
 		var zoom: float = float(LADO) / (2.0 * (medida + 30.0)) * acerca
-		_cam.zoom = Vector2(zoom, zoom)
+		_cam.zoom = Vector2(zoom, zoom) if not _vivo else Vector2.ONE * ZOOM_JUEGO
 		var hoja := Image.create(LADO * cols, LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
 		for fila in DIRS.size():
+			if _vivo and fila != DIR_VIVO:
+				continue
 			var dir_n: String = DIRS[fila][0]
 			var hacia: Vector2 = yo + (DIRS[fila][1] as Vector2).normalized() * 70.0
 			# El Oportunista se pone ENCIMA de un enemigo: el mas cercano a esa direccion.
@@ -607,8 +628,12 @@ func _correr() -> void:
 		var carpeta: String = "%s/%s" % [salida, CARPETA.get(arma, arma)]
 		DirAccess.make_dir_recursive_absolute(carpeta)
 		var ruta: String = "%s/%s%s.png" % [carpeta, nom, "_dual" if arma == "maza2" else ""]
-		hoja.save_png(ruta)
+		if not _vivo:
+			hoja.save_png(ruta)
 		print("[hoja] ", ruta)
+	if _vivo:
+		call_deferred("_correr")   # otra vuelta, hasta que se cierre la ventana
+		return
 	get_tree().quit(0)
 
 
@@ -1177,6 +1202,15 @@ func _pies_caja(r: Rect2) -> Vector2:
 
 
 func _viñeta(hoja: Image, col: int, fila: int, texto: String) -> void:
+	if _vivo:
+		_rotulo.text = texto.get_slice(" · ", 0)
+		_rotulo.position = Vector2(24, 18)
+		_rotulo.add_theme_font_size_override("font_size", 30)
+		if col == 0:
+			await get_tree().create_timer(0.7).timeout   # la huella, un momento
+		else:
+			await get_tree().process_frame
+		return
 	if _filo_on:
 		var m := RegEx.create_from_string("([0-9]+[.][0-9]+) s$").search(texto)
 		if col == 0:
@@ -1338,7 +1372,8 @@ func _efecto_magia(sp: SpellData, f, fila: int, hoja: Image, tiempos: Array, dir
 			desde = mejor
 	for col in tiempos.size():
 		var t: float = float(tiempos[col])
-		s.set("_t", t)
+		# (21/11) en vivo, con su reloj: las magias MAS DESPACIO (MagiaAire/MagiaMayor.LENTO) van a su ritmo
+		s.set("_t", t * float(s.get("_ritmo")) if _vivo and s.get("_ritmo") != null else t)
 		s.queue_redraw()
 		for hijo in ["_suelo", "_delante", "_brillo", "_lluvia"]:
 			var hn = s.get(hijo)
@@ -1499,11 +1534,13 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 				medida = maxf(medida, f0.radio + 70.0 * 0.7)
 			medida = maxf(medida, 90.0)
 			var zoom: float = float(LADO) / (2.0 * (medida + 30.0))
-			_cam.zoom = Vector2(zoom, zoom)
+			_cam.zoom = Vector2(zoom, zoom) if not _vivo else Vector2.ONE * ZOOM_JUEGO
 			# (+1 columna: el CHARCO o el RASTRO que se queda, si lo deja)
 			var extra: int = 1 if ab.charco_turnos > 0 else 0
 			var hoja := Image.create(LADO * (1 + tiempos.size() + extra), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
 			for fila in DIRS.size():
+				if _vivo and fila != DIR_VIVO:
+					continue
 				var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
 				var dir_n: String = DIRS[fila][0]
 				var hacia: Vector2 = yo + dvec * 70.0
@@ -1650,7 +1687,8 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 			var carpeta: String = "%s/enemigos/slimes/%s" % [salida, sl[0]]
 			DirAccess.make_dir_recursive_absolute(carpeta)
 			var ruta: String = "%s/%s.png" % [carpeta, nom]
-			hoja.save_png(ruta)
+			if not _vivo:
+				hoja.save_png(ruta)
 			print("[hoja] ", ruta)
 		cuerpo.queue_free()
 		await get_tree().process_frame
@@ -1995,9 +2033,11 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 		if ab.pisoton_final > 0.0:
 			medida += ab.pisoton_final * 1.5
 		var zoom: float = float(LADO) / (2.0 * (medida + 30.0))
-		_cam.zoom = Vector2(zoom, zoom)
+		_cam.zoom = Vector2(zoom, zoom) if not _vivo else Vector2.ONE * ZOOM_JUEGO
 		var hoja := Image.create(LADO * (1 + tiempos.size()), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
 		for fila in DIRS.size():
+			if _vivo and fila != DIR_VIVO:
+				continue
 			var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
 			var dir_n: String = DIRS[fila][0]
 			var hacia: Vector2 = yo + dvec * 70.0
@@ -2363,7 +2403,8 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 		var carpeta: String = "%s/enemigos/%s" % [salida, bestia]
 		DirAccess.make_dir_recursive_absolute(carpeta)
 		var ruta: String = "%s/%s.png" % [carpeta, nom]
-		hoja.save_png(ruta)
+		if not _vivo:
+			hoja.save_png(ruta)
 		print("[hoja] ", ruta)
 		# LA TELARAÑA TURNO A TURNO (29/09): recien tendida, a 2/3, a 1/3 y secandose.
 		if ab.charco_estilo == 1 and ab.charco_turnos > 0:
@@ -2428,7 +2469,7 @@ func _hojas_aura_fria(salida: String) -> void:
 		var bulto: Rect2 = Rect2(rd.position + spr.position, rd.size)
 		NeblinaFria.poner(spr, mut == &"escarcha")
 		var zoom: float = float(LADO) / (2.0 * 120.0)
-		_cam.zoom = Vector2(zoom, zoom)
+		_cam.zoom = Vector2(zoom, zoom) if not _vivo else Vector2.ONE * ZOOM_JUEGO
 		_cam.global_position = bulto.get_center()
 		var tiempos: Array = MOMENTOS_NEBLINA if cual == "neblina" else (MOMENTOS_HELADA if cual == "destello" else MOMENTOS_ANEMONA)
 		var cols: int = tiempos.size() + (3 if cual == "neblina" else 1)
@@ -2436,6 +2477,8 @@ func _hojas_aura_fria(salida: String) -> void:
 		var nombre: String = {"neblina": "Neblina del aura fria", "destello": "Destello helado (te congela)",
 			"anemona": "Pinchazo de la anemona"}[cual]
 		for fila in DIRS.size():
+			if _vivo and fila != DIR_VIVO:
+				continue
 			var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
 			var dir_n: String = DIRS[fila][0]
 			spr.animation = StringName("idle_%d" % SpriteLienzo.dir8(dvec))
@@ -2484,7 +2527,8 @@ func _hojas_aura_fria(salida: String) -> void:
 		var carpeta: String = "%s/enemigos/slimes/%s" % [salida, "arrecife" if cual == "anemona" else "escarcha"]
 		DirAccess.make_dir_recursive_absolute(carpeta)
 		var ruta: String = "%s/%s.png" % [carpeta, {"neblina": "aura_neblina", "destello": "aura_destello", "anemona": "anemona"}[cual]]
-		hoja.save_png(ruta)
+		if not _vivo:
+			hoja.save_png(ruta)
 		print("[hoja] ", ruta)
 		cuerpo.queue_free()
 		await get_tree().process_frame
@@ -2527,7 +2571,7 @@ func _hojas_rey(salida: String) -> void:
 		spr.position = yo - Vector2(rd.get_center().x, rd.position.y + rd.size.y * ed.centro_suelo_real())
 		var bulto: Rect2 = Rect2(rd.position + spr.position, rd.size)
 		var zoom: float = float(LADO) / (2.0 * 130.0)
-		_cam.zoom = Vector2(zoom, zoom)
+		_cam.zoom = Vector2(zoom, zoom) if not _vivo else Vector2.ONE * ZOOM_JUEGO
 		_cam.global_position = bulto.get_center()
 		var cols: Array = []   # [titulo, t, secando, vuelve]
 		match cual:
@@ -2547,6 +2591,8 @@ func _hojas_rey(salida: String) -> void:
 		var nombre: String = {"decreto": "Decreto", "tributo": "Tributo", "clavadas": "Esquirlas clavadas",
 			"pedazos": "Pedazos de la Escision"}[cual]
 		for fila in DIRS.size():
+			if _vivo and fila != DIR_VIVO:
+				continue
 			var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
 			var dir_n: String = DIRS[fila][0]
 			spr.animation = StringName("idle_%d" % SpriteLienzo.dir8(dvec))
@@ -2603,7 +2649,8 @@ func _hojas_rey(salida: String) -> void:
 		var carpeta: String = "%s/enemigos/slimes/%s" % [salida, String(mut)]
 		DirAccess.make_dir_recursive_absolute(carpeta)
 		var ruta: String = "%s/%s.png" % [carpeta, cual]
-		hoja.save_png(ruta)
+		if not _vivo:
+			hoja.save_png(ruta)
 		print("[hoja] ", ruta)
 		cuerpo.queue_free()
 		await get_tree().process_frame

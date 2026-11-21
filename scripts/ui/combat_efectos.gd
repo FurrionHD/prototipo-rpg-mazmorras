@@ -165,10 +165,8 @@ func _retraso_suelo(victima: Combatant, estilo: int = -1) -> float:
 	if estilo == CombatFX.Estilo.ARCO and _rs_primero >= 0.0:
 		return _rs_primero
 	var rs: float = SueloRoto.retraso_caja(_suelo_forma, _pantalla.turno_mapa.bulto_de(victima), _suelo_tipo)
-	# LA EMBESTIDA va en tiempo de la PELEA, como su desliz y su efecto (los dos al ritmo de los efectos): el retraso de
-	# la cola es en segundos de verdad, asi que se pasa (si no, con la pelea lenta el golpe llegaba antes que el bicho).
-	if SueloRoto.es_embestida(_suelo_tipo, _suelo_forma) and _pantalla._fx != null:
-		rs /= maxf(_pantalla._fx.escala_tiempo, 0.05)
+	# (LA EMBESTIDA, que va en tiempo de la pelea, se pasaba aqui a segundos de verdad. Desde el 21/11 lo decide la cola para
+	# todos: CombatFX.arrancar_cola, SueloRoto.al_ritmo_de_pelea.)
 	if _rs_primero < 0.0:
 		_rs_primero = rs
 	return rs

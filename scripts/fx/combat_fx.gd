@@ -1777,6 +1777,18 @@ func tanda(n: int) -> void:
 # en coordenadas de mundo.
 var _suelo: Dictionary = {}
 
+# Cuantas veces mas despacio va la magia que hay por el suelo (1 si no es de las lentas). Ver arrancar_cola.
+func _lento_del_suelo() -> float:
+	if _suelo.is_empty():
+		return 1.0
+	var t: int = int(_suelo.get("tipo", -1))
+	if t >= SueloRoto.Tipo.MAGIA_SOL:
+		return MagiaMayor.lento(t - SueloRoto.Tipo.MAGIA_SOL)
+	if t >= SueloRoto.Tipo.MAGIA_ALIENTO:
+		return MagiaAire.lento(t - SueloRoto.Tipo.MAGIA_ALIENTO)
+	return 1.0
+
+
 func pedir_suelo(padre: Node, forma: RefCounted, tipo: int, semilla: int, nucleo: float) -> void:
 	_suelo = {"padre": padre, "forma": forma, "tipo": tipo, "semilla": semilla, "nucleo": nucleo}
 
@@ -1986,6 +1998,9 @@ func arrancar_cola() -> float:
 		if minimo > paso:
 			paso = minimo
 			extra = paso * float(n_tandas - 1)
+	# (21/11) LAS MAGIAS MAS DESPACIO (MagiaAire/MagiaMayor.LENTO): sus golpes de despues (los tirones de la Voragine, el agua
+	# del Shock, la luz del Eclipse) se separan en la misma proporcion que su dibujo, o caerian antes que el tiron que los pinta.
+	paso *= _lento_del_suelo()
 	for i in n:
 		var pos: int = int(orden[int(_cola[i].get("tanda", 0))])
 		_cola[i]["t"] = arranque + paso * float(pos)
@@ -2044,7 +2059,11 @@ func arrancar_cola() -> float:
 		if t_golpe < 0.0:
 			t_golpe = float(ev["t"])
 		ev["t_sfx"] = float(ev["t"])
-		ev["t"] = float(ev["t"]) + rs * escala_tiempo
+		# (21/11, prueba_magias_lentas) EN QUE RELOJ VA el retraso: lo que dibujan las clases *Aire (magias, armas, enemigos)
+		# corre al RITMO DE LA PELEA (BarridoAire.ritmo = escala_tiempo), asi que su retraso ya es tiempo de animacion; solo
+		# el SueloRoto propio (las grietas del martillo...) va en segundos de verdad. Antes se convertian todos: el golpe de una
+		# magia salia con su dibujo al 70 % del camino (a x2, tarde).
+		ev["t"] = float(ev["t"]) + (rs if SueloRoto.al_ritmo_de_pelea(int(_suelo.get("tipo", -1))) else rs * escala_tiempo)
 		_dur = maxf(_dur, float(ev["t"]) + T_PUM + T_VUELTA)
 	# LA BOMBA DE DESAPARECER: su gesto se planto en el instante del humo, pero las puñaladas llegan
 	# despues (el retraso de arriba). Sus avisos siguen a las de verdad, TODAS (la primera tambien: la
