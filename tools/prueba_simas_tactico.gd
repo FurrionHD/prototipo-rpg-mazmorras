@@ -266,15 +266,16 @@ func _probar_chillon(combat, t, e, al: Array) -> void:
 	combat._fx.arrancar_cola()
 	# (07/10) 1,2 s DE RELOJ y no 120 fotogramas: sin ventana los fotogramas van tan deprisa que a veces se acababan
 	# antes de que el chillon hubiera saltado (la prueba fallaba a ratos con 0-15 px).
-	var t_fin: int = Time.get_ticks_msec() + 1200
+	# (21/11) Y SIN RELOJ FIJO: desde que el golpe espera a la animacion del bicho (CombatFX.hoja_cuerpo) el salto sale
+	# cuando la hoja llega a su fotograma, y con el PC cargado (banco 5f0792a5) 1,2 s no le daban ni para salir. Se espera
+	# a que haga TODO (se aleja, muerde y vuelve) con un tope generoso, no a un reloj.
+	var t_fin: int = Time.get_ticks_msec() + 8000
 	while Time.get_ticks_msec() < t_fin:
 		await get_tree().process_frame
 		t.tick(get_process_delta_time())
 		lejos_max = maxf(lejos_max, t.pos_de(e).distance_to(antes))
-	t_fin = Time.get_ticks_msec() + 1000
-	while Time.get_ticks_msec() < t_fin:
-		await get_tree().process_frame
-		t.tick(get_process_delta_time())
+		if lejos_max > 15.0 and t.pos_de(e).distance_to(antes) < 4.0 and al[0].current_hp < hp0:
+			break
 	print("  picado: se alejo %.0f px y acabo a %.0f px de donde estaba" % [lejos_max, t.pos_de(e).distance_to(antes)])
 	_ver(lejos_max > 15.0, "el Picado baja hasta su presa (cae a su lado, no encima: 26-41 px segun el apunte)")
 	_ver(t.pos_de(e).distance_to(antes) < 4.0, "y vuelve a donde estaba")
