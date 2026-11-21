@@ -12,6 +12,9 @@
 #  AIRE (encima); cada nodo del efecto va a uno u otro por su z (visibility_layer + canvas_cull_mask). Los huecos no
 #  pintan nada, asi que pueden estar en los dos.
 #  Si en ese visor no hay camara (o no se puede montar), el efecto se queda donde estaba y se ve como siempre.
+#  LAS MAGIAS, MAS GRUESAS (21/11, memoria magias-pixel-mas-grueso; el hermano del jefe: "en las magias no se nota el pixel
+#  art"): meter(efecto, true) las lleva a OTRA pareja de lienzos (suelo y aire) en los que cada pixel es grueso_magia celdas.
+#  El mismo dibujo, en una rejilla mas basta: el pixel se nota mas.
 # ============================================================
 extends Node2D
 class_name CapaPixel
@@ -19,6 +22,11 @@ class_name CapaPixel
 const CELDA: float = SpriteLienzo.UNIDADES_POR_CELDA
 const BIT_SUELO := 1 << 18
 const BIT_AIRE := 1 << 19
+const BIT_SUELO_G := 1 << 16   # los lienzos GRUESOS (las magias)
+const BIT_AIRE_G := 1 << 17
+const BITS := BIT_SUELO | BIT_AIRE | BIT_SUELO_G | BIT_AIRE_G
+# Cuantas celdas mide cada pixel de las magias (1 = como lo demas). CAPA_GRUESO=n lo cambia (las laminas de comparar).
+static var grueso_magia: int = int(OS.get_environment("CAPA_GRUESO")) if OS.get_environment("CAPA_GRUESO") != "" else 2
 const SHADER := preload("res://scripts/fx/pixelar.gdshader")
 # El lienzo se pinta al DOBLE y cada celda se queda con lo mas fuerte de sus 4 subpixeles: un rayo de menos de una
 # celda de grueso sale como linea continua de 1 celda, no en puntos sueltos (pixelar.gdshader).
@@ -37,7 +45,8 @@ var _huecos: Dictionary = {}  # id del padre de verdad -> {padre, hueco}
 const TINTE_VIENTO := Color(0.62, 1.0, 0.8, 0.8)
 static var tinte: Color = Color.WHITE
 
-static func meter(efecto: Node) -> void:
+# 'grueso' = es una MAGIA: a los lienzos gruesos (grueso_magia celdas por pixel).
+static func meter(efecto: Node, grueso: bool = false) -> void:
 	if tinte != Color.WHITE and efecto is CanvasItem and is_instance_valid(efecto):
 		(efecto as CanvasItem).modulate *= tinte
 	if efecto == null or not is_instance_valid(efecto) or not efecto.is_inside_tree() or efecto.has_meta(&"pixel"):
@@ -50,12 +59,14 @@ static func meter(efecto: Node) -> void:
 		return
 	if not capa.is_inside_tree() or capa._raiz == null:
 		# recien creada (se añade en diferido, por si la escena aun se esta montando): al fotograma siguiente
-		CapaPixel.meter.call_deferred(efecto)
+		CapaPixel.meter.call_deferred(efecto, grueso)   # (con su grosor: sin el, la primera magia salia fina)
 		return
 	var hueco: Node2D = capa._hueco_de(padre as Node2D)
 	efecto.set_meta(&"pixel", true)
+	if grueso and grueso_magia > 1:
+		efecto.set_meta(&"pixel_grueso", true)
 	efecto.reparent(hueco, false)
-	_marcar(efecto)
+	_marcar(efecto, _es_grueso(efecto))
 	if not efecto.child_entered_tree.is_connected(_al_entrar):
 		efecto.child_entered_tree.connect(_al_entrar)
 
@@ -124,15 +135,27 @@ static func de_vista(vista: Viewport) -> CapaPixel:
 # Si un nodo ya metido cambia de z (la vara de la caña pasa de detras a delante del cuerpo), su lienzo se decide otra vez.
 static func remarcar(n: Node) -> void:
 	if n != null and n.has_meta(&"pixel"):
-		var bits: int = _marcar(n)
+		var bits: int = _marcar(n, _es_grueso(n))
 		var p: Node = n.get_parent()
 		while p is CanvasItem:
 			(p as CanvasItem).visibility_layer |= bits
 			p = p.get_parent()
 
 
+# ¿Va a los lienzos gruesos? (el, o el efecto del que cuelga, se metio como magia)
+static func _es_grueso(n: Node) -> bool:
+	var p: Node = n
+	while p != null:
+		if p.has_meta(&"pixel_grueso"):
+			return true
+		if p.has_meta(&"pixel"):
+			return false
+		p = p.get_parent()
+	return false
+
+
 static func _al_entrar(hijo: Node) -> void:
-	var bits: int = _marcar(hijo)
+	var bits: int = _marcar(hijo, _es_grueso(hijo))
 	# y sus padres tienen que estar tambien en su lienzo (la raiz de un efecto de suelo con una capa de aire nueva)
 	var p: Node = hijo.get_parent()
 	while p is CanvasItem:
@@ -155,15 +178,19 @@ static func _z_real(ci: CanvasItem) -> int:
 
 # Cada nodo, en el lienzo que le toca por su z Y en los de sus hijos (Godot solo pinta un nodo si el y todos sus padres
 # comparten capa con el visor). Las raices de los efectos son contenedores que no pintan: estar en los dos no duplica.
-static func _marcar(n: Node) -> int:
+static func _marcar(n: Node, grueso: bool = false) -> int:
 	var bits: int = 0
 	for h in n.get_children():
-		bits |= _marcar(h)
+		bits |= _marcar(h, grueso)
 		if not h.child_entered_tree.is_connected(_al_entrar):
 			h.child_entered_tree.connect(_al_entrar)
 	if n is CanvasItem:
 		var ci := n as CanvasItem
-		bits |= BIT_SUELO if _z_real(ci) < Game.Z_PERSONAJES else BIT_AIRE
+		var suelo: bool = _z_real(ci) < Game.Z_PERSONAJES
+		if grueso:
+			bits |= BIT_SUELO_G if suelo else BIT_AIRE_G
+		else:
+			bits |= BIT_SUELO if suelo else BIT_AIRE
 		ci.visibility_layer = bits
 	return bits
 
@@ -171,12 +198,17 @@ static func _marcar(n: Node) -> int:
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS   # la pelea tactica pausa el arbol
 	process_priority = 1000                    # despues de que la camara se mueva
-	var suelo := _hoja(BIT_SUELO, SueloRoto.Z_SUELO + 2, null)
+	var suelo := _hoja(BIT_SUELO, SueloRoto.Z_SUELO + 2, null, 1)
 	_hojas.append(suelo)
-	_hojas.append(_hoja(BIT_AIRE, Game.Z_ENCIMA_PERSONAJES + 79, (suelo["vp"] as SubViewport).world_2d))
+	var mundo: World2D = (suelo["vp"] as SubViewport).world_2d
+	_hojas.append(_hoja(BIT_AIRE, Game.Z_ENCIMA_PERSONAJES + 79, mundo, 1))
+	# los GRUESOS (las magias), en el mismo mundo
+	if grueso_magia > 1:
+		_hojas.append(_hoja(BIT_SUELO_G, SueloRoto.Z_SUELO + 2, mundo, grueso_magia))
+		_hojas.append(_hoja(BIT_AIRE_G, Game.Z_ENCIMA_PERSONAJES + 79, mundo, grueso_magia))
 	_raiz = Node2D.new()
 	_raiz.name = "Raiz"
-	_raiz.visibility_layer = BIT_SUELO | BIT_AIRE
+	_raiz.visibility_layer = BITS
 	(suelo["vp"] as SubViewport).add_child(_raiz)
 	_seguir()
 
@@ -187,7 +219,8 @@ func _exit_tree() -> void:
 			_por_vista.erase(k)
 
 
-func _hoja(bit: int, z: int, mundo: World2D) -> Dictionary:
+# 'celdas' = cuantas celdas del mundo mide cada pixel de este lienzo (1, o grueso_magia en los de las magias).
+func _hoja(bit: int, z: int, mundo: World2D, celdas: int) -> Dictionary:
 	var vp := SubViewport.new()
 	if mundo != null:
 		vp.world_2d = mundo
@@ -203,13 +236,13 @@ func _hoja(bit: int, z: int, mundo: World2D) -> Dictionary:
 	spr.texture = vp.get_texture()
 	spr.centered = false
 	spr.top_level = true
-	spr.scale = Vector2(CELDA, CELDA) / float(SUB)
+	spr.scale = Vector2(CELDA, CELDA) * float(celdas) / float(SUB)
 	spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	spr.z_as_relative = false
 	spr.z_index = z
 	spr.material = mat
 	add_child(spr)
-	return {"vp": vp, "spr": spr, "mat": mat}
+	return {"vp": vp, "spr": spr, "mat": mat, "celdas": celdas}
 
 
 # El hueco de un padre: en el mundo aparte, con la posicion de su padre de verdad.
@@ -219,7 +252,7 @@ func _hueco_de(padre: Node2D) -> Node2D:
 	if h != null and is_instance_valid(h["hueco"]):
 		return h["hueco"]
 	var hueco := Node2D.new()
-	hueco.visibility_layer = BIT_SUELO | BIT_AIRE
+	hueco.visibility_layer = BITS
 	hueco.set_meta(&"padre_real", padre)
 	# la z del padre (un cuerpo): lo que va con z RELATIVA a el (detras/delante del muñeco) sigue en su sitio
 	hueco.z_as_relative = false
@@ -255,12 +288,14 @@ func _seguir() -> void:
 	var tam: Vector2 = vista.get_visible_rect().size
 	var a: Vector2 = inv * Vector2.ZERO
 	var b: Vector2 = inv * tam
-	var c0: Vector2 = (Vector2(minf(a.x, b.x), minf(a.y, b.y)) / CELDA).floor() - Vector2.ONE
-	var lado := Vector2i(ceili(absf(b.x - a.x) / CELDA) + 3, ceili(absf(b.y - a.y) / CELDA) + 3)
+	# (los gruesos, en su rejilla: cada pixel 'celdas' celdas, y empezando en un multiplo de ellas)
 	for h2 in _hojas:
+		var px: float = CELDA * float(int(h2["celdas"]))
+		var c0: Vector2 = (Vector2(minf(a.x, b.x), minf(a.y, b.y)) / px).floor() - Vector2.ONE
+		var lado := Vector2i(ceili(absf(b.x - a.x) / px) + 3, ceili(absf(b.y - a.y) / px) + 3)
 		var vp: SubViewport = h2["vp"]
 		if vp.size != lado * SUB:
 			vp.size = lado * SUB
-		vp.canvas_transform = Transform2D(0.0, Vector2.ONE * float(SUB) / CELDA, 0.0, -c0 * float(SUB))
-		(h2["spr"] as Sprite2D).global_position = c0 * CELDA
+		vp.canvas_transform = Transform2D(0.0, Vector2.ONE * float(SUB) / px, 0.0, -c0 * float(SUB))
+		(h2["spr"] as Sprite2D).global_position = c0 * px
 		(h2["mat"] as ShaderMaterial).set_shader_parameter("celda0", c0)

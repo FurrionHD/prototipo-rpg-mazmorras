@@ -136,5 +136,14 @@ func _correr() -> void:
 		if not ya.has(m):
 			leidos = m._puntos
 	_ver(leidos != null and leidos == f.puntos, "los puntos de las bolas llegan iguales al espejo (%s)" % str(leidos))
+	# (21/11, memoria magias-pixel-mas-grueso; el jefe eligio x2) LAS MAGIAS VAN A LOS LIENZOS GRUESOS: cada pixel, 2 celdas
+	var mg: Array = CapaPixel.efectos_de(ar, "MagiaAire")
+	var gruesa: bool = not mg.is_empty()
+	for m in mg:
+		var capas: int = int((m as CanvasItem).visibility_layer)
+		if not m.has_meta(&"pixel_grueso") or capas & (CapaPixel.BIT_SUELO_G | CapaPixel.BIT_AIRE_G) == 0 \
+				or capas & (CapaPixel.BIT_SUELO | CapaPixel.BIT_AIRE) != 0:
+			gruesa = false
+	_ver(CapaPixel.grueso_magia == 2 and gruesa, "las magias, en los lienzos gruesos (x%d, %d efectos)" % [CapaPixel.grueso_magia, mg.size()])
 	print("=== FIN (%s) ===" % ("TODO BIEN" if _mal == 0 else "%d MAL" % _mal))
 	get_tree().quit(0 if _mal == 0 else 1)
