@@ -30,6 +30,19 @@ func _ver(ok: bool, que: String) -> void:
 		_mal += 1
 
 
+# (21/11) COLOCAR UN ENEMIGO A MANO SIN QUE LA SALA LO DEVUELVA. Son espejos (remote_enemy): cada paquete de posicion de
+# la sala (20 por segundo) los planta de golpe en su sitio de verdad si estan lejos, y set_physics_process(false) no lo
+# para. Asi, a ratos (banco a6777749, con el PC cargado: 8,6 px), uno de los apartados volvia junto al jugador y lo
+# empujaba. fijar_en es la del juego para esto: durante FIJADA_MS los paquetes que no lo confirman no lo mueven.
+const LEJOS := Vector2(-9999, -9999)
+
+func _poner(e: Node2D, pos: Vector2) -> void:
+	if e.has_method("fijar_en"):
+		e.fijar_en(pos)
+	else:
+		e.global_position = pos
+
+
 func _fisica(n: int) -> void:
 	for _i in n:
 		await get_tree().physics_frame
@@ -57,7 +70,7 @@ func _correr() -> void:
 	var jug: CharacterBody2D = get_tree().get_first_node_in_group("player") as CharacterBody2D
 	var enemigos: Array = get_tree().get_nodes_in_group("enemy")
 	for e in enemigos:
-		(e as Node2D).global_position = Vector2(-9999, -9999)
+		_poner(e, LEJOS)
 		(e as Node).set_physics_process(false)   # quietos: los colocamos a mano
 	var centro: Vector2 = gen.centro_px(sala.position + sala.size / 2)
 	jug.global_position = centro
@@ -74,12 +87,13 @@ func _correr() -> void:
 		var peor: float = 0.0
 		for dy in [18.0, 19.0, 20.0, 21.0, 22.0]:
 			jug.global_position = centro
-			e1.global_position = Vector2(-9999, -9999)
+			for e in enemigos:
+				_poner(e, LEJOS)   # (y se renueva su ventana: ver _poner)
 			await _fisica(2)
-			e1.global_position = centro + Vector2(0, dy)
+			_poner(e1, centro + Vector2(0, dy))
 			await _fisica(3)
 			var tras_tocar: Vector2 = jug.global_position
-			e1.global_position = Vector2(-9999, -9999)
+			_poner(e1, LEJOS)
 			await _fisica(4)
 			var d: float = jug.global_position.distance_to(tras_tocar)
 			print("    a %d px: me muevo %.1f px al irse" % [int(dy), d])

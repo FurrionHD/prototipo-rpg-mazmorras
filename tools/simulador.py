@@ -69,7 +69,7 @@ def _args_godot(a) -> list:
     if a.pisos_hasta > 0 and not a.pisos:
         a.pisos = ",".join(str(i) for i in range(1, a.pisos_hasta + 1))
     extra = ["veces=%d" % a.veces, "tanda=%s" % a.tanda, "reglas=%s" % a.reglas, "escala=%s" % a.escala]
-    for k in ("pisos", "clases", "grupos", "escenarios", "solo", "arma", "armas", "armaduras", "sets", "magias", "pociones", "mana", "escala_des",
+    for k in ("pisos", "clases", "grupos", "escenarios", "solo", "arma", "armas", "armaduras", "sets", "magias", "pociones", "mana", "magia_suma", "baston_tier", "magia_mult", "bakeo_suave", "stats_nivel", "escala_des",
               "vel_enemigos", "iniciativa", "equipo"):
         v = getattr(a, k)
         if v:
@@ -702,6 +702,11 @@ def main():
     ap.add_argument("--sets", default="", help="todos = cada combinacion de 4 habilidades que pueda llevar cada equipo (¡muchas!)")
     ap.add_argument("--magias", default="", help="todas = cada hechizo de daño solo, en el mago (grupos sin guerrero); o juegos a mano 'a;b,c'")
     ap.add_argument("--armaduras", default="", help="todas (tela, cuero, hierro, placas) o una lista: el hueco del guerrero la lleva en vez de la de su perfil")
+    ap.add_argument("--magia-suma", dest="magia_suma", default="", help="1 = el mago guarda al subir de nivel como el guerrero (suma con el baston)")
+    ap.add_argument("--baston-tier", dest="baston_tier", default="", help="1 = el baston crece por tier como un arma (x2,2, sin recorte)")
+    ap.add_argument("--magia-mult", dest="magia_mult", default="", help="multiplica el daño de TODAS las magias (el ajuste general)")
+    ap.add_argument("--bakeo-suave", dest="bakeo_suave", default="", help="600 = lo guardado al subir cuenta a medias por encima de 600")
+    ap.add_argument("--stats-nivel", dest="stats_nivel", default="", help="600|900 = el personaje llega a eso al final de cada nivel (y lo guarda) en vez de a 750")
     ap.add_argument("--mana", default="", help="real = contra los muñecos el mago gasta su mana y bebe pociones sin fin, de una en una (no rellena cada turno)")
     ap.add_argument("--tanda", default="hoy")
     ap.add_argument("--reglas", default="hoy", help="hoy | nuevas (formula multiplicativa, defensa K por piso con tope 75 %%, enemigos con nivel)")

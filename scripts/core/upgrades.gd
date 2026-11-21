@@ -663,8 +663,13 @@ static func rapidez_escala(vel_arma: float) -> float:
 # (magic_tier_ratio) y el regen de maná con una mas empinada (regen_tier_ratio). La Eficiencia
 # y la Celeridad son porcentajes con tope y no lo llevan: son topes de balance.
 # Factor por el que el TIER escala el magic_amp (curva suave, muy por debajo del melee).
+# (21/11, APAGADO de serie; solo el simulador, 'baston_tier=1'): el baston crece por tier COMO UN ARMA (x2,2) y sin el
+# recorte de MAGIA_RECORTE_T2. La curva suave y el recorte compensaban que lo guardado del mago lo multiplicaba todo; con
+# StatsMath.magia_suma ya no hace falta (memoria magias-valoracion-21-11).
+static var baston_tier_arma := false
+
 static func magic_tier_ratio(tmult: float) -> float:
-	return pow(tmult, MAGIC_TIER_POWER)
+	return tmult if baston_tier_arma else pow(tmult, MAGIC_TIER_POWER)
 
 # Lo mismo para el REGEN de maná, con su curva propia (mas empinada). Ver REGEN_TIER_POWER.
 static func regen_tier_ratio(tmult: float) -> float:
@@ -685,7 +690,7 @@ static func magic_mods(base_amp: float, tmult: float, rareza: int, mejoras: Dict
 	# que no escalaban con la rareza, solo les subia el tope). El tope tambien sube con la rareza.
 	var potencia := minf(cap_rareza(POTENCIA_CAP, rareza), dim_sum(POTENCIA_STEP, _count(mejoras, POTENCIA)) * rmult)
 	var amp := (base_amp * rmult + MAGIC_AMP_FLAT * float(n) + potencia) * magic_tier_ratio(tmult)
-	if tmult > 1.0001:   # tier_mult(1) = 1: del T2 en adelante
+	if tmult > 1.0001 and not baston_tier_arma:   # tier_mult(1) = 1: del T2 en adelante
 		amp *= MAGIA_RECORTE_T2
 	return {
 		"magic_amp": amp,

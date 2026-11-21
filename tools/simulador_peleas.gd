@@ -69,6 +69,18 @@ const PROGRESION := {
 # (los que aprobo); el tier sube cada 6 pisos; las mejoras van de +0 a +7 dentro de cada tier (+0 +1 +3 +4 +6 +7); dos
 # piezas de armadura en el piso 1 y el juego entero despues; nivel cada 12 pisos con lo bakeado de los anteriores.
 func _prog(piso: int) -> Array:
+	var pr: Array = _prog_750(piso)
+	if is_equal_approx(_tope, 750.0):
+		return pr
+	# EL JUGADOR QUE NO VA AL ESTANDAR (21/11): todo el camino a escala (llega a _tope en vez de a 750) y guarda _tope.
+	var k: float = _tope / 750.0
+	var out: Array = pr.duplicate()
+	out[1] = int(round(float(pr[1]) * k))
+	out[2] = (pr[2] as Array).map(func(v): return float(v) * k)
+	return out
+
+
+func _prog_750(piso: int) -> Array:
 	if PROGRESION.has(piso):
 		return PROGRESION[piso]
 	var nivel: int = 1 + (piso - 1) / PISOS_NIVEL
@@ -405,6 +417,15 @@ func _leer_args() -> void:
 			"escala": _escala_tiempo = maxf(1.0, float(kv[1]))
 			"sin_mutantes": _sin_mutantes = kv[1] == "1"
 			"sin_jefes": _sin_jefes = kv[1] == "1"
+			# (21/11, memoria magias-valoracion-21-11) LO QUE SE GUARDA AL SUBIR DE NIVEL Y EL JUGADOR QUE NO VA AL ESTANDAR:
+			#   magia_suma=1    el mago guarda como el guerrero (StatsMath.magia_suma)
+			#   bakeo_suave=600 lo guardado cuenta a medias por encima de 600 (StatsMath.bakeo_suave)
+			#   stats_nivel=600|900  el personaje llega a ESO al final de cada nivel (y es lo que guarda) en vez de a 750
+			"magia_suma": StatsMath.magia_suma = kv[1] == "1"
+			"baston_tier": Upgrades.baston_tier_arma = kv[1] == "1"
+			"magia_mult": StatsMath.magia_dano_mult = float(kv[1])
+			"bakeo_suave": StatsMath.bakeo_suave = float(kv[1])
+			"stats_nivel": _tope = float(kv[1])
 			"ver": _ver = kv[1] == "1"
 			"vel_enemigos": _vel_enemigos = kv[1]
 			"iniciativa": _iniciativa = kv[1]
@@ -506,7 +527,7 @@ func _personaje(piso: int, rol: String, en_grupo: bool, arma_g: String = "") -> 
 	for s in pr[2]:
 		var a := Abilities.new()
 		for k in rep:
-			a.set(k, int(float(s) * float(rep[k])))
+			a.set(k, int(StatsMath.stat_para_bakeo(float(s) * float(rep[k]))))
 		if rep.has("magia"):
 			mf = mf * StatsMath.magia_factor(float(a.magia)) * 1.1
 		else:
@@ -605,6 +626,7 @@ func _reponer(p: PersonajeData) -> void:
 var _pociones_vida := -1
 var _pociones_mana := -1
 var _mana_real := false
+var _tope := 750.0
 const POCIONES_SIN_FIN := 999
 
 func _llenar_bolsa(piso: int, jefe: bool) -> void:

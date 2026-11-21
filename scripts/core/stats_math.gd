@@ -273,6 +273,27 @@ static func damage(attack: float, defense: float) -> float:
 #      igual que hoy) y TOPE del 75 %. Fisica y magica igual, en los dos sentidos.
 # ============================================================
 static var reglas_nuevas := false
+# (21/11) DOS INTERRUPTORES MAS, APAGADOS DE SERIE (solo el simulador; memoria magias-valoracion-21-11):
+#   magia_suma: lo que el mago GUARDA al subir de nivel (magia_base_factor) va como la base del guerrero: SUMA con lo que
+#     pone el baston (guardado + (magic_amp - 1)) en vez de multiplicarlo todo. En el nivel 1 (guardado 1) da lo mismo
+#     que hoy; arriba quita el salto de x2,8 por nivel que tenia el mago y el guerrero no.
+#   bakeo_suave: lo que se guarda al subir cuenta ENTERO hasta este valor de stat y a BAKEO_SUAVE_PESO por encima
+#     (-1 = apagado). Para que subir con 600 o con 900 no separe para siempre la vida/defensa/velocidad.
+static var magia_suma := false
+static var bakeo_suave := -1.0
+# El AJUSTE GENERAL del daño de las magias (solo el simulador, 'magia_mult'; 1 = como hoy). Para buscar el que deja la
+# magia media en x1,8 del cuerpo a cuerpo sin tocar una a una.
+static var magia_dano_mult := 1.0
+const BAKEO_SUAVE_PESO := 0.5
+
+static func stat_para_bakeo(v: float) -> float:
+	if bakeo_suave < 0.0 or v <= bakeo_suave:
+		return v
+	return bakeo_suave + (v - bakeo_suave) * BAKEO_SUAVE_PESO
+
+# El multiplicador del baston con lo guardado del mago (los dos modos de arriba).
+static func amp_con_guardado(amp: float, guardado: float) -> float:
+	return guardado + amp - 1.0 if magia_suma else amp * guardado
 static var tier_forzado := -1          # el tier del piso para la K (el simulador lo fija; -1 = el del piso actual)
 #   3. ENEMIGOS CON NIVEL ("espejo del jugador", cada nivel = PISOS_NIVEL pisos): el que nace con nivel_enemigos > 1 bakea
 #      sus bases como el jugador al subir (EnemyData._bakear_nivel). Va en EnemyData.crear_combatant para que lo cojan
@@ -732,16 +753,16 @@ const CURA_BASTON_PESO := 0.5
 static func resolve_heal(attacker: Combatant, spell: SpellData, frac: float = 1.0) -> float:
 	var raw: float = spell.dano_base * frac
 	var baston: float = 1.0 + (attacker.magic_amp - 1.0) * CURA_BASTON_PESO
-	return raw * magia_factor(attacker.hab("magia") * CURA_MAGIA_PESO) * baston \
-		* attacker.magia_base_factor * SPELL_DAMAGE_MULT * attacker.status_spell_dmg_mult()
+	return raw * magia_factor(attacker.hab("magia") * CURA_MAGIA_PESO) * amp_con_guardado(baston, attacker.magia_base_factor) \
+		* SPELL_DAMAGE_MULT * attacker.status_spell_dmg_mult()
 
 
 static func resolve_spell(attacker: Combatant, defender: Combatant, spell: SpellData,
 		elem_override: int = -1, dano_frac: float = 1.0) -> Dictionary:
 	var elem: int = elem_override if elem_override >= 0 else spell.elemento
 	var raw := spell.dano_base * dano_frac
-	var magic_atk := raw * magia_factor(attacker.hab("magia")) * attacker.magic_amp \
-		* attacker.magia_base_factor * SPELL_DAMAGE_MULT * attacker.status_spell_dmg_mult()
+	var magic_atk := raw * magia_factor(attacker.hab("magia")) * amp_con_guardado(attacker.magic_amp, attacker.magia_base_factor) \
+		* SPELL_DAMAGE_MULT * magia_dano_mult * attacker.status_spell_dmg_mult()
 	# Defensa MAGICA del objetivo, espejo exacto de la fisica: una BASE propia del bicho +
 	# lo que aporte su Magia. Antes se pasaba 0.0 a pelo, y como ademas ningun enemigo tenia
 	# Magia, la defensa magica era CERO: los hechizos entraban a raw limpio mientras los

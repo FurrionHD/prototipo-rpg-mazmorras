@@ -14213,6 +14213,10 @@ func subir_nivel(desarrollo_id: String) -> bool:
 	a.agilidad = player_agilidad
 	a.magia = player_magia
 	a.voluntad = player_voluntad
+	# (21/11, apagado de serie) lo guardado cuenta a medias por encima de StatsMath.bakeo_suave (ver alli).
+	if StatsMath.bakeo_suave >= 0.0:
+		for s in Abilities.NOMBRES:
+			a.set(s, int(StatsMath.stat_para_bakeo(float(a.get(s)))))
 	# BAKEAR ×(1+NIVEL_SPIKE): el efecto de tus basicas se congela en la base del nivel nuevo.
 	var spike: float = 1.0 + NIVEL_SPIKE
 	# Se bakea con las MISMAS formulas multiplicativas que usa el jugador en combate (*_jugador),
