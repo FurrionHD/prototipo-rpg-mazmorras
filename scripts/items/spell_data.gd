@@ -276,6 +276,9 @@ const RADIO_CURA_AREA := 200.0
 # Lista de StatusApplication. Un hechizo puede aplicar VARIOS: p.ej. Tormenta =
 # Rayo + Aturdido. En cada uno, 'prob' es la BASE por frase. Ver status_application.gd.
 @export var efectos: Array = []
+# EL ARBOL de esta ficha (22/11, memoria rangos-magias-y-habilidades): sus nodos (scripts/items/nodo_mejora.gd), que
+# la van modificando. Lo monta Mejoras.montar para la pelea con los que haya cogido cada personaje.
+@export var arbol: Array = []
 
 const ESTADO_PROB_MAX := 0.95
 

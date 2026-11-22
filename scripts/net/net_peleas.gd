@@ -1064,7 +1064,8 @@ const _VUELVE := ["current_hp", "current_mp", "stamina", "level",
 	"dano_recibido_exp", "dano_infligido_exp", "dano_bloqueado_exp",
 	"heal_left", "heal_rate", "heal_turnos",
 	"mana_heal_left", "mana_heal_rate", "mana_heal_turnos",
-	"estados", "foco_cargas", "imbue", "municion_cargada"]
+	"estados", "foco_cargas", "imbue", "municion_cargada",
+	"dominio"]   # (22/11) el dominio de habilidades y magias ganado en la pelea (se funde por maximo)
 
 
 # --- UNIRSE ---------------------------------------------------------------------------------
@@ -2040,7 +2041,7 @@ func enviar_accion(accion: Dictionary) -> void:
 static func accion_a_red(accion: Dictionary) -> Dictionary:
 	var a: Dictionary = IdsRed.a_red(accion)
 	if a.get("hab") is String and String(a["hab"]) != "":
-		a["hab"] = IdsRed.de(a["hab"])
+		a["hab"] = IdsRed.de_o_texto(a["hab"])   # (22/11) la montada con sus nodos va en texto
 	return a
 
 

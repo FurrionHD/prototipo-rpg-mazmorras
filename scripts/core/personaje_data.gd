@@ -354,6 +354,13 @@ func base_ataque_destreza() -> float:
 # arma te pone el set de la nueva (clave distinta, todavia sin entrada -> se autorrellena), y la
 # MISMA arma de otro tier o mejorada te conserva el tuyo (misma clave). Sin codigo de reseteo.
 @export var loadout_habilidades: Dictionary = {}
+# LOS ARBOLES (22/11, memoria rangos-magias-y-habilidades), todo por la RUTA de la ficha (Mejoras.ruta_base):
+#   nodos_elegidos {ruta: [ids de nodo]}  lo que ha cogido en el arbol de cada habilidad y magia
+#   dominio        {ruta: veces usada}    lo que pide cada nodo (Mejoras.sumar_dominio)
+#   sin_mejoras    {ruta: true}           el interruptor: la lleva a la pelea tal como es, sin sus nodos
+@export var nodos_elegidos: Dictionary = {}
+@export var dominio: Dictionary = {}
+@export var sin_mejoras: Dictionary = {}
 # tier + rareza + mejoras + durabilidad de lo que lleva PUESTO, por slot. Los dicts son los
 # MISMOS objetos que Game.item_meta[item] (por referencia): mejorar lo equipado mejora lo del baul.
 @export var equip_meta: Dictionary = {}
@@ -411,6 +418,9 @@ func _init() -> void:
 	equipped_spells = []
 	habilidades_aprendidas = []
 	loadout_habilidades = {}
+	nodos_elegidos = {}
+	dominio = {}
+	sin_mejoras = {}
 	equip_meta = meta_vacia()
 	aspecto = aspecto_nuevo(color)
 

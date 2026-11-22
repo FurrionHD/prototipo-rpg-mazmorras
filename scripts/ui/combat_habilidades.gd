@@ -4,6 +4,8 @@
 #  CARGAS que sueltas tu, la resolucion golpe a golpe y los estados que tiran. Lo demas, a _pantalla.
 # ============================================================
 extends RefCounted
+# (22/11) los arboles de habilidades (ver scripts/core/mejoras.gd)
+const Mejoras = preload("res://scripts/core/mejoras.gd")
 
 # La pantalla de la que es este tema: todo lo que no es del tema se le pide a ella. Tipada con su
 # script para que Godot deduzca los tipos (los := sobre ella); los NOMBRES no los comprueba al compilar:
@@ -618,6 +620,12 @@ func _empezar_retraso_jugador(ab: AbilityData) -> void:
 # 'soltando' = esta habilidad viene de una CARGA que acaba de llegar a cero (la dispara
 # _begin_player_turn). Cuando es true no se vuelve a cobrar ni a validar nada: la energia y el
 # cooldown se pagaron al EMPEZAR a cargar, hace dos turnos.
+# EL DOMINIO (22/11, memoria rangos-magias-y-habilidades): cada vez que la PAGA (energia y recarga), +1 a su ficha. Lo
+# cuenta quien lleva la pelea sobre el personaje de la pelea; en multi vuelve a su dueño con lo vivido (_VUELVE).
+func _sumar_dominio(ab: AbilityData) -> void:
+	Mejoras.sumar_dominio(Game.pj_de_combatant(_pantalla._player), ab)
+
+
 func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	_ya_respondieron.clear()
 	# EL ALIADO ELEGIDO SOLO VALE PARA LAS DE UN ALIADO (26/09, fallo suyo): se quedaba guardado de la ultima
@@ -705,6 +713,7 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		if _pantalla.retrasa(ab):
 			_pantalla._player.spend_energy(coste)
 			_pantalla._player.start_cooldown(ab)
+			_sumar_dominio(ab)
 			# La conversion (Canalizar) funde la energia al comprometerse: el maná, ahora (al salir ya no hay coste).
 			if es_conversion and coste > 0.0:
 				_pantalla._player.regen_mana(coste / ab.energia_a_mana)
@@ -715,6 +724,7 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		if ab.carga_turnos > 0:
 			_pantalla._player.spend_energy(coste)
 			_pantalla._player.start_cooldown(ab)
+			_sumar_dominio(ab)
 			# En el mapa el sitio se elige AL EMPEZAR y se queda: al soltarla cae ahi.
 			if en_mapa:
 				_pantalla.turno_mapa.guardar_carga(_pantalla._player, ab)
@@ -722,6 +732,7 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 			return
 		_pantalla._player.spend_energy(coste)
 		_pantalla._player.start_cooldown(ab)   # entra en cooldown (si la habilidad tiene)
+		_sumar_dominio(ab)
 	# LA MUNICION: se gasta al SOLTARLA (el Disparo cargado, al soltar la carga, no al empezarla).
 	_preparar_municion_hab(ab)
 	# Maná recuperado: FIJO (mana_gain) + por CONVERSION de toda la energia (energia_a_mana).

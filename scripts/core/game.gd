@@ -1042,6 +1042,8 @@ var _extraccion_drop_mult: float = 1.0
 # son variantes del mismo bicho. El baremo del enemigo comun son los valores por defecto
 # de EnemyData (28/3/3/4). El factor de piso (enemy_floor_stat_factor) las escala encima.
 
+# LOS ARBOLES de habilidades y magias (22/11): montar la habilidad con sus nodos (sin class_name: ver mejoras.gd).
+const Mejoras = preload("res://scripts/core/mejoras.gd")
 var _combat_scene: PackedScene = preload("res://scenes/ui/combat.tscn")
 # Los DOS de arriba se cargan solo por sus medidas: son las que dicen cuanto sitio de la pantalla se
 # queda el HUD de la pelea, y con eso se encuadra la camara del combate en el mapa (ver
@@ -3024,6 +3026,9 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -
 	lider().hechizos_aprendidos.clear()
 	lider().habilidades_aprendidas.clear()
 	lider().loadout_habilidades.clear()
+	lider().nodos_elegidos.clear()
+	lider().dominio.clear()
+	lider().sin_mejoras.clear()
 	lider().gacha_pity.clear()
 	lider().gacha_n50 = 0
 	lider().gacha_n200 = 0
@@ -3233,6 +3238,9 @@ func exportar_partida(para_volcado: bool = false) -> SaveData:
 	d.player_gacha_n200 = lider().gacha_n200
 	d.player_gacha_total = lider().gacha_total
 	d.loadout_habilidades = lider().loadout_habilidades.duplicate(true)
+	d.nodos_elegidos = lider().nodos_elegidos.duplicate(true)
+	d.dominio = lider().dominio.duplicate(true)
+	d.sin_mejoras = lider().sin_mejoras.duplicate(true)
 	# HERRAMIENTAS: el baul y las tres equipadas, como instancias (llevan tier/rareza/banda en su
 	# item_meta). Se guardan las VARIABLES y no los getters pico()/hoz()/hacha(): el getter devuelve
 	# la basica cuando no llevas nada, y guardar eso metería el .tres COMPARTIDO del proyecto dentro
@@ -4047,6 +4055,10 @@ func importar_partida(d: SaveData) -> void:
 	# autorrellena el set con las `inicial` del arma que lleve puesta.
 	lider().habilidades_aprendidas.assign(d.habilidades_aprendidas)
 	lider().loadout_habilidades = d.loadout_habilidades.duplicate(true)
+	# Los arboles (22/11). Una partida de antes llega sin ellos: vacios, que es no haber cogido nada.
+	lider().nodos_elegidos = (d.nodos_elegidos as Dictionary).duplicate(true) if d.nodos_elegidos != null else {}
+	lider().dominio = (d.dominio as Dictionary).duplicate(true) if d.dominio != null else {}
+	lider().sin_mejoras = (d.sin_mejoras as Dictionary).duplicate(true) if d.sin_mejoras != null else {}
 	# El pity del lider, la otra punta de lo que se escribe a mano al guardar. Una partida anterior
 	# al gacha llega con los tres a 0, que es empezar el pity de cero: correcto.
 	lider().gacha_pity = d.player_gacha_pity.duplicate(true) if d.player_gacha_pity else {}
@@ -9202,7 +9214,7 @@ func crear_player_combatant(pj: PersonajeData = null) -> Combatant:
 	c.current_mp = clampf(p.current_mp, 0.0, float(c.max_mp))
 	# SIN los huecos: el combatiente solo quiere saber QUE puede lanzar. Los submenus de magia se
 	# pintan seguidos (a 3 columnas), asi que un null aqui saldria como un boton fantasma.
-	c.spells = hechizos_equipados(p)
+	c.spells = hechizos_equipados(p).map(func(s): return Mejoras.para_combate(p, s))
 
 	_aplicar_loadout(c, p)
 	# El ESCUDO DE AGUA del set Marea: se monta con la pelea (esta fabrica es la de los dos caminos de entrada).
@@ -9241,7 +9253,8 @@ func _aplicar_loadout(c: Combatant, pj: PersonajeData = null) -> void:
 	# CON LOS HUECOS (los null incluidos): el orden en que las arrastraste es el orden en que salen en
 	# el submenu de combate, y eso solo se sostiene si el indice del hueco llega hasta aqui. Quien
 	# recorra abilities_combate tiene que saltarse los null.
-	var abils: Array = habilidades_con_huecos(p)
+	# (22/11) Con los nodos de su arbol (Mejoras): la copia montada solo vive en la pelea.
+	var abils: Array = habilidades_con_huecos(p).map(func(ab): return Mejoras.para_combate(p, ab))
 	# CARGAR, con arco o ballesta: siempre, detras de las cuatro (no ocupa hueco).
 	if lleva_arma_distancia(p):
 		abils = abils.duplicate()
@@ -15364,7 +15377,7 @@ func cds_de_rutas(rutas: Dictionary) -> Dictionary:
 	for ruta in rutas:
 		# Por la red llegan por ID (IdsRed: el lote del desgaste); de una ficha guardada, por ruta.
 		var ab = IdsRed.cargar(int(ruta)) if ruta is int \
-			else load(String(ruta)) if ResourceLoader.exists(String(ruta)) else null
+			else Mejoras.cargar(String(ruta))   # (22/11) tambien la montada con sus nodos
 		if ab is AbilityData:
 			d[ab] = int(rutas[ruta])
 	return d

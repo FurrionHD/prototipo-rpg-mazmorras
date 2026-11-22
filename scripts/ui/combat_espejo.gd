@@ -6,6 +6,8 @@
 #  unica puerta de salida de las respuestas del espejo. Lo demas, a _pantalla.
 # ============================================================
 extends RefCounted
+# (22/11) las habilidades y magias montadas con los nodos de su arbol (ver scripts/core/mejoras.gd)
+const Mejoras = preload("res://scripts/core/mejoras.gd")
 
 # La pantalla de la que es este tema: todo lo que no es del tema se le pide a ella. Tipada con su
 # script para que Godot deduzca los tipos (los := sobre ella); los NOMBRES no los comprueba al compilar:
@@ -451,7 +453,7 @@ func _valores(lista: Array, aliados: bool = false) -> Array:
 			# (20/11, prueba_mut_acechador_espejo) Y LO QUE CARGA (su id de red; -1 nada): en el espejo nadie lo ponia, y sin el
 			# ni la luna temblaba mientras el Cazador carga la Caida ni se veia la pose de carga de ningun bicho.
 			[c.costra, c.costra_max, c.hinchazon, c.cargas, c.carga_tope, c.costra_espera, c.costra_turnos, c.fase_luna,
-				c.paciencia_carga, IdsRed.de(c.charging) if c.charging != null else -1],
+				c.paciencia_carga, IdsRed.de_o_texto(c.charging) if c.charging != null else -1],   # (22/11) montada: texto
 			# El campo 13, LOS ESTADOS (04/11, playtest: la rata 'en las sombras' se veia entera). El maniqui no tenia ninguno, y
 			# todo lo que se pinta preguntandole a su estado (las sombras, el sigilo, la resina, la savia, la furia del rey...)
 			# decia que no en el espejo, que es donde se juega de verdad: la pelea la lleva la sala.
@@ -485,7 +487,7 @@ func _cds_activos(c: Combatant) -> Dictionary:
 	for ab in c.ability_cooldowns:
 		var turnos: int = int(c.ability_cooldowns[ab])
 		if turnos > 0 and ab != null and not String(ab.resource_path).is_empty():
-			out[IdsRed.de(ab)] = turnos
+			out[IdsRed.de_o_texto(ab)] = turnos   # (22/11) la montada con sus nodos, en texto
 	return out
 
 
@@ -629,11 +631,11 @@ func _aplicar_volatil(c: Combatant, v: Dictionary) -> void:
 		c.statuses.append(inst)
 	c.ability_cooldowns.clear()
 	for ruta in v.get("cd", {}):
-		var ab = load(String(ruta))
+		var ab = Mejoras.cargar(String(ruta))
 		if ab != null:
 			c.ability_cooldowns[ab] = int(v["cd"][ruta])
 	var carga: Array = v.get("carga", ["", 0])
-	c.charging = load(String(carga[0])) if String(carga[0]) != "" else null
+	c.charging = Mejoras.cargar(String(carga[0]))
 	c.charge_left = int(carga[1])
 	c.retrasando = c.charging != null and carga.size() > 2 and bool(carga[2])   # el retraso (06/10)
 	var imb: Array = v.get("imbue", [])
@@ -723,7 +725,7 @@ func retomar(estado: Dictionary, cs: Array, filas_e: Array, texto := "La pelea s
 			_pantalla._defendiendo[c] = true
 		# Un conjuro A MEDIAS no se pierde por cambiar de maquina: se sigue por la frase que iba.
 		if fila.has("casteo"):
-			var sp = load(String(fila["casteo"][0]))
+			var sp = Mejoras.cargar(String(fila["casteo"][0]))
 			if sp != null:
 				var cst: Array = fila["casteo"]
 				var idest: int = int(cst[2]) if cst.size() > 2 else -1
@@ -1746,8 +1748,9 @@ func _volcar(lista: Array, valores: Array) -> void:
 				lista[i].fase_luna = int(v[12][7])
 				lista[i].paciencia_carga = int(v[12][8])
 			if (v[12] as Array).size() >= 10:
-				var id_carga: int = int(v[12][9])
-				var carga_r: AbilityData = IdsRed.cargar(id_carga) as AbilityData if id_carga >= 0 else null
+				var id_carga = v[12][9]   # (22/11) numero, o texto si es una montada con sus nodos
+				var carga_r: AbilityData = (Mejoras.cargar(String(id_carga)) if id_carga is String
+					else IdsRed.cargar(int(id_carga)) if int(id_carga) >= 0 else null) as AbilityData
 				if lista[i].charging != carga_r:
 					lista[i].charging = carga_r
 		if v.size() > 13:
@@ -1757,7 +1760,7 @@ func _volcar(lista: Array, valores: Array) -> void:
 		if v.size() > 8:
 			lista[i].ability_cooldowns.clear()
 			for k in (v[8] as Dictionary):
-				var ab = IdsRed.cargar(int(k)) if k is int else load(String(k))
+				var ab = IdsRed.cargar(int(k)) if k is int else Mejoras.cargar(String(k))
 				if ab != null:
 					lista[i].ability_cooldowns[ab] = int((v[8] as Dictionary)[k])
 
