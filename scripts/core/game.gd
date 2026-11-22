@@ -9326,6 +9326,7 @@ func _aplicar_loadout(c: Combatant, pj: PersonajeData = null) -> void:
 	# aplicando al ataque normal (c.velocidad_mult, arriba), y el sobrepeso también — pero ese vive
 	# en el bucle de ATB (ver combat.gd, Combatant.overload_factor), no aquí.
 	c.magic_amp = float(m["magic_amp"])
+	c.amp_cura_corr = float(m.get("amp_cura_corr", 1.0))
 	c.mp_regen_turno = float(m["mp_regen_turno"])
 	c.mana_reduccion = float(m["mana_reduccion"])
 	c.cast_velocidad_mult = float(m["cast_velocidad_mult"])
@@ -9436,6 +9437,7 @@ func loadout_mods(pj: PersonajeData = null) -> Dictionary:
 	# El baston (main.es_magica) y/o la varita (off = WandData) aportan estos mods.
 	# La varita no añade mano de ataque (bloqueo/evasion ~0) -> se ignora en lo fisico.
 	var magic_amp := 1.0
+	var amp_cura_corr := 1.0   # (22/11) ver Upgrades.magic_mods
 	var mp_regen_turno := 0.0
 	var mana_reduccion := 0.0
 	var cast_vel_add := 0.0
@@ -9452,6 +9454,7 @@ func loadout_mods(pj: PersonajeData = null) -> Dictionary:
 		cast_base = main.cast_vel_mult
 		var mm := Upgrades.magic_mods(main.magic_amp, tier_mult(equip_tier("main", p)), equip_rareza("main", p), equip_mejoras("main", p))
 		magic_amp *= float(mm["magic_amp"])
+		amp_cura_corr *= float(mm.get("amp_cura_corr", 1.0))
 		mp_regen_turno += main.mp_regen_turno * float(mm["regen_mult"])
 		mana_reduccion += float(mm["mana_reduccion"])
 		cast_vel_add += float(mm["cast_vel_add"])
@@ -9461,6 +9464,7 @@ func loadout_mods(pj: PersonajeData = null) -> Dictionary:
 		var wand: WandData = p.equipped_off
 		var mo := Upgrades.magic_mods(wand.magic_amp, tier_mult(equip_tier("off", p)), equip_rareza("off", p), equip_mejoras("off", p))
 		magic_amp *= float(mo["magic_amp"])
+		amp_cura_corr *= float(mo.get("amp_cura_corr", 1.0))
 		mp_regen_turno += wand.mp_regen_turno * float(mo["regen_mult"])
 		mana_reduccion += float(mo["mana_reduccion"])
 		cast_vel_add += float(mo["cast_vel_add"])
@@ -9468,6 +9472,7 @@ func loadout_mods(pj: PersonajeData = null) -> Dictionary:
 		crit_dmg_magico += float(mo["crit_dmg_magico"])
 		cast_base = wand.cast_vel_mult   # al castear, la barra usa la velocidad de la varita
 	m["magic_amp"] = magic_amp
+	m["amp_cura_corr"] = amp_cura_corr
 	# El BONO va aqui, en la MECANICA, y no en el mp_regen_turno de baston.tres/varita.tres: los
 	# items son COPIAS (crear_item hace base.duplicate() y la copia se guarda en la partida), asi
 	# que tocar el .tres solo afectaria a los que se forjaran a partir de ahora. Puesto aqui vale

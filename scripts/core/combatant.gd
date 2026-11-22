@@ -106,6 +106,8 @@ var spells: Array = []
 var abilities_combate: Array = []
 # Amplificador de daño magico del arma (bastones/varitas, KAN-95). Neutro por defecto.
 var magic_amp: float = 1.0
+# (22/11) Lo que devuelve el magic_amp a la curva vieja del baston, SOLO para las curas (ver Upgrades.magic_mods).
+var amp_cura_corr: float = 1.0
 # Maná por turno que aporta el arma magica (KAN-95), PLANO y ya resuelto (base del arma ×
 # tier × rareza × mejoras). 0 = sin arma magica: no regeneras por turno, y ademas los nucleos
 # de los enemigos te cunden lo minimo (ver StatsMath.mp_por_kill).

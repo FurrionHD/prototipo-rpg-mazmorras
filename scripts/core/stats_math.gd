@@ -273,17 +273,19 @@ static func damage(attack: float, defense: float) -> float:
 #      igual que hoy) y TOPE del 75 %. Fisica y magica igual, en los dos sentidos.
 # ============================================================
 static var reglas_nuevas := false
-# (21/11) DOS INTERRUPTORES MAS, APAGADOS DE SERIE (solo el simulador; memoria magias-valoracion-21-11):
+# (21/11) DOS INTERRUPTORES MAS (memoria magias-valoracion-21-11). magia_suma ENCENDIDO EN EL JUEGO desde el 22/11
+# (el jefe, tras la investigacion); bakeo_suave apagado (probado: no hace falta por ahora). El simulador los cambia:
 #   magia_suma: lo que el mago GUARDA al subir de nivel (magia_base_factor) va como la base del guerrero: SUMA con lo que
 #     pone el baston (guardado + (magic_amp - 1)) en vez de multiplicarlo todo. En el nivel 1 (guardado 1) da lo mismo
 #     que hoy; arriba quita el salto de x2,8 por nivel que tenia el mago y el guerrero no.
 #   bakeo_suave: lo que se guarda al subir cuenta ENTERO hasta este valor de stat y a BAKEO_SUAVE_PESO por encima
 #     (-1 = apagado). Para que subir con 600 o con 900 no separe para siempre la vida/defensa/velocidad.
-static var magia_suma := false
+static var magia_suma := true
 static var bakeo_suave := -1.0
-# El AJUSTE GENERAL del daño de las magias (solo el simulador, 'magia_mult'; 1 = como hoy). Para buscar el que deja la
-# magia media en x1,8 del cuerpo a cuerpo sin tocar una a una.
-static var magia_dano_mult := 1.0
+# El AJUSTE GENERAL del daño de las magias (22/11, EN EL JUEGO): con magia_suma y el baston por tier como un arma, 0,54
+# deja la magia TIPICA (mediana de las 14, cada una en su papel) en x1,8 del arma TIPICA en todos los pisos (tanda
+# inv_14_ajuste). Las fuertes siguen fuertes: baja todas por igual. El simulador lo cambia con 'magia_mult'.
+static var magia_dano_mult := 0.54
 const BAKEO_SUAVE_PESO := 0.5
 
 static func stat_para_bakeo(v: float) -> float:
@@ -752,8 +754,10 @@ const CURA_BASTON_PESO := 0.5
 
 static func resolve_heal(attacker: Combatant, spell: SpellData, frac: float = 1.0) -> float:
 	var raw: float = spell.dano_base * frac
-	var baston: float = 1.0 + (attacker.magic_amp - 1.0) * CURA_BASTON_PESO
-	return raw * magia_factor(attacker.hab("magia") * CURA_MAGIA_PESO) * amp_con_guardado(baston, attacker.magia_base_factor) \
+	# (22/11) LAS CURAS SE QUEDAN COMO ESTABAN (su tabla del 21/09): el baston con su curva vieja (amp_cura_corr) y lo
+	# guardado multiplicando, como antes de magia_suma. El cambio del 22/11 era para el DAÑO.
+	var baston: float = 1.0 + (attacker.magic_amp * attacker.amp_cura_corr - 1.0) * CURA_BASTON_PESO
+	return raw * magia_factor(attacker.hab("magia") * CURA_MAGIA_PESO) * baston * attacker.magia_base_factor \
 		* SPELL_DAMAGE_MULT * attacker.status_spell_dmg_mult()
 
 

@@ -663,10 +663,10 @@ static func rapidez_escala(vel_arma: float) -> float:
 # (magic_tier_ratio) y el regen de maná con una mas empinada (regen_tier_ratio). La Eficiencia
 # y la Celeridad son porcentajes con tope y no lo llevan: son topes de balance.
 # Factor por el que el TIER escala el magic_amp (curva suave, muy por debajo del melee).
-# (21/11, APAGADO de serie; solo el simulador, 'baston_tier=1'): el baston crece por tier COMO UN ARMA (x2,2) y sin el
+# (21/11; ENCENDIDO EN EL JUEGO desde el 22/11, el simulador lo cambia con 'baston_tier'): el baston crece por tier COMO UN ARMA (x2,2) y sin el
 # recorte de MAGIA_RECORTE_T2. La curva suave y el recorte compensaban que lo guardado del mago lo multiplicaba todo; con
 # StatsMath.magia_suma ya no hace falta (memoria magias-valoracion-21-11).
-static var baston_tier_arma := false
+static var baston_tier_arma := true
 
 static func magic_tier_ratio(tmult: float) -> float:
 	return tmult if baston_tier_arma else pow(tmult, MAGIC_TIER_POWER)
@@ -694,6 +694,10 @@ static func magic_mods(base_amp: float, tmult: float, rareza: int, mejoras: Dict
 		amp *= MAGIA_RECORTE_T2
 	return {
 		"magic_amp": amp,
+		# LAS CURAS NO CAMBIAN con el baston por tier como un arma (22/11): lo que hay que multiplicarle al magic_amp para
+		# volver al de la curva vieja (la suave y el recorte del T2). Ver StatsMath.resolve_heal.
+		"amp_cura_corr": (pow(tmult, MAGIC_TIER_POWER) * (MAGIA_RECORTE_T2 if tmult > 1.0001 else 1.0) / tmult)
+			if baston_tier_arma else 1.0,
 		"mana_reduccion": minf(cap_rareza(EFICIENCIA_CAP, rareza), dim_sum(EFICIENCIA_STEP, _count(mejoras, EFICIENCIA)) * rmult),
 		"cast_vel_add": dim_sum_suave(CELERIDAD_STEP, _count(mejoras, CELERIDAD), CELERIDAD_DECAY) * rmult,
 		# REGEN de maná: multiplicador COMPLETO del regen base del arma, no solo el de la mejora.

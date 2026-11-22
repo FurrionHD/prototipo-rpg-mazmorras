@@ -418,7 +418,7 @@ func _leer_args() -> void:
 			"sin_mutantes": _sin_mutantes = kv[1] == "1"
 			"sin_jefes": _sin_jefes = kv[1] == "1"
 			# (21/11, memoria magias-valoracion-21-11) LO QUE SE GUARDA AL SUBIR DE NIVEL Y EL JUGADOR QUE NO VA AL ESTANDAR:
-			#   magia_suma=1    el mago guarda como el guerrero (StatsMath.magia_suma)
+			#   magia_suma=0|1  el mago guarda como el guerrero (StatsMath.magia_suma; DE SERIE 1 desde el 22/11)
 			#   bakeo_suave=600 lo guardado cuenta a medias por encima de 600 (StatsMath.bakeo_suave)
 			#   stats_nivel=600|900  el personaje llega a ESO al final de cada nivel (y es lo que guarda) en vez de a 750
 			"magia_suma": StatsMath.magia_suma = kv[1] == "1"

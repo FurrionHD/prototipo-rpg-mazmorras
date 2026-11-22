@@ -104,8 +104,9 @@ func _curas() -> int:
 		var ab := Abilities.new()
 		ab.magia = int(c[3])
 		var lanzador := Combatant.new("prueba", 1, ab, 199.0, 0.0, 0.0, 0.0)
-		lanzador.magic_amp = float(Upgrades.magic_mods(1.7, Game.tier_mult(int(c[0])), int(c[1]),
-			{Upgrades.POTENCIA: int(c[2])})["magic_amp"])
+		var mm: Dictionary = Upgrades.magic_mods(1.7, Game.tier_mult(int(c[0])), int(c[1]), {Upgrades.POTENCIA: int(c[2])})
+		lanzador.magic_amp = float(mm["magic_amp"])
+		lanzador.amp_cura_corr = float(mm.get("amp_cura_corr", 1.0))   # (22/11) como Game.loadout_mods: las curas, con la curva vieja
 		var v: float = vendaje.cura_de(199.0, StatsMath.resolve_heal(lanzador, vendaje))
 		var l: float = luz.cura_de(199.0, StatsMath.resolve_heal(lanzador, luz))
 		var ok: bool = absf(v - float(c[4])) <= 1.0 and absf(l - float(c[5])) <= 2.0

@@ -755,7 +755,7 @@ f921 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f921 998 PULSA 🔥 ¡Lanzar Shock térmico fulminante!
 f922 LOG 🗣️ Frases: «Arde hasta el hueso» ✓ · «Y ahora, hiela» ✓ · «Que el vidrio se parta» ✓
 f922 Agirato ochinan hp=198.593 mp=22.444 en=177.425
-f922 Rey Slime hp=471.985 mp=21.188 en=0.000
+f922 Rey Slime hp=636.350 mp=21.188 en=0.000
 f922 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f922 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f923 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -887,7 +887,7 @@ f985 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f985 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f985 999 PULSA ⚡ ¡Soltar Golpe demoledor!
 f986 LOG … 9,99 de daño en total: 1. Rey Slime (6,29), 2. Slime (3,7)  Causa Aturdido.
-f986 Rey Slime hp=466.951 mp=21.188 en=0.000
+f986 Rey Slime hp=631.315 mp=21.188 en=0.000
 f986 Slime hp=28.952 mp=20.429 en=0.000
 f986 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f986 Slime venenoso hp=0.000 mp=20.363 en=0.000
@@ -1378,7 +1378,7 @@ f1223 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1223 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1223 998 PULSA Atacar
 f1224 LOG Catalardio golpea con Martillo grande e inflige 10,82 de daño.
-f1224 Rey Slime hp=458.297 mp=21.188 en=0.000
+f1224 Rey Slime hp=622.661 mp=21.188 en=0.000
 f1224 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1224 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1225 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -1506,7 +1506,7 @@ f1284 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1284 998 PULSA Atacar
 f1285 LOG ¡Crítico! Agirato ochinan golpea con Bastón e inflige 9,67 de daño. 💥  Recupera 0,2 de maná. 🔷
 f1285 Agirato ochinan hp=198.593 mp=23.066 en=177.425
-f1285 Rey Slime hp=450.559 mp=21.188 en=0.000
+f1285 Rey Slime hp=614.923 mp=21.188 en=0.000
 f1285 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1285 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1286 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -1673,7 +1673,7 @@ f1362 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1362 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1362 999 PULSA ⚡ ¡Soltar Tajo devastador!
 f1363 LOG … 23,46 de daño.
-f1363 Rey Slime hp=431.788 mp=21.188 en=0.000
+f1363 Rey Slime hp=596.152 mp=21.188 en=0.000
 f1363 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1363 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1364 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -2164,7 +2164,7 @@ f1600 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1600 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1600 998 PULSA Atacar
 f1601 LOG Catalardio golpea con Martillo grande e inflige 9,65 de daño.
-f1601 Rey Slime hp=424.064 mp=21.188 en=0.000
+f1601 Rey Slime hp=588.429 mp=21.188 en=0.000
 f1601 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1601 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1602 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -2418,7 +2418,7 @@ f1723 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1723 999 PULSA Atacar
 f1724 LOG Daniel golpea con Maza pequeña e inflige 4,42 de daño.
 f1724 Daniel hp=178.227 mp=20.000 en=181.025
-f1724 Rey Slime hp=420.532 mp=21.188 en=0.000
+f1724 Rey Slime hp=584.896 mp=21.188 en=0.000
 f1724 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1724 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1725 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -2563,7 +2563,7 @@ f1791 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1791 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1791 998 PULSA ⚡ ¡Soltar Bastonazo!
 f1792 LOG … 8,49 de daño.
-f1792 Rey Slime hp=413.742 mp=21.188 en=0.000
+f1792 Rey Slime hp=578.107 mp=21.188 en=0.000
 f1792 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1792 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1793 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -2866,17 +2866,19 @@ f1940 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1940 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1941 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1941 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f1941 998 PULSA Atacar
-f1942 LOG Catalardio golpea con Martillo grande e inflige 9,75 de daño.
-f1942 Rey Slime hp=405.940 mp=21.188 en=0.000
+f1941 998 PULSA Habilidad
 f1942 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1942 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1943 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1943 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1944 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1944 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f1944 998 PULSA _ability_box: Golpe sísmico  (60 EN)
+f1945 LOG ⏳ Catalardio prepara Golpe sísmico. Si queda Aturdido, se interrumpe.
+f1945 Catalardio hp=198.733 mp=24.620 en=121.275
 f1945 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1945 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f1946 LOG ⏳ 5. Slime abisal prepara Reventón. ¡Apártate! Si queda Aturdido, se interrumpe.
 f1946 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1946 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1947 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -2957,6 +2959,7 @@ f1984 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1984 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1985 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1985 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f1986 LOG ⏳ 2. Slime prepara Reventón. ¡Apártate! Si queda Aturdido, se interrumpe.
 f1986 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1986 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1987 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -2973,8 +2976,6 @@ f1992 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1992 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1993 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1993 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f1994 LOG 5. Slime abisal ataca a Catalardio y le inflige 0,22 de daño.
-f1994 Catalardio hp=198.512 mp=24.620 en=181.275
 f1994 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1994 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1995 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -3027,30 +3028,41 @@ f2018 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2018 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2019 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2019 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2020 LOG Turno de Agirato ochinan. Esperando su acción...
 f2020 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2020 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2021 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2021 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2022 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2022 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2022 998 PULSA Magia
 f2023 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2023 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2024 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2024 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2025 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2025 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2025 998 PULSA _spell_box: Eclipse  (19,33 de maná)
+f2026 LOG 🔮 Agirato ochinan recita Eclipse (1/4). Esperando...
 f2026 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2026 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2027 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2027 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2028 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2028 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2028 998 PULSA frase Luz y oscuridad
+f2029 LOG Turno de Daniel. Esperando su acción...
+f2029 Agirato ochinan hp=198.593 mp=36.500 en=177.425
+f2029 Daniel hp=175.227 mp=20.000 en=181.025
 f2029 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2029 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2030 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2030 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2031 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2031 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2031 999 PULSA Atacar
+f2032 LOG ¡Crítico! Daniel golpea con Maza pequeña e inflige 7,36 de daño. 💥
+f2032 Rey Slime hp=572.218 mp=21.188 en=0.000
 f2032 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2032 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2033 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -3095,8 +3107,6 @@ f2052 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2052 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2053 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2053 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2054 LOG 2. Slime ataca a Daniel y le inflige 0,36 de daño.  Causa Pegajoso a Daniel.
-f2054 Daniel hp=177.862 mp=20.000 en=181.025
 f2054 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2054 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2055 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -3157,12 +3167,17 @@ f2082 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2082 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2083 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2083 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2084 LOG Turno de Dasui. Esperando su acción...
 f2084 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2084 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2085 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2085 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2086 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2086 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2086 999 PULSA Atacar
+f2087 LOG Dasui golpea con Mandobles e inflige 8,68 de daño.
+f2087 Dasui hp=199.642 mp=20.000 en=164.300
+f2087 Rey Slime hp=565.275 mp=21.188 en=0.000
 f2087 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2087 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2088 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -3205,41 +3220,30 @@ f2106 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2106 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2107 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2107 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2108 LOG Turno de Agirato ochinan. Esperando su acción...
 f2108 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2108 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2109 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2109 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2110 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2110 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2110 998 PULSA Magia
 f2111 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2111 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2112 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2112 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2113 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2113 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2113 998 PULSA _spell_box: Eclipse  (19,33 de maná)
-f2114 LOG 🔮 Agirato ochinan recita Eclipse (1/4). Esperando...
 f2114 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2114 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2115 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2115 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2116 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2116 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2116 998 PULSA frase Luz y oscuridad
-f2117 LOG Turno de Daniel. Esperando su acción...
-f2117 Agirato ochinan hp=198.593 mp=36.500 en=177.425
-f2117 Daniel hp=174.862 mp=20.000 en=181.025
 f2117 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2117 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2118 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2118 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2119 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2119 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2119 999 PULSA Atacar
-f2120 LOG Daniel golpea con Maza pequeña e inflige 4,38 de daño.
-f2120 Rey Slime hp=402.438 mp=21.188 en=0.000
 f2120 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2120 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2121 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -3304,6 +3308,7 @@ f2150 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2150 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2151 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2151 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2152 LOG ⏳ 1. Rey Slime prepara Brote. ¡Apártate! Si queda Aturdido, se interrumpe.
 f2152 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2152 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2153 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -3344,17 +3349,12 @@ f2170 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2170 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2171 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2171 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2172 LOG Turno de Dasui. Esperando su acción...
 f2172 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2172 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2173 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2173 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2174 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2174 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2174 999 PULSA Atacar
-f2175 LOG Dasui golpea con Mandobles e inflige 10,8 de daño.
-f2175 Dasui hp=199.642 mp=20.000 en=164.300
-f2175 Rey Slime hp=393.795 mp=21.188 en=0.000
 f2175 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2175 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2176 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -3379,14 +3379,20 @@ f2185 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2185 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2186 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2186 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2187 LOG Catalardio ya puede soltar Golpe sísmico. Esperando su objetivo...
 f2187 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2187 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2188 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2188 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2189 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2189 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2189 998 PULSA ⚡ ¡Soltar Golpe sísmico!
+f2190 LOG … 31,85 de daño en total: 1. Rey Slime (16,93), 2. Slime (7,88), 5. Slime abisal (7,04)
+f2190 Rey Slime hp=551.732 mp=21.188 en=0.000
+f2190 Slime hp=21.074 mp=20.429 en=0.000
 f2190 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2190 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2190 Slime abisal hp=52.311 mp=20.594 en=0.000
 f2191 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2191 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2192 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -3485,7 +3491,6 @@ f2238 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2238 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2239 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2239 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2240 LOG ⏳ 1. Rey Slime prepara Brote. ¡Apártate! Si queda Aturdido, se interrumpe.
 f2240 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2240 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2241 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -3502,6 +3507,7 @@ f2246 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2246 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2247 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2247 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2248 LOG ⚡ 5. Slime abisal se prepara para Reventón. ¡Prepárate! Si queda Aturdido, se interrumpe.
 f2248 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2248 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2249 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -3570,6 +3576,7 @@ f2280 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2280 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2281 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2281 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2282 LOG ⚡ 2. Slime se prepara para Reventón. ¡Prepárate! Si queda Aturdido, se interrumpe.
 f2282 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2282 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2283 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -3620,7 +3627,6 @@ f2305 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2305 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2306 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2306 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2307 LOG ⚡ 1. Rey Slime se prepara para Brote. ¡Prepárate! Si queda Aturdido, se interrumpe.
 f2307 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2307 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2308 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -3675,6 +3681,7 @@ f2332 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2332 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2333 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2333 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2334 LOG ⚡ 1. Rey Slime se prepara para Brote. ¡Prepárate! Si queda Aturdido, se interrumpe.
 f2334 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2334 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2335 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -3691,29 +3698,24 @@ f2340 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2340 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2341 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2341 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2342 LOG Turno de Catalardio. Esperando su acción...
 f2342 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2342 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2343 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2343 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2344 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2344 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2344 998 PULSA Objeto
 f2345 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2345 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2346 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2346 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2347 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2347 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2347 998 PULSA _objeto_box: Poción de maná media +1  x2
 f2348 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2348 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2349 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2349 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2350 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2350 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2350 998 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  37/37 🔷)
-f2351 LOG Catalardio le da Poción de maná media +1 a Agirato ochinan. 🔷 38 de maná: 10 ahora y 28 durante los 3 turnos siguientes.
 f2351 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2351 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2352 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -3736,7 +3738,6 @@ f2360 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2360 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2361 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2361 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2362 LOG ⏳ 2. Slime prepara Reventón. ¡Apártate! Si queda Aturdido, se interrumpe.
 f2362 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2362 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2363 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -3773,63 +3774,65 @@ f2378 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2378 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2379 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2379 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2380 LOG Turno de Daniel. Esperando su acción...
 f2380 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2380 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2381 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2381 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2382 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2382 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2382 999 PULSA Defender
+f2383 LOG Daniel se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️
+f2383 Daniel hp=175.227 mp=20.000 en=166.025
 f2383 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2383 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2384 LOG Turno de Dasui. Esperando su acción...
 f2384 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2384 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2385 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2385 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2386 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2386 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2386 999 PULSA Habilidad
 f2387 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2387 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2388 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2388 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2389 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2389 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2389 999 PULSA _ability_box: atras (apagados: Tajo devastador  (72 EN)  ⏳1 [⛔ Se recarga en 1 turno])
 f2390 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2390 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2391 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2391 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2392 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2392 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2392 999 PULSA Atacar
+f2393 LOG Dasui golpea con Mandobles e inflige 10,57 de daño.
+f2393 Dasui hp=199.642 mp=20.000 en=181.300
+f2393 Rey Slime hp=543.277 mp=21.188 en=0.000
 f2393 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2393 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2394 LOG Turno de Dasui. Esperando su acción...
 f2394 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2394 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2395 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2395 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2396 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2396 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2396 999 PULSA Defender
-f2397 LOG Dasui se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️
-f2397 Dasui hp=199.642 mp=20.000 en=149.300
 f2397 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2397 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2398 LOG Turno de Daniel. Esperando su acción...
 f2398 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2398 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2399 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2399 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2400 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2400 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2400 999 PULSA Habilidad
 f2401 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2401 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2402 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2402 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2403 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2403 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2403 999 PULSA _ability_box: Golpe demoledor  (42 EN)
-f2404 LOG ⏳ 5. Slime abisal prepara Presión del abismo. ¡Apártate! Si queda Aturdido, se interrumpe.
-f2404 Daniel hp=174.862 mp=20.000 en=139.025
 f2404 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2404 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2405 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -3916,15 +3919,12 @@ f2445 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2445 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2446 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2446 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2447 LOG 🔮 Agirato ochinan recita Eclipse (2/4). Esperando...
 f2447 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2447 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2448 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2448 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2449 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2449 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2449 998 PULSA frase Oscuridad y luz
-f2450 LOG ✓ Frase correcta. Sigue en el próximo turno.
 f2450 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2450 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2451 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -3941,12 +3941,15 @@ f2456 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2456 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2457 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2457 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2458 LOG 🔮 Agirato ochinan recita Eclipse (2/4). Esperando...
 f2458 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2458 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2459 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2459 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2460 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2460 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2460 998 PULSA frase Oscuridad y luz
+f2461 LOG ✓ Frase correcta. Sigue en el próximo turno.
 f2461 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2461 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2462 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -3961,13 +3964,17 @@ f2466 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2466 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2467 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2467 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2468 LOG Turno de Catalardio. Esperando su acción...
 f2468 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2468 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2469 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2469 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2470 LOG ⚡ 2. Slime se prepara para Reventón. ¡Prepárate! Si queda Aturdido, se interrumpe.
 f2470 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2470 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2470 998 PULSA Atacar
+f2471 LOG Catalardio golpea con Martillo grande e inflige 11,23 de daño.
+f2471 Catalardio hp=198.733 mp=24.620 en=176.275
+f2471 Rey Slime hp=534.289 mp=21.188 en=0.000
 f2471 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2471 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2472 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -4030,17 +4037,12 @@ f2500 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2500 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2501 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2501 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2502 LOG Daniel ya puede soltar Golpe demoledor. Esperando su objetivo...
 f2502 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2502 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2503 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2503 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2504 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2504 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2504 999 PULSA ⚡ ¡Soltar Golpe demoledor!
-f2505 LOG … 11,93 de daño en total: 1. Rey Slime (6,19), 2. Slime (5,74)
-f2505 Rey Slime hp=388.840 mp=21.188 en=0.000
-f2505 Slime hp=23.215 mp=20.429 en=0.000
 f2505 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2505 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2506 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -4099,6 +4101,9 @@ f2532 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2532 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2533 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2533 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2534 LOG … 0,38 de daño en total: Daniel (0,25), Dasui (0,13)  🛡️ Daniel aguanta en guardia (menos daño).
+f2534 Dasui hp=199.517 mp=20.000 en=181.300
+f2534 Daniel hp=174.977 mp=20.000 en=166.025
 f2534 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2534 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2535 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -4155,7 +4160,6 @@ f2560 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2560 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2561 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2561 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2562 LOG ⚡ 5. Slime abisal se prepara para Presión del abismo. ¡Prepárate! Si queda Aturdido, se interrumpe.
 f2562 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2562 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2563 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -4230,6 +4234,9 @@ f2597 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2597 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2598 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2598 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2599 LOG … 0,43 de daño en total: Daniel (0,31), Dasui (0,13)  🛡️ Daniel aguanta en guardia (menos daño).
+f2599 Dasui hp=199.392 mp=20.000 en=181.300
+f2599 Daniel hp=174.668 mp=20.000 en=166.025
 f2599 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2599 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2600 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -4238,270 +4245,2189 @@ f2601 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2601 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2602 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2602 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f2603 LOG 1. Rey Slime usa Brote.  ¡Brotan 2 slimes a su lado! 🟢
-f2603 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2665 LOG Turno de Catalardio. Esperando su acción...
-f2667 998 PULSA Objeto
-f2670 998 PULSA _objeto_box: Poción de maná media +1  x1
-f2673 998 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  37/37 🔷)
-f2674 LOG Catalardio le da Poción de maná media +1 a Agirato ochinan. 🔷 38 de maná: 10 ahora y 28 durante los 3 turnos siguientes.
-f2682 LOG Turno de Dasui. Esperando su acción...
-f2684 999 PULSA Defender
-f2685 LOG Dasui se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️
-f2685 Dasui hp=199.642 mp=20.000 en=134.300
-f2687 LOG 🔮 Agirato ochinan recita Eclipse (3/4). Esperando...
-f2689 998 PULSA frase Feliz aniversario 20
-f2690 LOG ✓ Frase correcta. Sigue en el próximo turno.
-f2727 LOG Turno de Daniel. Esperando su acción...
-f2729 999 PULSA Atacar
-f2730 LOG ¡Crítico! Daniel golpea con Maza pequeña e inflige 6,48 de daño. 💥
-f2730 Daniel hp=174.862 mp=20.000 en=181.025
-f2730 Rey Slime hp=384.301 mp=21.188 en=0.000
-f2781 LOG … 0,96 de daño en total: Daniel (0,84), Dasui (0,13)  🛡️ Dasui aguanta en guardia (menos daño).
-f2781 Dasui hp=199.517 mp=20.000 en=134.300
-f2781 Daniel hp=174.026 mp=20.000 en=181.025
-f2853 LOG 1. Rey Slime ataca a Daniel y le inflige 0,84 de daño.  Causa Pegajoso a Daniel.
-f2853 Daniel hp=173.190 mp=20.000 en=181.025
-f2907 LOG 🔮 Agirato ochinan recita Eclipse (4/4). Esperando...
-f2909 998 PULSA frase Kingdom Hearts
-f2910 LOG … 0,92 de daño.
-f2910 Daniel hp=172.273 mp=20.000 en=181.025
-f2962 LOG ⏳ 3. Slime venenoso prepara Escupitajo tóxico. ¡Apártate! Si queda Aturdido, se interrumpe.
-f2994 LOG Turno de Catalardio. Esperando su acción...
-f2996 998 PULSA Objeto
-f2999 998 PULSA _objeto_box: Poción de maná media +2  x2
-f3002 998 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  37/37 🔷)
-f3003 LOG Catalardio le da Poción de maná media +2 a Agirato ochinan. 🔷 46 de maná: 9 ahora y 37 durante los 4 turnos siguientes.
-f3007 LOG Turno de Dasui. Esperando su acción...
-f3009 999 PULSA Defender
-f3010 LOG Dasui se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️
-f3010 Dasui hp=199.517 mp=20.000 en=119.300
-f3012 LOG ⏳ 4. Slime abisal prepara Presión del abismo. ¡Apártate! Si queda Aturdido, se interrumpe.
-f3070 LOG … 0,12 de daño.  🛡️ Dasui aguanta en guardia (menos daño).
-f3070 Dasui hp=199.397 mp=20.000 en=119.300
-f3134 LOG Turno de Daniel. Esperando su acción...
-f3136 999 PULSA Habilidad
-f3139 999 PULSA _ability_box: Guardia de carne  (52 EN)
-f3140 LOG ⏳ Daniel prepara Guardia de carne. Si queda Aturdido, se interrumpe.
-f3140 Daniel hp=172.273 mp=20.000 en=129.025
-f3142 LOG ⚡ 4. Slime abisal se prepara para Presión del abismo. ¡Prepárate! Si queda Aturdido, se interrumpe.
-f3174 LOG ⏳ 2. Slime prepara Placaje viscoso. ¡Apártate! Si queda Aturdido, se interrumpe.
-f3207 LOG Agirato ochinan tiene el conjuro listo. Esperando...
-f3209 998 PULSA 🔥 ¡Lanzar Eclipse!
-f3210 LOG 🗣️ Frases: «Luz y oscuridad» ✓ · «Oscuridad y luz» ✓ · «Feliz aniversario 20» ✓ · «Kingdom Hearts» ✓
-f3210 Agirato ochinan hp=198.593 mp=17.173 en=177.425
-f3210 Rey Slime hp=173.407 mp=21.188 en=0.000
-f3210 Slime hp=0.000 mp=20.429 en=0.000
-f3210 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f3210 Slime abisal hp=0.000 mp=20.594 en=0.000
-f3291 LOG ⏳ 1. Rey Slime prepara Aplastamiento. ¡Apártate! Si queda Aturdido, se interrumpe.
-f3328 LOG Turno de Catalardio. Esperando su acción...
-f3330 998 PULSA Atacar
-f3331 LOG Catalardio golpea con Martillo grande e inflige 10,5 de daño.
-f3331 Rey Slime hp=162.912 mp=21.188 en=0.000
-f3382 LOG Turno de Dasui. Esperando su acción...
-f3384 999 PULSA Objeto
-f3387 999 PULSA _objeto_box: Poción de maná media +2  x1
-f3390 999 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  17/37 🔷)
-f3391 LOG Dasui le da Poción de maná media +2 a Agirato ochinan. 🔷 46 de maná: 9 ahora y 37 durante los 4 turnos siguientes.
-f3391 Agirato ochinan hp=198.593 mp=26.449 en=177.425
-f3399 LOG Daniel ya puede soltar Guardia de carne. Esperando su objetivo...
-f3401 999 PULSA ⚡ ¡Soltar Guardia de carne!
-f3402 LOG Daniel usa Guardia de carne.
-f3402 Daniel hp=344.546 mp=20.000 en=129.025
-f3471 LOG … 1,99 de daño en total: Daniel (1,69), Catalardio (0), Dasui (0), Agirato ochinan (0,3)  Causa Pegajoso.
-f3471 Agirato ochinan hp=198.297 mp=26.449 en=177.425
-f3471 Daniel hp=342.851 mp=20.000 en=129.025
-f3541 LOG Turno de Agirato ochinan. Esperando su acción...
-f3541 Agirato ochinan hp=198.297 mp=36.500 en=177.425
-f3543 998 PULSA Habilidad
-f3546 998 PULSA _ability_box: Bastonazo  (26 EN)
-f3547 LOG ⏳ Agirato ochinan prepara Bastonazo. Si queda Aturdido, se interrumpe.
-f3547 Agirato ochinan hp=198.297 mp=36.500 en=151.425
-f3573 LOG Turno de Dasui. Esperando su acción...
-f3575 999 PULSA Atacar
-f3576 LOG Dasui golpea con Mandobles e inflige 9,52 de daño.
-f3576 Dasui hp=199.397 mp=20.000 en=174.300
-f3576 Rey Slime hp=153.393 mp=21.188 en=0.000
-f3629 LOG Agirato ochinan ya puede soltar Bastonazo. Esperando su objetivo...
-f3631 998 PULSA ⚡ ¡Soltar Bastonazo!
-f3632 LOG … 8,59 de daño.  Causa Lento.
-f3632 Rey Slime hp=144.803 mp=21.188 en=0.000
-f3683 LOG Turno de Catalardio. Esperando su acción...
-f3685 998 PULSA Objeto
-f3688 998 PULSA _objeto_box: Poción de maná media +3  x1
-f3691 998 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
-f3692 LOG Catalardio le da Poción de maná media +3 a Agirato ochinan. 🔷 54 de maná: 11 ahora y 43 durante los 4 turnos siguientes.
-f3698 LOG Turno de Daniel. Esperando su acción...
-f3700 999 PULSA Defender
-f3701 LOG Daniel se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️
-f3701 Daniel hp=342.851 mp=20.000 en=114.025
-f3730 LOG ⏳ 1. Rey Slime prepara Marea corrosiva. ¡Apártate! Si queda Aturdido, se interrumpe.
-f3783 LOG Turno de Agirato ochinan. Esperando su acción...
-f3785 998 PULSA Habilidad
-f3788 998 PULSA _ability_box: atras (apagados: Bastonazo  (26 EN)  ⏳2 [⛔ Se recarga en 2 turnos])
-f3791 998 PULSA Atacar
-f3792 LOG ¡Crítico! Agirato ochinan golpea con Bastón e inflige 8,14 de daño. 💥
-f3792 Agirato ochinan hp=198.297 mp=36.500 en=177.425
-f3792 Rey Slime hp=136.666 mp=21.188 en=0.000
-f3847 LOG Turno de Dasui. Esperando su acción...
-f3849 999 PULSA Atacar
-f3850 LOG Dasui golpea con Mandobles e inflige 10,54 de daño.
-f3850 Dasui hp=199.397 mp=20.000 en=181.300
-f3850 Rey Slime hp=126.128 mp=21.188 en=0.000
-f3907 LOG Turno de Catalardio. Esperando su acción...
-f3909 998 PULSA Atacar
-f3910 LOG Catalardio golpea con Martillo grande e inflige 11 de daño.
-f3910 Rey Slime hp=115.128 mp=21.188 en=0.000
-f3967 LOG Turno de Daniel. Esperando su acción...
-f3969 999 PULSA Objeto
-f3972 999 PULSA _objeto_box: Poción de maná menor +1  x1
-f3975 999 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
-f3976 LOG Daniel le da Poción de maná menor +1 a Agirato ochinan. 🔷 17 de maná: 4 ahora y 13 durante los 3 turnos siguientes.
-f3982 LOG ⚡ 1. Rey Slime se prepara para Marea corrosiva. ¡Prepárate! Si queda Aturdido, se interrumpe.
-f4047 LOG Turno de Agirato ochinan. Esperando su acción...
-f4049 998 PULSA Defender
-f4050 LOG Agirato ochinan se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️
-f4050 Agirato ochinan hp=198.297 mp=36.500 en=162.425
-f4062 LOG Turno de Dasui. Esperando su acción...
-f4064 999 PULSA Habilidad
-f4067 999 PULSA _ability_box: Tajo devastador  (72 EN)
-f4068 LOG ⏳ Dasui prepara Tajo devastador. Si queda Aturdido, se interrumpe.
-f4068 Dasui hp=199.397 mp=20.000 en=109.300
-f4078 LOG Turno de Catalardio. Esperando su acción...
-f4080 998 PULSA Atacar
-f4081 LOG Catalardio golpea con Martillo grande e inflige 10,42 de daño.
-f4081 Rey Slime hp=104.709 mp=21.188 en=0.000
-f4138 LOG Turno de Daniel. Esperando su acción...
-f4140 999 PULSA Atacar
-f4141 LOG Daniel golpea con Maza pequeña e inflige 5,16 de daño.
-f4141 Daniel hp=342.851 mp=20.000 en=159.025
-f4141 Rey Slime hp=99.546 mp=21.188 en=0.000
-f4207 LOG Dasui ya puede soltar Tajo devastador. Esperando su objetivo...
-f4209 999 PULSA ⚡ ¡Soltar Tajo devastador!
-f4210 LOG … 20,68 de daño.
-f4210 Rey Slime hp=78.864 mp=21.188 en=0.000
-f4273 LOG Turno de Agirato ochinan. Esperando su acción...
-f4275 998 PULSA Defender
-f4276 LOG … 4,29 de daño en total: Agirato ochinan (0,56), Catalardio (0,64), Dasui (0), Daniel (3,1)  🛡️ Agirato ochinan aguanta en guardia (menos daño).
-f4276 Agirato ochinan hp=197.742 mp=36.500 en=147.425
-f4276 Catalardio hp=197.873 mp=24.620 en=181.275
-f4276 Daniel hp=339.752 mp=20.000 en=159.025
-f4362 LOG Turno de Catalardio. Esperando su acción...
-f4364 998 PULSA Habilidad
-f4367 998 PULSA _ability_box: Golpe sísmico  (60 EN)
-f4368 LOG ⏳ Catalardio prepara Golpe sísmico. Si queda Aturdido, se interrumpe.
-f4368 Catalardio hp=197.873 mp=24.620 en=121.275
-f4369 LOG Turno de Daniel. Esperando su acción...
-f4369 Daniel hp=169.876 mp=20.000 en=159.025
-f4371 999 PULSA Atacar
-f4372 LOG Daniel golpea con Maza pequeña e inflige 4,33 de daño.
-f4372 Daniel hp=169.876 mp=20.000 en=181.025
-f4372 Rey Slime hp=74.537 mp=21.188 en=0.000
-f4439 LOG Turno de Dasui. Esperando su acción...
-f4441 999 PULSA Atacar
-f4442 LOG Dasui golpea con Mandobles e inflige 8,87 de daño.
-f4442 Dasui hp=199.397 mp=20.000 en=164.300
-f4442 Rey Slime hp=65.665 mp=21.188 en=0.000
-f4497 LOG Turno de Agirato ochinan. Esperando su acción...
-f4499 998 PULSA Objeto
-f4502 998 PULSA _objeto_box: Poción de maná menor +2  x1
-f4505 998 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
-f4506 LOG Agirato ochinan se bebe Poción de maná menor +2. 🔷 24 de maná: 5 ahora y 19 durante los 4 turnos siguientes.
-f4517 LOG Catalardio ya puede soltar Golpe sísmico. Esperando su objetivo...
-f4519 998 PULSA ⚡ ¡Soltar Golpe sísmico!
-f4520 LOG … falla el golpe.
-f4594 LOG ⏳ 1. Rey Slime prepara Brote. ¡Apártate! Si queda Aturdido, se interrumpe.
-f4632 LOG Turno de Daniel. Esperando su acción...
-f4634 999 PULSA Habilidad
-f4637 999 PULSA _ability_box: Golpe demoledor  (42 EN)
-f4638 LOG ⏳ Daniel prepara Golpe demoledor. Si queda Aturdido, se interrumpe.
-f4638 Daniel hp=169.876 mp=20.000 en=139.025
-f4654 LOG Turno de Agirato ochinan. Esperando su acción...
-f4656 998 PULSA Magia
-f4659 998 PULSA _spell_box: Eclipse  (19,33 de maná)
-f4660 LOG 🔮 Agirato ochinan recita Eclipse (1/4). Esperando...
-f4662 998 PULSA frase Luz y oscuridad
-f4663 LOG ✓ Frase correcta. Sigue en el próximo turno.
-f4663 Agirato ochinan hp=197.742 mp=36.500 en=177.425
-f4665 LOG Turno de Dasui. Esperando su acción...
-f4667 999 PULSA Atacar
-f4668 LOG Dasui golpea con Mandobles e inflige 10,94 de daño.
-f4668 Dasui hp=199.397 mp=20.000 en=181.300
-f4668 Rey Slime hp=54.730 mp=21.188 en=0.000
-f4730 LOG Daniel ya puede soltar Golpe demoledor. Esperando su objetivo...
-f4732 999 PULSA ⚡ ¡Soltar Golpe demoledor!
-f4733 LOG 💫 Rey Slime pierde Brote: no puede seguir así.
-f4733 Rey Slime hp=47.448 mp=21.188 en=0.000
-f4792 LOG 1. Rey Slime pierde el turno: está Aturdido. 💫
-f4824 LOG Turno de Catalardio. Esperando su acción...
-f4826 998 PULSA Defender
-f4827 LOG Catalardio se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️
-f4827 Catalardio hp=197.873 mp=24.620 en=106.275
-f4872 LOG Turno de Dasui. Esperando su acción...
-f4874 999 PULSA Habilidad
-f4877 999 PULSA _ability_box: atras (apagados: Tajo devastador  (72 EN)  ⏳1 [⛔ Se recarga en 1 turno])
-f4880 999 PULSA Atacar
-f4881 LOG Dasui golpea con Mandobles e inflige 10,34 de daño.
-f4881 Rey Slime hp=37.111 mp=21.188 en=0.000
-f4939 LOG Turno de Daniel. Esperando su acción...
-f4941 999 PULSA Atacar
-f4942 LOG Daniel golpea con Maza pequeña e inflige 5,3 de daño.
-f4942 Daniel hp=169.876 mp=20.000 en=181.025
-f4942 Rey Slime hp=31.814 mp=21.188 en=0.000
-f4998 LOG 🔮 Agirato ochinan recita Eclipse (2/4). Esperando...
-f5000 998 PULSA frase Oscuridad y luz
-f5001 LOG ✓ Frase correcta. Sigue en el próximo turno.
-f5010 LOG ⏳ 1. Rey Slime prepara Escisión. ¡Apártate! Si queda Aturdido, se interrumpe.
-f5042 LOG Turno de Catalardio. Esperando su acción...
-f5044 998 PULSA Objeto
-f5047 998 PULSA _objeto_box: Poción de maná menor +3  x1
-f5050 998 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
-f5051 LOG Catalardio le da Poción de maná menor +3 a Agirato ochinan. 🔷 31 de maná: 6 ahora y 25 durante los 4 turnos siguientes.
-f5085 LOG … 0,83 de daño en total: Daniel (0,49), Dasui (0,12), Agirato ochinan (0,22)  Causa Pegajoso.
-f5085 Agirato ochinan hp=197.521 mp=36.500 en=177.425
-f5085 Dasui hp=199.280 mp=20.000 en=181.300
-f5085 Daniel hp=169.389 mp=20.000 en=181.025
-f5170 LOG Turno de Dasui. Esperando su acción...
-f5172 999 PULSA Defender
-f5173 LOG Dasui se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️
-f5173 Dasui hp=199.280 mp=20.000 en=166.300
-f5175 LOG 🔮 Agirato ochinan recita Eclipse (3/4). Esperando...
-f5177 998 PULSA frase Feliz aniversario 20
-f5178 LOG ✓ Frase correcta. Sigue en el próximo turno.
-f5179 LOG Turno de Daniel. Esperando su acción...
-f5181 999 PULSA Atacar
-f5182 LOG Daniel golpea con Maza pequeña e inflige 4,64 de daño.
-f5182 Rey Slime hp=27.173 mp=21.188 en=0.000
-f5256 LOG Turno de Catalardio. Esperando su acción...
-f5258 998 PULSA Atacar
-f5259 LOG Catalardio golpea con Martillo grande e inflige 9,75 de daño.
-f5259 Catalardio hp=197.873 mp=24.620 en=161.275
-f5259 Rey Slime hp=17.419 mp=21.188 en=0.000
-f5340 LOG 🔮 Agirato ochinan recita Eclipse (4/4). Esperando...
-f5342 998 PULSA frase Kingdom Hearts
-f5343 LOG ✓ ¡Conjuro completo! Se puede lanzar en el próximo turno.
-f5345 LOG ⏳ 1. Rey Slime prepara Aplastamiento. ¡Apártate! Si queda Aturdido, se interrumpe.
-f5382 LOG Turno de Daniel. Esperando su acción...
-f5384 999 PULSA Defender
-f5385 LOG Daniel se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️
-f5385 Daniel hp=169.389 mp=20.000 en=166.025
-f5387 LOG Turno de Dasui. Esperando su acción...
-f5389 999 PULSA Habilidad
-f5392 999 PULSA _ability_box: Tajo devastador  (72 EN)
-f5393 LOG ⏳ Dasui prepara Tajo devastador. Si queda Aturdido, se interrumpe.
-f5393 Dasui hp=199.280 mp=20.000 en=94.300
-f5419 LOG … 1,15 de daño en total: Agirato ochinan (0,27), Catalardio (0,56), Dasui (0,32), Daniel (0)  🛡️ Daniel aguanta en guardia (menos daño).  Causa Pegajoso.
-f5419 Agirato ochinan hp=197.254 mp=36.500 en=177.425
-f5419 Catalardio hp=197.312 mp=24.620 en=161.275
-f5419 Dasui hp=198.956 mp=20.000 en=94.300
-f5478 LOG Turno de Catalardio. Esperando su acción...
-f5480 998 PULSA Atacar
-f5481 LOG Catalardio golpea con Martillo grande e inflige 12,05 de daño.
-f5481 Catalardio hp=197.312 mp=24.620 en=181.275
-f5481 Rey Slime hp=5.372 mp=21.188 en=0.000
-f5537 LOG Dasui ya puede soltar Tajo devastador. Esperando su objetivo...
-f5539 999 PULSA ⚡ ¡Soltar Tajo devastador!
-f5540 LOG ¡Victoria contra 5 enemigos! 🎉
-f5540 Rey Slime hp=0.000 mp=21.188 en=0.000
-FIN f5540 estado=3
+f2603 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2603 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2604 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2604 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2605 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2605 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2606 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2606 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2607 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2607 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2608 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2608 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2609 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2609 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2610 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2610 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2611 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2611 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2612 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2612 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2613 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2613 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2614 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2614 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2615 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2615 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2616 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2616 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2617 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2617 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2618 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2618 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2619 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2619 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2620 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2620 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2621 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2621 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2622 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2622 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2623 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2623 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2624 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2624 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2625 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2625 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2626 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2626 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2627 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2627 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2628 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2628 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2629 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2629 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2630 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2630 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2631 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2631 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2632 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2632 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2633 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2633 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2634 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2634 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2635 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2635 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2636 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2636 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2637 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2637 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2638 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2638 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2639 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2639 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2640 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2640 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2641 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2641 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2642 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2642 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2643 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2643 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2644 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2644 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2645 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2645 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2646 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2646 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2647 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2647 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2648 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2648 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2649 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2649 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2650 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2650 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2651 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2651 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2652 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2652 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2653 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2653 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2654 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2654 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2655 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2655 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2656 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2656 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2657 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2657 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2658 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2658 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2659 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2659 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2660 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2660 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2661 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2661 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2662 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2662 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2663 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2663 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2664 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2664 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2665 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f2665 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f2666 LOG 1. Rey Slime usa Brote.  ¡Brotan 2 slimes a su lado! 🟢
+f2666 Slime de fuego hp=50.050 mp=20.891 en=0.000
+f2735 LOG Turno de Daniel. Esperando su acción...
+f2737 999 PULSA Objeto
+f2740 999 PULSA _objeto_box: Poción de maná media +1  x2
+f2743 999 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  37/37 🔷)
+f2744 LOG Daniel le da Poción de maná media +1 a Agirato ochinan. 🔷 38 de maná: 10 ahora y 28 durante los 3 turnos siguientes.
+f2745 LOG Turno de Dasui. Esperando su acción...
+f2747 999 PULSA Defender
+f2748 LOG Dasui se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️
+f2748 Dasui hp=199.392 mp=20.000 en=166.300
+f2750 LOG 🔮 Agirato ochinan recita Eclipse (3/4). Esperando...
+f2752 998 PULSA frase Feliz aniversario 20
+f2753 LOG ✓ Frase correcta. Sigue en el próximo turno.
+f2776 LOG Turno de Catalardio. Esperando su acción...
+f2778 998 PULSA Atacar
+f2779 LOG Catalardio golpea con Martillo grande e inflige 9,84 de daño.
+f2779 Catalardio hp=198.733 mp=24.620 en=181.275
+f2779 Rey Slime hp=527.399 mp=21.188 en=0.000
+f2844 LOG ⏳ 2. Slime prepara Doble embate. ¡Apártate! Si queda Aturdido, se interrumpe.
+f2890 LOG ⏳ 1. Rey Slime prepara Escisión. ¡Apártate! Si queda Aturdido, se interrumpe.
+f2924 LOG 🔮 Agirato ochinan recita Eclipse (4/4). Esperando...
+f2926 998 PULSA frase Kingdom Hearts
+f2927 LOG ⏳ 5. Slime abisal prepara Tromba abisal. ¡Apártate! Si queda Aturdido, se interrumpe.
+f2959 LOG ⏳ 3. Slime de fuego prepara Llamarada. ¡Apártate! Si queda Aturdido, se interrumpe.
+f2991 LOG 4. Slime de fuego ataca a Daniel y le inflige 0,44 de daño.
+f2991 Daniel hp=174.230 mp=20.000 en=166.025
+f3043 LOG Turno de Daniel. Esperando su acción...
+f3045 999 PULSA Objeto
+f3048 999 PULSA _objeto_box: Poción de maná media +1  x1
+f3051 999 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  37/37 🔷)
+f3052 LOG Daniel le da Poción de maná media +1 a Agirato ochinan. 🔷 38 de maná: 10 ahora y 28 durante los 3 turnos siguientes.
+f3055 LOG Turno de Dasui. Esperando su acción...
+f3057 999 PULSA Defender
+f3058 LOG Dasui se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️
+f3058 Dasui hp=199.392 mp=20.000 en=151.300
+f3067 LOG … 0,48 de daño en total (aciertan 2 de 2 golpes).  Causa Pegajoso.
+f3067 Daniel hp=173.748 mp=20.000 en=166.025
+f3139 LOG … 2,16 de daño en total: Daniel (2,03), Dasui (0,13)  🛡️ Dasui aguanta en guardia (menos daño).
+f3139 Dasui hp=199.262 mp=20.000 en=151.300
+f3139 Daniel hp=171.723 mp=20.000 en=166.025
+f3227 LOG … 3,6 de daño.  Causa Quemadura.
+f3227 Daniel hp=168.120 mp=20.000 en=166.025
+f3279 LOG Turno de Catalardio. Esperando su acción...
+f3281 998 PULSA Habilidad
+f3284 998 PULSA _ability_box: atras (apagados: Golpe sísmico  (60 EN)  ⏳1 [⛔ Se recarga en 1 turno])
+f3287 998 PULSA Atacar
+f3288 LOG Catalardio golpea con Martillo grande e inflige 9,89 de daño.
+f3288 Rey Slime hp=520.477 mp=21.188 en=0.000
+f3342 LOG … 9,56 de daño en total: Daniel (7,3), Catalardio (2,26)  Causa Lento.
+f3342 Catalardio hp=196.477 mp=24.620 en=181.275
+f3342 Daniel hp=160.815 mp=20.000 en=166.025
+f3420 LOG Agirato ochinan tiene el conjuro listo. Esperando...
+f3422 998 PULSA 🔥 ¡Lanzar Eclipse!
+f3423 LOG 🗣️ Frases: «Luz y oscuridad» ✓ · «Oscuridad y luz» ✓ · «Feliz aniversario 20» ✓ · «Kingdom Hearts» ✓
+f3423 Agirato ochinan hp=198.593 mp=17.173 en=177.425
+f3423 Rey Slime hp=399.758 mp=21.188 en=0.000
+f3423 Slime hp=0.000 mp=20.429 en=0.000
+f3423 Slime de fuego hp=0.000 mp=20.891 en=0.000
+f3423 Slime abisal hp=0.000 mp=20.594 en=0.000
+f3511 LOG Turno de Dasui. Esperando su acción...
+f3513 999 PULSA Atacar
+f3514 LOG Dasui golpea con Mandobles e inflige 10,16 de daño.
+f3514 Dasui hp=199.262 mp=20.000 en=181.300
+f3514 Rey Slime hp=389.596 mp=21.188 en=0.000
+f3569 LOG Turno de Daniel. Esperando su acción...
+f3569 Daniel hp=159.735 mp=20.000 en=166.025
+f3571 999 PULSA Objeto
+f3574 999 PULSA _objeto_box: Poción de maná media +2  x2
+f3577 999 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  17/37 🔷)
+f3578 LOG Daniel le da Poción de maná media +2 a Agirato ochinan. 🔷 46 de maná: 9 ahora y 37 durante los 4 turnos siguientes.
+f3578 Agirato ochinan hp=198.593 mp=26.449 en=177.425
+f3600 LOG 1. Rey Slime ataca a Agirato ochinan y le inflige 0,39 de daño.
+f3600 Agirato ochinan hp=198.207 mp=26.449 en=177.425
+f3658 LOG Turno de Catalardio. Esperando su acción...
+f3660 998 PULSA Defender
+f3661 LOG Catalardio se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️
+f3661 Catalardio hp=196.477 mp=24.620 en=166.275
+f3666 LOG Turno de Agirato ochinan. Esperando su acción...
+f3666 Agirato ochinan hp=198.207 mp=36.500 en=177.425
+f3668 998 PULSA Habilidad
+f3671 998 PULSA _ability_box: Bastonazo  (26 EN)
+f3672 LOG ⏳ Agirato ochinan prepara Bastonazo. Si queda Aturdido, se interrumpe.
+f3672 Agirato ochinan hp=198.207 mp=36.500 en=151.425
+f3698 LOG Turno de Dasui. Esperando su acción...
+f3700 999 PULSA Atacar
+f3701 LOG Dasui golpea con Mandobles e inflige 10,18 de daño.
+f3701 Rey Slime hp=379.421 mp=21.188 en=0.000
+f3754 LOG Agirato ochinan ya puede soltar Bastonazo. Esperando su objetivo...
+f3756 998 PULSA ⚡ ¡Soltar Bastonazo!
+f3757 LOG … 14,31 de daño.  Causa Lento.
+f3757 Rey Slime hp=365.115 mp=21.188 en=0.000
+f3836 LOG Turno de Daniel. Esperando su acción...
+f3836 Daniel hp=158.654 mp=20.000 en=166.025
+f3838 999 PULSA Objeto
+f3841 999 PULSA _objeto_box: Poción de maná media +2  x1
+f3844 999 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
+f3845 LOG Daniel le da Poción de maná media +2 a Agirato ochinan. 🔷 46 de maná: 9 ahora y 37 durante los 4 turnos siguientes.
+f3851 LOG Turno de Catalardio. Esperando su acción...
+f3853 998 PULSA Defender
+f3854 LOG Catalardio se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️
+f3854 Catalardio hp=196.477 mp=24.620 en=151.275
+f3855 LOG 1. Rey Slime ataca a Daniel y le inflige 0,99 de daño.
+f3855 Daniel hp=157.668 mp=20.000 en=166.025
+f3928 LOG Turno de Agirato ochinan. Esperando su acción...
+f3930 998 PULSA Habilidad
+f3933 998 PULSA _ability_box: atras (apagados: Bastonazo  (26 EN)  ⏳2 [⛔ Se recarga en 2 turnos])
+f3936 998 PULSA Atacar
+f3937 LOG Agirato ochinan golpea con Bastón e inflige 6,16 de daño.
+f3937 Agirato ochinan hp=198.207 mp=36.500 en=177.425
+f3937 Rey Slime hp=358.959 mp=21.188 en=0.000
+f3992 LOG Turno de Dasui. Esperando su acción...
+f3994 999 PULSA Atacar
+f3995 LOG Dasui golpea con Mandobles e inflige 10,6 de daño.
+f3995 Rey Slime hp=348.356 mp=21.188 en=0.000
+f4088 LOG Turno de Catalardio. Esperando su acción...
+f4090 998 PULSA Atacar
+f4091 LOG Catalardio golpea con Martillo grande e inflige 10,18 de daño.
+f4091 Catalardio hp=196.477 mp=24.620 en=181.275
+f4091 Rey Slime hp=338.178 mp=21.188 en=0.000
+f4153 LOG Turno de Agirato ochinan. Esperando su acción...
+f4155 998 PULSA Objeto
+f4158 998 PULSA _objeto_box: Poción de maná media +3  x1
+f4161 998 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
+f4162 LOG Agirato ochinan se bebe Poción de maná media +3. 🔷 54 de maná: 11 ahora y 43 durante los 4 turnos siguientes.
+f4165 LOG Turno de Daniel. Esperando su acción...
+f4167 999 PULSA Defender
+f4168 LOG Daniel se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️
+f4168 Daniel hp=157.668 mp=20.000 en=151.025
+f4176 LOG Turno de Dasui. Esperando su acción...
+f4178 999 PULSA Habilidad
+f4181 999 PULSA _ability_box: Tajo devastador  (72 EN)
+f4182 LOG ⏳ 1. Rey Slime prepara Brote. ¡Apártate! Si queda Aturdido, se interrumpe.
+f4182 Dasui hp=199.262 mp=20.000 en=109.300
+f4246 LOG Dasui ya puede soltar Tajo devastador. Esperando su objetivo...
+f4248 999 PULSA ⚡ ¡Soltar Tajo devastador!
+f4249 LOG … 25,47 de daño.
+f4249 Rey Slime hp=312.709 mp=21.188 en=0.000
+f4312 LOG Turno de Agirato ochinan. Esperando su acción...
+f4314 998 PULSA Atacar
+f4315 LOG Agirato ochinan golpea con Bastón e inflige 6,03 de daño.
+f4315 Rey Slime hp=306.683 mp=21.188 en=0.000
+f4366 LOG Turno de Catalardio. Esperando su acción...
+f4368 998 PULSA Objeto
+f4371 998 PULSA _objeto_box: Poción de maná menor +1  x1
+f4374 998 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
+f4375 LOG ⚡ 1. Rey Slime se prepara para Brote. ¡Prepárate! Si queda Aturdido, se interrumpe.
+f4443 LOG Turno de Daniel. Esperando su acción...
+f4445 999 PULSA Defender
+f4446 LOG Daniel se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️
+f4446 Daniel hp=157.668 mp=20.000 en=136.025
+f4461 LOG Turno de Dasui. Esperando su acción...
+f4463 999 PULSA Habilidad
+f4466 999 PULSA _ability_box: atras (apagados: Tajo devastador  (72 EN)  ⏳3 [⛔ Se recarga en 3 turnos])
+f4469 999 PULSA Atacar
+f4470 LOG Dasui golpea con Mandobles e inflige 9,52 de daño.
+f4470 Dasui hp=199.262 mp=20.000 en=164.300
+f4470 Rey Slime hp=297.166 mp=21.188 en=0.000
+f4525 LOG Turno de Agirato ochinan. Esperando su acción...
+f4527 998 PULSA Magia
+f4530 998 PULSA _spell_box: Eclipse  (19,33 de maná)
+f4531 LOG 🔮 Agirato ochinan recita Eclipse (1/4). Esperando...
+f4533 998 PULSA frase Luz y oscuridad
+f4534 LOG ✓ Frase correcta. Sigue en el próximo turno.
+f4545 LOG Turno de Catalardio. Esperando su acción...
+f4547 998 PULSA Atacar
+f4548 LOG Catalardio golpea con Martillo grande e inflige 11,46 de daño.
+f4548 Rey Slime hp=285.710 mp=21.188 en=0.000
+f4622 LOG 1. Rey Slime usa Brote.  ¡Brotan 2 slimes a su lado! 🟢
+f4622 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4622 Slime hp=32.050 mp=20.363 en=0.000
+f4622 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4623 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4623 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4624 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4624 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4625 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4625 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4626 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4626 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4627 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4627 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4628 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4628 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4629 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4629 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4630 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4630 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4631 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4631 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4632 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4632 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4633 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4633 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4634 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4634 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4635 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4635 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4636 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4636 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4637 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4637 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4638 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4638 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4639 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4639 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4640 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4640 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4641 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4641 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4642 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4642 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4643 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4643 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4644 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4644 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4645 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4645 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4646 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4646 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4647 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4647 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4648 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4648 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4649 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4649 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4650 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4650 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4651 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4651 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4652 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4652 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4653 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4653 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4654 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4654 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4655 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4655 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4656 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4656 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4657 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4657 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4658 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4658 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4659 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4659 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4660 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4660 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4661 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4661 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4662 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4662 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4663 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4663 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4664 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4664 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4665 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4665 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4666 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4666 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4667 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4667 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4668 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4668 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4669 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4669 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4670 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4670 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4671 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4671 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4672 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4672 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4673 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4673 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4674 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4674 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4675 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4675 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4676 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4676 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4677 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4677 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4678 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4678 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4679 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4679 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4680 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4680 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4681 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4681 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4682 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4682 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4683 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4683 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4684 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4684 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4685 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4685 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4686 LOG Turno de Daniel. Esperando su acción...
+f4686 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4686 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4687 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4687 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4688 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4688 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4688 999 PULSA Objeto
+f4689 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4689 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4690 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4690 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4691 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4691 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4691 999 PULSA _objeto_box: Poción de maná menor +2  x1
+f4692 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4692 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4693 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4693 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4694 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4694 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4694 999 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
+f4695 LOG Daniel le da Poción de maná menor +2 a Agirato ochinan. 🔷 24 de maná: 5 ahora y 19 durante los 4 turnos siguientes.
+f4695 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4695 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4696 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4696 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4697 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4697 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4698 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4698 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4699 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4699 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4700 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4700 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4701 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4701 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4702 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4702 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4703 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4703 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4704 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4704 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4705 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4705 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4706 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4706 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4707 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4707 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4708 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4708 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4709 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4709 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4710 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4710 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4711 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4711 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4712 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4712 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4713 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4713 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4714 LOG Turno de Dasui. Esperando su acción...
+f4714 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4714 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4715 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4715 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4716 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4716 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4716 999 PULSA Defender
+f4717 LOG Dasui se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️
+f4717 Dasui hp=199.262 mp=20.000 en=149.300
+f4717 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4717 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4718 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4718 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4719 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4719 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4720 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4720 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4721 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4721 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4722 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4722 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4723 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4723 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4724 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4724 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4725 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4725 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4726 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4726 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4727 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4727 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4728 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4728 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4729 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4729 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4730 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4730 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4731 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4731 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4732 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4732 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4733 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4733 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4734 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4734 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4735 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4735 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4736 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4736 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4737 LOG Turno de Catalardio. Esperando su acción...
+f4737 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4737 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4738 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4738 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4739 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4739 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4739 998 PULSA Habilidad
+f4740 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4740 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4741 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4741 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4742 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4742 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4742 998 PULSA _ability_box: Golpe sísmico  (60 EN)
+f4743 LOG 🔮 Agirato ochinan recita Eclipse (2/4). Esperando...
+f4743 Catalardio hp=196.477 mp=24.620 en=121.275
+f4743 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4743 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4744 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4744 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4745 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4745 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4745 998 PULSA frase Oscuridad y luz
+f4746 LOG ✓ Frase correcta. Sigue en el próximo turno.
+f4746 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4746 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4747 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4747 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4748 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4748 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4749 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4749 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4750 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4750 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4751 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4751 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4752 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4752 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4753 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4753 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4754 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4754 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4755 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4755 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4756 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4756 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4757 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4757 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4758 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4758 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4759 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4759 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4760 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4760 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4761 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4761 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4762 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4762 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4763 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4763 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4764 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4764 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4765 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4765 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4766 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4766 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4767 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4767 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4768 LOG Turno de Daniel. Esperando su acción...
+f4768 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4768 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4769 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4769 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4770 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4770 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4770 999 PULSA Atacar
+f4771 LOG Daniel golpea con Maza pequeña e inflige 4,66 de daño.
+f4771 Daniel hp=157.668 mp=20.000 en=181.025
+f4771 Rey Slime hp=281.985 mp=21.188 en=0.000
+f4771 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4771 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4772 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4772 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4773 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4773 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4774 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4774 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4775 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4775 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4776 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4776 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4777 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4777 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4778 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4778 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4779 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4779 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4780 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4780 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4781 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4781 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4782 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4782 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4783 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4783 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4784 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4784 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4785 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4785 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4786 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4786 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4787 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4787 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4788 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4788 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4789 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4789 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4790 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4790 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4791 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4791 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4792 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4792 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4793 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4793 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4794 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4794 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4795 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4795 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4796 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4796 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4797 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4797 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4798 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4798 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4799 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4799 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4800 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4800 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4801 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4801 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4802 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4802 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4803 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4803 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4804 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4804 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4805 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4805 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4806 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4806 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4807 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4807 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4808 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4808 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4809 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4809 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4810 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4810 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4811 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4811 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4812 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4812 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4813 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4813 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4814 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4814 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4815 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4815 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4816 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4816 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4817 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4817 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4818 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4818 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4819 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4819 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4820 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4820 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4821 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4821 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4822 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4822 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4823 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4823 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4824 LOG 3. Slime ataca a Daniel y le inflige 0,31 de daño.
+f4824 Daniel hp=157.357 mp=20.000 en=181.025
+f4824 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4824 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4825 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4825 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4826 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4826 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4827 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4827 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4828 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4828 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4829 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4829 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4830 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4830 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4831 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4831 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4832 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4832 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4833 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4833 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4834 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4834 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4835 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4835 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4836 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4836 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4837 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4837 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4838 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4838 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4839 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4839 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4840 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4840 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4841 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4841 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4842 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4842 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4843 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4843 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4844 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4844 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4845 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4845 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4846 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4846 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4847 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4847 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4848 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4848 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4849 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4849 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4850 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4850 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4851 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4851 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4852 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4852 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4853 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4853 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4854 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4854 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4855 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4855 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4856 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4856 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4857 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4857 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4858 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4858 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4859 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4859 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4860 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4860 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4861 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4861 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4862 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4862 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4863 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4863 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4864 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4864 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4865 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4865 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4866 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4866 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4867 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4867 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4868 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4868 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4869 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4869 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4870 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4870 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4871 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4871 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4872 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4872 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4873 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4873 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4874 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4874 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4875 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4875 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4876 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4876 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4877 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4877 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4878 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4878 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4879 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4879 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4880 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4880 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4881 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4881 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4882 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4882 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4883 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4883 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4884 LOG Catalardio ya puede soltar Golpe sísmico. Esperando su objetivo...
+f4884 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4884 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4885 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4885 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4886 Slime abisal hp=59.350 mp=20.594 en=0.000
+f4886 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4886 998 PULSA ⚡ ¡Soltar Golpe sísmico!
+f4887 LOG … 31,12 de daño en total: 1. Rey Slime (15,57), 2. Slime abisal (7,78), 3. Slime (7,77)  Causa Aturdido.
+f4887 Rey Slime hp=269.527 mp=21.188 en=0.000
+f4887 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4887 Slime hp=24.278 mp=20.363 en=0.000
+f4887 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4888 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4888 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4889 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4889 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4890 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4890 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4891 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4891 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4892 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4892 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4893 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4893 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4894 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4894 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4895 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4895 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4896 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4896 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4897 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4897 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4898 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4898 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4899 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4899 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4900 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4900 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4901 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4901 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4902 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4902 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4903 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4903 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4904 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4904 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4905 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4905 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4906 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4906 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4907 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4907 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4908 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4908 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4909 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4909 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4910 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4910 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4911 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4911 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4912 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4912 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4913 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4913 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4914 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4914 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4915 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4915 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4916 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4916 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4917 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4917 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4918 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4918 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4919 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4919 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4920 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4920 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4921 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4921 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4922 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4922 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4923 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4923 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4924 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4924 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4925 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4925 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4926 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4926 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4927 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4927 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4928 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4928 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4929 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4929 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4930 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4930 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4931 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4931 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4932 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4932 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4933 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4933 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4934 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4934 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4935 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4935 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4936 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4936 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4937 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4937 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4938 LOG 2. Slime abisal pierde el turno: está Aturdido. 💫
+f4938 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4938 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4939 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4939 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4940 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4940 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4941 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4941 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4942 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4942 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4943 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4943 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4944 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4944 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4945 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4945 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4946 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4946 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4947 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4947 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4948 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4948 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4949 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4949 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4950 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4950 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4951 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4951 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4952 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4952 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4953 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4953 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4954 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4954 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4955 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4955 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4956 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4956 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4957 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4957 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4958 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4958 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4959 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4959 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4960 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4960 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4961 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4961 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4962 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4962 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4963 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4963 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4964 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4964 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4965 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4965 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4966 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4966 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4967 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4967 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4968 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4968 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4969 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4969 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4970 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4970 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4971 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4971 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4972 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4972 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4973 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4973 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4974 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4974 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4975 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4975 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4976 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4976 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4977 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4977 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4978 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4978 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4979 LOG Turno de Dasui. Esperando su acción...
+f4979 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4979 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4980 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4980 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4981 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4981 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4981 999 PULSA Objeto
+f4982 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4982 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4983 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4983 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4984 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4984 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4984 999 PULSA _objeto_box: Poción de maná menor +3  x1
+f4985 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4985 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4986 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4986 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4987 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4987 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4987 999 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
+f4988 LOG 1. Rey Slime ataca a Dasui y le inflige 0,2 de daño.  Causa Pegajoso a Dasui.
+f4988 Dasui hp=199.062 mp=20.000 en=149.300
+f4988 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4988 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4989 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4989 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4990 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4990 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4991 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4991 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4992 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4992 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4993 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4993 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4994 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4994 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4995 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4995 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4996 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4996 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4997 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4997 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4998 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4998 Slime abisal hp=0.000 mp=20.594 en=0.000
+f4999 Slime abisal hp=51.574 mp=20.594 en=0.000
+f4999 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5000 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5000 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5001 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5001 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5002 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5002 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5003 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5003 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5004 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5004 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5005 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5005 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5006 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5006 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5007 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5007 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5008 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5008 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5009 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5009 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5010 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5010 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5011 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5011 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5012 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5012 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5013 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5013 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5014 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5014 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5015 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5015 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5016 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5016 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5017 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5017 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5018 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5018 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5019 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5019 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5020 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5020 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5021 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5021 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5022 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5022 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5023 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5023 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5024 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5024 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5025 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5025 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5026 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5026 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5027 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5027 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5028 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5028 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5029 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5029 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5030 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5030 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5031 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5031 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5032 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5032 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5033 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5033 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5034 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5034 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5035 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5035 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5036 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5036 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5037 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5037 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5038 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5038 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5039 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5039 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5040 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5040 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5041 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5041 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5042 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5042 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5043 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5043 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5044 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5044 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5045 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5045 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5046 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5046 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5047 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5047 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5048 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5048 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5049 LOG 🔮 Agirato ochinan recita Eclipse (3/4). Esperando...
+f5049 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5049 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5050 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5050 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5051 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5051 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5051 998 PULSA frase Feliz aniversario 20
+f5052 LOG ✓ Frase correcta. Sigue en el próximo turno.
+f5052 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5052 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5053 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5053 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5054 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5054 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5055 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5055 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5056 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5056 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5057 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5057 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5058 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5058 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5059 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5059 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5060 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5060 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5061 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5061 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5062 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5062 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5063 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5063 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5064 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5064 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5065 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5065 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5066 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5066 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5067 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5067 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5068 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5068 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5069 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5069 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5070 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5070 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5071 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5071 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5072 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5072 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5073 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5073 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5074 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5074 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5075 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5075 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5076 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5076 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5077 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5077 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5078 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5078 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5079 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5079 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5080 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5080 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5081 LOG Turno de Daniel. Esperando su acción...
+f5081 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5081 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5082 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5082 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5083 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5083 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5083 999 PULSA Habilidad
+f5084 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5084 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5085 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5085 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5086 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5086 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5086 999 PULSA _ability_box: Golpe demoledor  (42 EN)
+f5087 LOG ⏳ Daniel prepara Golpe demoledor. Si queda Aturdido, se interrumpe.
+f5087 Daniel hp=157.357 mp=20.000 en=139.025
+f5087 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5087 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5088 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5088 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5089 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5089 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5090 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5090 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5091 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5091 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5092 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5092 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5093 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5093 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5094 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5094 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5095 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5095 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5096 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5096 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5097 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5097 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5098 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5098 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5099 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5099 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5100 LOG 3. Slime ataca a Daniel y le inflige 0,35 de daño.
+f5100 Daniel hp=157.010 mp=20.000 en=139.025
+f5100 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5100 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5101 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5101 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5102 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5102 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5103 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5103 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5104 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5104 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5105 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5105 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5106 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5106 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5107 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5107 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5108 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5108 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5109 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5109 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5110 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5110 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5111 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5111 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5112 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5112 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5113 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5113 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5114 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5114 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5115 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5115 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5116 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5116 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5117 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5117 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5118 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5118 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5119 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5119 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5120 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5120 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5121 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5121 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5122 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5122 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5123 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5123 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5124 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5124 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5125 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5125 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5126 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5126 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5127 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5127 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5128 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5128 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5129 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5129 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5130 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5130 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5131 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5131 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5132 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5132 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5133 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5133 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5134 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5134 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5135 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5135 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5136 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5136 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5137 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5137 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5138 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5138 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5139 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5139 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5140 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5140 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5141 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5141 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5142 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5142 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5143 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5143 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5144 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5144 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5145 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5145 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5146 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5146 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5147 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5147 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5148 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5148 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5149 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5149 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5150 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5150 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5151 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5151 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5152 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5152 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5153 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5153 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5154 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5154 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5155 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5155 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5156 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5156 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5157 LOG Turno de Catalardio. Esperando su acción...
+f5157 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5157 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5158 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5158 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5159 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5159 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5159 998 PULSA Atacar
+f5160 LOG Catalardio golpea con Martillo grande e inflige 10,65 de daño.
+f5160 Catalardio hp=196.477 mp=24.620 en=176.275
+f5160 Rey Slime hp=261.011 mp=21.188 en=0.000
+f5160 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5160 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5161 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5161 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5162 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5162 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5163 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5163 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5164 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5164 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5165 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5165 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5166 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5166 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5167 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5167 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5168 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5168 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5169 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5169 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5170 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5170 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5171 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5171 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5172 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5172 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5173 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5173 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5174 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5174 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5175 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5175 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5176 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5176 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5177 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5177 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5178 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5178 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5179 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5179 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5180 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5180 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5181 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5181 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5182 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5182 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5183 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5183 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5184 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5184 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5185 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5185 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5186 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5186 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5187 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5187 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5188 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5188 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5189 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5189 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5190 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5190 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5191 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5191 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5192 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5192 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5193 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5193 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5194 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5194 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5195 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5195 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5196 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5196 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5197 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5197 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5198 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5198 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5199 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5199 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5200 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5200 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5201 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5201 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5202 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5202 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5203 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5203 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5204 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5204 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5205 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5205 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5206 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5206 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5207 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5207 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5208 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5208 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5209 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5209 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5210 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5210 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5211 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5211 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5212 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5212 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5213 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5213 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5214 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5214 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5215 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5215 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5216 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5216 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5217 LOG 🔮 Agirato ochinan recita Eclipse (4/4). Esperando...
+f5217 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5217 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5218 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5218 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5219 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5219 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5219 998 PULSA frase Kingdom Hearts
+f5220 LOG ✓ ¡Conjuro completo! Se puede lanzar en el próximo turno.
+f5220 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5220 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5221 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5221 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5222 LOG Turno de Dasui. Esperando su acción...
+f5222 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5222 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5223 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5223 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5224 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5224 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5224 999 PULSA Objeto
+f5225 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5225 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5226 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5226 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5227 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5227 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5227 999 PULSA _objeto_box: Poción media  x2
+f5228 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5228 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5229 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5229 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5230 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5230 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5230 999 PULSA _objeto_box: Agirato ochinan  (198/200 ♥)
+f5231 LOG ⏳ 1. Rey Slime prepara Aplastamiento. ¡Apártate! Si queda Aturdido, se interrumpe.
+f5231 Agirato ochinan hp=199.851 mp=36.500 en=177.425
+f5231 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5231 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5232 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5232 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5233 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5233 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5234 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5234 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5235 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5235 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5236 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5236 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5237 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5237 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5238 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5238 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5239 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5239 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5240 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5240 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5241 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5241 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5242 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5242 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5243 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5243 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5244 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5244 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5245 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5245 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5246 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5246 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5247 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5247 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5248 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5248 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5249 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5249 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5250 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5250 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5251 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5251 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5252 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5252 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5253 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5253 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5254 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5254 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5255 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5255 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5256 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5256 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5257 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5257 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5258 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5258 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5259 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5259 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5260 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5260 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5261 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5261 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5262 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5262 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5263 LOG Daniel ya puede soltar Golpe demoledor. Esperando su objetivo...
+f5263 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5263 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5264 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5264 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5265 Slime abisal hp=51.574 mp=20.594 en=0.000
+f5265 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5265 999 PULSA ⚡ ¡Soltar Golpe demoledor!
+f5266 LOG … 15 de daño en total: 1. Rey Slime (9,46), 2. Slime abisal (5,54)
+f5266 Rey Slime hp=253.445 mp=21.188 en=0.000
+f5266 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5266 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5267 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5267 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5268 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5268 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5269 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5269 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5270 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5270 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5271 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5271 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5272 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5272 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5273 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5273 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5274 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5274 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5275 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5275 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5276 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5276 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5277 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5277 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5278 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5278 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5279 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5279 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5280 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5280 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5281 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5281 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5282 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5282 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5283 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5283 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5284 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5284 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5285 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5285 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5286 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5286 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5287 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5287 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5288 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5288 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5289 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5289 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5290 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5290 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5291 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5291 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5292 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5292 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5293 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5293 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5294 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5294 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5295 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5295 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5296 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5296 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5297 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5297 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5298 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5298 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5299 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5299 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5300 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5300 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5301 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5301 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5302 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5302 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5303 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5303 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5304 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5304 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5305 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5305 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5306 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5306 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5307 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5307 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5308 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5308 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5309 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5309 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5310 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5310 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5311 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5311 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5312 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5312 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5313 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5313 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5314 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5314 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5315 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5315 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5316 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5316 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5317 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5317 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5318 LOG 2. Slime abisal ataca a Daniel y le inflige 0,44 de daño.
+f5318 Daniel hp=156.575 mp=20.000 en=139.025
+f5318 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5318 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5319 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5319 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5320 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5320 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5321 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5321 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5322 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5322 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5323 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5323 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5324 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5324 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5325 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5325 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5326 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5326 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5327 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5327 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5328 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5328 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5329 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5329 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5330 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5330 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5331 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5331 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5332 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5332 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5333 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5333 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5334 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5334 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5335 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5335 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5336 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5336 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5337 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5337 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5338 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5338 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5339 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5339 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5340 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5340 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5341 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5341 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5342 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5342 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5343 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5343 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5344 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5344 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5345 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5345 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5346 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5346 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5347 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5347 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5348 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5348 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5349 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5349 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5350 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5350 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5351 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5351 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5352 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5352 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5353 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5353 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5354 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5354 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5355 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5355 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5356 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5356 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5357 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5357 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5358 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5358 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5359 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5359 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5360 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5360 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5361 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5361 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5362 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5362 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5363 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5363 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5364 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5364 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5365 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5365 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5366 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5366 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5367 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5367 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5368 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5368 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5369 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5369 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5370 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5370 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5371 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5371 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5372 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5372 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5373 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5373 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5374 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5374 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5375 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5375 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5376 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5376 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5377 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5377 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5378 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5378 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5379 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5379 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5380 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5380 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5381 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5381 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5382 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5382 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5383 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5383 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5384 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5384 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5385 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5385 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5386 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5386 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5387 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5387 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5388 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5388 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5389 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5389 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5390 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5390 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5391 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5391 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5392 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5392 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5393 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5393 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5394 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5394 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5395 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5395 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5396 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5396 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5397 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5397 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5398 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5398 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5399 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5399 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5400 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5400 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5401 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5401 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5402 LOG … 1,27 de daño en total: Daniel (0,67), Catalardio (0), Dasui (0,34), Agirato ochinan (0,25)
+f5402 Agirato ochinan hp=199.597 mp=36.500 en=177.425
+f5402 Dasui hp=198.719 mp=20.000 en=149.300
+f5402 Daniel hp=155.902 mp=20.000 en=139.025
+f5402 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5402 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5403 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5403 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5404 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5404 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5405 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5405 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5406 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5406 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5407 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5407 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5408 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5408 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5409 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5409 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5410 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5410 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5411 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5411 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5412 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5412 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5413 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5413 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5414 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5414 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5415 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5415 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5416 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5416 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5417 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5417 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5418 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5418 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5419 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5419 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5420 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5420 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5421 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5421 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5422 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5422 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5423 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5423 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5424 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5424 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5425 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5425 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5426 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5426 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5427 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5427 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5428 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5428 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5429 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5429 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5430 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5430 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5431 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5431 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5432 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5432 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5433 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5433 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5434 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5434 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5435 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5435 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5436 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5436 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5437 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5437 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5438 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5438 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5439 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5439 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5440 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5440 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5441 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5441 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5442 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5442 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5443 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5443 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5444 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5444 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5445 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5445 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5446 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5446 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5447 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5447 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5448 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5448 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5449 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5449 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5450 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5450 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5451 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5451 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5452 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5452 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5453 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5453 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5454 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5454 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5455 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5455 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5456 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5456 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5457 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5457 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5458 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5458 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5459 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5459 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5460 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5460 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5461 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5461 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5462 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5462 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5463 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5463 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5464 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5464 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5465 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5465 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5466 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5466 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5467 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5467 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5468 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5468 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5469 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5469 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5470 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5470 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5471 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5471 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5472 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5472 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5473 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5473 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5474 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5474 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5475 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5475 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5476 LOG Agirato ochinan tiene el conjuro listo. Esperando...
+f5476 Agirato ochinan hp=199.851 mp=36.500 en=177.425
+f5476 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5476 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5477 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5477 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5478 Slime abisal hp=46.032 mp=20.594 en=0.000
+f5478 Slime abisal hp=0.000 mp=20.594 en=0.000
+f5478 998 PULSA 🔥 ¡Lanzar Eclipse!
+f5479 LOG 🗣️ Frases: «Luz y oscuridad» ✓ · «Oscuridad y luz» ✓ · «Feliz aniversario 20» ✓ · «Kingdom Hearts» ✓
+f5479 Agirato ochinan hp=199.851 mp=17.173 en=177.425
+f5479 Rey Slime hp=97.105 mp=21.188 en=0.000
+f5479 Slime hp=0.000 mp=20.363 en=0.000
+f5556 LOG Turno de Catalardio. Esperando su acción...
+f5558 998 PULSA Atacar
+f5559 LOG Catalardio golpea con Martillo grande e inflige 10,67 de daño.
+f5559 Catalardio hp=196.477 mp=24.620 en=181.275
+f5559 Rey Slime hp=86.433 mp=21.188 en=0.000
+f5614 LOG Turno de Daniel. Esperando su acción...
+f5616 999 PULSA Atacar
+f5617 LOG Daniel golpea con Maza pequeña e inflige 5,29 de daño.
+f5617 Daniel hp=155.902 mp=20.000 en=181.025
+f5617 Rey Slime hp=81.147 mp=21.188 en=0.000
+f5672 LOG Turno de Dasui. Esperando su acción...
+f5674 999 PULSA Objeto
+f5677 999 PULSA _objeto_box: Poción media  x1
+f5680 999 PULSA _objeto_box: Agirato ochinan  (200/200 ♥)
+f5681 LOG Dasui le da Poción media a Agirato ochinan. ✚ 114 de vida: 38 ahora y 76 durante los 2 turnos siguientes.
+f5716 LOG ⏳ 1. Rey Slime prepara Escisión. ¡Apártate! Si queda Aturdido, se interrumpe.
+f5753 LOG Turno de Agirato ochinan. Esperando su acción...
+f5753 Agirato ochinan hp=199.851 mp=28.471 en=177.425
+f5755 998 PULSA Defender
+f5756 LOG Agirato ochinan se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️
+f5756 Agirato ochinan hp=199.851 mp=28.471 en=162.425
+f5772 LOG Turno de Daniel. Esperando su acción...
+f5774 999 PULSA Habilidad
+f5777 999 PULSA _ability_box: Guardia de carne  (52 EN)
+f5778 LOG ⏳ Daniel prepara Guardia de carne. Si queda Aturdido, se interrumpe.
+f5778 Daniel hp=155.902 mp=20.000 en=129.025
+f5780 LOG Turno de Catalardio. Esperando su acción...
+f5782 998 PULSA Atacar
+f5783 LOG Catalardio golpea con Martillo grande e inflige 10,92 de daño.
+f5783 Rey Slime hp=70.224 mp=21.188 en=0.000
+f5842 LOG Turno de Dasui. Esperando su acción...
+f5844 999 PULSA Atacar
+f5845 LOG Dasui golpea con Mandobles e inflige 9,53 de daño.
+f5845 Dasui hp=198.719 mp=20.000 en=181.300
+f5845 Rey Slime hp=60.699 mp=21.188 en=0.000
+f5896 LOG … 1,47 de daño en total: Daniel (1,01), Catalardio (0,46)
+f5896 Catalardio hp=196.020 mp=24.620 en=181.275
+f5896 Daniel hp=154.892 mp=20.000 en=129.025
+f5998 LOG Daniel ya puede soltar Guardia de carne. Esperando su objetivo...
+f6000 999 PULSA ⚡ ¡Soltar Guardia de carne!
+f6001 LOG Daniel usa Guardia de carne.
+f6001 Daniel hp=309.784 mp=20.000 en=129.025
+f6062 LOG Turno de Agirato ochinan. Esperando su acción...
+f6062 Agirato ochinan hp=199.851 mp=28.893 en=162.425
+f6064 998 PULSA Defender
+f6065 LOG Agirato ochinan se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️
+f6065 Agirato ochinan hp=199.851 mp=28.893 en=147.425
+f6096 LOG Turno de Catalardio. Esperando su acción...
+f6098 998 PULSA Habilidad
+f6101 998 PULSA _ability_box: Golpe sísmico  (60 EN)
+f6102 LOG ⏳ Catalardio prepara Golpe sísmico. Si queda Aturdido, se interrumpe.
+f6102 Catalardio hp=196.020 mp=24.620 en=121.275
+f6110 LOG Turno de Dasui. Esperando su acción...
+f6112 999 PULSA Atacar
+f6113 LOG ¡Crítico! Dasui golpea con Mandobles e inflige 14,78 de daño. 💥
+f6113 Rey Slime hp=45.923 mp=21.188 en=0.000
+f6164 LOG ⏳ 1. Rey Slime prepara Brote. ¡Apártate! Si queda Aturdido, se interrumpe.
+f6207 LOG Turno de Daniel. Esperando su acción...
+f6209 999 PULSA Atacar
+f6210 LOG Daniel golpea con Maza pequeña e inflige 5,01 de daño.
+f6210 Daniel hp=309.784 mp=20.000 en=174.025
+f6210 Rey Slime hp=40.917 mp=21.188 en=0.000
+f6266 LOG Turno de Agirato ochinan. Esperando su acción...
+f6266 Agirato ochinan hp=199.851 mp=29.315 en=147.425
+f6268 998 PULSA Objeto
+f6271 998 PULSA _objeto_box: Poción media +1  x2
+f6274 998 PULSA _objeto_box: Agirato ochinan  (200/200 ♥)
+f6275 LOG Agirato ochinan se bebe Poción media +1. ✚ 144 de vida: 36 ahora y 108 durante los 3 turnos siguientes.
+f6282 LOG Catalardio ya puede soltar Golpe sísmico. Esperando su objetivo...
+f6284 998 PULSA ⚡ ¡Soltar Golpe sísmico!
+f6285 LOG … 17,48 de daño.
+f6285 Rey Slime hp=23.441 mp=21.188 en=0.000
+f6344 LOG ⚡ 1. Rey Slime se prepara para Brote. ¡Prepárate! Si queda Aturdido, se interrumpe.
+f6407 LOG Turno de Dasui. Esperando su acción...
+f6409 999 PULSA Habilidad
+f6412 999 PULSA _ability_box: Tajo devastador  (72 EN)
+f6413 LOG ⏳ Dasui prepara Tajo devastador. Si queda Aturdido, se interrumpe.
+f6413 Dasui hp=198.719 mp=20.000 en=109.300
+f6421 LOG Turno de Daniel. Esperando su acción...
+f6423 999 PULSA Atacar
+f6424 LOG Daniel golpea con Maza pequeña e inflige 4,49 de daño.
+f6424 Daniel hp=309.784 mp=20.000 en=181.025
+f6424 Rey Slime hp=18.946 mp=21.188 en=0.000
+f6476 LOG Turno de Agirato ochinan. Esperando su acción...
+f6476 Agirato ochinan hp=199.851 mp=29.737 en=147.425
+f6478 998 PULSA Atacar
+f6479 LOG ¡Crítico! Agirato ochinan golpea con Bastón e inflige 9,24 de daño. 💥  Recupera 0,2 de maná. 🔷
+f6479 Agirato ochinan hp=199.851 mp=29.937 en=177.425
+f6479 Rey Slime hp=9.707 mp=21.188 en=0.000
+f6549 LOG Turno de Catalardio. Esperando su acción...
+f6551 998 PULSA Objeto
+f6554 998 PULSA _objeto_box: Poción media +1  x1
+f6557 998 PULSA _objeto_box: Agirato ochinan  (200/200 ♥)
+f6558 LOG Catalardio le da Poción media +1 a Agirato ochinan. ✚ 144 de vida: 36 ahora y 108 durante los 3 turnos siguientes.
+f6560 LOG Dasui ya puede soltar Tajo devastador. Esperando su objetivo...
+f6562 999 PULSA ⚡ ¡Soltar Tajo devastador!
+f6563 LOG ¡Victoria contra 5 enemigos! 🎉  Recupera 0,94 de maná. 🔷
+f6563 Agirato ochinan hp=199.851 mp=30.876 en=177.425
+f6563 Rey Slime hp=0.000 mp=21.188 en=0.000
+FIN f6563 estado=3
