@@ -286,6 +286,36 @@ func pelear_con(presa: Node2D) -> void:
 			t += 0.25
 
 
+# EL CORRO ENTERO ANTES DE PEGAR (22/11): a la pelea solo entra la manada que esta a Enemy.RADIO_REFUERZO (160 px) del
+# enemigo al que pegas y lo ve. Las pruebas de mutantes en espejo hacian aparecer 2-3 y pegaban a uno cualquiera: con el
+# PC cargado alguno se alejaba deambulando, y en la de la polilla los de los lados estan a 220 px uno del otro (si se
+# pegaba a uno de ellos, el del otro lado no entraba). Falla asi: "en mi pantalla esta: <la mutante> (?)" (banco
+# 5f0792a5 el acechador, 74502adb la polilla). Espera a que los 'n' esten a menos de 'radio' de uno de ellos y devuelve
+# ESE (el del medio), que es al que hay que pegar.
+func esperar_corro(n: int, radio: float = 140.0, tope: float = 20.0) -> Node2D:
+	var t := 0.0
+	var mejor: Node2D = null
+	var peor_d := INF
+	while t <= tope:
+		var ns: Array = Net.enemigos._enem_nodos.values().filter(func(e): return is_instance_valid(e) and not e.esta_muerto())
+		mejor = null
+		peor_d = INF
+		if ns.size() >= n:
+			for c in ns:
+				var lejos := 0.0
+				for o in ns:
+					lejos = maxf(lejos, (c as Node2D).global_position.distance_to((o as Node2D).global_position))
+				if lejos < peor_d:
+					peor_d = lejos
+					mejor = c
+			if peor_d < radio:
+				break
+		await _esperar(0.25)
+		t += 0.25
+	print(prefijo, "[dev] el corro: %d enemigos, el mas lejos a %.0f px del del medio (%.1f s)" % [n, peor_d, t])
+	return mejor if mejor != null else enemigo_libre()
+
+
 func agilidad_grupo() -> float:
 	var s := 0.0
 	for pj in [Game.lider()] + Game.companeros():

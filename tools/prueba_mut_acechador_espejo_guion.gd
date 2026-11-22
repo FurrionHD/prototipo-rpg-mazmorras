@@ -95,18 +95,7 @@ func _guion() -> void:
 	Net.pisos.pedir_spawn_arena(ACECHADOR, yo.global_position + Vector2(30, 120), {"mutacion": "sombra"})
 	Net.pisos.pedir_spawn_arena(ACECHADOR, yo.global_position + Vector2(-40, 150), {"mutacion": "cazador"})
 	await _hasta(func(): return Net.enemigos._enem_nodos.size() + Net.enemigos._enemigos.size() >= 2, 15.0)
-	# (21/11) LOS DOS JUNTOS ANTES DE PEGAR: a la pelea solo entra la manada que esta a RADIO_REFUERZO (160 px) y se ve.
-	# Con el PC cargado (banco 5f0792a5) el Cazador deambulaba lejos antes de que arrancase y la pelea salia solo con la
-	# Sombra ("en mi pantalla esta: Cazador lunar (?)" y todo lo de detras en cadena). Se espera a tenerlos cerca y se
-	# pega al que este mas cerca del otro.
-	var juntos := func() -> bool:
-		var ns: Array = Net.enemigos._enem_nodos.values().filter(func(n): return is_instance_valid(n) and not n.esta_muerto())
-		return ns.size() >= 2 and (ns[0] as Node2D).global_position.distance_to((ns[1] as Node2D).global_position) < 110.0
-	var t_j := await _hasta(juntos, 20.0)
-	var ns0: Array = Net.enemigos._enem_nodos.values().filter(func(n): return is_instance_valid(n) and not n.esta_muerto())
-	print("[dev] los dos a %.0f px uno del otro (%.1f s)" % [(ns0[0] as Node2D).global_position.distance_to((ns0[1] as Node2D).global_position)
-		if ns0.size() >= 2 else -1.0, t_j])
-	await pelear_con(enemigo_libre())
+	await pelear_con(await esperar_corro(2))   # (22/11) todos juntos y al del medio
 	await _hasta(func(): return pantalla() != null, 10.0)
 	var p: Node = pantalla()
 	if not _ok_y(p != null and bool(p.tactico), "la pelea se abre en el mapa"):

@@ -63,7 +63,7 @@ func _guion() -> void:
 	Net.pisos.pedir_spawn_arena(LUTO, yo.global_position + Vector2(110, 130), {"mutacion": "mortaja"})
 	Net.pisos.pedir_spawn_arena(PAVON, yo.global_position + Vector2(-110, 130), {"mutacion": "insomne"})
 	await _hasta(func(): return Net.enemigos._enem_nodos.size() + Net.enemigos._enemigos.size() >= 3, 15.0)
-	await pelear_con(enemigo_libre())
+	await pelear_con(await esperar_corro(3))   # (22/11) todos juntos y al del medio
 	await _hasta(func(): return pantalla() != null, 10.0)
 	var p: Node = pantalla()
 	if not _ok_y(p != null and bool(p.tactico), "la pelea se abre en el mapa"):
