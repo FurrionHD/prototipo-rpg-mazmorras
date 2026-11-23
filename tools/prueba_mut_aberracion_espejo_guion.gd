@@ -106,7 +106,9 @@ func _guion() -> void:
 			if (c as Combatant).nombre == quien:
 				al = c
 		var t_e := await _hasta(func(): return al != null and al.runa_escudo_agua > 0.0, 10.0)
-		_ok(al != null and is_equal_approx(al.runa_escudo_agua, 50.0), "el escudo llega a mi pantalla (%.1f s, %.1f)"
+		# (23/11) Hasta 50, no 50 justo: con el PC cargado la pelea sigue y un golpe se come parte antes de mirarlo (banco
+		# 33b4ef15: llego con 47,8). Lo que se mira es que LLEGA; lo que vale lo mira la prueba de la sala.
+		_ok(al != null and al.runa_escudo_agua > 0.0 and al.runa_escudo_agua <= 50.0 + 0.01, "el escudo llega a mi pantalla (%.1f s, %.1f)"
 			% [t_e, al.runa_escudo_agua if al != null else -1.0])
 		_ok(al != null and al.escudo_es_jaula(), "y llega como el de la Jaula, no como el de la Marea")
 
