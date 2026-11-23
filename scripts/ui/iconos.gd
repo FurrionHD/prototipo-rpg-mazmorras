@@ -796,6 +796,25 @@ static func varita(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void
 # Un arbol de tecnicas reducido a lo minimo que se lee a 34 px: el centro relleno (la habilidad que
 # llevas) y tres ramas huecas saliendo de el. Con mas nodos, a este tamaño, se convierte en una
 # mancha.
+# EL ARBOL de mejoras (22/11): un nodo arriba, dos debajo y uno abajo donde se juntan (como el arbol de la pestaña).
+static func arbol(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	if _pixel(c, "arbol", pos, lado, col):
+		return
+	var g: float = lado * 0.075
+	var r: float = lado * 0.09
+	var arriba := pos + Vector2(lado * 0.5, lado * 0.18)
+	var izq := pos + Vector2(lado * 0.24, lado * 0.5)
+	var der := pos + Vector2(lado * 0.76, lado * 0.5)
+	var abajo := pos + Vector2(lado * 0.5, lado * 0.82)
+	for par in [[arriba, izq], [arriba, der], [izq, abajo], [der, abajo]]:
+		var a: Vector2 = par[0]
+		var b: Vector2 = par[1]
+		var d: Vector2 = (b - a).normalized()
+		c.draw_line(a + d * (r + g * 0.4), b - d * (r + g * 0.4), col, g * 0.7, true)
+	for p in [arriba, izq, der, abajo]:
+		c.draw_arc(p, r, 0.0, TAU, 16, col, g * 0.8, true)
+
+
 static func habilidades(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 	if _pixel(c, "habilidades", pos, lado, col):
 		return

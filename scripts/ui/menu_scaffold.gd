@@ -2883,9 +2883,11 @@ static func fila_retratos(header: VBoxContainer) -> HBoxContainer:
 # escribirlo en la ficha.
 static func retratos(fila: HBoxContainer, gente: Array, sel: int, en_equipo: int,
 		pulsado: Callable, marcas: Array = [], icono_marca: String = "",
-		pista_marca: String = "") -> void:
+		pista_marca: String = "", siempre: bool = false) -> void:
 	vaciar(fila)
-	if gente.size() <= 1:
+	# 'siempre' (22/11): donde lo que se ve es DE UNA PERSONA (el arbol, el dominio, las tecnicas que sabe), su cara sale
+	# aunque sea la unica: si no, no se sabe de quien es lo que estas mirando.
+	if gente.size() <= 1 and not siempre:
 		return
 	for i in gente.size():
 		# LA RAYA entre el equipo y el hogar. Sin ella los doce se leen como una lista sola y no hay

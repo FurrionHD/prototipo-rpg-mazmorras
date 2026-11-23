@@ -3,10 +3,96 @@
 [ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
 
+[ext_resource type="Script" path="res://scripts/items/nodo_mejora.gd" id="nodo_mejora"]
+
 [sub_resource type="Resource" id="SA_sang"]
 script = ExtResource("2")
 estado = 1
 prob = 0.22
+
+[sub_resource type="Resource" id="NM_raf_filo"]
+script = ExtResource("nodo_mejora")
+id = &"filo"
+nombre = "Filo afilado"
+descripcion = "Los tajos entran más limpios."
+padres = Array[StringName]([])
+excluye = Array[StringName]([])
+nivel_min = 1
+dominio = 100
+oro = 400
+cambios = {"dano_mult": ["mult", 1.08]}
+
+[sub_resource type="Resource" id="NM_raf_tajos"]
+script = ExtResource("nodo_mejora")
+id = &"tajos"
+nombre = "Tajos veloces"
+descripcion = "Un tajo más en cada ráfaga."
+padres = Array[StringName]([&"filo"])
+excluye = Array[StringName]([&"abanico"])
+nivel_min = 1
+dominio = 300
+oro = 900
+cambios = {"golpes_min": ["add", 1], "golpes_max": ["add", 1], "dano_mult": ["mult", 1.03]}
+
+[sub_resource type="Resource" id="NM_raf_abanico"]
+script = ExtResource("nodo_mejora")
+id = &"abanico"
+nombre = "Abanico"
+descripcion = "Abres más el brazo: la ráfaga barre un ángulo más ancho."
+padres = Array[StringName]([&"filo"])
+excluye = Array[StringName]([&"tajos"])
+nivel_min = 1
+dominio = 300
+oro = 900
+cambios = {"forma_apertura": ["add", 40.0], "dano_mult": ["mult", 1.05]}
+
+[sub_resource type="Resource" id="NM_raf_torbellino"]
+script = ExtResource("nodo_mejora")
+id = &"torbellino"
+nombre = "Torbellino"
+descripcion = "Otro tajo más, y más rápido."
+padres = Array[StringName]([&"tajos"])
+excluye = Array[StringName]([])
+nivel_min = 2
+dominio = 700
+oro = 2500
+cambios = {"golpes_min": ["add", 1], "golpes_max": ["add", 1], "dano_mult": ["mult", 1.04]}
+
+[sub_resource type="Resource" id="NM_raf_brazo"]
+script = ExtResource("nodo_mejora")
+id = &"brazo"
+nombre = "Brazo largo"
+descripcion = "Llegas más lejos con la hoja."
+padres = Array[StringName]([&"abanico"])
+excluye = Array[StringName]([])
+nivel_min = 2
+dominio = 700
+oro = 2500
+cambios = {"forma_radio": ["add", 15.0], "dano_mult": ["mult", 1.06]}
+
+[sub_resource type="Resource" id="NM_raf_danza"]
+script = ExtResource("nodo_mejora")
+id = &"danza"
+nombre = "Danza de cuchillas"
+descripcion = "Las dos ramas acaban aquí: la ráfaga pega bastante más y vuelve antes."
+padres = Array[StringName]([&"torbellino", &"brazo"])
+excluye = Array[StringName]([])
+nivel_min = 3
+dominio = 1500
+oro = 8000
+cambios = {"dano_mult": ["mult", 1.15], "cooldown": ["add", -1]}
+
+[sub_resource type="Resource" id="NM_raf_sangre_fria"]
+script = ExtResource("nodo_mejora")
+id = &"sangre_fria"
+nombre = "Sangre fría"
+descripcion = "Gastas menos energía en cada ráfaga."
+padres = Array[StringName]([&"danza"])
+excluye = Array[StringName]([])
+nivel_min = 3
+dominio = 2500
+oro = 15000
+cambios = {"dano_mult": ["mult", 1.1], "coste_energia": ["add", -6]}
 
 [resource]
 script = ExtResource("1")
@@ -32,3 +118,5 @@ golpes_extra_por_enemigo_dual = 1.6
 efectos = [SubResource("SA_sang")]
 efectos_por_golpe = true
 descripcion = "Ráfaga de tajos rápidos y superficiales; con dos dagas caen aún más. Cada tajo que acierta puede abrir una herida sangrante."
+; EL ARBOL (22/11): PROVISIONAL, de ejemplo para ver la pantalla; el de verdad se diseña con el jefe.
+arbol = [SubResource("NM_raf_filo"), SubResource("NM_raf_tajos"), SubResource("NM_raf_abanico"), SubResource("NM_raf_torbellino"), SubResource("NM_raf_brazo"), SubResource("NM_raf_danza"), SubResource("NM_raf_sangre_fria")]

@@ -23,6 +23,7 @@ extends RefCounted
 class_name CasaSprites
 
 const CELDA := 32
+const TorreSprites = preload("res://scripts/fx/torre_sprites.gd")
 const ARRIBA := 26          # margen por encima del tejado para chimeneas y humo
 const NEGRO := Color(0.07, 0.05, 0.05)
 
@@ -103,6 +104,11 @@ const CASAS := {
 	# van con los tonos del vidrio de su luz, ver ventanas()). Algo mas alta que las vacias.
 	"runas": {"huella": Vector2i(3, 3), "pared": "piedra_osc", "tejado": "pizarra_azul", "alto": 46,
 		"chimeneas": [], "cartel": "runa", "luz": "runica", "extras": ["glifos"]},
+	# LA TORRE DEL MAGO (22/11, "hazlo mas epico"): no es una casa, la pinta TorreSprites (torre redonda, ventanas que
+	# brillan, anillo de runas, tejado en cono y un cristal flotando). "torre" = su PALETA (A arcana, B astral, C sombria:
+	# la elige el jefe). Sin cartel: la torre ya dice lo que es.
+	"mago": {"huella": Vector2i(3, 3), "alto": 120, "torre": "A",
+		"chimeneas": [], "cartel": "", "luz": "runica", "extras": []},
 	"vacia_0": {"huella": Vector2i(3, 3), "pared": "enlucido", "tejado": "teja", "alto": 40,
 		"chimeneas": [74], "cartel": "", "luz": "", "extras": ["postigos"]},
 	"vacia_1": {"huella": Vector2i(3, 3), "pared": "madera", "tejado": "paja", "alto": 38,
@@ -166,6 +172,8 @@ static func _marco(d: PackedByteArray, w: int, h: int, x0: int, y0: int, rw: int
 static func generar(clave: String) -> Image:
 	var e: Dictionary = CASAS[clave]
 	var t: Vector2i = tam(clave)
+	if e.has("torre"):
+		return TorreSprites.generar(t.x, t.y, String(e["torre"]))
 	var w: int = t.x
 	var h: int = t.y
 	var d := PackedByteArray()
@@ -349,7 +357,7 @@ const TAM_VENTANA := 14
 # [[esquina Vector2i en el lienzo, luz de noche String], ...]
 static func ventanas(clave: String) -> Array:
 	var e: Dictionary = CASAS[clave]
-	if clave.begins_with("vacia"):
+	if clave.begins_with("vacia") or e.has("torre"):   # la torre lleva su luz pintada (TorreSprites)
 		return []
 	var h: int = tam(clave).y
 	var hu: Vector2i = e["huella"]

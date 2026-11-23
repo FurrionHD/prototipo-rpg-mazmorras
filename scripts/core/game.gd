@@ -8832,6 +8832,38 @@ func aprender_habilidad(ab: AbilityData, pj: PersonajeData = null) -> bool:
 	return true
 
 
+# LOS ARBOLES (22/11, memoria rangos-magias-y-habilidades): COGER UN NODO del arbol de una habilidad o magia. Pide lo
+# que diga el nodo (Mejoras.motivo_no: los anteriores, la rama que cierra, nivel, dominio y oro) y cobra el oro.
+# Devuelve "" si lo coge, o por que no (para la pantalla). Lo de antes no se pierde: el nodo se SUMA.
+func coger_nodo(base: Resource, id: StringName, pj: PersonajeData = null) -> String:
+	var p: PersonajeData = pj if pj != null else lider()
+	if base == null:
+		return "no hay habilidad"
+	var motivo: String = Mejoras.motivo_no(p, base, id, int(p.level), money)
+	if motivo != "":
+		return motivo
+	var n: Resource = Mejoras.nodo(base, id)
+	if not gastar(int(n.oro)):
+		return "pide %d de oro" % int(n.oro)
+	var ruta: String = String(base.resource_path)
+	var cogidos: Array = (p.nodos_elegidos.get(ruta, []) as Array).duplicate()
+	cogidos.append(String(id))
+	p.nodos_elegidos[ruta] = cogidos
+	print("[arbol] %s coge '%s' en %s por %d monedas." % [p.nombre, n.nombre, base.get("nombre"), int(n.oro)])
+	return ""
+
+
+# EL INTERRUPTOR que pidio el jefe: llevar una habilidad o magia a la pelea SIN sus mejoras (la ficha tal cual).
+func poner_sin_mejoras(base: Resource, sin: bool, pj: PersonajeData = null) -> void:
+	var p: PersonajeData = pj if pj != null else lider()
+	if base == null:
+		return
+	if sin:
+		p.sin_mejoras[String(base.resource_path)] = true
+	else:
+		p.sin_mejoras.erase(String(base.resource_path))
+
+
 # La clave del set: el TIPO del arma principal (los puños incluidos, que tambien son un tipo).
 # Deliberadamente NO es el arma concreta: por eso la misma espada a otro tier o mejorada te
 # conserva el set, y cambiar a un arma distinta te pone el de esa.

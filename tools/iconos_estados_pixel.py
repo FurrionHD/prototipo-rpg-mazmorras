@@ -745,6 +745,12 @@ ICONOS_MENU = [
         "....llll....", "....l..l....", "....llll....", "......l.....", "....llll....", "...laaaal...",
         "...laaaal...", "....llll....", "...l....l...", ".llll..llll.", ".l..l..l..l.", ".llll..llll."),
         {'a': (255, 230, 120)}),
+    # EL ARBOL de mejoras (22/11, la pestaña del maestro y de la torre del mago): un nodo arriba, dos que se abren y se
+    # vuelven a juntar abajo.
+    ("arbol", "Árbol de mejoras", (0.75, 0.6, 1.0), (
+        "....oooo....", "....olao....", "....oooo....", ".....ll.....", "..llllllll..", "..l......l..",
+        ".oooo..oooo.", ".olao..olao.", ".oooo..oooo.", "..llllllll..", ".....ll.....", "....oooo...."),
+        {'a': (255, 230, 120)}),
     ("flor", "Flor (desarrollos)", (0.95, 0.55, 0.7), espejo(("....oo", "...olw", "...oll", ".ooooo", "ollloa",
         "olllaa", "olllaa", "ollloa", ".ooooo", "...oll", "...oll", "....oo")), {'a': (255, 220, 80)}),
     ("cuero", "Cuero", (0.68, 0.48, 0.3), espejo((".oo...", "ollooo", ".ollll", "..olll", "..olll", ".ollll",

@@ -3,6 +3,8 @@
 [ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
 
+[ext_resource type="Script" path="res://scripts/items/nodo_mejora.gd" id="nodo_mejora"]
+
 [sub_resource type="Resource" id="SA_rayo"]
 script = ExtResource("2")
 estado = 8
@@ -12,6 +14,78 @@ prob = 0.5
 script = ExtResource("2")
 estado = 7
 prob = 0.15
+
+[sub_resource type="Resource" id="NM_ven_punta"]
+script = ExtResource("nodo_mejora")
+id = &"punta"
+nombre = "Punta afilada"
+descripcion = "La lanza entra más honda."
+padres = Array[StringName]([])
+excluye = Array[StringName]([])
+nivel_min = 1
+dominio = 100
+oro = 500
+cambios = {"dano_base": ["mult", 1.08]}
+
+[sub_resource type="Resource" id="NM_ven_largo"]
+script = ExtResource("nodo_mejora")
+id = &"largo"
+nombre = "Largo alcance"
+descripcion = "Lanzas más lejos."
+padres = Array[StringName]([&"punta"])
+excluye = Array[StringName]([&"carga"])
+nivel_min = 1
+dominio = 300
+oro = 1200
+cambios = {"forma_radio": ["add", 60.0], "dano_base": ["mult", 1.04]}
+
+[sub_resource type="Resource" id="NM_ven_carga"]
+script = ExtResource("nodo_mejora")
+id = &"carga"
+nombre = "Carga de tormenta"
+descripcion = "Más rayo en cada lanza, a cambio de más maná."
+padres = Array[StringName]([&"punta"])
+excluye = Array[StringName]([&"largo"])
+nivel_min = 1
+dominio = 300
+oro = 1200
+cambios = {"dano_base": ["mult", 1.12], "coste_mana": ["add", 2]}
+
+[sub_resource type="Resource" id="NM_ven_atraviesa"]
+script = ExtResource("nodo_mejora")
+id = &"atraviesa"
+nombre = "Atraviesa"
+descripcion = "La lanza no se para en el primero: sigue al de detrás."
+padres = Array[StringName]([&"largo"])
+excluye = Array[StringName]([])
+nivel_min = 2
+dominio = 700
+oro = 3000
+cambios = {"forma_solo_primero": ["set", false], "dano_base": ["mult", 1.04]}
+
+[sub_resource type="Resource" id="NM_ven_tres_lanzas"]
+script = ExtResource("nodo_mejora")
+id = &"tres_lanzas"
+nombre = "Tres lanzas"
+descripcion = "Una lanza más (más ocasiones de electrocutar y aturdir)."
+padres = Array[StringName]([&"carga"])
+excluye = Array[StringName]([])
+nivel_min = 2
+dominio = 700
+oro = 3000
+cambios = {"hits": ["add", 1], "dano_base": ["mult", 1.05]}
+
+[sub_resource type="Resource" id="NM_ven_tormenta"]
+script = ExtResource("nodo_mejora")
+id = &"tormenta"
+nombre = "Tormenta en la punta"
+descripcion = "Las dos ramas acaban aquí: la lanza pega bastante más."
+padres = Array[StringName]([&"atraviesa", &"tres_lanzas"])
+excluye = Array[StringName]([])
+nivel_min = 3
+dominio = 1500
+oro = 9000
+cambios = {"dano_base": ["mult", 1.15]}
 
 [resource]
 script = ExtResource("1")
@@ -33,3 +107,5 @@ forma_iman = 28.0
 forma_apunte = 1
 forma_solo_primero = true
 suelo_mapa = 49
+; EL ARBOL (22/11): PROVISIONAL, de ejemplo para ver la pantalla; el de verdad se diseña con el jefe.
+arbol = [SubResource("NM_ven_punta"), SubResource("NM_ven_largo"), SubResource("NM_ven_carga"), SubResource("NM_ven_atraviesa"), SubResource("NM_ven_tres_lanzas"), SubResource("NM_ven_tormenta")]

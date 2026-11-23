@@ -149,7 +149,8 @@ const CASAS := [
 	{"clave": "vacia", "rect": Rect2i(50, 24, 3, 3)},
 	{"clave": "vacia", "rect": Rect2i(55, 24, 3, 3)},
 	# Relleno: los barrios del sur.
-	{"clave": "vacia", "rect": Rect2i(25, 42, 3, 3)},
+	# LA TORRE DEL MAGO (22/11): debajo del maestro. El gacha, la biblioteca y el arbol de las magias.
+	{"clave": "mago", "nombre": "TORRE DEL MAGO", "rect": Rect2i(25, 42, 3, 3), "script": "res://scripts/town/mago.gd"},
 	{"clave": "vacia", "rect": Rect2i(17, 48, 3, 3)},
 	{"clave": "vacia", "rect": Rect2i(25, 48, 3, 3)},
 	# EL TALLER DE RUNAS (08/10/2026): en la que era la casa vacia del barrio sur junto a la peleteria, con su casa
