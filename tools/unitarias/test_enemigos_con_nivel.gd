@@ -146,3 +146,30 @@ func test_vida_de_jefe_solo_con_reglas_nuevas() -> void:
 		cerca(hoy.base_hp, ed.base_hp * Game.enemy_floor_stat_factor(6), 0.01, "con las de hoy, base_hp de siempre")
 		var nuevas: Combatant = _con(true, 1, 0.0, func(): return ed.crear_combatant(0.5, false, true, &"", 6))
 		cerca(nuevas.base_hp, ed.base_hp_reglas_nuevas * Game.enemy_floor_stat_factor(6), 0.01, "con las nuevas, la suya")
+
+
+# EL AGUANTE POR NIVEL (23/11, StatsMath.aguante_*_nivel): x a la vida y a la defensa POR CADA NIVEL que suben (nivel 2 = una
+# vez, nivel 3 = dos veces, se compone); el daño, la velocidad y la defensa magica no se tocan; en el nivel 1 no hace nada.
+func _con_aguante(vida: float, def: float, nivel: int, f: Callable):
+	var v0: float = StatsMath.aguante_vida_nivel
+	var d0: float = StatsMath.aguante_def_nivel
+	StatsMath.aguante_vida_nivel = vida
+	StatsMath.aguante_def_nivel = def
+	var out = _con(true, nivel, 0.0, f)
+	StatsMath.aguante_vida_nivel = v0
+	StatsMath.aguante_def_nivel = d0
+	return out
+
+
+func test_aguante_por_nivel_solo_vida_y_defensa() -> void:
+	var ed: EnemyData = load(SLIME)
+	var crea := func(): return _stats(ed.crear_combatant(0.5, false, false, &"", 8))
+	for nivel in [1, 2, 3]:
+		var hoy: Array = _con_aguante(1.0, 1.0, nivel, crea)
+		var mas: Array = _con_aguante(1.5, 1.1, nivel, crea)
+		var veces: float = float(nivel - 1)
+		cerca(mas[0], hoy[0] * pow(1.5, veces), 0.01, "nivel %d: vida x1,5^%d" % [nivel, nivel - 1])
+		cerca(mas[2], hoy[2] * pow(1.1, veces), 0.01, "nivel %d: defensa x1,1^%d" % [nivel, nivel - 1])
+		cerca(mas[1], hoy[1], 0.001, "nivel %d: el daño no cambia" % nivel)
+		cerca(mas[3], hoy[3], 0.001, "nivel %d: la velocidad no cambia" % nivel)
+		cerca(mas[4], hoy[4], 0.001, "nivel %d: la defensa magica no cambia" % nivel)

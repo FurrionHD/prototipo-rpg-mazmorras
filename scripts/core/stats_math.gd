@@ -305,6 +305,14 @@ static var tier_forzado := -1          # el tier del piso para la K (el simulado
 const PISOS_NIVEL := 12
 static var nivel_enemigos := 1
 static var vel_enemigos_factor := 0.0
+#   4. EL AGUANTE POR NIVEL (23/11, memoria rangos-magias-y-habilidades): con los arboles, las habilidades y magias suben
+#      ~40 % de daño por tier, y el jefe quiere que los enemigos aguanten algo MAS (~50 %) para que las peleas se alarguen
+#      poco a poco y haya que prepararse. Va en la SUBIDA DE NIVEL de los enemigos (EnemyData._bakear_nivel), no en sus
+#      fichas: asi lo cogen todos, los de hoy y los que se hagan, sin un multiplicador suelto por ficha. SOLO vida y
+#      defensa (su daño ya esta bien); mucho mas en vida que en defensa (la defensa hunde los golpes pequeños y ya se
+#      doblo el 20/11). 1 = como hoy. Hoy lo cambia solo el simulador (aguante_vida= / aguante_def=).
+static var aguante_vida_nivel := 1.0
+static var aguante_def_nivel := 1.0
 const K_CRECE_POR_TIER := 2.2
 const TOPE_DEFENSA := 0.75
 

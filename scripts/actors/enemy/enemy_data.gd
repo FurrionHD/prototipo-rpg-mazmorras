@@ -839,9 +839,10 @@ func _bakear_nivel(c: Combatant) -> void:
 	var vel0: float = c.base_speed
 	var ab: Abilities = fondo_nivel()
 	for _n in StatsMath.nivel_enemigos - 1:
-		c.base_hp = StatsMath.max_hp_jugador(ab, c.base_hp) * 1.1
+		# El aguante por nivel (StatsMath.aguante_*_nivel, 1 = nada): solo vida y defensa, nunca el daño.
+		c.base_hp = StatsMath.max_hp_jugador(ab, c.base_hp) * 1.1 * StatsMath.aguante_vida_nivel
 		c.base_attack = c.base_attack * StatsMath.fuerza_factor(float(ab.fuerza)) * 1.1
-		c.base_defense = StatsMath.defense_jugador(ab, c.base_defense) * 1.1
+		c.base_defense = StatsMath.defense_jugador(ab, c.base_defense) * 1.1 * StatsMath.aguante_def_nivel
 		c.base_speed = StatsMath.speed_jugador(ab, c.base_speed) * 1.1
 		c.base_magic = StatsMath.magic_jugador(ab, c.base_magic) * 1.1
 	if StatsMath.vel_enemigos_factor > 0.0:

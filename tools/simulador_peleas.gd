@@ -425,6 +425,10 @@ func _leer_args() -> void:
 			"baston_tier": Upgrades.baston_tier_arma = kv[1] == "1"
 			"magia_mult": StatsMath.magia_dano_mult = float(kv[1])
 			"bakeo_suave": StatsMath.bakeo_suave = float(kv[1])
+			# (23/11) EL AGUANTE POR NIVEL de los enemigos (StatsMath.aguante_*_nivel): x por cada nivel que suben (tier 2 = x1,
+			# tier 3 = x2...). Solo con reglas=nuevas (sin ellas los enemigos no tienen nivel).
+			"aguante_vida": StatsMath.aguante_vida_nivel = float(kv[1])
+			"aguante_def": StatsMath.aguante_def_nivel = float(kv[1])
 			"stats_nivel": _tope = float(kv[1])
 			"ver": _ver = kv[1] == "1"
 			"vel_enemigos": _vel_enemigos = kv[1]

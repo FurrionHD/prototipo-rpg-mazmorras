@@ -70,7 +70,7 @@ def _args_godot(a) -> list:
         a.pisos = ",".join(str(i) for i in range(1, a.pisos_hasta + 1))
     extra = ["veces=%d" % a.veces, "tanda=%s" % a.tanda, "reglas=%s" % a.reglas, "escala=%s" % a.escala]
     for k in ("pisos", "clases", "grupos", "escenarios", "solo", "arma", "armas", "armaduras", "sets", "magias", "pociones", "mana", "magia_suma", "baston_tier", "magia_mult", "bakeo_suave", "stats_nivel", "escala_des",
-              "vel_enemigos", "iniciativa", "equipo"):
+              "vel_enemigos", "iniciativa", "equipo", "aguante_vida", "aguante_def"):
         v = getattr(a, k)
         if v:
             extra.append("%s=%s" % (k, v))
@@ -710,6 +710,8 @@ def main():
     ap.add_argument("--mana", default="", help="real = contra los muñecos el mago gasta su mana y bebe pociones sin fin, de una en una (no rellena cada turno)")
     ap.add_argument("--tanda", default="hoy")
     ap.add_argument("--reglas", default="hoy", help="hoy | nuevas (formula multiplicativa, defensa K por piso con tope 75 %%, enemigos con nivel)")
+    ap.add_argument("--aguante-vida", dest="aguante_vida", default="", help="x a la vida de los enemigos por cada nivel que suben (solo reglas nuevas; 1 = como hoy)")
+    ap.add_argument("--aguante-def", dest="aguante_def", default="", help="x a la defensa de los enemigos por cada nivel que suben (solo reglas nuevas; 1 = como hoy)")
     ap.add_argument("--vel-enemigos", dest="vel_enemigos", default="", help="relativa (de serie: la de su piso de origen frente a los personajes) | bakeada")
     ap.add_argument("--equipo", default="", help="suerte (de serie: cada pieza tira rareza y mejora por su piso) | fijo (la mas probable y la mejora del medio: para comparar armas o sets)")
     ap.add_argument("--iniciativa", default="", help="mixta (de serie: mitad tuya, mitad te emboscan) | tuya | suya")
