@@ -472,10 +472,10 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	_respuesta_enemiga(objetivo, false, def_e)
 	_golpes_mun.append({"c": objetivo, "evadido": false})
 	# Con flecha o virote de material cargado, pega con su bonus (_mult_mun = 1 sin municion o sin arco).
-	var dmg: float = result.damage * ab.dano_mult * m_golpe * escala * _mult_mun \
+	var dmg: float = result.damage * ab.dano_mult * m_golpe * escala * _mult_mun * _pantalla._player.mult_arbol_hab \
 		* (1.0 + _pantalla._player.runa_dano_hab)   # runas: Daño de habilidades
 	r.dmg = dmg
-	r.imbue = float(result.get("dmg_imbue", 0.0)) * ab.dano_mult * m_golpe * escala
+	r.imbue = float(result.get("dmg_imbue", 0.0)) * ab.dano_mult * m_golpe * escala * _pantalla._player.mult_arbol_hab
 	r.mult_imbue = float(result.get("mult_imbue", 1.0))
 	# (31/10) EL ESCUDO DE CARNE del rey rata: una rata pegada puede llevarse parte del golpe.
 	dmg = _pantalla.escudo_carne(objetivo, dmg, _pantalla._player, estilo_ab)
@@ -1269,7 +1269,8 @@ func dano_de_habilidad_contra(p: Combatant, ab: AbilityData, v: Combatant) -> fl
 		if r.get("evaded", false):
 			continue
 		alguno = true
-		total += float(r["damage"]) * ab.dano_mult * float(plan[i]["mult"]) * _mult_mun * (1.0 + p.runa_dano_hab)
+		total += float(r["damage"]) * ab.dano_mult * float(plan[i]["mult"]) * _mult_mun * (1.0 + p.runa_dano_hab) \
+			* p.mult_arbol_hab
 	return total if alguno else -1.0
 
 func filo_de_aire(p: Combatant, ab: AbilityData, ya: Array, obj: Combatant) -> Array:

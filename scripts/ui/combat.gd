@@ -2736,6 +2736,7 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 	obj = cobertura_enemiga(obj)
 	var def_e: bool = enemigo_defiende(obj, _player)
 	var result := StatsMath.resolve_attack(_player, obj, def_e)
+	escala *= _player.mult_arbol_basico   # las mejoras del basico (de momento solo el simulador: Combatant.mult_arbol_basico)
 	if escala != 1.0:
 		result.damage = float(result.damage) * escala
 		if result.has("dmg_imbue"):

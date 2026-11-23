@@ -438,6 +438,7 @@ func _leer_args() -> void:
 			# tier 3 = x2...). Solo con reglas=nuevas (sin ellas los enemigos no tienen nivel).
 			"aguante_vida": StatsMath.aguante_vida_nivel = float(kv[1])
 			"aguante_def": StatsMath.aguante_def_nivel = float(kv[1])
+			"mejoras": _mejoras = kv[1] == "1"
 			"stats_nivel": _tope = float(kv[1])
 			"ver": _ver = kv[1] == "1"
 			"vel_enemigos": _vel_enemigos = kv[1]
@@ -666,6 +667,21 @@ func _llenar_bolsa(piso: int, jefe: bool) -> void:
 # pisos. En el piso P salen los enemigos de su PISO LOCAL (13 -> los del 1 ... 24 -> los del 12, 25 -> los del 1...) con
 # sus habilidades y sus stats de ese piso local, y al subir cada nivel BAKEAN sus bases como el jugador: con lo que
 # tendrian al final del nivel anterior (sus habilidades del piso 12) x1,1. Con las reglas de hoy, el piso tal cual.
+# LAS MEJORAS DE LOS ARBOLES, DE MENTIRA (23/11, 'mejoras=1'; memoria rangos-magias-y-habilidades): mientras se hace el
+# contenido de cada arbol, el grupo pega como si ya lo tuviera. HABILIDADES Y MAGIAS: x1,4 por nivel, compuesto (una del
+# 200 % pasa a 280 % en el nivel 2 y a 392 % en el 3; el jefe: "el 40 % sobre el 200 son 80 adicionales"). EL BASICO: sus
+# pasos dentro de cada nivel (piso 4: 115 %, piso 8: 120 %; el de 140 % pide nivel 2, asi que llega al subir) sobre lo
+# del nivel, que tambien se compone x1,4.
+var _mejoras := false
+
+func _poner_mejoras(c: Combatant, piso: int) -> void:
+	var nivel: int = 1 + (piso - 1) / PISOS_NIVEL
+	var loc: int = piso - PISOS_NIVEL * (nivel - 1)
+	var del_nivel: float = pow(1.4, float(nivel - 1))
+	c.mult_arbol_hab = del_nivel
+	c.mult_arbol_basico = del_nivel * (1.2 if loc >= 8 else (1.15 if loc >= 4 else 1.0))
+
+
 func _nivel_enemigo(piso: int) -> int:
 	return 1 + (piso - 1) / PISOS_NIVEL if StatsMath.reglas_nuevas else 1
 
@@ -1210,6 +1226,9 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 	if _cb == null:
 		return _linea_error(caso, "ERROR_NO_ABRE")
 	_cb._aplicar_velocidad(4.0)
+	if _mejoras:
+		for a in _cb._aliados:
+			_poner_mejoras(a, int(caso[0]))
 	# ...y del lado de aca, la ventaja del LIDER (en el juego siempre el; aqui siempre el tanque) a uno de los tuyos al azar.
 	if not _emboscada and _cb._aliados.size() > 1 and int(_cb._state) != 1:
 		var lider: Combatant = _cb._aliados[0]
