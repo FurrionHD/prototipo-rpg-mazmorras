@@ -63,6 +63,15 @@ const PROGRESION := {
 	25: [3, 100, [750.0, 750.0], 5, 0, 5],
 	31: [3, 600, [750.0, 750.0], 6, 0, 5],
 	36: [3, 750, [750.0, 750.0], 6, 7, 5],
+	# (23/11, el jefe: "hacer tambien prueba mas arriba del nivel 3 para tenerlo bien claro") LOS NIVELES 4 Y 5, con el
+	# mismo patron que el 3, para ver la CURVA del aguante de los enemigos. Aun no hay contenido de esos pisos: salen los
+	# enemigos del 1-12 con nivel 4/5, igual que el 25-36 saca los del 1-12 con nivel 3.
+	37: [4, 100, [750.0, 750.0, 750.0], 7, 0, 5],
+	43: [4, 600, [750.0, 750.0, 750.0], 8, 0, 5],
+	48: [4, 750, [750.0, 750.0, 750.0], 8, 7, 5],
+	49: [5, 100, [750.0, 750.0, 750.0, 750.0], 9, 0, 5],
+	55: [5, 600, [750.0, 750.0, 750.0, 750.0], 10, 0, 5],
+	60: [5, 750, [750.0, 750.0, 750.0, 750.0], 10, 7, 5],
 }
 # EL PERSONAJE DE REFERENCIA DE CUALQUIER PISO (19/11, lo pidio: "todos los pisos del 1 al 12, con la armadura, las armas y
 # las stats que deberian llevar en ese piso"): las habilidades se interpolan en linea recta entre los pisos de PROGRESION
