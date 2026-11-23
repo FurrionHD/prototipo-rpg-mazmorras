@@ -64,6 +64,8 @@ const LibrosPixel = preload("res://scripts/ui/libros_pixel.gd")
 var fila_sel: String = ""   # la RUTA de la habilidad elegida ("basico" = el basico del arma)
 var _paso_x: float = PASO_X_MIN
 var _x_ultimo: float = -1.0   # donde queda lo ultimo que has mejorado de la fila abierta (para centrar el scroll de lado)
+var _fijos: Array = []        # [Control, x de partida]: los iconos de las filas y sus contadores, quietos al deslizar
+const FONDO := Color(0.047, 0.059, 0.078)   # el fondo del panel: tapa el arbol que pasa por debajo de los iconos
 var ancho_pintado: float = 0.0   # el ancho con el que se pinto (maestro_menu repinta si la ventana cambia)
 
 
@@ -105,6 +107,7 @@ func pintar(lista: VBoxContainer, content: VBoxContainer, pj: PersonajeData, fic
 	lienzo.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	lado.add_child(lienzo)
 	_x_ultimo = -1.0
+	_fijos.clear()
 	var y: float = 6.0
 	var ancho: float = 0.0
 	var elegida: Resource = null
@@ -124,6 +127,27 @@ func pintar(lista: VBoxContainer, content: VBoxContainer, pj: PersonajeData, fic
 	lienzo.custom_minimum_size = Vector2(maxf(ancho + MARGEN, disponible), y + 6.0)
 	lado.custom_minimum_size = Vector2(0.0, y + 6.0 + (14.0 if ancho + MARGEN > disponible else 0.0))
 	lienzo.queue_redraw()
+	# (23/11, el jefe) LOS ICONOS QUIETOS: al deslizar, solo se mueve el arbol; la columna de los iconos (y sus contadores)
+	# se queda en su sitio, con el fondo del panel detras para que el arbol pase por debajo y no se vean cortados.
+	if ancho + MARGEN > disponible:
+		var fondo := ColorRect.new()
+		fondo.color = FONDO
+		fondo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		fondo.position = Vector2.ZERO
+		fondo.size = Vector2(MARGEN + ICONO + 12.0, y + 6.0)
+		fondo.visible = false
+		lienzo.add_child(fondo)
+		for fi in _fijos:
+			lienzo.move_child(fi[0], -1)
+		var fijos: Array = _fijos.duplicate()
+		lado.get_h_scroll_bar().value_changed.connect(func(v: float) -> void:
+			if not is_instance_valid(fondo):
+				return
+			fondo.position.x = v
+			fondo.visible = v > 0.0
+			for fi in fijos:
+				if is_instance_valid(fi[0]):
+					(fi[0] as Control).position.x = float(fi[1]) + v)
 	if _x_ultimo > 0.0 and ancho + MARGEN > disponible:
 		var objetivo: int = int(maxf(0.0, _x_ultimo - disponible * 0.5))
 		(func() -> void:
@@ -246,6 +270,8 @@ func _pintar_fila(lienzo: Lienzo, pj: PersonajeData, clave: String, f: Resource,
 	cuenta.position = Vector2(MARGEN, cy + ICONO * 0.5 + 4.0) if not plegada else Vector2(MARGEN + ICONO + 16.0, cy - 10.0)
 	cuenta.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	lienzo.add_child(cuenta)
+	_fijos.append([cab, cab.position.x])
+	_fijos.append([cuenta, cuenta.position.x])
 	var centro: Dictionary = {&"": Vector2(MARGEN + ICONO, cy)}   # de donde salen las raices: el lado derecho del icono
 	var por_id: Dictionary = {}
 	for n in nodos:
