@@ -5,6 +5,8 @@
 #  Tambien los conjuros que llegan de fuera (el canto del mapa, el de quien se une). Lo demas, a _pantalla.
 # ============================================================
 extends RefCounted
+# (22/11) las habilidades y magias montadas con los nodos de su arbol (ver scripts/core/mejoras.gd)
+const Mejoras = preload("res://scripts/core/mejoras.gd")
 
 # La pantalla de la que es este tema: todo lo que no es del tema se le pide a ella. Tipada con su
 # script para que Godot deduzca los tipos (los := sobre ella); los NOMBRES no los comprueba al compilar:
@@ -929,6 +931,7 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 	Game.ganar("magia", Game.reto_stat(_pantalla._poder_enemigo(obj), "magia", obj.level, pj_lanza),
 		Game.GAIN_MAGIA_CAST * mana_factor, Game.RETO_MAX_FISICO, pj_lanza)
 	Game.contar_hechizo(pj_lanza)   # contador oculto de Erudito
+	Mejoras.sumar_dominio(pj_lanza, spell)   # (22/11) el dominio de esta magia (su arbol)
 	# (09/10, logs del 08/10) Solo la de ATAQUE lleva daño y defensa magica del enemigo: una cura salia como
 	# "lanza Luz restauradora | dano:0.00 | def. magica de Rey Slime". Las demas dicen que son (la cura, a quien y cuanto,
 	# lo escribe _curar_con_hechizo).
@@ -1055,7 +1058,7 @@ func _aliado_de_apoyo(apoyo) -> Combatant:
 func aplicar_casteo_entrante(idx_aliado: int, d: Dictionary) -> void:
 	if _pantalla._espejo or idx_aliado < 0 or idx_aliado >= _pantalla._aliados.size():
 		return
-	var sp: SpellData = load(String(d.get("ruta", ""))) as SpellData
+	var sp: SpellData = Mejoras.cargar(String(d.get("ruta", ""))) as SpellData
 	if sp == null:
 		return
 	var quien: Combatant = _pantalla._aliados[idx_aliado]

@@ -49,11 +49,24 @@ var _aviso_ok: bool = true
 # linea de comandos. Es la misma razon por la que partida_de_prueba.gd se carga asi.
 const Libros = preload("res://scripts/core/libros.gd")
 
-const TABS := ["Técnicas", "Meditación", "Biblioteca"]
-const TAB_ICONOS := ["habilidades", "vela", "libro"]
+const TABS := ["Técnicas", "Meditación", "Biblioteca", "Árbol de habilidades", "Árbol de magias"]
+const TAB_ICONOS := ["habilidades", "vela", "libro", "arbol", "arbol"]
 const TAB_TECNICAS := 0
 const TAB_MEDITACION := 1
 const TAB_BIBLIOTECA := 2
+# LOS ARBOLES (22/11, memoria rangos-magias-y-habilidades) y LOS DOS EDIFICIOS que comparten este menu: el MAESTRO de
+# armas (aprender habilidades y su arbol, con el del basico) y la TORRE DEL MAGO (el gacha, la biblioteca y el arbol
+# de las magias). Cada uno enseña solo sus pestañas (ver abrir).
+const TAB_ARBOL := 3
+const TAB_ARBOL_MAGIA := 4
+const MODOS := {
+	"maestro": {"titulo": "Maestro", "tabs": [TAB_TECNICAS, TAB_ARBOL]},
+	"mago": {"titulo": "Torre del mago", "tabs": [TAB_MEDITACION, TAB_BIBLIOTECA, TAB_ARBOL_MAGIA]},
+}
+var _modo: String = "maestro"
+var _chico: Label = null   # el "Maestro" / "Torre del mago" pequeño encima del titulo
+const ArbolUI = preload("res://scripts/ui/arbol_mejoras_ui.gd")
+var _arbol_ui = null
 
 var _tab: int = TAB_TECNICAS
 var _tab_buttons: Array = []
@@ -191,6 +204,7 @@ func _construir() -> void:
 	titulo.add_theme_constant_override("separation", 0)
 	var chico := Label.new()
 	chico.text = "Maestro"
+	_chico = chico
 	chico.add_theme_font_size_override("font_size", 11)
 	chico.add_theme_color_override("font_color", MenuScaffold.GRIS)
 	titulo.add_child(chico)
@@ -212,7 +226,7 @@ func _construir() -> void:
 	barra.move_child(_dinero_lbl, barra.get_child_count() - 2)
 
 
-func abrir() -> void:
+func abrir(modo: String = "maestro") -> void:
 	if Game._active_layer != null or Game.debug_panel_open:
 		return
 	_aviso = ""
@@ -220,6 +234,17 @@ func abrir() -> void:
 	_sel = 0
 	_abrir_por_su_arma()   # se abre por el arma que lleva en la mano, no por la primera del catalogo
 	_construir()
+	# EL EDIFICIO: sus pestañas, su titulo y la primera de las suyas.
+	_modo = modo if MODOS.has(modo) else "maestro"
+	var suyas: Array = MODOS[_modo]["tabs"]
+	if not suyas.has(_tab):
+		_tab = int(suyas[0])
+	for i in _tab_buttons.size():
+		(_tab_buttons[i] as Button).visible = suyas.has(i)
+	if _chico != null:
+		_chico.text = String(MODOS[_modo]["titulo"])
+	if _arbol_ui == null:
+		_arbol_ui = ArbolUI.new(self)
 	_root.visible = true
 	Game.abrir_menu(self)   # para el mundo entero mientras el menu esta abierto
 	_rebuild()
@@ -366,6 +391,9 @@ func _pick_arma(i: int) -> void:
 		return
 	_arma_idx = i
 	_sel = 0   # el indice viejo apunta a otra lista: sin esto la ficha enseñaba otra tecnica
+	if _arbol_ui != null:
+		_arbol_ui.fila_sel = ""
+		_arbol_ui.nodo_sel = &""
 	_aviso = ""
 	_rebuild()
 
@@ -465,15 +493,17 @@ func _rebuild_real() -> void:
 	# SOLO EN TECNICAS. En la Biblioteca sobran y ademas MIENTEN (ver abajo), y en la Meditación hay
 	# otra fila propia dentro del cartel: pintar tambien esta seria montar cuatro muñecos escondidos
 	# detras del split en cada repintado.
-	var con_retratos: bool = (_tab == TAB_TECNICAS)
+	var con_retratos: bool = (_tab == TAB_TECNICAS or _tab == TAB_ARBOL or _tab == TAB_ARBOL_MAGIA)
 	if caja_retratos != null:
 		caja_retratos.visible = con_retratos
 	if con_retratos:
-		MenuScaffold.retratos(_fila_retratos, _gente(), _pj_sel, Game.party.size(), _pick_persona)
+		# SIEMPRE, aunque sea uno solo (22/11, el jefe): las tecnicas, el arbol y el dominio son DE CADA PERSONAJE y su cara
+		# dice de quien es lo que estas mirando.
+		MenuScaffold.retratos(_fila_retratos, _gente(), _pj_sel, Game.party.size(), _pick_persona, [], "", "", true)
 
 	# LA FILA DE ARMAS solo tiene sentido en Técnicas: en las otras dos no se elige arma. Se esconde
 	# en vez de vaciarse porque un Control oculto no ocupa sitio y no hay que remontarla al volver.
-	_barra_armas.visible = (_tab == TAB_TECNICAS)
+	_barra_armas.visible = (_tab == TAB_TECNICAS or _tab == TAB_ARBOL)
 
 	match _tab:
 		TAB_TECNICAS:
@@ -488,11 +518,27 @@ func _rebuild_real() -> void:
 		TAB_BIBLIOTECA:
 			_titulo_seccion.text = "BIBLIOTECA"
 			_pintar_biblioteca(pj)
+		TAB_ARBOL:
+			# Las habilidades del arma que estas mirando (la fila de armas, como en Tecnicas). Las que aun no sabe salen
+			# igual, para ver su arbol, pero sin poder coger nada.
+			var arma_a: Resource = _arma()
+			_titulo_seccion.text = "ÁRBOL · " + String(arma_a.nombre).to_upper()
+			_pintar_armas(pj)
+			_arbol_ui.pintar(_lista, _content, pj, _tecnicas(), func(ab): return Game.habilidad_desbloqueada(ab, pj),
+				"Esta arma todavía no tiene habilidades que mejorar.", arma_a)
+		TAB_ARBOL_MAGIA:
+			_titulo_seccion.text = "ÁRBOL DE MAGIAS"
+			# Solo las que SABE (aprendidas); sin ninguna, el aviso.
+			_arbol_ui.pintar(_lista, _content, pj, Game.hechizos_sabidos(pj), func(_s): return true,
+				"Todavía no conoces ninguna magia. Medita en la torre para despertar tu primer grimorio.")
 
 
 func _on_tab(i: int) -> void:
 	_tab = i
 	_sel = 0
+	if _arbol_ui != null:
+		_arbol_ui.fila_sel = ""
+		_arbol_ui.nodo_sel = &""
 	_aviso = ""
 	_rebuild()
 
@@ -2500,7 +2546,15 @@ func _columnas() -> int:
 var _cols_pintadas: int = 0
 
 func _on_lista_redimensionada() -> void:
-	if not _root.visible or _columnas() == _cols_pintadas:
+	if not _root.visible:
+		return
+	# EL ARBOL se estira al ancho (ver ArbolUI): si la columna cambia de ancho, se repinta.
+	if _tab == TAB_ARBOL or _tab == TAB_ARBOL_MAGIA:
+		var sc: Control = _lista.get_parent() as Control
+		if _arbol_ui != null and sc != null and absf(sc.size.x - 16.0 - _arbol_ui.ancho_pintado) > 24.0:
+			_rebuild()
+		return
+	if _columnas() == _cols_pintadas:
 		return
 	_rebuild()
 

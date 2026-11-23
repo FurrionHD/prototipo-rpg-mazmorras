@@ -39,7 +39,7 @@ const _PERMANENTES := ["es_original", "rol", "dueno", "pasivas_pendientes", "uid
 	"mezcla_exp", "metalurgia_exp", "peleteria_exp", "herreria_exp", "carpinteria_exp", "cocina_exp"]
 # Los campos de arriba que son diccionarios o arrays: se copian a fondo al entrar y al salir, o las
 # dos puntas acabarian escribiendo sobre el mismo objeto cuando el viaje no pasa por la red.
-const _PERMANENTES_HONDOS := ["gacha_pity", "pasivas_rng", "desarrollos_rango"]
+const _PERMANENTES_HONDOS := ["gacha_pity", "pasivas_rng", "desarrollos_rango", "nodos_elegidos", "dominio", "sin_mejoras"]
 
 
 func pj_a_dict(pj: PersonajeData) -> Dictionary:
@@ -299,6 +299,7 @@ func ficha_a_dict(pj: PersonajeData) -> Dictionary:
 			"base_mp", "base_magia_factor", "base_crit", "base_eficacia", "base_resist_voluntad",
 			"current_hp", "current_mp", "stamina",
 			"desarrollos_rango", "pasivas_rng", "guardianes_vencidos",
+			"nodos_elegidos", "dominio", "sin_mejoras",   # (22/11) los arboles: el doble pelea con sus nodos
 			"esquivas_exp", "hechizos_exp", "recitado_exp",
 			"dano_recibido_exp", "dano_infligido_exp", "dano_bloqueado_exp"]:
 		d[campo] = pj.get(campo)
@@ -522,7 +523,7 @@ func desgaste_a_dict(pj: PersonajeData) -> Dictionary:
 # Con el maximo, el peor caso de un paquete raro es que no aporte nada, nunca que reste.
 const _SOLO_SUBEN := ["esquivas_exp", "hechizos_exp", "recitado_exp",
 	"dano_recibido_exp", "dano_infligido_exp", "dano_bloqueado_exp"]
-const _DICTS_HABILIDAD := ["ability_internal", "ability_consolidado", "ability_base_nivel"]
+const _DICTS_HABILIDAD := ["ability_internal", "ability_consolidado", "ability_base_nivel", "dominio"]   # dominio: 22/11
 
 # LO VIVIDO EN UNA PELEA POR UN JUGADOR QUE SE CAYO (fase 5 de la BD): se apunta en su ficha del mundo, en
 # la sala. Si ya ha vuelto con otra conexion, su partida viva es la suya: se le manda a el.

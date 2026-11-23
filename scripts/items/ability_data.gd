@@ -555,6 +555,9 @@ func secundario_para(n_enemigos: int) -> float:
 
 # Estados que aplica al enemigo (Array[StatusApplication], con su prob).
 @export var efectos: Array = []
+# EL ARBOL de esta ficha (22/11, memoria rangos-magias-y-habilidades): sus nodos (scripts/items/nodo_mejora.gd), que
+# la van modificando. Lo monta Mejoras.montar para la pelea con los que haya cogido cada personaje.
+@export var arbol: Array = []
 # true  -> se tiran en CADA golpe que acierta (Ráfaga: cada tajo 40% de sangrado ->
 #          mas golpes = mas sangrado, cada hit con su tirada, mas realista).
 # false -> UNA sola tirada tras la habilidad si conecto algo (golpe de escudo: 1 stun).

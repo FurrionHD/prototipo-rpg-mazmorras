@@ -55,12 +55,24 @@ static func _listar(carpeta: String, out: Array) -> void:
 static func de(r) -> int:
 	_montar()
 	var ruta: String = (r as Resource).resource_path if r is Resource else String(r) if r != null else ""
+	# (22/11) UNA HABILIDAD O MAGIA MONTADA con los nodos de su arbol (Mejoras: "ficha.tres#nodo+nodo") da el numero de
+	# su FICHA: lo que solo pinta (el circulo, el sello) no necesita mas. Lo que lleva estado usa de_o_texto.
+	var i_m: int = ruta.find("#")
+	if i_m >= 0:
+		ruta = ruta.substr(0, i_m)
 	if ruta.is_empty():
 		return 0
 	var id: int = int(_id_de.get(ruta, 0))
 	if id == 0:
 		push_error("[ids] %s no esta en la tabla de la red (IdsRed.RAICES)" % ruta)
 	return id
+
+
+# (22/11) LO QUE LLEVA ESTADO (una recarga, lo que se esta cargando, la habilidad con la que se carga): el numero, o
+# el nombre entero en TEXTO si es una habilidad montada con sus nodos (al otro lado, Mejoras.cargar la monta igual).
+static func de_o_texto(r):
+	var ruta: String = (r as Resource).resource_path if r is Resource else String(r) if r != null else ""
+	return ruta if ruta.contains("#") else de(r)
 
 
 # La ruta de un numero ("" si no es ninguno).
