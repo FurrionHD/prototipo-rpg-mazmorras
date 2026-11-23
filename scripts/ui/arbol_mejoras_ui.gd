@@ -17,11 +17,6 @@ const VERDE := Color(0.55, 0.85, 0.55)
 const GRIS := Color(0.6, 0.63, 0.7)
 const OSCURO := Color(0.32, 0.34, 0.4)
 
-const NODO_ANCHO := 150.0
-const NODO_ALTO := 46.0
-const FILA_ALTO := 92.0
-const HUECO_X := 24.0
-const ANCHO_SELECTOR := 158.0
 
 # Como se llama cada campo de la ficha en la pantalla (lo que cambia un nodo). Uno que no este sale con su nombre.
 const NOMBRE_CAMPO := {
@@ -36,7 +31,6 @@ const NOMBRE_CAMPO := {
 const SIEMPRE_PCT := ["dano_mult", "dano_base", "dano_objetivo", "dano_salpicon", "area_secundario"]
 
 var _menu = null          # maestro_menu: para repintar y dar avisos
-var hab_idx: int = 0      # que habilidad (o magia) de la lista
 var nodo_sel: StringName = &""   # que nodo de su arbol ("" = la habilidad misma)
 
 
@@ -45,103 +39,291 @@ func _init(menu) -> void:
 
 
 # ------------------------------------------------------------
-#  LO QUE SE PINTA
+#  LO QUE SE PINTA: EL ARBOL ENTERO, UNA FILA POR COSA (23/11, el jefe con el arbol de Diablo delante)
+#  De arriba abajo: en el maestro, primero el BASICO del arma y debajo cada habilidad; en la torre, cada magia (las
+#  magias no tienen basico). Cada fila: el ICONO de la habilidad a la izquierda (cuadrado) y sus mejoras saliendo hacia
+#  la DERECHA, abriendose en ramas y juntandose (circulos; en rombo las que juntan dos ramas o cierran la fila). El
+#  basico NO es una puerta: es una fila mas, ninguna cuelga de el. Sin nombres: el nombre, al pasar el raton; al
+#  clicar, su ficha a la derecha. Las mejoras llevan el icono de su habilidad hasta que tengan el suyo.
 # ------------------------------------------------------------
-# 'fichas': las habilidades o magias entre las que se elige; 'sabida': Callable(ficha) -> bool (si no la sabe, se
-# enseña el arbol pero no se puede coger nada).
+const P := 3.0            # EL PIXEL GORDO: nodos, lineas e iconos, todo a la misma rejilla (los iconos, 12 px x3)
+const ICONO := 66.0       # el cuadro de la habilidad (22 pixeles)
+const NODO := 48.0        # el circulo (o rombo) de una mejora (16 pixeles)
+const PASO_X_MIN := 70.0  # de una columna de mejoras a la siguiente: lo justo...
+const PASO_X_MAX := 160.0 # ...y lo mas que se separan para LLENAR EL ANCHO (23/11, el jefe: "el espacio no esta bien
+                          # aprovechado"): las mejoras se reparten por todo el ancho de la columna, como en Diablo.
+const PASO_Y := 57.0      # entre dos mejoras de la misma columna
+const FILA_MIN := 96.0
+const SEP_FILAS := 42.0   # el hueco entre una habilidad y la siguiente (la raya va en medio)
+const SEP_PLEGADAS := 6.0 # entre dos plegadas
+const MARGEN := 18.0
+const LibrosPixel = preload("res://scripts/ui/libros_pixel.gd")
+
+var fila_sel: String = ""   # la RUTA de la habilidad elegida ("basico" = el basico del arma)
+var _paso_x: float = PASO_X_MIN
+var ancho_pintado: float = 0.0   # el ancho con el que se pinto (maestro_menu repinta si la ventana cambia)
+
+
+# 'fichas': las habilidades (o magias) de las filas; 'sabida': Callable(ficha) -> bool (si no la sabe, se ve su arbol
+# pero no se coge nada); 'arma': la del maestro (su basico va en la primera fila y da el icono de sus habilidades), o
+# null en la torre.
 func pintar(lista: VBoxContainer, content: VBoxContainer, pj: PersonajeData, fichas: Array, sabida: Callable,
-		que: String) -> void:
-	if fichas.is_empty():
-		MenuScaffold.nota(lista, "Aún no tienes %s que mejorar." % que)
+		que: String, arma: Resource = null) -> void:
+	if fichas.is_empty() and arma == null:
+		MenuScaffold.nota(lista, que)   # el aviso lo da quien llama (la torre: aun no conoce ninguna magia)
 		return
-	hab_idx = clampi(hab_idx, 0, fichas.size() - 1)
-	var base: Resource = fichas[hab_idx]
-	_pintar_selector(lista, fichas)
-	_pintar_arbol(lista, pj, base, bool(sabida.call(base)))
-	_pintar_ficha(content, pj, base, bool(sabida.call(base)))
+	var filas: Array = []   # [clave, ficha o null (el basico)]
+	if arma != null:
+		filas.append(["basico", null])
+	for f in fichas:
+		filas.append([String(f.resource_path), f])
+	if not filas.any(func(x): return x[0] == fila_sel):
+		fila_sel = String(filas[0][0])
+		nodo_sel = &""
+	# EL ANCHO QUE HAY y la fila mas larga: las columnas de mejoras se separan para llenarlo.
+	var hueco: Control = lista.get_parent() as Control
+	var disponible: float = (hueco.size.x if hueco != null and hueco.size.x > 100.0 else 820.0) - 16.0
+	ancho_pintado = disponible
+	var max_col: int = 1
+	for par in filas:
+		if par[1] != null:
+			max_col = maxi(max_col, _columnas(par[1]))
+	_paso_x = clampf((disponible - MARGEN * 2.0 - ICONO - 44.0 - NODO) / float(maxi(1, max_col - 1)), PASO_X_MIN, PASO_X_MAX)
+	var lienzo := Lienzo.new()
+	lienzo.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	lista.add_child(lienzo)
+	var y: float = 6.0
+	var ancho: float = 0.0
+	var elegida: Resource = null
+	for i_f in filas.size():
+		var clave: String = filas[i_f][0]
+		var f: Resource = filas[i_f][1]
+		var alto_f: float = _pintar_fila(lienzo, pj, clave, f, f == null or bool(sabida.call(f)), arma, y)
+		if clave == fila_sel:
+			elegida = f
+		# ENTRE FILA Y FILA, la raya en medio del hueco: AIRE alrededor de la abierta (23/11, el jefe: los arboles crecen
+		# mucho y todo se leia como un bloque) y poco entre las plegadas (que quepan todas de un vistazo).
+		var junto_a_abierta: bool = clave == fila_sel or (i_f + 1 < filas.size() and String(filas[i_f + 1][0]) == fila_sel)
+		var hueco_f: float = SEP_FILAS if junto_a_abierta else SEP_PLEGADAS
+		lienzo.rayas.append(y + alto_f + hueco_f * 0.5)
+		y += alto_f + hueco_f
+		ancho = maxf(ancho, lienzo.ancho_fila)
+	lienzo.custom_minimum_size = Vector2(maxf(ancho + MARGEN, disponible), y + 6.0)
+	lienzo.queue_redraw()
+	if fila_sel == "basico":
+		_pintar_ficha_basico(content, arma)
+	elif elegida != null:
+		_pintar_ficha(content, pj, elegida, bool(sabida.call(elegida)))
 
 
-func _pintar_selector(lista: VBoxContainer, fichas: Array) -> void:
-	var flujo := HFlowContainer.new()
-	flujo.add_theme_constant_override("h_separation", 6)
-	flujo.add_theme_constant_override("v_separation", 6)
-	lista.add_child(flujo)
-	for i in fichas.size():
-		var f: Resource = fichas[i]
-		var con_arbol: bool = not (f.arbol as Array).is_empty()
-		var b := Button.new()
-		# TODOS DEL MISMO TAMAÑO (lo pidio el jefe): el nombre recortado si no cabe, y la que no tiene arbol solo va en gris.
-		b.text = String(f.nombre)
-		b.custom_minimum_size = Vector2(ANCHO_SELECTOR, 34)
-		b.clip_text = true
-		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		b.tooltip_text = String(f.nombre) + ("" if con_arbol else "\nTodavía no tiene árbol")
-		b.toggle_mode = true
-		b.button_pressed = (i == hab_idx)
-		b.add_theme_font_size_override("font_size", 13)
-		if not con_arbol:
-			b.add_theme_color_override("font_color", GRIS)
-		b.pressed.connect(func() -> void:
-			hab_idx = i
-			nodo_sel = &""
-			_menu._rebuild())
-		flujo.add_child(b)
-	MenuScaffold.separador(lista)
+# UNA FILA: el icono y, a su derecha, sus mejoras por columnas (la columna de cada una es su profundidad: 1 + la de su
+# padre mas hondo). Devuelve lo alto que ocupa.
+#
+# LAS LINEAS LARGAS NO PASAN POR ENCIMA DE NADIE (23/11, el jefe: "se hacen confusas"): una que salta columnas (de la
+# columna 3 a la 5, por ejemplo) reserva un HUECO en cada columna que cruza y pasa por el, entre los nodos, como en los
+# arboles bien dibujados. Los huecos se ordenan con los nodos de su columna (por la altura de lo que tienen detras).
+func _pintar_fila(lienzo: Lienzo, pj: PersonajeData, clave: String, f: Resource, sabida: bool, arma: Resource,
+		y0: float) -> float:
+	var todos: Array = [] if f == null else (f.arbol as Array).filter(func(n): return n != null)
+	# PLEGADA (23/11, idea del jefe): solo la elegida despliega su arbol; las demas, su icono y su contador. Asi cada
+	# arbol tiene todo el sitio y la pantalla no se llena de arboles a la vez.
+	var plegada: bool = clave != fila_sel
+	var nodos: Array = [] if plegada else todos
+	var hondo: Dictionary = {&"": 0}
+	for _vuelta in nodos.size() + 1:
+		for n in nodos:
+			var dd: int = 1
+			for pa in n.padres:
+				if hondo.has(StringName(pa)):
+					dd = maxi(dd, int(hondo[StringName(pa)]) + 1)
+			hondo[StringName(n.id)] = dd
+	# LO QUE VA EN CADA COLUMNA: los nodos y los huecos de las lineas largas. Cada uno con lo que tiene justo detras.
+	var cols: Dictionary = {}
+	var detras: Dictionary = {}    # id -> [ids de la columna de antes de los que sale una linea hasta el]
+	var cadenas: Array = []        # [[ids del padre al hijo, pasando por sus huecos], tuya]
+	var cogidos: Array = [] if f == null else (pj.nodos_elegidos as Dictionary).get(clave, [])
+	var max_col: int = 0
+	for n in nodos:
+		var d: int = int(hondo[StringName(n.id)])
+		if not cols.has(d):
+			cols[d] = []
+		(cols[d] as Array).append(StringName(n.id))
+		detras[StringName(n.id)] = []
+		max_col = maxi(max_col, d)
+	for n in nodos:
+		var d2: int = int(hondo[StringName(n.id)])
+		for pa in (n.padres if not (n.padres as Array).is_empty() else [&""]):
+			if not hondo.has(StringName(pa)):
+				continue
+			var previo: StringName = StringName(pa)
+			var cadena: Array = [previo]
+			for c in range(int(hondo[StringName(pa)]) + 1, d2):
+				var hueco: StringName = StringName("~%s>%s@%d" % [pa, n.id, c])
+				if not cols.has(c):
+					cols[c] = []
+				(cols[c] as Array).append(hueco)
+				detras[hueco] = [previo]
+				cadena.append(hueco)
+				previo = hueco
+			(detras[StringName(n.id)] as Array).append(previo)
+			cadena.append(StringName(n.id))
+			var tuya: bool = cogidos.has(String(n.id)) and (StringName(pa) == &"" or cogidos.has(String(pa)))
+			cadenas.append([cadena, tuya])
+	# DONDE VA CADA COSA, en relativo (la fila en 0): A LA ALTURA DE LO QUE TIENE DETRAS (si no, las lineas se cruzan
+	# y una punta sola se iba al centro de la fila, lejos de su padre); si choca con la de encima, lo justo por debajo,
+	# y luego la columna entera se recoloca para que, de media, quede donde queria.
+	var rel: Dictionary = {&"": 0.0}
+	for c in range(1, max_col + 1):
+		if not cols.has(c):
+			continue
+		var col: Array = cols[c]
+		col.sort_custom(func(a, b2) -> bool: return _altura_detras(a, detras, rel) < _altura_detras(b2, detras, rel))
+		var quiere: Array = col.map(func(id): return _altura_detras(id, detras, rel))
+		var ys: Array = []
+		for i in col.size():
+			var yy: float = float(quiere[i])
+			if i > 0:
+				yy = maxf(yy, float(ys[i - 1]) + PASO_Y)
+			ys.append(yy)
+		var desvio: float = 0.0
+		for i in col.size():
+			desvio += float(quiere[i]) - float(ys[i])
+		desvio /= float(col.size())
+		for i in col.size():
+			rel[col[i]] = float(ys[i]) + desvio
+	var arriba: float = 0.0
+	var abajo: float = 0.0
+	for k in rel:
+		arriba = minf(arriba, float(rel[k]))
+		abajo = maxf(abajo, float(rel[k]))
+	var alto: float = (ICONO + 12.0) if plegada else maxf(FILA_MIN + 24.0, abajo - arriba + NODO + 24.0)
+	var cy: float = _px_g(y0 + alto * 0.5 - (arriba + abajo) * 0.5)
+	var icono: Callable = _dibujo_icono(f, arma)
+	# EL ICONO de la fila.
+	var cab := NodoUI.new()
+	cab.forma = NodoUI.Forma.CUADRO
+	cab.dibujo = icono
+	cab.estado = "puedes" if sabida else "falta"
+	cab.elegido = (clave == fila_sel and nodo_sel == &"")
+	cab.tooltip_text = ("Ataque básico" if f == null else String(f.nombre)) + ("" if sabida else "\nAún no la sabes")
+	cab.position = Vector2(MARGEN, _px_g(cy - ICONO * 0.5))
+	cab.size = Vector2(ICONO, ICONO)
+	cab.custom_minimum_size = cab.size
+	cab.pulsado.connect(func() -> void:
+		fila_sel = clave
+		nodo_sel = &""
+		_menu._rebuild())
+	lienzo.add_child(cab)
+	# EL CONTADOR, al lado del icono (como el "4/12" de Diablo): cuantas mejoras llevas de las que tiene.
+	var cuenta := Label.new()
+	var llevas: int = 0 if f == null else ((pj.nodos_elegidos as Dictionary).get(clave, []) as Array).size()
+	cuenta.text = ("%d / %d" % [llevas, todos.size()]) if not todos.is_empty() else "sin mejoras todavía"
+	cuenta.add_theme_font_size_override("font_size", 14)
+	cuenta.add_theme_color_override("font_color", VERDE if llevas > 0 else GRIS)
+	# Plegada, a su derecha; desplegada, debajo del icono (a la derecha salen sus mejoras).
+	cuenta.position = Vector2(MARGEN, cy + ICONO * 0.5 + 4.0) if not plegada else Vector2(MARGEN + ICONO + 16.0, cy - 10.0)
+	cuenta.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lienzo.add_child(cuenta)
+	var centro: Dictionary = {&"": Vector2(MARGEN + ICONO, cy)}   # de donde salen las raices: el lado derecho del icono
+	var por_id: Dictionary = {}
+	for n in nodos:
+		por_id[StringName(n.id)] = n
+	# Los que no cuelgan de nadie son los ultimos (se pintan en rombo), y los que juntan dos ramas tambien.
+	var tiene_hijos: Dictionary = {}
+	for n in nodos:
+		for pa in n.padres:
+			tiene_hijos[StringName(pa)] = true
+	for c in range(1, max_col + 1):
+		if not cols.has(c):
+			continue
+		for id in cols[c]:
+			var pos := Vector2(_px_g(MARGEN + ICONO + 48.0 + (c - 1) * _paso_x), _px_g(cy + float(rel[id])))
+			centro[id] = pos
+			if not por_id.has(id):
+				continue   # un hueco de una linea larga: no se pinta nada
+			var n = por_id[id]
+			var b := NodoUI.new()
+			b.forma = NodoUI.Forma.ROMBO if ((n.padres as Array).size() > 1 or not tiene_hijos.has(id)) else NodoUI.Forma.CIRCULO
+			b.dibujo = icono
+			b.estado = _estado(pj, f, n, cogidos) if sabida else "falta"
+			b.elegido = (clave == fila_sel and id == nodo_sel)
+			b.tooltip_text = String(n.nombre)
+			b.position = pos - Vector2(NODO, NODO) * 0.5
+			b.size = Vector2(NODO, NODO)
+			b.custom_minimum_size = b.size
+			b.pulsado.connect(func() -> void:
+				fila_sel = clave
+				nodo_sel = id
+				_menu._rebuild())
+			lienzo.add_child(b)
+	# LAS LINEAS: del padre (o del icono) al hijo, pasando por sus huecos. Verde si las dos puntas son tuyas.
+	for par in cadenas:
+		var cad: Array = par[0]
+		var pts := PackedVector2Array()
+		for k in cad.size():
+			var p: Vector2 = centro[cad[k]]
+			if k == 0 and StringName(cad[k]) != &"":
+				p.x += NODO * 0.5     # sale del borde derecho del padre
+			if k == cad.size() - 1:
+				p.x -= NODO * 0.5     # entra por el borde izquierdo del hijo
+			pts.append(p)
+		lienzo.lineas.append([pts, VERDE if par[1] else OSCURO])
+	lienzo.ancho_fila = MARGEN + ICONO + 48.0 + maxi(max_col - 1, 0) * _paso_x + NODO
+	return alto
 
 
-# EL ARBOL: la fila de cada nodo es su PROFUNDIDAD (1 + la del padre mas hondo; sin padres, la primera), y dentro de
-# la fila van en el orden en que estan en la ficha.
-func _pintar_arbol(lista: VBoxContainer, pj: PersonajeData, base: Resource, sabida: bool) -> void:
-	var nodos: Array = (base.arbol as Array).filter(func(n): return n != null)
+# La altura media (relativa) de lo que tiene justo detras (la del icono, 0, si cuelga de el).
+func _altura_detras(id: StringName, detras: Dictionary, rel: Dictionary) -> float:
+	var suma: float = 0.0
+	var k: int = 0
+	for x in detras.get(id, []):
+		if rel.has(StringName(x)):
+			suma += float(rel[StringName(x)])
+			k += 1
+	return suma / float(k) if k > 0 else 0.0
+
+
+# A la rejilla de pixel (P): asi los nodos y las lineas caen en el mismo pixel gordo que los iconos.
+static func _px_g(v: float) -> float:
+	return floorf(v / P) * P
+
+
+# Cuantas columnas de mejoras tiene el arbol de una ficha (su profundidad).
+func _columnas(f: Resource) -> int:
+	var nodos: Array = (f.arbol as Array).filter(func(n): return n != null)
 	var hondo: Dictionary = {}
 	for _vuelta in nodos.size() + 1:
 		for n in nodos:
-			var d: int = 1
+			var dd: int = 1
 			for pa in n.padres:
 				if hondo.has(StringName(pa)):
-					d = maxi(d, int(hondo[StringName(pa)]) + 1)
-			hondo[StringName(n.id)] = d
-	var filas: Dictionary = {0: [null]}   # la fila 0 es la habilidad tal cual
-	var max_fila: int = 0
-	for n in nodos:
-		var f: int = int(hondo[StringName(n.id)])
-		if not filas.has(f):
-			filas[f] = []
-		(filas[f] as Array).append(n)
-		max_fila = maxi(max_fila, f)
-	var ancho_max: int = 1
-	for f in filas:
-		ancho_max = maxi(ancho_max, (filas[f] as Array).size())
-	var ancho: float = maxf(ancho_max * (NODO_ANCHO + HUECO_X), 560.0)
-	var lienzo := Lienzo.new()
-	lienzo.custom_minimum_size = Vector2(ancho, (max_fila + 1) * FILA_ALTO + 10.0)
-	lienzo.size_flags_horizontal = Control.SIZE_SHRINK_CENTER   # el arbol, centrado en su columna
-	lista.add_child(lienzo)
-	var centro: Dictionary = {}   # id -> centro del nodo, para las lineas
-	var cogidos: Array = (pj.nodos_elegidos as Dictionary).get(String(base.resource_path), [])
-	for f in range(max_fila + 1):
-		if not filas.has(f):
-			continue
-		var fila: Array = filas[f]
-		var total: float = fila.size() * NODO_ANCHO + (fila.size() - 1) * HUECO_X
-		var x0: float = (ancho - total) * 0.5
-		for i in fila.size():
-			var n = fila[i]
-			var pos := Vector2(x0 + i * (NODO_ANCHO + HUECO_X), f * FILA_ALTO + 8.0)
-			var id: StringName = &"" if n == null else StringName(n.id)
-			centro[id] = pos + Vector2(NODO_ANCHO * 0.5, NODO_ALTO * 0.5)
-			lienzo.add_child(_boton_nodo(pj, base, n, pos, sabida, cogidos))
-	# LAS LINEAS: de cada padre a su hijo (la primera fila cuelga de la habilidad). Verde si las dos puntas son tuyas.
-	for n in nodos:
-		var hijo: Vector2 = centro[StringName(n.id)]
-		var padres: Array = n.padres if not (n.padres as Array).is_empty() else [&""]
-		for pa in padres:
-			if not centro.has(StringName(pa)):
-				continue
-			var tuyo: bool = cogidos.has(String(n.id)) and (StringName(pa) == &"" or cogidos.has(String(pa)))
-			lienzo.lineas.append([centro[StringName(pa)] + Vector2(0, NODO_ALTO * 0.5), hijo - Vector2(0, NODO_ALTO * 0.5),
-				VERDE if tuyo else OSCURO])
-	lienzo.queue_redraw()
+					dd = maxi(dd, int(hondo[StringName(pa)]) + 1)
+			hondo[StringName(n.id)] = dd
+	var m: int = 0
+	for k in hondo:
+		m = maxi(m, int(hondo[k]))
+	return m
+
+
+# EL DIBUJO del icono de una fila: el grimorio de la magia, o el arma (las habilidades, hasta que tengan el suyo).
+func _dibujo_icono(f: Resource, arma: Resource) -> Callable:
+	if f is SpellData:
+		var tex: Texture2D = LibrosPixel.textura(LibrosPixel.id_de_magia(f))
+		if tex != null:
+			return func(ci: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+				ci.draw_texture_rect(tex, Rect2(pos, Vector2(lado, lado)), false, Color(1, 1, 1, col.a))
+		return Callable(Iconos, "libro")
+	# El mismo icono que el arma en la fila de armas (MenuScaffold.icono_de_arma: siempre uno que existe en Iconos).
+	return Callable(Iconos, MenuScaffold.icono_de_arma(arma) if arma != null else "habilidades")
+
+
+# LA FICHA DEL BASICO (todavia sin arbol: va en el paso siguiente).
+func _pintar_ficha_basico(content: VBoxContainer, arma: Resource) -> void:
+	MenuScaffold.titulo(content, "Ataque básico", 18)
+	if arma != null:
+		MenuScaffold.nota(content, "Con %s." % String(arma.nombre))
+	MenuScaffold.separador(content)
+	MenuScaffold.nota(content, "Sus mejoras llegan con los pisos 4, 8 y 12 de cada nivel. Todavía no están hechas.")
 
 
 # El estado de un nodo: "tuyo", "puedes", "falta" (le falta algo) o "cerrado" (otra rama lo cierra).
@@ -152,35 +334,6 @@ func _estado(pj: PersonajeData, base: Resource, n: Resource, cogidos: Array) -> 
 		if cogidos.has(String(x)):
 			return "cerrado"
 	return "puedes" if Mejoras.motivo_no(pj, base, StringName(n.id), int(pj.level), Game.money) == "" else "falta"
-
-
-func _boton_nodo(pj: PersonajeData, base: Resource, n, pos: Vector2, sabida: bool, cogidos: Array) -> Button:
-	var b := Button.new()
-	b.position = pos
-	b.size = Vector2(NODO_ANCHO, NODO_ALTO)
-	b.custom_minimum_size = b.size
-	b.toggle_mode = true
-	b.clip_text = true
-	b.add_theme_font_size_override("font_size", 12)
-	var id: StringName = &"" if n == null else StringName(n.id)
-	b.button_pressed = (id == nodo_sel)
-	var col: Color = AMBAR
-	if n == null:
-		b.text = String(base.nombre)
-	else:
-		var est: String = _estado(pj, base, n, cogidos) if sabida else "falta"
-		b.text = String(n.nombre)
-		col = {"tuyo": VERDE, "puedes": AMBAR, "falta": GRIS, "cerrado": OSCURO}[est]
-		b.tooltip_text = {"tuyo": "Ya lo tienes", "puedes": "Lo puedes coger", "falta": "Te falta algo",
-			"cerrado": "Elegiste la otra rama"}[est]
-	# EL COLOR DE SU ESTADO tambien elegido y con el raton encima (si no, el elegido salia en blanco y no se sabia si era
-	# tuyo, si lo podias coger o si te faltaba algo).
-	for k in ["font_color", "font_pressed_color", "font_hover_color", "font_hover_pressed_color", "font_focus_color"]:
-		b.add_theme_color_override(k, col)
-	b.pressed.connect(func() -> void:
-		nodo_sel = id
-		_menu._rebuild())
-	return b
 
 
 # LA FICHA de la derecha: el nodo elegido (o la habilidad, si no hay ninguno).
@@ -200,6 +353,8 @@ func _pintar_ficha(content: VBoxContainer, pj: PersonajeData, base: Resource, sa
 	MenuScaffold.separador(content)
 	var n: Resource = Mejoras.nodo(base, nodo_sel) if nodo_sel != &"" else null
 	if n == null:
+		if String(base.get("descripcion")) != "":
+			MenuScaffold.nota(content, String(base.get("descripcion")))
 		var cogidos: Array = (pj.nodos_elegidos as Dictionary).get(ruta, [])
 		MenuScaffold.nota(content, "Elige un nodo del árbol para ver qué cambia y qué pide." if not (base.arbol as Array).is_empty()
 			else "Esta todavía no tiene árbol.")
@@ -241,9 +396,9 @@ func _pintar_ficha(content: VBoxContainer, pj: PersonajeData, base: Resource, sa
 		MenuScaffold.nota(content, "Primero tienes que aprender la habilidad.")
 		return
 	var motivo: String = Mejoras.motivo_no(pj, base, StringName(n.id), int(pj.level), Game.money)
-	MenuScaffold.boton(content, "Coger (%d monedas)" % int(n.oro), func() -> void:
+	MenuScaffold.boton(content, "Mejorar (%d monedas)" % int(n.oro), func() -> void:
 		var r: String = Game.coger_nodo(base, StringName(n.id), pj)
-		_menu._aviso = ("%s: %s" % [n.nombre, "¡hecho!"]) if r == "" else ("No se puede: " + r)
+		_menu._aviso = ("Mejora conseguida: %s" % n.nombre) if r == "" else ("No se puede: " + r)
 		_menu._aviso_ok = (r == "")
 		_menu._rebuild(), motivo == "")
 
@@ -289,14 +444,135 @@ static func texto_cambios(base: Resource, n: Resource) -> Array:
 	return out
 
 
-# EL LIENZO del arbol: los botones van encima y las lineas se pintan debajo.
+# EL LIENZO del arbol: los nodos van encima; debajo, las lineas y las rayas tenues entre fila y fila. TODO EN PIXEL
+# (23/11, el jefe: "no son pixel art"): las lineas van en escalera de pixeles gordos (P x P), con su sombra debajo.
 class Lienzo extends Control:
-	var lineas: Array = []   # [desde, hasta, color]
+	var lineas: Array = []   # [PackedVector2Array de puntos, color]
+	var rayas: Array = []    # 'y' de la raya bajo cada fila
+	var ancho_fila: float = 0.0
 
 	func _draw() -> void:
+		for y in rayas:
+			var yy: float = floorf(float(y) / P) * P
+			for x in range(3, int(size.x / P) - 3):
+				if x % 2 == 0:
+					draw_rect(Rect2(Vector2(x * P, yy), Vector2(P, P)), Color(1, 1, 1, 0.10))
 		for l in lineas:
-			var a: Vector2 = l[0]
-			var b: Vector2 = l[1]
-			var medio: float = (a.y + b.y) * 0.5
-			# En escuadra (baja, cruza y baja), que se lee mejor que en diagonal con muchas ramas.
-			draw_polyline(PackedVector2Array([a, Vector2(a.x, medio), Vector2(b.x, medio), b]), l[2], 3.0)
+			var pts: PackedVector2Array = l[0]
+			var col: Color = l[1]
+			var celdas: Dictionary = {}
+			for i in pts.size() - 1:
+				for c in _bresenham(Vector2i((pts[i] / P).floor()), Vector2i((pts[i + 1] / P).floor())):
+					celdas[c] = true
+			for c in celdas:   # la sombra, un pixel por debajo
+				draw_rect(Rect2(Vector2(c) * P + Vector2(0, P), Vector2(P, P)), Color(0, 0, 0, 0.55))
+			for c in celdas:
+				draw_rect(Rect2(Vector2(c) * P, Vector2(P, P)), col)
+
+	static func _bresenham(a: Vector2i, b: Vector2i) -> Array:
+		var out: Array = []
+		var dx: int = absi(b.x - a.x)
+		var dy: int = -absi(b.y - a.y)
+		var sx: int = 1 if a.x < b.x else -1
+		var sy: int = 1 if a.y < b.y else -1
+		var err: int = dx + dy
+		var p := a
+		while true:
+			out.append(p)
+			if p == b:
+				break
+			var e2: int = 2 * err
+			if e2 >= dy:
+				err += dy
+				p.x += sx
+			if e2 <= dx:
+				err += dx
+				p.y += sy
+		return out
+
+
+# UN NODO: el cuadro de la habilidad, o una mejora en circulo o en rombo, EN PIXEL: contorno oscuro, el aro del color de
+# su estado (verde tuyo, ambar lo puedes coger, gris te falta algo, oscuro cerrado) con su brillo arriba a la izquierda,
+# y el fondo; el elegido, con un aro ambar por fuera. Se dibuja a la rejilla P y se cachea por forma, estado y tamaño.
+class NodoUI extends Control:
+	enum Forma { CUADRO, CIRCULO, ROMBO }
+	signal pulsado
+	const AMBAR := Color(0.95, 0.72, 0.36)
+	const NEGRO := Color(0.04, 0.04, 0.06)
+	const COLORES := {"tuyo": Color(0.55, 0.85, 0.55), "puedes": Color(0.95, 0.72, 0.36),
+		"falta": Color(0.6, 0.63, 0.7), "cerrado": Color(0.32, 0.34, 0.4)}
+	const MARCO := 3   # pixeles de margen alrededor (para el aro del elegido)
+	static var _cache: Dictionary = {}
+	var forma: int = Forma.CIRCULO
+	var dibujo: Callable
+	var estado: String = "falta"
+	var elegido: bool = false
+	var _encima: bool = false
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		mouse_entered.connect(func() -> void:
+			_encima = true
+			queue_redraw())
+		mouse_exited.connect(func() -> void:
+			_encima = false
+			queue_redraw())
+
+	func _gui_input(ev: InputEvent) -> void:
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+			pulsado.emit()
+			accept_event()
+
+	func _draw() -> void:
+		var n: int = int(size.x / P)
+		var tex: Texture2D = _textura(forma, estado, elegido, _encima, n)
+		var lado: float = float(n + MARCO * 2) * P
+		draw_texture_rect(tex, Rect2(Vector2(-MARCO * P, -MARCO * P), Vector2(lado, lado)), false)
+		# EL ICONO, dentro: en pixeles del mismo tamaño (12 px de dibujo x3); apagado si esta cerrado.
+		if dibujo.is_valid():
+			var lado_i: float = 12.0 * P
+			var col: Color = COLORES.get(estado, COLORES["falta"])
+			var tinte: Color = col if estado != "cerrado" else Color(col, 0.6)
+			var c: Vector2 = (size * 0.5 - Vector2(lado_i, lado_i) * 0.5).floor()
+			dibujo.call(self, c, lado_i, tinte)
+
+	static func _textura(forma_: int, estado_: String, eleg: bool, encima: bool, n: int) -> Texture2D:
+		var k: String = "%d_%s_%d_%d_%d" % [forma_, estado_, int(eleg), int(encima), n]
+		if _cache.has(k):
+			return _cache[k]
+		var t: int = n + MARCO * 2
+		var img := Image.create(t, t, false, Image.FORMAT_RGBA8)
+		var col: Color = COLORES.get(estado_, COLORES["falta"])
+		var fondo: Color = Color(0.09, 0.09, 0.12) if not encima else Color(0.16, 0.16, 0.21)
+		var r: float = float(n) * 0.5
+		var cc: float = float(t) * 0.5
+		var grueso: float = 2.0 if estado_ == "tuyo" else 1.0
+		for y in t:
+			for x in t:
+				var dx: float = float(x) + 0.5 - cc
+				var dy: float = float(y) + 0.5 - cc
+				var d: float
+				match forma_:
+					Forma.CUADRO: d = maxf(absf(dx), absf(dy))
+					Forma.ROMBO: d = (absf(dx) + absf(dy)) * 0.78
+					_: d = sqrt(dx * dx + dy * dy)
+				var c := Color(0, 0, 0, 0)
+				if d <= r:
+					if d > r - 1.0:
+						c = NEGRO
+					elif d > r - 1.0 - grueso:
+						c = col.lightened(0.3) if dx + dy < -1.0 else col
+					elif d > r - 2.0 - grueso:
+						c = col.darkened(0.55)
+					else:
+						c = fondo
+				elif eleg and d > r + 1.0 and d <= r + 2.0:
+					c = AMBAR
+				elif eleg and d > r + 2.0 and d <= r + 3.0:
+					c = NEGRO
+				img.set_pixel(x, y, c)
+		var tex := ImageTexture.create_from_image(img)
+		_cache[k] = tex
+		return tex

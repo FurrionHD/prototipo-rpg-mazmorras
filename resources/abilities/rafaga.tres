@@ -20,7 +20,7 @@ excluye = Array[StringName]([])
 nivel_min = 1
 dominio = 100
 oro = 400
-cambios = {"dano_mult": ["mult", 1.08]}
+cambios = {"dano_mult": ["mult", 1.06]}
 
 [sub_resource type="Resource" id="NM_raf_tajos"]
 script = ExtResource("nodo_mejora")
@@ -30,7 +30,7 @@ descripcion = "Un tajo más en cada ráfaga."
 padres = Array[StringName]([&"filo"])
 excluye = Array[StringName]([&"abanico"])
 nivel_min = 1
-dominio = 300
+dominio = 250
 oro = 900
 cambios = {"golpes_min": ["add", 1], "golpes_max": ["add", 1], "dano_mult": ["mult", 1.03]}
 
@@ -42,7 +42,7 @@ descripcion = "Abres más el brazo: la ráfaga barre un ángulo más ancho."
 padres = Array[StringName]([&"filo"])
 excluye = Array[StringName]([&"tajos"])
 nivel_min = 1
-dominio = 300
+dominio = 250
 oro = 900
 cambios = {"forma_apertura": ["add", 40.0], "dano_mult": ["mult", 1.05]}
 
@@ -52,11 +52,71 @@ id = &"torbellino"
 nombre = "Torbellino"
 descripcion = "Otro tajo más, y más rápido."
 padres = Array[StringName]([&"tajos"])
-excluye = Array[StringName]([])
+excluye = Array[StringName]([&"hoja_fina"])
 nivel_min = 2
-dominio = 700
-oro = 2500
-cambios = {"golpes_min": ["add", 1], "golpes_max": ["add", 1], "dano_mult": ["mult", 1.04]}
+dominio = 600
+oro = 2200
+cambios = {"golpes_min": ["add", 1], "golpes_max": ["add", 1], "dano_mult": ["mult", 1.03]}
+
+[sub_resource type="Resource" id="NM_raf_hoja_fina"]
+script = ExtResource("nodo_mejora")
+id = &"hoja_fina"
+nombre = "Hoja fina"
+descripcion = "Menos tajos que el torbellino, pero cada uno entra mucho más hondo."
+padres = Array[StringName]([&"tajos"])
+excluye = Array[StringName]([&"torbellino"])
+nivel_min = 2
+dominio = 600
+oro = 2200
+cambios = {"dano_mult": ["mult", 1.12]}
+
+[sub_resource type="Resource" id="NM_raf_remolino"]
+script = ExtResource("nodo_mejora")
+id = &"remolino"
+nombre = "Remolino"
+descripcion = "Giras sobre ti: la ráfaga barre casi todo alrededor."
+padres = Array[StringName]([&"torbellino"])
+excluye = Array[StringName]([&"frenesi"])
+nivel_min = 2
+dominio = 1000
+oro = 4000
+cambios = {"forma_apertura": ["add", 80.0], "dano_mult": ["mult", 1.04]}
+
+[sub_resource type="Resource" id="NM_raf_frenesi"]
+script = ExtResource("nodo_mejora")
+id = &"frenesi"
+nombre = "Frenesí"
+descripcion = "La ráfaga vuelve un turno antes."
+padres = Array[StringName]([&"torbellino"])
+excluye = Array[StringName]([&"remolino"])
+nivel_min = 2
+dominio = 1000
+oro = 4000
+cambios = {"cooldown": ["add", -1], "dano_mult": ["mult", 1.05]}
+
+[sub_resource type="Resource" id="NM_raf_huracan"]
+script = ExtResource("nodo_mejora")
+id = &"huracan"
+nombre = "Huracán"
+descripcion = "El remolino no se para: un tajo más y más daño a todo lo que pilla."
+padres = Array[StringName]([&"remolino"])
+excluye = Array[StringName]([])
+nivel_min = 3
+dominio = 1800
+oro = 9000
+cambios = {"golpes_min": ["add", 1], "golpes_max": ["add", 1], "dano_mult": ["mult", 1.08]}
+
+[sub_resource type="Resource" id="NM_raf_corte_limpio"]
+script = ExtResource("nodo_mejora")
+id = &"corte_limpio"
+nombre = "Corte limpio"
+descripcion = "Cada tajo de la hoja fina gasta menos energía."
+padres = Array[StringName]([&"hoja_fina"])
+excluye = Array[StringName]([])
+nivel_min = 3
+dominio = 1500
+oro = 7000
+cambios = {"coste_energia": ["add", -8], "dano_mult": ["mult", 1.06]}
 
 [sub_resource type="Resource" id="NM_raf_brazo"]
 script = ExtResource("nodo_mejora")
@@ -64,35 +124,47 @@ id = &"brazo"
 nombre = "Brazo largo"
 descripcion = "Llegas más lejos con la hoja."
 padres = Array[StringName]([&"abanico"])
-excluye = Array[StringName]([])
+excluye = Array[StringName]([&"profundos"])
 nivel_min = 2
-dominio = 700
-oro = 2500
+dominio = 600
+oro = 2200
 cambios = {"forma_radio": ["add", 15.0], "dano_mult": ["mult", 1.06]}
 
-[sub_resource type="Resource" id="NM_raf_danza"]
+[sub_resource type="Resource" id="NM_raf_profundos"]
 script = ExtResource("nodo_mejora")
-id = &"danza"
-nombre = "Danza de cuchillas"
-descripcion = "Las dos ramas acaban aquí: la ráfaga pega bastante más y vuelve antes."
-padres = Array[StringName]([&"torbellino", &"brazo"])
+id = &"profundos"
+nombre = "Tajos profundos"
+descripcion = "Más daño a cambio de algo más de energía."
+padres = Array[StringName]([&"abanico"])
+excluye = Array[StringName]([&"brazo"])
+nivel_min = 2
+dominio = 600
+oro = 2200
+cambios = {"dano_mult": ["mult", 1.12], "coste_energia": ["add", 4]}
+
+[sub_resource type="Resource" id="NM_raf_barrido"]
+script = ExtResource("nodo_mejora")
+id = &"barrido"
+nombre = "Barrido"
+descripcion = "Aún más lejos y más ancho: nadie se libra."
+padres = Array[StringName]([&"brazo"])
 excluye = Array[StringName]([])
 nivel_min = 3
 dominio = 1500
-oro = 8000
-cambios = {"dano_mult": ["mult", 1.15], "cooldown": ["add", -1]}
+oro = 7000
+cambios = {"forma_radio": ["add", 10.0], "forma_apertura": ["add", 20.0], "dano_mult": ["mult", 1.06]}
 
-[sub_resource type="Resource" id="NM_raf_sangre_fria"]
+[sub_resource type="Resource" id="NM_raf_desangrar"]
 script = ExtResource("nodo_mejora")
-id = &"sangre_fria"
-nombre = "Sangre fría"
-descripcion = "Gastas menos energía en cada ráfaga."
-padres = Array[StringName]([&"danza"])
+id = &"desangrar"
+nombre = "Desangrar"
+descripcion = "Los tajos profundos rematan con todo: bastante más daño."
+padres = Array[StringName]([&"profundos"])
 excluye = Array[StringName]([])
 nivel_min = 3
-dominio = 2500
-oro = 15000
-cambios = {"dano_mult": ["mult", 1.1], "coste_energia": ["add", -6]}
+dominio = 1500
+oro = 7000
+cambios = {"dano_mult": ["mult", 1.12]}
 
 [resource]
 script = ExtResource("1")
@@ -118,5 +190,5 @@ golpes_extra_por_enemigo_dual = 1.6
 efectos = [SubResource("SA_sang")]
 efectos_por_golpe = true
 descripcion = "Ráfaga de tajos rápidos y superficiales; con dos dagas caen aún más. Cada tajo que acierta puede abrir una herida sangrante."
-; EL ARBOL (22/11): PROVISIONAL, de ejemplo para ver la pantalla; el de verdad se diseña con el jefe.
-arbol = [SubResource("NM_raf_filo"), SubResource("NM_raf_tajos"), SubResource("NM_raf_abanico"), SubResource("NM_raf_torbellino"), SubResource("NM_raf_brazo"), SubResource("NM_raf_danza"), SubResource("NM_raf_sangre_fria")]
+; EL ARBOL (23/11): PROVISIONAL, de ejemplo: ramas que se abren y acaban cada una en su punta; el de verdad se diseña con el jefe.
+arbol = [SubResource("NM_raf_filo"), SubResource("NM_raf_tajos"), SubResource("NM_raf_abanico"), SubResource("NM_raf_torbellino"), SubResource("NM_raf_hoja_fina"), SubResource("NM_raf_remolino"), SubResource("NM_raf_frenesi"), SubResource("NM_raf_huracan"), SubResource("NM_raf_corte_limpio"), SubResource("NM_raf_brazo"), SubResource("NM_raf_profundos"), SubResource("NM_raf_barrido"), SubResource("NM_raf_desangrar")]

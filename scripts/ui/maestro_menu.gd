@@ -392,7 +392,7 @@ func _pick_arma(i: int) -> void:
 	_arma_idx = i
 	_sel = 0   # el indice viejo apunta a otra lista: sin esto la ficha enseñaba otra tecnica
 	if _arbol_ui != null:
-		_arbol_ui.hab_idx = 0
+		_arbol_ui.fila_sel = ""
 		_arbol_ui.nodo_sel = &""
 	_aviso = ""
 	_rebuild()
@@ -525,17 +525,19 @@ func _rebuild_real() -> void:
 			_titulo_seccion.text = "ÁRBOL · " + String(arma_a.nombre).to_upper()
 			_pintar_armas(pj)
 			_arbol_ui.pintar(_lista, _content, pj, _tecnicas(), func(ab): return Game.habilidad_desbloqueada(ab, pj),
-				"habilidades de esta arma")
+				"Esta arma todavía no tiene habilidades que mejorar.", arma_a)
 		TAB_ARBOL_MAGIA:
 			_titulo_seccion.text = "ÁRBOL DE MAGIAS"
-			_arbol_ui.pintar(_lista, _content, pj, Game.hechizos_sabidos(pj), func(_s): return true, "magias")
+			# Solo las que SABE (aprendidas); sin ninguna, el aviso.
+			_arbol_ui.pintar(_lista, _content, pj, Game.hechizos_sabidos(pj), func(_s): return true,
+				"Todavía no conoces ninguna magia. Medita en la torre para despertar tu primer grimorio.")
 
 
 func _on_tab(i: int) -> void:
 	_tab = i
 	_sel = 0
 	if _arbol_ui != null:
-		_arbol_ui.hab_idx = 0
+		_arbol_ui.fila_sel = ""
 		_arbol_ui.nodo_sel = &""
 	_aviso = ""
 	_rebuild()
@@ -2544,7 +2546,15 @@ func _columnas() -> int:
 var _cols_pintadas: int = 0
 
 func _on_lista_redimensionada() -> void:
-	if not _root.visible or _columnas() == _cols_pintadas:
+	if not _root.visible:
+		return
+	# EL ARBOL se estira al ancho (ver ArbolUI): si la columna cambia de ancho, se repinta.
+	if _tab == TAB_ARBOL or _tab == TAB_ARBOL_MAGIA:
+		var sc: Control = _lista.get_parent() as Control
+		if _arbol_ui != null and sc != null and absf(sc.size.x - 16.0 - _arbol_ui.ancho_pintado) > 24.0:
+			_rebuild()
+		return
+	if _columnas() == _cols_pintadas:
 		return
 	_rebuild()
 

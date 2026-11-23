@@ -32,7 +32,7 @@ func _ready() -> void:
 	var rafaga: String = "res://resources/abilities/rafaga.tres"
 	var venablo: String = "res://resources/spells/venablo_de_tormenta.tres"
 	pj.dominio[rafaga] = 820
-	pj.nodos_elegidos[rafaga] = ["filo", "tajos"]
+	pj.nodos_elegidos[rafaga] = ["filo", "tajos", "torbellino"]
 	pj.dominio[venablo] = 340
 	pj.nodos_elegidos[venablo] = ["punta"]
 	if not pj.hechizos_aprendidos.has(load(venablo)):
@@ -48,11 +48,14 @@ func _ready() -> void:
 		if String(plantillas[i].resource_path).get_file() == "daga.tres":
 			menu._pick_arma(i)
 	await _esperar()
-	var tecs: Array = menu._tecnicas()
-	for i in tecs.size():
-		if String(tecs[i].resource_path) == rafaga:
-			menu._arbol_ui.hab_idx = i
-	menu._arbol_ui.nodo_sel = &"torbellino"
+	# 0) TODO PLEGADO: el basico elegido (sin arbol aun) y las habilidades con su icono y su contador.
+	menu._arbol_ui.fila_sel = "basico"
+	menu._arbol_ui.nodo_sel = &""
+	menu._rebuild()
+	await _esperar()
+	get_viewport().get_texture().get_image().save_png("%s/0_maestro_plegado.png" % CARPETA)
+	menu._arbol_ui.fila_sel = rafaga
+	menu._arbol_ui.nodo_sel = &"remolino"
 	menu._rebuild()
 	await _esperar()
 	get_viewport().get_texture().get_image().save_png("%s/1_maestro_arbol_rafaga.png" % CARPETA)
@@ -68,10 +71,7 @@ func _ready() -> void:
 	menu.abrir("mago")
 	await _esperar()
 	menu._on_tab(menu.TAB_ARBOL_MAGIA)
-	var sab: Array = Game.hechizos_sabidos(pj)
-	for i in sab.size():
-		if String(sab[i].resource_path) == venablo:
-			menu._arbol_ui.hab_idx = i
+	menu._arbol_ui.fila_sel = venablo
 	menu._arbol_ui.nodo_sel = &"carga"
 	menu._rebuild()
 	await _esperar()
