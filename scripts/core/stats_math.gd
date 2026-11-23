@@ -774,7 +774,7 @@ static func resolve_spell(attacker: Combatant, defender: Combatant, spell: Spell
 	var elem: int = elem_override if elem_override >= 0 else spell.elemento
 	var raw := spell.dano_base * dano_frac
 	var magic_atk := raw * magia_factor(attacker.hab("magia")) * amp_con_guardado(attacker.magic_amp, attacker.magia_base_factor) \
-		* SPELL_DAMAGE_MULT * magia_dano_mult * attacker.status_spell_dmg_mult() * attacker.mult_arbol_hab
+		* SPELL_DAMAGE_MULT * magia_dano_mult * attacker.status_spell_dmg_mult()
 	# Defensa MAGICA del objetivo, espejo exacto de la fisica: una BASE propia del bicho +
 	# lo que aporte su Magia. Antes se pasaba 0.0 a pelo, y como ademas ningun enemigo tenia
 	# Magia, la defensa magica era CERO: los hechizos entraban a raw limpio mientras los

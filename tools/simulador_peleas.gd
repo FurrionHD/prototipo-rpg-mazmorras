@@ -664,18 +664,44 @@ func _llenar_bolsa(piso: int, jefe: bool) -> void:
 # sus habilidades y sus stats de ese piso local, y al subir cada nivel BAKEAN sus bases como el jugador: con lo que
 # tendrian al final del nivel anterior (sus habilidades del piso 12) x1,1. Con las reglas de hoy, el piso tal cual.
 # LAS MEJORAS DE LOS ARBOLES, DE MENTIRA (23/11, 'mejoras=1'; memoria rangos-magias-y-habilidades): mientras se hace el
-# contenido de cada arbol, el grupo pega como si ya lo tuviera. HABILIDADES Y MAGIAS: x1,4 por nivel, compuesto (una del
-# 200 % pasa a 280 % en el nivel 2 y a 392 % en el 3; el jefe: "el 40 % sobre el 200 son 80 adicionales"). EL BASICO: sus
-# pasos dentro de cada nivel (piso 4: 115 %, piso 8: 120 %; el de 140 % pide nivel 2, asi que llega al subir) sobre lo
-# del nivel, que tambien se compone x1,4.
+# contenido de cada arbol, el grupo pega y GASTA como si ya lo tuviera. Como haran los arboles de verdad (Mejoras.montar),
+# cada personaje lleva a la pelea COPIAS de sus habilidades y hechizos (Combatant.abilities_combate / spells), asi todo
+# lo que mira el coste (la pelea, la IA de aqui, la barra) ve el mismo numero:
+#   HABILIDADES: daño x1,4 por nivel compuesto (una del 200 % pasa a 280 % en el nivel 2 y a 392 % en el 3; el jefe: "el
+#     40 % sobre el 200 son 80 adicionales") y energia x1,4 (lo que sube la energia maxima).
+#   MAGIAS: daño x1,4 y MANA x2,5 por nivel (el jefe; el mana maximo sube x2,46).
+#   EL BASICO (sin ficha: Combatant.mult_arbol_basico): sus pasos dentro de cada nivel (piso 4: 115 %, piso 8: 120 %; el
+#     de 140 % pide nivel 2, asi que llega al subir) sobre lo del nivel, que tambien se compone x1,4.
 var _mejoras := false
+const MEJORA_DANO_NIVEL := 1.4
+const MEJORA_ENERGIA_NIVEL := 1.4
+const MEJORA_MANA_NIVEL := 2.5
 
 func _poner_mejoras(c: Combatant, piso: int) -> void:
 	var nivel: int = 1 + (piso - 1) / PISOS_NIVEL
 	var loc: int = piso - PISOS_NIVEL * (nivel - 1)
-	var del_nivel: float = pow(1.4, float(nivel - 1))
-	c.mult_arbol_hab = del_nivel
-	c.mult_arbol_basico = del_nivel * (1.2 if loc >= 8 else (1.15 if loc >= 4 else 1.0))
+	var n: float = float(nivel - 1)
+	var dano: float = pow(MEJORA_DANO_NIVEL, n)
+	c.mult_arbol_basico = dano * (1.2 if loc >= 8 else (1.15 if loc >= 4 else 1.0))
+	if nivel <= 1:
+		return
+	var en: float = pow(MEJORA_ENERGIA_NIVEL, n)
+	var mp: float = pow(MEJORA_MANA_NIVEL, n)
+	c.abilities_combate = c.abilities_combate.map(func(ab):
+		if not (ab is AbilityData):
+			return ab
+		var x: AbilityData = ab.duplicate(false)
+		x.dano_mult = ab.dano_mult * dano
+		x.coste_energia = ab.coste_energia * en
+		x.coste_energia_dual = ab.coste_energia_dual * en
+		return x)
+	c.spells = c.spells.map(func(sp):
+		if not (sp is SpellData):
+			return sp
+		var y: SpellData = sp.duplicate(false)
+		y.dano_base = sp.dano_base * dano
+		y.coste_mana = maxi(1, int(round(float(sp.coste_mana) * mp)))
+		return y)
 
 
 func _nivel_enemigo(piso: int) -> int:

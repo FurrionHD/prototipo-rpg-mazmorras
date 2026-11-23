@@ -132,10 +132,9 @@ var crit_flat: float = 0.0
 # Multiplicador de daño MAGICO bakeado al subir de nivel (congela el magia_factor de tu Magia de
 # niveles anteriores; tu Magia actual multiplica encima). 1.0 = neutro (enemigos).
 var magia_base_factor: float = 1.0
-# LO QUE SUBEN LAS MEJORAS DE LOS ARBOLES (23/11, memoria rangos-magias-y-habilidades), DE MOMENTO SOLO EN EL SIMULADOR
-# (mejoras=1): mientras se hace el contenido de verdad de cada arbol, las habilidades y magias suben ~40 % por nivel y el
-# basico sus pasos (115 / 120 / 140 %). Asi se mide el aguante de los enemigos contra un grupo mejorado. 1 = nada.
-var mult_arbol_hab: float = 1.0
+# LO QUE SUBEN LAS MEJORAS DEL BASICO (23/11, memoria rangos-magias-y-habilidades): el basico no tiene ficha que montar
+# con nodos (como las habilidades y magias, Mejoras.montar), asi que su daño va aqui. De momento solo lo pone el
+# simulador (mejoras=1): sus pasos 115 / 120 / 140 % por nivel. 1 = nada.
 var mult_arbol_basico: float = 1.0
 # SUBIR DE NIVEL: true SOLO en el jugador. Hace que vida/defensa/velocidad/def. magica/maná
 # MULTIPLIQUEN su base (StatsMath.*_jugador) en vez de sumarse, para que el bakeo de nivel haga
