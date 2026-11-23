@@ -70,7 +70,7 @@ def _args_godot(a) -> list:
         a.pisos = ",".join(str(i) for i in range(1, a.pisos_hasta + 1))
     extra = ["veces=%d" % a.veces, "tanda=%s" % a.tanda, "reglas=%s" % a.reglas, "escala=%s" % a.escala]
     for k in ("pisos", "clases", "grupos", "escenarios", "solo", "arma", "armas", "armaduras", "sets", "magias", "pociones", "mana", "magia_suma", "baston_tier", "magia_mult", "bakeo_suave", "stats_nivel", "escala_des",
-              "vel_enemigos", "iniciativa", "equipo", "aguante_vida", "aguante_def", "mejoras"):
+              "vel_enemigos", "iniciativa", "equipo", "aguante_vida", "aguante_def", "mejoras", "receta", "solo_basico", "aguante_tabla", "dano_tabla"):
         v = getattr(a, k)
         if v:
             extra.append("%s=%s" % (k, v))
@@ -712,7 +712,11 @@ def main():
     ap.add_argument("--reglas", default="hoy", help="hoy | nuevas (formula multiplicativa, defensa K por piso con tope 75 %%, enemigos con nivel)")
     ap.add_argument("--aguante-vida", dest="aguante_vida", default="", help="x a la vida de los enemigos por cada nivel que suben (solo reglas nuevas; 1 = como hoy)")
     ap.add_argument("--aguante-def", dest="aguante_def", default="", help="x a la defensa de los enemigos por cada nivel que suben (solo reglas nuevas; 1 = como hoy)")
-    ap.add_argument("--mejoras", default="", help="1 = el grupo pega como si llevase las mejoras de los arboles (habilidades y magias x1,4 por nivel; el basico sus pasos)")
+    ap.add_argument("--mejoras", default="", help="1 = el grupo pega como si llevase las mejoras de los arboles (habilidades y magias x1,4 por nivel; el basico, su arbol DE VERDAD)")
+    ap.add_argument("--aguante-tabla", dest="aguante_tabla", default="", help="(23/11) x a la vida de los enemigos POR ESCALON de 6 pisos, separados por ';' (1-6;7-12;...)")
+    ap.add_argument("--dano-tabla", dest="dano_tabla", default="", help="(23/11) x al daño de los enemigos por escalon de 6 pisos, separados por ';'")
+    ap.add_argument("--receta", default="", help="(23/11) como reparte el arbol del basico sus puntos: a_s1, a_s2, a_mix, a_a, b_s1, b_s2, b_mix, b_b (ver simulador_peleas._poner_arbol_basico)")
+    ap.add_argument("--solo-basico", dest="solo_basico", default="", help="(23/11) 1 = nadie usa habilidades de golpe, solo el basico (para medir su arbol a pelo)")
     ap.add_argument("--vel-enemigos", dest="vel_enemigos", default="", help="relativa (de serie: la de su piso de origen frente a los personajes) | bakeada")
     ap.add_argument("--equipo", default="", help="suerte (de serie: cada pieza tira rareza y mejora por su piso) | fijo (la mas probable y la mejora del medio: para comparar armas o sets)")
     ap.add_argument("--iniciativa", default="", help="mixta (de serie: mitad tuya, mitad te emboscan) | tuya | suya")

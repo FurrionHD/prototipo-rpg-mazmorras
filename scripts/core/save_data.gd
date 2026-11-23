@@ -332,6 +332,9 @@ const VERSION_MUNDO := 1
 @export var nodos_elegidos: Dictionary = {}
 @export var dominio: Dictionary = {}
 @export var sin_mejoras: Dictionary = {}
+@export var basico_arbol: Dictionary = {}   # (23/11) el arbol del basico (ver PersonajeData.basico_arbol)
+@export var basico_lineas: Dictionary = {}
+@export var piso_hondo: int = 1
 # LEGACY: el hueco que guardaba el sitio al cuchillo de extraccion antes de que existiera. Nadie los
 # subio nunca de 0; ya no se escriben ni se leen (el cuchillo de verdad va en tool_cuchillo).
 # Se conservan para que un save viejo cargue sin quejarse, como los pico/hoz/hacha de abajo.

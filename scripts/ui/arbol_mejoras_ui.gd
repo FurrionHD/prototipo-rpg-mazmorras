@@ -11,6 +11,8 @@
 extends RefCounted
 
 const Mejoras = preload("res://scripts/core/mejoras.gd")
+const BasicoArbol = preload("res://scripts/core/basico_arbol.gd")
+const NodoMejora = preload("res://scripts/items/nodo_mejora.gd")
 
 const AMBAR := Color(0.95, 0.72, 0.36)
 const VERDE := Color(0.55, 0.85, 0.55)
@@ -61,6 +63,7 @@ const LibrosPixel = preload("res://scripts/ui/libros_pixel.gd")
 
 var fila_sel: String = ""   # la RUTA de la habilidad elegida ("basico" = el basico del arma)
 var _paso_x: float = PASO_X_MIN
+var _x_ultimo: float = -1.0   # donde queda lo ultimo que has mejorado de la fila abierta (para centrar el scroll de lado)
 var ancho_pintado: float = 0.0   # el ancho con el que se pinto (maestro_menu repinta si la ventana cambia)
 
 
@@ -88,10 +91,20 @@ func pintar(lista: VBoxContainer, content: VBoxContainer, pj: PersonajeData, fic
 	for par in filas:
 		if par[1] != null:
 			max_col = maxi(max_col, _columnas(par[1]))
+		elif arma != null:
+			max_col = maxi(max_col, _columnas_basico(pj))
 	_paso_x = clampf((disponible - MARGEN * 2.0 - ICONO - 44.0 - NODO) / float(maxi(1, max_col - 1)), PASO_X_MIN, PASO_X_MAX)
+	# (23/11, el jefe) SCROLL DE LADO: si un arbol no cabe (el del basico tiene 12 columnas), se desliza en horizontal, sin
+	# empujar la ficha de la derecha; y se abre CENTRADO en lo ultimo que has mejorado de la fila abierta (_x_ultimo).
+	var lado := ScrollContainer.new()
+	lado.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	lado.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	lado.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lista.add_child(lado)
 	var lienzo := Lienzo.new()
 	lienzo.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	lista.add_child(lienzo)
+	lado.add_child(lienzo)
+	_x_ultimo = -1.0
 	var y: float = 6.0
 	var ancho: float = 0.0
 	var elegida: Resource = null
@@ -109,9 +122,15 @@ func pintar(lista: VBoxContainer, content: VBoxContainer, pj: PersonajeData, fic
 		y += alto_f + hueco_f
 		ancho = maxf(ancho, lienzo.ancho_fila)
 	lienzo.custom_minimum_size = Vector2(maxf(ancho + MARGEN, disponible), y + 6.0)
+	lado.custom_minimum_size = Vector2(0.0, y + 6.0 + (14.0 if ancho + MARGEN > disponible else 0.0))
 	lienzo.queue_redraw()
+	if _x_ultimo > 0.0 and ancho + MARGEN > disponible:
+		var objetivo: int = int(maxf(0.0, _x_ultimo - disponible * 0.5))
+		(func() -> void:
+			if is_instance_valid(lado):
+				lado.scroll_horizontal = objetivo).call_deferred()
 	if fila_sel == "basico":
-		_pintar_ficha_basico(content, arma)
+		_pintar_ficha_basico(content, pj, arma)
 	elif elegida != null:
 		_pintar_ficha(content, pj, elegida, bool(sabida.call(elegida)))
 
@@ -124,7 +143,9 @@ func pintar(lista: VBoxContainer, content: VBoxContainer, pj: PersonajeData, fic
 # arboles bien dibujados. Los huecos se ordenan con los nodos de su columna (por la altura de lo que tienen detras).
 func _pintar_fila(lienzo: Lienzo, pj: PersonajeData, clave: String, f: Resource, sabida: bool, arma: Resource,
 		y0: float) -> float:
-	var todos: Array = [] if f == null else (f.arbol as Array).filter(func(n): return n != null)
+	# EL BASICO (23/11): su arbol se arma aqui con nodos de mentira (la linea y las facultades, ver _nodos_basico).
+	var basico: Dictionary = _nodos_basico(pj, arma) if f == null else {}
+	var todos: Array = basico.get("nodos", []) if f == null else (f.arbol as Array).filter(func(n): return n != null)
 	# PLEGADA (23/11, idea del jefe): solo la elegida despliega su arbol; las demas, su icono y su contador. Asi cada
 	# arbol tiene todo el sitio y la pantalla no se llena de arboles a la vez.
 	var plegada: bool = clave != fila_sel
@@ -141,7 +162,7 @@ func _pintar_fila(lienzo: Lienzo, pj: PersonajeData, clave: String, f: Resource,
 	var cols: Dictionary = {}
 	var detras: Dictionary = {}    # id -> [ids de la columna de antes de los que sale una linea hasta el]
 	var cadenas: Array = []        # [[ids del padre al hijo, pasando por sus huecos], tuya]
-	var cogidos: Array = [] if f == null else (pj.nodos_elegidos as Dictionary).get(clave, [])
+	var cogidos: Array = basico.get("tuyos", []) if f == null else (pj.nodos_elegidos as Dictionary).get(clave, [])
 	var max_col: int = 0
 	for n in nodos:
 		var d: int = int(hondo[StringName(n.id)])
@@ -216,8 +237,9 @@ func _pintar_fila(lienzo: Lienzo, pj: PersonajeData, clave: String, f: Resource,
 	lienzo.add_child(cab)
 	# EL CONTADOR, al lado del icono (como el "4/12" de Diablo): cuantas mejoras llevas de las que tiene.
 	var cuenta := Label.new()
-	var llevas: int = 0 if f == null else ((pj.nodos_elegidos as Dictionary).get(clave, []) as Array).size()
-	cuenta.text = ("%d / %d" % [llevas, todos.size()]) if not todos.is_empty() else "sin mejoras todavía"
+	var llevas: int = int(basico.get("llevas", 0)) if f == null else ((pj.nodos_elegidos as Dictionary).get(clave, []) as Array).size()
+	var total: int = int(basico.get("total", 0)) if f == null else todos.size()
+	cuenta.text = ("%d / %d" % [llevas, total]) if total > 0 else "sin mejoras todavía"
 	cuenta.add_theme_font_size_override("font_size", 14)
 	cuenta.add_theme_color_override("font_color", VERDE if llevas > 0 else GRIS)
 	# Plegada, a su derecha; desplegada, debajo del icono (a la derecha salen sus mejoras).
@@ -239,15 +261,23 @@ func _pintar_fila(lienzo: Lienzo, pj: PersonajeData, clave: String, f: Resource,
 		for id in cols[c]:
 			var pos := Vector2(_px_g(MARGEN + ICONO + 48.0 + (c - 1) * _paso_x), _px_g(cy + float(rel[id])))
 			centro[id] = pos
+			if not plegada and cogidos.has(String(id)):
+				_x_ultimo = maxf(_x_ultimo, pos.x)
 			if not por_id.has(id):
 				continue   # un hueco de una linea larga: no se pinta nada
 			var n = por_id[id]
 			var b := NodoUI.new()
 			b.forma = NodoUI.Forma.ROMBO if ((n.padres as Array).size() > 1 or not tiene_hijos.has(id)) else NodoUI.Forma.CIRCULO
+			if f == null:
+				b.forma = int((basico["formas"] as Dictionary).get(String(n.id), b.forma))
 			b.dibujo = icono
-			b.estado = _estado(pj, f, n, cogidos) if sabida else "falta"
+			b.estado = (String((basico["estados"] as Dictionary).get(String(n.id), "falta")) if f == null
+				else (_estado(pj, f, n, cogidos) if sabida else "falta"))
 			b.elegido = (clave == fila_sel and id == nodo_sel)
 			b.tooltip_text = String(n.nombre)
+			if f == null and String(n.descripcion) != "":
+				b.tooltip_text += "
+" + String(n.descripcion)
 			b.position = pos - Vector2(NODO, NODO) * 0.5
 			b.size = Vector2(NODO, NODO)
 			b.custom_minimum_size = b.size
@@ -270,6 +300,82 @@ func _pintar_fila(lienzo: Lienzo, pj: PersonajeData, clave: String, f: Resource,
 		lienzo.lineas.append([pts, VERDE if par[1] else OSCURO])
 	lienzo.ancho_fila = MARGEN + ICONO + 48.0 + maxi(max_col - 1, 0) * _paso_x + NODO
 	return alto
+
+
+# EL ARBOL DEL BASICO como nodos de mentira (23/11, el dibujo del jefe), para dibujarlo con lo mismo que los de las
+# habilidades. Por cada nivel: los pisos 4 y 8 en CIRCULOS, en linea; en el piso 12 se abre en dos (en el primero las dos
+# PRINCIPALES en CUADRO, despues las dos SECUNDARIAS en ROMBO) y vuelve a juntarse en el piso 4 del nivel siguiente.
+# Ids: "l<paso>" los de la linea, "c<columna>_<facultad>" los del piso 12. Todo se compra clicando el nodo (la ficha).
+# Devuelve {"nodos", "tuyos", "estados" {id: tuyo|puedes|falta|cerrado}, "formas" {id: NodoUI.Forma}, "llevas", "total"}.
+func _nodos_basico(pj: PersonajeData, arma: Resource) -> Dictionary:
+	if not (arma is WeaponData) or int(arma.tipo) == WeaponData.Tipo.PUNOS:
+		return {}
+	var tipo: int = int(arma.tipo)
+	var d: Dictionary = Game.basico_de(tipo, pj)
+	var pasos: int = int(d.get("pasos", 0))
+	var elec: Array = d.get("elec", [])
+	var nodos: Array = []
+	var tuyos: Array = []
+	var estados: Dictionary = {}
+	var formas: Dictionary = {}
+	var antes: Array[StringName] = []
+	var motivo_linea: String = BasicoArbol.motivo_no_paso(pasos, int(pj.level), int(pj.piso_hondo), Game.money)
+	for col in BasicoArbol.COLUMNAS:
+		# los pisos 4 y 8 de este nivel
+		for k in [col * 3, col * 3 + 1]:
+			var n := NodoMejora.new()
+			n.id = StringName("l%d" % k)
+			n.nombre = "Nivel %d, piso %d" % [col + 1, BasicoArbol.piso_de_paso(k)]
+			n.descripcion = _que_da_paso(tipo, k)
+			n.padres = antes.duplicate()
+			nodos.append(n)
+			formas[String(n.id)] = NodoUI.Forma.CIRCULO
+			if k < pasos:
+				estados[String(n.id)] = "tuyo"
+				tuyos.append(String(n.id))
+			else:
+				estados[String(n.id)] = "puedes" if k == pasos and motivo_linea == "" else "falta"
+			var solo: Array[StringName] = [n.id]
+			antes = solo
+		# el piso 12: se abre en dos
+		var aqui: Array[StringName] = []
+		for id in BasicoArbol.opciones_columna(tipo, col, elec):
+			var fd: Dictionary = BasicoArbol.facultad(tipo, id)
+			var n := NodoMejora.new()
+			n.id = StringName("c%d_%s" % [col, id])
+			n.nombre = String(fd.get("nombre", id))
+			n.descripcion = BasicoArbol.frase(tipo, id, 1)
+			n.padres = antes.duplicate()
+			nodos.append(n)
+			aqui.append(n.id)
+			formas[String(n.id)] = NodoUI.Forma.CUADRO if (col == 0 or col == BasicoArbol.COLUMNAS - 1) else NodoUI.Forma.ROMBO
+			if col < elec.size():
+				var mia: bool = String(elec[col]) == id
+				estados[String(n.id)] = "tuyo" if mia else "cerrado"
+				if mia:
+					tuyos.append(String(n.id))
+			else:
+				var m: String = BasicoArbol.motivo_no_nodo(tipo, d, col, id, int(pj.level), int(pj.piso_hondo), Game.money)
+				estados[String(n.id)] = "puedes" if m == "" else "falta"
+		antes = aqui
+	return {"nodos": nodos, "tuyos": tuyos, "estados": estados, "formas": formas, "llevas": pasos,
+		"total": BasicoArbol.COLUMNAS * 3}
+
+
+# Lo que da un paso de los pisos 4 u 8 (la frase de su nodo).
+static func _que_da_paso(tipo: int, k: int) -> String:
+	if tipo == WeaponData.Tipo.BASTON:
+		return "Maná al acertar el básico: +%s del máximo." % BasicoArbol._pct(BasicoArbol.MANA_PISO_4) if k % 3 == 0 			else "Energía que repone el básico: +%s." % BasicoArbol._pct(BasicoArbol.ENERGIA_PISO_8)
+	var antes: float = BasicoArbol.mult_dano(k)
+	var luego: float = BasicoArbol.mult_dano(k + 1)
+	var txt: String = "Daño del básico: %s → %s." % [BasicoArbol._pct(antes), BasicoArbol._pct(luego)]
+	if k % 3 == 1:
+		txt += " Energía que repone: +%s." % BasicoArbol._pct(BasicoArbol.ENERGIA_PISO_8)
+	return txt
+
+
+func _columnas_basico(_pj: PersonajeData) -> int:
+	return BasicoArbol.COLUMNAS * 3
 
 
 # La altura media (relativa) de lo que tiene justo detras (la del icono, 0, si cuelga de el).
@@ -317,13 +423,94 @@ func _dibujo_icono(f: Resource, arma: Resource) -> Callable:
 	return Callable(Iconos, MenuScaffold.icono_de_arma(arma) if arma != null else "habilidades")
 
 
-# LA FICHA DEL BASICO (todavia sin arbol: va en el paso siguiente).
-func _pintar_ficha_basico(content: VBoxContainer, arma: Resource) -> void:
+# LA FICHA DEL BASICO (23/11, basico_arbol.gd). Sin nodo elegido: la LINEA (daño, energia, sus pasos) y el boton de los
+# pisos 4 y 8, y lo que llevas. Con un nodo del arbol elegido: lo que hace, lo que pide y pagarlo (es el paso del piso 12).
+func _pintar_ficha_basico(content: VBoxContainer, pj: PersonajeData, arma: Resource) -> void:
 	MenuScaffold.titulo(content, "Ataque básico", 18)
-	if arma != null:
-		MenuScaffold.nota(content, "Con %s." % String(arma.nombre))
+	if not (arma is WeaponData) or int(arma.tipo) == WeaponData.Tipo.PUNOS:
+		MenuScaffold.nota(content, "Los puños no tienen árbol.")
+		return
+	var tipo: int = int(arma.tipo)
+	var d: Dictionary = Game.basico_de(tipo, pj)
+	var pasos: int = int(d.get("pasos", 0))
+	var elec: Array = d.get("elec", [])
+	MenuScaffold.nota(content, "Con %s. Lo que mejoras aquí vale para el básico de cualquier %s." % [String(arma.nombre),
+		String(arma.nombre).to_lower()])
 	MenuScaffold.separador(content)
-	MenuScaffold.nota(content, "Sus mejoras llegan con los pisos 4, 8 y 12 de cada nivel. Todavía no están hechas.")
+	# LA LINEA, siempre arriba
+	if tipo == WeaponData.Tipo.BASTON:
+		var arb: Dictionary = BasicoArbol.de_mano(d, tipo)
+		MenuScaffold.fila(content, "Maná al acertar", "+%s del máximo" % BasicoArbol._pct(float(arb["mana_extra"])))
+		MenuScaffold.fila(content, "Marca", ("+%s al siguiente hechizo (hasta %d)" % [BasicoArbol._pct(float(arb["marca"])),
+			BasicoArbol.MARCA_TOPE]) if float(arb["marca"]) > 0.0 else "todavía no")
+	else:
+		MenuScaffold.fila(content, "Daño del básico", BasicoArbol._pct(BasicoArbol.mult_dano(pasos)))
+	MenuScaffold.fila(content, "Energía que repone", "x%s" % String.num(BasicoArbol.mult_energia(pasos), 2).replace(".", ","))
+	var sel: String = String(nodo_sel)
+	if sel == "":
+		MenuScaffold.nota(content, "Clica un nodo del árbol para ver qué da y mejorarlo: los círculos son los pisos 4 y 8 de cada nivel; en el 12 eliges una de dos.")
+		if not elec.is_empty():
+			MenuScaffold.separador(content)
+			MenuScaffold.titulo(content, "Lo que llevas", 14, VERDE)
+			var fac: Dictionary = d.get("fac", {})
+			for id in fac:
+				MenuScaffold.nota(content, "· %s (rango %d): %s" % [String(BasicoArbol.facultad(tipo, String(id)).get("nombre", id)),
+					int(fac[id]), BasicoArbol.frase(tipo, String(id), int(fac[id]))])
+		return
+	# UN PASO DE LA LINEA ELEGIDO (pisos 4 y 8)
+	if sel.begins_with("l"):
+		var k: int = int(sel.substr(1))
+		MenuScaffold.separador(content)
+		MenuScaffold.titulo(content, "Nivel %d, piso %d" % [BasicoArbol.nivel_de_paso(k), BasicoArbol.piso_de_paso(k)], 16, AMBAR)
+		MenuScaffold.nota(content, _que_da_paso(tipo, k))
+		if k < pasos:
+			MenuScaffold.titulo(content, "Ya lo tienes", 14, VERDE)
+			return
+		MenuScaffold.titulo(content, "Pide", 14)
+		_req(content, "Haber llegado al piso %d" % BasicoArbol.piso_de_paso(k), int(pj.piso_hondo) >= BasicoArbol.piso_de_paso(k))
+		if k > pasos:
+			_req(content, "Lo anterior del árbol", false)
+		_req(content, "%d monedas" % BasicoArbol.oro_paso(k), Game.money >= BasicoArbol.oro_paso(k))
+		var ml: String = BasicoArbol.motivo_no_paso(pasos, int(pj.level), int(pj.piso_hondo), Game.money) if k == pasos else "falta lo anterior"
+		MenuScaffold.boton(content, "Mejorar (%d monedas)" % BasicoArbol.oro_paso(k), func() -> void:
+			var r: String = Game.comprar_paso_basico(tipo, pj)
+			_menu._aviso = "Básico mejorado." if r == "" else ("No se puede: " + r)
+			_menu._aviso_ok = (r == "")
+			_menu._rebuild(), ml == "")
+		return
+	# UN NODO DEL PISO 12 ELEGIDO
+	var col: int = int(sel.get_slice("_", 0).substr(1))
+	var id: String = sel.substr(sel.find("_") + 1)
+	var fd: Dictionary = BasicoArbol.facultad(tipo, id)
+	MenuScaffold.separador(content)
+	var rango_ahora: int = int((d.get("fac", {}) as Dictionary).get(id, 0))
+	var tuyo: bool = col < elec.size() and String(elec[col]) == id
+	var rango: int = rango_ahora if tuyo else mini(rango_ahora + 1, BasicoArbol.RANGO_MAX)
+	MenuScaffold.titulo(content, "%s (rango %d)" % [String(fd.get("nombre", id)), rango], 16, AMBAR)
+	MenuScaffold.nota(content, BasicoArbol.frase(tipo, id, rango))
+	if bool(fd.get("excl", false)):
+		MenuScaffold.nota(content, "Principal: elegirla cierra la otra para siempre.")
+	if tuyo:
+		MenuScaffold.titulo(content, "Ya la tienes", 14, VERDE)
+		return
+	if col < elec.size():
+		MenuScaffold.nota(content, "En este nivel elegiste %s." % String(BasicoArbol.facultad(tipo, String(elec[col])).get("nombre", "")))
+		return
+	MenuScaffold.titulo(content, "Pide", 14)
+	var paso_12: int = col * 3 + 2
+	_req(content, "Nivel %d" % (col + 2), int(pj.level) >= col + 2)
+	_req(content, "Haber llegado al piso %d" % BasicoArbol.piso_de_paso(paso_12), int(pj.piso_hondo) >= BasicoArbol.piso_de_paso(paso_12))
+	_req(content, "Los pisos 4 y 8 de este nivel", pasos >= paso_12)
+	if col > elec.size():
+		_req(content, "Lo del nivel anterior", false)
+	_req(content, "%d monedas" % BasicoArbol.oro_paso(paso_12), Game.money >= BasicoArbol.oro_paso(paso_12))
+	MenuScaffold.nota(content, "Trae también el paso del piso %d: más daño y energía." % BasicoArbol.piso_de_paso(paso_12))
+	var m: String = BasicoArbol.motivo_no_nodo(tipo, d, col, id, int(pj.level), int(pj.piso_hondo), Game.money)
+	MenuScaffold.boton(content, "Mejorar (%d monedas)" % BasicoArbol.oro_paso(paso_12), func() -> void:
+		var r: String = Game.comprar_nodo_basico(tipo, col, id, pj)
+		_menu._aviso = ("%s conseguida." % String(fd.get("nombre", id))) if r == "" else ("No se puede: " + r)
+		_menu._aviso_ok = (r == "")
+		_menu._rebuild(), m == "")
 
 
 # El estado de un nodo: "tuyo", "puedes", "falta" (le falta algo) o "cerrado" (otra rama lo cierra).

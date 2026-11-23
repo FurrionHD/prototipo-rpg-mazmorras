@@ -69,6 +69,8 @@ var efectos = CombatEfectos.new(self)
 # Las REACCIONES elementales (12/11): congelar, romper, derretir, la sobrecarga, lo que extiende el viento.
 const CombatReacciones = preload("res://scripts/ui/combat_reacciones.gd")
 var reacciones = CombatReacciones.new(self)
+const CombatBasico = preload("res://scripts/ui/combat_basico.gd")
+var arbol_basico = CombatBasico.new(self)   # (23/11) el arbol del basico en la pelea
 const CombatDiagnostico = preload("res://scripts/ui/combat_diagnostico.gd")
 var diagnostico = CombatDiagnostico.new(self)
 const CombatMontaje = preload("res://scripts/ui/combat_montaje.gd")
@@ -2194,6 +2196,9 @@ func _begin_player_turn() -> void:
 	enemigos.costra_vuelve(_player)
 	# Estados alterados (KAN-58): tick al inicio del turno (DoT, expira, aturdido).
 	var ev: Dictionary = _player.tick_statuses()
+	# (23/11) donde empieza tu turno: PLANTADO (arbol del basico de la ballesta) mira si te has movido desde aqui.
+	if tactico:
+		turno_mapa.marcar_inicio_turno(_player)
 	enemigos.revisar_capullos()
 	_log_tick(_player, ev)
 	# (06/11) Desde aqui, todo lo que pase es de SU accion: una fila en el registro (ver combat_registro.gd).
@@ -2637,7 +2642,8 @@ func _ganar_mana_golpe(basico: bool = false) -> float:
 	# EL BASICO DEL BASTON / CON VARITA (23/11): un % del mana maximo (Combatant.mana_golpe_pct); si no, el pellizco plano.
 	var cuanto: float = StatsMath.mp_por_golpe()
 	if basico:
-		cuanto = maxf(cuanto, _player.mana_golpe_pct * _player.max_mp)
+		# (23/11) + lo del arbol del baston (piso 4 de cada nivel: +0,5 puntos)
+		cuanto = maxf(cuanto, (_player.mana_golpe_pct + arbol_basico.mana_extra(_player)) * _player.max_mp)
 	_player.regen_mana(cuanto)
 	return _player.current_mp - antes
 
@@ -2664,6 +2670,11 @@ func _accion_atacar() -> void:
 		if not b.is_empty():
 			blancos = b
 			obj = b[0]["c"]
+	elif tactico and _player.fac("barrido") > 0.0:
+		# (23/11) BARRIDO (arbol del basico del mandoble): el basico barre un cono hacia el objetivo; los demas de dentro
+		# se llevan el % de la facultad.
+		for e in arbol_basico.barridos(_player, obj):
+			blancos.append({"c": e, "escala": _player.fac("barrido"), "nota": "barrido"})
 	# Excelia: atacar sube Fuerza aunque el enemigo esquive (has practicado el
 	# golpe). arma_factor = motion_value de la MANO ACTIVA (KAN-82); tope fisico (5).
 	var arma_factor: float = _player.motion_value
@@ -2694,6 +2705,19 @@ func _accion_atacar() -> void:
 			if estilo_bas == CombatFX.Estilo.VIROTE and i < blancos.size() - 1 else estilo_bas
 		aciertos.append(_golpe_basico(blancos[i]["c"], float(blancos[i]["escala"]), String(blancos[i]["nota"]), i == 0,
 			estilo_i, con_arma, arma_factor, pj_atacante, semilla_fx))
+	# (23/11) EL ARBOL DEL BASICO, despues del golpe: el BASICO DOBLE (daga, espada corta: con dos del mismo tipo, la otra
+	# mano pega tambien, con su propio arbol) y el ESCUDAZO DE SEGUIDA (espada larga con escudo).
+	if bool(aciertos[0]) and obj.is_alive():
+		var dob: float = _player.fac("doble")
+		if dob > 0.0 and arbol_basico.dos_del_mismo_tipo(_player) and randf() < dob:
+			var idx: int = _player._hand_idx
+			_player.set_active_hand(1 - idx)
+			_golpe_basico(obj, float(arbol_basico.param_mano(_player, "doble", "dano", 0.5)), "golpe doble", false,
+				efectos._estilo_de_habilidad(null, _player), _player.current_hand_name(), _player.motion_value, pj_atacante)
+			_player.set_active_hand(idx)
+			CombatBasico._salta("doble")
+	if bool(aciertos[0]) and obj.is_alive() and _player.fac("escudazo") > 0.0 and _player.defend_defense > 0.0 			and randf() < _player.fac("escudazo"):
+		_escudazo_basico(obj)
 	# DONDE SE QUEDA LA FLECHA DE MATERIAL: clavada en el ultimo al que le entra (el segundo, si el virote lo
 	# atraviesa) o, si el ultimo la esquiva, en el suelo detras de el. Se apunta para tirar al acabar si se rompe.
 	if not tiro.is_empty():
@@ -2707,7 +2731,8 @@ func _accion_atacar() -> void:
 	Game.desgastar_arma(_player.current_hand_slot(), pj_atacante)
 	# El ataque basico REGENERA energia (KAN-57): te "cargas" pegando. Las armas PESADAS reponen mas
 	# por golpe (su energia_regen propia): pegan menos veces, asi que cada golpe carga mas.
-	_player.regen_energy(_player.energia_regen if _player.energia_regen > 0.0 else ATTACK_ENERGY_REGEN)
+	# (23/11) con la linea del arbol del basico de esta mano (Combatant.arbol_mano: piso 8 y 12 de cada nivel).
+	_player.regen_energy(arbol_basico.energia(_player, _player.energia_regen if _player.energia_regen > 0.0 else ATTACK_ENERGY_REGEN))
 	_update_hp()
 	_player.advance_hand()  # dual-wield: el proximo golpe sera con la otra mano
 	_fin_de_eleccion()
@@ -2729,6 +2754,31 @@ func _accion_atacar() -> void:
 	_tras_accion_jugador_varios(tocados)
 
 
+# EL ESCUDAZO DE SEGUIDA (23/11, arbol del basico de la espada larga): tras el basico, un golpe de escudo que pega con tu
+# DEFENSA (Combatant.atk_escudo, como el segundo golpe de Guardia rota) y, como es contundente, puede aturdir o retrasar.
+const ESCUDAZO_ATURDIR := 0.12   # PROVISIONAL: lo que aturde un escudo de base (el de la maza)
+
+func _escudazo_basico(obj: Combatant) -> void:
+	var def_e: bool = enemigo_defiende(obj, _player)
+	var at_antes: float = _player.aturdir_base
+	_player.aturdir_base = ESCUDAZO_ATURDIR
+	var result := StatsMath.resolve_attack(_player, obj, def_e, _player.atk_escudo())
+	_player.aturdir_base = at_antes
+	if result.evaded:
+		efectos._fx_golpe(_player, obj, 0.0, false, true, Elementos.Elemento.NINGUNO, CombatFX.Estilo.ESCUDAZO)
+		_set_log("%s esquiva el escudazo de %s. 💨" % [_etq(obj), _player.nombre])
+		return
+	obj.take_damage(result.damage)
+	efectos._fx_golpe(_player, obj, result.damage, result.crit, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.ESCUDAZO)
+	_apuntar_dano(obj, result.damage, _player)
+	_dps_add("Escudazo de seguida", result.damage)
+	var txt: String = "%s remata con el escudo e inflige %s de daño." % [_player.nombre, _n(result.damage)]
+	if result.aturde:
+		txt += _aplicar_aturdir(obj, result.crit)
+	_set_log(txt)
+	CombatBasico._salta("escudazo")
+
+
 # UN GOLPE DEL BASICO sobre 'obj'. Casi siempre es uno solo; con la ballesta pueden ser dos (el que atraviesa).
 # 'escala' rebaja el daño (quemarropa, el segundo del virote) y 'nota' lo cuenta en el registro. Solo el
 # 'principal' repone maná: el virote que atraviesa no es un golpe mas de tu turno.
@@ -2739,8 +2789,11 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 	# (09/11) Y si lo cubre otro de los suyos (el Muro del florecido), le llega a ese; y si defiende, lo para.
 	obj = cobertura_enemiga(obj)
 	var def_e: bool = enemigo_defiende(obj, _player)
-	var result := StatsMath.resolve_attack(_player, obj, def_e)
-	escala *= _player.mult_arbol_basico   # las mejoras del basico (de momento solo el simulador: Combatant.mult_arbol_basico)
+	# EL ARBOL DEL BASICO (23/11, combat_basico.gd): lo que mira antes (objetivo, tu vida...) y la defensa que ignora;
+	# despues, el critico y el aturdir.
+	var mult_antes: float = arbol_basico.mult_antes(_player, obj)
+	var result := StatsMath.resolve_attack(_player, obj, def_e, -1.0, 0.0, arbol_basico.penetra(_player))
+	escala *= _player.mult_arbol_basico * mult_antes * arbol_basico.mult_despues(_player, result)
 	if escala != 1.0:
 		result.damage = float(result.damage) * escala
 		if result.has("dmg_imbue"):
@@ -2768,6 +2821,7 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 	else:
 		# (31/10) EL ESCUDO DE CARNE del rey rata: una rata pegada puede llevarse parte del golpe.
 		result.damage = escudo_carne(obj, float(result.damage), _player, estilo_bas)
+		var vida_antes: float = obj.current_hp
 		obj.take_damage(result.damage)
 		# (31/10) la imbuicion de FUEGO le quema el musgo al Jabali ancestral.
 		if float(result.get("dmg_imbue", 0.0)) > 0.0:
@@ -2803,7 +2857,9 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 		# Aturdir/retrasar (arma contundente): el enemigo pierde tempo (barra ATB).
 		# Retraso parcial normal; si el golpe fue CRITICO, aturdimiento completo.
 		if result.aturde:
-			txt += _aplicar_aturdir(obj, result.crit)
+			txt += _aplicar_aturdir(obj, result.crit, arbol_basico.arrastre(_player))
+		# EL ARBOL DEL BASICO: todo lo que pasa tras acertar (estados, energia, los tuyos...).
+		txt += arbol_basico.tras_acierto(_player, obj, float(result.damage), result, vida_antes)
 		# Estados "al golpear" del jugador (arma; futuro: sangrado de cortantes).
 		for nom in _player.roll_on_hit(obj):
 			txt += "  Causa %s a %s." % [nom, _etq(obj)]
@@ -3819,12 +3875,13 @@ func interrumpir(c: Combatant, quien: Combatant = null, por_control: bool = fals
 	return "💢 %s sale despedido%s y pierde %s.%s" % [c.nombre, (" por " + quien.nombre) if quien != null else "", que, cola]
 
 
-func _aplicar_aturdir(objetivo: Combatant, es_crit: bool) -> String:
+# 'arrastre' (23/11, arbol del basico del martillo): cuanto MAS atras echa el retraso (0,1 = un 10 % mas).
+func _aplicar_aturdir(objetivo: Combatant, es_crit: bool, arrastre: float = 0.0) -> String:
 	if es_crit:
 		objetivo.apply_status(StatusEffects.Id.ATURDIDO)
 		return "  %s queda Aturdido y pierde su próximo turno. 💫" % _etq(objetivo)
 	objetivo.frenar_carga()   # retrasada: una carga menos (la arañas mutantes; aturdida ya va por apply_status)
-	var f: float = randf_range(ATB_STUN_MIN, ATB_STUN_MAX)
+	var f: float = randf_range(ATB_STUN_MIN, ATB_STUN_MAX) * (1.0 + arrastre)
 	# Sin recorte a 0: si la barra ya estaba baja, el retraso debe notarse igual
 	# (recortar a 0 lo dejaba igual que si no hubiera aturdido nada).
 	# El has() NO es defensivo de adorno: a un muerto se le ha hecho erase de _gauge, y tocar

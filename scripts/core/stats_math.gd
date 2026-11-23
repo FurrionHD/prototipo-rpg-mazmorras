@@ -313,6 +313,21 @@ static var vel_enemigos_factor := 0.0
 #      doblo el 20/11). 1 = como hoy. Hoy lo cambia solo el simulador (aguante_vida= / aguante_def=).
 static var aguante_vida_nivel := 1.0
 static var aguante_def_nivel := 1.0
+#   5. EL AGUANTE POR ESCALON DE 6 PISOS (23/11 noche, el jefe: "que cada escalon de 6 pisos pida minimo 1 golpe mas, tambien
+#      con las habilidades mejoradas"): una TABLA, un multiplicador por escalon (1-6, 7-12, 13-18... hasta el 55-60), a la
+#      vida de cada enemigo segun el PISO DE VERDAD en que sale (no el local). Va aparte del aguante por nivel para poder
+#      calibrar escalon a escalon. Y otra al DAÑO de los enemigos (por si las peleas largas te matan). Vacias = nada.
+#      Hoy las pone solo el simulador (aguante_tabla= / dano_tabla=).
+static var aguante_escalon: Array = []
+static var dano_escalon: Array = []
+
+static func escalon_de(piso_real: int) -> int:
+	return maxi(0, (maxi(1, piso_real) - 1) / 6)
+
+static func de_tabla(tabla: Array, piso_real: int) -> float:
+	if tabla.is_empty():
+		return 1.0
+	return float(tabla[clampi(escalon_de(piso_real), 0, tabla.size() - 1)])
 const K_CRECE_POR_TIER := 2.2
 const TOPE_DEFENSA := 0.75
 
@@ -497,6 +512,11 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# Agilidad que se usan aqui son las EFECTIVAS (ver Combatant.hab).
 	var atk_dex := attacker.hab("destreza")
 	var def_agi := defender.hab("agilidad")
+	# (23/11) CERROJO (arbol del basico de la maza): cubierto hasta su turno = bloquea como si defendiera, con mas
+	# bloqueo y mas defensa del escudo. Si ya defendia, no se dobla: es el mismo bloqueo con lo extra encima.
+	var cubierto: float = defender.fac_cubierto
+	if cubierto > 0.0:
+		defending = true
 
 	# Probabilidades (se calculan SIEMPRE, para poder loguearlas aunque no apliquen).
 	# ACIERTO del atacante (mejora Precision) baja la evasion del defensor. La esquiva
@@ -545,7 +565,9 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# el que te paran. Un escudazo (atk_override) no pega con el arma, asi que no la lleva.
 	# 'penetra_extra' = la que pone la habilidad encima (AbilityData.penetracion_extra).
 	var penetra := clampf(attacker.penetracion + penetra_extra, 0.0, 1.0) if atk_override < 0.0 else 0.0
-	var def_val := defender.def_value() * (1.0 - penetra) + (defender.defend_defense if defending else 0.0)
+	# (23/11) ROMPEARMADURA (arbol del basico del hacha): las cargas que lleva le quitan defensa contra TODOS.
+	var rompe: float = clampf(float(defender.rompe_armadura_n) * defender.rompe_armadura_valor, 0.0, 0.9)
+	var def_val := defender.def_value() * (1.0 - penetra) * (1.0 - rompe) 		+ (defender.defend_defense * (1.0 + cubierto) if defending else 0.0)
 	var atk_crudo: float = atk_override if atk_override >= 0.0 else attacker.atk()
 	var dmg := damage(atk_crudo, def_val)
 	# CUANTO SE HA COMIDO LA MITIGACION, como un solo factor. Se va acumulando en los TRES sitios
@@ -583,7 +605,7 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 
 	# 4) Defensa activa: reduce el daño segun el bloqueo del loadout del defensor.
 	if defending:
-		var f_bloqueo := clampf(1.0 - defender.defend_block, DEFEND_TAKEN_MIN, DEFEND_TAKEN_MAX)
+		var f_bloqueo := clampf(1.0 - defender.defend_block - cubierto, DEFEND_TAKEN_MIN, DEFEND_TAKEN_MAX)
 		dmg *= f_bloqueo
 		mitig *= f_bloqueo
 
@@ -637,6 +659,12 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# DAÑO FINAL de las runas: un % de lo que ya le haces, ENCIMA y sin mitigar (daño verdadero).
 	dmg *= 1.0 + attacker.runa_final_fis
 	_runa_crit_ciego(attacker, defender, is_crit)
+	# (23/11) EL ARBOL DEL BASICO, del lado del que recibe: FIRMEZA (espada larga) le quita al proximo golpe y se gasta;
+	# y que le han golpeado (SANGRE FRIA del arco lo mira).
+	if defender.fac_firmeza > 0.0:
+		dmg *= 1.0 - defender.fac_firmeza
+		defender.fac_firmeza = 0.0
+	defender.fac_golpeado = true
 
 	# 5) Aturdir/retrasar (solo armas CONTUNDENTES).
 	var aturde := aturde_p > 0.0 and randf() < aturde_p
@@ -673,6 +701,10 @@ static func resolve_magico_enemigo(attacker: Combatant, defender: Combatant, pue
 		defending: bool = false) -> Dictionary:
 	var atk_dex := attacker.hab("destreza")
 	var def_agi := defender.hab("agilidad")
+	# (23/11) CERROJO tambien contra la magia: cubierto = como si defendiera (con su parte del bloqueo contra la magia).
+	var cubierto: float = defender.fac_cubierto
+	if cubierto > 0.0:
+		defending = true
 	var evasion_extra := defender.evasion_bonus + defender.status_evade_flat() + defender.luna_esquiva()   # (20/11) + la luna nueva del set Noche de luna
 	var evade_cap := EVADE_MAX_BUFF if evasion_extra > 0.0 else EVADE_MAX
 	var acierto := attacker.precision + attacker.status_precision_flat()
@@ -703,7 +735,7 @@ static func resolve_magico_enemigo(attacker: Combatant, defender: Combatant, pue
 	# EL BLOQUEO, UNA PARTE contra la magia (17/11, su decision): defender a un mago sirve, pero menos que a un guerrero,
 	# y la torre (la que mas bloquea) es la que menos para la magia (Combatant.defend_bloqueo_magia).
 	if defending:
-		var f_bloqueo := clampf(1.0 - defender.defend_block * defender.defend_bloqueo_magia, DEFEND_TAKEN_MIN, DEFEND_TAKEN_MAX)
+		var f_bloqueo := clampf(1.0 - (defender.defend_block + cubierto) * defender.defend_bloqueo_magia, DEFEND_TAKEN_MIN, DEFEND_TAKEN_MAX)
 		dmg *= f_bloqueo
 		mitig *= f_bloqueo
 	var mult_elem := Elementos.mult_recibido(attacker.elemento_ataque, defender)
@@ -712,6 +744,11 @@ static func resolve_magico_enemigo(attacker: Combatant, defender: Combatant, pue
 	defender.recibe_elemento(attacker.elemento_ataque)
 	dmg *= defender.status_dmg_taken_mult() * mult_pasiva
 	dmg *= attacker.status_dmg_dealt_mult()
+	# (23/11) FIRMEZA tambien contra la magia, y que le han golpeado (Sangre fria).
+	if defender.fac_firmeza > 0.0:
+		dmg *= 1.0 - defender.fac_firmeza
+		defender.fac_firmeza = 0.0
+	defender.fac_golpeado = true
 	return {"damage": maxf(0.1, dmg), "evaded": false, "crit": is_crit, "aturde": false,
 		"evade_p": evade_p, "crit_p": crit_p, "aturde_p": 0.0,
 		"mult_elem": mult_elem, "mult_imbue": 1.0, "dmg_imbue": 0.0, "magico": true,

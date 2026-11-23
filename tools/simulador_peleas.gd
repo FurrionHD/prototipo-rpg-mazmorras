@@ -41,6 +41,8 @@
 # SALIDA: una linea por pelea, 'R|...' (ver CABECERA). 'trozo=i/n' juega solo los casos i, i+n... (varios procesos).
 extends Node
 
+const BasicoArbol = preload("res://scripts/core/basico_arbol.gd")
+
 const CABECERA := "R|tanda|reglas|piso|grupo|escenario|arma|enemigo|mutacion|jefe|n_enem|t|gana|turnos_yo|turnos_el|vida_perdida|caidos|mp_gastado|dano_por_turno|dano_recibido_por_turno_suyo|segundos|acciones|fotogramas|ms_por_fotograma|pelea|ciclos|dano_por_ciclo|estados_en_enemigos|estados_en_los_tuyos|n_seguida|repetir|vel_ref_piso|vel_ciclo|emboscada"
 # Una linea POR PERSONAJE de los tuyos en cada pelea (lo pidio: "daños de cada uno, cuanto tanquean con cada armadura, el
 # dps medio, cuanto hace cada arma en su turno, si alguno se queda sin energia demasiado rapido"):
@@ -383,6 +385,10 @@ func _empezar() -> void:
 	for k in _crono:
 		partes.append("%s %.1f s (%.0f %%)" % [k, float(_crono[k]) / 1000.0, 100.0 * float(_crono[k]) / maxf(1.0, tot)])
 	print("[sim] TIEMPOS ", ", ".join(partes))
+	# (23/11) cuantas veces ha saltado cada facultad del arbol del basico (para ver que de verdad actuan)
+	var CB = load("res://scripts/ui/combat_basico.gd")
+	if not (CB.saltos as Dictionary).is_empty():
+		print("[sim] FACULTADES ", JSON.stringify(CB.saltos))
 	print("[sim] FIN")
 	get_tree().quit(0)
 
@@ -438,7 +444,12 @@ func _leer_args() -> void:
 			# tier 3 = x2...). Solo con reglas=nuevas (sin ellas los enemigos no tienen nivel).
 			"aguante_vida": StatsMath.aguante_vida_nivel = float(kv[1])
 			"aguante_def": StatsMath.aguante_def_nivel = float(kv[1])
+			# (23/11 noche) el aguante y el daño POR ESCALON DE 6 PISOS: una lista, un multiplicador por escalon (1-6, 7-12...)
+			"aguante_tabla": StatsMath.aguante_escalon = Array(kv[1].split(";")).map(func(x): return float(x))
+			"dano_tabla": StatsMath.dano_escalon = Array(kv[1].split(";")).map(func(x): return float(x))
 			"mejoras": _mejoras = kv[1] == "1"
+			"receta": _receta = kv[1]
+			"solo_basico": _solo_basico = kv[1] == "1"
 			"stats_nivel": _tope = float(kv[1])
 			"ver": _ver = kv[1] == "1"
 			"vel_enemigos": _vel_enemigos = kv[1]
@@ -601,7 +612,66 @@ func _personaje(piso: int, rol: String, en_grupo: bool, arma_g: String = "") -> 
 		hz.append(load("res://resources/spells/%s.tres" % m))
 	p.hechizos_aprendidos = hz.duplicate()
 	p.equipped_spells = hz.slice(0, Game.MAX_HECHIZOS) if rol == "mago" else []
+	if _mejoras:
+		_poner_arbol_basico(p, piso)
 	return p
+
+
+# EL ARBOL DEL BASICO DE VERDAD (23/11, basico_arbol.gd; con 'mejoras=1'): los pasos de la linea que tocan en ese piso
+# (pisos 4, 8 y 12 de cada nivel; el del 12 llega al subir) y los puntos de facultad (uno por nivel subido) repartidos
+# segun la RECETA ('receta=', la de la tanda; su idea del 23/11):
+#   a_s1  la exclusiva A y todo lo demas a la comun 1      a_s2  A y todo a la comun 2
+#   a_mix A, comun 1, comun 2, comun 1...
+#   y lo mismo con la otra exclusiva: b_s1, b_s2, b_mix. En el nivel 5, siempre la principal otra vez (el arbol).
+# Tambien la linea de la varita y la del escudo, un paso por nivel subido.
+var _receta := "a_mix"
+var _solo_basico := false
+
+func _poner_arbol_basico(p: PersonajeData, piso: int) -> void:
+	var nivel: int = 1 + (piso - 1) / PISOS_NIVEL
+	var loc: int = piso - PISOS_NIVEL * (nivel - 1)
+	var pasos: int = 3 * (nivel - 1) + (1 if loc >= 4 else 0) + (1 if loc >= 8 else 0)
+	p.piso_hondo = piso
+	p.basico_arbol = {}
+	for w in [p.equipped_main, p.equipped_off]:
+		if not (w is WeaponData) or int(w.tipo) == WeaponData.Tipo.PUNOS:
+			continue
+		var tipo: int = int(w.tipo)
+		var fr: Array = _facultades_receta(tipo, BasicoArbol.puntos(pasos))
+		var fd: Dictionary = {}
+		for id in fr:
+			fd[id] = mini(int(fd.get(id, 0)) + 1, BasicoArbol.RANGO_MAX)
+		p.basico_arbol[str(tipo)] = {"pasos": pasos, "fac": fd, "elec": fr}
+	p.basico_lineas = {}
+	if p.equipped_off is WandData:
+		p.basico_lineas["varita"] = nivel - 1
+	if p.equipped_off is ShieldData:
+		p.basico_lineas["escudo_%d" % int((p.equipped_off as ShieldData).tamano)] = nivel - 1
+
+
+# Lo elegido en cada nivel (una por columna del arbol), segun la receta.
+func _facultades_receta(tipo: int, puntos: int) -> Array:
+	var excl: Array = []
+	var comunes: Array = []
+	for f in BasicoArbol.facultades(tipo):
+		(excl if bool(f.get("excl", false)) else comunes).append(String(f["id"]))
+	if excl.size() < 2 or comunes.size() < 2 or puntos <= 0:
+		return []
+	var principal: String = excl[0] if _receta.begins_with("a") else excl[1]
+	var resto: String = _receta.get_slice("_", 1)
+	var elec: Array = []
+	for i in mini(puntos, BasicoArbol.COLUMNAS):
+		var id: String = principal
+		if i > 0:
+			match resto:
+				"s1": id = comunes[0]
+				"s2": id = comunes[1]
+				"mix": id = comunes[(i - 1) % 2]
+				_: id = comunes[(i - 1) % 2]
+		if i == BasicoArbol.COLUMNAS - 1:
+			id = principal   # el nivel 5: la principal otra vez (rango 2), como en el arbol
+		elec.append(id)
+	return elec
 
 
 # El guerrero lleva UN filo: el del elemento que mejor le entre al enemigo principal (y el manto y la cura).
@@ -679,15 +749,9 @@ const MEJORA_MANA_NIVEL := 2.5
 
 func _poner_mejoras(c: Combatant, piso: int) -> void:
 	var nivel: int = 1 + (piso - 1) / PISOS_NIVEL
-	var loc: int = piso - PISOS_NIVEL * (nivel - 1)
 	var n: float = float(nivel - 1)
 	var dano: float = pow(MEJORA_DANO_NIVEL, n)
-	c.mult_arbol_basico = dano * (1.2 if loc >= 8 else (1.15 if loc >= 4 else 1.0))
-	# EL BASICO DEL BASTON (23/11): su paso de mana en el piso 4 de cada nivel, +0,5 puntos (4 % -> 4,5 -> 5...). Solo con
-	# baston: con varita el basico es el del arma principal y se queda en su 2/3 fijo.
-	var pj_m: PersonajeData = Game.pj_de_combatant(c)
-	if pj_m != null and pj_m.equipped_main is WeaponData and (pj_m.equipped_main as WeaponData).es_magica:
-		c.mana_golpe_pct += 0.005 * float((nivel - 1) + (1 if loc >= 4 else 0))
+	# EL BASICO va ya por su arbol de verdad (_poner_arbol_basico, en el personaje): aqui solo las habilidades y magias.
 	if nivel <= 1:
 		return
 	var en: float = pow(MEJORA_ENERGIA_NIVEL, n)
@@ -1256,6 +1320,10 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 	if _mejoras:
 		for a in _cb._aliados:
 			_poner_mejoras(a, int(caso[0]))
+			if _ver:
+				var am: Dictionary = a.arbol_mano()
+				print("[sim] ARBOL %s: daño x%.2f, energia x%.2f, %s" % [_rol(a), float(am.get("dano", 1.0)),
+					float(am.get("energia", 1.0)), str(am.get("rangos", {}))])
 	# ...y del lado de aca, la ventaja del LIDER (en el juego siempre el; aqui siempre el tanque) a uno de los tuyos al azar.
 	if not _emboscada and _cb._aliados.size() > 1 and int(_cb._state) != 1:
 		var lider: Combatant = _cb._aliados[0]
@@ -1292,6 +1360,7 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 				a.max_mp, a.current_energy, a.max_energy])
 	_cb.turno_empieza.connect(_al_empezar_turno.bind(aliados))
 	Combatant.al_recibir = _al_recibir.bind(aliados)
+	_piso_pelea = int(caso[0])
 	var mitig: Dictionary = {}
 	for a in aliados:
 		mitig[a] = _mitigacion(a, _cb._enemies)
@@ -1572,7 +1641,15 @@ func _mp_gastado(a: Combatant, rec: Dictionary) -> float:
 
 # CADA DAÑO QUE ENTRA (Combatant.al_recibir): al que lo recibe, y al que tiene el turno si es del otro bando (a su accion).
 # El DoT y lo que entra fuera de turno (contraataques, espinas) va a la cuenta de su bando, sin dueño.
+# (23/11) LOS GOLPES ENTEROS: cada golpe de los tuyos (no DoT) a un enemigo, con lo que pegaba entero y su vida maxima. Con
+# eso sale "cuantos golpes hacen falta para tumbarlo" sin el engaño de lo que sobra al matar. Linea H|tanda|piso|enemigo|
+# jefe|mutacion|vida_max|golpe|rol|accion.
+var _piso_pelea: int = 0
+
 func _al_recibir(v: Combatant, dano: float, es_dot: bool, aliados: Array) -> void:
+	if not es_dot and _actor != null and aliados.has(_actor) and not aliados.has(v) and Combatant.golpe_entero > 0.0:
+		print("H|%s|%d|%s|%d|%s|%.1f|%.1f|%s|%s" % [_tanda, _piso_pelea, v.nombre, 1 if v.es_jefe else 0,
+			String(v.mutacion) if v.mutante else "-", v.max_hp, Combatant.golpe_entero, _rol(_actor), _accion_de.get(_actor, "?")])
 	if dano <= 0.0:
 		return
 	_recibido[v] = float(_recibido.get(v, 0.0)) + dano
@@ -2227,7 +2304,7 @@ func _plan_colocado(yo: Combatant, preferido: Combatant):
 	if enemigos.is_empty():
 		return null
 	var opciones: Array = [null]   # null = el basico
-	for ab in yo.abilities_combate:
+	for ab in ([] if _solo_basico else yo.abilities_combate):   # (23/11) solo_basico: ni aqui
 		if _habilidad_lista(yo, ab) and ab.dano_mult > 0.0 and ab.objetivo_aliado != AbilityData.Objetivo.ALIADO and not ab.forma_a_aliados:
 			opciones.append(ab)
 	# el daño esperado de cada opcion contra cada enemigo (no depende del sitio): la media de unas tiradas
@@ -2359,7 +2436,8 @@ func _plan_golpe(yo: Combatant, obj: Combatant) -> Dictionary:
 	if colocado != null:
 		return colocado
 	var oculto: bool = obj.no_elegible()
-	var ab: AbilityData = _mejor_golpe(yo, oculto)
+	# (23/11) 'solo_basico=1': nadie usa habilidades de golpe, solo el basico (para medir su arbol a pelo)
+	var ab: AbilityData = null if _solo_basico else _mejor_golpe(yo, oculto)
 	if ab != null:
 		var r: float = -1.0
 		if oculto:

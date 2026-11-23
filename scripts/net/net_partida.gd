@@ -39,7 +39,8 @@ const _PERMANENTES := ["es_original", "rol", "dueno", "pasivas_pendientes", "uid
 	"mezcla_exp", "metalurgia_exp", "peleteria_exp", "herreria_exp", "carpinteria_exp", "cocina_exp"]
 # Los campos de arriba que son diccionarios o arrays: se copian a fondo al entrar y al salir, o las
 # dos puntas acabarian escribiendo sobre el mismo objeto cuando el viaje no pasa por la red.
-const _PERMANENTES_HONDOS := ["gacha_pity", "pasivas_rng", "desarrollos_rango", "nodos_elegidos", "dominio", "sin_mejoras"]
+const _PERMANENTES_HONDOS := ["gacha_pity", "pasivas_rng", "desarrollos_rango", "nodos_elegidos", "dominio", "sin_mejoras",
+	"basico_arbol", "basico_lineas"]
 
 
 func pj_a_dict(pj: PersonajeData) -> Dictionary:
@@ -300,6 +301,7 @@ func ficha_a_dict(pj: PersonajeData) -> Dictionary:
 			"current_hp", "current_mp", "stamina",
 			"desarrollos_rango", "pasivas_rng", "guardianes_vencidos",
 			"nodos_elegidos", "dominio", "sin_mejoras",   # (22/11) los arboles: el doble pelea con sus nodos
+			"basico_arbol", "basico_lineas", "piso_hondo",   # (23/11) y el del basico
 			"esquivas_exp", "hechizos_exp", "recitado_exp",
 			"dano_recibido_exp", "dano_infligido_exp", "dano_bloqueado_exp"]:
 		d[campo] = pj.get(campo)

@@ -191,8 +191,9 @@ func boca_simas_hechizo(c: Combatant, coste: float) -> float:
 # Coste de maná EFECTIVO tras la mejora Eficiencia del equipo (KAN-95). FLOAT (sin
 # redondeo hacia arriba: así CUALQUIER % de Eficiencia se nota). Mínimo 0.5.
 func _coste_efectivo(spell: SpellData) -> float:
+	# (23/11) ECO ARCANO (arbol del basico del baston): tras un bastonazo que acierta, el siguiente cuesta menos.
 	return maxf(0.5, float(spell.coste_mana) * (1.0 - _pantalla._player.mana_reduccion)
-		* _pantalla._player.status_mana_coste_mult())
+		* _pantalla._player.status_mana_coste_mult() * (1.0 - _pantalla._player.fac_eco))
 
 
 # Empiezas a castear: se COMPRUEBA que te llega el mana, pero NO se cobra todavia, y recitas la
@@ -644,6 +645,7 @@ func _disparar_hechizo(aliado_nuevo: Combatant = null) -> void:
 			_pantalla._tras_accion_jugador_varios([])
 			return
 		_pantalla._player.spend_mana(coste)
+	_pantalla._player.fac_eco = 0.0   # el Eco arcano se gasta al pagar
 	# (13/11) EL SET JAULA DE FARADAY: lanzar (no recitar, no fallar) da el escudo.
 	jaula_faraday(_pantalla._player, spell)
 	# (18/11) EL SET BOCA DE LAS SIMAS: lanzar devuelve una parte de lo pagado (con su tope por turno).
@@ -1272,6 +1274,10 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 	var aplicados: Array = []   # estados que ENTRAN, para que el log los pliegue en una linea
 	var ultimo_mult: float = 1.0
 	var hubo_crit: bool = false
+	# (23/11) LA MARCA DEL BASICO (baston / varita): este hechizo se lleva todas las marcas de golpe y pega mas por ellas.
+	var marca_mult: float = 1.0 + float(objetivo.marca_basico_n) * objetivo.marca_basico_valor
+	objetivo.marca_basico_n = 0
+	objetivo.marca_basico_valor = 0.0
 	# 'desde_golpe' > 0 = esta llamada recoge los golpes que SOBRARON de otra (ver _saltar_sobrantes):
 	# siguen numerandose donde se quedaron, asi que su elemento y su frac son los que les tocaban.
 	for i in range(desde_golpe, n):
@@ -1280,7 +1286,7 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 		_pantalla.efectos._fx_tanda(tanda_base + i)
 		var elem: int = spell.elemento_de_golpe(i, n)
 		var res: Dictionary = StatsMath.resolve_spell(_lanza(), objetivo, spell, elem, frac)
-		var dmg: float = float(res.damage) * foco
+		var dmg: float = float(res.damage) * foco * marca_mult
 		# (31/10) LA CHEPA del Jabali ancestral aguanta las AREAS (y el fuego se la quema, despues del golpe).
 		dmg *= _pantalla.mult_chepa(objetivo, spell.alcance != SpellData.Alcance.OBJETIVO \
 			or spell.forma == CombatFormas.Tipo.CIRCULO or spell.forma == CombatFormas.Tipo.CONO)

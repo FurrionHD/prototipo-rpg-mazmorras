@@ -1044,6 +1044,7 @@ var _extraccion_drop_mult: float = 1.0
 
 # LOS ARBOLES de habilidades y magias (22/11): montar la habilidad con sus nodos (sin class_name: ver mejoras.gd).
 const Mejoras = preload("res://scripts/core/mejoras.gd")
+const BasicoArbol = preload("res://scripts/core/basico_arbol.gd")
 var _combat_scene: PackedScene = preload("res://scenes/ui/combat.tscn")
 # Los DOS de arriba se cargan solo por sus medidas: son las que dicen cuanto sitio de la pantalla se
 # queda el HUD de la pelea, y con eso se encuadra la camara del combate en el mapa (ver
@@ -1922,6 +1923,11 @@ func fijar_piso(p: int) -> void:
 		entrar_en_arena()
 	arena_activa = p == PISO_ARENA
 	current_floor = arena_piso_juego if arena_activa else maxi(1, p)
+	# EL PISO MAS HONDO de cada uno del grupo (23/11, lo pide el arbol del basico). La arena no cuenta.
+	if not arena_activa:
+		for pj in [lider()] + companeros():
+			if pj != null and current_floor > int(pj.piso_hondo):
+				pj.piso_hondo = current_floor
 
 # El numero de piso PARA LA RED y la memoria del piso: 1000 en la arena, current_floor fuera.
 func piso_de_red() -> int:
@@ -3029,6 +3035,9 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -
 	lider().nodos_elegidos.clear()
 	lider().dominio.clear()
 	lider().sin_mejoras.clear()
+	lider().basico_arbol.clear()
+	lider().basico_lineas.clear()
+	lider().piso_hondo = 1
 	lider().gacha_pity.clear()
 	lider().gacha_n50 = 0
 	lider().gacha_n200 = 0
@@ -3241,6 +3250,9 @@ func exportar_partida(para_volcado: bool = false) -> SaveData:
 	d.nodos_elegidos = lider().nodos_elegidos.duplicate(true)
 	d.dominio = lider().dominio.duplicate(true)
 	d.sin_mejoras = lider().sin_mejoras.duplicate(true)
+	d.basico_arbol = lider().basico_arbol.duplicate(true)
+	d.basico_lineas = lider().basico_lineas.duplicate(true)
+	d.piso_hondo = lider().piso_hondo
 	# HERRAMIENTAS: el baul y las tres equipadas, como instancias (llevan tier/rareza/banda en su
 	# item_meta). Se guardan las VARIABLES y no los getters pico()/hoz()/hacha(): el getter devuelve
 	# la basica cuando no llevas nada, y guardar eso metería el .tres COMPARTIDO del proyecto dentro
@@ -4059,6 +4071,9 @@ func importar_partida(d: SaveData) -> void:
 	lider().nodos_elegidos = (d.nodos_elegidos as Dictionary).duplicate(true) if d.nodos_elegidos != null else {}
 	lider().dominio = (d.dominio as Dictionary).duplicate(true) if d.dominio != null else {}
 	lider().sin_mejoras = (d.sin_mejoras as Dictionary).duplicate(true) if d.sin_mejoras != null else {}
+	lider().basico_arbol = (d.basico_arbol as Dictionary).duplicate(true) if d.basico_arbol != null else {}
+	lider().basico_lineas = (d.basico_lineas as Dictionary).duplicate(true) if d.basico_lineas != null else {}
+	lider().piso_hondo = maxi(1, int(d.piso_hondo))
 	# El pity del lider, la otra punta de lo que se escribe a mano al guardar. Una partida anterior
 	# al gacha llega con los tres a 0, que es empezar el pity de cero: correcto.
 	lider().gacha_pity = d.player_gacha_pity.duplicate(true) if d.player_gacha_pity else {}
@@ -8864,6 +8879,91 @@ func poner_sin_mejoras(base: Resource, sin: bool, pj: PersonajeData = null) -> v
 		p.sin_mejoras.erase(String(base.resource_path))
 
 
+# ------------------------------------------------------------------------------------------------
+# EL ARBOL DEL BASICO (23/11, ver basico_arbol.gd y PersonajeData.basico_arbol)
+# ------------------------------------------------------------------------------------------------
+# Lo que lleva un personaje en el basico de un TIPO de arma: {"pasos": n, "fac": {id: rango}} (vacio = nada).
+func basico_de(tipo: int, pj: PersonajeData = null) -> Dictionary:
+	var p: PersonajeData = pj if pj != null else lider()
+	var d = (p.basico_arbol as Dictionary).get(str(tipo))
+	return d if d is Dictionary else {"pasos": 0, "fac": {}}
+
+
+# COMPRAR EL PASO SIGUIENTE de la linea del basico de ese tipo de arma. "" si lo compra; si no, por que.
+func comprar_paso_basico(tipo: int, pj: PersonajeData = null) -> String:
+	var p: PersonajeData = pj if pj != null else lider()
+	if tipo == WeaponData.Tipo.PUNOS:
+		return "los puños no tienen árbol"
+	var d: Dictionary = basico_de(tipo, p).duplicate(true)
+	var pasos: int = int(d.get("pasos", 0))
+	# El del piso 12 no se compra aqui: es el nodo de facultad que se elige en el arbol (comprar_nodo_basico).
+	if pasos % 3 == 2:
+		return "el del piso 12 se elige en el árbol"
+	var motivo: String = BasicoArbol.motivo_no_paso(pasos, int(p.level), int(p.piso_hondo), money)
+	if motivo != "":
+		return motivo
+	var oro: int = BasicoArbol.oro_paso(pasos)
+	if not gastar(oro):
+		return "pide %d de oro" % oro
+	d["pasos"] = pasos + 1
+	if not d.has("fac"):
+		d["fac"] = {}
+	p.basico_arbol[str(tipo)] = d
+	print("[arbol] %s compra el paso %d del basico (%s) por %d monedas." % [p.nombre, pasos + 1, str(tipo), oro])
+	return ""
+
+
+# COGER UN NODO DEL ARBOL DEL BASICO: el paso del piso 12 de ese nivel con su facultad (nueva o +1 rango). "" si lo coge.
+func comprar_nodo_basico(tipo: int, col: int, id: String, pj: PersonajeData = null) -> String:
+	var p: PersonajeData = pj if pj != null else lider()
+	var d: Dictionary = basico_de(tipo, p)
+	var motivo: String = BasicoArbol.motivo_no_nodo(tipo, d, col, id, int(p.level), int(p.piso_hondo), money)
+	if motivo != "":
+		return motivo
+	var oro: int = BasicoArbol.oro_paso(col * 3 + 2)
+	if not gastar(oro):
+		return "pide %d de oro" % oro
+	p.basico_arbol[str(tipo)] = BasicoArbol.con_nodo(d, id)
+	print("[arbol] %s coge %s en el nivel %d del basico (%s) por %d monedas." % [p.nombre, id, col + 2, str(tipo), oro])
+	return ""
+
+
+# PONER UN PUNTO DE FACULTAD (una nueva al rango 1, o +1 rango). "" si lo pone; si no, por que. No cuesta oro: el
+# punto ya lo pago el paso del piso 12.
+func poner_facultad_basico(tipo: int, id: String, pj: PersonajeData = null) -> String:
+	var p: PersonajeData = pj if pj != null else lider()
+	var d: Dictionary = basico_de(tipo, p).duplicate(true)
+	var motivo: String = BasicoArbol.motivo_no_facultad(tipo, d, id)
+	if motivo != "":
+		return motivo
+	var fac: Dictionary = d.get("fac", {})
+	fac[id] = int(fac.get(id, 0)) + 1
+	d["fac"] = fac
+	p.basico_arbol[str(tipo)] = d
+	print("[arbol] %s pone un punto en %s (rango %d)." % [p.nombre, id, int(fac[id])])
+	return ""
+
+
+# LA LINEA SIN FACULTADES de la varita ("varita") o de un escudo ("escudo_<tamaño>"): un paso por nivel, en su piso 12.
+func linea_extra(clave: String, pj: PersonajeData = null) -> int:
+	var p: PersonajeData = pj if pj != null else lider()
+	return int((p.basico_lineas as Dictionary).get(clave, 0))
+
+
+func comprar_linea_extra(clave: String, pj: PersonajeData = null) -> String:
+	var p: PersonajeData = pj if pj != null else lider()
+	var n: int = linea_extra(clave, p)
+	# El paso 'n' de esta linea es el del piso 12 del nivel n+1: el mismo requisito que un paso de piso 12.
+	var motivo: String = BasicoArbol.motivo_no_paso(n * 3 + 2, int(p.level), int(p.piso_hondo), money)
+	if motivo != "":
+		return motivo
+	var oro: int = BasicoArbol.oro_paso(n * 3 + 2)
+	if not gastar(oro):
+		return "pide %d de oro" % oro
+	p.basico_lineas[clave] = n + 1
+	return ""
+
+
 # La clave del set: el TIPO del arma principal (los puños incluidos, que tambien son un tipo).
 # Deliberadamente NO es el arma concreta: por eso la misma espada a otro tier o mejorada te
 # conserva el set, y cambiar a un arma distinta te pone el de esa.
@@ -9374,6 +9474,7 @@ func _aplicar_loadout(c: Combatant, pj: PersonajeData = null) -> void:
 	c.amp_cura_corr = float(m.get("amp_cura_corr", 1.0))
 	c.mp_regen_turno = float(m["mp_regen_turno"])
 	c.mana_golpe_pct = float(m.get("mana_golpe_pct", 0.0))
+	c.marca_varita = float(m.get("marca_varita", 0.0))
 	c.mana_reduccion = float(m["mana_reduccion"])
 	c.cast_velocidad_mult = float(m["cast_velocidad_mult"])
 	# CRITICO MAGICO: va del loadout entero y no por mano (recitar no se hace con una mano), por eso
@@ -9451,6 +9552,15 @@ func loadout_mods(pj: PersonajeData = null) -> Dictionary:
 		m["amenaza_mult"] = float(sh_m["amenaza_mult"])
 		m["contra_prob"] = float(sh_m["contra_prob"])
 		m["contra_mult"] = float(sh_m["contra_mult"])
+		# LA LINEA DEL ESCUDO (23/11, arbol del basico): un paso por nivel, cada tamaño lo suyo (nunca el bloqueo).
+		var lin_e: int = linea_extra("escudo_%d" % int(sh.tamano), p)
+		var por_e: Dictionary = BasicoArbol.ESCUDO_POR_NIVEL.get(int(sh.tamano), {})
+		if lin_e > 0 and not por_e.is_empty():
+			var campo_e: String = String(por_e["campo"])
+			if por_e.has("suma"):
+				m[campo_e] = float(m[campo_e]) + float(por_e["suma"]) * lin_e
+			else:
+				m[campo_e] = float(m[campo_e]) * (1.0 + float(por_e["mult"]) * lin_e)
 	elif p.equipped_off is WeaponData:
 		var off: WeaponData = p.equipped_off
 		# Mods de la secundaria ya resueltos: de aqui salen su bloqueo y su RAPIDEZ (mas abajo).
@@ -9529,6 +9639,9 @@ func loadout_mods(pj: PersonajeData = null) -> Dictionary:
 	m["mp_regen_turno"] = mp_regen_turno * MAGIA_REGEN_BONUS
 	# Mana al acertar el basico, de la FICHA BASE (ver mana_golpe_pct_de).
 	m["mana_golpe_pct"] = (mana_golpe_pct_de(main) if main.es_magica else 0.0) 		+ (mana_golpe_pct_de(p.equipped_off) if p.equipped_off is WandData else 0.0)
+	# LA MARCA DEL BASICO (23/11): la del baston va en su mano (arbol); con VARITA, el basico del arma principal deja la
+	# marca a la mitad desde su primer paso (piso 12 del nivel 1, al subir a nivel 2).
+	m["marca_varita"] = BasicoArbol.MARCA_VARITA if p.equipped_off is WandData and linea_extra("varita", p) > 0 else 0.0
 	m["mana_reduccion"] = minf(0.25, mana_reduccion)
 	m["cast_velocidad_mult"] = cast_base * (1.0 + cast_vel_add)
 	m["crit_magico"] = crit_magico
@@ -9589,6 +9702,8 @@ func _hand_from(w: WeaponData, slot: String, pj: PersonajeData = null) -> Dictio
 		"fx": int(CombatFX.FX_ARMA.get(int(w.tipo), CombatFX.Estilo.MELEE)),
 		# Hasta donde llega en la pelea del mapa. Por mano: en dual cada golpe llega lo que su arma.
 		"alcance": w.alcance_real(),
+		# EL ARBOL DEL BASICO de este TIPO de arma (23/11): por mano, cada golpe con las mejoras de SU arma.
+		"arbol": BasicoArbol.de_mano(basico_de(int(w.tipo), pj), int(w.tipo)) if int(w.tipo) != WeaponData.Tipo.PUNOS else {},
 	}
 
 

@@ -134,10 +134,66 @@ var crit_flat: float = 0.0
 # Multiplicador de daño MAGICO bakeado al subir de nivel (congela el magia_factor de tu Magia de
 # niveles anteriores; tu Magia actual multiplica encima). 1.0 = neutro (enemigos).
 var magia_base_factor: float = 1.0
-# LO QUE SUBEN LAS MEJORAS DEL BASICO (23/11, memoria rangos-magias-y-habilidades): el basico no tiene ficha que montar
-# con nodos (como las habilidades y magias, Mejoras.montar), asi que su daño va aqui. De momento solo lo pone el
-# simulador (mejoras=1): sus pasos 115 / 120 / 140 % por nivel. 1 = nada.
+# UN MULTIPLICADOR EXTRA del basico, aparte de su arbol (el arbol va POR MANO: arbol_mano()). Lo usaba el simulador
+# antes de que existiera el arbol de verdad; se deja a 1. 1 = nada.
 var mult_arbol_basico: float = 1.0
+
+# ---- EL ARBOL DEL BASICO EN LA PELEA (23/11, basico_arbol.gd) ----
+# Lo de la mano ACTIVA (Game._hand_from -> "arbol"): {"tipo", "dano", "energia", "mana_extra", "marca", "fac" {id: valor},
+# "rangos" {id: rango}}. Vacio en los enemigos y con los puños.
+func arbol_mano() -> Dictionary:
+	return hands[_hand_idx].get("arbol", {}) if hands.size() > 0 else {}
+
+# El valor de una facultad en la mano activa (0 = no la tiene).
+func fac(id: String) -> float:
+	return float((arbol_mano().get("fac", {}) as Dictionary).get(id, 0.0))
+
+func fac_rangos() -> Dictionary:
+	return arbol_mano().get("rangos", {})
+
+# La marca de la VARITA (el basico del arma principal la deja a la mitad). La del baston va en su mano.
+var marca_varita: float = 0.0
+# ENFRIAMIENTOS de las facultades: id -> turnos que faltan (se descuentan al empezar cada turno tuyo).
+var fac_enf: Dictionary = {}
+# Estado de las facultades durante la pelea:
+var fac_respuesta: bool = false       # estoque: el proximo golpe que te den, contraatacas con un basico
+var fac_firmeza: float = 0.0          # espada larga: el proximo golpe que recibas, x(1 - esto)
+var fac_cubierto: float = 0.0         # maza (Cerrojo): cubierto hasta tu turno; +bloqueo (y +def. del escudo, en %)
+var fac_eco: float = 0.0              # baston (Eco arcano): el siguiente hechizo cuesta x(1 - esto)
+var fac_martilleo_obj: Combatant = null   # maza (Martilleo): a quien le vas pegando seguido
+var fac_martilleo_n: int = 0
+var fac_golpeado: bool = false        # arco (Sangre fria): te han golpeado (lo pone resolve_attack)
+var fac_golpeado_antes: bool = false  # ...y si te golpearon entre tu turno anterior y este (lo que mira Sangre fria)
+var fac_sed_turno: float = 0.0        # hacha (Sed): lo curado este turno (tope)
+var fac_mixta_n: int = 0              # ballesta (Carga mixta): disparos desde el ultimo gasto del segundo virote
+# EN EL QUE LAS RECIBE (el enemigo):
+var marca_basico_n: int = 0           # baston/varita: marcas puestas (hasta BasicoArbol.MARCA_TOPE)
+var marca_basico_valor: float = 0.0   # lo que vale cada una (+5 % baston, +2,5 % varita: la mas alta)
+var rompe_armadura_n: int = 0         # hacha (Rompearmadura): cargas de -defensa
+var rompe_armadura_valor: float = 0.0
+var rompe_armadura_turnos: int = 0
+
+func fac_lista(id: String) -> bool:
+	return fac(id) > 0.0 and int(fac_enf.get(id, 0)) <= 0
+
+func fac_enfriar(id: String, turnos: int) -> void:
+	if turnos > 0:
+		fac_enf[id] = turnos + 1   # +1: se descuenta al empezar tu proximo turno, y quiero 'turnos' turnos enteros sin ella
+
+# Al EMPEZAR cada turno tuyo: corren los enfriamientos y se cae lo que solo dura "hasta tu turno".
+func fac_turno() -> void:
+	for k in fac_enf.keys():
+		fac_enf[k] = int(fac_enf[k]) - 1
+		if int(fac_enf[k]) <= 0:
+			fac_enf.erase(k)
+	fac_cubierto = 0.0
+	fac_golpeado_antes = fac_golpeado
+	fac_golpeado = false
+	fac_sed_turno = 0.0
+	if rompe_armadura_turnos > 0:
+		rompe_armadura_turnos -= 1
+		if rompe_armadura_turnos <= 0:
+			rompe_armadura_n = 0
 # SUBIR DE NIVEL: true SOLO en el jugador. Hace que vida/defensa/velocidad/def. magica/maná
 # MULTIPLIQUEN su base (StatsMath.*_jugador) en vez de sumarse, para que el bakeo de nivel haga
 # que cada punto nuevo rinda mas. Los enemigos lo dejan en false (formulas aditivas de siempre).
@@ -1342,12 +1398,15 @@ func take_damage(amount: float, es_dot: bool = false) -> void:
 	var antes_hp: float = current_hp
 	current_hp = maxf(0.0, current_hp - amount)
 	if al_recibir.is_valid():
+		golpe_entero = amount   # (23/11) lo que pegaba el golpe entero, sin recortar por la vida que le quedaba
 		al_recibir.call(self, antes_hp - current_hp, es_dot)
 
 
 # SOLO HERRAMIENTAS (tools/simulador_peleas.gd, 19/11): si esta puesto, se le avisa de la vida que quita cada daño que entra
 # (ya con defensa, armadura, escudos y costras). En el juego esta siempre vacio.
 static var al_recibir: Callable = Callable()
+# Lo que pegaba entero el ultimo golpe que ha entrado (antes de recortarlo por la vida que quedaba). Solo para el simulador.
+static var golpe_entero: float = 0.0
 # Y EL ELEMENTO del golpe que esta entrando (20/11): lo ponen los golpes de hechizo (CombatMagia) justo antes de
 # take_damage y lo quitan despues, para que el simulador parta el daño de un hechizo de varios elementos (la Tormenta: agua y
 # rayo) golpe a golpe. -1 = no lo dice (golpes de arma, DoT...). En el juego no lo lee nadie.
@@ -1967,6 +2026,7 @@ func tick_statuses() -> Dictionary:
 	# (18/11) el tope del set Boca de las simas es POR TURNO suyo
 	boca_vida_turno = 0.0
 	boca_mana_turno = 0.0
+	fac_turno()   # (23/11) el arbol del basico: enfriamientos y lo que dura "hasta tu turno"
 	var antes_de_tick: int = statuses.size()
 	var total_dmg: float = 0.0
 	var total_heal: float = 0.0

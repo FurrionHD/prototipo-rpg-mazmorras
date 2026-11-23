@@ -430,6 +430,10 @@ func _enemy_turn(e: Combatant) -> void:
 	# la accion del bicho. Esta es UNA de las dos ramas: la otra esta en _enemy_resolver_golpes, y
 	# si solo se toca una, el escudo ripostea contra los ataques a secas y no contra las tecnicas.
 	var contra_bloq: String = _riposte_bloqueo(e, obj, defendiendo)
+	# (23/11) RESPUESTA (arbol del basico del estoque): en respuesta, al encajar el golpe contraataca una vez con su basico.
+	if contra_bloq == "" and obj.fac_respuesta and obj.is_alive():
+		obj.fac_respuesta = false
+		contra_bloq = _contraatacar(e, obj, 1.0, true)
 	_pantalla._set_log(msg)
 	# REY DE LA CAMADA: sus ratas saltan detras de el.
 	var camada: String = _pantalla._camada_salta(e, obj)
@@ -2200,6 +2204,12 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 				dmg *= e.cortes_melee_mult
 			t.take_damage(dmg)
 			_runas_al_encajar(e, t, false)
+			# (23/11) RESPUESTA (arbol del basico del estoque): contraataca una vez con su basico.
+			if t.fac_respuesta and t.is_alive() and permitir_contra and contra == "":
+				t.fac_respuesta = false
+				contra = _contraatacar(e, t, 1.0, true)
+				if not e.is_alive():
+					break
 			_pantalla.objetivos.amenaza_por_parar(t, e, dmg_bruto - dmg)
 			# ROBO DE VIDA del bicho (el Drenaje del chupasimas). Sobre el daño YA MITIGADO: contra
 			# alguien con armadura, drenar le rinde poco, y esa es la gracia -- va a por el que va

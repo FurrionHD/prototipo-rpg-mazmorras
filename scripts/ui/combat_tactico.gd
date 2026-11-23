@@ -44,6 +44,7 @@ extends RefCounted
 
 const Pantalla = preload("res://scripts/ui/combat.gd")
 const CombatReacciones = preload("res://scripts/ui/combat_reacciones.gd")
+const CombatBasico = preload("res://scripts/ui/combat_basico.gd")
 var _pantalla: Pantalla = null
 
 
@@ -1318,11 +1319,15 @@ func blancos_del_disparo(a: Combatant, obj: Combatant) -> Array:
 	# De cerca a lejos; a igual distancia, el orden de _enemies (el mismo en todas las maquinas).
 	tocados.sort_custom(func(x, y): return x[0] < y[0] if x[0] != y[0] \
 		else _pantalla._enemies.find(x[1]) < _pantalla._enemies.find(y[1]))
-	var cuantos: int = 2 if a.perfora else 1
+	# (23/11) ATRAVESAR (arbol del basico del arco): la flecha tambien sigue al de detras, con el % de la facultad.
+	var atraviesa: float = a.fac("atravesar")
+	var cuantos: int = 2 if a.perfora or atraviesa > 0.0 else 1
 	for i in mini(cuantos, tocados.size()):
 		var c: Combatant = tocados[i][1]
-		var escala: float = 1.0 if i == 0 else PERFORA_SEGUNDO
+		var escala: float = 1.0 if i == 0 else (PERFORA_SEGUNDO if a.perfora else atraviesa)
 		var nota: String = "" if i == 0 else "atravesado"
+		if i > 0 and not a.perfora:
+			CombatBasico._salta("atravesar")
 		if hueco_entre(a, c) <= QUEMARROPA_HUECO:
 			escala *= QUEMARROPA_MULT
 			nota = "a quemarropa" if nota == "" else nota + ", a quemarropa"

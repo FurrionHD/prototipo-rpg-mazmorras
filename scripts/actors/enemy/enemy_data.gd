@@ -882,6 +882,16 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	# (la costra de ambar, la vida de las crias...), y para todos los que nacen, no solo los que abren la pelea.
 	if StatsMath.reglas_nuevas and StatsMath.nivel_enemigos > 1:
 		_bakear_nivel(c)
+	# EL AGUANTE POR ESCALON DE 6 PISOS (StatsMath.aguante_escalon / dano_escalon): por el piso DE VERDAD (el local + los
+	# niveles que lleva encima), a su vida y a su daño. Lineal en la base: da igual hacerlo aqui que antes.
+	if StatsMath.reglas_nuevas and (not StatsMath.aguante_escalon.is_empty() or not StatsMath.dano_escalon.is_empty()):
+		var piso_real: int = pis + StatsMath.PISOS_NIVEL * (StatsMath.nivel_enemigos - 1)
+		var m_v: float = StatsMath.de_tabla(StatsMath.aguante_escalon, piso_real)
+		c.base_hp *= m_v
+		c.max_hp *= m_v
+		c.current_hp = c.max_hp
+		var m_d: float = StatsMath.de_tabla(StatsMath.dano_escalon, piso_real)
+		c.base_attack *= m_d   # (su ataque magico sale tambien de base_attack: Combatant.atk_magico; base_magic es su defensa)
 	# Estados que aplica al golpear (pegajoso/veneno, KAN-58 Fase 3).
 	c.on_hit = al_golpear
 	c.al_ser_golpeado = al_ser_golpeado

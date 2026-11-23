@@ -361,6 +361,13 @@ func base_ataque_destreza() -> float:
 @export var nodos_elegidos: Dictionary = {}
 @export var dominio: Dictionary = {}
 @export var sin_mejoras: Dictionary = {}
+# EL ARBOL DEL BASICO (23/11, ver basico_arbol.gd), por TIPO de arma, con la clave EN TEXTO (str(WeaponData.Tipo): asi
+# viaja igual por la red y el guardado): {"4": {"pasos": n, "fac": {id: rango}}}.
+# Y la linea de la varita y de los escudos (sin facultades): {"varita": pasos, "escudo_<tamaño>": pasos} en basico_lineas.
+@export var basico_arbol: Dictionary = {}
+@export var basico_lineas: Dictionary = {}
+# EL PISO MAS HONDO al que ha llegado (23/11): lo piden los pasos del arbol del basico (pisos 4, 8 y 12 de cada nivel).
+@export var piso_hondo: int = 1
 # tier + rareza + mejoras + durabilidad de lo que lleva PUESTO, por slot. Los dicts son los
 # MISMOS objetos que Game.item_meta[item] (por referencia): mejorar lo equipado mejora lo del baul.
 @export var equip_meta: Dictionary = {}
@@ -421,6 +428,8 @@ func _init() -> void:
 	nodos_elegidos = {}
 	dominio = {}
 	sin_mejoras = {}
+	basico_arbol = {}
+	basico_lineas = {}
 	equip_meta = meta_vacia()
 	aspecto = aspecto_nuevo(color)
 

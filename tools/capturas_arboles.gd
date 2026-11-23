@@ -48,12 +48,29 @@ func _ready() -> void:
 		if String(plantillas[i].resource_path).get_file() == "daga.tres":
 			menu._pick_arma(i)
 	await _esperar()
-	# 0) TODO PLEGADO: el basico elegido (sin arbol aun) y las habilidades con su icono y su contador.
+	# 0) TODO PLEGADO: el basico elegido y las habilidades con su icono y su contador. (23/11) LA FICHA DEL BASICO: la
+	# linea con 3 pasos (nivel 1 entero) y su primer punto sin poner; y luego con el punto en Sangrado y un paso mas.
+	# (el arbol: las dos principales y luego las dos secundarias por nivel; los pisos 4 y 8, en la ficha)
+	pj.piso_hondo = 16
+	pj.basico_arbol = {str(WeaponData.Tipo.DAGA): {"pasos": 2, "fac": {}, "elec": []}}
 	menu._arbol_ui.fila_sel = "basico"
-	menu._arbol_ui.nodo_sel = &""
+	menu._arbol_ui.nodo_sel = &"c0_sangrado"
 	menu._rebuild()
 	await _esperar()
 	get_viewport().get_texture().get_image().save_png("%s/0_maestro_plegado.png" % CARPETA)
+	pj.basico_arbol = {str(WeaponData.Tipo.DAGA): {"pasos": 3, "fac": {"sangrado": 1}, "elec": ["sangrado"]}}
+	menu._arbol_ui.nodo_sel = &""
+	menu._rebuild()
+	await _esperar()
+	get_viewport().get_texture().get_image().save_png("%s/0b_basico_con_sangrado.png" % CARPETA)
+	pj.level = 3
+	pj.piso_hondo = 25
+	pj.basico_arbol = {str(WeaponData.Tipo.DAGA): {"pasos": 6, "fac": {"sangrado": 1, "ensanamiento": 1}, "elec": ["sangrado", "ensanamiento"]}}
+	menu._arbol_ui.nodo_sel = &"c2_abrir_herida"
+	menu._rebuild()
+	await _esperar()
+	get_viewport().get_texture().get_image().save_png("%s/0c_basico_nivel_3.png" % CARPETA)
+	pj.level = 2
 	menu._arbol_ui.fila_sel = rafaga
 	menu._arbol_ui.nodo_sel = &"remolino"
 	menu._rebuild()
