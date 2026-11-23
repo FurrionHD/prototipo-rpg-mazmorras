@@ -60,8 +60,11 @@ func _guion() -> void:
 	await _esperar(3.0)
 	var yo: Node2D = get_tree().get_first_node_in_group("player") as Node2D
 	Net.pisos.pedir_spawn_arena(PAVON, yo.global_position + Vector2(0, 150), {"mutacion": "vigilia"})
-	Net.pisos.pedir_spawn_arena(LUTO, yo.global_position + Vector2(110, 130), {"mutacion": "mortaja"})
-	Net.pisos.pedir_spawn_arena(PAVON, yo.global_position + Vector2(-110, 130), {"mutacion": "insomne"})
+	# (23/11) A 70 px de la del medio, no a 110: a la pelea entra lo que esta a RADIO_REFUERZO (160 px) EN LA SALA, y
+	# con el PC cargado la sala va por detras de mi espejo y las de los lados siguen deambulando; con 110 el margen era
+	# de 50 px y la Insomne se quedaba fuera alguna vez (banco 7a6c9356). Con 70 sobran 90 px.
+	Net.pisos.pedir_spawn_arena(LUTO, yo.global_position + Vector2(70, 140), {"mutacion": "mortaja"})
+	Net.pisos.pedir_spawn_arena(PAVON, yo.global_position + Vector2(-70, 140), {"mutacion": "insomne"})
 	await _hasta(func(): return Net.enemigos._enem_nodos.size() + Net.enemigos._enemigos.size() >= 3, 15.0)
 	await pelear_con(await esperar_corro(3))   # (22/11) todos juntos y al del medio
 	await _hasta(func(): return pantalla() != null, 10.0)
