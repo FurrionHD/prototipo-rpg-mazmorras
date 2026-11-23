@@ -566,6 +566,9 @@ func secundario_para(n_enemigos: int) -> float:
 # MANÁ FIJO que RECUPERA al usarla (0 = ninguno). Una habilidad de PURA UTILIDAD (sin
 # daño) se marca con dano_mult = 0: no golpea, solo su efecto.
 @export var mana_gain: float = 0.0
+# Y en % del mana MAXIMO, una vez por uso si algun golpe CONECTA (23/11: el Bastonazo, 0,08, el doble que el basico del
+# baston: lo pagas con energia).
+@export var mana_gain_pct: float = 0.0
 
 # CONVERSION energía->maná (LEGACY, ya no lo usa Canalizar; reemplazado por foco_cargas): si
 # > 0, la habilidad GASTA TODA la energía y da 1 de maná por cada 'energia_a_mana'. Se deja

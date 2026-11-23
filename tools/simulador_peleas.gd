@@ -683,6 +683,11 @@ func _poner_mejoras(c: Combatant, piso: int) -> void:
 	var n: float = float(nivel - 1)
 	var dano: float = pow(MEJORA_DANO_NIVEL, n)
 	c.mult_arbol_basico = dano * (1.2 if loc >= 8 else (1.15 if loc >= 4 else 1.0))
+	# EL BASICO DEL BASTON (23/11): su paso de mana en el piso 4 de cada nivel, +0,5 puntos (4 % -> 4,5 -> 5...). Solo con
+	# baston: con varita el basico es el del arma principal y se queda en su 2/3 fijo.
+	var pj_m: PersonajeData = Game.pj_de_combatant(c)
+	if pj_m != null and pj_m.equipped_main is WeaponData and (pj_m.equipped_main as WeaponData).es_magica:
+		c.mana_golpe_pct += 0.005 * float((nivel - 1) + (1 if loc >= 4 else 0))
 	if nivel <= 1:
 		return
 	var en: float = pow(MEJORA_ENERGIA_NIVEL, n)

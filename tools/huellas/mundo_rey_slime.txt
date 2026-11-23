@@ -2227,8 +2227,8 @@ f1265 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1265 Slime hp=0.000 mp=20.363 en=0.000
 f1265 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1265 PULSA Atacar
-f1266 LOG Agirato ochinan golpea con Baston e inflige 5,57 de daño.  Recupera 0,2 de maná. 🔷
-f1266 Agirato ochinan hp=198.795 mp=23.066 en=177.425
+f1266 LOG Agirato ochinan golpea con Baston e inflige 5,57 de daño.  Recupera 1,46 de maná. 🔷
+f1266 Agirato ochinan hp=198.795 mp=24.326 en=177.425
 f1266 Rey Slime hp=682.352 mp=21.188 en=0.000
 f1266 Slime hp=32.650 mp=20.429 en=0.000
 f1266 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -2498,9 +2498,9 @@ f1331 Slime hp=32.650 mp=20.429 en=0.000
 f1331 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1331 Slime hp=0.000 mp=20.363 en=0.000
 f1331 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1331 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  23/37 🔷)
+f1331 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  24/37 🔷)
 f1332 LOG Daniel le da Poción de maná media a Agirato ochinan. 🔷 29 de maná: 10 ahora y 19 durante los 2 turnos siguientes.
-f1332 Agirato ochinan hp=198.795 mp=32.859 en=177.425
+f1332 Agirato ochinan hp=198.795 mp=34.119 en=177.425
 f1332 Slime hp=32.650 mp=20.429 en=0.000
 f1332 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1332 Slime hp=0.000 mp=20.363 en=0.000
@@ -14987,8 +14987,8 @@ f5861 LOG 1. Rey Slime esquiva el golpe de Daniel. 💨
 f5861 Daniel hp=171.914 mp=20.000 en=174.025
 f5918 LOG Ya se puede soltar Bastonazo: elige el objetivo.
 f5920 PULSA ⚡ ¡Soltar Bastonazo!
-f5921 LOG … 14,77 de daño.  Recupera 0,2 de maná. 🔷  Causa Lento.
-f5921 Agirato ochinan hp=199.851 mp=28.671 en=151.425
+f5921 LOG … 14,77 de daño.  Recupera 3,12 de maná. 🔷  Causa Lento.
+f5921 Agirato ochinan hp=199.851 mp=31.591 en=151.425
 f5921 Rey Slime hp=107.992 mp=21.188 en=0.000
 f5974 LOG ¡Turno de Catalardio! Elige una acción.
 f5976 PULSA Objeto

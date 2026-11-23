@@ -1504,8 +1504,8 @@ f1283 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1284 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1284 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1284 998 PULSA Atacar
-f1285 LOG ¡Crítico! Agirato ochinan golpea con Bastón e inflige 9,67 de daño. 💥  Recupera 0,2 de maná. 🔷
-f1285 Agirato ochinan hp=198.593 mp=23.066 en=177.425
+f1285 LOG ¡Crítico! Agirato ochinan golpea con Bastón e inflige 9,67 de daño. 💥  Recupera 1,46 de maná. 🔷
+f1285 Agirato ochinan hp=198.593 mp=24.326 en=177.425
 f1285 Rey Slime hp=614.923 mp=21.188 en=0.000
 f1285 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1285 Slime venenoso hp=0.000 mp=20.363 en=0.000
@@ -1655,9 +1655,9 @@ f1355 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1355 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1356 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1356 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f1356 999 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  23/37 🔷)
+f1356 999 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  24/37 🔷)
 f1357 LOG Daniel le da Poción de maná media a Agirato ochinan. 🔷 29 de maná: 10 ahora y 19 durante los 2 turnos siguientes.
-f1357 Agirato ochinan hp=198.593 mp=32.859 en=177.425
+f1357 Agirato ochinan hp=198.593 mp=34.119 en=177.425
 f1357 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1357 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1358 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -6417,8 +6417,8 @@ f6424 Rey Slime hp=18.946 mp=21.188 en=0.000
 f6476 LOG Turno de Agirato ochinan. Esperando su acción...
 f6476 Agirato ochinan hp=199.851 mp=29.737 en=147.425
 f6478 998 PULSA Atacar
-f6479 LOG ¡Crítico! Agirato ochinan golpea con Bastón e inflige 9,24 de daño. 💥  Recupera 0,2 de maná. 🔷
-f6479 Agirato ochinan hp=199.851 mp=29.937 en=177.425
+f6479 LOG ¡Crítico! Agirato ochinan golpea con Bastón e inflige 9,24 de daño. 💥  Recupera 1,46 de maná. 🔷
+f6479 Agirato ochinan hp=199.851 mp=31.197 en=177.425
 f6479 Rey Slime hp=9.707 mp=21.188 en=0.000
 f6549 LOG Turno de Catalardio. Esperando su acción...
 f6551 998 PULSA Objeto
@@ -6428,6 +6428,6 @@ f6558 LOG Catalardio le da Poción media +1 a Agirato ochinan. ✚ 144 de vida: 
 f6560 LOG Dasui ya puede soltar Tajo devastador. Esperando su objetivo...
 f6562 999 PULSA ⚡ ¡Soltar Tajo devastador!
 f6563 LOG ¡Victoria contra 5 enemigos! 🎉  Recupera 0,94 de maná. 🔷
-f6563 Agirato ochinan hp=199.851 mp=30.876 en=177.425
+f6563 Agirato ochinan hp=199.851 mp=32.136 en=177.425
 f6563 Rey Slime hp=0.000 mp=21.188 en=0.000
 FIN f6563 estado=3

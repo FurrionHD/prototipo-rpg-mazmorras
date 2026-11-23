@@ -19,6 +19,7 @@ tiron = -25.0
 nombre = "Bastonazo"
 inicial = true
 coste_energia = 26
+mana_gain_pct = 0.08
 cooldown = 3
 golpes_min = 1
 golpes_max = 1

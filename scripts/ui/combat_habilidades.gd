@@ -10,6 +10,8 @@ extends RefCounted
 # de eso se encarga tools/verificar_pantalla.py.
 const Pantalla = preload("res://scripts/ui/combat.gd")
 var _pantalla: Pantalla = null
+# El % de mana de la habilidad (AbilityData.mana_gain_pct) ya se cobro en este uso (va una vez, no por golpe).
+var _mana_pct_cobrado := false
 
 
 func _init(pantalla: Pantalla) -> void:
@@ -503,6 +505,13 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	if not ab.es_magico:
 		_pantalla.boca_simas_golpe(_pantalla._player, dmg)
 	r.mana = _pantalla._ganar_mana_golpe()       # cada golpe que conecta repone maná
+	# Y el % del maximo de la habilidad (el Bastonazo), UNA vez por uso: con el primer golpe que conecta.
+	if ab.mana_gain_pct > 0.0 and not _mana_pct_cobrado:
+		_mana_pct_cobrado = true
+		var p_m: Combatant = _pantalla._player
+		var antes_m: float = p_m.current_mp
+		p_m.regen_mana(ab.mana_gain_pct * p_m.max_mp)
+		r.mana += p_m.current_mp - antes_m
 	if float(result.get("dmg_imbue", 0.0)) > 0.0:
 		_pantalla.magia._gastar_amplificadores(objetivo, _pantalla._player.imbue_elemento)
 	r.conecto = true
@@ -620,6 +629,7 @@ func _empezar_retraso_jugador(ab: AbilityData) -> void:
 # cooldown se pagaron al EMPEZAR a cargar, hace dos turnos.
 func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	_ya_respondieron.clear()
+	_mana_pct_cobrado = false
 	# EL ALIADO ELEGIDO SOLO VALE PARA LAS DE UN ALIADO (26/09, fallo suyo): se quedaba guardado de la ultima
 	# (una Egida, un Purificar...) y el Velo umbrio, que es sobre ti, se lo echaba a ese.
 	if ab != null and ab.objetivo_aliado != AbilityData.Objetivo.ALIADO:

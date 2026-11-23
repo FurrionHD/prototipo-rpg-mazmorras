@@ -12,6 +12,7 @@ script = ExtResource("1")
 nombre = "Varita"
 magic_amp = 1.4
 mp_regen_turno = 0.33
+mana_golpe_pct = 0.0267
 cast_vel_mult = 1.05
 bloqueo = 0.0
 evasion_penal = 0.0

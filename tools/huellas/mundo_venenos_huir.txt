@@ -20,8 +20,8 @@ f98 LOG Daniel golpea con Maza pequeña e inflige 4,98 de daño.  Retrasa a 1. A
 f98 Araña de las simas hp=51.069 mp=20.429 en=0.000
 f149 LOG Ya se puede soltar Bastonazo: elige el objetivo.
 f151 PULSA ⚡ ¡Soltar Bastonazo!
-f152 LOG … 11,25 de daño.  Recupera 0,2 de maná. 🔷  Causa Lento.
-f152 Agirato ochinan hp=198.795 mp=14.685 en=151.425
+f152 LOG … 11,25 de daño.  Recupera 3,12 de maná. 🔷  Causa Lento.
+f152 Agirato ochinan hp=198.795 mp=17.605 en=151.425
 f152 Araña de las simas hp=39.822 mp=20.429 en=0.000
 f203 LOG Daniel esquiva el ataque de 3. Jabalí. 💨
 f255 LOG ¡Turno de Dasui! Elige una acción.
@@ -31,12 +31,12 @@ f258 Dasui hp=199.642 mp=20.000 en=166.300
 f260 LOG ¡Turno de Catalardio! Elige una acción.
 f262 PULSA Objeto
 f265 PULSA _objeto_box: Poción de maná media  x3
-f268 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  15/37 🔷)
+f268 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  18/37 🔷)
 f269 LOG Catalardio le da Poción de maná media a Agirato ochinan. 🔷 29 de maná: 10 ahora y 19 durante los 2 turnos siguientes.
-f269 Agirato ochinan hp=198.795 mp=24.479 en=151.425
+f269 Agirato ochinan hp=198.795 mp=27.399 en=151.425
 f285 LOG ⏳ 2. Trent prepara Ramazo. ¡Apártate! Si queda Aturdido, se interrumpe.
 f354 LOG ¡Turno de Agirato ochinan! Elige una acción.
-f354 Agirato ochinan hp=198.795 mp=34.694 en=151.425
+f354 Agirato ochinan hp=198.795 mp=36.500 en=151.425
 f356 PULSA Huir
 f357 LOG Agirato ochinan intenta huir, pero Araña de las simas se lo impide (tenía un 62 % de probabilidad de huir).
 f359 LOG ¡Turno de Daniel! Elige una acción.
@@ -63,7 +63,6 @@ f687 PULSA ⚡ ¡Soltar Tajo devastador!
 f688 LOG … 25,86 de daño.
 f688 Araña de las simas hp=0.000 mp=20.429 en=0.000
 f754 LOG ¡Turno de Agirato ochinan! Elige una acción.
-f754 Agirato ochinan hp=198.795 mp=36.500 en=151.425
 f756 PULSA Defender
 f757 LOG Agirato ochinan se pone en guardia: recibe menos daño hasta su próximo turno. 🛡️
 f757 Agirato ochinan hp=198.795 mp=36.500 en=136.425

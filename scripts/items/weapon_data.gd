@@ -135,6 +135,11 @@ func alcance_real() -> float:
 # encadenarlas. El baston T1 comun paga ~1/6 de eso, y ni el mejor baston posible llega a
 # pagarlo entero (si lo pagara, la pocion de maná sobraria).
 @export var mp_regen_turno: float = 0.0
+# MANA AL ACERTAR EL BASICO, en % del mana MAXIMO (23/11, el jefe; memoria rangos-magias-y-habilidades): el baston 0,04.
+# En % del maximo a proposito: las mejoras de las magias cuestan x2,5 por nivel y el maximo sube x2,46, asi que esto
+# crece a la par sin retocarlo. Solo el BASICO (no cada golpe de una habilidad). Se lee de la FICHA BASE del arma
+# (Game.mana_golpe_pct_de), no de la copia guardada: asi vale tambien para los bastones que ya llevas.
+@export var mana_golpe_pct: float = 0.0
 # Velocidad de CASTEO (multiplica la barra mientras recitas). Es un campo APARTE de
 # velocidad_mult a proposito: esa es lo rapido que BLANDES el arma, y no tiene por que ser
 # lo rapido que recitas con ella. Solo cuenta si es_magica (a las demas se les ignora: sin

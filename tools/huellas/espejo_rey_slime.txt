@@ -4786,8 +4786,8 @@ f2899 Slime hp=0.000 mp=20.363 en=0.000
 f2900 Slime hp=0.000 mp=20.429 en=0.000
 f2900 Slime hp=0.000 mp=20.363 en=0.000
 f2900 PULSA ⚡ ¡Soltar Bastonazo!
-f2901 LOG … 7,87 de daño.  Recupera 0,2 de maná. 🔷  Causa Lento.
-f2901 Agirato ochinan hp=198.000 mp=17.795 en=151.425
+f2901 LOG … 7,87 de daño.  Recupera 3,12 de maná. 🔷  Causa Lento.
+f2901 Agirato ochinan hp=198.000 mp=20.715 en=151.425
 f2901 Rey Slime hp=414.126 mp=21.188 en=0.000
 f2901 Slime hp=0.000 mp=20.429 en=0.000
 f2901 Slime hp=0.000 mp=20.363 en=0.000
@@ -5206,7 +5206,7 @@ f3101 Slime hp=0.000 mp=20.429 en=0.000
 f3101 Slime hp=0.000 mp=20.363 en=0.000
 f3102 Slime hp=0.000 mp=20.429 en=0.000
 f3102 Slime hp=0.000 mp=20.363 en=0.000
-f3103 Agirato ochinan hp=198.000 mp=18.217 en=151.425
+f3103 Agirato ochinan hp=198.000 mp=21.137 en=151.425
 f3103 Slime hp=0.000 mp=20.429 en=0.000
 f3103 Slime hp=0.000 mp=20.363 en=0.000
 f3104 Slime hp=0.000 mp=20.429 en=0.000
@@ -5214,8 +5214,8 @@ f3104 Slime hp=0.000 mp=20.363 en=0.000
 f3105 Slime hp=0.000 mp=20.429 en=0.000
 f3105 Slime hp=0.000 mp=20.363 en=0.000
 f3105 PULSA Atacar
-f3106 LOG Agirato ochinan golpea con Baston e inflige 5,07 de daño.  Recupera 0,2 de maná. 🔷
-f3106 Agirato ochinan hp=198.000 mp=18.417 en=177.425
+f3106 LOG Agirato ochinan golpea con Baston e inflige 5,07 de daño.  Recupera 1,46 de maná. 🔷
+f3106 Agirato ochinan hp=198.000 mp=22.597 en=177.425
 f3106 Rey Slime hp=404.636 mp=21.188 en=0.000
 f3106 Slime hp=0.000 mp=20.429 en=0.000
 f3106 Slime hp=0.000 mp=20.363 en=0.000
@@ -5359,9 +5359,9 @@ f3174 Slime hp=0.000 mp=20.429 en=0.000
 f3174 Slime hp=0.000 mp=20.363 en=0.000
 f3175 Slime hp=0.000 mp=20.429 en=0.000
 f3175 Slime hp=0.000 mp=20.363 en=0.000
-f3175 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  18/37 🔷)
+f3175 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  23/37 🔷)
 f3176 LOG Dasui le da Poción de maná media +1 a Agirato ochinan. 🔷 38 de maná: 10 ahora y 28 durante los 3 turnos siguientes.
-f3176 Agirato ochinan hp=198.000 mp=28.012 en=177.425
+f3176 Agirato ochinan hp=198.000 mp=32.192 en=177.425
 f3176 Slime hp=0.000 mp=20.429 en=0.000
 f3176 Slime hp=0.000 mp=20.363 en=0.000
 f3177 Slime hp=0.000 mp=20.429 en=0.000

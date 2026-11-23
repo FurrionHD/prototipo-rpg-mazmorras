@@ -20,6 +20,9 @@ class_name WandData
 # no mucho menos — la varita deja una mano libre para un arma y el baston se come las dos, asi
 # que dos tercios del goteo por la mitad del compromiso es el trato.
 @export var mp_regen_turno: float = 0.33
+# MANA AL ACERTAR EL BASICO con el arma PRINCIPAL (la varita no pega), en % del mana maximo (23/11, el jefe): 2/3 del
+# baston, como su regen. Ver WeaponData.mana_golpe_pct.
+@export var mana_golpe_pct: float = 0.0
 # VELOCIDAD DE CASTEO: mientras casteas, la barra ATB usa esta velocidad. Se llama igual que
 # en WeaponData (cast_vel_mult) y NO 'velocidad_mult': la varita no se blande, no tiene
 # velocidad fisica, y tener el mismo nombre para dos cosas distintas se prestaba a liarla.

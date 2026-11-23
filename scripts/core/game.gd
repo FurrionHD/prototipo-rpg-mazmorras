@@ -9328,6 +9328,7 @@ func _aplicar_loadout(c: Combatant, pj: PersonajeData = null) -> void:
 	c.magic_amp = float(m["magic_amp"])
 	c.amp_cura_corr = float(m.get("amp_cura_corr", 1.0))
 	c.mp_regen_turno = float(m["mp_regen_turno"])
+	c.mana_golpe_pct = float(m.get("mana_golpe_pct", 0.0))
 	c.mana_reduccion = float(m["mana_reduccion"])
 	c.cast_velocidad_mult = float(m["cast_velocidad_mult"])
 	# CRITICO MAGICO: va del loadout entero y no por mano (recitar no se hace con una mano), por eso
@@ -9481,6 +9482,8 @@ func loadout_mods(pj: PersonajeData = null) -> Dictionary:
 	# Un solo numero sube los DOS momentos en que el arma magica da mana: el goteo por turno en
 	# combate y el mana al ganarlo, porque StatsMath.mp_por_kill se calcula desde este mismo valor.
 	m["mp_regen_turno"] = mp_regen_turno * MAGIA_REGEN_BONUS
+	# Mana al acertar el basico, de la FICHA BASE (ver mana_golpe_pct_de).
+	m["mana_golpe_pct"] = (mana_golpe_pct_de(main) if main.es_magica else 0.0) 		+ (mana_golpe_pct_de(p.equipped_off) if p.equipped_off is WandData else 0.0)
 	m["mana_reduccion"] = minf(0.25, mana_reduccion)
 	m["cast_velocidad_mult"] = cast_base * (1.0 + cast_vel_add)
 	m["crit_magico"] = crit_magico
@@ -10217,6 +10220,20 @@ func _avisar_manifiesto_corto_de(carpeta: String, manifiesto: Array, que: String
 
 
 # La ruta de la plantilla de 'item' ("" si no hay forma de saberla). REPARA la meta si la encuentra.
+# EL % DE MANA AL ACERTAR EL BASICO (WeaponData / WandData.mana_golpe_pct) DE LA FICHA BASE, no de la copia guardada
+# en la partida (crear_item duplica el .tres): asi un numero nuevo en la ficha llega tambien a los bastones y varitas
+# que ya tiene la gente.
+func mana_golpe_pct_de(item: Resource) -> float:
+	if item == null or not ("mana_golpe_pct" in item):
+		return 0.0
+	var ruta: String = ruta_base_de(item)
+	if ruta != "" and ResourceLoader.exists(ruta):
+		var base: Resource = load(ruta)
+		if base != null and "mana_golpe_pct" in base:
+			return float(base.mana_golpe_pct)
+	return float(item.mana_golpe_pct)
+
+
 func ruta_base_de(item: Resource) -> String:
 	if item == null:
 		return ""

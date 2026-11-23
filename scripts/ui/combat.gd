@@ -2630,11 +2630,15 @@ func _on_continue_pressed() -> void:
 # magica (goteo por turno) y los nucleos de los que matas, que tambien escalan con ella. Sin
 # baston ni varita se puede castear, pero a cuentagotas.
 # Devuelve lo ganado (0 si el jugador no tiene maná: un guerrero puro).
-func _ganar_mana_golpe() -> float:
+func _ganar_mana_golpe(basico: bool = false) -> float:
 	if _player.max_mp <= 0.0 or _player.current_mp >= _player.max_mp:
 		return 0.0
 	var antes: float = _player.current_mp
-	_player.regen_mana(StatsMath.mp_por_golpe())
+	# EL BASICO DEL BASTON / CON VARITA (23/11): un % del mana maximo (Combatant.mana_golpe_pct); si no, el pellizco plano.
+	var cuanto: float = StatsMath.mp_por_golpe()
+	if basico:
+		cuanto = maxf(cuanto, _player.mana_golpe_pct * _player.max_mp)
+	_player.regen_mana(cuanto)
 	return _player.current_mp - antes
 
 
@@ -2809,7 +2813,7 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 			txt += "  ⚡ Causa %s a %s." % [imb, _etq(obj)]
 		# El golpe que conecta REPONE maná (no los que fallan: hay que acertar).
 		if principal:
-			var mp: float = _ganar_mana_golpe()
+			var mp: float = _ganar_mana_golpe(true)
 			if mp > 0.0:
 				txt += "  Recupera %s de maná. 🔷" % _n(mp)
 		if def_e:
