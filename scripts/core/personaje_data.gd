@@ -433,6 +433,40 @@ func asegurar_stats() -> void:
 				d[s] = 0.0
 
 
+# SUBIR DE NIVEL: congelar en las BASES lo que dan las basicas VISIBLES 'a' (x spike). UNA SOLA COPIA (23/11): la usan
+# Game.subir_nivel y el simulador de peleas. Antes el simulador la tenia copiada a mano y se dejo el mana maximo, el
+# ataque por Destreza, el critico, la eficacia y la resistencia por Voluntad: sus personajes de los niveles 2+ salian
+# mas flojos que los del juego. Lo vigila tools/unitarias/test_subida_nivel.gd.
+# Se bakea con las MISMAS formulas multiplicativas que usa el jugador en combate (*_jugador), asi lo que se congela es
+# exactamente el poder que tenias. La base de DESTREZA (armas a distancia) se lee ANTES de tocar base_attack porque una
+# ficha vieja (-1) la toma de ahi. MAGIA (daño de hechizo + mana) y DESTREZA (critico) no tenian campo base: el factor
+# de daño magico congela el magia_factor de esta Magia (la nueva multiplica encima), el mana base sube y el critico
+# plano suma una parte de tu Destreza. La Destreza que empuja tus estados y la Voluntad que te protege, igual: sumando
+# plano (ver Combatant.eficacia_bake); la defensa magica de la Voluntad ya va en base_magic (magic_jugador).
+func bakear_subida(a: Abilities, spike: float) -> void:
+	base_attack_des = base_ataque_destreza() * StatsMath.fuerza_factor(float(a.destreza)) * spike
+	base_attack = base_attack * StatsMath.fuerza_factor(float(a.fuerza)) * spike
+	base_hp = StatsMath.max_hp_jugador(a, base_hp) * spike
+	base_defense = StatsMath.defense_jugador(a, base_defense) * spike
+	base_speed = StatsMath.speed_jugador(a, base_speed) * spike
+	base_magic = StatsMath.magic_jugador(a, base_magic) * spike
+	base_magia_factor = base_magia_factor * StatsMath.magia_factor(float(a.magia)) * spike
+	base_mp = StatsMath.max_mp_jugador(a, base_mp) * spike
+	base_crit += (float(a.destreza) / 999.0) * Game.CRIT_BAKE_MAX * spike
+	base_eficacia += StatsMath.eficacia_de_destreza(float(a.destreza)) * spike
+	base_resist_voluntad += StatsMath.resist_de_voluntad(float(a.voluntad)) * spike
+
+
+# Y el TOTAL OCULTO al subir (ver Game.subir_nivel): se infla x spike y la marca del nivel sube a el. Tambien compartido
+# con el simulador: de este total (el consolidado) sale la ENERGIA MAXIMA (Game.max_aguante_de).
+func inflar_total_al_subir(spike: float) -> void:
+	asegurar_stats()
+	for s in Abilities.NOMBRES:
+		ability_internal[s] = float(ability_internal[s]) * spike
+		ability_consolidado[s] = ability_internal[s]
+		ability_base_nivel[s] = ability_internal[s]
+
+
 # Los 7 slots con su meta por defecto (T1 / comun / sin mejoras / entera).
 static func meta_vacia() -> Dictionary:
 	var d: Dictionary = {}

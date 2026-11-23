@@ -178,8 +178,7 @@ func _jugar_fichas(escenario: String) -> PackedStringArray:
 		for pj in suyos:
 			var f: Dictionary = Net.partida.ficha_a_dict(pj)
 			# Sin cuerpo en el mapa no hay aguante que medir: entra descansado (misma formula que el jugador).
-			var maxi_: float = 100.0 + Game.stat_consolidado("resistencia", pj) * 0.075 \
-				+ Game.stat_consolidado("agilidad", pj) * 0.025
+			var maxi_: float = Game.max_aguante_de(pj)
 			f["aguante"] = [maxi_, maxi_]
 			fichas.append(f)
 			dueno_de[pj] = PEERS_FALSOS[g]
@@ -301,8 +300,7 @@ func _montar_con_mundo(pelea: Node, escenario: String) -> bool:
 		var c: Combatant = Game.crear_player_combatant(pj)
 		# La energia la pone start_combat con el aguante del mapa (player._calc_max_aguante), que aqui no
 		# hay: se calcula con la misma formula y se entra descansado.
-		c.max_energy = maxf(1.0, 100.0 + Game.stat_consolidado("resistencia", pj) * 0.075
-			+ Game.stat_consolidado("agilidad", pj) * 0.025)
+		c.max_energy = maxf(1.0, Game.max_aguante_de(pj))
 		c.current_energy = c.max_energy
 		pcs.append(c)
 	Game._active_player_pjs = pjs

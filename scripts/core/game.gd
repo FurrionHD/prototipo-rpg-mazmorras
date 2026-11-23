@@ -14153,6 +14153,18 @@ func stat_total(s: String, pj: PersonajeData = null) -> int:
 # stat_total (el interno oculto, que crece con cada golpe), esto solo cambia al descansar. Y a
 # diferencia del VISIBLE (consolidado - base_nivel, que cae a 0 al subir de nivel), NO se resetea:
 # por eso sirve para magnitudes que deben crecer solo al consolidar pero sin desplomarse al ascender.
+# EL AGUANTE MAXIMO (= la energia maxima con la que entras a pelear), de lo CONSOLIDADO (ver player._calc_max_aguante).
+# UNA SOLA COPIA (23/11): antes las constantes vivian en el jugador y el simulador las copiaba; y como sus personajes no
+# tenian consolidado, entraban siempre con 100 (en el juego ~175 al final del nivel 1).
+const AGUANTE_BASE := 100.0
+const AGUANTE_POR_RESISTENCIA := 0.075   # (bajado: la energia ya la gastan habilidades)
+const AGUANTE_POR_AGILIDAD := 0.025
+
+func max_aguante_de(pj: PersonajeData = null) -> float:
+	return AGUANTE_BASE + stat_consolidado("resistencia", pj) * AGUANTE_POR_RESISTENCIA \
+		+ stat_consolidado("agilidad", pj) * AGUANTE_POR_AGILIDAD
+
+
 func stat_consolidado(s: String, pj: PersonajeData = null) -> int:
 	var p: PersonajeData = pj if pj != null else lider()
 	return floori(float(p.ability_consolidado.get(s, 0.0)))
@@ -14224,27 +14236,8 @@ func subir_nivel(desarrollo_id: String) -> bool:
 			a.set(s, int(StatsMath.stat_para_bakeo(float(a.get(s)))))
 	# BAKEAR ×(1+NIVEL_SPIKE): el efecto de tus basicas se congela en la base del nivel nuevo.
 	var spike: float = 1.0 + NIVEL_SPIKE
-	# Se bakea con las MISMAS formulas multiplicativas que usa el jugador en combate (*_jugador),
-	# asi lo que se congela es exactamente el poder que tenias.
-	# La base de DESTREZA (armas a distancia) se congela igual con tu Destreza; se lee ANTES de tocar
-	# base_attack porque una ficha vieja (-1) la toma de ahi.
-	lider().base_attack_des = lider().base_ataque_destreza() * StatsMath.fuerza_factor(float(a.destreza)) * spike
-	player_base_attack = player_base_attack * StatsMath.fuerza_factor(float(a.fuerza)) * spike
-	player_base_hp = StatsMath.max_hp_jugador(a, player_base_hp) * spike
-	player_base_defense = StatsMath.defense_jugador(a, player_base_defense) * spike
-	player_base_speed = StatsMath.speed_jugador(a, player_base_speed) * spike
-	player_base_magic = StatsMath.magic_jugador(a, player_base_magic) * spike
-	# MAGIA (daño de hechizo + maná) y DESTREZA (crítico) no tenían campo base: se bakean aparte.
-	# El factor de daño mágico congela el magia_factor de esta Magia (tu Magia nueva multiplica
-	# encima). El maná base sube. El crítico plano suma una parte de tu Destreza (contest, sin base).
-	player_base_magia_factor = player_base_magia_factor * StatsMath.magia_factor(float(a.magia)) * spike
-	player_base_mp = StatsMath.max_mp_jugador(a, player_base_mp) * spike
-	player_base_crit += (float(a.destreza) / 999.0) * CRIT_BAKE_MAX * spike
-	# Y lo que la Destreza empuja tus estados y la Voluntad te protege de ellos, igual: sumando
-	# plano que se queda (ver Combatant.eficacia_bake). La DEFENSA MAGICA de la Voluntad no va aqui:
-	# esa ya la bakea player_base_magic de arriba, con magic_jugador.
-	player_base_eficacia += StatsMath.eficacia_de_destreza(float(a.destreza)) * spike
-	player_base_resist_voluntad += StatsMath.resist_de_voluntad(float(a.voluntad)) * spike
+	# Lo que se congela en las bases: UNA sola copia, la comparte el simulador (PersonajeData.bakear_subida).
+	lider().bakear_subida(a, spike)
 	# Resetear el VISIBLE sin borrar el total oculto: la marca del nivel sube al total actual.
 	#
 	# Y antes de marcarla, INFLAR el total oculto por el mismo spike (x1.10). Ese total ya no toca
@@ -14261,11 +14254,7 @@ func subir_nivel(desarrollo_id: String) -> bool:
 	#
 	# El consolidado se sincroniza tambien porque _visible_nivel() calcula consolidado - base_nivel:
 	# si se quedara sin inflar, esa resta saldria negativa hasta la siguiente visita al altar.
-	lider().asegurar_stats()
-	for s in Abilities.NOMBRES:
-		ability_internal[s] = float(ability_internal[s]) * spike
-		ability_consolidado[s] = ability_internal[s]
-		ability_base_nivel[s] = ability_internal[s]
+	lider().inflar_total_al_subir(spike)
 	player_fuerza = 0; player_resistencia = 0; player_destreza = 0; player_agilidad = 0; player_magia = 0
 	player_voluntad = 0
 	player_level += 1

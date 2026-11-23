@@ -20,9 +20,7 @@ extends CharacterBody2D
 @export var run_multiplier: float = 1.7     # correr: ~170 px/s antes de Agilidad/armadura/peso
 
 # --- Aguante (stamina) ---
-@export var base_stamina: float = 100.0
-@export var stamina_per_resistencia: float = 0.075  # extra por Resistencia (bajado: la energia ya la gastan habilidades)
-@export var stamina_per_agilidad: float = 0.025     # extra por Agilidad
+# (el maximo: Game.max_aguante_de, una sola copia que comparte el simulador)
 @export var run_drain: float = 35.0       # aguante/seg al correr
 # Recuperacion: base + extra FIJO por nivel (NO escala con stats, a proposito,
 # para no desequilibrar: si subiera con Resistencia/Agilidad daria doble ventaja).
@@ -545,9 +543,7 @@ func _physics_process(delta: float) -> void:
 # se veia jugando—. El consolidado tampoco se desploma al subir de nivel (a diferencia del visible),
 # asi que crece solo al descansar sin caer a base_stamina en cada ascenso. Ver Game.stat_consolidado.
 func _calc_max_aguante(pj: PersonajeData = null) -> float:
-	return base_stamina \
-		+ Game.stat_consolidado("resistencia", pj) * stamina_per_resistencia \
-		+ Game.stat_consolidado("agilidad", pj) * stamina_per_agilidad
+	return Game.max_aguante_de(pj)
 
 
 # El aguante ACTUAL de un companero, concretando el -1 (= "nunca ha corrido" -> lleno).

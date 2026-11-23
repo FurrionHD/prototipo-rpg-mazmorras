@@ -532,28 +532,24 @@ func _personaje(piso: int, rol: String, en_grupo: bool, arma_g: String = "") -> 
 	var p := PersonajeData.new()
 	p.nombre = NOMBRES[rol]
 	p.set_meta("rol", rol)
-	var hp: float = p.base_hp
-	var at: float = p.base_attack
-	var de: float = p.base_defense
-	var sp: float = p.base_speed
-	var mg: float = p.base_magic
-	var mf: float = p.base_magia_factor
+	# LOS NIVELES DE ANTES, CON LA SUBIDA DEL JUEGO (23/11): PersonajeData.bakear_subida e inflar_total_al_subir, las
+	# mismas que Game.subir_nivel. Antes aqui habia una copia a mano que se dejaba el mana maximo, el ataque por Destreza,
+	# el critico, la eficacia y la resistencia por Voluntad, y sin el total oculto la ENERGIA MAXIMA salia siempre 100.
+	var spike: float = 1.0 + Game.NIVEL_SPIKE
+	p.asegurar_stats()
 	for s in pr[2]:
 		var a := Abilities.new()
 		for k in rep:
 			a.set(k, int(StatsMath.stat_para_bakeo(float(s) * float(rep[k]))))
-		if rep.has("magia"):
-			mf = mf * StatsMath.magia_factor(float(a.magia)) * 1.1
-		else:
-			at = at * StatsMath.fuerza_factor(float(a.fuerza)) * 1.1
-		hp = StatsMath.max_hp_jugador(a, hp) * 1.1
-		de = StatsMath.defense_jugador(a, de) * 1.1
-		sp = StatsMath.speed_jugador(a, sp) * 1.1
-		mg = StatsMath.magic_jugador(a, mg) * 1.1
-	p.base_attack = at; p.base_hp = hp; p.base_defense = de; p.base_speed = sp; p.base_magic = mg; p.base_magia_factor = mf
+			p.ability_internal[k] = float(p.ability_internal[k]) + float(s) * float(rep[k])
+		p.bakear_subida(a, spike)
+		p.inflar_total_al_subir(spike)
 	var h: int = int(pr[1])
 	for k in rep:
 		p.set(k, int(float(h) * float(rep[k])))
+		# lo de este nivel, ya consolidado (descansado en el altar): de ahi sale la energia maxima
+		p.ability_internal[k] = float(p.ability_internal[k]) + float(h) * float(rep[k])
+		p.ability_consolidado[k] = p.ability_internal[k]
 	var armas := {"guerrero": principal, "tanque": "espada_corta", "arquero": principal if principal in ARMAS_DISTANCIA else "arco",
 		"mago": "baston"}
 	var armadura := {"guerrero": "hierro", "tanque": "placas", "arquero": "cuero", "mago": "tela"}
@@ -629,7 +625,7 @@ func _poner_magias_guerrero(p: PersonajeData, ed: EnemyData, mutacion: StringNam
 func _reponer(p: PersonajeData) -> void:
 	p.current_hp = -1.0
 	p.current_mp = -1.0
-	var maxi_: float = 100.0 + Game.stat_consolidado("resistencia", p) * 0.075 + Game.stat_consolidado("agilidad", p) * 0.025
+	var maxi_: float = Game.max_aguante_de(p)
 	p.set_meta("aguante", [maxi_, maxi_])
 	p.remove_meta("sin_fuelle")
 	p.estados = []
@@ -1179,7 +1175,7 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 			_reponer(p)
 		else:
 			# EN LA SEGUIDA solo vuelve el aguante (se repone andando); la vida y el mana, como salio de la anterior
-			var maxi_: float = 100.0 + Game.stat_consolidado("resistencia", p) * 0.075 + Game.stat_consolidado("agilidad", p) * 0.025
+			var maxi_: float = Game.max_aguante_de(p)
 			p.set_meta("aguante", [maxi_, maxi_])
 			p.remove_meta("sin_fuelle")
 		if String(p.get_meta("rol", "")) == "guerrero":
