@@ -447,6 +447,10 @@ func _leer_args() -> void:
 			# (23/11 noche) el aguante y el daño POR ESCALON DE 6 PISOS: una lista, un multiplicador por escalon (1-6, 7-12...)
 			"aguante_tabla": StatsMath.aguante_escalon = Array(kv[1].split(";")).map(func(x): return float(x))
 			"dano_tabla": StatsMath.dano_escalon = Array(kv[1].split(";")).map(func(x): return float(x))
+			"aguante_jefes": StatsMath.aguante_jefes = Array(kv[1].split(";")).map(func(x): return float(x))
+			"dano_jefes": StatsMath.dano_jefes = Array(kv[1].split(";")).map(func(x): return float(x))
+			"aguante_mut": StatsMath.aguante_mut = Array(kv[1].split(";")).map(func(x): return float(x))
+			"dano_mut": StatsMath.dano_mut = Array(kv[1].split(";")).map(func(x): return float(x))
 			"mejoras": _mejoras = kv[1] == "1"
 			"receta": _receta = kv[1]
 			"basico_energia": _basico_energia = kv[1]

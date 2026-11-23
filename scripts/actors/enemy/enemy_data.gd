@@ -859,7 +859,7 @@ func _bakear_nivel(c: Combatant) -> void:
 # fondo plano de _bakear_nivel ese reparto cuenta UNA vez y la proporcion se mantiene en todos los tiers.
 # Lo comprueban test_enemigos_con_nivel.gd (test_mutante_multiplica_una_vez_sus_stats, test_mutante_misma_proporcion_en_cada_tier).
 func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = false,
-		mutacion: StringName = &"", piso: int = -1) -> Combatant:
+		mutacion: StringName = &"", piso: int = -1, de_jefe: bool = false) -> Combatant:
 	var pis: int = Game.current_floor if piso < 0 else piso
 	var fstat: float = Game.enemy_floor_stat_factor(pis)
 	# 'es_jefe' solo se usa para elegir la TABLA de multiplicadores (un jefe mutante va mucho mas
@@ -886,11 +886,23 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	# niveles que lleva encima), a su vida y a su daño. Lineal en la base: da igual hacerlo aqui que antes.
 	if StatsMath.reglas_nuevas and (not StatsMath.aguante_escalon.is_empty() or not StatsMath.dano_escalon.is_empty()):
 		var piso_real: int = pis + StatsMath.PISOS_NIVEL * (StatsMath.nivel_enemigos - 1)
-		var m_v: float = StatsMath.de_tabla(StatsMath.aguante_escalon, piso_real)
+		# (23/11 noche) el jefe y el mutante, con la suya si la hay (con la de los normales, los jefes del piso 30 eran imposibles);
+		# 'de_jefe': lo que INVOCA un jefe (los slimes del Rey) va con la del jefe (con la de los normales pegaban mas que el)
+		var t_v: Array = StatsMath.aguante_escalon
+		var t_d: Array = StatsMath.dano_escalon
+		if (es_jefe or de_jefe) and not StatsMath.aguante_jefes.is_empty():
+			t_v = StatsMath.aguante_jefes
+		if (es_jefe or de_jefe) and not StatsMath.dano_jefes.is_empty():
+			t_d = StatsMath.dano_jefes
+		if mutante and not es_jefe and not StatsMath.aguante_mut.is_empty():
+			t_v = StatsMath.aguante_mut
+		if mutante and not es_jefe and not StatsMath.dano_mut.is_empty():
+			t_d = StatsMath.dano_mut
+		var m_v: float = StatsMath.de_tabla(t_v, piso_real)
 		c.base_hp *= m_v
 		c.max_hp *= m_v
 		c.current_hp = c.max_hp
-		var m_d: float = StatsMath.de_tabla(StatsMath.dano_escalon, piso_real)
+		var m_d: float = StatsMath.de_tabla(t_d, piso_real)
 		c.base_attack *= m_d   # (su ataque magico sale tambien de base_attack: Combatant.atk_magico; base_magic es su defensa)
 	# Estados que aplica al golpear (pegajoso/veneno, KAN-58 Fase 3).
 	c.on_hit = al_golpear

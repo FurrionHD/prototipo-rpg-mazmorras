@@ -319,6 +319,11 @@ static var aguante_def_nivel := 1.0
 #      calibrar escalon a escalon. Y otra al DAÑO de los enemigos (por si las peleas largas te matan). Vacias = nada.
 #      Hoy las pone solo el simulador (aguante_tabla= / dano_tabla=).
 static var aguante_escalon: Array = []
+# (23/11 noche) LOS JEFES Y LOS MUTANTES con su propia tabla (vacia = la de los normales). Solo el simulador.
+static var aguante_jefes: Array = []
+static var dano_jefes: Array = []
+static var aguante_mut: Array = []
+static var dano_mut: Array = []
 static var dano_escalon: Array = []
 
 static func escalon_de(piso_real: int) -> int:

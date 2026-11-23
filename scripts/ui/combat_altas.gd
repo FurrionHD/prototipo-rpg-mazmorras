@@ -546,7 +546,7 @@ func _caer_aliado(c: Combatant) -> void:
 func _invocar_slime(data: EnemyData) -> Combatant:
 	if data == null:
 		return null
-	var c: Combatant = data.crear_combatant(0.2, false, false, &"", _piso())
+	var c: Combatant = data.crear_combatant(0.2, false, false, &"", _piso(), true)
 	return c if _meter_enemigo(c, true) >= 0 else null
 
 
