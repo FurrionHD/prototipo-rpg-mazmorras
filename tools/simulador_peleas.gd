@@ -449,6 +449,8 @@ func _leer_args() -> void:
 			"dano_tabla": StatsMath.dano_escalon = Array(kv[1].split(";")).map(func(x): return float(x))
 			"mejoras": _mejoras = kv[1] == "1"
 			"receta": _receta = kv[1]
+			"basico_energia": _basico_energia = kv[1]
+			"mejora_energia": _mejora_energia = -1.0 if kv[1] == "basico" else float(kv[1])
 			"solo_basico": _solo_basico = kv[1] == "1"
 			"stats_nivel": _tope = float(kv[1])
 			"ver": _ver = kv[1] == "1"
@@ -744,7 +746,9 @@ func _llenar_bolsa(piso: int, jefe: bool) -> void:
 #     de 140 % pide nivel 2, asi que llega al subir) sobre lo del nivel, que tambien se compone x1,4.
 var _mejoras := false
 const MEJORA_DANO_NIVEL := 1.4
-const MEJORA_ENERGIA_NIVEL := 1.4
+var _basico_energia := ""   # (23/11 noche, idea del jefe) "mejoras" = lo que REPONE el basico sube como el coste de las mejoras
+var _mejora_energia := 1.4   # (23/11 noche) x al coste de energia por nivel; argumento mejora_energia para probar otros
+# ("basico" = -1: el coste sube LO MISMO que la regeneracion que da el arbol del basico, +15 % por nivel sumado; idea del jefe)
 const MEJORA_MANA_NIVEL := 2.5
 
 func _poner_mejoras(c: Combatant, piso: int) -> void:
@@ -754,7 +758,14 @@ func _poner_mejoras(c: Combatant, piso: int) -> void:
 	# EL BASICO va ya por su arbol de verdad (_poner_arbol_basico, en el personaje): aqui solo las habilidades y magias.
 	if nivel <= 1:
 		return
-	var en: float = pow(MEJORA_ENERGIA_NIVEL, n)
+	var en: float = pow(_mejora_energia, n) if _mejora_energia > 0.0 else 1.0 + (BasicoArbol.ENERGIA_PISO_8 + BasicoArbol.ENERGIA_PISO_12) * n
+	# EL BASICO REPONE AL RITMO DEL COSTE (basico_energia=mejoras): su +15 % por nivel se cambia por lo que sube el coste.
+	if _basico_energia == "mejoras":
+		for h in c.hands:
+			if (h as Dictionary).has("arbol"):
+				var arb: Dictionary = (h["arbol"] as Dictionary).duplicate()
+				arb["energia"] = float(arb.get("energia", 1.0)) * en / (1.0 + (BasicoArbol.ENERGIA_PISO_8 + BasicoArbol.ENERGIA_PISO_12) * n)
+				h["arbol"] = arb
 	var mp: float = pow(MEJORA_MANA_NIVEL, n)
 	c.abilities_combate = c.abilities_combate.map(func(ab):
 		if not (ab is AbilityData):

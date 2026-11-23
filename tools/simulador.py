@@ -70,7 +70,7 @@ def _args_godot(a) -> list:
         a.pisos = ",".join(str(i) for i in range(1, a.pisos_hasta + 1))
     extra = ["veces=%d" % a.veces, "tanda=%s" % a.tanda, "reglas=%s" % a.reglas, "escala=%s" % a.escala]
     for k in ("pisos", "clases", "grupos", "escenarios", "solo", "arma", "armas", "armaduras", "sets", "magias", "pociones", "mana", "magia_suma", "baston_tier", "magia_mult", "bakeo_suave", "stats_nivel", "escala_des",
-              "vel_enemigos", "iniciativa", "equipo", "aguante_vida", "aguante_def", "mejoras", "receta", "solo_basico", "aguante_tabla", "dano_tabla"):
+              "vel_enemigos", "iniciativa", "equipo", "aguante_vida", "aguante_def", "mejoras", "receta", "solo_basico", "aguante_tabla", "dano_tabla", "mejora_energia", "basico_energia"):
         v = getattr(a, k)
         if v:
             extra.append("%s=%s" % (k, v))
@@ -715,6 +715,8 @@ def main():
     ap.add_argument("--mejoras", default="", help="1 = el grupo pega como si llevase las mejoras de los arboles (habilidades y magias x1,4 por nivel; el basico, su arbol DE VERDAD)")
     ap.add_argument("--aguante-tabla", dest="aguante_tabla", default="", help="(23/11) x a la vida de los enemigos POR ESCALON de 6 pisos, separados por ';' (1-6;7-12;...)")
     ap.add_argument("--dano-tabla", dest="dano_tabla", default="", help="(23/11) x al daño de los enemigos por escalon de 6 pisos, separados por ';'")
+    ap.add_argument("--mejora-energia", dest="mejora_energia", default="", help="(23/11) x al coste de energia de las habilidades por nivel con --mejoras 1 (de serie 1,4)")
+    ap.add_argument("--basico-energia", dest="basico_energia", default="", help="(23/11) mejoras = lo que repone el basico sube como el coste de energia de las mejoras")
     ap.add_argument("--receta", default="", help="(23/11) como reparte el arbol del basico sus puntos: a_s1, a_s2, a_mix, a_a, b_s1, b_s2, b_mix, b_b (ver simulador_peleas._poner_arbol_basico)")
     ap.add_argument("--solo-basico", dest="solo_basico", default="", help="(23/11) 1 = nadie usa habilidades de golpe, solo el basico (para medir su arbol a pelo)")
     ap.add_argument("--vel-enemigos", dest="vel_enemigos", default="", help="relativa (de serie: la de su piso de origen frente a los personajes) | bakeada")

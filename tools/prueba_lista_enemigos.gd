@@ -65,6 +65,9 @@ func _correr() -> void:
 		# minotauro (lo correcto en el juego: los de fuera no entran; el azar era de la prueba).
 		await j.poner("res://scenes/actors/enemy/rata.tres", Vector2(0, 45), {})
 		await j.poner("res://scenes/actors/enemy/slime.tres", Vector2(-60, 30), {})
+		# (23/11) UN SLIME MAS, pegado: con el PC cargado la rata aun embestia antes de mi golpe (1 de cada 10 sola) y la
+		# pelea se abria sin el minotauro, con solo dos; asi, se abra como se abra, hay al menos dos aparte del apuntado.
+		await j.poner("res://scenes/actors/enemy/slime.tres", Vector2(60, 30), {})
 		nodo.atacado_por_jugador(0.3)
 		await j._hasta(func(): return j.pantalla() != null and Net.peleas.espejando(), 10.0)
 		combat = j.pantalla()
