@@ -32,6 +32,28 @@ const NOMBRE_CAMPO := {
 # Los que se leen mejor en porcentaje cuando se multiplican (los demas, "x1,2").
 const SIEMPRE_PCT := ["dano_mult", "dano_base", "dano_objetivo", "dano_salpicon", "area_secundario"]
 
+# EL ANTES -> DESPUES de la ficha de un nodo (24/11, el jefe: "nada de +40 %: el numero REAL que se le va a sumar").
+# Cada fila: campo, como se llama en la ficha y como se escribe su valor. Lo que no este aqui lo cuenta la propia
+# habilidad (AbilityData.frase_mejora) o, si no, sale con su nombre de NOMBRE_CAMPO.
+#   pct = porcentaje · pct_atk = % del Ataque · num = numero · dec = con decimales · dist = distancia · grados
+const FILAS_ANTES_DESPUES := [
+	["dano_mult", "Daño de cada golpe", "pct_atk"],
+	["golpes", "Golpes", "golpes"],
+	["golpes_extra_por_enemigo", "Golpes con 3 enemigos en el combate", "golpes_3"],
+	["golpes_extra_max", "Tope de golpes de más por enemigos", "num"],
+	["coste_energia", "Coste de energía", "coste"],
+	["coste_mana", "Coste de maná", "num"],
+	["cooldown", "Turnos de enfriamiento", "num"],
+	["forma_radio", "Alcance", "dist"],
+	["forma_apertura", "Ángulo", "grados"],
+	["forma_rango", "Distancia hasta donde se apunta", "dist"],
+	["crit_extra", "Probabilidad de crítico de más", "pct"],
+	["extra_espalda", "Daño de más si golpea por la espalda", "pct"],
+	["imbue_prob", "Probabilidad base de que prenda", "pct"],
+	["imbue_usos", "Ataques que dura la impregnación", "num"],
+	["se_aparta", "Distancia que se aparta tras golpear", "dist"],
+]
+
 var _menu = null          # maestro_menu: para repintar y dar avisos
 var nodo_sel: StringName = &""   # que nodo de su arbol ("" = la habilidad misma)
 
@@ -582,7 +604,7 @@ func _pintar_ficha(content: VBoxContainer, pj: PersonajeData, base: Resource, sa
 	if String(n.descripcion) != "":
 		MenuScaffold.nota(content, String(n.descripcion))
 	MenuScaffold.titulo(content, "Cambia", 14)
-	for linea in texto_cambios(base, n):
+	for linea in texto_cambios(base, n, (pj.nodos_elegidos as Dictionary).get(ruta, [])):
 		MenuScaffold.nota(content, "· " + linea)
 	MenuScaffold.titulo(content, "Pide", 14)
 	var cogidos2: Array = (pj.nodos_elegidos as Dictionary).get(ruta, [])
@@ -624,8 +646,119 @@ func _req(content: VBoxContainer, txt: String, ok: bool) -> void:
 	content.add_child(l)
 
 
-# Lo que cambia un nodo, en una linea por cambio ("+10 % de daño", "+20 de alcance", "elemento: Rayo").
-static func texto_cambios(base: Resource, n: Resource) -> Array:
+# LO QUE CAMBIA UN NODO, con los numeros REALES: la habilidad montada con el camino que lleva el personaje (o el mas
+# corto hasta este nodo, si aun no lo tiene) SIN el nodo, contra la misma CON el. «Daño de cada golpe: 90 % -> 88 % del
+# Ataque de quien la usa», «Coste de energía: 48 -> 67 (con dos armas: 70 -> 98)».
+static func texto_cambios(base: Resource, n: Resource, cogidos: Array = []) -> Array:
+	if not (base is AbilityData):
+		return texto_cambios_viejo(base, n)
+	var camino: Array = camino_hasta(base, n, cogidos)
+	var antes: AbilityData = Mejoras.montar_sin_nombre(base, _en_orden(base, camino)) as AbilityData
+	var despues: AbilityData = Mejoras.montar_sin_nombre(base, _en_orden(base, camino + [n])) as AbilityData
+	var out: Array = []
+	for fila in FILAS_ANTES_DESPUES:
+		var l: String = _fila_antes_despues(antes, despues, String(fila[0]), String(fila[1]), String(fila[2]))
+		if l != "":
+			out.append(l)
+	# Lo PROPIO de cada mecanica (remates, cargas, lo que se pone al saltar...): lo escribe la habilidad.
+	for c in (n.cambios as Dictionary):
+		for frase in despues.frase_mejora(String(c), antes).split("\n", false):
+			if not out.has(frase):
+				out.append(frase)
+	return out
+
+
+# Los nodos que lleva el personaje en esta ficha (menos este) y, si le falta el anterior, el camino mas corto hasta el:
+# siempre el PRIMER padre que no cierre nada de lo que ya lleva.
+static func camino_hasta(base: Resource, n: Resource, cogidos: Array) -> Array:
+	var out: Array = []
+	for id in cogidos:
+		var x: Resource = Mejoras.nodo(base, StringName(id))
+		if x != null and x != n:
+			out.append(x)
+	var actual: Resource = n
+	var vueltas: int = 0
+	while actual != null and not (actual.padres as Array).is_empty() and vueltas < 32:
+		vueltas += 1
+		if (actual.padres as Array).any(func(pa): return out.any(func(x): return StringName(x.id) == StringName(pa))):
+			break
+		var siguiente: Resource = null
+		for pa in actual.padres:
+			var cand: Resource = Mejoras.nodo(base, StringName(pa))
+			if cand != null and not out.any(func(x): return (x.excluye as Array).has(cand.id) or (cand.excluye as Array).has(x.id)):
+				siguiente = cand
+				break
+		if siguiente == null:
+			break
+		out.append(siguiente)
+		actual = siguiente
+	return out
+
+
+static func _en_orden(base: Resource, nodos: Array) -> Array:
+	return (base.arbol as Array).filter(func(x): return nodos.has(x))
+
+
+static func _fila_antes_despues(a: AbilityData, d: AbilityData, campo: String, nombre: String, como: String) -> String:
+	match como:
+		"golpes_3":
+			# Lo que mete DE VERDAD con 3 enemigos (los golpes extra se redondean hacia abajo): «1,44 golpes» no se entiende.
+			if is_equal_approx(a.golpes_extra_por_enemigo, d.golpes_extra_por_enemigo) \
+					and is_equal_approx(a.golpes_extra_por_enemigo_dual, d.golpes_extra_por_enemigo_dual):
+				return ""
+			var l3: String = "%s: %d → %d" % [nombre, a.num_golpes(1, 3), d.num_golpes(1, 3)]
+			if d.golpes_dual_max > 0:
+				l3 += " (con dos armas: %d → %d)" % [a.num_golpes(2, 3), d.num_golpes(2, 3)]
+			return l3
+		"golpes":
+			var g_a: String = a._golpes_txt(1)
+			var g_d: String = d._golpes_txt(1)
+			var dual_a: String = a._golpes_txt(2) if a.golpes_dual_max > 0 else ""
+			var dual_d: String = d._golpes_txt(2) if d.golpes_dual_max > 0 else ""
+			if g_a == g_d and dual_a == dual_d:
+				return ""
+			var l: String = "%s: %s → %s" % [nombre, g_a, g_d]
+			if dual_d != "" and dual_a != dual_d:
+				l += " (con dos armas: %s → %s)" % [dual_a, dual_d]
+			return l
+		"coste":
+			var e_a: float = a.coste_energia
+			var e_d: float = d.coste_energia
+			var du_a: float = a.coste_energia_dual
+			var du_d: float = d.coste_energia_dual
+			if is_equal_approx(e_a, e_d) and is_equal_approx(du_a, du_d):
+				return ""
+			var l2: String = "%s: %d → %d" % [nombre, roundi(e_a), roundi(e_d)]
+			if du_d > 0.0:
+				l2 += " (con dos armas: %d → %d)" % [roundi(du_a), roundi(du_d)]
+			return l2
+	if not (campo in a):
+		return ""
+	var va = a.get(campo)
+	var vd = d.get(campo)
+	if (va is float or va is int) and is_equal_approx(float(va), float(vd)):
+		return ""
+	if not (va is float or va is int) and va == vd:
+		return ""
+	return "%s: %s → %s%s" % [nombre, _valor(va, como), _valor(vd, como),
+		" del Ataque de quien la usa" if como == "pct_atk" else ""]
+
+
+static func _valor(v, como: String) -> String:
+	match como:
+		"pct", "pct_atk":
+			return AbilityData._pct_entero(float(v))
+		"dec":
+			return MenuScaffold.valor_es(str(snappedf(float(v), 0.01)))
+		"dist":
+			return AbilityData.casillas_txt(float(v))
+		"grados":
+			return "%d°" % roundi(float(v))
+	return str(roundi(float(v))) if (v is float or v is int) else str(v)
+
+
+# Lo de antes (las magias, hasta que tengan su antes -> despues): una linea por cambio ("+10 % de daño").
+static func texto_cambios_viejo(base: Resource, n: Resource) -> Array:
 	var out: Array = []
 	var vistos: Array = []
 	for campo in (n.cambios as Dictionary):

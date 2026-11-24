@@ -558,6 +558,26 @@ func secundario_para(n_enemigos: int) -> float:
 # EL ARBOL de esta ficha (22/11, memoria rangos-magias-y-habilidades): sus nodos (scripts/items/nodo_mejora.gd), que
 # la van modificando. Lo monta Mejoras.montar para la pelea con los que haya cogido cada personaje.
 @export var arbol: Array = []
+# LA POTENCIA DEL NIVEL (24/11, el prestamo): la fijan los nodos con ["presupuesto", parte] y Mejoras la hornea al montar
+# (daño x potencia, energia x potencia_coste) y la deja en 1. En la ficha, siempre 1.
+@export var potencia: float = 1.0
+@export var potencia_coste: float = 1.0
+# --- LO QUE TOCAN LOS NODOS DE LOS ARBOLES (24/11; memoria empezar-habilidades-24-11) ---
+# x la probabilidad base de los estados que le pone al ENEMIGO (Mil cortes de la Rafaga, Herida abierta de la Puñalada).
+@export var efectos_prob_mult: float = 1.0
+# CARGAS DE MAS por cada estado que le pone al enemigo, y CADA CARGA CON SU TIRADA (Arteria de la Puñalada: 2 cargas, cada
+# una con su 90 %). Con 0 va como siempre: una tirada y entran todas sus cargas o ninguna.
+@export var efectos_cargas_extra: int = 0
+# LOS QUE CAEN A MITAD (Tajos que persiguen): por cada enemigo que tumba esta habilidad, los golpes que le quedan pegan
+# este % de MAS (multiplica la habilidad entera), hasta bonus_por_baja_max bajas.
+@export var bonus_por_baja: float = 0.0
+@export var bonus_por_baja_max: int = 3
+# EL REMATE (Remate de la Rafaga): el ULTIMO golpe pega x remate_mult a quien lleve el estado remate_estado (-1 = nada).
+@export var remate_estado: int = -1
+@export var remate_mult: float = 1.0
+# ENTRAR BAILANDO (Rafaga): antes de golpear se acerca hasta esto hacia el objetivo (solo en el mapa). PENDIENTE: el
+# movimiento en el tactico (24/11, sin hacer todavia).
+@export var acercarse: float = 0.0
 # true  -> se tiran en CADA golpe que acierta (Ráfaga: cada tajo 40% de sangrado ->
 #          mas golpes = mas sangrado, cada hit con su tirada, mas realista).
 # false -> UNA sola tirada tras la habilidad si conecto algo (golpe de escudo: 1 stun).
@@ -867,6 +887,44 @@ const _NOMBRE_FORMA := ["", "círculo", "cono", "línea", "rectángulo"]
 const _DEL_FORMA := ["", "del círculo", "del cono", "de la línea", "del rectángulo"]
 
 # "media casilla", "1 casilla", "2,5 casillas" (redondeado a media casilla).
+# LA FRASE DE UNA MEJORA (24/11, ficha del nodo del arbol): lo que cambia 'campo' de 'antes' a esta, para las mecanicas
+# que no son un numero de la tabla del arbol (arbol_mejoras_ui.FILAS_ANTES_DESPUES). "" = no tiene frase propia.
+func frase_mejora(campo: String, antes: AbilityData) -> String:
+	if antes == null or not (campo in self) or get(campo) == antes.get(campo):
+		return ""
+	match campo:
+		"infalible":
+			return "Sus golpes ya no se pueden esquivar." if infalible else ""
+		"efectos_prob_mult":
+			var partes: Array = []
+			for a in efectos:
+				if a == null or int(a.estado) < 0 or not a.en_objetivo:
+					continue
+				var nom: String = str(StatusEffects.def(int(a.estado)).get("nombre", "?"))
+				partes.append("Probabilidad base de causar %s%s: %s → %s" % [nom, " (solo con crítico)" if a.solo_crit else "",
+					_pct_entero(float(a.prob) * antes.efectos_prob_mult), _pct_entero(float(a.prob) * efectos_prob_mult)])
+			return "\n".join(PackedStringArray(partes))
+		"acercarse":
+			return "Antes de golpear, quien la usa se acerca hasta %s hacia el objetivo." % casillas_txt(acercarse) \
+				if acercarse > 0.0 else ""
+		"efectos_cargas_extra":
+			return "Cada estado que causa mete %d cargas en vez de 1, y cada carga tiene su propia probabilidad." % (
+				1 + efectos_cargas_extra)
+		"bonus_por_baja":
+			return "Por cada enemigo que derriba, los golpes que le quedan infligen un %s más (hasta %d veces)." % [
+				_pct_txt(bonus_por_baja), bonus_por_baja_max]
+		"remate_estado", "remate_mult":
+			if remate_estado < 0:
+				return ""
+			return "El último golpe inflige un %s más a los enemigos con %s." % [_pct_txt(remate_mult - 1.0),
+				str(StatusEffects.def(remate_estado).get("nombre", "?"))]
+	return ""
+
+
+static func _pct_entero(f: float) -> String:
+	return "%d %%" % roundi(f * 100.0)
+
+
 static func casillas_txt(px: float) -> String:
 	var v: float = maxf(0.5, roundf(px / CASILLA_PX * 2.0) / 2.0)
 	if is_equal_approx(v, 0.5):

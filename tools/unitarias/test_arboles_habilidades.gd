@@ -150,3 +150,82 @@ func test_el_combatiente_lleva_las_montadas() -> void:
 	if cierto(montada != null, "la lleva a la pelea"):
 		cerca(montada.dano_mult, ab.dano_mult * 1.5, 0.0001, "con su nodo")
 		igual(String(montada.resource_path), ruta + "#x", "y con su nombre")
+
+
+# EL PRESTAMO (24/11): cada nodo fija la potencia de SU nivel desde el nominal (1,4^(nivel-2) x (1 + 0,4 x parte)); lo que
+# un nivel dejo sin subir no arrastra al siguiente, y la forma de la rama (mas tajos) va aparte con "mult".
+func test_presupuesto_parte_del_nominal() -> void:
+	cerca(Mejoras.presupuesto(2, 1.0), 1.4, 0.0001, "nivel 2, todo a daño: x1,4")
+	cerca(Mejoras.presupuesto(2, 0.75), 1.3, 0.0001, "nivel 2, 30 de 40: x1,3")
+	cerca(Mejoras.presupuesto(3, 1.0), 1.96, 0.0001, "nivel 3, todo: el nominal x1,96")
+	cerca(Mejoras.presupuesto(3, 0.5), 1.68, 0.0001, "nivel 3 se mide desde 1,4, no desde lo que se llevo el 2")
+	cerca(Mejoras.presupuesto(5, 1.25), 2.744 * 1.5, 0.0001, "puede pasar del 40 % si lo paga con otra cosa")
+	var ab: AbilityData = (load(RAFAGA_RUTA) as AbilityData).duplicate(false)
+	ab.resource_path = "res://pruebas_arbol/rafaga_prueba.tres"
+	var d0: float = ab.dano_mult
+	var c0: float = ab.coste_energia
+	ab.arbol = [
+		_nodo("forma", [], {"golpes_min": ["add", 1], "golpes_max": ["add", 1], "dano_mult": ["mult", 0.75],
+			"potencia": ["presupuesto", 0.75], "potencia_coste": ["presupuesto", 1.0]}, 2),
+		_nodo("n3", ["forma"], {"potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}, 3),
+	]
+	var m2: AbilityData = Mejoras.montar_sin_nombre(ab, [ab.arbol[0]]) as AbilityData
+	cerca(m2.dano_mult, d0 * 0.75 * 1.3, 0.0001, "nivel 2: la forma y su potencia")
+	cerca(m2.coste_energia, roundf(c0 * 1.4), 0.0001, "el coste, al nominal")
+	cerca(m2.potencia, 1.0, 0.0001, "la potencia queda horneada")
+	var m3: AbilityData = Mejoras.montar_sin_nombre(ab, ab.arbol) as AbilityData
+	cerca(m3.dano_mult, d0 * 0.75 * 1.68, 0.0001, "nivel 3: manda su potencia, no se compone con la del 2")
+	cerca(m3.coste_energia, roundf(c0 * 1.96), 0.0001, "y el coste del nivel 3")
+
+
+# LA RAFAGA DE VERDAD (24/11, cerrada con el jefe): los numeros de cada nodo por su camino, y que las dos ramas del nivel 2
+# (mas tajos / hoja fina) van a la par en total a un enemigo porque cada una cambia la BASE del tajo, no solo cuantos hay.
+func _raf(ids: Array) -> AbilityData:
+	var base: AbilityData = load(RAFAGA_RUTA)
+	return Mejoras.montar_sin_nombre(base, (base.arbol as Array).filter(func(n): return ids.has(String(n.id)))) as AbilityData
+
+
+func test_rafaga_numeros_cerrados() -> void:
+	var casos := [
+		[["mas_tajos"], 0.8775, 4, 67], [["hoja_fina"], 2.025, 2, 67],
+		[["mas_tajos", "remolino"], 1.134, 4, 94], [["mas_tajos", "brazo_largo"], 1.2285, 4, 94],
+		[["hoja_fina", "mil_cortes"], 2.3625, 2, 94], [["hoja_fina", "entrar_bailando"], 2.457, 2, 94],
+		[["mas_tajos", "brazo_largo", "persiguen"], 1.7199, 4, 132],
+		[["hoja_fina", "mil_cortes", "remate"], 3.3075, 2, 132],
+		[["mas_tajos", "brazo_largo", "persiguen", "frenesi"], 2.1300, 4, 184],
+		[["hoja_fina", "mil_cortes", "remate", "ligera"], 4.6305, 2, 151],
+	]
+	for c in casos:
+		var m: AbilityData = _raf(c[0])
+		cerca(m.dano_mult, float(c[1]), 0.001, "daño de cada tajo con %s" % str(c[0]))
+		igual(m.golpes_max, int(c[2]), "tajos con %s" % str(c[0]))
+		igual(roundi(m.coste_energia), int(c[3]), "energia con %s" % str(c[0]))
+	var muchos: AbilityData = _raf(["mas_tajos", "brazo_largo", "persiguen", "frenesi"])
+	var uno: AbilityData = _raf(["hoja_fina", "mil_cortes", "remate", "frenesi"])
+	cerca(muchos.dano_mult * muchos.golpes_max, uno.dano_mult * uno.golpes_max, 0.01, "nivel 5: las dos ramas a la par a un enemigo")
+	cerca(_raf(["hoja_fina", "mil_cortes"]).efectos_prob_mult * 0.22, 0.38, 0.0001, "Mil cortes: sangrado 22 -> 38 %")
+	var base: AbilityData = load(RAFAGA_RUTA)
+	for n in base.arbol:
+		igual(int(n.dominio), 300 * (int(n.nivel_min) - 1), "dominio de %s por su nivel" % n.id)
+		for pa in n.padres:
+			cierto(Mejoras.nodo(base, pa) != null, "el padre %s de %s existe" % [pa, n.id])
+
+
+# CON MUCHOS ENEMIGOS (24/11, el jefe: "ten cuidado con la cantidad que se suman"): contra uno van a la par, y cuantos mas
+# enemigos, mas saca MAS TAJOS. Los tajos de mas van +-25 % en DAÑO por enemigo de mas, no en tajos.
+func test_rafaga_muchos_enemigos() -> void:
+	var muchos: AbilityData = _raf(["mas_tajos", "brazo_largo", "persiguen", "frenesi"])
+	var uno: AbilityData = _raf(["hoja_fina", "mil_cortes", "remate", "frenesi"])
+	var total := func(ab: AbilityData, n: int) -> float: return ab.dano_mult * float(ab.num_golpes(1, n))
+	cerca(total.call(muchos, 1), total.call(uno, 1), 0.01, "a un enemigo, a la par")
+	igual(muchos.num_golpes(1, 3), 7, "mas tajos con 3 enemigos")
+	igual(uno.num_golpes(1, 3), 3, "hoja fina con 3 enemigos")
+	igual(muchos.num_golpes(1, 5), 11, "mas tajos con 5 enemigos (tope 8)")
+	igual(uno.num_golpes(1, 5), 4, "hoja fina con 5 enemigos")
+	cierto(total.call(muchos, 3) > total.call(uno, 3) * 1.1, "con 3, mas tajos saca mas")
+	cierto(total.call(muchos, 5) > total.call(uno, 5) * 1.3, "con 5, bastante mas")
+	var b: AbilityData = load(RAFAGA_RUTA)
+	cerca(_raf(["mas_tajos"]).dano_mult * _raf(["mas_tajos"]).golpes_extra_por_enemigo,
+		b.dano_mult * b.golpes_extra_por_enemigo * 1.25 * 1.3, 0.001, "mas tajos: +25 % de daño por enemigo de mas (x su potencia)")
+	cerca(_raf(["hoja_fina"]).dano_mult * _raf(["hoja_fina"]).golpes_extra_por_enemigo,
+		b.dano_mult * b.golpes_extra_por_enemigo * 0.75 * 1.5, 0.001, "hoja fina: -25 % (x su potencia)")

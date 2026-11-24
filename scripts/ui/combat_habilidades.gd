@@ -422,6 +422,22 @@ func _respuesta_enemiga(objetivo: Combatant, evadido: bool, defendiendo: bool) -
 		_pantalla._log_extra(txt)
 
 
+# LO QUE LE SUMA EL ARBOL A ESTE GOLPE (24/11): las bajas que lleva la habilidad (Tajos que persiguen) y el remate del
+# ultimo golpe a quien lleva el estado (Remate). Lo comparte el simulador: por eso es una funcion suelta.
+static func mult_arbol_golpe(ab: AbilityData, objetivo: Combatant, i: int, bajas: int, ultimo: int) -> float:
+	var m: float = 1.0
+	if ab.bonus_por_baja > 0.0 and bajas > 0:
+		m *= 1.0 + ab.bonus_por_baja * float(mini(bajas, ab.bonus_por_baja_max))
+	if ab.remate_estado >= 0 and i == ultimo and objetivo != null and objetivo.has_status(ab.remate_estado):
+		m *= ab.remate_mult
+	return m
+
+
+# Las bajas y el ultimo golpe de la habilidad EN CURSO (los pone _usar_habilidad antes de los golpes).
+var _bajas_hab: int = 0
+var _ultimo_golpe_hab: int = -1
+
+
 func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: int,
 		escala: float, etq: String, m_golpe: float) -> Dictionary:
 	# (07/10) EL ESCUDO DE SUBDITOS del Rey tirano: un golpe a EL SOLO (sin area) puede comerselo un subdito suyo.
@@ -477,7 +493,8 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	_golpes_mun.append({"c": objetivo, "evadido": false})
 	# Con flecha o virote de material cargado, pega con su bonus (_mult_mun = 1 sin municion o sin arco).
 	var dmg: float = result.damage * ab.dano_mult * m_golpe * escala * _mult_mun \
-		* (1.0 + _pantalla._player.runa_dano_hab)   # runas: Daño de habilidades
+		* (1.0 + _pantalla._player.runa_dano_hab) \
+		* mult_arbol_golpe(ab, objetivo, i, _bajas_hab, _ultimo_golpe_hab)   # runas: Daño de habilidades; el arbol
 	r.dmg = dmg
 	r.imbue = float(result.get("dmg_imbue", 0.0)) * ab.dano_mult * m_golpe * escala
 	r.mult_imbue = float(result.get("mult_imbue", 1.0))
@@ -487,7 +504,10 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	dmg *= _pantalla.mult_chepa(objetivo, ab.es_area() or int(ab.forma) == CombatFormas.Tipo.CIRCULO \
 		or int(ab.forma) == CombatFormas.Tipo.CONO)
 	r.dmg = dmg
+	var vivo_antes: bool = objetivo.is_alive()
 	objetivo.take_damage(dmg)
+	if vivo_antes and not objetivo.is_alive():
+		_bajas_hab += 1   # Tajos que persiguen: los golpes que quedan pegan mas
 	if r.imbue > 0.0:
 		_pantalla.fuego_al_musgo(objetivo, _pantalla._player.imbue_elemento)
 	# ROBO DE VIDA (AbilityData.robo_vida): sobre el daño que de verdad ha entrado. Hoy no lo usa
@@ -835,6 +855,8 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		var n_enemigos: int = reparto_mapa.size() if en_mapa and not reparto_mapa.is_empty() \
 			else _pantalla._vivos().size()
 		golpes = ab.num_golpes(manos, n_enemigos)
+		_bajas_hab = 0
+		_ultimo_golpe_hab = golpes - 1
 		# PLAN de golpes: mano y multiplicador de cada uno. Intercala las manos del dual (der, izq,
 		# der, izq) y, en arma+escudo, alterna arma (fuerte) / escudo (flojo). Ver ab.plan_golpes.
 		var plan: Array = ab.plan_golpes(golpes, manos)
@@ -1390,8 +1412,21 @@ func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico:
 					base += _pantalla._player.aturdir_base
 				# Y de ahi a la puerta comun, como todo lo demas: la resistencia del bicho al control,
 				# su afinidad y el estado Rayo entran ya dentro (ver Combatant.resist_estados).
-				p = StatusEffects.prob_final(base * escala_prob, _pantalla._player, d, a.estado)
-			if randf() >= p:
+				p = StatusEffects.prob_final(base * escala_prob * (ab.efectos_prob_mult if ab != null else 1.0),
+					_pantalla._player, d, a.estado)
+			# CADA CARGA SU TIRADA (Arteria): las cargas de mas que le da el arbol tiran cada una por su cuenta.
+			var cargas: int = maxi(1, a.stacks)
+			var por_carga: bool = al_enemigo and ab != null and ab.efectos_cargas_extra > 0
+			if por_carga:
+				cargas += ab.efectos_cargas_extra
+				var entran: int = 0
+				for _k in cargas:
+					if randf() < p:
+						entran += 1
+				if entran == 0:
+					continue
+				cargas = entran
+			elif randf() >= p:
 				continue
 			# (10/10) del golpe REAL que le acaba de entrar (ya lleva su escala); si no viene de un golpe, como siempre
 			var mag_real: float = StatusEffects.magnitud_del_golpe(int(a.estado), d if al_enemigo else null,
@@ -1403,7 +1438,7 @@ func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico:
 			# ignoraba a.stacks: la primera habilidad que lo use tiene que funcionar sin acordarse.
 			# DOS MENTES: un aturdir que pilla un area le da a las dos cabezas.
 			d.aturdir_en_area = ab != null and (ab.es_area() or (ab.forma >= 0 and not ab.forma_solo_primero))
-			for _s in maxi(1, a.stacks):
+			for _s in cargas:
 				d.apply_status(a.estado, _pantalla._player.runa_turnos(a.estado, a.turns), _pantalla._player.runa_mag(a.estado, mag, d), 1, false, a.cap, a.mult)
 			# "·" = causado al golpeado (CombatPantalla._frase_estados lo junta en "Causa X"). El buff que se pone el que la
 			# usa y se llama como ella (Guardia de carne) no se repite: "usa Guardia de carne" ya lo dice.
