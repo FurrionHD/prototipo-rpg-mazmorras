@@ -130,6 +130,138 @@ dominio = 1200
 oro = 70000
 cambios = {"potencia": ["presupuesto", 0.625], "potencia_coste": ["presupuesto", 0.375]}
 
+[sub_resource type="Resource" id="NM_raf_linea_6"]
+script = ExtResource("nodo_mejora")
+id = &"linea_6"
+nombre = "Nivel 6"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"frenesi", &"ligera"])
+excluye = Array[StringName]([])
+nivel_min = 6
+dominio = 1500
+oro = 140000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_raf_linea_7"]
+script = ExtResource("nodo_mejora")
+id = &"linea_7"
+nombre = "Nivel 7"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_6"])
+excluye = Array[StringName]([])
+nivel_min = 7
+dominio = 1800
+oro = 280000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_raf_linea_8"]
+script = ExtResource("nodo_mejora")
+id = &"linea_8"
+nombre = "Nivel 8"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_7"])
+excluye = Array[StringName]([])
+nivel_min = 8
+dominio = 2100
+oro = 560000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_raf_linea_9"]
+script = ExtResource("nodo_mejora")
+id = &"linea_9"
+nombre = "Nivel 9"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_8"])
+excluye = Array[StringName]([])
+nivel_min = 9
+dominio = 2400
+oro = 1120000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_raf_linea_10"]
+script = ExtResource("nodo_mejora")
+id = &"linea_10"
+nombre = "Nivel 10"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_9"])
+excluye = Array[StringName]([])
+nivel_min = 10
+dominio = 2700
+oro = 2240000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_raf_linea_11"]
+script = ExtResource("nodo_mejora")
+id = &"linea_11"
+nombre = "Nivel 11"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_10"])
+excluye = Array[StringName]([])
+nivel_min = 11
+dominio = 3000
+oro = 4480000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_raf_linea_12"]
+script = ExtResource("nodo_mejora")
+id = &"linea_12"
+nombre = "Nivel 12"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_11"])
+excluye = Array[StringName]([])
+nivel_min = 12
+dominio = 3300
+oro = 8960000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_raf_linea_13"]
+script = ExtResource("nodo_mejora")
+id = &"linea_13"
+nombre = "Nivel 13"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_12"])
+excluye = Array[StringName]([])
+nivel_min = 13
+dominio = 3600
+oro = 17920000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_raf_linea_14"]
+script = ExtResource("nodo_mejora")
+id = &"linea_14"
+nombre = "Nivel 14"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_13"])
+excluye = Array[StringName]([])
+nivel_min = 14
+dominio = 3900
+oro = 35840000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_raf_linea_15"]
+script = ExtResource("nodo_mejora")
+id = &"linea_15"
+nombre = "Nivel 15"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_14"])
+excluye = Array[StringName]([])
+nivel_min = 15
+dominio = 4200
+oro = 71680000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_raf_linea_16"]
+script = ExtResource("nodo_mejora")
+id = &"linea_16"
+nombre = "Nivel 16"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_15"])
+excluye = Array[StringName]([])
+nivel_min = 16
+dominio = 4500
+oro = 143360000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
 [resource]
 script = ExtResource("1")
 golpe_txt = "de cada tajo"
@@ -156,4 +288,4 @@ efectos = [SubResource("SA_sang")]
 efectos_por_golpe = true
 descripcion = "Ráfaga de tajos rápidos y superficiales; con dos dagas caen aún más. Cada tajo que acierta puede abrir una herida sangrante."
 ; EL ARBOL (24/11, cerrado con el jefe): lo escribe tools/arboles_habilidades.py, no tocarlo a mano.
-arbol = [SubResource("NM_raf_mas_tajos"), SubResource("NM_raf_hoja_fina"), SubResource("NM_raf_remolino"), SubResource("NM_raf_brazo_largo"), SubResource("NM_raf_mil_cortes"), SubResource("NM_raf_entrar_bailando"), SubResource("NM_raf_persiguen"), SubResource("NM_raf_remate"), SubResource("NM_raf_frenesi"), SubResource("NM_raf_ligera")]
+arbol = [SubResource("NM_raf_mas_tajos"), SubResource("NM_raf_hoja_fina"), SubResource("NM_raf_remolino"), SubResource("NM_raf_brazo_largo"), SubResource("NM_raf_mil_cortes"), SubResource("NM_raf_entrar_bailando"), SubResource("NM_raf_persiguen"), SubResource("NM_raf_remate"), SubResource("NM_raf_frenesi"), SubResource("NM_raf_ligera"), SubResource("NM_raf_linea_6"), SubResource("NM_raf_linea_7"), SubResource("NM_raf_linea_8"), SubResource("NM_raf_linea_9"), SubResource("NM_raf_linea_10"), SubResource("NM_raf_linea_11"), SubResource("NM_raf_linea_12"), SubResource("NM_raf_linea_13"), SubResource("NM_raf_linea_14"), SubResource("NM_raf_linea_15"), SubResource("NM_raf_linea_16")]

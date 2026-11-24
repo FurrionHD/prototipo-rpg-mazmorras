@@ -365,3 +365,16 @@ func test_veneno_por_nivel_y_filo() -> void:
 	cerca(f.imbue_senal, 0.05, 0.0001, "señal del veneno")
 	igual(f.imbue_tope(2), 3, "T2: hasta 3 dosis")
 	cerca(float(f.imbue_reparto(2)[0]), 0.0, 0.0001, "T2: nunca 1 sola")
+
+
+# LA LINEA FIJA DEL 6 AL 16 (24/11): +40 % de daño y de coste por nivel sobre el nominal, sobre la forma de su rama.
+func test_linea_del_6_al_16() -> void:
+	var base: AbilityData = load(RAFAGA_RUTA)
+	var ids: Array = ["mas_tajos", "brazo_largo", "persiguen", "frenesi"]
+	for nv in range(6, 17):
+		ids.append("linea_%d" % nv)
+	var m: AbilityData = _raf(ids)
+	cerca(m.dano_mult, 0.9 * 0.75 * pow(1.4, 15), 0.01, "nivel 16: la forma de mas tajos x 1,4^15")
+	igual(roundi(m.coste_energia), roundi(48.0 * pow(1.4, 15)), "y su coste")
+	var l6: Resource = Mejoras.nodo(base, &"linea_6")
+	cierto(l6.padres.has(&"frenesi") and l6.padres.has(&"ligera"), "el 6 cuelga de los dos del nivel 5")

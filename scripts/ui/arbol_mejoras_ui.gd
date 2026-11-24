@@ -314,7 +314,7 @@ func _pintar_fila(lienzo: Lienzo, pj: PersonajeData, clave: String, f: Resource,
 			var b := NodoUI.new()
 			# (24/11, el jefe) LA FORMA DICE LO IMPORTANTE QUE ES: en las habilidades, todo el arbol (niveles 2-5) son
 			# PRINCIPALES (cuadro); los ROMBOS seran la linea recta del nivel 6 al 16, la que solo sube el daño.
-			b.forma = NodoUI.Forma.ROMBO if bool(n.get_meta(&"linea", false)) else NodoUI.Forma.CUADRO
+			b.forma = NodoUI.Forma.ROMBO if String(n.id).begins_with("linea_") else NodoUI.Forma.CUADRO
 			if f == null:
 				b.forma = int((basico["formas"] as Dictionary).get(String(n.id), b.forma))
 			# (24/11) SU ICONO PROPIO si lo tiene (assets/ui/habilidades/<habilidad>__<nodo>.png); si no, el de su habilidad.

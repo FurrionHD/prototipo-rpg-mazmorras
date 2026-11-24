@@ -23,6 +23,24 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parent.parent
 DOMINIO_POR_NIVEL = 300
 ORO_POR_NIVEL = {2: 2000, 3: 8000, 4: 25000, 5: 70000}
+# (24/11) los de la LINEA del 6 al 16: x2 por nivel desde el 5 (PROVISIONAL, como todo el oro)
+for _nv in range(6, 17):
+    ORO_POR_NIVEL[_nv] = ORO_POR_NIVEL[_nv - 1] * 2
+
+# LA LINEA FIJA DEL NIVEL 6 AL 16 (24/11, el jefe: "al principio desarrollas la build y luego le mejoras el daño"): tras
+# el arbol, un nodo por nivel en linea recta, cada uno el +40 % de daño y de coste de su nivel (todo el presupuesto). El
+# primero cuelga de los del nivel 5 (de cualquiera). En pantalla son ROMBOS (los que empiezan por "linea_").
+NIVEL_LINEA = (6, 16)
+
+
+def linea_fija(nodos):
+    padres = [n[0] for n in nodos if n[1] == 5]
+    out = []
+    for nv in range(NIVEL_LINEA[0], NIVEL_LINEA[1] + 1):
+        out.append(("linea_%d" % nv, nv, padres if nv == NIVEL_LINEA[0] else ["linea_%d" % (nv - 1)], [],
+                    "Nivel %d" % nv, "La misma técnica, cada vez más afinada.",
+                    {"potencia": (P, 1.0), "potencia_coste": (P, 1.0)}))
+    return out
 
 P = "presupuesto"
 SANGRADO = 1
@@ -278,7 +296,7 @@ def escribir(clave: str) -> None:
         ultima = list(re.finditer(r"\[ext_resource [^\n]*\]\n", t))[-1]
         t = t[:ultima.end()] + '[ext_resource type="Script" path="res://scripts/items/nodo_mejora.gd" id="nodo_mejora"]\n' \
             + t[ultima.end():]
-    subs = [_sub(clave, n) for n in ARBOLES[clave]]
+    subs = [_sub(clave, n) for n in ARBOLES[clave] + linea_fija(ARBOLES[clave])]
     bloque = "".join(s[1] + "\n\n" for s in subs)
     i = t.index("[resource]")
     t = t[:i] + bloque + t[i:]
