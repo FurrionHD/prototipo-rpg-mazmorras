@@ -608,7 +608,8 @@ func secundario_para(n_enemigos: int) -> float:
 @export var nube_turnos: int = 0
 @export var nube_estado: int = -1
 @export var nube_prob: float = 0.0
-# ESCABULLIRSE: tras usarla, quien la usa se mueve hasta esto (solo en el mapa). PENDIENTE: el movimiento en el tactico.
+# ESCABULLIRSE: tras usarla, quien la usa se mueve hasta esto (solo en el mapa) hacia el sitio de un SEGUNDO clic al
+# lanzarla (combat_tactico: _eligiendo_retirada, apunte_mueve, pedir_escabullirse).
 @export var se_mueve: float = 0.0
 # --- FILO EMPONZOÑADO (24/11, su arbol): lo que lleva la imbuicion que pone (Combatant.imbue_*) ---
 @export var imbue_fuerza: float = 1.0        # x la fuerza del veneno (su "daño": la potencia de los nodos va aqui)
@@ -630,8 +631,8 @@ func secundario_para(n_enemigos: int) -> float:
 @export var estado_golpe: int = -1
 @export var estado_golpe_prob: float = 1.0
 @export var estado_golpe_turnos: int = 1
-# ENTRAR BAILANDO (Rafaga): antes de golpear se acerca hasta esto hacia el objetivo (solo en el mapa). PENDIENTE: el
-# movimiento en el tactico (24/11, sin hacer todavia).
+# ENTRAR BAILANDO (Rafaga): antes de golpear se acerca hasta esto hacia donde apunta, y su huella sale de alli (solo en
+# el mapa; combat_tactico.pies_tras_acercarse / pedir_acercarse).
 @export var acercarse: float = 0.0
 # true  -> se tiran en CADA golpe que acierta (Ráfaga: cada tajo 40% de sangrado ->
 #          mas golpes = mas sangrado, cada hit con su tirada, mas realista).

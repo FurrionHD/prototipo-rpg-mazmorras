@@ -882,6 +882,14 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		if ab.paso or ab.avance:
 			_pantalla.turno_mapa.pedir_movimiento(ab, _pantalla._player,
 				0 if reparto_mapa.is_empty() else ab.num_golpes(manos, reparto_mapa.size()))
+		# (24/11) ENTRAR BAILANDO (Rafaga): te acercas antes de pegar. ESCABULLIRSE (Desaparecer): te vas al sitio del
+		# segundo clic cuando acaban los golpes. Tambien antes de los golpes, por el orden en que viajan al espejo.
+		if ab.acercarse > 0.0:
+			_pantalla.turno_mapa.pedir_acercarse(ab, _pantalla._player,
+				0 if reparto_mapa.is_empty() else ab.num_golpes(manos, reparto_mapa.size()))
+		if ab.se_mueve > 0.0:
+			_pantalla.turno_mapa.pedir_escabullirse(ab, _pantalla._player,
+				0 if reparto_mapa.is_empty() else ab.num_golpes(manos, reparto_mapa.size()))
 		# LA CARGA (Embestida): corres hasta el primero que pilla, y le pegas al llegar.
 		if ab.carga:
 			_pantalla.turno_mapa.pedir_carga(ab, _pantalla._player,

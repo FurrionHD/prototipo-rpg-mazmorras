@@ -1578,6 +1578,13 @@ var _apuntando: AbilityData = null
 # llega sellado por red (anotar_apunte). Lo lee reparto_habilidad.
 var apunte: Vector2 = Vector2.ZERO
 var _hay_apunte: bool = false
+# ESCABULLIRSE (24/11): el SEGUNDO clic, adonde se retira tras los golpes. Viaja con el apunte (apunte_para_red).
+# '_eligiendo_retirada' = ya se dio el primer clic (el golpe, en 'apunte') y falta el del sitio.
+var apunte_mueve: Vector2 = Vector2.ZERO
+var _hay_apunte_mueve: bool = false
+var _eligiendo_retirada: bool = false
+const CLAVE_RETIRADA := &"apuntando_retirada"
+const CLAVE_RETIRADA_SITIO := &"apuntando_retirada_sitio"
 var _pillados_vistos: int = -1
 const CLAVE_APUNTE := &"apuntando"
 const CLAVE_APUNTE_ESCUDO := &"apuntando_escudazo"
@@ -1604,7 +1611,13 @@ func forma_de(ab: AbilityData, c: Combatant, hacia: Vector2) -> RefCounted:
 			var frente: float = frente_dibujo(cuerpo_de(c), pies_de(c), hacia - pies_de(c))
 			pisa = maxf(pisa, frente)
 			sale = frente * FRENTE_METIDO
-		f = CombatFormas.de_habilidad_mapa(ab, pies_de(c), pisa, alcance_de(c), hacia, sale)
+		var pies0: Vector2 = pies_de(c)
+		# ENTRAR BAILANDO (24/11, Rafaga): la huella sale de donde acabas tras acercarte (ver pies_tras_acercarse).
+		if ab.acercarse > 0.0 and not _pantalla._enemies.has(c):
+			pies0 = pies_tras_acercarse(ab, c, hacia)
+			if hacia.distance_to(pies0) < 1.0:
+				hacia = pies0 + (hacia - pies_de(c)).normalized()
+		f = CombatFormas.de_habilidad_mapa(ab, pies0, pisa, alcance_de(c), hacia, sale)
 	# A DISTANCIA (arco, ballesta): la linea se para en la PARED, como el disparo del basico.
 	if c.a_distancia and f.tipo == CombatFormas.Tipo.LINEA:
 		var hasta_pared: float = _largo_hasta_pared(f.origen, f.dir, f.largo)
@@ -2372,6 +2385,9 @@ func esta_apuntando() -> bool:
 func _refrescar_apunte(raton: Vector2) -> void:
 	if _apuntando == null or not is_instance_valid(_cuerpo):
 		return
+	if _eligiendo_retirada:
+		_refrescar_retirada(raton)
+		return
 	var f = forma_de(_apuntando, _quien, raton)
 	var arena: ArenaCombate = _arena()
 	# EL ESCUDAZO (Guardia rota): su linea, dentro de la huella del tajo.
@@ -2424,10 +2440,35 @@ func _refrescar_apunte(raton: Vector2) -> void:
 			else "%s: %s.  Clic para lanzarla · clic derecho para volver" % [_apuntando.nombre, pilla]
 
 
+# EL SEGUNDO CLIC DE ESCABULLIRSE: la huella del golpe se queda donde se confirmo; alrededor, hasta donde llega
+# (ab.se_mueve) y un circulito donde acabarias con el raton ahi.
+func _refrescar_retirada(raton: Vector2) -> void:
+	var arena: ArenaCombate = _arena()
+	if arena != null:
+		var pies: Vector2 = pies_de(_quien)
+		arena.poner_huella(CLAVE_RETIRADA, CombatFormas.circulo(pies, _apuntando.se_mueve), 0.0, COLOR_APUNTE, "mapa")
+		var sitio: Vector2 = sitio_escabullirse(_apuntando, _quien, raton) + _bajo_de(_quien)
+		arena.poner_huella(CLAVE_RETIRADA_SITIO, CombatFormas.circulo(sitio, radio_pisa(_quien) + 2.0), 0.0,
+			COLOR_CARGA, "mapa")
+	if is_instance_valid(_letrero):
+		_letrero.text = "%s: clic donde te retiras tras los golpes · clic derecho para volver" % _apuntando.nombre
+
+
 func _confirmar_apunte() -> void:
 	# HAY QUE ESTAR QUIETO para lanzarla (lo pidio el usuario): asi el personaje ya se ha girado hacia
 	# donde golpea. Andando, el clic no hace nada (el letrero lo avisa).
 	if _andando:
+		return
+	# EL SEGUNDO CLIC DE ESCABULLIRSE: el sitio, y se lanza con el apunte del primero.
+	if _eligiendo_retirada:
+		var ab_r: AbilityData = _apuntando
+		var golpe: Vector2 = apunte
+		apunte_mueve = _raton_en_mundo()
+		_hay_apunte_mueve = true
+		_dejar_de_apuntar()
+		apunte = golpe
+		_hay_apunte = true
+		_pantalla.habilidades._usar_habilidad(ab_r)
 		return
 	if _al_elegir_sitio.is_valid():
 		confirmar_sitio(_raton_en_mundo())
@@ -2466,6 +2507,13 @@ func _confirmar_apunte() -> void:
 		_dejar_de_apuntar()
 		_pantalla.magia._elegir_hechizo(hz[0], aliado_hz, _raton_en_mundo())
 		return
+	# ESCABULLIRSE: el golpe ya esta elegido (se queda pintado); falta el sitio adonde retirarse (segundo clic).
+	if ab.se_mueve > 0.0:
+		apunte = _raton_en_mundo()
+		_hay_apunte = true
+		_eligiendo_retirada = true
+		_refrescar_retirada(apunte)
+		return
 	_dejar_de_apuntar()
 	apunte = _raton_en_mundo()
 	_hay_apunte = true
@@ -2475,6 +2523,11 @@ func _confirmar_apunte() -> void:
 func _cancelar_apunte() -> void:
 	if _reeligiendo != null or _al_elegir_sitio.is_valid():
 		return   # el conjuro ya esta en marcha: hay que elegir (no hay menu al que volver)
+	# En el segundo clic de Escabullirse, el derecho vuelve al primero (a elegir el golpe), no al menu.
+	if _eligiendo_retirada:
+		_quitar_retirada()
+		_refrescar_apunte(_raton_en_mundo())
+		return
 	var era_hechizo: bool = not _hechizo_apuntado.is_empty()
 	_hechizo_apuntado = []
 	_dejar_de_apuntar()
@@ -2484,12 +2537,22 @@ func _cancelar_apunte() -> void:
 		_pantalla.habilidades._accion_habilidad()   # de vuelta al menu de habilidades
 
 
+# Quita lo pintado del segundo clic de Escabullirse (no el sitio ya elegido: ese viaja con la accion).
+func _quitar_retirada() -> void:
+	_eligiendo_retirada = false
+	var arena: ArenaCombate = _arena()
+	if arena != null:
+		arena.quitar_huella(CLAVE_RETIRADA)
+		arena.quitar_huella(CLAVE_RETIRADA_SITIO)
+
+
 func _dejar_de_apuntar() -> void:
 	if _apuntando != null and _quien != null:
 		_anotar_huella_red(_quien, CLASE_APUNTANDO, null, 0.0)
 		_anotar_huella_red(_quien, CLASE_ESCUDAZO, null, 0.0)
 		_enviar_mi_huella(null, 0.0)
 	_apuntando = null
+	_quitar_retirada()
 	var arena: ArenaCombate = _arena()
 	if arena != null:
 		arena.quitar_huella(CLAVE_APUNTE)
@@ -2567,8 +2630,11 @@ func _raton_en_mundo() -> Vector2:
 
 
 # EN EL ESPEJO, al contestar una habilidad: el punto al que apunte. [] si no hay.
+# Con el segundo clic de Escabullirse, cuatro: el golpe y el sitio adonde se retira.
 func apunte_para_red() -> Array:
-	return [apunte.x, apunte.y] if _hay_apunte else []
+	if not _hay_apunte:
+		return []
+	return [apunte.x, apunte.y, apunte_mueve.x, apunte_mueve.y] if _hay_apunte_mueve else [apunte.x, apunte.y]
 
 
 # EN QUIEN LLEVA LA PELEA: el punto sellado con la habilidad de otro humano. No se valida contra
@@ -2577,6 +2643,8 @@ func apunte_para_red() -> Array:
 func anotar_apunte(p: Array) -> void:
 	_hay_apunte = p.size() >= 2
 	apunte = Vector2(float(p[0]), float(p[1])) if _hay_apunte else Vector2.ZERO
+	_hay_apunte_mueve = p.size() >= 4
+	apunte_mueve = Vector2(float(p[2]), float(p[3])) if _hay_apunte_mueve else Vector2.ZERO
 
 
 # LAS CARGAS: el sitio se elige al EMPEZAR a cargar y se queda (combatiente -> [ab, punto]). Mientras
@@ -2587,7 +2655,8 @@ var _cargas: Dictionary = {}
 func guardar_carga(c: Combatant, ab: AbilityData) -> void:
 	if c == null or not _hay_apunte:
 		return
-	_cargas[c] = [ab, apunte]
+	# (24/11) y el sitio de Escabullirse, si lo eligio: Desaparecer se prepara y sale al volver a la barra.
+	_cargas[c] = [ab, apunte, apunte_mueve if _hay_apunte_mueve else null]
 	var f = forma_de(ab, c, apunte)
 	var arena: ArenaCombate = _arena()
 	if arena != null:
@@ -2616,6 +2685,9 @@ func recuperar_carga(c: Combatant) -> void:
 	if d.size() >= 2:
 		apunte = d[1]
 		_hay_apunte = true
+	_hay_apunte_mueve = d.size() >= 3 and d[2] is Vector2   # (las de los enemigos llevan ahi su forma)
+	if _hay_apunte_mueve:
+		apunte_mueve = d[2]
 
 
 # Si le interrumpen la carga (aturdido) o cae, la huella se va con ella.
@@ -4733,7 +4805,8 @@ func _tick_moviendo(delta: float) -> void:
 	# demas submenus (hechizos, objetos).
 	var en_menu: bool = (_pantalla._actions_box != null and _pantalla._actions_box.visible) \
 		or (_pantalla._ability_box != null and _pantalla._ability_box.visible) or _apuntando != null
-	var puede: bool = _radio > 0.0 and en_menu
+	# (24/11) eligiendo adonde te escabulles no se anda: el golpe ya esta elegido desde donde estas.
+	var puede: bool = _radio > 0.0 and en_menu and not _eligiendo_retirada
 	var dir: Vector2 = Vector2.ZERO
 	if puede:
 		dir = Input.get_vector("move_left", "move_right", "move_up", "move_down")
@@ -5371,6 +5444,7 @@ func _terminar() -> void:
 	_alcance_visto = []
 	_dejar_de_apuntar()
 	_hay_apunte = false
+	_hay_apunte_mueve = false
 	_andando = false
 	_quitar_circulo()
 
@@ -8097,6 +8171,46 @@ func pedir_movimiento(ab: AbilityData, c: Combatant, golpes: int) -> void:
 		var f = forma_de(ab, c, apunte)
 		pedir_desliz(c, f.origen + f.dir * f.largo - Vector2(0.0, PoseJugador.PIES_BAJO_NODO),
 			Desliz.AVANCE, golpes)
+
+
+# ENTRAR BAILANDO (24/11, Rafaga, el jefe: "hacia el raton, y el cono desde alli"): DONDE ACABAN SUS PIES si da hasta
+# ab.acercarse px hacia 'hacia', sin pasar del punto, sin salirse del suelo y sin acabar encima de nadie. Enraizado o
+# enroscado no se mueve (pedir_desliz tampoco le moveria): la huella sale de donde esta.
+func pies_tras_acercarse(ab: AbilityData, c: Combatant, hacia: Vector2) -> Vector2:
+	var p: Vector2 = pies_de(c)
+	if ab == null or ab.acercarse <= 0.0 or cuerpo_de(c) == null or c.enraizado() or c.enroscado():
+		return p
+	var d: Vector2 = hacia - p
+	if d.length() < 1.0:
+		return p
+	return _sitio_libre_hacia(c, p + d.normalized() * minf(ab.acercarse, d.length())) + _bajo_de(c)
+
+
+# Y el paso de verdad, antes de los golpes ('golpes' = los que va a dar; 0 = sale ya).
+func pedir_acercarse(ab: AbilityData, c: Combatant, golpes: int) -> void:
+	if _pantalla._espejo or not _pantalla.tactico or c == null or cuerpo_de(c) == null:
+		return
+	var hasta: Vector2 = pies_tras_acercarse(ab, c, apunte) - _bajo_de(c)
+	if hasta.distance_to(pos_de(c)) >= 2.0:
+		pedir_desliz(c, hasta, Desliz.ANTES if golpes > 0 else Desliz.YA, golpes)
+
+
+# ESCABULLIRSE (24/11, Desaparecer, el jefe: "dos clics al lanzarla, primero el golpe y luego la posicion a la que
+# retirarse"): el SEGUNDO clic (apunte_mueve) dice adonde; se va hasta ab.se_mueve px hacia alli cuando acaban los golpes.
+func sitio_escabullirse(ab: AbilityData, c: Combatant, punto: Vector2) -> Vector2:
+	var p: Vector2 = pies_de(c)
+	var d: Vector2 = punto - p
+	if d.length() < 1.0 or cuerpo_de(c) == null:
+		return pos_de(c)
+	return _sitio_libre_hacia(c, p + d.normalized() * minf(ab.se_mueve, d.length()))
+
+
+func pedir_escabullirse(ab: AbilityData, c: Combatant, golpes: int) -> void:
+	if _pantalla._espejo or not _pantalla.tactico or c == null or not _hay_apunte_mueve or ab.se_mueve <= 0.0:
+		return
+	var hasta: Vector2 = sitio_escabullirse(ab, c, apunte_mueve)
+	if hasta.distance_to(pos_de(c)) >= 2.0:
+		pedir_desliz(c, hasta, Desliz.TRAS if golpes > 0 else Desliz.YA, golpes)
 
 
 # LA CARGA (Embestida, 25/09): corres por la linea hasta pegarte al primero que pilla ('victima') y le das
