@@ -76,6 +76,44 @@ ARBOLES = {
          "Menos fuerza en cada tajo y menos aliento en cada ráfaga.",
          {"potencia": (P, 0.625), "potencia_coste": (P, 0.375)}),
     ],
+    # PUÑALADA CERTERA (24/11): base 240 %, un tajo (dos con dos dagas), sangrado 55 % y 2a herida si critea 30 %.
+    "punalada": [
+        # Nv2: critico o sangre
+        ("punto_debil", 2, [], ["herida_abierta"], "Punto débil",
+         "Sabes dónde mirar antes de clavar.",
+         {"crit_extra": ("add", 0.2), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+        ("herida_abierta", 2, [], ["punto_debil"], "Herida abierta",
+         "La hoja no sale limpia: sale arrastrando.",
+         {"efectos_prob_mult": ("set", 1.651), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+        # Nv3, lado del critico
+        ("hasta_el_mango", 3, ["punto_debil"], ["por_la_espalda"], "Hasta el mango",
+         "Cuando entra bien, no te paras a medias.",
+         {"crit_dano_mult": ("set", 1.3), "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+        ("por_la_espalda", 3, ["punto_debil"], ["hasta_el_mango"], "Por la espalda",
+         "Donde no mira, no se defiende.",
+         {"extra_espalda": ("add", 0.3), "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+        # Nv3, lado de la sangre (Arteria -> Desangrar, el combo del jefe)
+        ("arteria", 3, ["herida_abierta"], ["mano_segura"], "Arteria",
+         "Buscas la vena gorda, la que no para.",
+         {"efectos_cargas_extra": ("set", 1), "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+        ("mano_segura", 3, ["herida_abierta"], ["arteria"], "Mano segura",
+         "Ni rápida ni bonita: segura.",
+         {"infalible": ("set", True), "potencia": (P, 0.25), "potencia_coste": (P, 1.0)}),
+        # Nv4: desde cualquiera de los cuatro del nivel 3
+        ("asesinato", 4, ["hasta_el_mango", "por_la_espalda", "arteria", "mano_segura"], ["desangrar"], "Asesinato",
+         "A los que ya se tambalean no les das tiempo a levantarse.",
+         {"bonus_vida_baja": ("set", 0.4), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+        ("desangrar", 4, ["hasta_el_mango", "por_la_espalda", "arteria", "mano_segura"], ["asesinato"], "Desangrar",
+         "Abres lo que ya estaba abierto, y sale todo de una vez.",
+         {"detona_estado": ("set", SANGRADO), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+        # Nv5: desde cualquiera de los dos del nivel 4
+        ("ejecucion", 5, ["asesinato", "desangrar"], ["golpe_y_fuera"], "Ejecución",
+         "Uno menos, y la mano ya está lista para el siguiente.",
+         {"recarga_al_matar": ("set", True), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+        ("golpe_y_fuera", 5, ["asesinato", "desangrar"], ["ejecucion"], "Golpe y fuera",
+         "Clavas, sueltas y ya no estás.",
+         {"se_aparta": ("add", 40.0), "potencia": (P, 0.875), "potencia_coste": (P, 1.0)}),
+    ],
 }
 
 

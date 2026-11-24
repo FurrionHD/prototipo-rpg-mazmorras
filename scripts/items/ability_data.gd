@@ -575,6 +575,16 @@ func secundario_para(n_enemigos: int) -> float:
 # EL REMATE (Remate de la Rafaga): el ULTIMO golpe pega x remate_mult a quien lleve el estado remate_estado (-1 = nada).
 @export var remate_estado: int = -1
 @export var remate_mult: float = 1.0
+# HASTA EL MANGO (Puñalada): sus golpes CRITICOS pegan x esto (multiplica, sobre el critico de siempre).
+@export var crit_dano_mult: float = 1.0
+# ASESINATO (Puñalada): + este % de daño a enemigos por debajo de vida_baja_umbral de su vida maxima.
+@export var bonus_vida_baja: float = 0.0
+@export var vida_baja_umbral: float = 0.3
+# DESANGRAR (Puñalada): si el golpe le entra y ya lleva este estado (un daño por turno), le inflige YA todo lo que le
+# quedaba por hacer (cada carga: su daño por turno x sus turnos) y se lo quita. -1 = nada.
+@export var detona_estado: int = -1
+# EJECUCION (Puñalada): si derriba a alguien, se recarga al instante (el enfriamiento vuelve a 0).
+@export var recarga_al_matar: bool = false
 # ENTRAR BAILANDO (Rafaga): antes de golpear se acerca hasta esto hacia el objetivo (solo en el mapa). PENDIENTE: el
 # movimiento en el tactico (24/11, sin hacer todavia).
 @export var acercarse: float = 0.0
@@ -904,12 +914,30 @@ func frase_mejora(campo: String, antes: AbilityData) -> String:
 				partes.append("Probabilidad base de causar %s%s: %s → %s" % [nom, " (solo con crítico)" if a.solo_crit else "",
 					_pct_entero(float(a.prob) * antes.efectos_prob_mult), _pct_entero(float(a.prob) * efectos_prob_mult)])
 			return "\n".join(PackedStringArray(partes))
+		"crit_dano_mult":
+			return "Daño de sus golpes críticos: aumenta en un %s (sobre el crítico de siempre)." % _pct_entero(crit_dano_mult - 1.0)
+		"bonus_vida_baja":
+			return "Contra enemigos con menos del %s de su vida máxima, inflige un %s más." % [
+				_pct_entero(vida_baja_umbral), _pct_entero(bonus_vida_baja)]
+		"detona_estado":
+			if detona_estado < 0:
+				return ""
+			return "Si el enemigo ya tiene %s, le inflige de golpe todo el daño que le quedaba por hacer y se lo quita." % (
+				str(StatusEffects.def(detona_estado).get("nombre", "?")))
+		"recarga_al_matar":
+			return "Si derriba a un enemigo, vuelve a estar lista al instante." if recarga_al_matar else ""
 		"acercarse":
 			return "Antes de golpear, quien la usa se acerca hasta %s hacia el objetivo." % casillas_txt(acercarse) \
 				if acercarse > 0.0 else ""
 		"efectos_cargas_extra":
-			return "Cada estado que causa mete %d cargas en vez de 1, y cada carga tiene su propia probabilidad." % (
-				1 + efectos_cargas_extra)
+			var noms: Array = []
+			for a in efectos:
+				if a != null and int(a.estado) >= 0 and a.en_objetivo:
+					var nm: String = str(StatusEffects.def(int(a.estado)).get("nombre", "?"))
+					if not noms.has(nm):
+						noms.append(nm)
+			return "Cada vez que causa %s, mete %d cargas en vez de 1, y cada carga tiene su propia probabilidad." % [
+				" o ".join(PackedStringArray(noms)), 1 + efectos_cargas_extra]
 		"bonus_por_baja":
 			return "Por cada enemigo que derriba, los golpes que le quedan infligen un %s más (hasta %d veces)." % [
 				_pct_txt(bonus_por_baja), bonus_por_baja_max]

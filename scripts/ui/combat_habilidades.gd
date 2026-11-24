@@ -430,7 +430,25 @@ static func mult_arbol_golpe(ab: AbilityData, objetivo: Combatant, i: int, bajas
 		m *= 1.0 + ab.bonus_por_baja * float(mini(bajas, ab.bonus_por_baja_max))
 	if ab.remate_estado >= 0 and i == ultimo and objetivo != null and objetivo.has_status(ab.remate_estado):
 		m *= ab.remate_mult
+	if ab.bonus_vida_baja > 0.0 and objetivo != null and objetivo.max_hp > 0.0 \
+			and objetivo.current_hp < objetivo.max_hp * ab.vida_baja_umbral:
+		m *= 1.0 + ab.bonus_vida_baja
 	return m
+
+
+# DESANGRAR: todo lo que le quedaba por hacer a ese estado, de golpe, y se le quita. Devuelve el daño hecho.
+static func detonar(objetivo: Combatant, estado: int) -> float:
+	if objetivo == null or estado < 0 or not objetivo.is_alive():
+		return 0.0
+	var queda: float = 0.0
+	for e in objetivo.statuses:
+		if e.id() == estado:
+			queda += e.dot_damage() * float(maxi(0, e.turns))
+	if queda <= 0.0:
+		return 0.0
+	objetivo.quitar_estado(estado)
+	objetivo.take_damage(queda)
+	return queda
 
 
 # Las bajas y el ultimo golpe de la habilidad EN CURSO (los pone _usar_habilidad antes de los golpes).
@@ -478,8 +496,9 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	var estilo_ab: int = _pantalla.efectos._estilo_de_habilidad(ab, _pantalla._player)
 	if ab.golpe_es_de_escudo(i) and not (ab.es_toda_de_escudo() and ab.fx_estilo >= 0):
 		estilo_ab = CombatFX.Estilo.ESCUDAZO
+	# (24/11) MANO SEGURA: la que no falla (AbilityData.infalible, como la Mirada estelar de los enemigos).
 	var result := StatsMath.resolve_attack(_pantalla._player, objetivo, def_e, atk_ov, ab.crit_extra,
-		ab.penetracion_extra)
+		ab.penetracion_extra, not ab.infalible)
 	_pantalla._aplicar_pasivas(result, _pantalla._player, objetivo)
 	if result.evaded:
 		r.evaded = true
@@ -495,6 +514,12 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	var dmg: float = result.damage * ab.dano_mult * m_golpe * escala * _mult_mun \
 		* (1.0 + _pantalla._player.runa_dano_hab) \
 		* mult_arbol_golpe(ab, objetivo, i, _bajas_hab, _ultimo_golpe_hab)   # runas: Daño de habilidades; el arbol
+	# (24/11) HASTA EL MANGO: el critico de esta habilidad pega mas. POR LA ESPALDA: como el Mordisco a traicion enemigo.
+	if result.crit and not is_equal_approx(ab.crit_dano_mult, 1.0):
+		dmg *= ab.crit_dano_mult
+	if ab.extra_espalda > 0.0 and _pantalla.tactico and _pantalla.turno_mapa.por_la_espalda(_pantalla._player, objetivo):
+		dmg *= 1.0 + ab.extra_espalda
+		print("        [%s] por la espalda: +%d %%" % [objetivo.nombre, roundi(ab.extra_espalda * 100.0)])
 	r.dmg = dmg
 	r.imbue = float(result.get("dmg_imbue", 0.0)) * ab.dano_mult * m_golpe * escala
 	r.mult_imbue = float(result.get("mult_imbue", 1.0))
@@ -506,6 +531,13 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	r.dmg = dmg
 	var vivo_antes: bool = objetivo.is_alive()
 	objetivo.take_damage(dmg)
+	# (24/11) DESANGRAR: lo que le quedaba de sangrado, de golpe (antes de que esta misma habilidad le abra heridas nuevas).
+	if ab.detona_estado >= 0 and objetivo.is_alive():
+		var det: float = detonar(objetivo, ab.detona_estado)
+		if det > 0.0:
+			r.dmg += det
+			dmg += det   # va en el mismo total (fx, amenaza y registro) que el golpe
+			r["desangra"] = det
 	if vivo_antes and not objetivo.is_alive():
 		_bajas_hab += 1   # Tajos que persiguen: los golpes que quedan pegan mas
 	if r.imbue > 0.0:
@@ -567,6 +599,8 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 		if imb_h != "":
 			r.estados.append(imb_h)
 			r.linea += "  ⚡ " + imb_h
+	if r.has("desangra"):
+		r.linea += "  🩸 desangra %.2f" % float(r["desangra"])
 	return r
 
 
@@ -1155,6 +1189,13 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 			var quitados: Array = al.limpiar_debuffs(ab.limpia_debuffs)
 			if not quitados.is_empty():
 				estados_log.append("%s se quita %s" % [al.nombre, ", ".join(quitados)])
+	# (24/11) EJECUCION: si ha derribado a alguien, vuelve a estar lista ya.
+	if ab.recarga_al_matar and _bajas_hab > 0:
+		_pantalla._player.ability_cooldowns[ab] = 0
+		estados_log.append("%s vuelve a estar lista" % ab.nombre)
+	# (24/11) GOLPE Y FUERA: tras clavarla, un salto hacia atras (como el Sorbo de la Vidriada enemigo).
+	if ab.se_aparta > 0.0 and total > 0.0 and _pantalla.tactico and not _pantalla._espejo and obj != null:
+		_pantalla.turno_mapa.pedir_retirada(_pantalla._player, obj, ab.se_aparta)
 	# RECORTE DE COOLDOWNS: a las OTRAS habilidades, nunca a la suya (ver AbilityData).
 	if ab.reduce_cooldowns > 0:
 		var destrabadas: int = _pantalla._player.reducir_cooldowns(ab.reduce_cooldowns, ab)

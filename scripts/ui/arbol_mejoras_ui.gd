@@ -752,7 +752,7 @@ static func _valor(v, como: String) -> String:
 		"dec":
 			return MenuScaffold.valor_es(str(snappedf(float(v), 0.01)))
 		"dist":
-			return AbilityData.casillas_txt(float(v))
+			return "nada" if float(v) <= 0.0 else AbilityData.casillas_txt(float(v))
 		"grados":
 			return "%d°" % roundi(float(v))
 	return str(roundi(float(v))) if (v is float or v is int) else str(v)

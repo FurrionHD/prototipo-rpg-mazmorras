@@ -252,3 +252,57 @@ func test_rafaga_dos_dagas() -> void:
 	# Las dos, a un enemigo y con dos dagas, lo mismo que la base x su potencia (la forma de la rama no regala nada).
 	cerca(_total_dual(m2, 1) / 1.3, _total_dual(b, 1), 0.01, "mas tajos con dos dagas = la base x su potencia")
 	cerca(_total_dual(h2, 1) / (1.3 * 1.2), _total_dual(b, 1), 0.01, "hoja fina con dos dagas = la base x su potencia x 1,2")
+
+
+# LA PUÑALADA DE VERDAD (24/11): los numeros por camino, y las mecanicas nuevas (Desangrar, Asesinato).
+const PUNALADA_RUTA := "res://resources/abilities/punalada.tres"
+
+
+func _pun(ids: Array) -> AbilityData:
+	var base: AbilityData = load(PUNALADA_RUTA)
+	return Mejoras.montar_sin_nombre(base, (base.arbol as Array).filter(func(n): return ids.has(String(n.id)))) as AbilityData
+
+
+func test_punalada_numeros_cerrados() -> void:
+	var casos := [
+		[["punto_debil"], 2.88], [["herida_abierta"], 2.88],
+		[["punto_debil", "hasta_el_mango"], 4.20], [["herida_abierta", "mano_segura"], 3.696],
+		[["herida_abierta", "arteria", "asesinato"], 6.115], [["herida_abierta", "arteria", "desangrar"], 5.645],
+		[["herida_abierta", "arteria", "desangrar", "ejecucion"], 7.903],
+		[["punto_debil", "por_la_espalda", "asesinato", "golpe_y_fuera"], 8.891],
+	]
+	for c in casos:
+		cerca(_pun(c[0]).dano_mult, float(c[1]), 0.002, "daño de la puñalada con %s" % str(c[0]))
+	var h: AbilityData = _pun(["herida_abierta"])
+	cerca(h.efectos[0].prob * h.efectos_prob_mult, 0.908, 0.001, "Herida abierta: sangrado 55 -> 91 %")
+	cerca(h.efectos[1].prob * h.efectos_prob_mult, 0.495, 0.001, "y la 2a herida 30 -> 50 %")
+	igual(_pun(["herida_abierta", "arteria"]).efectos_cargas_extra, 1, "Arteria: una carga mas, cada una su tirada")
+	cierto(_pun(["herida_abierta", "mano_segura"]).infalible, "Mano segura no falla")
+	var base: AbilityData = load(PUNALADA_RUTA)
+	for n in base.arbol:
+		igual(int(n.dominio), 300 * (int(n.nivel_min) - 1), "dominio de %s por su nivel" % n.id)
+
+
+func _bicho(nombre: String) -> Combatant:
+	var c := Combatant.new(nombre, 1, Abilities.new(), 1000.0, 10.0, 10.0, 10.0)
+	c.max_hp = 1000.0
+	c.current_hp = 1000.0
+	return c
+
+
+func test_desangrar_y_asesinato() -> void:
+	const Hab = preload("res://scripts/ui/combat_habilidades.gd")
+	var e := _bicho("Rata de prueba")
+	e.apply_status(StatusEffects.Id.SANGRADO, 3, 10.0)
+	e.apply_status(StatusEffects.Id.SANGRADO, 2, 10.0)
+	var vida: float = e.current_hp
+	var hecho: float = Hab.detonar(e, StatusEffects.Id.SANGRADO)
+	cerca(hecho, 10.0 * 3 + 10.0 * 2, 0.01, "Desangrar: cada carga su daño por turno x sus turnos")
+	cerca(e.current_hp, vida - hecho, 0.01, "y se lo quita de la vida")
+	cierto(not e.has_status(StatusEffects.Id.SANGRADO), "y le quita el sangrado")
+	var a: AbilityData = _pun(["herida_abierta", "arteria", "asesinato"])
+	var sano := _bicho("Sano")
+	var tocado := _bicho("Tocado")
+	tocado.current_hp = tocado.max_hp * 0.2
+	cerca(Hab.mult_arbol_golpe(a, sano, 0, 0, 0), 1.0, 0.0001, "Asesinato: nada a uno sano")
+	cerca(Hab.mult_arbol_golpe(a, tocado, 0, 0, 0), 1.4, 0.0001, "Asesinato: +40 % a uno por debajo del 30 %")

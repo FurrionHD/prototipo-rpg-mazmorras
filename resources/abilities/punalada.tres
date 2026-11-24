@@ -3,6 +3,8 @@
 [ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
 
+[ext_resource type="Script" path="res://scripts/items/nodo_mejora.gd" id="nodo_mejora"]
+
 [sub_resource type="Resource" id="SA_sang"]
 script = ExtResource("2")
 estado = 1
@@ -13,6 +15,126 @@ script = ExtResource("2")
 estado = 1
 prob = 0.3
 solo_crit = true
+
+[sub_resource type="Resource" id="NM_pun_punto_debil"]
+script = ExtResource("nodo_mejora")
+id = &"punto_debil"
+nombre = "Punto débil"
+descripcion = "Sabes dónde mirar antes de clavar."
+padres = Array[StringName]([])
+excluye = Array[StringName]([&"herida_abierta"])
+nivel_min = 2
+dominio = 300
+oro = 2000
+cambios = {"crit_extra": ["add", 0.2], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_herida_abierta"]
+script = ExtResource("nodo_mejora")
+id = &"herida_abierta"
+nombre = "Herida abierta"
+descripcion = "La hoja no sale limpia: sale arrastrando."
+padres = Array[StringName]([])
+excluye = Array[StringName]([&"punto_debil"])
+nivel_min = 2
+dominio = 300
+oro = 2000
+cambios = {"efectos_prob_mult": ["set", 1.651], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_hasta_el_mango"]
+script = ExtResource("nodo_mejora")
+id = &"hasta_el_mango"
+nombre = "Hasta el mango"
+descripcion = "Cuando entra bien, no te paras a medias."
+padres = Array[StringName]([&"punto_debil"])
+excluye = Array[StringName]([&"por_la_espalda"])
+nivel_min = 3
+dominio = 600
+oro = 8000
+cambios = {"crit_dano_mult": ["set", 1.3], "potencia": ["presupuesto", 0.625], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_por_la_espalda"]
+script = ExtResource("nodo_mejora")
+id = &"por_la_espalda"
+nombre = "Por la espalda"
+descripcion = "Donde no mira, no se defiende."
+padres = Array[StringName]([&"punto_debil"])
+excluye = Array[StringName]([&"hasta_el_mango"])
+nivel_min = 3
+dominio = 600
+oro = 8000
+cambios = {"extra_espalda": ["add", 0.3], "potencia": ["presupuesto", 0.625], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_arteria"]
+script = ExtResource("nodo_mejora")
+id = &"arteria"
+nombre = "Arteria"
+descripcion = "Buscas la vena gorda, la que no para."
+padres = Array[StringName]([&"herida_abierta"])
+excluye = Array[StringName]([&"mano_segura"])
+nivel_min = 3
+dominio = 600
+oro = 8000
+cambios = {"efectos_cargas_extra": ["set", 1], "potencia": ["presupuesto", 0.625], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_mano_segura"]
+script = ExtResource("nodo_mejora")
+id = &"mano_segura"
+nombre = "Mano segura"
+descripcion = "Ni rápida ni bonita: segura."
+padres = Array[StringName]([&"herida_abierta"])
+excluye = Array[StringName]([&"arteria"])
+nivel_min = 3
+dominio = 600
+oro = 8000
+cambios = {"infalible": ["set", true], "potencia": ["presupuesto", 0.25], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_asesinato"]
+script = ExtResource("nodo_mejora")
+id = &"asesinato"
+nombre = "Asesinato"
+descripcion = "A los que ya se tambalean no les das tiempo a levantarse."
+padres = Array[StringName]([&"hasta_el_mango", &"por_la_espalda", &"arteria", &"mano_segura"])
+excluye = Array[StringName]([&"desangrar"])
+nivel_min = 4
+dominio = 900
+oro = 25000
+cambios = {"bonus_vida_baja": ["set", 0.4], "potencia": ["presupuesto", 0.75], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_desangrar"]
+script = ExtResource("nodo_mejora")
+id = &"desangrar"
+nombre = "Desangrar"
+descripcion = "Abres lo que ya estaba abierto, y sale todo de una vez."
+padres = Array[StringName]([&"hasta_el_mango", &"por_la_espalda", &"arteria", &"mano_segura"])
+excluye = Array[StringName]([&"asesinato"])
+nivel_min = 4
+dominio = 900
+oro = 25000
+cambios = {"detona_estado": ["set", 1], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_ejecucion"]
+script = ExtResource("nodo_mejora")
+id = &"ejecucion"
+nombre = "Ejecución"
+descripcion = "Uno menos, y la mano ya está lista para el siguiente."
+padres = Array[StringName]([&"asesinato", &"desangrar"])
+excluye = Array[StringName]([&"golpe_y_fuera"])
+nivel_min = 5
+dominio = 1200
+oro = 70000
+cambios = {"recarga_al_matar": ["set", true], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_golpe_y_fuera"]
+script = ExtResource("nodo_mejora")
+id = &"golpe_y_fuera"
+nombre = "Golpe y fuera"
+descripcion = "Clavas, sueltas y ya no estás."
+padres = Array[StringName]([&"asesinato", &"desangrar"])
+excluye = Array[StringName]([&"ejecucion"])
+nivel_min = 5
+dominio = 1200
+oro = 70000
+cambios = {"se_aparta": ["add", 40.0], "potencia": ["presupuesto", 0.875], "potencia_coste": ["presupuesto", 1.0]}
 
 [resource]
 script = ExtResource("1")
@@ -37,3 +159,5 @@ forma_tramo_baja = 0.5
 efectos = [SubResource("SA_sang"), SubResource("SA_sang_crit")]
 efectos_por_golpe = true
 descripcion = "Un único tajo profundo y comprometido con sangrado garantizado; si clavas un crítico, abres una segunda herida. Todo o nada: si te esquivan pierdes el golpe entero."
+; EL ARBOL (24/11, cerrado con el jefe): lo escribe tools/arboles_habilidades.py, no tocarlo a mano.
+arbol = [SubResource("NM_pun_punto_debil"), SubResource("NM_pun_herida_abierta"), SubResource("NM_pun_hasta_el_mango"), SubResource("NM_pun_por_la_espalda"), SubResource("NM_pun_arteria"), SubResource("NM_pun_mano_segura"), SubResource("NM_pun_asesinato"), SubResource("NM_pun_desangrar"), SubResource("NM_pun_ejecucion"), SubResource("NM_pun_golpe_y_fuera")]
