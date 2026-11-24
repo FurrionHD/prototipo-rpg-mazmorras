@@ -228,6 +228,9 @@ const GRUPOS := {
 	"solo_guerrero": ["guerrero"],
 	"solo_mago": ["mago"],
 	"duo": ["tanque", "mago"],
+	# (24/11, el jefe) PARA EL OPORTUNISTA: su seguimiento solo entra cuando OTRO de los tuyos golpea; el tanque va pegando
+	# y el guerrero (el del arma de la tanda) entra detras. Su daño se lee en <tanda>_personajes.csv, rol guerrero.
+	"pareja": ["guerrero", "tanque"],
 	"trio": ["tanque", "guerrero", "mago"],
 	"cuatro": ["tanque", "guerrero", "arquero", "mago"],
 }
