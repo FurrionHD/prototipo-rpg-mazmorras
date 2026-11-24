@@ -14,7 +14,9 @@ const AB := "res://resources/abilities/%s.tres"
 const CASOS := [
 	["rafaga", ["mas_tajos", "brazo_largo"], &"persiguen"],
 	["punalada", ["herida_abierta", "arteria"], &"desangrar"],
-	# (las otras tres, cuando tengan su arbol: filo_emponzonado, desaparecer, oportunista)
+	["filo_emponzonado", ["agarra_mejor", "dosis_cargadas"], &"ponzona_sangre"],
+	["desaparecer", ["a_fondo", "salir_sombras"], &"pies_niebla"],
+	["oportunista", ["entrar_fondo", "desequilibrar"], &"sin_rastro"],
 ]
 
 
@@ -63,6 +65,10 @@ func _ready() -> void:
 		menu._arbol_ui.fila_sel = AB % c[0]
 		menu._arbol_ui.nodo_sel = c[2]
 		menu._rebuild()
+		await _esperar()
+		# la lista de filas, bajada hasta abajo: la fila abierta (la ultima de las que se miran) a la vista
+		for sc in menu.find_children("*", "ScrollContainer", true, false):
+			(sc as ScrollContainer).scroll_vertical = 0 if k <= 2 else 100000   # las dos primeras ya caben
 		await _esperar()
 		get_viewport().get_texture().get_image().save_png("%s/%d_%s.png" % [CARPETA, k, c[0]])
 		k += 1

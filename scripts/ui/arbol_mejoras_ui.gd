@@ -317,7 +317,8 @@ func _pintar_fila(lienzo: Lienzo, pj: PersonajeData, clave: String, f: Resource,
 			b.forma = NodoUI.Forma.ROMBO if bool(n.get_meta(&"linea", false)) else NodoUI.Forma.CUADRO
 			if f == null:
 				b.forma = int((basico["formas"] as Dictionary).get(String(n.id), b.forma))
-			b.dibujo = icono
+			# (24/11) SU ICONO PROPIO si lo tiene (assets/ui/habilidades/<habilidad>__<nodo>.png); si no, el de su habilidad.
+			b.dibujo = _dibujo_png(_png_nodo(f, StringName(n.id)), icono) if f != null else icono
 			b.estado = (String((basico["estados"] as Dictionary).get(String(n.id), "falta")) if f == null
 				else (_estado(pj, f, n, cogidos) if sabida else "falta"))
 			b.elegido = (clave == fila_sel and id == nodo_sel)
@@ -465,8 +466,29 @@ func _columnas(f: Resource) -> int:
 	return m
 
 
-# EL DIBUJO del icono de una fila: el grimorio de la magia, o el arma (las habilidades, hasta que tengan el suyo).
+# (24/11) LOS ICONOS PROPIOS de las habilidades y de sus nodos (tools/iconos_habilidades_pixel.py --hornear).
+const CARPETA_ICONOS := "res://assets/ui/habilidades/"
+
+
+static func _png_nodo(f: Resource, id: StringName) -> String:
+	return CARPETA_ICONOS + "%s__%s.png" % [String(f.resource_path).get_file().get_basename(), String(id)]
+
+
+# Un PNG de 12 x 12 pintado a su tamaño, o el dibujo de respaldo si no existe.
+static func _dibujo_png(ruta: String, respaldo: Callable) -> Callable:
+	if not ResourceLoader.exists(ruta):
+		return respaldo
+	var tex: Texture2D = load(ruta)
+	return func(ci: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+		ci.draw_texture_rect(tex, Rect2(pos, Vector2(lado, lado)), false, Color(1, 1, 1, col.a))
+
+
+# EL DIBUJO del icono de una fila: el grimorio de la magia, o el de la habilidad (su PNG; si no tiene, el arma).
 func _dibujo_icono(f: Resource, arma: Resource) -> Callable:
+	if f is AbilityData:
+		var propio: Callable = _dibujo_png(CARPETA_ICONOS + String(f.resource_path).get_file().get_basename() + ".png", Callable())
+		if propio.is_valid():
+			return propio
 	if f is SpellData:
 		var tex: Texture2D = LibrosPixel.textura(LibrosPixel.id_de_magia(f))
 		if tex != null:
@@ -619,7 +641,13 @@ func _pintar_ficha(content: VBoxContainer, pj: PersonajeData, base: Resource, sa
 		var nombres: Array = (n.padres as Array).map(func(pa):
 			var x: Resource = Mejoras.nodo(base, StringName(pa))
 			return String(x.nombre) if x != null else String(pa))
-		_req(content, "Antes: " + " o ".join(PackedStringArray(nombres)), padres_ok)
+		# (24/11) con muchos (los que se cogen desde cualquiera del nivel anterior), sin la lista: ensanchaba el panel
+		if nombres.size() >= 3:
+			var p0: Resource = Mejoras.nodo(base, StringName(n.padres[0]))
+			_req(content, "Antes: cualquiera de los %d del nivel %d" % [nombres.size(), int(p0.nivel_min) if p0 != null else 0],
+				padres_ok)
+		else:
+			_req(content, "Antes: " + " o ".join(PackedStringArray(nombres)), padres_ok)
 	_req(content, "Nivel %d" % int(n.nivel_min), int(pj.level) >= int(n.nivel_min))
 	_req(content, "Dominio %d (llevas %d)" % [int(n.dominio), int((pj.dominio as Dictionary).get(ruta, 0))],
 		int((pj.dominio as Dictionary).get(ruta, 0)) >= int(n.dominio))

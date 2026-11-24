@@ -35,6 +35,8 @@ PAL = {
     'k': (52, 44, 70), 'K': (34, 28, 48),
     # ojo
     'e': (238, 230, 206), 'y': (176, 132, 255), 'i': (30, 22, 50),
+    # energia (amarillo) y piel
+    'E': (255, 222, 80), 'F': (196, 150, 30), 'n': (232, 184, 142), 'N': (168, 118, 86),
 }
 
 
@@ -203,6 +205,297 @@ def oportunista():
     return L.hecho()
 
 
+# ------------------------------------------------------------------ piezas de los NODOS (24/11): un dibujo sencillo de lo
+# que hace cada uno. Patrones en letras; 'rc' los cambia de color (la gota roja vale de verde para el veneno).
+def rc(pat, m):
+    return [''.join(m.get(ch, ch) for ch in f) for f in pat]
+
+
+VERDE = {'r': 'g', 'p': 'q', 'R': 'G'}
+GOTA = [".r.", "rpr", "rrR", ".R."]
+GOTA_G = ["..r..", ".rpr.", "rprrr", "rrrrR", "rrrRR", ".RRR."]
+CALAVERA = [".eeeee.", "eeeeeee", "eiieiie", "eiieiie", "eeeieee", ".eemee.", ".e.e.e."]
+RELOJ = ["HHHHHH", ".vaav.", "..aa..", "..vv..", ".vaav.", ".aaaa.", "HHHHHH"]
+PLUMA = ["......lw", ".....lwl", "....lwl.", "...lwl..", "..lml...", ".dm.....", "d......."]
+FLECHA = ["....w..", "....ww.", "wwwwwww", "....ww.", "....w.."]
+RAYO = ["..EE", ".EE.", "EEEE", ".EE.", "EE.."]
+FRASCO = [".hh.", ".vv.", "vqgv", "vggv", "vgGv", ".vv."]
+PUNO = [".nnnn.", "nnnnnn", "nNnNnN", "nnnnnn", ".nnnN.", "..nN.."]
+ESTRELLA = ["...w...", "...w...", ".wwlww.", "wwlwlww", ".wwlww.", "...w...", "...w..."]
+PIE = [".nn.", "nnnn", "nnnn", ".nnN", ".nN.", ".NN."]   # una huella: la suela
+OJO = ["..kkkkk..", ".eeeeeee.", "eeeyiyeee", ".eeyyyee.", "..eeeee.."]
+SILUETA = ["..kk..", ".kkkk.", ".kkkk.", "..kk..", "kkkkkk", "kkkkkk"]
+
+
+def daga_v(L, x, y, largo=6, punta_abajo=True):
+    """Una daga vertical de 2 de ancho: cruz, mango y hoja de 'largo'."""
+    if punta_abajo:
+        L.filas(x, y, [".aA.", ".hH.", "aaaA"])
+        for k in range(largo):
+            L.filas(x, y + 3 + k, [".wm." if k < largo - 1 else ".ld."])
+    else:
+        for k in range(largo):
+            L.filas(x, y + k, [".ld." if k == 0 else ".wm."])
+        L.filas(x, y + largo, ["aaaA", ".hH.", ".aA."])
+
+
+def tajo(L, x0, y0, x1, y1):
+    L.linea(x0, y0, x1, y1, ['d', 'm', 'l', 'w'])
+
+
+def nube(L, cx, cy, s=1.0):
+    L.disco(cx - 2.4 * s, cy + 0.6 * s, 2.2 * s, 's', luz='t', sombra='S')
+    L.disco(cx + 0.4 * s, cy - 0.4 * s, 2.7 * s, 's', luz='t', sombra='S')
+    L.disco(cx + 2.8 * s, cy + 0.9 * s, 2.0 * s, 's', luz='t', sombra='S')
+
+
+def _n(fn):
+    """Un dibujo de nodo a partir de una funcion que pinta en un Lienzo."""
+    def f():
+        L = Lienzo()
+        fn(L)
+        return L.hecho()
+    return f
+
+
+# --- RAFAGA
+def _mas_tajos(L):
+    for k in range(4):
+        tajo(L, k * 3 - 1, 10, k * 3 + 2, 3)
+def _hoja_fina(L):
+    L.linea(1, 10, 10, 1, ['d', 'm', 'l', 'w'])
+    L.linea(2, 10, 11, 1, ['d', 'm', 'l', 'l'])
+def _remolino(L):
+    L.arco(5.5, 5.5, 4.5, 0, 300, ['d', 'm', 'l', 'w'], paso=6)
+    L.arco(5.5, 5.5, 2.5, 180, 420, ['d', 'm', 'l'], paso=10)
+def _brazo_largo(L):
+    tajo(L, 0, 11, 6, 5)
+    L.filas(5, 1, ["..www", "...ww", "..w.w", ".w...", "w...."])
+def _mil_cortes(L):
+    for x, y in ((0, 0), (5, 1), (8, 4), (2, 5), (6, 7), (0, 8)):
+        L.filas(x, y, GOTA)
+def _entrar_bailando(L):
+    L.filas(1, 6, PIE)
+    L.filas(7, 0, PIE)
+    L.linea(0, 2, 4, 2, ['S', 's', 't'])
+    L.linea(6, 8, 10, 8, ['S', 's', 't'])
+def _persiguen(L):
+    L.filas(0, 5, CALAVERA)
+    L.arco(8.0, 6.0, 4.0, -170, -30, ['m', 'l', 'w'], paso=8)
+    L.filas(9, 7, ["e.", "ee", ".e"])
+def _remate(L):
+    L.filas(1, 4, GOTA_G)
+    tajo(L, 4, 11, 11, 0)
+def _frenesi(L):
+    L.filas(3, 2, RELOJ)
+    tajo(L, 0, 11, 3, 8)
+    tajo(L, 9, 11, 11, 9)
+def _ligera(L):
+    L.filas(2, 2, PLUMA)
+
+
+# --- PUÑALADA
+def _punto_debil(L):
+    L.disco(6, 6, 5.5, 'e')
+    L.disco(6, 6, 4.0, 'r')
+    L.disco(6, 6, 2.5, 'e')
+    L.disco(6, 6, 1.2, 'r')
+def _herida_abierta(L):
+    L.filas(3, 2, GOTA_G)
+    L.filas(4, 4, ["..", ".R", "R."])
+def _hasta_el_mango(L):
+    L.filas(0, 7, ["dddddddddddd", "mmmmmmmmmmmm", "dddddddddddd"])
+    daga_v(L, 4, 0, 4)
+def _por_la_espalda(L):
+    L.filas(0, 3, SILUETA + ["kkkkkk"])
+    L.linea(6, 11, 11, 3, ['d', 'm', 'l', 'w'])
+    L.filas(5, 10, ["a.", "ha"])
+def _arteria(L):
+    L.filas(1, 2, GOTA_G)
+    L.filas(6, 5, GOTA_G)
+def _mano_segura(L):
+    # la mano cerrada AGARRANDO la daga (la hoja sale por abajo)
+    L.filas(5, 0, ["aA"])
+    L.filas(2, 1, ["nnnnnnn", "nNnNnNn", "nnnnnnN", ".aaaaA."])
+    L.filas(5, 5, ["wm", "wm", "wm", "wm", "ld"])
+def _asesinato(L):
+    L.filas(2, 2, CALAVERA)
+def _desangrar(L):
+    L.filas(3, 3, GOTA_G)
+    for x, y in ((1, 1), (10, 1), (0, 7), (11, 8), (5, 0)):
+        L.px(x, y, 'r')
+def _ejecucion(L):
+    L.filas(3, 3, CALAVERA)
+    L.arco(6.5, 6.5, 5.5, 200, 520, ['E', 'E', 'F'], paso=8)
+    L.filas(0, 5, ["E", "EE"])
+def _golpe_y_fuera(L):
+    L.filas(4, 6, [f[::-1] for f in FLECHA])   # la flecha hacia atras (a la izquierda)
+    daga_v(L, 7, 0, 4)
+
+
+# --- FILO EMPONZOÑADO
+def _agarra(L):
+    L.linea(1, 10, 10, 1, ['d', 'm', 'l', 'w'])
+    L.filas(5, 5, rc(GOTA, VERDE))
+def _mas_usos(L):
+    for k in range(3):
+        L.filas(k * 4, 3 + (k % 2) * 3, rc(GOTA, VERDE))
+def _dosis_cargadas(L):
+    L.filas(1, 4, FRASCO)
+    L.filas(7, 1, ["..q..", ".qqq.", "qqqqq", "..q..", "..q..", "..q.."])
+def _veneno_fuerte(L):
+    L.filas(2, 2, rc(GOTA_G, {'r': 'G', 'p': 'g', 'R': 'G'}))
+    L.filas(3, 4, ["...", ".iq", "..."])
+def _compartir(L):
+    L.filas(0, 3, FRASCO)
+    L.filas(6, 5, FRASCO)
+def _mano_rapida(L):
+    L.filas(3, 2, rc(RELOJ, {'a': 'g'}))
+def _acido(L):
+    L.filas(1, 1, ["dddddddd.", "dmmmmmmd.", "dm.m.mmd.", "dmmm.mmd.", ".dmm.md..", "..dm.d...", "...dd...."])
+    L.filas(7, 6, rc(GOTA, VERDE))
+def _ponzona_sangre(L):
+    L.filas(0, 3, rc(GOTA_G, VERDE))
+    L.filas(6, 5, GOTA_G)
+def _toxina(L):
+    L.filas(3, 3, rc(GOTA_G, VERDE))
+    for x, y in ((1, 1), (10, 1), (0, 7), (11, 8), (5, 0)):
+        L.px(x, y, 'g')
+def _senal(L):
+    L.filas(0, 4, rc(GOTA_G, VERDE))
+    L.filas(7, 3, RAYO)
+
+
+# --- DESAPARECER
+def _nube_grande(L):
+    nube(L, 6.0, 6.5, 1.25)
+def _a_fondo(L):
+    nube(L, 6.0, 9.0, 0.8)
+    daga_v(L, 4, 0, 5)
+def _humo_espeso(L):
+    nube(L, 6.0, 7.0, 1.2)
+    L.filas(3, 5, ["iiiiii"])
+def _humo_todos(L):
+    nube(L, 6.0, 9.0, 1.0)
+    L.filas(0, 1, SILUETA)
+    L.filas(6, 1, SILUETA)
+def _salir_sombras(L):
+    L.disco(6, 8.5, 3.5, 'k', sombra='K')
+    L.linea(6, 0, 6, 6, ['w', 'l', 'm'])
+    L.filas(5, 6, ["aaa"])
+def _escabullirse(L):
+    L.filas(0, 3, SILUETA)
+    L.filas(5, 5, FLECHA)
+def _desvio(L):
+    # el ojo que ya no te ve: tachado
+    L.filas(1, 3, OJO)
+    L.linea(1, 10, 10, 1, ['r', 'r', 'p'])
+def _pies_niebla(L):
+    nube(L, 6.0, 8.5, 1.0)
+    L.filas(1, 0, PIE)
+    L.filas(7, 1, PIE)
+def _sombra_larga(L):
+    L.filas(0, 1, SILUETA)
+    L.filas(0, 8, ["KKKKKKKKKKKK", ".kkkkkkkkkk."])
+    L.filas(7, 1, ["HHHH", ".aa.", ".vv.", "HHHH"])
+def _recarga(L):
+    nube(L, 5.0, 8.0, 1.0)
+    L.filas(7, 0, RAYO)
+
+
+# --- OPORTUNISTA
+def _mas_huecos(L):
+    L.filas(0, 0, [".kkk.", "eyie.", ".eee."])
+    L.filas(6, 3, [".kkk.", "eyie.", ".eee."])
+    L.filas(2, 7, [".kkk.", "eyie.", ".eee."])
+def _entrar_fondo(L):
+    daga_v(L, 4, 0, 7)
+    L.filas(0, 9, ["kkkkkkkkkkkk", "KKKKKKKKKKKK"])
+def _ojo_halcon(L):
+    L.filas(0, 2, OJO)
+    L.filas(5, 7, FLECHA)
+def _critico_cadena(L):
+    L.filas(0, 0, ESTRELLA)
+    L.filas(5, 7, ["mm.mm", "m.m.m", "mm.mm"])
+def _llegar_matando(L):
+    L.arco(6.0, 9.0, 6.0, 200, 300, ['t', 't', 's'], paso=10)
+    daga_v(L, 7, 2, 6)
+def _desequilibrar(L):
+    L.filas(1, 3, SILUETA)
+    L.filas(7, 2, ["..w", ".w.", "w..", ".w.", "..w"])
+def _sin_rastro(L):
+    # las huellas que se van borrando
+    L.filas(0, 6, PIE)
+    L.filas(4, 3, rc(PIE, {'n': 's', 'N': 'S'}))
+    L.filas(8, 0, rc(PIE, {'n': 'S', 'N': 'S'}))
+def _aprovechado(L):
+    L.linea(1, 10, 7, 4, ['d', 'm', 'l', 'w'])
+    L.filas(7, 2, RAYO)
+def _salto_largo(L):
+    L.arco(6.0, 11.0, 5.5, 190, 350, ['l', 'l', 'w'], paso=6)
+    L.filas(9, 8, ["w.", "ww"])
+    L.filas(0, 8, ["kk", "kk"])
+def _entrar_dos(L):
+    L.linea(1, 10, 9, 2, ['d', 'm', 'l', 'w'])
+    L.linea(10, 10, 2, 2, ['d', 'm', 'l', 'w'])
+
+
+NODOS = [
+    ("rafaga", [("mas_tajos", "Más tajos", _mas_tajos), ("hoja_fina", "Hoja fina", _hoja_fina),
+                ("remolino", "Remolino", _remolino), ("brazo_largo", "Brazo largo", _brazo_largo),
+                ("mil_cortes", "Mil cortes", _mil_cortes), ("entrar_bailando", "Entrar bailando", _entrar_bailando),
+                ("persiguen", "Persiguen", _persiguen), ("remate", "Remate", _remate),
+                ("frenesi", "Frenesí", _frenesi), ("ligera", "Ráfaga ligera", _ligera)]),
+    ("punalada", [("punto_debil", "Punto débil", _punto_debil), ("herida_abierta", "Herida abierta", _herida_abierta),
+                  ("hasta_el_mango", "Hasta el mango", _hasta_el_mango), ("por_la_espalda", "Por la espalda", _por_la_espalda),
+                  ("arteria", "Arteria", _arteria), ("mano_segura", "Mano segura", _mano_segura),
+                  ("asesinato", "Asesinato", _asesinato), ("desangrar", "Desangrar", _desangrar),
+                  ("ejecucion", "Ejecución", _ejecucion), ("golpe_y_fuera", "Golpe y fuera", _golpe_y_fuera)]),
+    ("filo_emponzonado", [("agarra_mejor", "Agarra mejor", _agarra), ("mas_usos", "Más usos", _mas_usos),
+                          ("dosis_cargadas", "Dosis cargadas", _dosis_cargadas), ("veneno_fuerte", "Veneno fuerte", _veneno_fuerte),
+                          ("compartir", "Compartir", _compartir), ("mano_rapida", "Mano rápida", _mano_rapida),
+                          ("acido", "Ácido", _acido), ("ponzona_sangre", "Ponzoña y sangre", _ponzona_sangre),
+                          ("toxina", "Toxina", _toxina), ("senal", "Señal", _senal)]),
+    ("desaparecer", [("nube_grande", "Nube grande", _nube_grande), ("a_fondo", "A fondo", _a_fondo),
+                     ("humo_espeso", "Humo espeso", _humo_espeso), ("humo_todos", "Humo para todos", _humo_todos),
+                     ("salir_sombras", "Salir de sombras", _salir_sombras), ("escabullirse", "Escabullirse", _escabullirse),
+                     ("desvio", "Desvío", _desvio), ("pies_niebla", "Pies en niebla", _pies_niebla),
+                     ("sombra_larga", "Sombra larga", _sombra_larga), ("recarga", "Recarga", _recarga)]),
+    ("oportunista", [("mas_huecos", "Más huecos", _mas_huecos), ("entrar_fondo", "Entrar a fondo", _entrar_fondo),
+                     ("ojo_halcon", "Ojo de halcón", _ojo_halcon), ("critico_cadena", "Crítico cadena", _critico_cadena),
+                     ("llegar_matando", "Llegar matando", _llegar_matando), ("desequilibrar", "Desequilibrar", _desequilibrar),
+                     ("sin_rastro", "Sin rastro", _sin_rastro), ("aprovechado", "Aprovechado", _aprovechado),
+                     ("salto_largo", "Salto largo", _salto_largo), ("entrar_dos", "Entrar los dos", _entrar_dos)]),
+]
+
+
+def lamina_nodos(archivo):
+    col, alto = 124, 150
+    lam = Image.new('RGB', (20 + col * 10, 30 + alto * len(NODOS)), (13, 14, 19))
+    d = ImageDraw.Draw(lam)
+    try:
+        fuente = ImageFont.truetype("arial.ttf", 11)
+        fuente_t = ImageFont.truetype("arial.ttf", 14)
+    except OSError:
+        fuente = fuente_t = None
+    for j, (hab, nodos) in enumerate(NODOS):
+        y = 10 + j * alto
+        d.text((20, y), dict((c, n) for c, n, _ in HABILIDADES)[hab], fill=(240, 200, 110), font=fuente_t)
+        for k, (clave, nombre, fn) in enumerate(nodos):
+            x = 20 + k * col
+            ic = icono(_n(fn)())
+            g = ic.resize((N * 6, N * 6), Image.NEAREST)
+            lam.paste(g, (x, y + 22), g)
+            nodo = en_nodo(ic, 3, 'cuadro', (150, 156, 170))
+            lam.paste(nodo, (x + 74, y + 46), nodo)
+            d.text((x, y + 100), nombre, fill=(225, 225, 225), font=fuente)
+    carpeta = os.path.join(os.path.expanduser('~'), 'Desktop', 'iconos_habilidades')
+    os.makedirs(carpeta, exist_ok=True)
+    ruta = os.path.join(carpeta, archivo)
+    lam.save(ruta)
+    return ruta
+
+
 HABILIDADES = [
     ("rafaga", "Ráfaga", rafaga),
     ("punalada", "Puñalada certera", punalada),
@@ -273,14 +566,23 @@ def lamina(lista, archivo):
 def hornear():
     carpeta = os.path.join(RAIZ, 'assets', 'ui', 'habilidades')
     os.makedirs(carpeta, exist_ok=True)
-    for clave, _n, fn in HABILIDADES:
+    for clave, _nombre, fn in HABILIDADES:
         icono(fn()).save(os.path.join(carpeta, clave + '.png'))
+    # los de los nodos: <habilidad>__<nodo>.png (lo que busca arbol_mejoras_ui)
+    for hab, nodos in NODOS:
+        for clave, _nombre, fn in nodos:
+            icono(_n(fn)()).save(os.path.join(carpeta, '%s__%s.png' % (hab, clave)))
     return carpeta
 
 
 if __name__ == '__main__':
     if '--hornear' in sys.argv:
         print(hornear())
+    elif '--nodos' in sys.argv:
+        r = lamina_nodos('lamina_nodos_daga.png')
+        print(r)
+        if '--abrir' in sys.argv:
+            subprocess.Popen(['mspaint', r])
     else:
         r = lamina(HABILIDADES, 'lamina_daga.png')
         print(r)

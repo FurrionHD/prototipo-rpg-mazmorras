@@ -99,9 +99,12 @@ static func _hornear(copia: Resource) -> void:
 	if POTENCIA in copia:
 		var p: float = float(copia.get(POTENCIA))
 		if not is_equal_approx(p, 1.0):
-			for c in ["dano_mult", "dano_base", "imbue_fuerza"]:
+			for c in ["dano_mult", "dano_base"]:
 				if c in copia:
 					copia.set(c, float(copia.get(c)) * p)
+			# la fuerza del veneno, SOLO en las que impregnan el arma (el Filo): las demas no tienen veneno que subir
+			if "imbue_fuerza" in copia and int(copia.get("imbue_estado")) >= 0 and float(copia.get("dano_mult")) <= 0.0:
+				copia.set("imbue_fuerza", float(copia.get("imbue_fuerza")) * p)
 			copia.set(POTENCIA, 1.0)
 	if POTENCIA_COSTE in copia:
 		var k: float = float(copia.get(POTENCIA_COSTE))
