@@ -462,6 +462,7 @@ func _leer_args() -> void:
 			"basico_energia": _basico_energia = kv[1]
 			"mejora_energia": _mejora_energia = -1.0 if kv[1] == "basico" else float(kv[1])
 			"solo_basico": _solo_basico = kv[1] == "1"
+			"muneco_tick": _muneco_tick = int(kv[1])
 			"stats_nivel": _tope = float(kv[1])
 			"ver": _ver = kv[1] == "1"
 			"vel_enemigos": _vel_enemigos = kv[1]
@@ -644,6 +645,8 @@ func _personaje(piso: int, rol: String, en_grupo: bool, arma_g: String = "") -> 
 # Tambien la linea de la varita y la del escudo, un paso por nivel subido.
 var _receta := "a_mix"
 var _solo_basico := false
+# (24/11) cada cuantos turnos tuyos le tocan al MUÑECO sus daños por turno (0 = nunca, lo de antes)
+var _muneco_tick := 2
 
 func _poner_arbol_basico(p: PersonajeData, piso: int) -> void:
 	var nivel: int = 1 + (piso - 1) / PISOS_NIVEL
@@ -1427,6 +1430,7 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 		vida0[a] = a.current_hp
 		mp0 += a.current_mp
 	_hist.clear()
+	var sig_tick: int = _muneco_tick
 	var resultado := "?"
 	var fotos: int = 0
 	while true:
@@ -1462,6 +1466,14 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 			resultado = "ATASCADA"
 			_volcar_atasco()
 			break
+		# (24/11) EL MUÑECO NO ACTUA, PERO SANGRA: sin turnos nunca le tocaban los daños por turno (sangrado, veneno,
+		# quemadura) y Desangrar parecia lo unico que los cobraba. Cada _muneco_tick turnos tuyos (un ciclo) le toca su
+		# "inicio de turno" (el daño de sus estados y que se le gasten), como a un enemigo que no hace nada.
+		if String(caso[2]) in ESC_MUNECO and _muneco_tick > 0 and mios >= sig_tick:
+			sig_tick = mios + _muneco_tick
+			for e in _cb._enemies:
+				if e.is_alive():
+					e.tick_statuses()
 		var tp: int = Time.get_ticks_usec()
 		_pilotar()
 		_crono["~piloto"] = float(_crono.get("~piloto", 0.0)) + (Time.get_ticks_usec() - tp) / 1000.0
