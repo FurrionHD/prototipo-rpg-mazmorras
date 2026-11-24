@@ -638,7 +638,7 @@ func _pintar_ficha(content: VBoxContainer, pj: PersonajeData, base: Resource, sa
 		Game.poner_sin_mejoras(base, on, pj)
 		_menu._rebuild())
 	content.add_child(sin)
-	MenuScaffold.fila(content, "Dominio", "%d usos" % int((pj.dominio as Dictionary).get(ruta, 0)))
+	_pintar_dominio(content, pj, base)
 	MenuScaffold.separador(content)
 	var n: Resource = Mejoras.nodo(base, nodo_sel) if nodo_sel != &"" else null
 	if n == null:
@@ -696,6 +696,51 @@ func _pintar_ficha(content: VBoxContainer, pj: PersonajeData, base: Resource, sa
 		_menu._aviso = ("Mejora conseguida: %s" % n.nombre) if r == "" else ("No se puede: " + r)
 		_menu._aviso_ok = (r == "")
 		_menu._rebuild(), motivo == "")
+
+
+# EL DOMINIO (24/11, el jefe): "Dominio 137 / 300" (lo que llevas y lo siguiente que pide su arbol), una barra hasta
+# ahi y, en el COLOR de como sube, a que ritmo sube en el piso (Mejoras.prob_dominio): en la mazmorra el de ahora; en el
+# pueblo, el mas hondo al que has llegado (es donde la entrenarias).
+const NOMBRE_RITMO := {
+	Mejoras.Ritmo.NARANJA: "sube siempre",
+	Mejoras.Ritmo.AMARILLO: "sube bien",
+	Mejoras.Ritmo.VERDE: "sube poco",
+	Mejoras.Ritmo.GRIS: "ya no sube: baja más hondo",
+}
+
+func _pintar_dominio(content: VBoxContainer, pj: PersonajeData, base: Resource) -> void:
+	var d: int = int((pj.dominio as Dictionary).get(String(base.resource_path), 0))
+	var meta: int = Mejoras.dominio_siguiente(pj, base)
+	var en_mazmorra: bool = _en_mazmorra()
+	var piso: int = Mejoras.piso_de_ahora() if en_mazmorra else maxi(1, int(pj.piso_hondo))
+	var ritmo: int = Mejoras.ritmo_dominio(d, piso)
+	var col: Color = Mejoras.COLOR_RITMO[ritmo]
+	MenuScaffold.fila(content, "Dominio", ("%d / %d" % [d, meta]) if meta > 0 else str(d), 200, col)
+	# La barra: hasta lo siguiente que pide (sin nada mas que pedir, llena).
+	var fondo := ColorRect.new()
+	fondo.color = OSCURO
+	fondo.custom_minimum_size = Vector2(0, 3.0 * P)
+	fondo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var lleno := ColorRect.new()
+	lleno.color = col
+	lleno.anchor_bottom = 1.0
+	lleno.anchor_right = clampf(float(d) / float(meta), 0.0, 1.0) if meta > 0 else 1.0
+	fondo.add_child(lleno)
+	content.add_child(fondo)
+	var l := Label.new()
+	var donde: String = ("en este piso (%d)" % piso) if en_mazmorra 		else "en el piso %d (el más hondo al que has llegado)" % piso
+	var prob: int = roundi(Mejoras.prob_dominio(d, piso) * 100.0)
+	l.text = "%s: %s" % [donde[0].to_upper() + donde.substr(1), NOMBRE_RITMO[ritmo]] 		+ ((", un %d %% de los usos" % prob) if prob > 0 else "")
+	l.add_theme_font_size_override("font_size", 11)
+	l.add_theme_color_override("font_color", col)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(l)
+
+
+# ¿En la mazmorra (la escena de los pisos)? Fuera de ella (el pueblo, una herramienta) manda tu piso mas hondo.
+func _en_mazmorra() -> bool:
+	var s: Node = (Engine.get_main_loop() as SceneTree).current_scene
+	return s != null and s.scene_file_path.ends_with("levels/main.tscn")
 
 
 func _req(content: VBoxContainer, txt: String, ok: bool) -> void:

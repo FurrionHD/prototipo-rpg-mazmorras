@@ -191,11 +191,85 @@ static func motivo_no(p, base: Resource, id: StringName, nivel: int, oro: int) -
 	return ""
 
 
-# El dominio de una habilidad: cada vez que se usa en una pelea, +1 a SU ficha (montada o no, cuenta para la ficha).
-static func sumar_dominio(p, r, n: int = 1) -> void:
+# ------------------------------------------------------------
+#  EL DOMINIO POR TRAMOS (24/11, el jefe: "como las profesiones del WoW")
+# ------------------------------------------------------------
+# Cada vez que se usa en una pelea, TIRA por +1 a SU ficha (montada o no, cuenta para la ficha). La prob depende de tu
+# dominio frente al PISO donde la usas, para que no se pueda subir spameando en el piso 1. Cada piso tiene su TRAMO de 25
+# (piso p: de 25(p-1) a 25p):
+#   por DEBAJO del tramo            100 %         NARANJA  (el piso te queda grande: sube siempre)
+#   DENTRO del tramo                 70 -> 40 %   AMARILLO (bajando seguido de su principio a su final)
+#   en el tramo del piso SIGUIENTE   20 -> 10 %   VERDE    (ya casi no te enseña nada)
+#   mas arriba                        0 %         GRIS     (aqui ya no aprendes: baja mas hondo)
+# Los nodos piden 300 por nivel por encima del 1 (tools/arboles_habilidades.py): el nivel 2, 300 = acabar el piso 12.
+# Habilidades Y magias (combat_magia tambien lo llama).
+const DOMINIO_TRAMO := 25
+enum Ritmo { NARANJA, AMARILLO, VERDE, GRIS }
+const COLOR_RITMO := {
+	Ritmo.NARANJA: Color(1.0, 0.55, 0.2),
+	Ritmo.AMARILLO: Color(1.0, 0.85, 0.3),
+	Ritmo.VERDE: Color(0.45, 0.85, 0.4),
+	Ritmo.GRIS: Color(0.55, 0.55, 0.6),
+}
+
+
+static func ritmo_dominio(dominio: int, piso: int) -> int:
+	var ini: int = DOMINIO_TRAMO * (maxi(1, piso) - 1)
+	if dominio < ini:
+		return Ritmo.NARANJA
+	if dominio < ini + DOMINIO_TRAMO:
+		return Ritmo.AMARILLO
+	if dominio < ini + DOMINIO_TRAMO * 2:
+		return Ritmo.VERDE
+	return Ritmo.GRIS
+
+
+# La prob de que este uso le sume +1 (0..1).
+static func prob_dominio(dominio: int, piso: int) -> float:
+	var ini: int = DOMINIO_TRAMO * (maxi(1, piso) - 1)
+	var dentro: float = float(dominio - ini) / float(DOMINIO_TRAMO)   # 0 al empezar el tramo, 1 al acabarlo
+	match ritmo_dominio(dominio, piso):
+		Ritmo.NARANJA:
+			return 1.0
+		Ritmo.AMARILLO:
+			return lerpf(0.7, 0.4, dentro)
+		Ritmo.VERDE:
+			return lerpf(0.2, 0.1, dentro - 1.0)
+	return 0.0
+
+
+# EL PISO DONDE SE PELEA: el de la mazmorra (en la arena de pruebas, el que simula).
+static func piso_de_ahora() -> int:
+	return maxi(1, int(Game.current_floor))
+
+
+# Un uso: tira y, si sale, +1. 'piso' < 1 = el de ahora; 'tirada' (0..1) solo para las pruebas (< 0 = al azar).
+# Devuelve si ha subido.
+static func sumar_dominio(p, r, piso: int = -1, tirada: float = -1.0) -> bool:
 	if p == null or r == null:
-		return
+		return false
 	var ruta: String = ruta_base(r)
 	if ruta.is_empty():
-		return
-	p.dominio[ruta] = int((p.dominio as Dictionary).get(ruta, 0)) + n
+		return false
+	var d: int = int((p.dominio as Dictionary).get(ruta, 0))
+	var prob: float = prob_dominio(d, piso if piso >= 1 else piso_de_ahora())
+	if (tirada if tirada >= 0.0 else randf()) >= prob:
+		return false
+	p.dominio[ruta] = d + 1
+	return true
+
+
+# LO SIGUIENTE QUE PIDE dominio en su arbol (el mas bajo de los nodos aun sin coger que pida mas de lo que llevas); 0 = nada.
+static func dominio_siguiente(p, base: Resource) -> int:
+	if base == null or base.get("arbol") == null:
+		return 0
+	var ruta: String = String(base.resource_path)
+	var d: int = int((p.dominio as Dictionary).get(ruta, 0))
+	var cogidos: Array = (p.nodos_elegidos as Dictionary).get(ruta, [])
+	var mejor: int = 0
+	for n in base.arbol:
+		if n == null or cogidos.has(String(n.id)) or int(n.dominio) <= d:
+			continue
+		if mejor == 0 or int(n.dominio) < mejor:
+			mejor = int(n.dominio)
+	return mejor

@@ -41,9 +41,12 @@ func _ready() -> void:
 	pj.level = 4
 	pj.piso_hondo = 40
 	Game.money = 30000
+	# (24/11) un dominio distinto a cada una, para ver los cuatro colores del ritmo en el piso 40 (su tramo, 975-1000):
+	# naranja (debajo), amarillo (dentro), verde (el del piso 41), gris (mas arriba)
+	var dominios := {"rafaga": 950, "punalada": 985, "filo_emponzonado": 1010, "desaparecer": 1060, "oportunista": 950}
 	for c in CASOS:
 		var ruta: String = AB % c[0]
-		pj.dominio[ruta] = 950
+		pj.dominio[ruta] = int(dominios.get(c[0], 950))
 		pj.nodos_elegidos[ruta] = c[1]
 
 	var menu: Node = get_tree().get_first_node_in_group("maestro_menu")

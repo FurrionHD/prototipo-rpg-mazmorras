@@ -102,9 +102,50 @@ func test_dominio_cuenta_para_la_ficha() -> void:
 	var base := _venablo_con_arbol()
 	var p := PersonajeData.new()
 	var m: Resource = Mejoras.montar(base, ["a"])
-	Mejoras.sumar_dominio(p, base)
-	Mejoras.sumar_dominio(p, m)   # la montada cuenta para su ficha
+	Mejoras.sumar_dominio(p, base, 1, 0.0)
+	Mejoras.sumar_dominio(p, m, 1, 0.0)   # la montada cuenta para su ficha
 	igual(int(p.dominio.get(String(base.resource_path), 0)), 2, "dos usos, a la ficha")
+
+
+# EL DOMINIO POR TRAMOS (24/11, el jefe): tramo del piso p = 25(p-1)..25p; debajo 100 %, dentro 70->40 %, en el del piso
+# siguiente 20->10 %, mas arriba 0 %.
+func test_dominio_por_tramos() -> void:
+	igual(Mejoras.prob_dominio(0, 1), 0.7, "piso 1 al empezar: 70 %")
+	cierto(absf(Mejoras.prob_dominio(24, 1) - 0.412) < 0.001, "al final de su tramo, casi 40 %")
+	igual(Mejoras.prob_dominio(25, 1), 0.2, "en el tramo del piso 2, estando en el 1: 20 %")
+	cierto(absf(Mejoras.prob_dominio(49, 1) - 0.104) < 0.001, "y bajando hasta casi 10 %")
+	igual(Mejoras.prob_dominio(50, 1), 0.0, "mas arriba, en el piso 1 ya no sube")
+	igual(Mejoras.prob_dominio(137, 13), 1.0, "en un piso mas hondo que tu tramo, siempre")
+	igual(Mejoras.ritmo_dominio(137, 13), Mejoras.Ritmo.NARANJA, "naranja")
+	igual(Mejoras.ritmo_dominio(10, 1), Mejoras.Ritmo.AMARILLO, "amarillo")
+	igual(Mejoras.ritmo_dominio(30, 1), Mejoras.Ritmo.VERDE, "verde")
+	igual(Mejoras.ritmo_dominio(60, 1), Mejoras.Ritmo.GRIS, "gris")
+	# la tirada: por encima de la prob no sube
+	var base := _venablo_con_arbol()
+	var p := PersonajeData.new()
+	cierto(not Mejoras.sumar_dominio(p, base, 1, 0.75), "en el piso 1 con 0, una tirada de 0,75 no sube (70 %)")
+	cierto(Mejoras.sumar_dominio(p, base, 1, 0.65), "una de 0,65 si")
+	p.dominio[String(base.resource_path)] = 60
+	cierto(not Mejoras.sumar_dominio(p, base, 1, 0.0), "gris: ni con la mejor tirada")
+	igual(int(p.dominio[String(base.resource_path)]), 60, "se queda en 60")
+
+
+# SPAMEAR EN EL PISO 1 NO LLEGA al nivel 2 (300): se para en 50.
+func test_dominio_no_se_spamea() -> void:
+	var base := _venablo_con_arbol()
+	var p := PersonajeData.new()
+	for i in 5000:
+		Mejoras.sumar_dominio(p, base, 1)
+	igual(int(p.dominio[String(base.resource_path)]), 50, "5000 usos en el piso 1: 50 y no mas")
+
+
+# LO SIGUIENTE QUE PIDE (el "137 / 300" de la ficha): el mas bajo de lo que aun no tienes y pide mas de lo que llevas.
+func test_dominio_siguiente() -> void:
+	var raf: Resource = load(RAFAGA_RUTA)
+	var p := PersonajeData.new()
+	igual(Mejoras.dominio_siguiente(p, raf), 300, "con 0: el nivel 2, 300")
+	p.dominio[RAFAGA_RUTA] = 300
+	igual(Mejoras.dominio_siguiente(p, raf), 600, "con 300: el nivel 3, 600")
 
 
 func test_la_red_manda_la_montada_en_texto() -> void:
