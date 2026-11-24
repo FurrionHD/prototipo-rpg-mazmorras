@@ -11,7 +11,7 @@
 #  ese nodo del +40 % de su nivel (0,75 = 30 de 40). Ver Mejoras.presupuesto.
 #
 #  Lo que pide cada nodo sale de su NIVEL: dominio 300 por nivel por encima del 1 (tramos de 25 por piso) y el oro de
-#  ORO_POR_NIVEL (PROVISIONAL: calibrarlo con el oro que se lleva en cada piso).
+#  ORO_POR_NIVEL (ver ahi).
 #
 #  Escribe con saltos de linea LF (memoria python-escribe-crlf) y deja el resto de la ficha como estaba: solo quita los
 #  sub-recursos NM_* viejos y la linea 'arbol = [...]' (con su comentario de encima) y pone los nuevos.
@@ -22,10 +22,14 @@ from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
 DOMINIO_POR_NIVEL = 300
-ORO_POR_NIVEL = {2: 2000, 3: 8000, 4: 25000, 5: 70000}
-# (24/11) los de la LINEA del 6 al 16: x2 por nivel desde el 5 (PROVISIONAL, como todo el oro)
+# EL ORO DE LOS NODOS (24/11, el jefe: "el primero tiene que ser mas caro, y mas teniendo en cuenta lo que cuesta comprarlas
+# de base"): LA MISMA TABLA PARA TODAS, 10.000 el nivel 2 y x4 por nivel (el oro que se saca sube del orden de x5 cada 12
+# pisos: cristales ~5 veces mas caros de T1 a T2 y mas bichos). Referencia: la zona 7-12 da unos 25-35k (~5k por piso) y
+# comprar una habilidad cuesta 1.200-4.000; el paso del nivel 2 del basico, 1.000.
+ORO_POR_NIVEL = {2: 10000, 3: 40000, 4: 160000, 5: 640000}
+# los de la LINEA del 6 al 16: x1,6 por nivel desde el 5 (los pisos 61+ aun no tienen economia: se revisara con ella)
 for _nv in range(6, 17):
-    ORO_POR_NIVEL[_nv] = ORO_POR_NIVEL[_nv - 1] * 2
+    ORO_POR_NIVEL[_nv] = int(round(ORO_POR_NIVEL[_nv - 1] * 1.6, -3))
 
 # LA LINEA FIJA DEL NIVEL 6 AL 16 (24/11, el jefe: "al principio desarrollas la build y luego le mejoras el daño"): tras
 # el arbol, un nodo por nivel en linea recta, cada uno el +40 % de daño y de coste de su nivel (todo el presupuesto). El

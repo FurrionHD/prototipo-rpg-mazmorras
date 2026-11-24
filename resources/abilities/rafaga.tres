@@ -19,7 +19,7 @@ padres = Array[StringName]([])
 excluye = Array[StringName]([&"hoja_fina"])
 nivel_min = 2
 dominio = 300
-oro = 2000
+oro = 10000
 cambios = {"golpes_min": ["add", 1], "golpes_max": ["add", 1], "golpes_dual_min": ["add", 2], "golpes_dual_max": ["add", 2], "dual_golpe_mult": ["set", 0.533333], "golpes_extra_por_enemigo": ["mult", 1.666667], "golpes_extra_por_enemigo_dual": ["set", 3.0], "golpes_extra_max": ["set", 12], "dano_mult": ["mult", 0.75], "potencia": ["presupuesto", 0.75], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_raf_hoja_fina"]
@@ -31,7 +31,7 @@ padres = Array[StringName]([])
 excluye = Array[StringName]([&"mas_tajos"])
 nivel_min = 2
 dominio = 300
-oro = 2000
+oro = 10000
 cambios = {"golpes_min": ["add", -1], "golpes_max": ["add", -1], "golpes_dual_min": ["add", -1], "golpes_dual_max": ["add", -1], "dual_golpe_mult": ["set", 0.4], "golpes_extra_por_enemigo": ["set", 0.5], "golpes_extra_por_enemigo_dual": ["set", 1.0], "dano_mult": ["mult", 1.8], "potencia": ["presupuesto", 0.75], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_raf_remolino"]
@@ -43,7 +43,7 @@ padres = Array[StringName]([&"mas_tajos"])
 excluye = Array[StringName]([&"brazo_largo"])
 nivel_min = 3
 dominio = 600
-oro = 8000
+oro = 40000
 cambios = {"forma_apertura": ["set", 360.0], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_raf_brazo_largo"]
@@ -55,7 +55,7 @@ padres = Array[StringName]([&"mas_tajos"])
 excluye = Array[StringName]([&"remolino"])
 nivel_min = 3
 dominio = 600
-oro = 8000
+oro = 40000
 cambios = {"forma_radio": ["add", 20.0], "potencia": ["presupuesto", 0.75], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_raf_mil_cortes"]
@@ -67,7 +67,7 @@ padres = Array[StringName]([&"hoja_fina"])
 excluye = Array[StringName]([&"entrar_bailando"])
 nivel_min = 3
 dominio = 600
-oro = 8000
+oro = 40000
 cambios = {"efectos_prob_mult": ["set", 1.727273], "potencia": ["presupuesto", 0.625], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_raf_entrar_bailando"]
@@ -79,7 +79,7 @@ padres = Array[StringName]([&"hoja_fina"])
 excluye = Array[StringName]([&"mil_cortes"])
 nivel_min = 3
 dominio = 600
-oro = 8000
+oro = 40000
 cambios = {"acercarse": ["add", 60.0], "potencia": ["presupuesto", 0.75], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_raf_persiguen"]
@@ -91,7 +91,7 @@ padres = Array[StringName]([&"remolino", &"brazo_largo"])
 excluye = Array[StringName]([])
 nivel_min = 4
 dominio = 900
-oro = 25000
+oro = 160000
 cambios = {"bonus_por_baja": ["set", 0.15], "potencia": ["presupuesto", 0.75], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_raf_remate"]
@@ -103,7 +103,7 @@ padres = Array[StringName]([&"mil_cortes", &"entrar_bailando"])
 excluye = Array[StringName]([])
 nivel_min = 4
 dominio = 900
-oro = 25000
+oro = 160000
 cambios = {"remate_estado": ["set", 1], "remate_mult": ["set", 1.5], "potencia": ["presupuesto", 0.625], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_raf_frenesi"]
@@ -115,7 +115,7 @@ padres = Array[StringName]([&"persiguen", &"remate"])
 excluye = Array[StringName]([&"ligera"])
 nivel_min = 5
 dominio = 1200
-oro = 70000
+oro = 640000
 cambios = {"cooldown": ["add", -1], "potencia": ["presupuesto", 0.75], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_raf_ligera"]
@@ -127,7 +127,7 @@ padres = Array[StringName]([&"persiguen", &"remate"])
 excluye = Array[StringName]([&"frenesi"])
 nivel_min = 5
 dominio = 1200
-oro = 70000
+oro = 640000
 cambios = {"potencia": ["presupuesto", 0.625], "potencia_coste": ["presupuesto", 0.375]}
 
 [sub_resource type="Resource" id="NM_raf_linea_6"]
@@ -139,7 +139,7 @@ padres = Array[StringName]([&"frenesi", &"ligera"])
 excluye = Array[StringName]([])
 nivel_min = 6
 dominio = 1500
-oro = 140000
+oro = 1024000
 cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_raf_linea_7"]
@@ -151,7 +151,7 @@ padres = Array[StringName]([&"linea_6"])
 excluye = Array[StringName]([])
 nivel_min = 7
 dominio = 1800
-oro = 280000
+oro = 1638000
 cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_raf_linea_8"]
@@ -163,7 +163,7 @@ padres = Array[StringName]([&"linea_7"])
 excluye = Array[StringName]([])
 nivel_min = 8
 dominio = 2100
-oro = 560000
+oro = 2621000
 cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_raf_linea_9"]
@@ -175,7 +175,7 @@ padres = Array[StringName]([&"linea_8"])
 excluye = Array[StringName]([])
 nivel_min = 9
 dominio = 2400
-oro = 1120000
+oro = 4194000
 cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_raf_linea_10"]
@@ -187,7 +187,7 @@ padres = Array[StringName]([&"linea_9"])
 excluye = Array[StringName]([])
 nivel_min = 10
 dominio = 2700
-oro = 2240000
+oro = 6710000
 cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_raf_linea_11"]
@@ -199,7 +199,7 @@ padres = Array[StringName]([&"linea_10"])
 excluye = Array[StringName]([])
 nivel_min = 11
 dominio = 3000
-oro = 4480000
+oro = 10736000
 cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_raf_linea_12"]
@@ -211,7 +211,7 @@ padres = Array[StringName]([&"linea_11"])
 excluye = Array[StringName]([])
 nivel_min = 12
 dominio = 3300
-oro = 8960000
+oro = 17178000
 cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_raf_linea_13"]
@@ -223,7 +223,7 @@ padres = Array[StringName]([&"linea_12"])
 excluye = Array[StringName]([])
 nivel_min = 13
 dominio = 3600
-oro = 17920000
+oro = 27485000
 cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_raf_linea_14"]
@@ -235,7 +235,7 @@ padres = Array[StringName]([&"linea_13"])
 excluye = Array[StringName]([])
 nivel_min = 14
 dominio = 3900
-oro = 35840000
+oro = 43976000
 cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_raf_linea_15"]
@@ -247,7 +247,7 @@ padres = Array[StringName]([&"linea_14"])
 excluye = Array[StringName]([])
 nivel_min = 15
 dominio = 4200
-oro = 71680000
+oro = 70362000
 cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_raf_linea_16"]
@@ -259,7 +259,7 @@ padres = Array[StringName]([&"linea_15"])
 excluye = Array[StringName]([])
 nivel_min = 16
 dominio = 4500
-oro = 143360000
+oro = 112579000
 cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
 
 [resource]
