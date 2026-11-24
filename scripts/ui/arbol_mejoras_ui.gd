@@ -41,6 +41,7 @@ const FILAS_ANTES_DESPUES := [
 	["golpes", "Golpes", "golpes"],
 	["golpes_extra_por_enemigo", "Golpes con 3 enemigos en el combate", "golpes_3"],
 	["golpes_extra_max", "Tope de golpes de más por enemigos", "num"],
+	["dual_golpe_mult", "Con dos armas, daño de los golpes de la segunda frente a los de la primera", "pct"],
 	["coste_energia", "Coste de energía", "coste"],
 	["coste_mana", "Coste de maná", "num"],
 	["cooldown", "Turnos de enfriamiento", "num"],

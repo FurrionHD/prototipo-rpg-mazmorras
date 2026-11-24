@@ -30,17 +30,20 @@ SANGRADO = 1
 ARBOLES = {
     "rafaga": [
         # Nv2: muchos enemigos o uno solo. Los tajos de mas por enemigo van +-25 % en DAÑO por enemigo de mas (no en
-        # tajos: el de hoja fina vale el doble), asi que van x(1,25/0,75) y x(0,75/1,5); mas tajos sube el tope a 8.
+        # tajos: el de hoja fina vale el doble), asi que van x(1,25/0,75) y x(0,75/1,5); mas tajos sube el tope a 12.
+        # CON DOS DAGAS (el jefe: "y en dual?"): la 2a mano pega lo que le queda tras los de la principal; para guardar la
+        # misma relacion que con una, mas tajos 7 golpes con la 2a al 53 % y hoja fina 4 con la 2a al 40 %.
         ("mas_tajos", 2, [], ["hoja_fina"], "Más tajos",
          "El brazo no para: caen más tajos, aunque ninguno entra hondo.",
-         {"golpes_min": ("add", 1), "golpes_max": ("add", 1), "golpes_dual_min": ("add", 1), "golpes_dual_max": ("add", 1),
-          "golpes_extra_por_enemigo": ("mult", 1.25 / 0.75), "golpes_extra_por_enemigo_dual": ("mult", 1.25 / 0.75),
-          "golpes_extra_max": ("set", 8),
+         {"golpes_min": ("add", 1), "golpes_max": ("add", 1), "golpes_dual_min": ("add", 2), "golpes_dual_max": ("add", 2),
+          "dual_golpe_mult": ("set", 1.6 / 3.0), "golpes_extra_por_enemigo": ("mult", 1.25 / 0.75),
+          "golpes_extra_por_enemigo_dual": ("set", 3.0), "golpes_extra_max": ("set", 12),
           "dano_mult": ("mult", 0.75), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
         ("hoja_fina", 2, [], ["mas_tajos"], "Hoja fina",
          "Menos tajos, pero cada uno entra hasta el hueso.",
          {"golpes_min": ("add", -1), "golpes_max": ("add", -1), "golpes_dual_min": ("add", -1), "golpes_dual_max": ("add", -1),
-          "golpes_extra_por_enemigo": ("mult", 0.75 / 1.5), "golpes_extra_por_enemigo_dual": ("mult", 0.75 / 1.5),
+          "dual_golpe_mult": ("set", 0.4), "golpes_extra_por_enemigo": ("mult", 0.75 / 1.5),
+          "golpes_extra_por_enemigo_dual": ("set", 1.2),
           "dano_mult": ("mult", 1.5), "potencia": (P, 1.25), "potencia_coste": (P, 1.0)}),
         # Nv3, lado de los muchos tajos
         ("remolino", 3, ["mas_tajos"], ["brazo_largo"], "Remolino",
