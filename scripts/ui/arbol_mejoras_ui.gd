@@ -67,7 +67,7 @@ func _init(menu) -> void:
 #  LO QUE SE PINTA: EL ARBOL ENTERO, UNA FILA POR COSA (23/11, el jefe con el arbol de Diablo delante)
 #  De arriba abajo: en el maestro, primero el BASICO del arma y debajo cada habilidad; en la torre, cada magia (las
 #  magias no tienen basico). Cada fila: el ICONO de la habilidad a la izquierda (cuadrado) y sus mejoras saliendo hacia
-#  la DERECHA, abriendose en ramas y juntandose (circulos; en rombo las que juntan dos ramas o cierran la fila). El
+#  la DERECHA, abriendose en ramas y juntandose (circulos; en rombo los que juntan dos ramas: basta con una). El
 #  basico NO es una puerta: es una fila mas, ninguna cuelga de el. Sin nombres: el nombre, al pasar el raton; al
 #  clicar, su ficha a la derecha. Las mejoras llevan el icono de su habilidad hasta que tengan el suyo.
 # ------------------------------------------------------------
@@ -299,11 +299,8 @@ func _pintar_fila(lienzo: Lienzo, pj: PersonajeData, clave: String, f: Resource,
 	var por_id: Dictionary = {}
 	for n in nodos:
 		por_id[StringName(n.id)] = n
-	# Los que no cuelgan de nadie son los ultimos (se pintan en rombo), y los que juntan dos ramas tambien.
-	var tiene_hijos: Dictionary = {}
-	for n in nodos:
-		for pa in n.padres:
-			tiene_hijos[StringName(pa)] = true
+	# (24/11, el jefe: "en base a que algunas son circulos y otras rombos, no se diferenciar") EL ROMBO DICE UNA SOLA COSA:
+	# que a ese nodo se llega desde VARIAS ramas (basta con una). El final de la fila ya no tiene forma propia.
 	for c in range(1, max_col + 1):
 		if not cols.has(c):
 			continue
@@ -316,9 +313,10 @@ func _pintar_fila(lienzo: Lienzo, pj: PersonajeData, clave: String, f: Resource,
 				continue   # un hueco de una linea larga: no se pinta nada
 			var n = por_id[id]
 			var b := NodoUI.new()
-			b.forma = NodoUI.Forma.ROMBO if ((n.padres as Array).size() > 1 or not tiene_hijos.has(id)) else NodoUI.Forma.CIRCULO
+			b.forma = NodoUI.Forma.ROMBO if (n.padres as Array).size() > 1 else NodoUI.Forma.CIRCULO
 			if f == null:
 				b.forma = int((basico["formas"] as Dictionary).get(String(n.id), b.forma))
+				b.dorado = bool((basico.get("dorados", {}) as Dictionary).get(String(n.id), false))
 			b.dibujo = icono
 			b.estado = (String((basico["estados"] as Dictionary).get(String(n.id), "falta")) if f == null
 				else (_estado(pj, f, n, cogidos) if sabida else "falta"))
@@ -335,7 +333,33 @@ func _pintar_fila(lienzo: Lienzo, pj: PersonajeData, clave: String, f: Resource,
 				nodo_sel = id
 				_menu._rebuild())
 			lienzo.add_child(b)
-	# LAS LINEAS: del padre (o del icono) al hijo, pasando por sus huecos. Verde si las dos puntas son tuyas.
+	# EL PUNTO DE UNION (24/11, el jefe con la Puñalada delante): si VARIOS nodos cuelgan de los MISMOS padres (varios),
+	# las lineas no se cruzan una a una: entran todas en un punto entre las dos columnas y de ahi sale una a cada hijo.
+	var union: Dictionary = {}   # hijo -> el punto
+	var grupos: Dictionary = {}  # "padres ordenados" -> [hijos]
+	for n in nodos:
+		if (n.padres as Array).size() < 2:
+			continue
+		var ps: Array = (n.padres as Array).map(func(x): return String(x))
+		ps.sort()
+		var k_g: String = ",".join(PackedStringArray(ps))
+		if not grupos.has(k_g):
+			grupos[k_g] = []
+		(grupos[k_g] as Array).append(StringName(n.id))
+	for k_g in grupos:
+		var hijos: Array = grupos[k_g]
+		if hijos.size() < 2 or not hijos.all(func(h): return centro.has(h)):
+			continue
+		var y_m: float = 0.0
+		for h in hijos:
+			y_m += (centro[h] as Vector2).y
+		var x_u: float = (centro[hijos[0]] as Vector2).x - _paso_x * 0.5
+		var pu := Vector2(_px_g(x_u), _px_g(y_m / float(hijos.size())))
+		for h in hijos:
+			union[h] = pu
+	# LAS LINEAS: del padre (o del icono) al hijo, pasando por sus huecos. Verde si las dos puntas son tuyas. Las verdes, las
+	# ultimas: encima de las oscuras cuando pasan por el mismo sitio (el punto de union).
+	var verdes: Array = []
 	for par in cadenas:
 		var cad: Array = par[0]
 		var pts := PackedVector2Array()
@@ -344,16 +368,23 @@ func _pintar_fila(lienzo: Lienzo, pj: PersonajeData, clave: String, f: Resource,
 			if k == 0 and StringName(cad[k]) != &"":
 				p.x += NODO * 0.5     # sale del borde derecho del padre
 			if k == cad.size() - 1:
+				if cad.size() == 2 and union.has(StringName(cad[k])):
+					pts.append(union[StringName(cad[k])])
 				p.x -= NODO * 0.5     # entra por el borde izquierdo del hijo
 			pts.append(p)
-		lienzo.lineas.append([pts, VERDE if par[1] else OSCURO])
+		if par[1]:
+			verdes.append([pts, VERDE])
+		else:
+			lienzo.lineas.append([pts, OSCURO])
+	lienzo.lineas.append_array(verdes)
 	lienzo.ancho_fila = MARGEN + ICONO + 48.0 + maxi(max_col - 1, 0) * _paso_x + NODO
 	return alto
 
 
 # EL ARBOL DEL BASICO como nodos de mentira (23/11, el dibujo del jefe), para dibujarlo con lo mismo que los de las
 # habilidades. Por cada nivel: los pisos 4 y 8 en CIRCULOS, en linea; en el piso 12 se abre en dos (en el primero las dos
-# PRINCIPALES en CUADRO, despues las dos SECUNDARIAS en ROMBO) y vuelve a juntarse en el piso 4 del nivel siguiente.
+# PRINCIPALES, con el aro DORADO, despues las dos SECUNDARIAS; 24/11: todo en circulo y en rombo solo el piso 4 al que se
+# llega desde cualquiera de ellas) y vuelve a juntarse en el piso 4 del nivel siguiente.
 # Ids: "l<paso>" los de la linea, "c<columna>_<facultad>" los del piso 12. Todo se compra clicando el nodo (la ficha).
 # Devuelve {"nodos", "tuyos", "estados" {id: tuyo|puedes|falta|cerrado}, "formas" {id: NodoUI.Forma}, "llevas", "total"}.
 func _nodos_basico(pj: PersonajeData, arma: Resource) -> Dictionary:
@@ -367,6 +398,7 @@ func _nodos_basico(pj: PersonajeData, arma: Resource) -> Dictionary:
 	var tuyos: Array = []
 	var estados: Dictionary = {}
 	var formas: Dictionary = {}
+	var dorados: Dictionary = {}
 	var antes: Array[StringName] = []
 	var motivo_linea: String = BasicoArbol.motivo_no_paso(pasos, int(pj.level), int(pj.piso_hondo), Game.money)
 	for col in BasicoArbol.COLUMNAS:
@@ -378,7 +410,8 @@ func _nodos_basico(pj: PersonajeData, arma: Resource) -> Dictionary:
 			n.descripcion = _que_da_paso(tipo, k)
 			n.padres = antes.duplicate()
 			nodos.append(n)
-			formas[String(n.id)] = NodoUI.Forma.CIRCULO
+			# (24/11) LA MISMA REGLA QUE LAS HABILIDADES: rombo solo si se llega desde varias (el piso 4 tras las facultades)
+			formas[String(n.id)] = NodoUI.Forma.ROMBO if n.padres.size() > 1 else NodoUI.Forma.CIRCULO
 			if k < pasos:
 				estados[String(n.id)] = "tuyo"
 				tuyos.append(String(n.id))
@@ -397,7 +430,10 @@ func _nodos_basico(pj: PersonajeData, arma: Resource) -> Dictionary:
 			n.padres = antes.duplicate()
 			nodos.append(n)
 			aqui.append(n.id)
-			formas[String(n.id)] = NodoUI.Forma.CUADRO if (col == 0 or col == BasicoArbol.COLUMNAS - 1) else NodoUI.Forma.ROMBO
+			# (24/11) las PRINCIPALES (el primer punto y el ultimo), con el aro DORADO; todas en circulo
+			formas[String(n.id)] = NodoUI.Forma.ROMBO if n.padres.size() > 1 else NodoUI.Forma.CIRCULO
+			if col == 0 or col == BasicoArbol.COLUMNAS - 1:
+				dorados[String(n.id)] = true
 			if col < elec.size():
 				var mia: bool = String(elec[col]) == id
 				estados[String(n.id)] = "tuyo" if mia else "cerrado"
@@ -407,7 +443,7 @@ func _nodos_basico(pj: PersonajeData, arma: Resource) -> Dictionary:
 				var m: String = BasicoArbol.motivo_no_nodo(tipo, d, col, id, int(pj.level), int(pj.piso_hondo), Game.money)
 				estados[String(n.id)] = "puedes" if m == "" else "falta"
 		antes = aqui
-	return {"nodos": nodos, "tuyos": tuyos, "estados": estados, "formas": formas, "llevas": pasos,
+	return {"nodos": nodos, "tuyos": tuyos, "estados": estados, "formas": formas, "dorados": dorados, "llevas": pasos,
 		"total": BasicoArbol.COLUMNAS * 3}
 
 
@@ -846,11 +882,14 @@ class NodoUI extends Control:
 	signal pulsado
 	const AMBAR := Color(0.95, 0.72, 0.36)
 	const NEGRO := Color(0.04, 0.04, 0.06)
+	const ORO := Color(0.98, 0.8, 0.32)
 	const COLORES := {"tuyo": Color(0.55, 0.85, 0.55), "puedes": Color(0.95, 0.72, 0.36),
 		"falta": Color(0.6, 0.63, 0.7), "cerrado": Color(0.32, 0.34, 0.4)}
 	const MARCO := 3   # pixeles de margen alrededor (para el aro del elegido)
 	static var _cache: Dictionary = {}
 	var forma: int = Forma.CIRCULO
+	# (24/11) EL ARO DORADO: las facultades PRINCIPALES del basico (un aro de oro por dentro del de su estado).
+	var dorado: bool = false
 	var dibujo: Callable
 	var estado: String = "falta"
 	var elegido: bool = false
@@ -874,7 +913,7 @@ class NodoUI extends Control:
 
 	func _draw() -> void:
 		var n: int = int(size.x / P)
-		var tex: Texture2D = _textura(forma, estado, elegido, _encima, n)
+		var tex: Texture2D = _textura(forma, estado, elegido, _encima, n, dorado)
 		var lado: float = float(n + MARCO * 2) * P
 		draw_texture_rect(tex, Rect2(Vector2(-MARCO * P, -MARCO * P), Vector2(lado, lado)), false)
 		# EL ICONO, dentro: en pixeles del mismo tamaño (12 px de dibujo x3); apagado si esta cerrado.
@@ -885,8 +924,8 @@ class NodoUI extends Control:
 			var c: Vector2 = (size * 0.5 - Vector2(lado_i, lado_i) * 0.5).floor()
 			dibujo.call(self, c, lado_i, tinte)
 
-	static func _textura(forma_: int, estado_: String, eleg: bool, encima: bool, n: int) -> Texture2D:
-		var k: String = "%d_%s_%d_%d_%d" % [forma_, estado_, int(eleg), int(encima), n]
+	static func _textura(forma_: int, estado_: String, eleg: bool, encima: bool, n: int, oro: bool = false) -> Texture2D:
+		var k: String = "%d_%s_%d_%d_%d_%d" % [forma_, estado_, int(eleg), int(encima), n, int(oro)]
 		if _cache.has(k):
 			return _cache[k]
 		var t: int = n + MARCO * 2
@@ -908,7 +947,8 @@ class NodoUI extends Control:
 				var c := Color(0, 0, 0, 0)
 				if d <= r:
 					if d > r - 1.0:
-						c = NEGRO
+						# el contorno: de ORO en las facultades principales del basico (el icono tapa lo de dentro)
+						c = (ORO if dx + dy < 0.0 else ORO.darkened(0.35)) if oro else NEGRO
 					elif d > r - 1.0 - grueso:
 						c = col.lightened(0.3) if dx + dy < -1.0 else col
 					elif d > r - 2.0 - grueso:

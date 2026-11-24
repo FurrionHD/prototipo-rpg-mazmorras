@@ -42,6 +42,7 @@
 extends Node
 
 const BasicoArbol = preload("res://scripts/core/basico_arbol.gd")
+const Mejoras = preload("res://scripts/core/mejoras.gd")
 
 const CABECERA := "R|tanda|reglas|piso|grupo|escenario|arma|enemigo|mutacion|jefe|n_enem|t|gana|turnos_yo|turnos_el|vida_perdida|caidos|mp_gastado|dano_por_turno|dano_recibido_por_turno_suyo|segundos|acciones|fotogramas|ms_por_fotograma|pelea|ciclos|dano_por_ciclo|estados_en_enemigos|estados_en_los_tuyos|n_seguida|repetir|vel_ref_piso|vel_ciclo|emboscada"
 # Una linea POR PERSONAJE de los tuyos en cada pelea (lo pidio: "daños de cada uno, cuanto tanquean con cada armadura, el
@@ -610,7 +611,13 @@ func _personaje(piso: int, rol: String, en_grupo: bool, arma_g: String = "") -> 
 	elif not set_forzado.is_empty() and rol in ["guerrero", "arquero"]:
 		var set_g: Array = []
 		for n in set_forzado:
-			set_g.append(load("res://resources/abilities/%s.tres" % n))
+			# (24/11) CON SU CAMINO DE NODOS: 'rafaga:mas_tajos.brazo_largo' = la Rafaga con esos nodos de su arbol (de verdad,
+			# por Mejoras: el personaje los lleva como si los hubiera cogido). Sin ':' va sin mejoras de arbol.
+			var nom: String = String(n).get_slice(":", 0)
+			var ab_f: AbilityData = load("res://resources/abilities/%s.tres" % nom)
+			set_g.append(ab_f)
+			if String(n).contains(":"):
+				p.nodos_elegidos[String(ab_f.resource_path)] = Array(String(n).get_slice(":", 1).split(".", false))
 		while set_g.size() < Game.MAX_HABILIDADES:
 			set_g.append(null)
 		p.loadout_habilidades[Game.clave_loadout(p)] = set_g
@@ -792,6 +799,9 @@ func _poner_mejoras(c: Combatant, piso: int) -> void:
 	var mp: float = pow(MEJORA_MANA_NIVEL, n)
 	c.abilities_combate = c.abilities_combate.map(func(ab):
 		if not (ab is AbilityData):
+			return ab
+		# (24/11) LA QUE LLEVA NODOS DE VERDAD (arma=daga#rafaga:nodos) ya trae su nivel: no se le finge encima.
+		if Mejoras.es_montada(ab):
 			return ab
 		var x: AbilityData = ab.duplicate(false)
 		x.dano_mult = ab.dano_mult * dano
@@ -1532,6 +1542,12 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 		var arma_a: String = pj.equipped_main.resource_path.get_file().get_basename() if pj != null and pj.equipped_main != null else "-"
 		if pj != null and pj.equipped_off != null:
 			arma_a += "+" + pj.equipped_off.resource_path.get_file().get_basename()
+		# (24/11) CON SU CAMINO DE NODOS (arma=daga#rafaga:nodos): que se distingan las ramas en el resultado.
+		if pj != null and not (pj.nodos_elegidos as Dictionary).is_empty():
+			var caminos: Array = []
+			for ruta in pj.nodos_elegidos:
+				caminos.append("%s:%s" % [String(ruta).get_file().get_basename(), ".".join(PackedStringArray(pj.nodos_elegidos[ruta]))])
+			arma_a += "#" + ";".join(PackedStringArray(caminos))
 		_lineas_extra.append("P|%s|%s|%s|%s|%.1f|%.2f|%.2f|%.3f|%.3f|%.1f|%.1f|%d|%.2f|%.2f|%d|%.3f|%d|%d|%.1f|%d|%d|%d|%s" % [comun,
 			_rol(a), arma_a, _armadura_de(pj), a.max_hp, a.def_value(), a.mdef_value(), float(mitig[a][0]), float(mitig[a][1]),
 			float(_hecho.get(a, 0.0)), float(_recibido.get(a, 0.0)), n_t, float(_hecho.get(a, 0.0)) / maxf(1.0, float(n_t)),
