@@ -187,13 +187,13 @@ func _raf(ids: Array) -> AbilityData:
 
 func test_rafaga_numeros_cerrados() -> void:
 	var casos := [
-		[["mas_tajos"], 0.8775, 4, 67], [["hoja_fina"], 2.025, 2, 67],
+		[["mas_tajos"], 0.8775, 4, 67], [["hoja_fina"], 2.106, 2, 67],
 		[["mas_tajos", "remolino"], 1.134, 4, 94], [["mas_tajos", "brazo_largo"], 1.2285, 4, 94],
-		[["hoja_fina", "mil_cortes"], 2.3625, 2, 94], [["hoja_fina", "entrar_bailando"], 2.457, 2, 94],
+		[["hoja_fina", "mil_cortes"], 2.835, 2, 94], [["hoja_fina", "entrar_bailando"], 2.9484, 2, 94],
 		[["mas_tajos", "brazo_largo", "persiguen"], 1.7199, 4, 132],
-		[["hoja_fina", "mil_cortes", "remate"], 3.3075, 2, 132],
+		[["hoja_fina", "mil_cortes", "remate"], 3.969, 2, 132],
 		[["mas_tajos", "brazo_largo", "persiguen", "frenesi"], 2.1300, 4, 184],
-		[["hoja_fina", "mil_cortes", "remate", "ligera"], 4.6305, 2, 151],
+		[["hoja_fina", "mil_cortes", "remate", "ligera"], 5.5566, 2, 151],
 	]
 	for c in casos:
 		var m: AbilityData = _raf(c[0])
@@ -202,7 +202,7 @@ func test_rafaga_numeros_cerrados() -> void:
 		igual(roundi(m.coste_energia), int(c[3]), "energia con %s" % str(c[0]))
 	var muchos: AbilityData = _raf(["mas_tajos", "brazo_largo", "persiguen", "frenesi"])
 	var uno: AbilityData = _raf(["hoja_fina", "mil_cortes", "remate", "frenesi"])
-	cerca(muchos.dano_mult * muchos.golpes_max, uno.dano_mult * uno.golpes_max, 0.01, "nivel 5: las dos ramas a la par a un enemigo")
+	cerca(uno.dano_mult * uno.golpes_max, muchos.dano_mult * muchos.golpes_max * 1.2, 0.01, "nivel 5: a un enemigo, hoja fina +20 %")
 	cerca(_raf(["hoja_fina", "mil_cortes"]).efectos_prob_mult * 0.22, 0.38, 0.0001, "Mil cortes: sangrado 22 -> 38 %")
 	var base: AbilityData = load(RAFAGA_RUTA)
 	for n in base.arbol:
@@ -211,24 +211,24 @@ func test_rafaga_numeros_cerrados() -> void:
 			cierto(Mejoras.nodo(base, pa) != null, "el padre %s de %s existe" % [pa, n.id])
 
 
-# CON MUCHOS ENEMIGOS (24/11, el jefe: "ten cuidado con la cantidad que se suman"): contra uno van a la par, y cuantos mas
-# enemigos, mas saca MAS TAJOS. Los tajos de mas van +-25 % en DAÑO por enemigo de mas, no en tajos.
+# CON MUCHOS ENEMIGOS (24/11, el jefe: "ten cuidado con la cantidad que se suman" y "cada una con su identidad"): a uno
+# gana hoja fina (+20 %), con 3 casi iguales, con 5 gana mas tajos.
 func test_rafaga_muchos_enemigos() -> void:
 	var muchos: AbilityData = _raf(["mas_tajos", "brazo_largo", "persiguen", "frenesi"])
 	var uno: AbilityData = _raf(["hoja_fina", "mil_cortes", "remate", "frenesi"])
 	var total := func(ab: AbilityData, n: int) -> float: return ab.dano_mult * float(ab.num_golpes(1, n))
-	cerca(total.call(muchos, 1), total.call(uno, 1), 0.01, "a un enemigo, a la par")
+	cerca(total.call(uno, 1), total.call(muchos, 1) * 1.2, 0.01, "a un enemigo, hoja fina +20 %")
 	igual(muchos.num_golpes(1, 3), 7, "mas tajos con 3 enemigos")
 	igual(uno.num_golpes(1, 3), 3, "hoja fina con 3 enemigos")
 	igual(muchos.num_golpes(1, 5), 11, "mas tajos con 5 enemigos (tope 8)")
 	igual(uno.num_golpes(1, 5), 4, "hoja fina con 5 enemigos")
-	cierto(total.call(muchos, 3) > total.call(uno, 3) * 1.1, "con 3, mas tajos saca mas")
-	cierto(total.call(muchos, 5) > total.call(uno, 5) * 1.3, "con 5, bastante mas")
+	cerca(total.call(muchos, 3) / total.call(uno, 3), 1.0, 0.1, "con 3, casi iguales")
+	cierto(total.call(muchos, 5) > total.call(uno, 5) * 1.1, "con 5, gana mas tajos")
 	var b: AbilityData = load(RAFAGA_RUTA)
 	cerca(_raf(["mas_tajos"]).dano_mult * _raf(["mas_tajos"]).golpes_extra_por_enemigo,
 		b.dano_mult * b.golpes_extra_por_enemigo * 1.25 * 1.3, 0.001, "mas tajos: +25 % de daño por enemigo de mas (x su potencia)")
-	cerca(_raf(["hoja_fina"]).dano_mult * _raf(["hoja_fina"]).golpes_extra_por_enemigo,
-		b.dano_mult * b.golpes_extra_por_enemigo * 0.75 * 1.5, 0.001, "hoja fina: -25 % (x su potencia)")
+	cierto(_raf(["hoja_fina"]).dano_mult * _raf(["hoja_fina"]).golpes_extra_por_enemigo
+		< b.dano_mult * b.golpes_extra_por_enemigo * 1.3 * 0.8, "hoja fina: menos daño por enemigo de mas (x su potencia)")
 
 
 # CON DOS DAGAS (24/11, el jefe: "y en dual como quedan?"): con el reparto de golpes de verdad (plan_golpes: la 2a mano pega
@@ -243,12 +243,12 @@ func _total_dual(ab: AbilityData, n: int) -> float:
 func test_rafaga_dos_dagas() -> void:
 	var muchos: AbilityData = _raf(["mas_tajos", "brazo_largo", "persiguen", "frenesi"])
 	var uno: AbilityData = _raf(["hoja_fina", "mil_cortes", "remate", "frenesi"])
-	cerca(_total_dual(muchos, 1), _total_dual(uno, 1), 0.02, "dos dagas, a un enemigo, a la par")
-	cierto(_total_dual(muchos, 3) > _total_dual(uno, 3) * 1.15, "con 3, mas tajos saca mas")
-	cierto(_total_dual(muchos, 5) > _total_dual(uno, 5) * 1.3, "con 5, bastante mas")
+	cerca(_total_dual(uno, 1), _total_dual(muchos, 1) * 1.2, 0.02, "dos dagas, a un enemigo, hoja fina +20 %")
+	cerca(_total_dual(muchos, 3) / _total_dual(uno, 3), 1.0, 0.1, "con 3, casi iguales")
+	cierto(_total_dual(muchos, 5) > _total_dual(uno, 5) * 1.1, "con 5, gana mas tajos")
 	var b: AbilityData = load(RAFAGA_RUTA)
 	var m2: AbilityData = _raf(["mas_tajos"])
 	var h2: AbilityData = _raf(["hoja_fina"])
 	# Las dos, a un enemigo y con dos dagas, lo mismo que la base x su potencia (la forma de la rama no regala nada).
 	cerca(_total_dual(m2, 1) / 1.3, _total_dual(b, 1), 0.01, "mas tajos con dos dagas = la base x su potencia")
-	cerca(_total_dual(h2, 1) / 1.5, _total_dual(b, 1), 0.01, "hoja fina con dos dagas = la base x su potencia")
+	cerca(_total_dual(h2, 1) / (1.3 * 1.2), _total_dual(b, 1), 0.01, "hoja fina con dos dagas = la base x su potencia x 1,2")

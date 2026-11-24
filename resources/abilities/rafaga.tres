@@ -32,7 +32,7 @@ excluye = Array[StringName]([&"mas_tajos"])
 nivel_min = 2
 dominio = 300
 oro = 2000
-cambios = {"golpes_min": ["add", -1], "golpes_max": ["add", -1], "golpes_dual_min": ["add", -1], "golpes_dual_max": ["add", -1], "dual_golpe_mult": ["set", 0.4], "golpes_extra_por_enemigo": ["mult", 0.5], "golpes_extra_por_enemigo_dual": ["set", 1.2], "dano_mult": ["mult", 1.5], "potencia": ["presupuesto", 1.25], "potencia_coste": ["presupuesto", 1.0]}
+cambios = {"golpes_min": ["add", -1], "golpes_max": ["add", -1], "golpes_dual_min": ["add", -1], "golpes_dual_max": ["add", -1], "dual_golpe_mult": ["set", 0.4], "golpes_extra_por_enemigo": ["set", 0.5], "golpes_extra_por_enemigo_dual": ["set", 1.0], "dano_mult": ["mult", 1.8], "potencia": ["presupuesto", 0.75], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_raf_remolino"]
 script = ExtResource("nodo_mejora")
