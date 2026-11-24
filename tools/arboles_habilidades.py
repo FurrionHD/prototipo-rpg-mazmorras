@@ -26,6 +26,7 @@ DOMINIO_POR_NIVEL = 300
 # de base"): LA MISMA TABLA PARA TODAS, 10.000 el nivel 2 y x4 por nivel (el oro que se saca sube del orden de x5 cada 12
 # pisos: cristales ~5 veces mas caros de T1 a T2 y mas bichos). Referencia: la zona 7-12 da unos 25-35k (~5k por piso) y
 # comprar una habilidad cuesta 1.200-4.000; el paso del nivel 2 del basico, 1.000.
+# DEL NIVEL 3 PARA ARRIBA, PROVISIONAL (el jefe): se mira bien al poner en los enemigos los cristales de esos pisos.
 ORO_POR_NIVEL = {2: 10000, 3: 40000, 4: 160000, 5: 640000}
 # los de la LINEA del 6 al 16: x1,6 por nivel desde el 5 (los pisos 61+ aun no tienen economia: se revisara con ella)
 for _nv in range(6, 17):
