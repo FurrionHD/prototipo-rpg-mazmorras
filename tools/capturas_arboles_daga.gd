@@ -17,6 +17,8 @@ const CASOS := [
 	["filo_emponzonado", ["agarra_mejor", "dosis_cargadas"], &"ponzona_sangre"],
 	["desaparecer", ["a_fondo", "salir_sombras"], &"pies_niebla"],
 	["oportunista", ["entrar_fondo", "desequilibrar"], &"sin_rastro"],
+	# (24/11) la LINEA del 6 al 16: el arbol entero cogido y unos rombos, para ver el "+" de sus iconos
+	["rafaga", ["mas_tajos", "brazo_largo", "persiguen", "frenesi", "linea_6", "linea_7", "linea_8"], &"linea_9"],
 ]
 
 
@@ -68,7 +70,7 @@ func _ready() -> void:
 		await _esperar()
 		# la lista de filas, bajada hasta abajo: la fila abierta (la ultima de las que se miran) a la vista
 		for sc in menu.find_children("*", "ScrollContainer", true, false):
-			(sc as ScrollContainer).scroll_vertical = 0 if k <= 2 else 100000   # las dos primeras ya caben
+			(sc as ScrollContainer).scroll_vertical = 0 if (k <= 2 or k == 6) else 100000   # las dos primeras ya caben
 		await _esperar()
 		get_viewport().get_texture().get_image().save_png("%s/%d_%s.png" % [CARPETA, k, c[0]])
 		k += 1

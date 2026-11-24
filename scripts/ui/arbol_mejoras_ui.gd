@@ -319,6 +319,9 @@ func _pintar_fila(lienzo: Lienzo, pj: PersonajeData, clave: String, f: Resource,
 				b.forma = int((basico["formas"] as Dictionary).get(String(n.id), b.forma))
 			# (24/11) SU ICONO PROPIO si lo tiene (assets/ui/habilidades/<habilidad>__<nodo>.png); si no, el de su habilidad.
 			b.dibujo = _dibujo_png(_png_nodo(f, StringName(n.id)), icono) if f != null else icono
+			# (24/11, el jefe) LA LINEA DEL 6 AL 16: el icono de su habilidad con un "+" arriba a la derecha.
+			if String(n.id).begins_with("linea_"):
+				b.dibujo = _con_mas(b.dibujo)
 			b.estado = (String((basico["estados"] as Dictionary).get(String(n.id), "falta")) if f == null
 				else (_estado(pj, f, n, cogidos) if sabida else "falta"))
 			b.elegido = (clave == fila_sel and id == nodo_sel)
@@ -481,6 +484,29 @@ static func _dibujo_png(ruta: String, respaldo: Callable) -> Callable:
 	var tex: Texture2D = load(ruta)
 	return func(ci: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 		ci.draw_texture_rect(tex, Rect2(pos, Vector2(lado, lado)), false, Color(1, 1, 1, col.a))
+
+
+# El dibujo de siempre con un "+" de pixel arriba a la derecha (los rombos de la linea del 6 al 16): cruz de 3 x 3
+# pixeles del icono, clara, con su borde oscuro para que se lea encima de cualquier dibujo.
+const MAS_CLARO := Color(1.0, 0.86, 0.35)
+const MAS_BORDE := Color(0.05, 0.04, 0.03)
+
+
+static func _con_mas(base: Callable) -> Callable:
+	return func(ci: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+		if base.is_valid():
+			base.call(ci, pos, lado, col)
+		var u: float = lado / 12.0
+		var cruz: Array[Vector2i] = [Vector2i(10, 0), Vector2i(9, 1), Vector2i(10, 1), Vector2i(11, 1), Vector2i(10, 2)]
+		var borde := Color(MAS_BORDE, col.a)
+		for c in cruz:   # el borde: los vecinos de la cruz (dentro del icono), luego la cruz encima
+			for d in [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1)]:
+				var v: Vector2i = c + d
+				if v.x <= 11 and v.y >= 0 and not cruz.has(v):
+					ci.draw_rect(Rect2(pos + Vector2(v) * u, Vector2(u, u)), borde)
+		var claro := Color(MAS_CLARO, col.a)
+		for c in cruz:
+			ci.draw_rect(Rect2(pos + Vector2(c) * u, Vector2(u, u)), claro)
 
 
 # EL DIBUJO del icono de una fila: el grimorio de la magia, o el de la habilidad (su PNG; si no tiene, el arma).
