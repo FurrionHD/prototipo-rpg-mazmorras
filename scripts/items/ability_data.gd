@@ -177,7 +177,10 @@ func imbue_tope(tier: int) -> int:
 static func texto_reparto(fila: Array) -> String:
 	var partes: Array = []
 	for i in fila.size():
-		partes.append("%d%s (%d %%)" % [i + 1, " acumulación" if i == 0 else "", roundi(float(fila[i]) * 100.0)])
+		if float(fila[i]) <= 0.0:
+			continue   # (24/11) en los tiers pares no se mete 1 sola: no se nombra
+		partes.append("%d%s (%d %%)" % [i + 1, ("" if not partes.is_empty() else (" acumulación" if i == 0 else " acumulaciones")),
+			roundi(float(fila[i]) * 100.0)])
 	if partes.size() <= 1:
 		return "1 acumulación" if partes.is_empty() else String(partes[0])
 	return ", ".join(partes.slice(0, partes.size() - 1)) + " o " + String(partes[partes.size() - 1])
@@ -607,6 +610,14 @@ func secundario_para(n_enemigos: int) -> float:
 @export var nube_prob: float = 0.0
 # ESCABULLIRSE: tras usarla, quien la usa se mueve hasta esto (solo en el mapa). PENDIENTE: el movimiento en el tactico.
 @export var se_mueve: float = 0.0
+# --- FILO EMPONZOÑADO (24/11, su arbol): lo que lleva la imbuicion que pone (Combatant.imbue_*) ---
+@export var imbue_fuerza: float = 1.0        # x la fuerza del veneno (su "daño": la potencia de los nodos va aqui)
+@export var imbue_peldano: int = 0           # DOSIS CARGADAS: la escalera de dosis, como la de un arma de mas tier
+@export var imbue_comparte_usos: int = 0     # COMPARTIR EL FRASCO: el aliado mas cercano tambien, con estos ataques
+@export var imbue_acido: float = 0.0         # ACIDO: cada golpe impregnado que acierta, -esto de defensa (hasta 3, 3 turnos)
+@export var imbue_con_sangre: float = 0.0    # PONZOÑA Y SANGRE: envenenado y sangrando, los dos hacen este % de mas
+@export var imbue_revienta: bool = false     # TOXINA QUE REVIENTA: al tope de dosis, todo lo que le quedaba de golpe
+@export var imbue_senal: float = 0.0         # SEÑAL DEL VENENO: golpe a un envenenado, este % de tu energia maxima
 # --- OPORTUNISTA (24/11, su arbol): cambian el estado Oportunista que se pone (0 = lo del catalogo) ---
 @export var oport_usos: int = 0              # MAS HUECOS / ENTRAR A FONDO: entradas que tiene
 @export var oport_seguimiento: float = 0.0   # ENTRAR A FONDO: el seguimiento, en fraccion de un basico
@@ -988,6 +999,23 @@ func frase_mejora(campo: String, antes: AbilityData) -> String:
 				return ""
 			return "El humo se queda %d turnos; el enemigo que empiece su turno dentro tiene una probabilidad base del %s de quedar con %s." % [
 				nube_turnos, _pct_entero(nube_prob), str(StatusEffects.def(nube_estado).get("nombre", "?"))]
+		"imbue_peldano":
+			return "Las dosis que mete y el tipo de veneno son los de un arma de %d tier%s más." % [
+				imbue_peldano, "" if imbue_peldano == 1 else "s"] if imbue_peldano > 0 else ""
+		"imbue_comparte_usos":
+			return "También impregna el arma del aliado más cercano, durante %d ataques." % imbue_comparte_usos \
+				if imbue_comparte_usos > 0 else ""
+		"imbue_acido":
+			return "Cada golpe impregnado que acierta reduce la Defensa del enemigo en un %s (hasta 3 veces, durante 3 turnos)." % (
+				_pct_entero(imbue_acido))
+		"imbue_con_sangre":
+			return "Si el enemigo tiene a la vez veneno y Sangrado, los dos le hacen un %s más de daño." % _pct_entero(imbue_con_sangre)
+		"imbue_revienta":
+			return "Cuando el enemigo llega al tope de dosis, el veneno le inflige de golpe todo el daño que le quedaba y se le quita." \
+				if imbue_revienta else ""
+		"imbue_senal":
+			return "Cada golpe a un enemigo que ya tiene veneno devuelve un %s de la energía máxima de quien la usa." % (
+				_pct_entero(imbue_senal))
 		"oport_usos":
 			return "Veces que entra detrás: %d → %d" % [_oport_usos_de(antes), _oport_usos_de(self)]
 		"oport_seguimiento":

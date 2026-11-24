@@ -52,6 +52,7 @@ const FILAS_ANTES_DESPUES := [
 	["extra_espalda", "Daño de más si golpea por la espalda", "pct"],
 	["imbue_prob", "Probabilidad base de que prenda", "pct"],
 	["imbue_usos", "Ataques que dura la impregnación", "num"],
+	["imbue_fuerza", "Daño por turno de su veneno, frente al de siempre", "pct"],
 	["se_aparta", "Distancia que se aparta tras golpear", "dist"],
 ]
 

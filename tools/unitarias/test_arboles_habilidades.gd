@@ -334,3 +334,34 @@ func test_desaparecer_y_oportunista() -> void:
 	const Hab = preload("res://scripts/ui/combat_habilidades.gd")
 	Hab.gastar_salir_de_sombras(p)
 	cierto(not p.has_status(StatusEffects.Id.SIGILO), "al pegar oculto, se sale del Sigilo")
+
+
+# EL VENENO POR NIVEL Y EL FILO (24/11): la fuerza la pone quien lo sufre (su bando y el tipo), el tipo del Filo por el tier
+# del arma, tope 3 dosis, y lo de su arbol.
+func test_veneno_por_nivel_y_filo() -> void:
+	igual(StatusEffects.veneno_de_tier(1), 1, "T1: Veneno")
+	igual(StatusEffects.veneno_de_tier(2), 1, "T2: Veneno")
+	igual(StatusEffects.veneno_de_tier(3), 2, "T3: Ponzoña")
+	igual(StatusEffects.veneno_nombre(null, 2), "Ponzoña", "su nombre")
+	var enemigo := _bicho("Rata")
+	enemigo.es_enemigo = true
+	enemigo.nivel_piso = 1
+	enemigo.apply_status(StatusEffects.Id.VENENO)
+	cerca(enemigo.statuses[0].magnitude, 5.0, 0.001, "a un enemigo del nivel 1: 5 por dosis")
+	var tuyo := _bicho("Tuyo")
+	tuyo.apply_status(StatusEffects.Id.VENENO)
+	cerca(tuyo.statuses[0].magnitude, 3.0, 0.001, "a uno de los tuyos del nivel 1: 3 por dosis")
+	var e2 := _bicho("Rata 2")
+	e2.es_enemigo = true
+	e2.apply_status(StatusEffects.Id.VENENO, -1, StatusEffects.VENENO_BASE_DMG * 1.5, 1, false, -1, 0.0, 1.0, -1, 2)
+	cerca(e2.statuses[0].magnitude, 70.0 * 1.5, 0.01, "Ponzoña (forzada por el Filo) con su fuerza de mas")
+	igual(String(e2.statuses[0].d.get("nombre", "")), "Ponzoña", "y con su nombre")
+	for k in 5:
+		e2.apply_status(StatusEffects.Id.VENENO)
+	igual(e2.stacks_de(StatusEffects.Id.VENENO), 3, "tope de 3 dosis")
+	var f: AbilityData = _mont("res://resources/abilities/filo_emponzonado.tres", ["agarra_mejor", "veneno_fuerte", "ponzona_sangre", "senal"])
+	cerca(f.imbue_fuerza, 2.744 * 1.2, 0.002, "Filo nivel 5: la fuerza del veneno")
+	cerca(f.imbue_prob, 0.85, 0.0001, "agarra mejor")
+	cerca(f.imbue_senal, 0.05, 0.0001, "señal del veneno")
+	igual(f.imbue_tope(2), 3, "T2: hasta 3 dosis")
+	cerca(float(f.imbue_reparto(2)[0]), 0.0, 0.0001, "T2: nunca 1 sola")

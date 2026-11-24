@@ -192,6 +192,40 @@ ARBOLES = {
          "Las dos hojas entran por el mismo hueco.",
          {"oport_dual_entero": ("set", True), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
     ],
+    # FILO EMPONZOÑADO (24/11): no pega; su "daño" es la FUERZA DEL VENENO (imbue_fuerza, donde va la potencia). Impregna 5
+    # ataques, prob. base 70 % (con Destreza), el tipo y las dosis por el tier del arma, 36 EN, enfriamiento 5.
+    "filo_emponzonado": [
+        ("agarra_mejor", 2, [], ["mas_usos"], "Agarra mejor",
+         "Lo dejas secar un momento más y ya no se va con el primer golpe.",
+         {"imbue_prob": ("set", 0.85), "potencia": (P, 0.25), "potencia_coste": (P, 1.0)}),
+        ("mas_usos", 2, [], ["agarra_mejor"], "Más usos",
+         "Más frasco en el filo, para más golpes.",
+         {"imbue_usos": ("set", 7), "potencia": (P, 0.125), "potencia_coste": (P, 1.0)}),
+        ("dosis_cargadas", 3, ["agarra_mejor"], ["veneno_fuerte"], "Dosis cargadas",
+         "Cada corte deja más veneno dentro.",
+         {"imbue_peldano": ("set", 1), "potencia": (P, 0.125), "potencia_coste": (P, 1.0)}),
+        ("veneno_fuerte", 3, ["agarra_mejor"], ["dosis_cargadas"], "Veneno fuerte",
+         "Un frasco más turbio que el anterior.",
+         {"potencia": (P, 1.0), "potencia_coste": (P, 1.0)}),
+        ("compartir", 3, ["mas_usos"], ["mano_rapida"], "Compartir el frasco",
+         "Sobra veneno: que lo pruebe también el de al lado.",
+         {"imbue_comparte_usos": ("set", 3), "potencia": (P, 0.125), "potencia_coste": (P, 1.0)}),
+        ("mano_rapida", 3, ["mas_usos"], ["compartir"], "Mano rápida",
+         "Destapas, untas y tapas sin mirar.",
+         {"cooldown": ("add", -1), "potencia": (P, 0.25), "potencia_coste": (P, 1.0)}),
+        ("acido", 4, ["dosis_cargadas", "veneno_fuerte", "compartir", "mano_rapida"], ["ponzona_sangre"], "Ácido",
+         "No solo envenena: también se come la armadura.",
+         {"imbue_acido": ("set", 0.04), "potencia": (P, 0.25), "potencia_coste": (P, 1.0)}),
+        ("ponzona_sangre", 4, ["dosis_cargadas", "veneno_fuerte", "compartir", "mano_rapida"], ["acido"], "Ponzoña y sangre",
+         "Por una herida abierta, el veneno corre más deprisa.",
+         {"imbue_con_sangre": ("set", 0.15), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+        ("toxina", 5, ["acido", "ponzona_sangre"], ["senal"], "Toxina que revienta",
+         "Cuando ya no cabe más veneno, sale todo de golpe.",
+         {"imbue_revienta": ("set", True), "potencia": (P, 0.25), "potencia_coste": (P, 1.0)}),
+        ("senal", 5, ["acido", "ponzona_sangre"], ["toxina"], "Señal del veneno",
+         "Sabes quién va a caer, y eso te da aire.",
+         {"imbue_senal": ("set", 0.05), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ],
 }
 
 
@@ -240,8 +274,10 @@ def escribir(clave: str) -> None:
     # Fuera la linea del arbol y los comentarios ';' justo encima.
     t = re.sub(r"(?m)^(?:;[^\n]*\n)*arbol = \[[^\n]*\]\n", "", t)
     if 'id="nodo_mejora"' not in t:
-        t = t.replace("\n\n[sub_resource", '\n\n[ext_resource type="Script" path="res://scripts/items/nodo_mejora.gd" '
-                      'id="nodo_mejora"]\n\n[sub_resource', 1)
+        # detras de la ULTIMA referencia externa (una ficha sin sub-recursos no tiene donde engancharla si no)
+        ultima = list(re.finditer(r"\[ext_resource [^\n]*\]\n", t))[-1]
+        t = t[:ultima.end()] + '[ext_resource type="Script" path="res://scripts/items/nodo_mejora.gd" id="nodo_mejora"]\n' \
+            + t[ultima.end():]
     subs = [_sub(clave, n) for n in ARBOLES[clave]]
     bloque = "".join(s[1] + "\n\n" for s in subs)
     i = t.index("[resource]")

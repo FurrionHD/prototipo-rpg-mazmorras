@@ -491,17 +491,7 @@ func _arbol_tras_usar(ab: AbilityData, obj: Combatant, en_mapa: bool, reparto_ma
 
 # DESANGRAR: todo lo que le quedaba por hacer a ese estado, de golpe, y se le quita. Devuelve el daño hecho.
 static func detonar(objetivo: Combatant, estado: int) -> float:
-	if objetivo == null or estado < 0 or not objetivo.is_alive():
-		return 0.0
-	var queda: float = 0.0
-	for e in objetivo.statuses:
-		if e.id() == estado:
-			queda += e.dot_damage() * float(maxi(0, e.turns))
-	if queda <= 0.0:
-		return 0.0
-	objetivo.quitar_estado(estado)
-	objetivo.take_damage(queda)
-	return queda
+	return objetivo.detonar_estado(estado) if objetivo != null else 0.0
 
 
 # Las bajas y el ultimo golpe de la habilidad EN CURSO (los pone _usar_habilidad antes de los golpes).
@@ -1232,12 +1222,39 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# SUSTITUYE, asi que envenenar la daga te quita el Filo o el Manto que llevaras -- hay una sola
 	# ranura de imbuicion, y es a proposito.
 	if ab.es_imbuicion():
-		_pantalla._player.aplicar_imbue(ab.imbue_elemento, ab.imbue_pct, ab.imbue_usos, false,
-			ab.imbue_estado, ab.imbue_prob, Elementos.INTENSIDAD_IMBUIDO,
-			ab.imbue_prob_doble, ab.imbue_por_destreza, 1.0, false,
-			ab.imbue_tope(_tier_arma_activa()), ab.imbue_reparto(_tier_arma_activa()))
-		estados_log.append("el arma puede causar %s durante %d ataques" % [
-			str(StatusEffects.def(ab.imbue_estado).get("nombre", "?")), ab.imbue_usos])
+		# (24/11) el TIER que cuenta: el del arma, y uno mas por cada peldaño de Dosis cargadas (su arbol).
+		var tier_i: int = _tier_arma_activa() + ab.imbue_peldano
+		var quienes: Array = [_pantalla._player]
+		# COMPARTIR EL FRASCO: tambien el aliado vivo mas cercano (en el mapa; fuera, el primero que no sea el), con menos ataques.
+		if ab.imbue_comparte_usos > 0:
+			var cerca_a: Combatant = null
+			var d_min: float = INF
+			for al in _pantalla._aliados_vivos():
+				if al == _pantalla._player:
+					continue
+				var dd: float = _pantalla.turno_mapa.pies_de(al).distance_to(_pantalla.turno_mapa.pies_de(_pantalla._player)) \
+					if _pantalla.tactico else 0.0
+				if dd < d_min:
+					d_min = dd
+					cerca_a = al
+			if cerca_a != null:
+				quienes.append(cerca_a)
+		for q in quienes:
+			q.aplicar_imbue(ab.imbue_elemento, ab.imbue_pct, ab.imbue_usos if q == _pantalla._player else ab.imbue_comparte_usos,
+				false, ab.imbue_estado, ab.imbue_prob, Elementos.INTENSIDAD_IMBUIDO,
+				ab.imbue_prob_doble, ab.imbue_por_destreza, 1.0, false,
+				ab.imbue_tope(tier_i), ab.imbue_reparto(tier_i))
+			# lo de su arbol (aplicar_imbue lo deja a lo normal)
+			if ab.imbue_estado == StatusEffects.Id.VENENO:
+				q.imbue_veneno_nivel = StatusEffects.veneno_de_tier(tier_i)
+			q.imbue_fuerza = ab.imbue_fuerza
+			q.imbue_acido = ab.imbue_acido
+			q.imbue_con_sangre = ab.imbue_con_sangre
+			q.imbue_revienta = ab.imbue_revienta
+			q.imbue_senal = ab.imbue_senal
+			estados_log.append("el arma de %s puede causar %s durante %d ataques" % [q.nombre,
+				StatusEffects.veneno_nombre(null, q.imbue_veneno_nivel) if q.imbue_veneno_nivel > 0
+				else str(StatusEffects.def(ab.imbue_estado).get("nombre", "?")), q.imbue_usos])
 	# LIMPIAR DEBUFFS: a un aliado elegido (Purificar) o a todo el grupo (el area del baston).
 	if ab.limpia_debuffs > 0:
 		# Sin ternario a proposito: _aliados_vivos() devuelve Array[Combatant] y la otra rama un
