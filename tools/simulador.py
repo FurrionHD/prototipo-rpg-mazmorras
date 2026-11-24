@@ -70,7 +70,7 @@ def _args_godot(a) -> list:
         a.pisos = ",".join(str(i) for i in range(1, a.pisos_hasta + 1))
     extra = ["veces=%d" % a.veces, "tanda=%s" % a.tanda, "reglas=%s" % a.reglas, "escala=%s" % a.escala]
     for k in ("pisos", "clases", "grupos", "escenarios", "solo", "arma", "armas", "armaduras", "sets", "magias", "pociones", "mana", "magia_suma", "baston_tier", "magia_mult", "bakeo_suave", "stats_nivel", "escala_des",
-              "vel_enemigos", "iniciativa", "equipo", "aguante_vida", "aguante_def", "mejoras", "receta", "solo_basico", "aguante_tabla", "dano_tabla", "mejora_energia", "basico_energia", "aguante_jefes", "dano_jefes", "aguante_mut", "dano_mut"):
+              "vel_enemigos", "iniciativa", "equipo", "aguante_vida", "aguante_def", "mejoras", "receta", "solo_basico", "aguante_tabla", "dano_tabla", "mejora_energia", "basico_energia", "aguante_jefes", "dano_jefes", "aguante_mut", "dano_mut", "pociones_tier"):
         v = getattr(a, k)
         if v:
             extra.append("%s=%s" % (k, v))
@@ -721,6 +721,7 @@ def main():
     ap.add_argument("--dano-jefes", dest="dano_jefes", default="", help="(23/11) tabla por escalon solo para dano_jefes")
     ap.add_argument("--aguante-mut", dest="aguante_mut", default="", help="(23/11) tabla por escalon solo para aguante_mut")
     ap.add_argument("--dano-mut", dest="dano_mut", default="", help="(23/11) tabla por escalon solo para dano_mut")
+    ap.add_argument("--pociones-tier", dest="pociones_tier", default="", help="(24/11) de serie 1 (0 = solo las de hoy, hasta T2): del piso 13 en adelante, pociones de su tier (curan ~75 %% de la vida, como la media en el 12) y +1 por cabeza cada 3 escalones")
     ap.add_argument("--receta", default="", help="(23/11) como reparte el arbol del basico sus puntos: a_s1, a_s2, a_mix, a_a, b_s1, b_s2, b_mix, b_b (ver simulador_peleas._poner_arbol_basico)")
     ap.add_argument("--solo-basico", dest="solo_basico", default="", help="(23/11) 1 = nadie usa habilidades de golpe, solo el basico (para medir su arbol a pelo)")
     ap.add_argument("--vel-enemigos", dest="vel_enemigos", default="", help="relativa (de serie: la de su piso de origen frente a los personajes) | bakeada")

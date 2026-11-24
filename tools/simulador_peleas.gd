@@ -299,11 +299,15 @@ const ARMAS_TODAS := ["daga", "espada_corta", "espada_larga", "estoque", "hacha_
 # escalan su daño con la Fuerza (escala_destreza 0); lo que distingue a las ligeras es el critico (Destreza) y la esquiva
 # (Agilidad). Y su armadura: pesada y media -> hierro, agil y distancia -> cuero. (20/11, el jefe: "guerrero es mas probable
 # que tenga hierro o hierro ligero mas que placas, para actuar mas"; las placas, para el tanque.)
+# (24/11, el jefe) LA RESISTENCIA DEL MAGO Y LOS DE DISTANCIA: 550 de 750 (antes la mitad, 375). La vida se compone nivel a
+# nivel (base x (1 + R/333) y se guarda), asi que con la mitad acababan con 1/8 de la del tanque en el nivel 5 (3k contra
+# 25k); "algo de resistencia siempre consiguen", y con 550 quedan en ~1/3.
+const RES_FRAGIL := 550.0 / 750.0
 const PERFILES := {
 	"pesado": [{"fuerza": 1.0, "resistencia": 1.0, "destreza": 1.0, "agilidad": 0.85, "voluntad": 0.5}, "hierro"],
 	"medio": [{"fuerza": 1.0, "resistencia": 1.0, "agilidad": 1.0, "destreza": 0.5, "voluntad": 0.5}, "hierro"],
 	"agil": [{"fuerza": 1.0, "agilidad": 1.0, "destreza": 1.0, "resistencia": 0.5, "voluntad": 0.5}, "cuero"],
-	"distancia": [{"destreza": 1.0, "agilidad": 1.0, "fuerza": 1.0, "resistencia": 0.5, "voluntad": 0.5}, "cuero"],
+	"distancia": [{"destreza": 1.0, "agilidad": 1.0, "fuerza": 1.0, "resistencia": RES_FRAGIL, "voluntad": 0.5}, "cuero"],
 }
 const PERFIL_DE_ARMA := {"hacha_grande": "pesado", "mandobles": "pesado", "martillo_grande": "pesado",
 	"espada_corta": "medio", "espada_larga": "medio", "maza_peq": "medio", "punos": "medio",
@@ -453,6 +457,7 @@ func _leer_args() -> void:
 			"dano_mut": StatsMath.dano_mut = Array(kv[1].split(";")).map(func(x): return float(x))
 			"mejoras": _mejoras = kv[1] == "1"
 			"receta": _receta = kv[1]
+			"pociones_tier": _pociones_tier = kv[1] != "0"
 			"basico_energia": _basico_energia = kv[1]
 			"mejora_energia": _mejora_energia = -1.0 if kv[1] == "basico" else float(kv[1])
 			"solo_basico": _solo_basico = kv[1] == "1"
@@ -514,8 +519,8 @@ func _leer_args() -> void:
 const REPARTO := {
 	"guerrero": {"fuerza": 1.0, "resistencia": 1.0, "agilidad": 1.0, "destreza": 0.5, "voluntad": 0.5},
 	"tanque": {"fuerza": 1.0, "resistencia": 1.0, "agilidad": 0.73, "destreza": 0.5, "voluntad": 0.5},
-	"arquero": {"fuerza": 1.0, "resistencia": 0.5, "agilidad": 1.0, "destreza": 1.0, "voluntad": 0.5},
-	"mago": {"magia": 1.0, "resistencia": 0.5, "agilidad": 1.0, "voluntad": 0.5, "fuerza": 0.25, "destreza": 0.5},
+	"arquero": {"fuerza": 1.0, "resistencia": RES_FRAGIL, "agilidad": 1.0, "destreza": 1.0, "voluntad": 0.5},
+	"mago": {"magia": 1.0, "resistencia": RES_FRAGIL, "agilidad": 1.0, "voluntad": 0.5, "fuerza": 0.25, "destreza": 0.5},
 }
 
 func _personaje(piso: int, rol: String, en_grupo: bool, arma_g: String = "") -> PersonajeData:
@@ -714,6 +719,8 @@ var _pociones_mana := -1
 var _mana_real := false
 var _tope := 750.0
 const POCIONES_SIN_FIN := 999
+var _pociones_tier := true   # (24/11) de serie: las pociones de su tier del piso 13 en adelante (pociones_tier=0 = las de hoy, hasta T2)
+const POCION_TIER_PCT := 0.75
 
 func _llenar_bolsa(piso: int, jefe: bool) -> void:
 	Game.consumables.clear()
@@ -721,6 +728,10 @@ func _llenar_bolsa(piso: int, jefe: bool) -> void:
 	var magos: int = Game.party.filter(func(p): return String(p.get_meta("rol", "")) == "mago").size()
 	# CONTRA UN JEFE se baja mejor servido (lo pidio: "2 de mana y 2 de vida"): dos de vida por cabeza y dos de mana por mago.
 	var por: int = 2 if jefe else 1
+	# (24/11, el jefe: "un par mas de pociones, equivalente a la duracion de la pelea") con pociones_tier: las peleas se
+	# alargan con el escalon (los golpes suben), asi que +1 por cabeza cada 3 escalones (1-3: +0 ... 10: +3).
+	if _pociones_tier:
+		por += ((maxi(1, piso) - 1) / 6) / 3
 	var v: int = _pociones_vida if _pociones_vida >= 0 else Game.party.size() * por
 	var m: int = _pociones_mana if _pociones_mana >= 0 else magos * por
 	# con 'mana=real', sin fin; y la mejor que hay para el piso (del 13 en adelante no hay mas que la media +3)
@@ -730,7 +741,15 @@ func _llenar_bolsa(piso: int, jefe: bool) -> void:
 		if piso > 12:
 			tam_m = "media_3"
 	if v > 0:
-		Game.add_consumable(load("res://resources/consumables/pocion_%s.tres" % tam), v)
+		var pv: Resource = load("res://resources/consumables/pocion_%s.tres" % tam)
+		# (24/11, el jefe: "las pociones siguen siendo solo hasta T2, se quedan cortas de curacion") 'pociones_tier=1': del
+		# piso 13 en adelante, LA POCION DE SU TIER (aun no existe): cura lo mismo en proporcion que la media en el piso 12
+		# (~75 % de la vida de uno de los tuyos), con sus turnos de siempre.
+		if _pociones_tier and piso > 12:
+			pv = pv.duplicate()
+			pv.cura_total = 0.0
+			pv.cura_pct = POCION_TIER_PCT
+		Game.add_consumable(pv, v)
 	if m > 0:
 		Game.add_consumable(load("res://resources/consumables/pocion_mana_%s.tres" % tam_m), m)
 
