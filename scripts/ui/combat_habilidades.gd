@@ -443,8 +443,9 @@ static func gastar_salir_de_sombras(p: Combatant) -> void:
 		p.sigilo_extra = {}
 
 
-# LO QUE HACE DESAPARECER SEGUN SU ARBOL (24/11), despues de sus puñaladas y de ponerse el Sigilo. Devuelve lineas del log.
-func _desaparecer_tras_usar(ab: AbilityData, obj: Combatant, en_mapa: bool, reparto_mapa: Array) -> Array:
+# LO QUE HACEN LOS ARBOLES AL ACABAR LA HABILIDAD (24/11: Desaparecer y Oportunista), tras sus golpes y los estados que
+# se pone quien la usa. Devuelve lineas del log.
+func _arbol_tras_usar(ab: AbilityData, obj: Combatant, en_mapa: bool, reparto_mapa: Array) -> Array:
 	var out: Array = []
 	var p: Combatant = _pantalla._player
 	if ab.sigilo_esquiva > 0.0 or ab.sigilo_energia > 0.0 or ab.sigilo_golpe > 0.0:
@@ -466,6 +467,25 @@ func _desaparecer_tras_usar(ab: AbilityData, obj: Combatant, en_mapa: bool, repa
 	# HUMO ESPESO: la nube se queda en el suelo y ciega al que empiece su turno dentro.
 	if ab.nube_turnos > 0 and en_mapa:
 		_pantalla.turno_mapa.poner_nube_jugador(p, ab)
+	# OPORTUNISTA: su arbol cambia el estado que se acaba de poner (una copia de su ficha del catalogo, solo para este).
+	if ab.oport_usos > 0 or ab.oport_seguimiento > 0.0 or ab.oport_alcance > 0.0 or ab.oport_cadena > 0 \
+			or ab.oport_oculto > 0 or ab.oport_energia > 0.0 or ab.oport_dual_entero:
+		for e in p.statuses:
+			if e.id() != StatusEffects.Id.OPORTUNISTA:
+				continue
+			var d: Dictionary = (e.d as Dictionary).duplicate()
+			if ab.oport_seguimiento > 0.0:
+				d["seguimiento_pct"] = ab.oport_seguimiento
+			if ab.oport_alcance > 0.0:
+				d["alcance_mapa"] = ab.oport_alcance
+			d["cadena"] = ab.oport_cadena
+			d["cadena_hecha"] = 0
+			d["oculto"] = ab.oport_oculto
+			d["energia"] = ab.oport_energia
+			d["dual_entero"] = ab.oport_dual_entero
+			e.d = d
+			if ab.oport_usos > 0:
+				e.usos = ab.oport_usos
 	return out
 
 
@@ -575,6 +595,11 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 			r["desangra"] = det
 	if vivo_antes and not objetivo.is_alive():
 		_bajas_hab += 1   # Tajos que persiguen: los golpes que quedan pegan mas
+	# (24/11) DESEQUILIBRAR: el golpe que entra deja su estado (con la resistencia del enemigo).
+	if ab.estado_golpe >= 0 and objetivo.is_alive() and not objetivo.es_inmune(ab.estado_golpe) \
+			and randf() < StatusEffects.prob_final(ab.estado_golpe_prob, _pantalla._player, objetivo, ab.estado_golpe):
+		objetivo.apply_status(ab.estado_golpe, ab.estado_golpe_turnos)
+		r.estados.append("·" + str(StatusEffects.def(ab.estado_golpe).get("nombre", "?")))
 	if r.imbue > 0.0:
 		_pantalla.fuego_al_musgo(objetivo, _pantalla._player.imbue_elemento)
 	# ROBO DE VIDA (AbilityData.robo_vida): sobre el daño que de verdad ha entrado. Hoy no lo usa
@@ -626,7 +651,7 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 		# 'escala' es la fraccion de daño que encaja ESTE objetivo, y con ella va la probabilidad:
 		# al de al lado que se come el 40% del golpe le prende el estado un 40% de las veces.
 		var ap: Array = _tirar_efectos_habilidad(ab, objetivo, result.crit, "objetivo", escala, escala)
-		r.estados = ap
+		r.estados += ap
 		if not ap.is_empty():
 			r.linea += "  -> " + ", ".join(ap)
 	if objetivo.is_alive():
@@ -1144,7 +1169,7 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	if total > 0.0:
 		gastar_salir_de_sombras(_pantalla._player)
 	estados_log += _tirar_efectos_habilidad(ab, obj, hubo_critico, "self")
-	estados_log += _desaparecer_tras_usar(ab, obj, en_mapa, reparto_mapa)
+	estados_log += _arbol_tras_usar(ab, obj, en_mapa, reparto_mapa)
 
 	if ab.bloqueo_turnos > 0:
 		_pantalla._player_defending = true   # golpe de escudo: te deja en guardia

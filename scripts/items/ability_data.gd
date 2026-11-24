@@ -562,6 +562,9 @@ func secundario_para(n_enemigos: int) -> float:
 # (daño x potencia, energia x potencia_coste) y la deja en 1. En la ficha, siempre 1.
 @export var potencia: float = 1.0
 @export var potencia_coste: float = 1.0
+# COMO SE LLAMA SU GOLPE en la ficha de los nodos de su arbol ("de cada tajo", "del salto"): «Daño del salto: 70 % -> 77 %».
+# Vacio = «de cada golpe».
+@export var golpe_txt: String = ""
 # --- LO QUE TOCAN LOS NODOS DE LOS ARBOLES (24/11; memoria empezar-habilidades-24-11) ---
 # x la probabilidad base de los estados que le pone al ENEMIGO (Mil cortes de la Rafaga, Herida abierta de la Puñalada).
 @export var efectos_prob_mult: float = 1.0
@@ -604,6 +607,18 @@ func secundario_para(n_enemigos: int) -> float:
 @export var nube_prob: float = 0.0
 # ESCABULLIRSE: tras usarla, quien la usa se mueve hasta esto (solo en el mapa). PENDIENTE: el movimiento en el tactico.
 @export var se_mueve: float = 0.0
+# --- OPORTUNISTA (24/11, su arbol): cambian el estado Oportunista que se pone (0 = lo del catalogo) ---
+@export var oport_usos: int = 0              # MAS HUECOS / ENTRAR A FONDO: entradas que tiene
+@export var oport_seguimiento: float = 0.0   # ENTRAR A FONDO: el seguimiento, en fraccion de un basico
+@export var oport_alcance: float = 0.0       # OJO DE HALCON: hasta donde entra (px en el mapa)
+@export var oport_cadena: int = 0            # CRITICO EN CADENA: cada seguimiento que critea, +1 entrada (hasta esto)
+@export var oport_oculto: int = 0            # SIN DEJAR RASTRO: tras cada seguimiento, Sigilo estos turnos
+@export var oport_energia: float = 0.0       # APROVECHADO: cada seguimiento repone este % de la energia maxima
+@export var oport_dual_entero: bool = false  # ENTRAR LOS DOS: con dos armas, el 2o golpe del seguimiento pega entero
+# DESEQUILIBRAR (Oportunista) y cualquier otra: el golpe que acierta deja este estado (-1 = nada) con su prob y turnos.
+@export var estado_golpe: int = -1
+@export var estado_golpe_prob: float = 1.0
+@export var estado_golpe_turnos: int = 1
 # ENTRAR BAILANDO (Rafaga): antes de golpear se acerca hasta esto hacia el objetivo (solo en el mapa). PENDIENTE: el
 # movimiento en el tactico (24/11, sin hacer todavia).
 @export var acercarse: float = 0.0
@@ -948,6 +963,55 @@ func frase_mejora(campo: String, antes: AbilityData) -> String:
 		"acercarse":
 			return "Antes de golpear, quien la usa se acerca hasta %s hacia el objetivo." % casillas_txt(acercarse) \
 				if acercarse > 0.0 else ""
+		"efectos_turnos_extra":
+			var propios: Array = []
+			for a in efectos:
+				if a != null and int(a.estado) >= 0 and not a.en_objetivo:
+					propios.append(str(StatusEffects.def(int(a.estado)).get("nombre", "?")))
+			return "%s dura %d turno%s más." % [("El " + " y el ".join(PackedStringArray(propios))) if not propios.is_empty() else "Lo que se pone",
+				efectos_turnos_extra, "" if efectos_turnos_extra == 1 else "s"]
+		"sigilo_esquiva":
+			return "Mientras dura su Sigilo, quien la usa suma un %s a su probabilidad de esquivar." % _pct_entero(sigilo_esquiva)
+		"sigilo_energia":
+			return "Mientras dura su Sigilo, al empezar cada turno quien la usa recupera un %s de su energía máxima." % (
+				_pct_entero(sigilo_energia))
+		"sigilo_golpe":
+			return "El primer ataque de quien la usa mientras dura su Sigilo inflige un %s más, y el Sigilo se acaba." % (
+				_pct_entero(sigilo_golpe))
+		"desvia_amenaza":
+			return "Los enemigos olvidan a quien la usa y buscan otro objetivo." if desvia_amenaza else ""
+		"oculta_aliados_turnos":
+			return "Los aliados dentro de su alcance también reciben Sigilo durante %d turnos." % oculta_aliados_turnos \
+				if oculta_aliados_turnos > 0 else ""
+		"nube_turnos", "nube_estado", "nube_prob":
+			if nube_turnos <= 0 or nube_estado < 0:
+				return ""
+			return "El humo se queda %d turnos; el enemigo que empiece su turno dentro tiene una probabilidad base del %s de quedar con %s." % [
+				nube_turnos, _pct_entero(nube_prob), str(StatusEffects.def(nube_estado).get("nombre", "?"))]
+		"oport_usos":
+			return "Veces que entra detrás: %d → %d" % [_oport_usos_de(antes), _oport_usos_de(self)]
+		"oport_seguimiento":
+			return "Cada vez que entra detrás inflige un %s del daño de su ataque básico (antes, un %s)." % [
+				_pct_entero(oport_seguimiento), _pct_entero(_oport_pct_de(antes))]
+		"oport_alcance":
+			return "Entra detrás de enemigos hasta a %s (antes, %s)." % [casillas_txt(oport_alcance),
+				casillas_txt(float(StatusEffects.def(StatusEffects.Id.OPORTUNISTA).get("alcance_mapa", 150.0)))]
+		"oport_cadena":
+			return "Cada vez que entra detrás con un crítico, gana una entrada más (hasta %d)." % oport_cadena
+		"oport_oculto":
+			return "Cada vez que entra detrás, queda con Sigilo durante %d turno%s." % [oport_oculto, "" if oport_oculto == 1 else "s"]
+		"oport_energia":
+			return "Cada vez que entra detrás, recupera un %s de su energía máxima." % _pct_entero(oport_energia)
+		"oport_dual_entero":
+			return "Con dos armas, el golpe de la segunda al entrar detrás inflige el daño entero." if oport_dual_entero else ""
+		"estado_golpe", "estado_golpe_prob", "estado_golpe_turnos":
+			if estado_golpe < 0:
+				return ""
+			return "Tiene una probabilidad base del %s de causar %s al enemigo que golpea durante %d turno%s." % [
+				_pct_entero(estado_golpe_prob), str(StatusEffects.def(estado_golpe).get("nombre", "?")), estado_golpe_turnos,
+				"" if estado_golpe_turnos == 1 else "s"]
+		"se_mueve":
+			return "Tras usarla, quien la usa se mueve hasta %s adonde elija." % casillas_txt(se_mueve) if se_mueve > 0.0 else ""
 		"efectos_cargas_extra":
 			var noms: Array = []
 			for a in efectos:
@@ -966,6 +1030,15 @@ func frase_mejora(campo: String, antes: AbilityData) -> String:
 			return "El último golpe inflige un %s más a los enemigos con %s." % [_pct_txt(remate_mult - 1.0),
 				str(StatusEffects.def(remate_estado).get("nombre", "?"))]
 	return ""
+
+
+static func _oport_usos_de(a: AbilityData) -> int:
+	return a.oport_usos if a.oport_usos > 0 else int(StatusEffects.def(StatusEffects.Id.OPORTUNISTA).get("usos", 5))
+
+
+static func _oport_pct_de(a: AbilityData) -> float:
+	return a.oport_seguimiento if a.oport_seguimiento > 0.0 \
+		else float(StatusEffects.def(StatusEffects.Id.OPORTUNISTA).get("seguimiento_pct", 0.75))
 
 
 static func _pct_entero(f: float) -> String:

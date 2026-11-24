@@ -662,7 +662,10 @@ static func texto_cambios(base: Resource, n: Resource, cogidos: Array = []) -> A
 	var despues: AbilityData = Mejoras.montar_sin_nombre(base, _en_orden(base, camino + [n])) as AbilityData
 	var out: Array = []
 	for fila in FILAS_ANTES_DESPUES:
-		var l: String = _fila_antes_despues(antes, despues, String(fila[0]), String(fila[1]), String(fila[2]))
+		var nombre_f: String = String(fila[1])
+		if String(fila[0]) == "dano_mult" and base.golpe_txt != "":
+			nombre_f = "Daño " + base.golpe_txt   # «Daño del salto», «Daño de cada tajo»
+		var l: String = _fila_antes_despues(antes, despues, String(fila[0]), nombre_f, String(fila[2]))
 		if l != "":
 			out.append(l)
 	# Lo PROPIO de cada mecanica (remates, cargas, lo que se pone al saltar...): lo escribe la habilidad.

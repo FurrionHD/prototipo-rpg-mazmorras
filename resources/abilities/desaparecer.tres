@@ -3,6 +3,8 @@
 [ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
 
+[ext_resource type="Script" path="res://scripts/items/nodo_mejora.gd" id="nodo_mejora"]
+
 [sub_resource type="Resource" id="SA_0"]
 script = ExtResource("2")
 estado = 20
@@ -10,8 +12,129 @@ prob = 1.0
 en_objetivo = false
 turns = 3
 
+[sub_resource type="Resource" id="NM_des_nube_grande"]
+script = ExtResource("nodo_mejora")
+id = &"nube_grande"
+nombre = "Nube más grande"
+descripcion = "Más humo, más sitio donde perderte."
+padres = Array[StringName]([])
+excluye = Array[StringName]([&"a_fondo"])
+nivel_min = 2
+dominio = 300
+oro = 2000
+cambios = {"forma_radio": ["add", 21.0], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_des_a_fondo"]
+script = ExtResource("nodo_mejora")
+id = &"a_fondo"
+nombre = "Puñalada a fondo"
+descripcion = "Menos gente alrededor, pero a cada uno se la clavas entera."
+padres = Array[StringName]([])
+excluye = Array[StringName]([&"nube_grande"])
+nivel_min = 2
+dominio = 300
+oro = 2000
+cambios = {"forma_radio": ["add", -16.0], "potencia": ["presupuesto", 1.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_des_humo_espeso"]
+script = ExtResource("nodo_mejora")
+id = &"humo_espeso"
+nombre = "Humo espeso"
+descripcion = "El humo no se va: se queda pegado al suelo y a los ojos."
+padres = Array[StringName]([&"nube_grande"])
+excluye = Array[StringName]([&"humo_todos"])
+nivel_min = 3
+dominio = 600
+oro = 8000
+cambios = {"nube_turnos": ["set", 2], "nube_estado": ["set", 33], "nube_prob": ["set", 0.7], "potencia": ["presupuesto", 0.375], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_des_humo_todos"]
+script = ExtResource("nodo_mejora")
+id = &"humo_todos"
+nombre = "Humo para todos"
+descripcion = "Nadie dijo que la nube fuera solo tuya."
+padres = Array[StringName]([&"nube_grande"])
+excluye = Array[StringName]([&"humo_espeso"])
+nivel_min = 3
+dominio = 600
+oro = 8000
+cambios = {"oculta_aliados_turnos": ["set", 2], "potencia": ["presupuesto", 0.375], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_des_salir_sombras"]
+script = ExtResource("nodo_mejora")
+id = &"salir_sombras"
+nombre = "Salir de las sombras"
+descripcion = "Lo primero que ven es la hoja."
+padres = Array[StringName]([&"a_fondo"])
+excluye = Array[StringName]([&"escabullirse"])
+nivel_min = 3
+dominio = 600
+oro = 8000
+cambios = {"sigilo_golpe": ["set", 0.3], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_des_escabullirse"]
+script = ExtResource("nodo_mejora")
+id = &"escabullirse"
+nombre = "Escabullirse"
+descripcion = "Cuando el humo se aclara, ya no estás donde te dejaron."
+padres = Array[StringName]([&"a_fondo"])
+excluye = Array[StringName]([&"salir_sombras"])
+nivel_min = 3
+dominio = 600
+oro = 8000
+cambios = {"se_mueve": ["add", 60.0], "potencia": ["presupuesto", 0.625], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_des_desvio"]
+script = ExtResource("nodo_mejora")
+id = &"desvio"
+nombre = "Desvío"
+descripcion = "Te buscaban a ti. Ya no se acuerdan de por qué."
+padres = Array[StringName]([&"humo_espeso", &"humo_todos", &"salir_sombras", &"escabullirse"])
+excluye = Array[StringName]([&"pies_niebla"])
+nivel_min = 4
+dominio = 900
+oro = 25000
+cambios = {"desvia_amenaza": ["set", true], "potencia": ["presupuesto", 0.625], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_des_pies_niebla"]
+script = ExtResource("nodo_mejora")
+id = &"pies_niebla"
+nombre = "Pies en la niebla"
+descripcion = "Entre el humo, cada paso cae donde no miran."
+padres = Array[StringName]([&"humo_espeso", &"humo_todos", &"salir_sombras", &"escabullirse"])
+excluye = Array[StringName]([&"desvio"])
+nivel_min = 4
+dominio = 900
+oro = 25000
+cambios = {"sigilo_esquiva": ["set", 0.15], "potencia": ["presupuesto", 0.625], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_des_sombra_larga"]
+script = ExtResource("nodo_mejora")
+id = &"sombra_larga"
+nombre = "Sombra larga"
+descripcion = "Te cuesta más salir que entrar."
+padres = Array[StringName]([&"desvio", &"pies_niebla"])
+excluye = Array[StringName]([&"recarga"])
+nivel_min = 5
+dominio = 1200
+oro = 70000
+cambios = {"efectos_turnos_extra": ["set", 1], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_des_recarga"]
+script = ExtResource("nodo_mejora")
+id = &"recarga"
+nombre = "Recarga en las sombras"
+descripcion = "Mientras nadie te ve, recuperas el aliento."
+padres = Array[StringName]([&"desvio", &"pies_niebla"])
+excluye = Array[StringName]([&"sombra_larga"])
+nivel_min = 5
+dominio = 1200
+oro = 70000
+cambios = {"sigilo_energia": ["set", 0.08], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
 [resource]
 script = ExtResource("1")
+golpe_txt = "de cada puñalada"
 nombre = "Desaparecer"
 precio = 2500
 coste_energia = 34
@@ -32,3 +155,5 @@ forma_reparte = true
 suelo_roto = 14
 descripcion = "Revientas un frasco de humo a tus pies y, antes de que se aclare, cada uno de los que te rodean se lleva su puñalada. Cuando se disipa siguen peleando, pero ya no contigo."
 efectos = [SubResource("SA_0")]
+; EL ARBOL (24/11, cerrado con el jefe): lo escribe tools/arboles_habilidades.py, no tocarlo a mano.
+arbol = [SubResource("NM_des_nube_grande"), SubResource("NM_des_a_fondo"), SubResource("NM_des_humo_espeso"), SubResource("NM_des_humo_todos"), SubResource("NM_des_salir_sombras"), SubResource("NM_des_escabullirse"), SubResource("NM_des_desvio"), SubResource("NM_des_pies_niebla"), SubResource("NM_des_sombra_larga"), SubResource("NM_des_recarga")]

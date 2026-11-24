@@ -26,6 +26,9 @@ ORO_POR_NIVEL = {2: 2000, 3: 8000, 4: 25000, 5: 70000}
 
 P = "presupuesto"
 SANGRADO = 1
+CEGUERA = 33
+VULNERABLE = 5   # el "Expuesto" de los textos
+NV3_DESAP = ["humo_espeso", "humo_todos", "salir_sombras", "escabullirse"]
 
 ARBOLES = {
     "rafaga": [
@@ -114,6 +117,80 @@ ARBOLES = {
         ("golpe_y_fuera", 5, ["asesinato", "desangrar"], ["ejecucion"], "Golpe y fuera",
          "Clavas, sueltas y ya no estás.",
          {"se_aparta": ("add", 40.0), "potencia": (P, 0.875), "potencia_coste": (P, 1.0)}),
+    ],
+    # DESAPARECER (24/11): base una puñalada del 60 % a cada enemigo a 64 px, Sigilo 3 turnos, 34 EN, enfriamiento 5.
+    "desaparecer": [
+        # Nv2: mas nube o puñalada a fondo (su contrario)
+        ("nube_grande", 2, [], ["a_fondo"], "Nube más grande",
+         "Más humo, más sitio donde perderte.",
+         {"forma_radio": ("add", 21.0), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+        ("a_fondo", 2, [], ["nube_grande"], "Puñalada a fondo",
+         "Menos gente alrededor, pero a cada uno se la clavas entera.",
+         {"forma_radio": ("add", -16.0), "potencia": (P, 1.5), "potencia_coste": (P, 1.0)}),
+        # Nv3, lado de la nube
+        ("humo_espeso", 3, ["nube_grande"], ["humo_todos"], "Humo espeso",
+         "El humo no se va: se queda pegado al suelo y a los ojos.",
+         {"nube_turnos": ("set", 2), "nube_estado": ("set", CEGUERA), "nube_prob": ("set", 0.7),
+          "potencia": (P, 0.375), "potencia_coste": (P, 1.0)}),
+        ("humo_todos", 3, ["nube_grande"], ["humo_espeso"], "Humo para todos",
+         "Nadie dijo que la nube fuera solo tuya.",
+         {"oculta_aliados_turnos": ("set", 2), "potencia": (P, 0.375), "potencia_coste": (P, 1.0)}),
+        # Nv3, lado de la puñalada
+        ("salir_sombras", 3, ["a_fondo"], ["escabullirse"], "Salir de las sombras",
+         "Lo primero que ven es la hoja.",
+         {"sigilo_golpe": ("set", 0.3), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+        ("escabullirse", 3, ["a_fondo"], ["salir_sombras"], "Escabullirse",
+         "Cuando el humo se aclara, ya no estás donde te dejaron.",
+         {"se_mueve": ("add", 60.0), "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+        # Nv4: desde cualquiera de los cuatro
+        ("desvio", 4, NV3_DESAP, ["pies_niebla"], "Desvío",
+         "Te buscaban a ti. Ya no se acuerdan de por qué.",
+         {"desvia_amenaza": ("set", True), "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+        ("pies_niebla", 4, NV3_DESAP, ["desvio"], "Pies en la niebla",
+         "Entre el humo, cada paso cae donde no miran.",
+         {"sigilo_esquiva": ("set", 0.15), "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+        # Nv5: desde cualquiera de los dos
+        ("sombra_larga", 5, ["desvio", "pies_niebla"], ["recarga"], "Sombra larga",
+         "Te cuesta más salir que entrar.",
+         {"efectos_turnos_extra": ("set", 1), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+        ("recarga", 5, ["desvio", "pies_niebla"], ["sombra_larga"], "Recarga en las sombras",
+         "Mientras nadie te ve, recuperas el aliento.",
+         {"sigilo_energia": ("set", 0.08), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ],
+    # OPORTUNISTA (24/11): el SALTO (70 %, +30 % de critico) es lo que sube su arbol; los SEGUIMIENTOS son un basico al
+    # 75 % FIJO (el jefe: escalan con el basico), salvo Entrar a fondo. 5 entradas a 150 px, 44 EN (dual 60), enfr. 6.
+    "oportunista": [
+        ("mas_huecos", 2, [], ["entrar_fondo"], "Más huecos",
+         "Cada vez ves más sitios por donde colarte.",
+         {"oport_usos": ("set", 7), "potencia": (P, 0.25), "potencia_coste": (P, 1.0)}),
+        ("entrar_fondo", 2, [], ["mas_huecos"], "Entrar a fondo",
+         "Entras menos veces, pero cuando entras no vuelves con las manos vacías.",
+         {"oport_usos": ("set", 4), "oport_seguimiento": ("set", 1.0), "potencia": (P, 1.0), "potencia_coste": (P, 1.0)}),
+        ("ojo_halcon", 3, ["mas_huecos"], ["critico_cadena"], "Ojo de halcón",
+         "Ves el hueco desde más lejos.",
+         {"oport_alcance": ("set", 200.0), "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+        ("critico_cadena", 3, ["mas_huecos"], ["ojo_halcon"], "Crítico en cadena",
+         "Un buen golpe te abre el siguiente hueco.",
+         {"oport_cadena": ("set", 3), "potencia": (P, 0.375), "potencia_coste": (P, 1.0)}),
+        ("llegar_matando", 3, ["entrar_fondo"], ["desequilibrar"], "Llegar matando",
+         "El primer golpe es el que más duele.",
+         {"potencia": (P, 1.25), "potencia_coste": (P, 1.0)}),
+        ("desequilibrar", 3, ["entrar_fondo"], ["llegar_matando"], "Desequilibrar",
+         "Caes encima y le dejas sin pies.",
+         {"estado_golpe": ("set", VULNERABLE), "estado_golpe_prob": ("set", 1.0), "estado_golpe_turnos": ("set", 1),
+          "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+        ("sin_rastro", 4, ["ojo_halcon", "critico_cadena", "llegar_matando", "desequilibrar"], ["aprovechado"],
+         "Sin dejar rastro", "Entras, cortas y te vuelves sombra.",
+         {"oport_oculto": ("set", 1), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+        ("aprovechado", 4, ["ojo_halcon", "critico_cadena", "llegar_matando", "desequilibrar"], ["sin_rastro"],
+         "Aprovechado", "Lo que otros abren, tú lo cobras.",
+         {"oport_energia": ("set", 0.04), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+        ("salto_largo", 5, ["sin_rastro", "aprovechado"], ["entrar_dos"], "Salto largo",
+         "Ninguna espalda queda demasiado lejos.",
+         {"forma_rango": ("add", 50.0), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+        ("entrar_dos", 5, ["sin_rastro", "aprovechado"], ["salto_largo"], "Entrar los dos",
+         "Las dos hojas entran por el mismo hueco.",
+         {"oport_dual_entero": ("set", True), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
     ],
 }
 

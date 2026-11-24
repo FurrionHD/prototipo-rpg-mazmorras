@@ -132,6 +132,7 @@ cambios = {"potencia": ["presupuesto", 0.625], "potencia_coste": ["presupuesto",
 
 [resource]
 script = ExtResource("1")
+golpe_txt = "de cada tajo"
 nombre = "Ráfaga"
 inicial = true
 coste_energia = 48

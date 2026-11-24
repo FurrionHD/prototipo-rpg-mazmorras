@@ -138,6 +138,7 @@ cambios = {"se_aparta": ["add", 40.0], "potencia": ["presupuesto", 0.875], "pote
 
 [resource]
 script = ExtResource("1")
+golpe_txt = "de la puñalada"
 nombre = "Puñalada certera"
 precio = 1200
 coste_energia = 48

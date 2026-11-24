@@ -3,6 +3,8 @@
 [ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
 
+[ext_resource type="Script" path="res://scripts/items/nodo_mejora.gd" id="nodo_mejora"]
+
 [sub_resource type="Resource" id="SA_0"]
 script = ExtResource("2")
 estado = 34
@@ -10,8 +12,129 @@ prob = 1.0
 en_objetivo = false
 turns = 30
 
+[sub_resource type="Resource" id="NM_opo_mas_huecos"]
+script = ExtResource("nodo_mejora")
+id = &"mas_huecos"
+nombre = "Más huecos"
+descripcion = "Cada vez ves más sitios por donde colarte."
+padres = Array[StringName]([])
+excluye = Array[StringName]([&"entrar_fondo"])
+nivel_min = 2
+dominio = 300
+oro = 2000
+cambios = {"oport_usos": ["set", 7], "potencia": ["presupuesto", 0.25], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_opo_entrar_fondo"]
+script = ExtResource("nodo_mejora")
+id = &"entrar_fondo"
+nombre = "Entrar a fondo"
+descripcion = "Entras menos veces, pero cuando entras no vuelves con las manos vacías."
+padres = Array[StringName]([])
+excluye = Array[StringName]([&"mas_huecos"])
+nivel_min = 2
+dominio = 300
+oro = 2000
+cambios = {"oport_usos": ["set", 4], "oport_seguimiento": ["set", 1.0], "potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_opo_ojo_halcon"]
+script = ExtResource("nodo_mejora")
+id = &"ojo_halcon"
+nombre = "Ojo de halcón"
+descripcion = "Ves el hueco desde más lejos."
+padres = Array[StringName]([&"mas_huecos"])
+excluye = Array[StringName]([&"critico_cadena"])
+nivel_min = 3
+dominio = 600
+oro = 8000
+cambios = {"oport_alcance": ["set", 200.0], "potencia": ["presupuesto", 0.625], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_opo_critico_cadena"]
+script = ExtResource("nodo_mejora")
+id = &"critico_cadena"
+nombre = "Crítico en cadena"
+descripcion = "Un buen golpe te abre el siguiente hueco."
+padres = Array[StringName]([&"mas_huecos"])
+excluye = Array[StringName]([&"ojo_halcon"])
+nivel_min = 3
+dominio = 600
+oro = 8000
+cambios = {"oport_cadena": ["set", 3], "potencia": ["presupuesto", 0.375], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_opo_llegar_matando"]
+script = ExtResource("nodo_mejora")
+id = &"llegar_matando"
+nombre = "Llegar matando"
+descripcion = "El primer golpe es el que más duele."
+padres = Array[StringName]([&"entrar_fondo"])
+excluye = Array[StringName]([&"desequilibrar"])
+nivel_min = 3
+dominio = 600
+oro = 8000
+cambios = {"potencia": ["presupuesto", 1.25], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_opo_desequilibrar"]
+script = ExtResource("nodo_mejora")
+id = &"desequilibrar"
+nombre = "Desequilibrar"
+descripcion = "Caes encima y le dejas sin pies."
+padres = Array[StringName]([&"entrar_fondo"])
+excluye = Array[StringName]([&"llegar_matando"])
+nivel_min = 3
+dominio = 600
+oro = 8000
+cambios = {"estado_golpe": ["set", 5], "estado_golpe_prob": ["set", 1.0], "estado_golpe_turnos": ["set", 1], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_opo_sin_rastro"]
+script = ExtResource("nodo_mejora")
+id = &"sin_rastro"
+nombre = "Sin dejar rastro"
+descripcion = "Entras, cortas y te vuelves sombra."
+padres = Array[StringName]([&"ojo_halcon", &"critico_cadena", &"llegar_matando", &"desequilibrar"])
+excluye = Array[StringName]([&"aprovechado"])
+nivel_min = 4
+dominio = 900
+oro = 25000
+cambios = {"oport_oculto": ["set", 1], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_opo_aprovechado"]
+script = ExtResource("nodo_mejora")
+id = &"aprovechado"
+nombre = "Aprovechado"
+descripcion = "Lo que otros abren, tú lo cobras."
+padres = Array[StringName]([&"ojo_halcon", &"critico_cadena", &"llegar_matando", &"desequilibrar"])
+excluye = Array[StringName]([&"sin_rastro"])
+nivel_min = 4
+dominio = 900
+oro = 25000
+cambios = {"oport_energia": ["set", 0.04], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_opo_salto_largo"]
+script = ExtResource("nodo_mejora")
+id = &"salto_largo"
+nombre = "Salto largo"
+descripcion = "Ninguna espalda queda demasiado lejos."
+padres = Array[StringName]([&"sin_rastro", &"aprovechado"])
+excluye = Array[StringName]([&"entrar_dos"])
+nivel_min = 5
+dominio = 1200
+oro = 70000
+cambios = {"forma_rango": ["add", 50.0], "potencia": ["presupuesto", 0.75], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_opo_entrar_dos"]
+script = ExtResource("nodo_mejora")
+id = &"entrar_dos"
+nombre = "Entrar los dos"
+descripcion = "Las dos hojas entran por el mismo hueco."
+padres = Array[StringName]([&"sin_rastro", &"aprovechado"])
+excluye = Array[StringName]([&"salto_largo"])
+nivel_min = 5
+dominio = 1200
+oro = 70000
+cambios = {"oport_dual_entero": ["set", true], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
 [resource]
 script = ExtResource("1")
+golpe_txt = "del salto"
 nombre = "Oportunista"
 precio = 4000
 coste_energia = 44
@@ -32,3 +155,5 @@ forma_radio = 16.0
 salto_espalda = true
 descripcion = "Apareces a la espalda de uno y le clavas la daga donde más duele. Desde entonces, cada hueco que abre uno de los tuyos cerca de ti es tuyo: tú ya estás detrás."
 efectos = [SubResource("SA_0")]
+; EL ARBOL (24/11, cerrado con el jefe): lo escribe tools/arboles_habilidades.py, no tocarlo a mano.
+arbol = [SubResource("NM_opo_mas_huecos"), SubResource("NM_opo_entrar_fondo"), SubResource("NM_opo_ojo_halcon"), SubResource("NM_opo_critico_cadena"), SubResource("NM_opo_llegar_matando"), SubResource("NM_opo_desequilibrar"), SubResource("NM_opo_sin_rastro"), SubResource("NM_opo_aprovechado"), SubResource("NM_opo_salto_largo"), SubResource("NM_opo_entrar_dos")]

@@ -306,3 +306,31 @@ func test_desangrar_y_asesinato() -> void:
 	tocado.current_hp = tocado.max_hp * 0.2
 	cerca(Hab.mult_arbol_golpe(a, sano, 0, 0, 0), 1.0, 0.0001, "Asesinato: nada a uno sano")
 	cerca(Hab.mult_arbol_golpe(a, tocado, 0, 0, 0), 1.4, 0.0001, "Asesinato: +40 % a uno por debajo del 30 %")
+
+
+# DESAPARECER Y OPORTUNISTA (24/11): numeros por camino y lo que trae el Sigilo de Desaparecer.
+func _mont(ruta: String, ids: Array) -> AbilityData:
+	var base: AbilityData = load(ruta)
+	return Mejoras.montar_sin_nombre(base, (base.arbol as Array).filter(func(n): return ids.has(String(n.id)))) as AbilityData
+
+
+func test_desaparecer_y_oportunista() -> void:
+	const DES := "res://resources/abilities/desaparecer.tres"
+	const OPO := "res://resources/abilities/oportunista.tres"
+	cerca(_mont(DES, ["nube_grande"]).dano_mult, 0.72, 0.001, "nube grande 72 %")
+	cerca(_mont(DES, ["a_fondo"]).dano_mult, 0.96, 0.001, "a fondo 96 %")
+	cerca(_mont(DES, ["a_fondo", "salir_sombras", "desvio", "recarga"]).dano_mult, 1.976, 0.002, "desaparecer nivel 5: 198 %")
+	cerca(_mont(DES, ["nube_grande"]).forma_radio, 85.0, 0.01, "la nube, mas grande")
+	cerca(_mont(OPO, ["entrar_fondo", "llegar_matando"]).dano_mult, 0.7 * 2.1, 0.002, "llegar matando: el salto 147 %")
+	cerca(_mont(OPO, ["mas_huecos", "ojo_halcon", "sin_rastro", "salto_largo"]).dano_mult, 2.497, 0.002, "salto largo 250 %")
+	igual(_mont(OPO, ["entrar_fondo"]).oport_usos, 4, "entrar a fondo: 4 entradas")
+	cerca(_mont(OPO, ["entrar_fondo"]).oport_seguimiento, 1.0, 0.0001, "y el seguimiento al 100 % del basico")
+	var p := _bicho("Daga")
+	p.sigilo_extra = {"esquiva": 0.15, "energia": 0.08, "golpe": 0.3}
+	cerca(p.sigilo("golpe"), 0.0, 0.0001, "sin Sigilo no trae nada")
+	p.apply_status(StatusEffects.Id.SIGILO, 3)
+	cerca(p.sigilo("golpe"), 0.3, 0.0001, "con Sigilo, su golpe al salir")
+	cerca(p.status_evade_flat(), 0.15, 0.0001, "y la esquiva de Pies en la niebla")
+	const Hab = preload("res://scripts/ui/combat_habilidades.gd")
+	Hab.gastar_salir_de_sombras(p)
+	cierto(not p.has_status(StatusEffects.Id.SIGILO), "al pegar oculto, se sale del Sigilo")
