@@ -101,9 +101,16 @@ class Lienzo:
 def rafaga():
     """Tres tajos curvos en abanico, del blanco (la punta) al gris (la estela)."""
     L = Lienzo()
-    L.arco(-1.0, 13.0, 11.5, -80, -10, ['d', 'm', 'l', 'w'])
-    L.arco(-1.0, 13.0, 8.0, -82, -8, ['d', 'm', 'l', 'w'])
-    L.arco(-1.0, 13.0, 4.5, -85, -5, ['m', 'l', 'w'])
+    # tres tajos en diagonal (de arriba a la derecha hacia abajo a la izquierda), uno tras otro, gruesos en el medio
+    for k, (x0, y0) in enumerate(((5, 0), (7, 2), (9, 4))):
+        L.filas(x0 - 5, y0, [
+            ".....w",
+            "....wl",
+            "...wl.",
+            "..lm..",
+            ".md...",
+            "d.....",
+        ][:6])
     return L.hecho()
 
 
@@ -158,21 +165,23 @@ def filo_emponzonado():
 def desaparecer():
     """Una nube de humo y, encima, una silueta que se deshace."""
     L = Lienzo()
-    # la silueta (cabeza y hombros), deshaciendose por arriba a la derecha
-    L.disco(6.0, 3.0, 2.0, 'k', luz='k', sombra='K')
-    L.filas(3, 4, [
-        "kkkkkk",
-        "kkkkkK",
+    # la silueta (cabeza y hombros), deshaciendose en motas hacia arriba a la derecha
+    L.filas(2, 0, [
+        "..kk....",
+        ".kkkk...",
+        ".kkkk.k.",
+        "..kk...k",
+        "kkkkkk..",
+        "kkkkkkk.",
     ])
-    for x, y in ((8, 1), (9, 2), (7, 0)):
-        L.f[y][x] = '.'
     L.px(10, 0, 'k')
-    L.px(9, 1, 'K')
-    # el humo
-    L.disco(3.5, 8.5, 2.6, 's', luz='t', sombra='S')
-    L.disco(7.0, 7.8, 3.0, 's', luz='t', sombra='S')
-    L.disco(9.6, 9.4, 2.2, 's', luz='t', sombra='S')
-    L.filas(1, 10, ["Ssssssssss"])
+    # el humo: tres bolas esponjosas con su brillo
+    L.disco(3.2, 8.6, 2.4, 's', luz='t', sombra='S')
+    L.disco(6.6, 7.6, 2.8, 's', luz='t', sombra='S')
+    L.disco(9.6, 9.0, 2.2, 's', luz='t', sombra='S')
+    L.filas(1, 10, ["SSSSSSSSSS"])
+    L.px(5, 6, 'w')
+    L.px(2, 7, 'w')
     return L.hecho()
 
 

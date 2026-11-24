@@ -2196,6 +2196,9 @@ func _begin_player_turn() -> void:
 	enemigos.costra_vuelve(_player)
 	# Estados alterados (KAN-58): tick al inicio del turno (DoT, expira, aturdido).
 	var ev: Dictionary = _player.tick_statuses()
+	# (24/11) RECARGA EN LAS SOMBRAS (Desaparecer): oculto, cada turno repone un % de la energia maxima.
+	if _player.sigilo("energia") > 0.0:
+		_player.regen_energy(_player.sigilo("energia") * _player.max_energy)
 	# (23/11) donde empieza tu turno: PLANTADO (arbol del basico de la ballesta) mira si te has movido desde aqui.
 	if tactico:
 		turno_mapa.marcar_inicio_turno(_player)
@@ -2733,6 +2736,9 @@ func _accion_atacar() -> void:
 	# por golpe (su energia_regen propia): pegan menos veces, asi que cada golpe carga mas.
 	# (23/11) con la linea del arbol del basico de esta mano (Combatant.arbol_mano: piso 8 y 12 de cada nivel).
 	_player.regen_energy(arbol_basico.energia(_player, _player.energia_regen if _player.energia_regen > 0.0 else ATTACK_ENERGY_REGEN))
+	# (24/11) SALIR DE LAS SOMBRAS: si este basico ha entrado oculto, el sigilo se gasta.
+	if aciertos.has(true):
+		habilidades.gastar_salir_de_sombras(_player)
 	_update_hp()
 	_player.advance_hand()  # dual-wield: el proximo golpe sera con la otra mano
 	_fin_de_eleccion()
@@ -2793,7 +2799,8 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 	# despues, el critico y el aturdir.
 	var mult_antes: float = arbol_basico.mult_antes(_player, obj)
 	var result := StatsMath.resolve_attack(_player, obj, def_e, -1.0, 0.0, arbol_basico.penetra(_player))
-	escala *= _player.mult_arbol_basico * mult_antes * arbol_basico.mult_despues(_player, result)
+	escala *= _player.mult_arbol_basico * mult_antes * arbol_basico.mult_despues(_player, result) \
+		* (1.0 + _player.sigilo("golpe"))   # (24/11) Salir de las sombras (Desaparecer): pegando oculto
 	if escala != 1.0:
 		result.damage = float(result.damage) * escala
 		if result.has("dmg_imbue"):

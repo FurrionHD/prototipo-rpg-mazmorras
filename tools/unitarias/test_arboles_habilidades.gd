@@ -192,7 +192,7 @@ func test_rafaga_numeros_cerrados() -> void:
 		[["hoja_fina", "mil_cortes"], 2.835, 2, 94], [["hoja_fina", "entrar_bailando"], 2.9484, 2, 94],
 		[["mas_tajos", "brazo_largo", "persiguen"], 1.7199, 4, 132],
 		[["hoja_fina", "mil_cortes", "remate"], 3.969, 2, 132],
-		[["mas_tajos", "brazo_largo", "persiguen", "frenesi"], 2.1300, 4, 184],
+		[["mas_tajos", "brazo_largo", "persiguen", "frenesi"], 2.4078, 4, 184],
 		[["hoja_fina", "mil_cortes", "remate", "ligera"], 5.5566, 2, 151],
 	]
 	for c in casos:

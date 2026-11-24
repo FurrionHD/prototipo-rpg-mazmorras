@@ -244,6 +244,15 @@ var guardia_contra_escudo: bool = false # lo que devuelves en la postura es un E
 # estoque y (futuro) cualquier buff de esquiva. Si > 0, rompe el tope normal de esquiva
 # (EVADE_MAX 0.35 -> EVADE_MAX_BUFF 0.65) en StatsMath.resolve_attack.
 var evasion_bonus: float = 0.0
+# LO QUE TRAE EL SIGILO DE DESAPARECER (24/11, su arbol): solo cuenta MIENTRAS lleve el Sigilo. "esquiva" (Pies en la
+# niebla, suma a la esquiva), "energia" (Recarga en las sombras: % de su energia maxima al empezar cada turno) y "golpe"
+# (Salir de las sombras: su primer ataque oculto pega este % de mas y le saca del sigilo). Lo pone la habilidad al usarse.
+var sigilo_extra: Dictionary = {}
+
+func sigilo(que: String) -> float:
+	if sigilo_extra.is_empty() or not has_status(StatusEffects.Id.SIGILO):
+		return 0.0
+	return float(sigilo_extra.get(que, 0.0))
 
 # --- RIPOSTE AL BLOQUEAR (la personalidad del escudo PEQUEÑO) ---
 # El estoque ripostea al ESQUIVAR (en_guardia, arriba); la rodela ripostea al BLOQUEAR. Son dos
@@ -2320,7 +2329,7 @@ func status_crit_flat() -> float:
 	return s
 
 func status_evade_flat() -> float:
-	var s: float = 0.0
+	var s: float = sigilo("esquiva")   # (24/11) Pies en la niebla
 	for e in statuses:
 		s += e.flat_de("evade_flat")
 	return s

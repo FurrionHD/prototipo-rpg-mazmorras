@@ -3872,6 +3872,22 @@ func poner_charco(e: Combatant, ab: AbilityData, f, clase: int = -1, turnos: int
 	_charco_visible(clave, fc, 1.0, e)
 
 
+# LA NUBE DE HUMO DEL JUGADOR (24/11, Humo espeso del arbol de Desaparecer): se queda donde estaba quien la uso, con el
+# radio de su huella, ab.nube_turnos turnos SUYOS. Va con los charcos (se ve, viaja a los espejos y se seca igual) pero
+# marcada "jugador": a los tuyos no les hace nada (ver _pisar_si) y al ENEMIGO que empieza su turno dentro le mete
+# ab.nube_estado (ver charcos_turno_enemigo). Se pinta como la nube de ceniza (estilo 7): humo gris.
+func poner_nube_jugador(p: Combatant, ab: AbilityData) -> void:
+	if _pantalla._espejo or p == null or ab == null or ab.nube_turnos <= 0:
+		return
+	var fc = CombatFormas.circulo(pies_de(p), ab.forma_radio)
+	fc.apertura = 7.0
+	var clave: String = clave_charco(CLASE_SAVIA, _cod(p))
+	_charcos[clave] = {"dueno": p, "f": fc, "turnos": ab.nube_turnos, "max": ab.nube_turnos, "ab": ab,
+		"clase": CLASE_SAVIA, "jugador": true}
+	_anotar_huella_red(p, CLASE_SAVIA, fc, 1.0)
+	_charco_visible(clave, fc, 1.0, p)
+
+
 # LAS BURBUJAS FLOTANTES (06/10, idea del jefe para el slime pestilente, ver AbilityData.burbujas_max): entre min y max
 # burbujas a sitios al azar alrededor de sus pies (sin pasar paredes ni salirse de la arena), cada una con sus turnos
 # al azar. Son charcos de estilo BURBUJA (6): viajan y se pintan igual; las revienta _pisar_si o el secarse.
@@ -4222,6 +4238,17 @@ func charcos_turno_enemigo(e: Combatant) -> void:
 			continue
 		var ch: Dictionary = _charcos[clave]
 		var dueno: Combatant = ch["dueno"]
+		# (24/11) LA NUBE DEL JUGADOR (Humo espeso): al enemigo que empieza su turno dentro, su estado (la Ceguera). Se
+		# seca en el turno de su dueño (charcos_empezar_turno); aqui solo si su dueño ya cayo.
+		if ch.get("jugador", false):
+			var ab_n: AbilityData = ch["ab"]
+			if e.is_alive() and pies_de(e).distance_to(ch["f"].centro) <= float(ch["f"].radio) + radio_pisa(e) * 0.5 \
+					and ab_n.nube_estado >= 0 and not e.es_inmune(ab_n.nube_estado) \
+					and randf() < StatusEffects.prob_final(ab_n.nube_prob, dueno, e, ab_n.nube_estado):
+				e.apply_status(ab_n.nube_estado)
+				_pantalla._set_log("%s no ve nada entre el humo." % _pantalla._etq(e))
+			if dueno.is_alive():
+				continue
 		# LAS ESTRELLAS duran la pelea; las de uno que ya cayo se apagan (eran suyas).
 		if ch.get("estrella", false):
 			if not dueno.is_alive():
@@ -4277,6 +4304,20 @@ func charcos_empezar_turno(c: Combatant) -> void:
 	_segados.erase(c)  # y cada Zona de siega puede volver a cortarle
 	_desde_charco[c] = pies_de(c)
 	_pisar_si(c, pies_de(c), pies_de(c))
+	# (24/11) SU NUBE DE HUMO (Humo espeso) se seca un turno en el suyo.
+	for clave in _charcos.keys():
+		var ch: Dictionary = _charcos.get(clave, {})
+		if ch.is_empty() or not ch.get("jugador", false) or ch["dueno"] != c:
+			continue
+		ch["turnos"] = int(ch["turnos"]) - 1
+		if int(ch["turnos"]) <= 0:
+			_charcos.erase(clave)
+			_anotar_huella_red(c, int(ch["clase"]), null, 0.0)
+			_secar_charco_vis(clave)
+		else:
+			var queda: float = float(ch["turnos"]) / float(maxi(1, int(ch["max"])))
+			_anotar_huella_red(c, int(ch["clase"]), ch["f"], queda)
+			_charco_visible(clave, ch["f"], queda, c)
 
 
 # Al cerrar su accion: lo que ha andado desde el principio del turno (en linea recta), por encima de un charco.
@@ -4371,8 +4412,8 @@ func _pisar_si(c: Combatant, a: Vector2, b: Vector2) -> void:
 			continue
 		var ch: Dictionary = _charcos[clave]
 		var f = ch["f"]
-		if ch.get("estrella", false):
-			continue   # las estrellas no se pisan: son piezas de sus ataques
+		if ch.get("estrella", false) or ch.get("jugador", false):
+			continue   # las estrellas no se pisan: son piezas de sus ataques; la nube de humo es de los tuyos
 		var queda: float = float(ch["turnos"]) / float(maxi(1, int(ch["max"])))
 		if ch.get("burbuja", false):
 			# LA BURBUJA: si la atraviesas, te revienta encima (y ya no esta).

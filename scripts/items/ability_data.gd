@@ -585,6 +585,25 @@ func secundario_para(n_enemigos: int) -> float:
 @export var detona_estado: int = -1
 # EJECUCION (Puñalada): si derriba a alguien, se recarga al instante (el enfriamiento vuelve a 0).
 @export var recarga_al_matar: bool = false
+# --- DESAPARECER (24/11, su arbol) ---
+# SOMBRA LARGA: turnos de mas de los estados que se pone quien la usa (el Sigilo).
+@export var efectos_turnos_extra: int = 0
+# Lo que trae su Sigilo mientras dure (Combatant.sigilo_extra): PIES EN LA NIEBLA (esquiva), RECARGA EN LAS SOMBRAS (% de
+# la energia maxima al empezar cada turno oculto) y SALIR DE LAS SOMBRAS (el primer ataque oculto pega este % de mas).
+@export var sigilo_esquiva: float = 0.0
+@export var sigilo_energia: float = 0.0
+@export var sigilo_golpe: float = 0.0
+# DESVIO: los enemigos te olvidan (tu amenaza en sus tablas, a 0) y buscan a otro.
+@export var desvia_amenaza: bool = false
+# HUMO PARA TODOS: los aliados que pilla su huella tambien quedan en Sigilo estos turnos (0 = nadie).
+@export var oculta_aliados_turnos: int = 0
+# HUMO ESPESO: deja la nube en el suelo estos turnos (solo en el mapa); el enemigo que empieza su turno dentro se lleva
+# nube_estado (la Ceguera) con nube_prob.
+@export var nube_turnos: int = 0
+@export var nube_estado: int = -1
+@export var nube_prob: float = 0.0
+# ESCABULLIRSE: tras usarla, quien la usa se mueve hasta esto (solo en el mapa). PENDIENTE: el movimiento en el tactico.
+@export var se_mueve: float = 0.0
 # ENTRAR BAILANDO (Rafaga): antes de golpear se acerca hasta esto hacia el objetivo (solo en el mapa). PENDIENTE: el
 # movimiento en el tactico (24/11, sin hacer todavia).
 @export var acercarse: float = 0.0

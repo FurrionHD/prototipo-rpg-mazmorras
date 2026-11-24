@@ -104,7 +104,7 @@ excluye = Array[StringName]([])
 nivel_min = 4
 dominio = 900
 oro = 25000
-cambios = {"remate_estado": ["set", 1], "remate_mult": ["set", 2.0], "potencia": ["presupuesto", 0.625], "potencia_coste": ["presupuesto", 1.0]}
+cambios = {"remate_estado": ["set", 1], "remate_mult": ["set", 1.5], "potencia": ["presupuesto", 0.625], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_raf_frenesi"]
 script = ExtResource("nodo_mejora")
@@ -116,7 +116,7 @@ excluye = Array[StringName]([&"ligera"])
 nivel_min = 5
 dominio = 1200
 oro = 70000
-cambios = {"cooldown": ["add", -1], "potencia": ["presupuesto", 0.375], "potencia_coste": ["presupuesto", 1.0]}
+cambios = {"cooldown": ["add", -1], "potencia": ["presupuesto", 0.75], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_raf_ligera"]
 script = ExtResource("nodo_mejora")

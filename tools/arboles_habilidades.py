@@ -67,11 +67,12 @@ ARBOLES = {
          {"bonus_por_baja": ("set", 0.15), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
         ("remate", 4, ["mil_cortes", "entrar_bailando"], [], "Remate",
          "El último tajo busca la herida que abrieron los primeros.",
-         {"remate_estado": ("set", SANGRADO), "remate_mult": ("set", 2.0), "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
-        # Nv5: se llega desde cualquiera de los dos lados
+         {"remate_estado": ("set", SANGRADO), "remate_mult": ("set", 1.5), "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+        # Nv5: se llega desde cualquiera de los dos lados. (24/11, muñecos: frenesi iba siempre detras de la ligera -la
+        # energia frena, no el enfriamiento-: se lleva 30 de 40 en vez de 15; remate x2 se pasaba con 2 tajos: x1,5)
         ("frenesi", 5, ["persiguen", "remate"], ["ligera"], "Frenesí",
          "Acabas una ráfaga y el brazo ya pide la siguiente.",
-         {"cooldown": ("add", -1), "potencia": (P, 0.375), "potencia_coste": (P, 1.0)}),
+         {"cooldown": ("add", -1), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
         ("ligera", 5, ["persiguen", "remate"], ["frenesi"], "Ráfaga ligera",
          "Menos fuerza en cada tajo y menos aliento en cada ráfaga.",
          {"potencia": (P, 0.625), "potencia_coste": (P, 0.375)}),
