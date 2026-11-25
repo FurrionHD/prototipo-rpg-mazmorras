@@ -243,6 +243,19 @@ static func piso_de_ahora() -> int:
 	return maxi(1, int(Game.current_floor))
 
 
+# SU PROPIO DADO (25/11, lo cazo el banco: prueba_huella_combate): con randf() la tirada del dominio salia del azar del
+# COMBATE y corria todas las tiradas de despues (un golpe que acertaba pasaba a esquivarse, la araña elegia otro ataque).
+# El dominio no puede cambiar nada de la pelea: tira aparte.
+static var _dado: RandomNumberGenerator = null
+
+
+static func _tirada_dominio() -> float:
+	if _dado == null:
+		_dado = RandomNumberGenerator.new()
+		_dado.randomize()
+	return _dado.randf()
+
+
 # Un uso: tira y, si sale, +1. 'piso' < 1 = el de ahora; 'tirada' (0..1) solo para las pruebas (< 0 = al azar).
 # Devuelve si ha subido.
 static func sumar_dominio(p, r, piso: int = -1, tirada: float = -1.0) -> bool:
@@ -253,7 +266,7 @@ static func sumar_dominio(p, r, piso: int = -1, tirada: float = -1.0) -> bool:
 		return false
 	var d: int = int((p.dominio as Dictionary).get(ruta, 0))
 	var prob: float = prob_dominio(d, piso if piso >= 1 else piso_de_ahora())
-	if (tirada if tirada >= 0.0 else randf()) >= prob:
+	if (tirada if tirada >= 0.0 else _tirada_dominio()) >= prob:
 		return false
 	p.dominio[ruta] = d + 1
 	return true
