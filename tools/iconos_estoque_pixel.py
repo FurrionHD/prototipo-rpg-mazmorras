@@ -136,8 +136,8 @@ def _atravesar(L):
     estoque(L, 1, 5, 11, 5)
     estoque(L, 1, 7, 11, 7, cazoleta=False)
 def _corazon(L):
-    L.filas(4, 3, [".r.r.", "rprrr", "rrrrR", ".rrR.", "..R.."])
-    estoque(L, 0, 11, 6, 5, cazoleta=False)
+    L.filas(4, 1, [".rr.rr.", "rpprrrr", "rprrrrR", "rrrrrRR", ".rrrRR.", "..rRR..", "...R..."])
+    estoque(L, 0, 11, 5, 6, cazoleta=False)
 def _empunadura(L):
     blanco(L, 7.5, 5.5, 3.2)
     estoque(L, 1, 10, 7, 5)
@@ -167,10 +167,8 @@ def _a_fondo(L):
     L.filas(1, 4, rc(FLECHA, {'w': 'c'}))
     estoque(L, 4, 9, 11, 9, cazoleta=False)
 def _remate(L):
-    L.filas(2, 1, CALAVERA)
-    estoque(L, 0, 11, 6, 5, cazoleta=False)
-
-# ------------------------------------------------------------------ FINTAS
+    L.filas(5, 0, CALAVERA)
+    estoque(L, 0, 11, 5, 6)
 def _acoso(L):
     L.filas(7, 3, SILUETA)
     for y in (2, 5, 8):
@@ -193,9 +191,10 @@ def _brazo_largo_f(L):
     L.filas(8, 8, ["w.", "ww", "w."])
     L.filas(1, 2, ["nn", "nN"])
 def _ninguno_se_libra(L):
-    for x, y in ((3, 2), (7, 2), (5, 7)):
-        L.filas(x - 1, y, ["kk", "kk", "kk"])
-        L.px(x + 1, y + 3, 'w')
+    # tres dianas pequeñas y una punta clavada en cada una
+    for cx, cy in ((3.0, 3.0), (9.0, 3.0), (6.0, 9.0)):
+        L.disco(cx, cy, 2.0, 'r', luz='p', sombra='R')
+        L.px(int(cx) - 1, int(cy) - 1, 'w')
 def _finta_enganosa(L):
     L.filas(1, 3, OJO)
     L.linea(2, 10, 8, 8, ['S', 's'])
@@ -338,18 +337,21 @@ def _pulso_firme(L):
     blanco(L, 6.0, 6.0, 4.0)
     L.filas(4, 4, NERVIO)
 def _clavado(L):
-    L.filas(3, 1, PIE)
-    L.linea(1, 9, 10, 9, ['H'])
-    L.filas(2, 7, ["G.G.G.G", ".g.g.g."])
+    # el pie, y las raices que lo agarran desde el suelo
+    L.filas(4, 0, PIE)
+    L.linea(0, 10, 11, 10, ['H'])
+    L.filas(2, 5, ["g.....g.", ".g...g..", "..gGg...", ".gGgGg..", "GgGGgGG."])
 def _cadena_nerviosa(L):
     L.disco(2.5, 3.5, 2.0, 'k')
     L.disco(9.5, 8.5, 2.0, 'k')
     L.linea(3, 5, 6, 5, ['u']); L.linea(6, 5, 5, 8, ['u']); L.linea(5, 8, 8, 8, ['u'])
 def _atravesar_p(L):
-    L.disco(4.5, 6.0, 1.8, 'k')
-    L.disco(8.5, 6.0, 1.8, 'k')
-    estoque(L, 0, 6, 11, 6, cazoleta=False)
-    L.px(4, 3, 'u'); L.px(8, 3, 'u')
+    # dos cuerpos en fila y la punta que los cruza a los dos, con el calambre encima
+    L.filas(2, 3, ["kk.", "kkk", "kkk", "kk."])
+    L.filas(7, 3, ["kk.", "kkk", "kkk", "kk."])
+    estoque(L, 0, 5, 11, 5, cazoleta=False)
+    L.filas(2, 0, ["u.u", ".u."])
+    L.filas(7, 0, ["u.u", ".u."])
 def _linea_larga_p(L):
     estoque(L, 1, 6, 11, 6)
     L.filas(5, 8, rc(FLECHA, {'w': 'u'})[1:4])
