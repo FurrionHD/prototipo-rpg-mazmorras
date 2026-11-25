@@ -654,6 +654,34 @@ func secundario_para(n_enemigos: int) -> float:
 @export var guardia_no_cae: bool = false        # GUARDIA QUE NO CAE: al salir, la mitad de su capa 1 turno (Esquivo)
 # Al USAR la habilidad (la postura), te quita tus efectos de mas velocidad (el jefe: para que la guardia dure de verdad).
 @export var guardia_quita_prisa: bool = false
+# --- PASO LIGERO (25/11, su arbol) ---
+# AL COSTADO: la estocada pega este % de mas si le entra de lado o por la espalda (fuera de su frente; solo en el mapa).
+@export var extra_costado: float = 0.0
+# PASAR CORTANDO: a los que cruzas con el paso (sin contar al de la estocada), un corte de este % (0 = nada).
+@export var corte_al_pasar: float = 0.0
+# ENCADENAR: tu SIGUIENTE habilidad cuesta este % menos de energia (Combatant.descuento_hab).
+@export var descuento_siguiente: float = 0.0
+# PASO QUE DESPISTA: al acabar, tu amenaza en la tabla de cada enemigo x esto (0,5 = la mitad). 1 = nada.
+@export var amenaza_tras_usar: float = 1.0
+# PASO DE GUARDIA: si no le entra a nadie, entras en guardia (la de tu En guardia) SIN frenar tu barra ni quitarte la prisa.
+@export var guardia_si_no_golpea: bool = false
+# --- PUNZADA AL NERVIO (25/11, su arbol) ---
+# TEMBLOR: el Debil que pone baja ademas la probabilidad de critico de quien lo lleva en esto (0,1 = -10 puntos).
+@export var debil_quita_critico: float = 0.0
+# CLAVADO: si tras el golpe el enemigo queda Lento, esta probabilidad base de Enraizado 1 turno.
+@export var enraiza_si_lento: float = 0.0
+# CADENA NERVIOSA: salta al enemigo mas cercano al primero (hasta CombatTactico.CADENA_RADIO), con esta escala de daño (y
+# la probabilidad de sus estados con ella, como un secundario). 0 = no salta.
+@export var salto_cadena: float = 0.0
+# SOBRE LO TOCADO: este % de mas a quien ya este Debil o Lento.
+@export var extra_si_tocado: float = 0.0
+# LEÑA AL CAIDO: la fuerza del estado_golpe (como StatusApplication.mult; 0 = la del catalogo). La Marca, x1,10.
+@export var estado_golpe_mult: float = 0.0
+# --- LA FUERZA Y LA PROBABILIDAD DE CADA ESTADO, por nodo (25/11: Presteza mayor, Nervio del brazo/pierna, Pulso firme).
+# Estado (StatusEffects.Id) -> valor, por encima de lo que diga su StatusApplication (mult = el nivel del estado de stat,
+# como StatusApplication.mult; prob = la probabilidad base). Los nodos los juntan con "add" (Mejoras mezcla diccionarios).
+@export var efectos_mult_de: Dictionary = {}
+@export var efectos_prob_de: Dictionary = {}
 # --- COMPARTIDAS DEL ESTOQUE (25/11: Fintas, Danza de acero, Paso ligero...) ---
 # BUSCAR EL HUECO / COMPAS: cada golpe pega esto MAS que el anterior (0,1: el 2o +10 %, el 3o +20 %...).
 @export var golpe_creciente: float = 0.0
@@ -941,6 +969,15 @@ func plan_golpes(total: int, manos: int) -> Array:
 	return plan
 
 # Coste de energia segun el loadout (dual gasta mas si tiene coste propio).
+# (25/11) LA FUERZA Y LA PROBABILIDAD DE UN ESTADO DE ESTA HABILIDAD, con lo que le hayan puesto los nodos (efectos_*_de).
+func mult_de_efecto(a) -> float:
+	return float(efectos_mult_de.get(int(a.estado), a.mult)) if a != null else 0.0
+
+
+func prob_de_efecto(a) -> float:
+	return float(efectos_prob_de.get(int(a.estado), a.prob)) if a != null else 0.0
+
+
 func coste(manos: int) -> float:
 	if manos >= 2 and coste_energia_dual > 0.0:
 		return coste_energia_dual
@@ -1080,6 +1117,46 @@ func frase_mejora(campo: String, antes: AbilityData) -> String:
 		"energia_sin_golpe":
 			return ("Si no golpea a nadie, te devuelve un %s de tu energía máxima." % _pct_entero(energia_sin_golpe)) \
 				if energia_sin_golpe > 0.0 else ""
+		"debil_quita_critico":
+			return ("El Débil que causa también le quita %d puntos de probabilidad de crítico." % roundi(debil_quita_critico * 100.0)) 				if debil_quita_critico > 0.0 else ""
+		"enraiza_si_lento":
+			return ("Si el enemigo queda Lento, probabilidad base del %s de dejarlo Enraizado 1 turno." % _pct_entero(enraiza_si_lento)) 				if enraiza_si_lento > 0.0 else ""
+		"salto_cadena":
+			return ("Salta al enemigo más cercano al primero, con el %s del daño y de la probabilidad de sus estados." 				% _pct_entero(salto_cadena)) if salto_cadena > 0.0 else ""
+		"extra_si_tocado":
+			return ("Hace un %s más de daño a quien ya esté Débil o Lento." % _pct_entero(extra_si_tocado)) 				if extra_si_tocado > 0.0 else ""
+		"extra_costado":
+			return ("Si golpea de lado o por la espalda, hace un %s más de daño." % _pct_entero(extra_costado)) \
+				if extra_costado > 0.0 else ""
+		"corte_al_pasar":
+			return ("A los enemigos que cruzas con el paso les haces un corte del %s del daño." % _pct_entero(corte_al_pasar)) \
+				if corte_al_pasar > 0.0 else ""
+		"descuento_siguiente":
+			return ("Tu siguiente habilidad cuesta un %s menos de energía." % _pct_entero(descuento_siguiente)) \
+				if descuento_siguiente > 0.0 else ""
+		"amenaza_tras_usar":
+			return ("Al acabar, los enemigos te tienen un %s menos de amenaza." % _pct_entero(1.0 - amenaza_tras_usar)) \
+				if amenaza_tras_usar < 1.0 else ""
+		"guardia_si_no_golpea":
+			return "Si no golpea a nadie, entras en guardia (la de tu En guardia) sin que tu barra de turno vaya más lenta." \
+				if guardia_si_no_golpea else ""
+		"vuelve":
+			return "Tras el paso y la estocada, vuelves a donde estabas." if vuelve else ""
+		"efectos_mult_de":
+			var fuerzas: Array = []
+			for a in efectos:
+				if a != null and efectos_mult_de.has(int(a.estado)):
+					fuerzas.append("%s: %s → %s" % [str(StatusEffects.def(int(a.estado)).get("nombre", "?")),
+						StatusEffects.efecto_legible(int(a.estado), antes.mult_de_efecto(a)),
+						StatusEffects.efecto_legible(int(a.estado), mult_de_efecto(a))])
+			return "\n".join(PackedStringArray(fuerzas))
+		"efectos_prob_de":
+			var probs: Array = []
+			for a in efectos:
+				if a != null and efectos_prob_de.has(int(a.estado)):
+					probs.append("Probabilidad base de causar %s: %s → %s" % [str(StatusEffects.def(int(a.estado)).get("nombre", "?")),
+						_pct_entero(antes.prob_de_efecto(a)), _pct_entero(prob_de_efecto(a))])
+			return "\n".join(PackedStringArray(probs))
 		"bonus_tras_primero":
 			return ("En su línea, cada enemigo detrás del primero recibe un %s más de daño que el anterior." \
 				% _pct_entero(bonus_tras_primero)) if bonus_tras_primero > 0.0 else ""
@@ -1152,12 +1229,14 @@ func frase_mejora(campo: String, antes: AbilityData) -> String:
 			return "Cada vez que entra detrás, recupera un %s de su energía máxima." % _pct_entero(oport_energia)
 		"oport_dual_entero":
 			return "Con dos armas, el golpe de la segunda al entrar detrás inflige el daño entero." if oport_dual_entero else ""
-		"estado_golpe", "estado_golpe_prob", "estado_golpe_turnos":
+		"estado_golpe", "estado_golpe_prob", "estado_golpe_turnos", "estado_golpe_mult":
 			if estado_golpe < 0:
 				return ""
-			return "Tiene una probabilidad base del %s de causar %s al enemigo que golpea durante %d turno%s." % [
+			# (25/11) con su fuerza propia (Leña al caido: la Marca al +10 %), que se diga
+			var que_hace: String = StatusEffects.efecto_legible(estado_golpe, estado_golpe_mult)
+			return "Tiene una probabilidad base del %s de causar %s al enemigo que golpea durante %d turno%s%s." % [
 				_pct_entero(estado_golpe_prob), str(StatusEffects.def(estado_golpe).get("nombre", "?")), estado_golpe_turnos,
-				"" if estado_golpe_turnos == 1 else "s"]
+				"" if estado_golpe_turnos == 1 else "s", (" (%s)" % que_hace) if que_hace != "" else ""]
 		"se_mueve":
 			return "Tras usarla, quien la usa se mueve hasta %s adonde elija." % casillas_txt(se_mueve) if se_mueve > 0.0 else ""
 		"efectos_cargas_extra":
@@ -1815,7 +1894,7 @@ func _efecto_partes(a) -> Array:
 	if turnos > 0:
 		det += " durante %d turno%s" % [turnos, "" if turnos == 1 else "s"]
 	var extras: Array = []
-	var que_hace: String = StatusEffects.efecto_legible(id_est, float(a.mult))
+	var que_hace: String = StatusEffects.efecto_legible(id_est, mult_de_efecto(a))
 	if que_hace != "":
 		extras.append(que_hace)
 	if id_est == StatusEffects.Id.ATURDIDO and a.en_objetivo:
@@ -1823,7 +1902,7 @@ func _efecto_partes(a) -> Array:
 	var durante: String = det
 	if not extras.is_empty():
 		det += " (%s)" % "; ".join(extras)
-	return [roundi(a.prob * 100.0), nom, det, id_est, float(a.mult), durante, int(a.stacks)]
+	return [roundi(prob_de_efecto(a) * 100.0), nom, det, id_est, mult_de_efecto(a), durante, int(a.stacks)]
 
 
 # Texto de UN estado en una linea ("Sangrado (55 % · 3 turnos)"), para quien lo pida suelto.

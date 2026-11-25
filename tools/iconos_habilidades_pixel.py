@@ -471,7 +471,7 @@ NODOS = [
 
 def lamina_nodos(archivo):
     col, alto = 124, 150
-    lam = Image.new('RGB', (20 + col * 10, 30 + alto * len(NODOS)), (13, 14, 19))
+    lam = Image.new("RGB", (20 + col * max(len(n) for _, n in NODOS), 30 + alto * len(NODOS)), (13, 14, 19))
     d = ImageDraw.Draw(lam)
     try:
         fuente = ImageFont.truetype("arial.ttf", 11)

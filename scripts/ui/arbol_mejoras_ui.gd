@@ -343,6 +343,11 @@ func _pintar_fila(lienzo: Lienzo, pj: PersonajeData, clave: String, f: Resource,
 	# hacia creer que desde el de arriba solo se llegaba al de abajo; con cada linea se entiende a cual va cada una). Verde
 	# si las dos puntas son tuyas; las verdes, las ultimas, encima de las oscuras cuando se cruzan.
 	var verdes: Array = []
+	# (25/11, el jefe) LA DEL NODO ELEGIDO, en AMBAR (el color de su marco) y encima de todas: la que llega a el desde el
+	# padre que ya tienes; si no tienes ninguno de sus padres, todas las que llegan a el.
+	var ambar: Array = []
+	var sel_aqui: bool = clave == fila_sel and nodo_sel != &""
+	var sel_con_padre: bool = sel_aqui and cadenas.any(func(pc): return StringName((pc[0] as Array).back()) == nodo_sel 		and (StringName((pc[0] as Array)[0]) == &"" or cogidos.has(String((pc[0] as Array)[0]))))
 	for par in cadenas:
 		var cad: Array = par[0]
 		var pts := PackedVector2Array()
@@ -353,11 +358,15 @@ func _pintar_fila(lienzo: Lienzo, pj: PersonajeData, clave: String, f: Resource,
 			if k == cad.size() - 1:
 				p.x -= NODO * 0.5     # entra por el borde izquierdo del hijo
 			pts.append(p)
-		if par[1]:
+		var al_sel: bool = sel_aqui and StringName(cad.back()) == nodo_sel and (not sel_con_padre 			or StringName(cad[0]) == &"" or cogidos.has(String(cad[0])))
+		if al_sel:
+			ambar.append([pts, AMBAR])
+		elif par[1]:
 			verdes.append([pts, VERDE])
 		else:
 			lienzo.lineas.append([pts, OSCURO])
 	lienzo.lineas.append_array(verdes)
+	lienzo.lineas.append_array(ambar)
 	lienzo.ancho_fila = MARGEN + ICONO + 48.0 + maxi(max_col - 1, 0) * _paso_x + NODO
 	return alto
 

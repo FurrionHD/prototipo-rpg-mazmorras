@@ -438,6 +438,88 @@ ARBOLES["en_guardia"] = [
 ]
 
 
+# PASO LIGERO (25/11, cerrado con el jefe): de serie paso de 60 px a donde apuntas (atraviesa cuerpos), estocada del 70 % a
+# UNO (antes o despues del paso, ver plan_paso), Presteza 3 t, 34 EN, enfr 4. Lo que sube por nivel, la estocada.
+PRESTEZA = 13
+NV3_PASO = ["ida_vuelta", "esquiva_paso", "pasar_cortando", "encadenar"]
+ARBOLES["paso_ligero"] = [
+    ("paso_largo", 2, [], ["al_costado"], "Paso largo",
+     "Dos pasos donde otros dan uno.",
+     {"forma_rango": ("add", 40.0), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("al_costado", 2, [], ["paso_largo"], "Al costado",
+     "Nadie se cubre de lado.",
+     {"extra_costado": ("set", 0.3), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("ida_vuelta", 3, ["paso_largo"], ["esquiva_paso"], "Ida y vuelta",
+     "Entras, pinchas y ya no estás.",
+     {"vuelve": ("set", True), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("esquiva_paso", 3, ["paso_largo"], ["ida_vuelta"], "Esquiva en el paso",
+     "El cuerpo sigue moviéndose aunque los pies paren.",
+     {"capa_esquiva": ("set", 0.2), "capa_esquiva_turnos": ("set", 1), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("pasar_cortando", 3, ["al_costado"], ["encadenar"], "Pasar cortando",
+     "El que se cruza en el camino también se lleva lo suyo.",
+     {"corte_al_pasar": ("set", 0.3), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("encadenar", 3, ["al_costado"], ["pasar_cortando"], "Encadenar",
+     "El paso no acaba: empieza lo siguiente.",
+     {"descuento_siguiente": ("set", 0.2), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("presteza_mayor", 4, NV3_PASO, ["paso_despista"], "Presteza mayor",
+     "Los pies ya no esperan a la cabeza.",
+     {"efectos_mult_de": ("add", {PRESTEZA: 1.4}), "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+    ("paso_despista", 4, NV3_PASO, ["presteza_mayor"], "Paso que despista",
+     "Cuando te buscan, ya no estás donde mirabas.",
+     {"amenaza_tras_usar": ("set", 0.5), "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+    ("recobrar_aliento", 5, ["presteza_mayor", "paso_despista"], ["paso_guardia"], "Recobrar aliento",
+     "Si no hay a quien pinchar, al menos respiras.",
+     {"energia_sin_golpe": ("set", 0.1), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+    ("paso_guardia", 5, ["presteza_mayor", "paso_despista"], ["recobrar_aliento"], "Paso de guardia",
+     "Acabas el paso con la punta arriba.",
+     {"guardia_si_no_golpea": ("set", True), "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+]
+
+# PUNZADA AL NERVIO (25/11, cerrado con el jefe): de serie linea 79 px SOLO AL PRIMERO, 1 golpe del 90 % y, si acierta, dos
+# tiradas: Debil 80 % (ataque x0,80, 3 t) y Lento 60 % (barra x0,75, 3 t). 42 EN, enfr 4. TEMBLOR: -10 puntos de critico
+# (el jefe); CADENA NERVIOSA: el salto, al 50 % de daño y de probabilidad (el jefe).
+LENTO = 3
+DEBIL = 4
+MARCA = 15
+NV3_PUNZADA = ["temblor", "pulso_firme", "clavado"]
+NV4_PUNZADA = ["cadena_nerviosa", "atravesar_p", "larga_p"]
+ARBOLES["punzada_al_nervio"] = [
+    ("nervio_brazo", 2, [], ["nervio_pierna"], "Nervio del brazo",
+     "Un pinchazo en el hombro y el brazo ya no responde igual.",
+     {"efectos_mult_de": ("add", {DEBIL: 0.65}), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("nervio_pierna", 2, [], ["nervio_brazo"], "Nervio de la pierna",
+     "Detrás de la rodilla, donde la pierna se olvida de andar.",
+     {"efectos_mult_de": ("add", {LENTO: 0.60}), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("temblor", 3, ["nervio_brazo"], ["pulso_firme", "clavado"], "Temblor",
+     "La mano tiembla, y la que tiembla no acierta donde duele.",
+     {"debil_quita_critico": ("set", 0.10), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("pulso_firme", 3, ["nervio_brazo", "nervio_pierna"], ["temblor", "clavado"], "Pulso firme",
+     "Si sabes dónde está el nervio, no fallas el nervio.",
+     {"efectos_prob_de": ("add", {DEBIL: 1.0, LENTO: 0.85}), "potencia": (P, 0.25), "potencia_coste": (P, 1.0)}),
+    ("clavado", 3, ["nervio_pierna"], ["temblor", "pulso_firme"], "Clavado",
+     "La pierna que no anda tampoco se aparta.",
+     {"enraiza_si_lento": ("set", 0.30), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("cadena_nerviosa", 4, NV3_PUNZADA, ["atravesar_p", "larga_p"], "Cadena nerviosa",
+     "El calambre no sabe dónde acaba un cuerpo y empieza otro.",
+     {"salto_cadena": ("set", 0.5), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("atravesar_p", 4, NV3_PUNZADA, ["cadena_nerviosa", "larga_p"], "Atravesar",
+     "El que está detrás también tiene nervios.",
+     {"forma_solo_primero": ("set", False), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("larga_p", 4, NV3_PUNZADA, ["cadena_nerviosa", "atravesar_p"], "Línea larga",
+     "Más lejos, igual de fino.",
+     {"forma_radio": ("add", 36.0), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+    ("sobre_lo_tocado", 5, NV4_PUNZADA, ["mano_segura", "lena_al_caido"], "Sobre lo tocado",
+     "Donde ya duele, duele más.",
+     {"extra_si_tocado": ("set", 0.30), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("mano_segura", 5, NV4_PUNZADA, ["sobre_lo_tocado", "lena_al_caido"], "Mano segura",
+     "No se aparta a tiempo quien no sabe que va hacia él.",
+     {"infalible": ("set", True), "potencia": (P, 0.275), "potencia_coste": (P, 1.0)}),
+    ("lena_al_caido", 5, NV4_PUNZADA, ["sobre_lo_tocado", "mano_segura"], "Leña al caído",
+     "Mientras se recupera, que le peguen todos.",
+     {"estado_golpe": ("set", MARCA), "estado_golpe_prob": ("set", 1.0), "estado_golpe_turnos": ("set", 1),
+      "estado_golpe_mult": ("set", 1.10), "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+]
+
 
 def _valor(v) -> str:
     if isinstance(v, bool):
@@ -446,6 +528,8 @@ def _valor(v) -> str:
         return str(v)
     if isinstance(v, float):
         return repr(round(v, 6))
+    if isinstance(v, dict):
+        return "{" + ", ".join("%s: %s" % (_valor(k), _valor(x)) for k, x in v.items()) + "}"
     return '"%s"' % v
 
 

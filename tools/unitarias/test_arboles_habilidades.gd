@@ -549,3 +549,84 @@ func test_en_guardia_capa_por_nivel() -> void:
 	cerca(_de(R, ["guardia_paciente"]).guardia_spd_mult, 0.35, 0.0001, "Guardia paciente: la barra al 35 %")
 	igual(_de(R, ["guardia_paciente", "salir_al_paso"]).guardia_paso, 40.0, "Salir al paso: hasta 40 px")
 	igual(Mejoras.nodo(base, &"linea_6").padres.size(), 1, "la linea cuelga del unico del nivel 5")
+
+
+# PASO LIGERO (cerrado con el jefe): la estocada 70 % sube por nivel (84/118/172 y 250 o 240 en el 5), EN 48/67/93/131.
+# Presteza mayor sube la Presteza de +25 a +40 % (el nodo pone su fuerza, no toca la ficha).
+func test_paso_ligero_numeros() -> void:
+	const R := "res://resources/abilities/paso_ligero.tres"
+	var base: AbilityData = load(R)
+	var casos := [
+		[["paso_largo"], 84, 48], [["al_costado", "encadenar"], 118, 67],
+		[["paso_largo", "ida_vuelta", "presteza_mayor"], 172, 93],
+		[["al_costado", "pasar_cortando", "paso_despista", "recobrar_aliento"], 250, 131],
+		[["paso_largo", "esquiva_paso", "presteza_mayor", "paso_guardia"], 240, 131],
+	]
+	for c in casos:
+		var m: AbilityData = _de(R, c[0])
+		cerca(m.dano_mult * 100.0, float(c[1]), 0.51, "Paso ligero, daño con %s" % str(c[0]))
+		igual(roundi(m.coste_energia), int(c[2]), "Paso ligero, energia con %s" % str(c[0]))
+	igual(_de(R, ["paso_largo"]).forma_rango, 100.0, "Paso largo: 60 -> 100 px")
+	cierto(_de(R, ["paso_largo", "ida_vuelta"]).vuelve, "Ida y vuelta: vuelve")
+	var pm: AbilityData = _de(R, ["paso_largo", "ida_vuelta", "presteza_mayor"])
+	cerca(pm.mult_de_efecto(pm.efectos[0]), 1.4, 0.0001, "Presteza mayor: +40 %")
+	cerca(base.mult_de_efecto(base.efectos[0]), 0.0, 0.0001, "la ficha sigue con la del catalogo")
+	cierto(base.efectos_mult_de.is_empty(), "y su diccionario no se ha tocado al montar")
+	cerca(_de(R, ["al_costado", "pasar_cortando"]).corte_al_pasar, 0.3, 0.0001, "Pasar cortando: 30 %")
+	cerca(_de(R, ["al_costado", "encadenar"]).descuento_siguiente, 0.2, 0.0001, "Encadenar: -20 %")
+	cerca(_de(R, ["al_costado", "encadenar", "paso_despista"]).amenaza_tras_usar, 0.5, 0.0001, "Paso que despista: x0,5")
+
+
+# ENCADENAR: el coste con el descuento, y sin el, el de siempre.
+func test_encadenar_coste() -> void:
+	var ab: AbilityData = load("res://resources/abilities/fintas.tres")
+	var c := Combatant.new("x", 1, Abilities.new(), 100, 10, 5, 5)
+	igual(c.coste_hab(ab, 1), ab.coste(1), "sin descuento, lo de siempre")
+	c.descuento_hab = 0.2
+	igual(c.coste_hab(ab, 1), roundf(ab.coste(1) * 0.8), "con Encadenar, un 20 % menos")
+
+
+# PUNZADA AL NERVIO (cerrada con el jefe): golpe 90 % -> 108 / 151 o 139 / 212 o 229 / 296, 274 o 309; EN 59/82/115/161.
+# La fuerza y la probabilidad de Debil y Lento las ponen los nodos (efectos_*_de), sin tocar la ficha.
+func test_punzada_numeros() -> void:
+	const R := "res://resources/abilities/punzada_al_nervio.tres"
+	var base: AbilityData = load(R)
+	var casos := [
+		[["nervio_brazo"], 108, 59], [["nervio_brazo", "temblor"], 151, 82], [["nervio_pierna", "pulso_firme"], 139, 82],
+		[["nervio_pierna", "clavado", "cadena_nerviosa"], 212, 115], [["nervio_brazo", "temblor", "larga_p"], 229, 115],
+		[["nervio_brazo", "temblor", "atravesar_p", "sobre_lo_tocado"], 296, 161],
+		[["nervio_brazo", "temblor", "atravesar_p", "mano_segura"], 274, 161],
+		[["nervio_brazo", "temblor", "atravesar_p", "lena_al_caido"], 309, 161],
+	]
+	for c in casos:
+		var m: AbilityData = _de(R, c[0])
+		cerca(m.dano_mult * 100.0, float(c[1]), 0.51, "Punzada, daño con %s" % str(c[0]))
+		igual(roundi(m.coste_energia), int(c[2]), "Punzada, energia con %s" % str(c[0]))
+	var debil = base.efectos[0]
+	var lento = base.efectos[1]
+	var brazo: AbilityData = _de(R, ["nervio_brazo", "pulso_firme"])
+	cerca(brazo.mult_de_efecto(debil), 0.65, 0.0001, "Nervio del brazo: Debil x0,65")
+	cerca(brazo.mult_de_efecto(lento), 0.0, 0.0001, "y el Lento, el del catalogo")
+	cerca(brazo.prob_de_efecto(debil), 1.0, 0.0001, "Pulso firme: Debil 100 %")
+	cerca(brazo.prob_de_efecto(lento), 0.85, 0.0001, "Pulso firme: Lento 85 %")
+	cerca(_de(R, ["nervio_pierna"]).mult_de_efecto(lento), 0.60, 0.0001, "Nervio de la pierna: Lento x0,60")
+	cerca(base.prob_de_efecto(debil), 0.8, 0.0001, "la ficha sigue con su 80 %")
+	cierto(not _de(R, ["nervio_brazo", "temblor", "atravesar_p"]).forma_solo_primero, "Atravesar: a todos los de la linea")
+	cierto(_de(R, ["nervio_brazo", "temblor", "atravesar_p", "mano_segura"]).infalible, "Mano segura: infalible")
+	var lena: AbilityData = _de(R, ["nervio_brazo", "temblor", "atravesar_p", "lena_al_caido"])
+	igual(lena.estado_golpe, int(StatusEffects.Id.MARCA), "Leña al caido: Marca")
+	cerca(lena.estado_golpe_mult, 1.10, 0.0001, "al +10 %")
+
+
+# SOBRE LO TOCADO (Punzada): +30 % al que ya este Debil o Lento; al que no, nada.
+func test_sobre_lo_tocado() -> void:
+	const Hab = preload("res://scripts/ui/combat_habilidades.gd")
+	var ab: AbilityData = _de("res://resources/abilities/punzada_al_nervio.tres",
+		["nervio_brazo", "temblor", "atravesar_p", "sobre_lo_tocado"])
+	var e := Combatant.new("e", 1, Abilities.new(), 100, 10, 5, 5)
+	cerca(Hab.mult_arbol_golpe(ab, e, 0, 0, 0), 1.0, 0.0001, "sin Debil ni Lento, nada")
+	e.apply_status(StatusEffects.Id.LENTO, 3)
+	cerca(Hab.mult_arbol_golpe(ab, e, 0, 0, 0), 1.3, 0.0001, "Lento: +30 %")
+	e.statuses.clear()
+	e.apply_status(StatusEffects.Id.DEBIL, 3)
+	cerca(Hab.mult_arbol_golpe(ab, e, 0, 0, 0), 1.3, 0.0001, "Debil: +30 %")

@@ -241,6 +241,8 @@ var guardia_contra_mult: float = 1.0    # daño del riposte al esquivar (vs un b
 # (25/11) LA CAPA DE ESQUIVA DE LA GUARDIA: mientras estas en guardia, segunda tirada si el golpe pasa tu esquiva normal
 # (antes se SUMABA en evasion_bonus y subia el techo al 65 %). Ver capas_esquiva y StatsMath.resolve_attack.
 var guardia_capa: float = 0.0
+# (25/11) ENCADENAR (Paso ligero): tu SIGUIENTE habilidad cuesta este % menos de energia (se gasta al pagarla).
+var descuento_hab: float = 0.0
 # (25/11) LO QUE TRAE LA GUARDIA DE SU ARBOL (AbilityData.guardia_*): solo mientras dura (salir_de_guardia lo quita).
 var guardia_todos_lados: bool = false
 var guardia_contra_critico: bool = false
@@ -1677,6 +1679,11 @@ func stacks_de(id: int) -> int:
 
 
 # --- Energia de combate (KAN-57) ---
+# (25/11) LO QUE TE CUESTA UNA HABILIDAD AHORA: su coste, con el descuento de Encadenar si lo llevas.
+func coste_hab(ab: AbilityData, manos: int) -> float:
+	return roundf(ab.coste(manos) * (1.0 - descuento_hab)) if descuento_hab > 0.0 else ab.coste(manos)
+
+
 func spend_energy(amount: float) -> void:
 	current_energy = maxf(0.0, current_energy - amount)
 
