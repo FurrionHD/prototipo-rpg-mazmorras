@@ -419,3 +419,46 @@ func test_linea_del_6_al_16() -> void:
 	igual(roundi(m.coste_energia), roundi(48.0 * pow(1.4, 15)), "y su coste")
 	var l6: Resource = Mejoras.nodo(base, &"linea_6")
 	cierto(l6.padres.has(&"frenesi") and l6.padres.has(&"ligera"), "el 6 cuelga de los dos del nivel 5")
+
+
+# ------------------------------------------------------------ EL ESTOQUE (25/11)
+const ESTOCADA_RUTA := "res://resources/abilities/estocada_penetrante.tres"
+
+func _est(ids: Array) -> AbilityData:
+	var base: AbilityData = load(ESTOCADA_RUTA)
+	return Mejoras.montar_sin_nombre(base, (base.arbol as Array).filter(func(n): return ids.has(String(n.id)))) as AbilityData
+
+
+# ESTOCADA PENETRANTE (cerrada con el jefe): 180 % de serie; los numeros de la ficha que aprobo.
+func test_estocada_numeros_cerrados() -> void:
+	const Hab = preload("res://scripts/ui/combat_habilidades.gd")
+	var casos := [
+		[["sin_armadura"], 2.16, 64], [["atravesar"], 2.16, 64],
+		[["sin_armadura", "corazon"], 3.024, 90], [["sin_armadura", "empunadura"], 3.15, 90],
+		[["atravesar", "lanza_larga"], 3.276, 90], [["atravesar", "ensartar"], 3.15, 90],
+		[["atravesar", "ensartar", "herida_se_abre"], 4.234, 126],
+		[["atravesar", "ensartar", "desequilibrio"], 4.410, 126],
+		[["sin_armadura", "corazon", "grieta", "a_fondo"], 6.421, 177],
+		[["sin_armadura", "corazon", "grieta", "remate"], 5.927, 177],
+	]
+	for c in casos:
+		var m: AbilityData = _est(c[0])
+		cerca(m.dano_mult, float(c[1]), 0.003, "daño de la estocada con %s" % str(c[0]))
+		igual(roundi(m.coste_energia), int(c[2]), "energia con %s" % str(c[0]))
+	var sa: AbilityData = _est(["sin_armadura"])
+	cerca(sa.penetracion_extra, 0.45, 0.0001, "Sin armadura: ignora 20 -> 45 % de defensa")
+	igual(_est(["atravesar"]).forma_ancho, 24.0, "Atravesar: la linea 8 -> 24 px")
+	igual(_est(["atravesar", "lanza_larga"]).forma_radio, 139.0, "Lanza larga: 99 -> 139 px")
+	var h: AbilityData = _est(["atravesar", "ensartar", "herida_se_abre"])
+	cerca(h.efectos[0].prob * h.efectos_prob_mult, 0.6, 0.001, "Herida que se abre: Vulnerable 30 -> 60 %")
+	igual(h.efectos_turnos_enemigo, 2, "y dura 2 turnos mas")
+	# la doble: dos golpes, el segundo a la mitad; entre los dos, lo de su nivel (642 %)
+	var d: AbilityData = _est(["sin_armadura", "corazon", "grieta", "estocada_doble"])
+	igual(d.golpes_max, 2, "Estocada doble: dos golpes")
+	cerca(d.dano_mult * 1.5, 6.421, 0.003, "y entre los dos, lo de su nivel")
+	cerca(Hab.mult_arbol_golpe(d, null, 1, 0, 1), 0.5, 0.0001, "el segundo, a la mitad")
+	cerca(Hab.mult_arbol_golpe(d, null, 0, 0, 1), 1.0, 0.0001, "el primero, entero")
+	var base: AbilityData = load(ESTOCADA_RUTA)
+	igual(Mejoras.nodo(base, &"linea_6").padres.size(), 3, "la linea del 6 cuelga de los TRES del nivel 5")
+	cierto(not (Mejoras.nodo(base, &"grieta").excluye as Array).is_empty() and Mejoras.nodo(base, &"grieta").excluye.size() == 2,
+		"Grieta cierra las otras dos del nivel 4")

@@ -631,6 +631,17 @@ func secundario_para(n_enemigos: int) -> float:
 @export var estado_golpe: int = -1
 @export var estado_golpe_prob: float = 1.0
 @export var estado_golpe_turnos: int = 1
+# --- ESTOCADA PENETRANTE (25/11, su arbol) ---
+# ENSARTAR: en su linea, cada enemigo detras del primero (por cercania a quien la usa) recibe esto de daño MAS que el
+# anterior (0,15: el 2o +15 %, el 3o +30 %...). Solo el daño: la probabilidad de sus estados no sube.
+@export var bonus_tras_primero: float = 0.0
+# HERIDA QUE SE ABRE: los estados que causa a los ENEMIGOS duran estos turnos de mas (efectos_turnos_extra es para los
+# que se pone quien la usa).
+@export var efectos_turnos_enemigo: int = 0
+# DESEQUILIBRIO: si un golpe es critico, echa atras en la barra de turno a quien lo recibe (CombatPantalla.echar_atras).
+@export var retrasa_si_critico: bool = false
+# ESTOCADA DOBLE: los golpes despues del primero pegan x esto (0,5 = la segunda punzada a la mitad).
+@export var golpe_siguiente_mult: float = 1.0
 # ENTRAR BAILANDO (Rafaga): antes de golpear se acerca hasta esto hacia donde apunta, y su huella sale de alli (solo en
 # el mapa; combat_tactico.pies_tras_acercarse / pedir_acercarse).
 @export var acercarse: float = 0.0
@@ -972,6 +983,17 @@ func frase_mejora(campo: String, antes: AbilityData) -> String:
 				str(StatusEffects.def(detona_estado).get("nombre", "?")))
 		"recarga_al_matar":
 			return "Si derriba a un enemigo, vuelve a estar lista al instante." if recarga_al_matar else ""
+		"bonus_tras_primero":
+			return ("En su línea, cada enemigo detrás del primero recibe un %s más de daño que el anterior." \
+				% _pct_entero(bonus_tras_primero)) if bonus_tras_primero > 0.0 else ""
+		"efectos_turnos_enemigo":
+			return ("Los estados que causa duran %d turno%s más." % [efectos_turnos_enemigo,
+				"" if efectos_turnos_enemigo == 1 else "s"]) if efectos_turnos_enemigo > 0 else ""
+		"retrasa_si_critico":
+			return "Si un golpe es crítico, echa atrás en la barra de turno a quien lo recibe." if retrasa_si_critico else ""
+		"golpe_siguiente_mult":
+			return ("Los golpes después del primero hacen el %s de su daño." % _pct_entero(golpe_siguiente_mult)) \
+				if not is_equal_approx(golpe_siguiente_mult, 1.0) else ""
 		"acercarse":
 			return "Antes de golpear, quien la usa se acerca hasta %s hacia el objetivo." % casillas_txt(acercarse) \
 				if acercarse > 0.0 else ""

@@ -2186,6 +2186,15 @@ func _reparto_en(ab: AbilityData, c: Combatant, f) -> Array:
 		return float(x["d"]) < float(y["d"]))
 	if ab.forma_solo_primero and lista.size() > 1:
 		lista = lista.slice(0, 1)
+	# (25/11) ENSARTAR (Estocada penetrante): por orden de cercania a quien la lanza, cada uno de detras del primero pega
+	# bonus_tras_primero mas que el anterior.
+	if ab.bonus_tras_primero > 0.0 and lista.size() > 1:
+		var desde_pies: Vector2 = pies_de(c)
+		var por_cerca: Array = lista.duplicate()
+		por_cerca.sort_custom(func(x, y): return pies_de(x["c"]).distance_squared_to(desde_pies) \
+			< pies_de(y["c"]).distance_squared_to(desde_pies))
+		for k in range(1, por_cerca.size()):
+			por_cerca[k]["escala"] = float(por_cerca[k]["escala"]) * (1.0 + ab.bonus_tras_primero * float(k))
 	# LA QUE ATRAVIESA (la Embestida rodante): el primero que se cruza, entero; los de detras, area_secundario,
 	# hasta area_max.
 	if ab.atraviesa:

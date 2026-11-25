@@ -48,6 +48,8 @@ const FILAS_ANTES_DESPUES := [
 	["forma_radio", "Alcance", "dist"],
 	["forma_apertura", "Ángulo", "grados"],
 	["forma_rango", "Distancia hasta donde se apunta", "dist"],
+	["forma_ancho", "Ancho de su línea", "dist"],
+	["penetracion_extra", "Defensa que ignora de más", "pct"],
 	["crit_extra", "Probabilidad de crítico de más", "pct"],
 	["extra_espalda", "Daño de más si golpea por la espalda", "pct"],
 	["imbue_prob", "Probabilidad base de que prenda", "pct"],

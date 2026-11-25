@@ -430,6 +430,9 @@ static func mult_arbol_golpe(ab: AbilityData, objetivo: Combatant, i: int, bajas
 		m *= 1.0 + ab.bonus_por_baja * float(mini(bajas, ab.bonus_por_baja_max))
 	if ab.remate_estado >= 0 and i == ultimo and objetivo != null and objetivo.has_status(ab.remate_estado):
 		m *= ab.remate_mult
+	# (25/11) ESTOCADA DOBLE: los golpes despues del primero, a su parte.
+	if i > 0 and not is_equal_approx(ab.golpe_siguiente_mult, 1.0):
+		m *= ab.golpe_siguiente_mult
 	if ab.bonus_vida_baja > 0.0 and objetivo != null and objetivo.max_hp > 0.0 \
 			and objetivo.current_hp < objetivo.max_hp * ab.vida_baja_umbral:
 		m *= 1.0 + ab.bonus_vida_baja
@@ -620,6 +623,10 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 		_pantalla.magia._gastar_amplificadores(objetivo, _pantalla._player.imbue_elemento)
 	r.conecto = true
 	r.crit = result.crit
+	# (25/11) DESEQUILIBRIO (Estocada penetrante): el critico le echa atras en la barra de turno.
+	if ab.retrasa_si_critico and result.crit and objetivo.is_alive():
+		_pantalla.echar_atras(objetivo)
+		r.estados.append("·echado atrás en la barra")
 	var esc_txt: String = "" if is_equal_approx(escala, 1.0) else " [%d%%]" % roundi(escala * 100.0)
 	# Etiqueta de "con qué se pega": arma+escudo distingue arma/escudo; el dual, la 2ª mano.
 	var mano_txt: String = ""
@@ -640,7 +647,8 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 		# tajo). Se hacen una sola vez al final de la habilidad, en _usar_habilidad.
 		# 'escala' es la fraccion de daño que encaja ESTE objetivo, y con ella va la probabilidad:
 		# al de al lado que se come el 40% del golpe le prende el estado un 40% de las veces.
-		var ap: Array = _tirar_efectos_habilidad(ab, objetivo, result.crit, "objetivo", escala, escala)
+		# (25/11) por encima de 1 (ENSARTAR: los de detras pegan mas) sube el daño, no la probabilidad ni la fuerza
+		var ap: Array = _tirar_efectos_habilidad(ab, objetivo, result.crit, "objetivo", minf(escala, 1.0), minf(escala, 1.0))
 		r.estados += ap
 		if not ap.is_empty():
 			r.linea += "  -> " + ", ".join(ap)
@@ -1571,6 +1579,9 @@ func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico:
 			d.aturdir_en_area = ab != null and (ab.es_area() or (ab.forma >= 0 and not ab.forma_solo_primero))
 			# (24/11) SOMBRA LARGA: los estados que se pone quien la usa duran mas.
 			var turnos_a: int = a.turns
+			# (25/11) HERIDA QUE SE ABRE: los que causa a los enemigos, turnos de mas.
+			if al_enemigo and ab != null and ab.efectos_turnos_enemigo > 0:
+				turnos_a = (a.turns if a.turns > 0 else int(StatusEffects.def(a.estado).get("turns", 1))) + ab.efectos_turnos_enemigo
 			if not al_enemigo and ab != null and ab.efectos_turnos_extra > 0:
 				turnos_a = (a.turns if a.turns > 0 else int(StatusEffects.def(a.estado).get("turns", 1))) + ab.efectos_turnos_extra
 			for _s in cargas:

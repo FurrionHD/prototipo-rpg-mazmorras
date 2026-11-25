@@ -251,6 +251,64 @@ ARBOLES = {
     ],
 }
 
+# ============================================================
+#  EL ESTOQUE (25/11)
+# ============================================================
+CORROSION = 17   # -25 % de la defensa plana de la armadura, 3 turnos (StatusEffects)
+NV3_ESTOCADA = ["corazon", "empunadura", "lanza_larga", "ensartar"]
+NV4_ESTOCADA = ["herida_se_abre", "desequilibrio", "grieta"]
+
+# ESTOCADA PENETRANTE (25/11, cerrado con el jefe): de serie una linea fina (8 x 99 px) que pega ENTERA, una vez, a todos los
+# que toca (ya atraviesa: el jefe la deja asi), 180 %, ignora un 20 % mas de defensa, 30 % de Vulnerable por golpe; 46 EN.
+# Las 12 ideas que marco: en los niveles 4 y 5 se elige una de TRES.
+ARBOLES["estocada_penetrante"] = [
+    # Nv2: a uno (armadura) o a varios (linea ancha)
+    ("sin_armadura", 2, [], ["atravesar"], "Sin armadura",
+     "Por debajo de la placa siempre hay un hueco.",
+     {"penetracion_extra": ("add", 0.25), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("atravesar", 2, [], ["sin_armadura"], "Atravesar",
+     "La punta no se para en el primero.",
+     {"forma_ancho": ("add", 16.0), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    # Nv3, lado de la armadura: el critico
+    ("corazon", 3, ["sin_armadura"], ["empunadura"], "Corazón",
+     "Apuntas a lo que late.",
+     {"crit_extra": ("add", 0.25), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("empunadura", 3, ["sin_armadura"], ["corazon"], "Hasta la empuñadura",
+     "Cuando entra, entra entera.",
+     {"crit_dano_mult": ("set", 1.3), "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+    # Nv3, lado de la linea
+    ("lanza_larga", 3, ["atravesar"], ["ensartar"], "Lanza larga",
+     "El brazo estirado llega donde no te esperan.",
+     {"forma_radio": ("add", 40.0), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+    ("ensartar", 3, ["atravesar"], ["lanza_larga"], "Ensartar",
+     "Uno detrás de otro, como cuentas en un hilo.",
+     {"bonus_tras_primero": ("set", 0.15), "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+    # Nv4: desde cualquiera de los cuatro, una de TRES
+    ("herida_se_abre", 4, NV3_ESTOCADA, ["desequilibrio", "grieta"], "Herida que se abre",
+     "El agujero no se cierra solo.",
+     {"efectos_prob_mult": ("set", 2.0), "efectos_turnos_enemigo": ("set", 2),
+      "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("desequilibrio", 4, NV3_ESTOCADA, ["herida_se_abre", "grieta"], "Desequilibrio",
+     "Cuando entra bien, el otro tarda en recomponerse.",
+     {"retrasa_si_critico": ("set", True), "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+    ("grieta", 4, NV3_ESTOCADA, ["herida_se_abre", "desequilibrio"], "Grieta",
+     "Donde entra la punta, la coraza ya no cierra igual.",
+     {"estado_golpe": ("set", CORROSION), "estado_golpe_prob": ("set", 1.0), "estado_golpe_turnos": ("set", 3),
+      "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    # Nv5: desde cualquiera de los tres, una de TRES
+    ("estocada_doble", 5, NV4_ESTOCADA, ["a_fondo", "remate"], "Estocada doble",
+     "Sacas y vuelves a entrar antes de que se den cuenta.",
+     {"golpes_min": ("add", 1), "golpes_max": ("add", 1), "golpe_siguiente_mult": ("set", 0.5),
+      "dano_mult": ("mult", 1.0 / 1.5), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+    ("a_fondo", 5, NV4_ESTOCADA, ["estocada_doble", "remate"], "A fondo",
+     "Todo el cuerpo detrás de la punta.",
+     {"acercarse": ("add", 50.0), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+    ("remate", 5, NV4_ESTOCADA, ["estocada_doble", "a_fondo"], "Remate",
+     "Al que ya cae, la última, y bien puesta.",
+     {"bonus_vida_baja": ("set", 0.4), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+]
+
+
 
 def _valor(v) -> str:
     if isinstance(v, bool):
