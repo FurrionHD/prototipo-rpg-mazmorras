@@ -402,6 +402,11 @@ ICONOS = [
         "............", "............", "....oooo....", "..oolllloo..", ".ollddddllo.", "olldaawddllo",
         "olldaaaddllo", ".ollddddllo.", "..oolllloo..", "....oooo....", "............", "............"),
         {'a': (30, 24, 20)}),
+    # (25/11, las capas de esquiva) ESQUIVO: una rafaga de aire, el sitio donde estabas.
+    ("esquivo", "Esquivo", (0.7, 0.92, 0.85), (
+        "............", "........oo..", ".ooooooollo.", "ollllllwwlo.", ".oooooooo...", "............",
+        "...oooooo...", "..olllllwo..", "...oooooo...", "............", ".ooooo......", "olllwo......"),
+        {}),
 ]
 
 

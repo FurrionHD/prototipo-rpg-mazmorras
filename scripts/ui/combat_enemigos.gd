@@ -716,7 +716,7 @@ func _propio_florecido(e: Combatant, ab: AbilityData, tocados: Array = []) -> Ar
 	if ab.postura_contraataque:
 		e.en_guardia = true
 		e.guardia_spd_mult = ab.guardia_spd_mult
-		e.evasion_bonus = ab.evasion_bonus
+		e.guardia_capa = ab.evasion_bonus   # (25/11) como CAPA de esquiva, no sumada
 		e.guardia_contra_mult = ab.contra_mult
 		e.guardia_contra_escudo = ab.contra_con_escudo
 		out.append("se pone en guardia: devolverá lo que esquive")

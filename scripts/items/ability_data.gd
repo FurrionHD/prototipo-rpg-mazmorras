@@ -664,7 +664,7 @@ func secundario_para(n_enemigos: int) -> float:
 @export var energia_por_enemigo: float = 0.0
 @export var energia_sin_golpe: float = 0.0
 # BAILAR ESQUIVANDO / ESQUIVA EN EL PASO: al acabar, una CAPA de esquiva de esto (segunda tirada si el golpe pasa tu
-# esquiva normal, como la de En guardia) estos turnos. PENDIENTE (25/11): la mecanica de las dos capas, con el jefe.
+# esquiva normal, como la de En guardia) estos turnos: el estado Esquivo (Combatant.capas_esquiva).
 @export var capa_esquiva: float = 0.0
 @export var capa_esquiva_turnos: int = 1
 # ENTRAR BAILANDO (Rafaga): antes de golpear se acerca hasta esto hacia donde apunta, y su huella sale de alli (solo en
@@ -1008,6 +1008,11 @@ func frase_mejora(campo: String, antes: AbilityData) -> String:
 				str(StatusEffects.def(detona_estado).get("nombre", "?")))
 		"recarga_al_matar":
 			return "Si derriba a un enemigo, vuelve a estar lista al instante." if recarga_al_matar else ""
+		"capa_esquiva", "capa_esquiva_turnos":
+			if capa_esquiva <= 0.0:
+				return ""
+			return "Al acabar, de los golpes que te alcancen esquivas además un %s, %d turno%s." % [_pct_entero(capa_esquiva),
+				capa_esquiva_turnos, "" if capa_esquiva_turnos == 1 else "s"]
 		"golpe_creciente":
 			return ("Cada golpe hace un %s más de daño que el anterior." % _pct_entero(golpe_creciente)) \
 				if golpe_creciente > 0.0 else ""

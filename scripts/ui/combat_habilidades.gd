@@ -492,6 +492,11 @@ func _arbol_tras_usar(ab: AbilityData, obj: Combatant, en_mapa: bool, reparto_ma
 	var p: Combatant = _pantalla._player
 	if ab.sigilo_esquiva > 0.0 or ab.sigilo_energia > 0.0 or ab.sigilo_golpe > 0.0:
 		p.sigilo_extra = {"esquiva": ab.sigilo_esquiva, "energia": ab.sigilo_energia, "golpe": ab.sigilo_golpe}
+	# (25/11) ESQUIVA EN EL PASO / BAILAR ESQUIVANDO: una CAPA de esquiva unos turnos (StatusEffects.Id.ESQUIVO, su escala
+	# es la capa: 0,2 = 20 %; ver Combatant.capas_esquiva).
+	if ab.capa_esquiva > 0.0:
+		p.apply_status(StatusEffects.Id.ESQUIVO, ab.capa_esquiva_turnos, -1.0, 1, false, -1, 0.0, ab.capa_esquiva)
+		out.append("%s queda Esquivo" % p.nombre)
 	# DESVIO: te olvidan.
 	if ab.desvia_amenaza:
 		for e in _pantalla._vivos():
@@ -1237,7 +1242,7 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	if ab.postura_contraataque:
 		_pantalla._player.en_guardia = true
 		_pantalla._player.guardia_spd_mult = ab.guardia_spd_mult
-		_pantalla._player.evasion_bonus = ab.evasion_bonus
+		_pantalla._player.guardia_capa = ab.evasion_bonus   # (25/11) como CAPA de esquiva, no sumada
 		_pantalla._player.guardia_contra_mult = ab.contra_mult
 		_pantalla._player.guardia_contra_escudo = ab.contra_con_escudo
 	# Foco arcano (Canalización): concede cargas que amplifican tus proximos hechizos.

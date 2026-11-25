@@ -63,7 +63,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	A_OSCURAS, BEBE_LUZ, RACIMO,
 	PACIENCIA, MARCA_LUNA, FASES_LUNA, LUZ_LUNA,
 	NOCHE_LUNA,
-	GUARDIA_LEIDA }
+	GUARDIA_LEIDA,
+	ESQUIVO }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -786,6 +787,14 @@ static var _defs: Dictionary = {
 		"id": Id.GUARDIA_LEIDA, "nombre": "Guardia leída", "icono": "👁", "color": Color(0.85, 0.75, 0.45),
 		"turns": 2, "stack_mode": "merge", "max_stacks": 3, "evade_flat": -0.05, "debuff": true,
 		"descripcion": "Ya le has visto cómo se mueve. Lo siguiente entra.",
+	},
+	# (25/11, el jefe) LAS CAPAS DE ESQUIVA: si el golpe pasa tu esquiva normal, se vuelve a tirar con cada capa que lleves
+	# (la de la guardia, la de este estado...). Su capa vale la ESCALA con la que se pone (0,2 = 20 %): Esquiva en el paso,
+	# Bailar esquivando. El icono en pixel va con la lamina del estoque.
+	Id.ESQUIVO: {
+		"id": Id.ESQUIVO, "nombre": "Esquivo", "icono": "💨", "color": Color(0.7, 0.92, 0.85),
+		"turns": 1, "capa_esquiva": 1.0,
+		"descripcion": "Aunque te alcancen, todavía te da tiempo a apartarte.",
 	},
 	# EL SET CONCENTRACION (12/11, el de la Polilla insomne): cada frase bien recitada le pone una carga (hasta el tope del
 	# set) y fallar una se las quita todas (CombatMagia). Cada carga, + el daño magico que diga el set (mult_override). Dura

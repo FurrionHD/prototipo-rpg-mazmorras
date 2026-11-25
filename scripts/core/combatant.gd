@@ -238,6 +238,9 @@ var defend_bloqueo_magia: float = 0.5
 var en_guardia: bool = false        # true = estas en la postura de guardia/contraataque
 var guardia_spd_mult: float = 1.0   # multiplica tu velocidad mientras aguantas (< 1 = lento)
 var guardia_contra_mult: float = 1.0    # daño del riposte al esquivar (vs un básico)
+# (25/11) LA CAPA DE ESQUIVA DE LA GUARDIA: mientras estas en guardia, segunda tirada si el golpe pasa tu esquiva normal
+# (antes se SUMABA en evasion_bonus y subia el techo al 65 %). Ver capas_esquiva y StatsMath.resolve_attack.
+var guardia_capa: float = 0.0
 var guardia_contra_escudo: bool = false # lo que devuelves en la postura es un ESCUDAZO (Postura de rodela)
 
 # Esquiva EXTRA por HABILIDADES/BUFFS (0 = ninguna). Generico: la suben la postura del
@@ -1380,6 +1383,7 @@ func salir_de_guardia() -> void:
 	guardia_contra_mult = 1.0
 	guardia_contra_escudo = false
 	evasion_bonus = 0.0
+	guardia_capa = 0.0
 
 func is_alive() -> bool:
 	return current_hp > 0.0
@@ -2402,6 +2406,20 @@ func status_crit_flat() -> float:
 	for e in statuses:
 		s += e.flat_de("crit_flat")
 	return s
+
+# LAS CAPAS DE ESQUIVA (25/11, el jefe): cada una es OTRA tirada si el golpe ha pasado tu esquiva normal (y las de
+# antes). Total = 1 - (1-normal)(1-capa1)(1-capa2)...: nunca llega al 100 % y cada punto de mas vale un poco menos, asi
+# que no hace falta techo. Fuentes: la guardia mientras dure y los estados con 'capa_esquiva' (Esquivo).
+func capas_esquiva() -> Array:
+	var out: Array = []
+	if en_guardia and guardia_capa > 0.0:
+		out.append(guardia_capa)
+	for e in statuses:
+		var c: float = e.flat_de("capa_esquiva")
+		if c > 0.0:
+			out.append(c)
+	return out
+
 
 func status_evade_flat() -> float:
 	var s: float = sigilo("esquiva")   # (24/11) Pies en la niebla
