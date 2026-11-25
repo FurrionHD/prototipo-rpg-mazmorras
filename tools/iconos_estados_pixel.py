@@ -397,6 +397,11 @@ ICONOS = [
         "..........s.", "....wwhh.sss", "...wwwbbh.s.", "..wwwwbbbh..", "..wwwwbbbh..", "..wwwwbbbh..",
         "..wwwwbbbh..", "..wwwwbbbh..", "...wwwbbh...", "....wwhh....", "............", "............"),
         {'w': (226, 236, 255), 'l': (170, 182, 222), 'b': (40, 46, 86), 'h': (96, 108, 170), 's': (190, 170, 240)}),
+    # (25/11, Fintas del estoque) GUARDIA LEIDA: un ojo que ya te ha visto venir.
+    ("guardia_leida", "Guardia leída", (0.85, 0.75, 0.45), (
+        "............", "............", "....oooo....", "..oolllloo..", ".ollddddllo.", "olldaawddllo",
+        "olldaaaddllo", ".ollddddllo.", "..oolllloo..", "....oooo....", "............", "............"),
+        {'a': (30, 24, 20)}),
 ]
 
 

@@ -642,6 +642,31 @@ func secundario_para(n_enemigos: int) -> float:
 @export var retrasa_si_critico: bool = false
 # ESTOCADA DOBLE: los golpes despues del primero pegan x esto (0,5 = la segunda punzada a la mitad).
 @export var golpe_siguiente_mult: float = 1.0
+# --- COMPARTIDAS DEL ESTOQUE (25/11: Fintas, Danza de acero, Paso ligero...) ---
+# BUSCAR EL HUECO / COMPAS: cada golpe pega esto MAS que el anterior (0,1: el 2o +10 %, el 3o +20 %...).
+@export var golpe_creciente: float = 0.0
+# ULTIMA ESTOCADA / REMATE DEL BAILE: el ULTIMO golpe pega x esto (a quien sea; Remate de la Rafaga pide un estado).
+@export var ultimo_golpe_mult: float = 1.0
+# ACOSO (Fintas): con UN solo enemigo en la huella, estos golpes de mas.
+@export var golpes_si_uno: int = 0
+# NINGUNO SE LIBRA (Fintas): por lo menos un golpe a cada uno de los que pilla (golpes = max(golpes, enemigos)).
+@export var golpe_a_cada_uno: bool = false
+# FINTA ENGAÑOSA: estado_golpe solo al PRINCIPAL (al primero), no a cada uno que toca.
+@export var estado_golpe_solo_principal: bool = false
+# HERIDA EN CRUZ (Danza de acero): al ULTIMO que golpea (si sigue en pie) este estado estos turnos (-1 = nada).
+@export var estado_al_ultimo: int = -1
+@export var estado_al_ultimo_turnos: int = 2
+# SIN GUARDIA (Danza de acero): a los que les entra, se les quita la guardia, el Defender y el Baluarte.
+@export var quita_guardia: bool = false
+# LA ENERGIA que devuelve, en % de la maxima de quien la usa: RESPIRACION (por cada golpe critico), BAILE QUE ALIMENTA
+# (por cada enemigo distinto al que le entra) y RECOBRAR ALIENTO (si no le entra a nadie).
+@export var energia_por_critico: float = 0.0
+@export var energia_por_enemigo: float = 0.0
+@export var energia_sin_golpe: float = 0.0
+# BAILAR ESQUIVANDO / ESQUIVA EN EL PASO: al acabar, una CAPA de esquiva de esto (segunda tirada si el golpe pasa tu
+# esquiva normal, como la de En guardia) estos turnos. PENDIENTE (25/11): la mecanica de las dos capas, con el jefe.
+@export var capa_esquiva: float = 0.0
+@export var capa_esquiva_turnos: int = 1
 # ENTRAR BAILANDO (Rafaga): antes de golpear se acerca hasta esto hacia donde apunta, y su huella sale de alli (solo en
 # el mapa; combat_tactico.pies_tras_acercarse / pedir_acercarse).
 @export var acercarse: float = 0.0
@@ -983,6 +1008,35 @@ func frase_mejora(campo: String, antes: AbilityData) -> String:
 				str(StatusEffects.def(detona_estado).get("nombre", "?")))
 		"recarga_al_matar":
 			return "Si derriba a un enemigo, vuelve a estar lista al instante." if recarga_al_matar else ""
+		"golpe_creciente":
+			return ("Cada golpe hace un %s más de daño que el anterior." % _pct_entero(golpe_creciente)) \
+				if golpe_creciente > 0.0 else ""
+		"ultimo_golpe_mult":
+			return ("El último golpe hace x%s." % str(snappedf(ultimo_golpe_mult, 0.01)).replace(".", ",")) \
+				if not is_equal_approx(ultimo_golpe_mult, 1.0) else ""
+		"golpes_si_uno":
+			return ("Si solo pilla a un enemigo, %d golpe%s más." % [golpes_si_uno, "" if golpes_si_uno == 1 else "s"]) \
+				if golpes_si_uno > 0 else ""
+		"golpe_a_cada_uno":
+			return "Por lo menos un golpe a cada enemigo que pilla." if golpe_a_cada_uno else ""
+		"estado_golpe_solo_principal":
+			return "Ese estado, solo al primero al que golpea." if estado_golpe_solo_principal else ""
+		"estado_al_ultimo", "estado_al_ultimo_turnos":
+			if estado_al_ultimo < 0:
+				return ""
+			return "El último al que golpea queda %s %d turno%s." % [str(StatusEffects.def(estado_al_ultimo).get("nombre", "?")),
+				estado_al_ultimo_turnos, "" if estado_al_ultimo_turnos == 1 else "s"]
+		"quita_guardia":
+			return "A los que golpea se les quita la guardia, el Defender y el Baluarte que tuvieran puestos." if quita_guardia else ""
+		"energia_por_critico":
+			return ("Cada golpe crítico te devuelve un %s de tu energía máxima." % _pct_entero(energia_por_critico)) \
+				if energia_por_critico > 0.0 else ""
+		"energia_por_enemigo":
+			return ("Cada enemigo distinto al que golpea te devuelve un %s de tu energía máxima." % _pct_entero(energia_por_enemigo)) \
+				if energia_por_enemigo > 0.0 else ""
+		"energia_sin_golpe":
+			return ("Si no golpea a nadie, te devuelve un %s de tu energía máxima." % _pct_entero(energia_sin_golpe)) \
+				if energia_sin_golpe > 0.0 else ""
 		"bonus_tras_primero":
 			return ("En su línea, cada enemigo detrás del primero recibe un %s más de daño que el anterior." \
 				% _pct_entero(bonus_tras_primero)) if bonus_tras_primero > 0.0 else ""

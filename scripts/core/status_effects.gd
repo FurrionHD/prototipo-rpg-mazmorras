@@ -62,7 +62,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	COSTRA_SANGRE, SED_MANA,
 	A_OSCURAS, BEBE_LUZ, RACIMO,
 	PACIENCIA, MARCA_LUNA, FASES_LUNA, LUZ_LUNA,
-	NOCHE_LUNA }
+	NOCHE_LUNA,
+	GUARDIA_LEIDA }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -778,6 +779,13 @@ static var _defs: Dictionary = {
 		"id": Id.NOCHE_LUNA, "nombre": "Noche de luna", "icono": "🌗", "color": Color(0.62, 0.66, 0.95),
 		"turns": 999, "de_la_pelea": true, "texto_portador": true,
 		"descripcion": "Lleva puesta la noche. Cada vez que le toca, la luna es otra.",
+	},
+	# (25/11, Fintas del estoque: LEER LA GUARDIA) cada golpe que acierta le quita un poco de esquiva; se acumula hasta 3.
+	# El icono en pixel va con la lamina de iconos del estoque.
+	Id.GUARDIA_LEIDA: {
+		"id": Id.GUARDIA_LEIDA, "nombre": "Guardia leída", "icono": "👁", "color": Color(0.85, 0.75, 0.45),
+		"turns": 2, "stack_mode": "merge", "max_stacks": 3, "evade_flat": -0.05, "debuff": true,
+		"descripcion": "Ya le has visto cómo se mueve. Lo siguiente entra.",
 	},
 	# EL SET CONCENTRACION (12/11, el de la Polilla insomne): cada frase bien recitada le pone una carga (hasta el tope del
 	# set) y fallar una se las quita todas (CombatMagia). Cada carga, + el daño magico que diga el set (mult_override). Dura

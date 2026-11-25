@@ -308,6 +308,88 @@ ARBOLES["estocada_penetrante"] = [
      {"bonus_vida_baja": ("set", 0.4), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
 ]
 
+GUARDIA_LEIDA = 77   # (25/11) -5 % de esquiva por carga, hasta 3, 2 turnos (StatusEffects)
+
+# FINTAS (25/11, cerrado con el jefe): de serie cono 60 grados x 69 px, golpes REPARTIDOS uno a cada uno, 2 + 0,7 por enemigo
+# de mas, 120 %, sin estados, 44 EN. ACOSO destaca a uno (+20 %: 3 golpes a 0,93 de forma); ABANICO, a varios.
+NV3_FINTAS = ["buscar_hueco", "ultima_estocada", "mas_fintas", "brazo_largo_f", "ninguno_se_libra"]
+ARBOLES["fintas"] = [
+    ("acoso", 2, [], ["abanico"], "Acoso",
+     "Si solo hay uno, no le dejas respirar.",
+     {"golpes_si_uno": ("set", 1), "dano_mult": ("mult", 0.93), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("abanico", 2, [], ["acoso"], "Abanico",
+     "La punta va y viene, y de lado también se entra.",
+     {"forma_apertura": ("add", 50.0), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("buscar_hueco", 3, ["acoso"], ["ultima_estocada"], "Buscar el hueco",
+     "Cada finta te enseña un poco más por dónde entrar.",
+     {"golpe_creciente": ("set", 0.1), "potencia": (P, 0.25), "potencia_coste": (P, 1.0)}),
+    ("ultima_estocada", 3, ["acoso"], ["buscar_hueco"], "Última estocada",
+     "Todo lo de antes era para esta.",
+     {"ultimo_golpe_mult": ("set", 1.5), "potencia": (P, 0.25), "potencia_coste": (P, 1.0)}),
+    ("mas_fintas", 3, ["abanico"], ["brazo_largo_f", "ninguno_se_libra"], "Más fintas",
+     "Cuantos más hay delante, más rápido va la mano.",
+     {"golpes_extra_por_enemigo": ("set", 1.0), "potencia": (P, 0.25), "potencia_coste": (P, 1.0)}),
+    ("brazo_largo_f", 3, ["abanico"], ["mas_fintas", "ninguno_se_libra"], "Brazo largo",
+     "Un palmo más de acero es un palmo más de ventaja.",
+     {"forma_radio": ("add", 26.0), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+    ("ninguno_se_libra", 3, ["abanico"], ["mas_fintas", "brazo_largo_f"], "Ninguno se libra",
+     "A cada uno, por lo menos, su recuerdo.",
+     {"golpe_a_cada_uno": ("set", True), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("finta_enganosa", 4, NV3_FINTAS, ["leer_guardia"], "Finta engañosa",
+     "Mira la punta, y la punta no está donde mira.",
+     {"estado_golpe": ("set", VULNERABLE), "estado_golpe_prob": ("set", 1.0), "estado_golpe_turnos": ("set", 1),
+      "estado_golpe_solo_principal": ("set", True), "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+    ("leer_guardia", 4, NV3_FINTAS, ["finta_enganosa"], "Leer la guardia",
+     "Cada finta te enseña cómo se cubre.",
+     {"estado_golpe": ("set", GUARDIA_LEIDA), "estado_golpe_prob": ("set", 1.0), "estado_golpe_turnos": ("set", 2),
+      "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("ritmo_f", 5, ["finta_enganosa", "leer_guardia"], ["respiracion"], "Ritmo",
+     "El brazo ya no espera a que se lo pidas.",
+     {"cooldown": ("add", -1), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+    ("respiracion", 5, ["finta_enganosa", "leer_guardia"], ["ritmo_f"], "Respiración",
+     "Cuando entra limpia, el aire vuelve solo.",
+     {"energia_por_critico": ("set", 0.05), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+]
+
+# DANZA DE ACERO (25/11, cerrado con el jefe): de serie avance por una linea 119 x 20 px, 3 estocadas del 65 % + 0,7 por
+# enemigo de mas, repartidas EN ORDEN al pasar, Presteza 2 t, 46 EN. CUARTO TIEMPO destaca a uno (+20 %: 4 estocadas a
+# 1,051 de forma); DANZA ANCHA, a varios.
+NV3_DANZA = ["compas", "remate_baile", "danza_larga", "baile_alimenta"]
+ARBOLES["danza_de_acero"] = [
+    ("cuarto_tiempo", 2, [], ["danza_ancha"], "Cuarto tiempo",
+     "Donde la danza acababa, tú sigues.",
+     {"golpes_min": ("add", 1), "golpes_max": ("add", 1), "dano_mult": ("mult", 1.051),
+      "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("danza_ancha", 2, [], ["cuarto_tiempo"], "Danza ancha",
+     "Los brazos abiertos, la punta en todas partes.",
+     {"forma_ancho": ("add", 16.0), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("compas", 3, ["cuarto_tiempo"], ["remate_baile"], "Compás",
+     "Cada tiempo, un poco más deprisa y un poco más hondo.",
+     {"golpe_creciente": ("set", 0.1), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("remate_baile", 3, ["cuarto_tiempo"], ["compas"], "Remate del baile",
+     "Toda danza tiene un final, y este duele.",
+     {"ultimo_golpe_mult": ("set", 1.5), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("danza_larga", 3, ["danza_ancha"], ["baile_alimenta"], "Danza larga",
+     "La música dura más que ellos.",
+     {"forma_radio": ("add", 41.0), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+    ("baile_alimenta", 3, ["danza_ancha"], ["danza_larga"], "Baile que alimenta",
+     "Cada pareja nueva te devuelve el aliento.",
+     {"energia_por_enemigo": ("set", 0.03), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("herida_cruz", 4, NV3_DANZA, ["sin_guardia"], "Herida en cruz",
+     "Al último le dejas la marca de todo el baile.",
+     {"estado_al_ultimo": ("set", VULNERABLE), "estado_al_ultimo_turnos": ("set", 2),
+      "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+    ("sin_guardia", 4, NV3_DANZA, ["herida_cruz"], "Sin guardia",
+     "Bailando entre ellos, no hay escudo que se quede quieto.",
+     {"quita_guardia": ("set", True), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("ritmo_d", 5, ["herida_cruz", "sin_guardia"], ["bailar_esquivando"], "Ritmo",
+     "El cuerpo ya se sabe los pasos.",
+     {"cooldown": ("add", -1), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+    ("bailar_esquivando", 5, ["herida_cruz", "sin_guardia"], ["ritmo_d"], "Bailar esquivando",
+     "Acabas el baile sin dejar dónde golpearte.",
+     {"capa_esquiva": ("set", 0.2), "capa_esquiva_turnos": ("set", 1), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+]
+
 
 
 def _valor(v) -> str:

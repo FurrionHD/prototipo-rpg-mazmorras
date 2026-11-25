@@ -430,6 +430,11 @@ static func mult_arbol_golpe(ab: AbilityData, objetivo: Combatant, i: int, bajas
 		m *= 1.0 + ab.bonus_por_baja * float(mini(bajas, ab.bonus_por_baja_max))
 	if ab.remate_estado >= 0 and i == ultimo and objetivo != null and objetivo.has_status(ab.remate_estado):
 		m *= ab.remate_mult
+	# (25/11) BUSCAR EL HUECO / COMPAS: cada golpe un poco mas que el anterior. ULTIMA ESTOCADA / REMATE DEL BAILE.
+	if ab.golpe_creciente > 0.0 and i > 0:
+		m *= 1.0 + ab.golpe_creciente * float(i)
+	if not is_equal_approx(ab.ultimo_golpe_mult, 1.0) and i == ultimo:
+		m *= ab.ultimo_golpe_mult
 	# (25/11) ESTOCADA DOBLE: los golpes despues del primero, a su parte.
 	if i > 0 and not is_equal_approx(ab.golpe_siguiente_mult, 1.0):
 		m *= ab.golpe_siguiente_mult
@@ -448,6 +453,40 @@ static func gastar_salir_de_sombras(p: Combatant) -> void:
 
 # LO QUE HACEN LOS ARBOLES AL ACABAR LA HABILIDAD (24/11: Desaparecer y Oportunista), tras sus golpes y los estados que
 # se pone quien la usa. Devuelve lineas del log.
+# (25/11) EL ARBOL DEL ESTOQUE, acabados los golpes: 'entraron' = a los que les entro algun golpe.
+var _obj_principal_hab: Combatant = null
+
+func _arbol_tras_golpes(ab: AbilityData, entraron: Array, criticos: int, ultimo: Combatant, log_estados: Array) -> void:
+	var p: Combatant = _pantalla._player
+	var en: float = 0.0
+	if ab.energia_por_critico > 0.0:
+		en += ab.energia_por_critico * float(criticos)
+	if ab.energia_por_enemigo > 0.0:
+		en += ab.energia_por_enemigo * float(entraron.size())
+	if ab.energia_sin_golpe > 0.0 and entraron.is_empty():
+		en += ab.energia_sin_golpe
+	if en > 0.0:
+		p.regen_energy(en * p.max_energy)
+		log_estados.append("%s recupera %d de energía" % [p.nombre, roundi(en * p.max_energy)])
+	# HERIDA EN CRUZ: al ultimo que se llevo un golpe.
+	if ab.estado_al_ultimo >= 0 and ultimo != null and ultimo.is_alive() and not ultimo.es_inmune(ab.estado_al_ultimo):
+		ultimo.apply_status(ab.estado_al_ultimo, ab.estado_al_ultimo_turnos)
+		log_estados.append("·" + str(StatusEffects.def(ab.estado_al_ultimo).get("nombre", "?")))
+	# SIN GUARDIA: fuera la guardia, el Defender y el Baluarte de los que se llevaron golpe.
+	if ab.quita_guardia:
+		for t in entraron:
+			var c: Combatant = t
+			if not c.is_alive():
+				continue
+			var tenia: bool = c.en_guardia or bool(_pantalla._defendiendo.get(c, false)) \
+				or c.has_status(StatusEffects.Id.BALUARTE)
+			c.salir_de_guardia()
+			_pantalla._defendiendo.erase(c)
+			c.quitar_estado(StatusEffects.Id.BALUARTE)
+			if tenia:
+				log_estados.append("%s pierde la guardia" % c.nombre)
+
+
 func _arbol_tras_usar(ab: AbilityData, obj: Combatant, en_mapa: bool, reparto_mapa: Array) -> Array:
 	var out: Array = []
 	var p: Combatant = _pantalla._player
@@ -590,6 +629,7 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 		_bajas_hab += 1   # Tajos que persiguen: los golpes que quedan pegan mas
 	# (24/11) DESEQUILIBRAR: el golpe que entra deja su estado (con la resistencia del enemigo).
 	if ab.estado_golpe >= 0 and objetivo.is_alive() and not objetivo.es_inmune(ab.estado_golpe) \
+			and (not ab.estado_golpe_solo_principal or objetivo == _obj_principal_hab) \
 			and randf() < StatusEffects.prob_final(ab.estado_golpe_prob, _pantalla._player, objetivo, ab.estado_golpe):
 		objetivo.apply_status(ab.estado_golpe, ab.estado_golpe_turnos)
 		r.estados.append("·" + str(StatusEffects.def(ab.estado_golpe).get("nombre", "?")))
@@ -946,6 +986,8 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# porque lo necesita la tirada de efectos, que ahora vive fuera (ver el bloque de EFECTOS mas
 	# abajo). Sin golpes se queda en false, que es lo correcto: una habilidad que no pega no critea.
 	var hubo_critico: bool = false
+	var criticos_hab: int = 0                  # (25/11) Respiracion: cuantos golpes han criteado
+	var ultimo_golpeado: Combatant = null      # (25/11) Herida en cruz: el ultimo al que le entro un golpe
 	# GOLPES de daño (rango aleatorio; cada tajo con su ESQUIVA y CRITICO propios). Si
 	# efectos_por_golpe, cada tajo que acierta tira los efectos (sangrado 40%/hit).
 	# Las de UTILIDAD PURA (dano_mult 0, p.ej. Canalizar) NO golpean.
@@ -955,6 +997,12 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		var n_enemigos: int = reparto_mapa.size() if en_mapa and not reparto_mapa.is_empty() \
 			else _pantalla._vivos().size()
 		golpes = ab.num_golpes(manos, n_enemigos)
+		# (25/11) ACOSO: con uno solo en la huella, golpes de mas. NINGUNO SE LIBRA: uno por lo menos a cada uno.
+		if ab.golpes_si_uno > 0 and n_enemigos == 1:
+			golpes += ab.golpes_si_uno
+		if ab.golpe_a_cada_uno and en_mapa:
+			golpes = maxi(golpes, reparto_mapa.size())
+		_obj_principal_hab = obj
 		_bajas_hab = 0
 		_ultimo_golpe_hab = golpes - 1
 		# PLAN de golpes: mano y multiplicador de cada uno. Intercala las manos del dual (der, izq,
@@ -1065,6 +1113,9 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 						conecto_escudo[r.c] = true
 				if r.crit:
 					hubo_critico = true
+					criticos_hab += 1
+				if r.conecto:
+					ultimo_golpeado = r.c
 				mana_ganado_golpes += r.mana
 				estados_log += r.estados
 				# Token de ESTE golpe para el rastro del log (con su objetivo: si la habilidad toca a
@@ -1116,6 +1167,8 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 						var dsp: String = _pantalla.desplazado(t, ab.tiron, _pantalla._player)
 						if dsp != "":
 							_pantalla._set_log(dsp)
+		_arbol_tras_golpes(ab, tocados.filter(func(t): return int(conecto_por_obj.get(t, 0)) > 0), criticos_hab,
+			ultimo_golpeado, estados_log)
 		# Excelia: como el ataque, entrena la stat de su arma (por impacto medio, contra el principal).
 		var pj_hab: PersonajeData = Game.pj_de_combatant(_pantalla._player)
 		Game.ganar_golpe(_pantalla._reto(obj, pj_hab) * _pantalla._player.motion_value, pj_hab, _pantalla._player)

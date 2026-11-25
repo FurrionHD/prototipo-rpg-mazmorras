@@ -462,3 +462,62 @@ func test_estocada_numeros_cerrados() -> void:
 	igual(Mejoras.nodo(base, &"linea_6").padres.size(), 3, "la linea del 6 cuelga de los TRES del nivel 5")
 	cierto(not (Mejoras.nodo(base, &"grieta").excluye as Array).is_empty() and Mejoras.nodo(base, &"grieta").excluye.size() == 2,
 		"Grieta cierra las otras dos del nivel 4")
+
+
+func _de(ruta: String, ids: Array) -> AbilityData:
+	var base: AbilityData = load(ruta)
+	return Mejoras.montar_sin_nombre(base, (base.arbol as Array).filter(func(n): return ids.has(String(n.id)))) as AbilityData
+
+
+# FINTAS (cerrada con el jefe): 120 % por golpe de serie; los de la rama de Acoso llevan su forma x0,93.
+func test_fintas_numeros_cerrados() -> void:
+	const R := "res://resources/abilities/fintas.tres"
+	var casos := [
+		[["acoso"], 1.339, 62], [["abanico"], 1.44, 62],
+		[["acoso", "buscar_hueco"], 1.719, 86], [["abanico", "mas_fintas"], 1.848, 86],
+		[["abanico", "brazo_largo_f"], 2.184, 86], [["abanico", "ninguno_se_libra"], 2.016, 86],
+		[["acoso", "ultima_estocada", "finta_enganosa"], 2.734, 121], [["abanico", "mas_fintas", "leer_guardia"], 2.822, 121],
+		[["acoso", "buscar_hueco", "finta_enganosa", "ritmo_f"], 3.981, 169],
+		[["abanico", "brazo_largo_f", "leer_guardia", "respiracion"], 4.280, 169],
+	]
+	for c in casos:
+		var m: AbilityData = _de(R, c[0])
+		cerca(m.dano_mult, float(c[1]), 0.004, "Fintas, daño por golpe con %s" % str(c[0]))
+		igual(roundi(m.coste_energia), int(c[2]), "Fintas, energia con %s" % str(c[0]))
+	igual(_de(R, ["acoso"]).golpes_si_uno, 1, "Acoso: un golpe mas con uno solo")
+	igual(_de(R, ["abanico"]).forma_apertura, 110.0, "Abanico: 60 -> 110 grados")
+	igual(_de(R, ["abanico", "mas_fintas", "leer_guardia", "ritmo_f"]).cooldown, 3, "Ritmo: enfriamiento 4 -> 3")
+	var f: AbilityData = _de(R, ["acoso", "buscar_hueco", "finta_enganosa"])
+	cierto(f.estado_golpe == StatusEffects.Id.VULNERABLE and f.estado_golpe_solo_principal, "Finta engañosa: Vulnerable solo al primero")
+	igual(_de(R, ["abanico", "mas_fintas", "leer_guardia"]).estado_golpe, StatusEffects.Id.GUARDIA_LEIDA, "Leer la guardia: su estado")
+
+
+# DANZA DE ACERO (cerrada con el jefe): 65 % por estocada; la rama de Cuarto tiempo lleva su forma x1,051.
+func test_danza_numeros_cerrados() -> void:
+	const R := "res://resources/abilities/danza_de_acero.tres"
+	var casos := [
+		[["cuarto_tiempo"], 0.820, 64], [["danza_ancha"], 0.78, 64],
+		[["cuarto_tiempo", "compas"], 1.148, 90], [["danza_ancha", "danza_larga"], 1.183, 90],
+		[["danza_ancha", "baile_alimenta"], 1.092, 90],
+		[["cuarto_tiempo", "compas", "herida_cruz"], 1.674, 126], [["danza_ancha", "danza_larga", "sin_guardia"], 1.529, 126],
+		[["cuarto_tiempo", "remate_baile", "herida_cruz", "ritmo_d"], 2.437, 177],
+		[["danza_ancha", "danza_larga", "sin_guardia", "bailar_esquivando"], 2.319, 177],
+	]
+	for c in casos:
+		var m: AbilityData = _de(R, c[0])
+		cerca(m.dano_mult, float(c[1]), 0.004, "Danza, daño por estocada con %s" % str(c[0]))
+		igual(roundi(m.coste_energia), int(c[2]), "Danza, energia con %s" % str(c[0]))
+	igual(_de(R, ["cuarto_tiempo"]).golpes_max, 4, "Cuarto tiempo: 4 estocadas")
+	igual(_de(R, ["danza_ancha"]).forma_ancho, 36.0, "Danza ancha: 20 -> 36 px")
+	igual(_de(R, ["danza_ancha", "danza_larga"]).forma_radio, 160.0, "Danza larga: 119 -> 160 px")
+
+
+# LAS PIEZAS COMPARTIDAS del estoque, en el golpe: cada golpe mas que el anterior, y el ultimo x1,5.
+func test_estoque_golpe_creciente_y_ultimo() -> void:
+	const Hab = preload("res://scripts/ui/combat_habilidades.gd")
+	var c: AbilityData = _de("res://resources/abilities/danza_de_acero.tres", ["cuarto_tiempo", "compas"])
+	cerca(Hab.mult_arbol_golpe(c, null, 0, 0, 3), 1.0, 0.0001, "Compas: el primero, entero")
+	cerca(Hab.mult_arbol_golpe(c, null, 2, 0, 3), 1.2, 0.0001, "Compas: el tercero +20 %")
+	var u: AbilityData = _de("res://resources/abilities/fintas.tres", ["acoso", "ultima_estocada"])
+	cerca(Hab.mult_arbol_golpe(u, null, 0, 0, 2), 1.0, 0.0001, "Ultima estocada: los de antes, enteros")
+	cerca(Hab.mult_arbol_golpe(u, null, 2, 0, 2), 1.5, 0.0001, "Ultima estocada: el ultimo x1,5")
