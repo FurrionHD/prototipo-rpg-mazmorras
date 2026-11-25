@@ -3502,6 +3502,9 @@ func _tras_accion_jugador_varios(objs: Array) -> void:
 		if o is Combatant and golpeados_en_la_accion.has(o):
 			_disparar_seguimientos(o)
 			break
+	# (25/11) AL ACECHO (Paciencia de En guardia): se gasta con la accion que golpea.
+	if _player != null and not golpeados_en_la_accion.is_empty() and _player.has_status(StatusEffects.Id.AL_ACECHO):
+		_player.quitar_estado(StatusEffects.Id.AL_ACECHO)
 	golpeados_en_la_accion.clear()
 	_pasiva_hecha.clear()
 	var vistos: Dictionary = {}   # el mismo enemigo puede venir por el area Y por un rebote

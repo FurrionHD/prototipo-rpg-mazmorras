@@ -340,6 +340,8 @@ func _enemy_turn(e: Combatant) -> void:
 		Game.contar_esquiva(pj_obj)   # contador oculto de Reflejos
 		# CONTRAATAQUE (estoque, KAN-57): en guardia, cada golpe esquivado lo devuelves.
 		# Se lo devuelves A QUIEN TE HA ATACADO, no a tu objetivo seleccionado.
+		if obj.en_guardia:
+			al_esquivar_en_guardia(obj)
 		if obj.en_guardia and _devuelve_en_guardia(obj, e):
 			var msg_ev := _contraatacar(e, obj)
 			_pantalla._update_hp()
@@ -2184,6 +2186,8 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 			rastro.append({"t": "falla", "c": t})
 			_pantalla.efectos._fx_golpe(e, t, 0.0, false, true, e.elemento_ataque, estilo_g, peso_rayo(e, ab), false, sfx_ab, gesto_ab,
 				anim_ab)
+			if t.en_guardia:
+				al_esquivar_en_guardia(t)
 			if t.en_guardia and permitir_contra and contra == "" and _devuelve_en_guardia(t, e):
 				contra = _contraatacar(e, t)
 				if not e.is_alive():
@@ -2649,7 +2653,24 @@ func _riposte_bloqueo(atacante: Combatant, victima: Combatant, defendiendo: bool
 func _devuelve_en_guardia(quien: Combatant, atacante: Combatant) -> bool:
 	if not _pantalla.tactico:
 		return true
-	return _pantalla.turno_mapa.llega(quien, atacante)
+	if _pantalla.turno_mapa.llega(quien, atacante):
+		return true
+	# (25/11) SALIR AL PASO (En guardia): si con un paso corto le alcanzas, lo das y se la devuelves.
+	if quien.guardia_paso > 0.0 and _pantalla.turno_mapa.hueco_entre(quien, atacante) \
+			<= _pantalla.turno_mapa.alcance_de(quien) + quien.guardia_paso:
+		_pantalla.turno_mapa.pedir_juntar(quien, atacante, quien.guardia_paso)
+		return true
+	return false
+
+
+# (25/11) CADA GOLPE ESQUIVADO EN GUARDIA (los del arbol de En guardia): RESPIRO (energia) y PACIENCIA (Al acecho).
+func al_esquivar_en_guardia(quien: Combatant) -> void:
+	if quien == null or not quien.is_alive():
+		return
+	if quien.guardia_respiro > 0.0:
+		quien.regen_energy(quien.guardia_respiro * quien.max_energy)
+	if quien.guardia_paciencia:
+		quien.apply_status(StatusEffects.Id.AL_ACECHO, -1)
 
 
 # CONTRAATAQUE: devuelves el golpe con el arma principal. Aplica el daño al enemigo y devuelve el
@@ -2677,7 +2698,9 @@ func _contraatacar(atacante: Combatant, quien: Combatant, mult: float = -1.0,
 	var con_escudo: bool = quien.en_guardia and quien.guardia_contra_escudo
 	if con_escudo:
 		estilo = CombatFX.Estilo.ESCUDAZO
-	var result := StatsMath.resolve_attack(quien, atacante, false, quien.atk_escudo() if con_escudo else -1.0)
+	# (25/11) RIPOSTE PERFECTO: la contra de la guardia siempre critea.
+	var result := StatsMath.resolve_attack(quien, atacante, false, quien.atk_escudo() if con_escudo else -1.0,
+		5.0 if (quien.en_guardia and quien.guardia_contra_critico and not al_bloquear) else 0.0)
 	_pantalla._aplicar_pasivas(result, quien, atacante)
 	_pantalla._debug_ataque(quien, atacante, result, false)
 	# COMO EMPIEZA LA FRASE. Se arma aqui y no en cada return porque las dos ramas (el riposte que

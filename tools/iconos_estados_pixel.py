@@ -407,6 +407,11 @@ ICONOS = [
         "............", "........oo..", ".ooooooollo.", "ollllllwwlo.", ".oooooooo...", "............",
         "...oooooo...", "..olllllwo..", "...oooooo...", "............", ".ooooo......", "olllwo......"),
         {}),
+    # (25/11, En guardia: Paciencia) AL ACECHO: la hoja arriba, lista para devolverla.
+    ("al_acecho", "Al acecho", (0.95, 0.6, 0.35), (
+        ".....oo.....", "....owlo....", "....olmo....", "...oolmoo...", "....olmo....", "....olmo....",
+        "..ooolmooo..", "..oaaaaaao..", "..ooolmooo..", "....odmo....", "....odmo....", ".....oo....."),
+        {'a': (240, 200, 90)}),
 ]
 
 

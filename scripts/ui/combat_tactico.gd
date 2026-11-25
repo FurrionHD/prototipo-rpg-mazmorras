@@ -6056,6 +6056,9 @@ func de_frente(c: Combatant, atacante: Combatant, angulo: float) -> bool:
 func cubre_de_frente(c: Combatant, atacante: Combatant) -> bool:
 	if not _pantalla.tactico or c == null or atacante == null:
 		return true
+	# (25/11) OJOS EN LA ESPALDA (En guardia): en guardia te cubre de todos lados.
+	if c.en_guardia and c.guardia_todos_lados:
+		return true
 	var cuerpo: Node2D = cuerpo_de(c)
 	if cuerpo == null or cuerpo_de(atacante) == null:
 		return true

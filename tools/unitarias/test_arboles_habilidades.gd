@@ -521,3 +521,31 @@ func test_estoque_golpe_creciente_y_ultimo() -> void:
 	var u: AbilityData = _de("res://resources/abilities/fintas.tres", ["acoso", "ultima_estocada"])
 	cerca(Hab.mult_arbol_golpe(u, null, 0, 0, 2), 1.0, 0.0001, "Ultima estocada: los de antes, enteros")
 	cerca(Hab.mult_arbol_golpe(u, null, 2, 0, 2), 1.5, 0.0001, "Ultima estocada: el ultimo x1,5")
+
+
+# EN GUARDIA (cerrada con el jefe): no pega; cada nivel sube su CAPA de esquiva (20, 22, 24, 26, 28 y +1 en la linea: 39
+# en el 16). De serie la barra al 50 % y la habilidad quita la velocidad de mas.
+func test_en_guardia_capa_por_nivel() -> void:
+	const R := "res://resources/abilities/en_guardia.tres"
+	var base: AbilityData = load(R)
+	cerca(base.evasion_bonus, 0.20, 0.0001, "de serie, capa del 20 %")
+	cerca(base.guardia_spd_mult, 0.5, 0.0001, "de serie, la barra al 50 %")
+	cierto(base.guardia_quita_prisa, "la habilidad quita tu velocidad de mas")
+	var casos := [
+		[["guardia_alta"], 0.22, 56], [["guardia_paciente", "riposte_perfecto"], 0.24, 78],
+		[["guardia_alta", "reto", "respiro"], 0.26, 110], [["guardia_paciente", "salir_al_paso", "paciencia_g", "guardia_no_cae"], 0.28, 154],
+	]
+	for c in casos:
+		var m: AbilityData = _de(R, c[0])
+		cerca(m.evasion_bonus, float(c[1]), 0.0001, "En guardia, capa con %s" % str(c[0]))
+		igual(roundi(m.coste_energia), int(c[2]), "En guardia, energia con %s" % str(c[0]))
+		igual(m.dano_mult, 0.0, "y no pega")
+	var hasta16: Array = ["guardia_alta", "reto", "respiro", "guardia_no_cae"]
+	for nv in range(6, 17):
+		hasta16.append("linea_%d" % nv)
+	var m16: AbilityData = _de(R, hasta16)
+	cerca(m16.evasion_bonus, 0.39, 0.0001, "en el 16, capa del 39 %")
+	cerca(m16.evasion_bonus + m16.guardia_capa_extra, 0.47, 0.0001, "y con Guardia alta, 47 %")
+	cerca(_de(R, ["guardia_paciente"]).guardia_spd_mult, 0.35, 0.0001, "Guardia paciente: la barra al 35 %")
+	igual(_de(R, ["guardia_paciente", "salir_al_paso"]).guardia_paso, 40.0, "Salir al paso: hasta 40 px")
+	igual(Mejoras.nodo(base, &"linea_6").padres.size(), 1, "la linea cuelga del unico del nivel 5")

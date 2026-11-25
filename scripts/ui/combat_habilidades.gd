@@ -453,6 +453,9 @@ static func gastar_salir_de_sombras(p: Combatant) -> void:
 
 # LO QUE HACEN LOS ARBOLES AL ACABAR LA HABILIDAD (24/11: Desaparecer y Oportunista), tras sus golpes y los estados que
 # se pone quien la usa. Devuelve lineas del log.
+# (25/11) RETO (En guardia): hasta donde llega (px en el mapa).
+const RETO_RADIO := 150.0
+
 # (25/11) EL ARBOL DEL ESTOQUE, acabados los golpes: 'entraron' = a los que les entro algun golpe.
 var _obj_principal_hab: Combatant = null
 
@@ -1242,7 +1245,26 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	if ab.postura_contraataque:
 		_pantalla._player.en_guardia = true
 		_pantalla._player.guardia_spd_mult = ab.guardia_spd_mult
-		_pantalla._player.guardia_capa = ab.evasion_bonus   # (25/11) como CAPA de esquiva, no sumada
+		_pantalla._player.guardia_capa = ab.evasion_bonus + ab.guardia_capa_extra   # (25/11) como CAPA de esquiva, no sumada
+		var pg: Combatant = _pantalla._player
+		pg.guardia_todos_lados = ab.guardia_todos_lados
+		pg.guardia_contra_critico = ab.guardia_contra_critico
+		pg.guardia_paso = ab.guardia_paso
+		pg.guardia_respiro = ab.guardia_respiro
+		pg.guardia_paciencia = ab.guardia_paciencia
+		pg.guardia_no_cae = ab.guardia_no_cae
+		# (25/11, el jefe) LA HABILIDAD te quita tus efectos de mas velocidad: la guardia tiene que durar.
+		if ab.guardia_quita_prisa:
+			for e in pg.statuses.duplicate():
+				if float(e.d.get("spd_mult", 1.0)) > 1.0:
+					pg.quitar_estado(e.id())
+		# RETO: los enemigos de cerca te ponen arriba en su amenaza (como la Provocacion, sin obligarles).
+		if ab.guardia_reto:
+			var cerca: Array = _pantalla._vivos().filter(func(e): return not _pantalla.tactico \
+				or _pantalla.turno_mapa.pies_de(e).distance_to(_pantalla.turno_mapa.pies_de(pg)) <= RETO_RADIO)
+			if not cerca.is_empty():
+				_pantalla.objetivos.provocar_amenaza(pg, cerca)
+				estados_log.append("%s reta a %d enemigo%s" % [pg.nombre, cerca.size(), "" if cerca.size() == 1 else "s"])
 		_pantalla._player.guardia_contra_mult = ab.contra_mult
 		_pantalla._player.guardia_contra_escudo = ab.contra_con_escudo
 	# Foco arcano (Canalización): concede cargas que amplifican tus proximos hechizos.

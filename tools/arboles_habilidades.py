@@ -38,13 +38,19 @@ for _nv in range(6, 17):
 NIVEL_LINEA = (6, 16)
 
 
-def linea_fija(nodos):
+# Lo que la linea suma ADEMAS en alguna habilidad (25/11, En guardia: no pega, su linea sube la capa de esquiva).
+EXTRA_LINEA = {}
+
+
+def linea_fija(nodos, clave=""):
     padres = [n[0] for n in nodos if n[1] == 5]
     out = []
     for nv in range(NIVEL_LINEA[0], NIVEL_LINEA[1] + 1):
+        cambios = {"potencia": (P, 1.0), "potencia_coste": (P, 1.0)}
+        if clave in EXTRA_LINEA:
+            cambios.update(EXTRA_LINEA[clave](nv))
         out.append(("linea_%d" % nv, nv, padres if nv == NIVEL_LINEA[0] else ["linea_%d" % (nv - 1)], [],
-                    "Nivel %d" % nv, "La misma técnica, cada vez más afinada.",
-                    {"potencia": (P, 1.0), "potencia_coste": (P, 1.0)}))
+                    "Nivel %d" % nv, "La misma técnica, cada vez más afinada.", cambios))
     return out
 
 P = "presupuesto"
@@ -391,6 +397,47 @@ ARBOLES["danza_de_acero"] = [
 ]
 
 
+# EN GUARDIA (25/11, cerrado con el jefe): postura, no pega (la contra es TU BASICO, que ya sube con su arbol). Lo que sube
+# cada nivel es su CAPA DE ESQUIVA (evasion_bonus; Combatant.capas_esquiva): 20 % de serie, +2 por nivel hasta el 5
+# (28 %) y +1 por nivel en la linea (39 % en el 16). De serie la barra al 50 % y la habilidad quita tu velocidad de mas.
+# 9 nodos (el jefe: "vale con 9"): el nivel 5, uno solo.
+def capa_guardia(nv):
+    return round(0.20 + 0.02 * (min(nv, 5) - 1) + 0.01 * max(0, nv - 5), 4)
+
+
+EXTRA_LINEA["en_guardia"] = lambda nv: {"evasion_bonus": ("set", capa_guardia(nv))}
+NV3_GUARDIA = ["ojos_espalda", "reto", "riposte_perfecto", "salir_al_paso"]
+ARBOLES["en_guardia"] = [
+    ("guardia_alta", 2, [], ["guardia_paciente"], "Guardia alta",
+     "La punta arriba y el cuerpo detrás: poco que tocar.",
+     {"evasion_bonus": ("set", capa_guardia(2)), "guardia_capa_extra": ("set", 0.08), "potencia_coste": (P, 1.0)}),
+    ("guardia_paciente", 2, [], ["guardia_alta"], "Guardia paciente",
+     "No tienes prisa. Que vengan ellos.",
+     {"evasion_bonus": ("set", capa_guardia(2)), "guardia_spd_mult": ("set", 0.35), "potencia_coste": (P, 1.0)}),
+    ("ojos_espalda", 3, ["guardia_alta"], ["reto"], "Ojos en la espalda",
+     "No hace falta verlo venir para saber que viene.",
+     {"evasion_bonus": ("set", capa_guardia(3)), "guardia_todos_lados": ("set", True), "potencia_coste": (P, 1.0)}),
+    ("reto", 3, ["guardia_alta"], ["ojos_espalda"], "Reto",
+     "La punta les señala, y no saben decir que no.",
+     {"evasion_bonus": ("set", capa_guardia(3)), "guardia_reto": ("set", True), "potencia_coste": (P, 1.0)}),
+    ("riposte_perfecto", 3, ["guardia_paciente"], ["salir_al_paso"], "Riposte perfecto",
+     "Al que falla, se le contesta bien.",
+     {"evasion_bonus": ("set", capa_guardia(3)), "guardia_contra_critico": ("set", True), "potencia_coste": (P, 1.0)}),
+    ("salir_al_paso", 3, ["guardia_paciente"], ["riposte_perfecto"], "Salir al paso",
+     "Si no llega a ti, vas tú a él. Solo un paso.",
+     {"evasion_bonus": ("set", capa_guardia(3)), "guardia_paso": ("set", 40.0), "potencia_coste": (P, 1.0)}),
+    ("respiro", 4, NV3_GUARDIA, ["paciencia_g"], "Respiro",
+     "Cada golpe que no llega es aire que te queda.",
+     {"evasion_bonus": ("set", capa_guardia(4)), "guardia_respiro": ("set", 0.05), "potencia_coste": (P, 1.0)}),
+    ("paciencia_g", 4, NV3_GUARDIA, ["respiro"], "Paciencia",
+     "Cada golpe que esquivas te enseña dónde devolverlo.",
+     {"evasion_bonus": ("set", capa_guardia(4)), "guardia_paciencia": ("set", True), "potencia_coste": (P, 1.0)}),
+    ("guardia_no_cae", 5, ["respiro", "paciencia_g"], [], "Guardia que no cae",
+     "Bajas la punta, pero el cuerpo todavía no se ha enterado.",
+     {"evasion_bonus": ("set", capa_guardia(5)), "guardia_no_cae": ("set", True), "potencia_coste": (P, 1.0)}),
+]
+
+
 
 def _valor(v) -> str:
     if isinstance(v, bool):
@@ -441,7 +488,7 @@ def escribir(clave: str) -> None:
         ultima = list(re.finditer(r"\[ext_resource [^\n]*\]\n", t))[-1]
         t = t[:ultima.end()] + '[ext_resource type="Script" path="res://scripts/items/nodo_mejora.gd" id="nodo_mejora"]\n' \
             + t[ultima.end():]
-    subs = [_sub(clave, n) for n in ARBOLES[clave] + linea_fija(ARBOLES[clave])]
+    subs = [_sub(clave, n) for n in ARBOLES[clave] + linea_fija(ARBOLES[clave], clave)]
     bloque = "".join(s[1] + "\n\n" for s in subs)
     i = t.index("[resource]")
     t = t[:i] + bloque + t[i:]

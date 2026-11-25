@@ -642,6 +642,18 @@ func secundario_para(n_enemigos: int) -> float:
 @export var retrasa_si_critico: bool = false
 # ESTOCADA DOBLE: los golpes despues del primero pegan x esto (0,5 = la segunda punzada a la mitad).
 @export var golpe_siguiente_mult: float = 1.0
+# --- EN GUARDIA (25/11, su arbol): lo que lleva la postura (Combatant.guardia_*, se quita en salir_de_guardia) ---
+# La CAPA de esquiva de la guardia es evasion_bonus (la sube cada nivel) + esto (GUARDIA ALTA).
+@export var guardia_capa_extra: float = 0.0
+@export var guardia_todos_lados: bool = false   # OJOS EN LA ESPALDA: la guardia cubre tambien por los lados y la espalda
+@export var guardia_reto: bool = false          # RETO: al ponerte en guardia, los enemigos de cerca van a por ti
+@export var guardia_contra_critico: bool = false  # RIPOSTE PERFECTO: la contra siempre critea
+@export var guardia_paso: float = 0.0           # SALIR AL PASO: hasta esto (px) hacia el que no llegas, para devolversela
+@export var guardia_respiro: float = 0.0        # RESPIRO: cada golpe esquivado en guardia, este % de tu energia maxima
+@export var guardia_paciencia: bool = false     # PACIENCIA: cada golpe esquivado en guardia, una carga de Al acecho
+@export var guardia_no_cae: bool = false        # GUARDIA QUE NO CAE: al salir, la mitad de su capa 1 turno (Esquivo)
+# Al USAR la habilidad (la postura), te quita tus efectos de mas velocidad (el jefe: para que la guardia dure de verdad).
+@export var guardia_quita_prisa: bool = false
 # --- COMPARTIDAS DEL ESTOQUE (25/11: Fintas, Danza de acero, Paso ligero...) ---
 # BUSCAR EL HUECO / COMPAS: cada golpe pega esto MAS que el anterior (0,1: el 2o +10 %, el 3o +20 %...).
 @export var golpe_creciente: float = 0.0
@@ -1013,6 +1025,32 @@ func frase_mejora(campo: String, antes: AbilityData) -> String:
 				return ""
 			return "Al acabar, de los golpes que te alcancen esquivas además un %s, %d turno%s." % [_pct_entero(capa_esquiva),
 				capa_esquiva_turnos, "" if capa_esquiva_turnos == 1 else "s"]
+		"guardia_capa_extra":
+			return ("En guardia esquivas además un %s más de los golpes que te alcanzan." % _pct_entero(guardia_capa_extra)) \
+				if guardia_capa_extra > 0.0 else ""
+		"guardia_todos_lados":
+			return "La guardia te cubre también por los lados y por la espalda." if guardia_todos_lados else ""
+		"guardia_reto":
+			return "Al ponerte en guardia, los enemigos de cerca van a por ti." if guardia_reto else ""
+		"guardia_contra_critico":
+			return "El golpe que devuelves al esquivar es siempre crítico." if guardia_contra_critico else ""
+		"guardia_paso":
+			return ("Si el que te ataca no está a tu alcance, das un paso de hasta %s hacia él para devolvérsela." \
+				% casillas_txt(guardia_paso)) if guardia_paso > 0.0 else ""
+		"guardia_respiro":
+			return ("Cada golpe que esquivas en guardia te devuelve un %s de tu energía máxima." % _pct_entero(guardia_respiro)) \
+				if guardia_respiro > 0.0 else ""
+		"guardia_paciencia":
+			return "Cada golpe que esquivas en guardia te deja Al acecho: tu siguiente ataque pega un 10 % más (hasta 3 veces)." \
+				if guardia_paciencia else ""
+		"guardia_no_cae":
+			return "Al salir de la guardia, conservas la mitad de su esquiva un turno más." if guardia_no_cae else ""
+		"guardia_spd_mult":
+			return ("En guardia tu barra de turno va al %s (dura más: más golpes que devolver)." % _pct_entero(guardia_spd_mult)) \
+				if guardia_spd_mult < 1.0 else ""
+		"evasion_bonus":
+			return ("De los golpes que te alcanzan en guardia, esquivas además: %s → %s." % [_pct_entero(antes.evasion_bonus),
+				_pct_entero(evasion_bonus)]) if postura_contraataque else ""
 		"golpe_creciente":
 			return ("Cada golpe hace un %s más de daño que el anterior." % _pct_entero(golpe_creciente)) \
 				if golpe_creciente > 0.0 else ""
