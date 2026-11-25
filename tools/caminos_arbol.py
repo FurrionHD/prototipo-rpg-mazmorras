@@ -2,8 +2,9 @@
 #   python tools/caminos_arbol.py [hab1,hab2]  -> estoque#hab,estoque#hab:n2.n3.n4.n5,...  (arma estoque; cambiar a mano para otra)
 # Los caminos hasta el nivel 5 de cada habilidad del estoque (uno por nodo de cada nivel, respetando padres y exclusiones),
 # como lista de 'estoque#hab:n2.n3.n4.n5' para el simulador. Mas cada habilidad sin arbol (el nominal).
+import os
 import sys
-sys.path.insert(0, r'c:\Users\dasui\Documents\prototipo-rpg-mazmorras\tools')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import arboles_habilidades as A
 
 HABS = sys.argv[1].split(",") if len(sys.argv) > 1 else ["estocada_penetrante", "fintas", "danza_de_acero", "paso_ligero",
