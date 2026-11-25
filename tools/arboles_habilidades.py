@@ -38,13 +38,19 @@ for _nv in range(6, 17):
 NIVEL_LINEA = (6, 16)
 
 
-def linea_fija(nodos):
+# Lo que la linea suma ADEMAS en alguna habilidad (25/11, En guardia: no pega, su linea sube la capa de esquiva).
+EXTRA_LINEA = {}
+
+
+def linea_fija(nodos, clave=""):
     padres = [n[0] for n in nodos if n[1] == 5]
     out = []
     for nv in range(NIVEL_LINEA[0], NIVEL_LINEA[1] + 1):
+        cambios = {"potencia": (P, 1.0), "potencia_coste": (P, 1.0)}
+        if clave in EXTRA_LINEA:
+            cambios.update(EXTRA_LINEA[clave](nv))
         out.append(("linea_%d" % nv, nv, padres if nv == NIVEL_LINEA[0] else ["linea_%d" % (nv - 1)], [],
-                    "Nivel %d" % nv, "La misma técnica, cada vez más afinada.",
-                    {"potencia": (P, 1.0), "potencia_coste": (P, 1.0)}))
+                    "Nivel %d" % nv, "La misma técnica, cada vez más afinada.", cambios))
     return out
 
 P = "presupuesto"
@@ -251,6 +257,271 @@ ARBOLES = {
     ],
 }
 
+# ============================================================
+#  EL ESTOQUE (25/11)
+# ============================================================
+CORROSION = 17   # -25 % de la defensa plana de la armadura, 3 turnos (StatusEffects)
+NV3_ESTOCADA = ["corazon", "empunadura", "lanza_larga", "ensartar"]
+NV4_ESTOCADA = ["herida_se_abre", "desequilibrio", "grieta"]
+
+# ESTOCADA PENETRANTE (25/11, cerrado con el jefe): de serie una linea fina (8 x 99 px) que pega ENTERA, una vez, a todos los
+# que toca (ya atraviesa: el jefe la deja asi), 180 %, ignora un 20 % mas de defensa, 30 % de Vulnerable por golpe; 46 EN.
+# Las 12 ideas que marco: en los niveles 4 y 5 se elige una de TRES.
+ARBOLES["estocada_penetrante"] = [
+    # Nv2: a uno (armadura) o a varios (linea ancha)
+    ("sin_armadura", 2, [], ["atravesar"], "Sin armadura",
+     "Por debajo de la placa siempre hay un hueco.",
+     {"penetracion_extra": ("add", 0.25), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("atravesar", 2, [], ["sin_armadura"], "Atravesar",
+     "La punta no se para en el primero.",
+     {"forma_ancho": ("add", 16.0), "golpes_extra_por_enemigo": ("set", 1.0), "golpes_extra_max": ("set", 6),
+      "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    # Nv3, lado de la armadura: el critico
+    ("corazon", 3, ["sin_armadura"], ["empunadura"], "Corazón",
+     "Apuntas a lo que late.",
+     {"crit_extra": ("add", 0.25), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("empunadura", 3, ["sin_armadura"], ["corazon"], "Hasta la empuñadura",
+     "Cuando entra, entra entera.",
+     {"crit_dano_mult": ("set", 1.3), "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+    # Nv3, lado de la linea
+    ("lanza_larga", 3, ["atravesar"], ["ensartar"], "Lanza larga",
+     "El brazo estirado llega donde no te esperan.",
+     {"forma_radio": ("add", 40.0), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+    ("ensartar", 3, ["atravesar"], ["lanza_larga"], "Ensartar",
+     "Uno detrás de otro, como cuentas en un hilo.",
+     {"bonus_tras_primero": ("set", 0.15), "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+    # Nv4: desde cualquiera de los cuatro, una de TRES
+    ("herida_se_abre", 4, NV3_ESTOCADA, ["desequilibrio", "grieta"], "Herida que se abre",
+     "El agujero no se cierra solo.",
+     {"efectos_prob_mult": ("set", 2.0), "efectos_turnos_enemigo": ("set", 2),
+      "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("desequilibrio", 4, NV3_ESTOCADA, ["herida_se_abre", "grieta"], "Desequilibrio",
+     "Cuando entra bien, el otro tarda en recomponerse.",
+     {"retrasa_si_critico": ("set", True), "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+    ("grieta", 4, NV3_ESTOCADA, ["herida_se_abre", "desequilibrio"], "Grieta",
+     "Donde entra la punta, la coraza ya no cierra igual.",
+     {"estado_golpe": ("set", CORROSION), "estado_golpe_prob": ("set", 1.0), "estado_golpe_turnos": ("set", 3),
+      "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    # Nv5: desde cualquiera de los tres, una de TRES
+    ("estocada_doble", 5, NV4_ESTOCADA, ["a_fondo", "remate"], "Estocada doble",
+     "Sacas y vuelves a entrar antes de que se den cuenta.",
+     {"golpes_min": ("add", 1), "golpes_max": ("add", 1), "golpe_siguiente_mult": ("set", 0.5),
+      "dano_mult": ("mult", 1.0 / 1.5), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+    ("a_fondo", 5, NV4_ESTOCADA, ["estocada_doble", "remate"], "A fondo",
+     "Todo el cuerpo detrás de la punta.",
+     {"acercarse": ("add", 50.0), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+    ("remate", 5, NV4_ESTOCADA, ["estocada_doble", "a_fondo"], "Remate",
+     "Al que ya cae, la última, y bien puesta.",
+     {"bonus_vida_baja": ("set", 0.4), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+]
+
+GUARDIA_LEIDA = 77   # (25/11) -5 % de esquiva por carga, hasta 3, 2 turnos (StatusEffects)
+
+# FINTAS (25/11, cerrado con el jefe): de serie cono 60 grados x 69 px, golpes REPARTIDOS uno a cada uno, 2 + 0,7 por enemigo
+# de mas, 120 %, sin estados, 44 EN. ACOSO destaca a uno (+20 %: 3 golpes a 0,93 de forma); ABANICO, a varios.
+NV3_FINTAS = ["buscar_hueco", "ultima_estocada", "mas_fintas", "brazo_largo_f", "ninguno_se_libra"]
+ARBOLES["fintas"] = [
+    ("acoso", 2, [], ["abanico"], "Acoso",
+     "Si solo hay uno, no le dejas respirar.",
+     {"golpes_si_uno": ("set", 1), "dano_mult": ("mult", 0.93), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("abanico", 2, [], ["acoso"], "Abanico",
+     "La punta va y viene, y de lado también se entra.",
+     {"forma_apertura": ("add", 50.0), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("buscar_hueco", 3, ["acoso"], ["ultima_estocada"], "Buscar el hueco",
+     "Cada finta te enseña un poco más por dónde entrar.",
+     {"golpe_creciente": ("set", 0.1), "potencia": (P, 0.25), "potencia_coste": (P, 1.0)}),
+    ("ultima_estocada", 3, ["acoso"], ["buscar_hueco"], "Última estocada",
+     "Todo lo de antes era para esta.",
+     {"ultimo_golpe_mult": ("set", 1.5), "potencia": (P, 0.25), "potencia_coste": (P, 1.0)}),
+    ("mas_fintas", 3, ["abanico"], ["brazo_largo_f", "ninguno_se_libra"], "Más fintas",
+     "Cuantos más hay delante, más rápido va la mano.",
+     {"golpes_extra_por_enemigo": ("set", 1.0), "potencia": (P, 0.25), "potencia_coste": (P, 1.0)}),
+    ("brazo_largo_f", 3, ["abanico"], ["mas_fintas", "ninguno_se_libra"], "Brazo largo",
+     "Un palmo más de acero es un palmo más de ventaja.",
+     {"forma_radio": ("add", 26.0), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+    ("ninguno_se_libra", 3, ["abanico"], ["mas_fintas", "brazo_largo_f"], "Ninguno se libra",
+     "A cada uno, por lo menos, su recuerdo.",
+     {"golpe_a_cada_uno": ("set", True), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("finta_enganosa", 4, NV3_FINTAS, ["leer_guardia"], "Finta engañosa",
+     "Mira la punta, y la punta no está donde mira.",
+     {"estado_golpe": ("set", VULNERABLE), "estado_golpe_prob": ("set", 1.0), "estado_golpe_turnos": ("set", 1),
+      "estado_golpe_solo_principal": ("set", True), "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+    ("leer_guardia", 4, NV3_FINTAS, ["finta_enganosa"], "Leer la guardia",
+     "Cada finta te enseña cómo se cubre.",
+     {"estado_golpe": ("set", GUARDIA_LEIDA), "estado_golpe_prob": ("set", 1.0), "estado_golpe_turnos": ("set", 2),
+      "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("ritmo_f", 5, ["finta_enganosa", "leer_guardia"], ["respiracion"], "Ritmo",
+     "El brazo ya no espera a que se lo pidas.",
+     {"cooldown": ("add", -1), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+    ("respiracion", 5, ["finta_enganosa", "leer_guardia"], ["ritmo_f"], "Respiración",
+     "Cuando entra limpia, el aire vuelve solo.",
+     {"energia_por_critico": ("set", 0.05), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+]
+
+# DANZA DE ACERO (25/11, cerrado con el jefe): de serie avance por una linea 119 x 20 px, 3 estocadas del 65 % + 0,7 por
+# enemigo de mas, repartidas EN ORDEN al pasar, Presteza 2 t, 46 EN. CUARTO TIEMPO destaca a uno (+20 %: 4 estocadas a
+# 1,051 de forma); DANZA ANCHA, a varios.
+NV3_DANZA = ["compas", "remate_baile", "danza_larga", "baile_alimenta"]
+ARBOLES["danza_de_acero"] = [
+    ("cuarto_tiempo", 2, [], ["danza_ancha"], "Cuarto tiempo",
+     "Donde la danza acababa, tú sigues.",
+     {"golpes_si_uno": ("set", 1), "dano_mult": ("mult", 1.051),
+      "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("danza_ancha", 2, [], ["cuarto_tiempo"], "Danza ancha",
+     "Los brazos abiertos, la punta en todas partes.",
+     {"forma_ancho": ("add", 16.0), "golpes_extra_por_enemigo": ("set", 1.0), "golpes_extra_max": ("set", 6),
+      "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("compas", 3, ["cuarto_tiempo"], ["remate_baile"], "Compás",
+     "Cada tiempo, un poco más deprisa y un poco más hondo.",
+     {"golpe_creciente": ("set", 0.1), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("remate_baile", 3, ["cuarto_tiempo"], ["compas"], "Remate del baile",
+     "Toda danza tiene un final, y este duele.",
+     {"ultimo_golpe_mult": ("set", 1.5), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("danza_larga", 3, ["danza_ancha"], ["baile_alimenta"], "Danza larga",
+     "La música dura más que ellos.",
+     {"forma_radio": ("add", 41.0), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+    ("baile_alimenta", 3, ["danza_ancha"], ["danza_larga"], "Baile que alimenta",
+     "Cada pareja nueva te devuelve el aliento.",
+     {"energia_por_enemigo": ("set", 0.03), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("herida_cruz", 4, NV3_DANZA, ["sin_guardia"], "Herida en cruz",
+     "Al último le dejas la marca de todo el baile.",
+     {"estado_al_ultimo": ("set", VULNERABLE), "estado_al_ultimo_turnos": ("set", 2),
+      "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+    ("sin_guardia", 4, NV3_DANZA, ["herida_cruz"], "Sin guardia",
+     "Bailando entre ellos, no hay escudo que se quede quieto.",
+     {"quita_guardia": ("set", True), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("ritmo_d", 5, ["herida_cruz", "sin_guardia"], ["bailar_esquivando"], "Ritmo",
+     "El cuerpo ya se sabe los pasos.",
+     {"cooldown": ("add", -1), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+    ("bailar_esquivando", 5, ["herida_cruz", "sin_guardia"], ["ritmo_d"], "Bailar esquivando",
+     "Acabas el baile sin dejar dónde golpearte.",
+     {"capa_esquiva": ("set", 0.2), "capa_esquiva_turnos": ("set", 1), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+]
+
+
+# EN GUARDIA (25/11, cerrado con el jefe): postura, no pega (la contra es TU BASICO, que ya sube con su arbol). Lo que sube
+# cada nivel es su CAPA DE ESQUIVA (evasion_bonus; Combatant.capas_esquiva): 20 % de serie, +2 por nivel hasta el 5
+# (28 %) y +1 por nivel en la linea (39 % en el 16). De serie la barra al 50 % y la habilidad quita tu velocidad de mas.
+# 9 nodos (el jefe: "vale con 9"): el nivel 5, uno solo.
+def capa_guardia(nv):
+    return round(0.20 + 0.02 * (min(nv, 5) - 1) + 0.01 * max(0, nv - 5), 4)
+
+
+EXTRA_LINEA["en_guardia"] = lambda nv: {"evasion_bonus": ("set", capa_guardia(nv))}
+NV3_GUARDIA = ["ojos_espalda", "reto", "riposte_perfecto", "salir_al_paso"]
+ARBOLES["en_guardia"] = [
+    ("guardia_alta", 2, [], ["guardia_paciente"], "Guardia alta",
+     "La punta arriba y el cuerpo detrás: poco que tocar.",
+     {"evasion_bonus": ("set", capa_guardia(2)), "guardia_capa_extra": ("set", 0.08), "potencia_coste": (P, 1.0)}),
+    ("guardia_paciente", 2, [], ["guardia_alta"], "Guardia paciente",
+     "No tienes prisa. Que vengan ellos.",
+     {"evasion_bonus": ("set", capa_guardia(2)), "guardia_spd_mult": ("set", 0.35), "potencia_coste": (P, 1.0)}),
+    ("ojos_espalda", 3, ["guardia_alta"], ["reto"], "Ojos en la espalda",
+     "No hace falta verlo venir para saber que viene.",
+     {"evasion_bonus": ("set", capa_guardia(3)), "guardia_todos_lados": ("set", True), "potencia_coste": (P, 1.0)}),
+    ("reto", 3, ["guardia_alta"], ["ojos_espalda"], "Reto",
+     "La punta les señala, y no saben decir que no.",
+     {"evasion_bonus": ("set", capa_guardia(3)), "guardia_reto": ("set", True), "potencia_coste": (P, 1.0)}),
+    ("riposte_perfecto", 3, ["guardia_paciente"], ["salir_al_paso"], "Riposte perfecto",
+     "Al que falla, se le contesta bien.",
+     {"evasion_bonus": ("set", capa_guardia(3)), "guardia_contra_critico": ("set", True), "potencia_coste": (P, 1.0)}),
+    ("salir_al_paso", 3, ["guardia_paciente"], ["riposte_perfecto"], "Salir al paso",
+     "Si no llega a ti, vas tú a él. Solo un paso.",
+     {"evasion_bonus": ("set", capa_guardia(3)), "guardia_paso": ("set", 40.0), "potencia_coste": (P, 1.0)}),
+    ("respiro", 4, NV3_GUARDIA, ["paciencia_g"], "Respiro",
+     "Cada golpe que no llega es aire que te queda.",
+     {"evasion_bonus": ("set", capa_guardia(4)), "guardia_respiro": ("set", 0.05), "potencia_coste": (P, 1.0)}),
+    ("paciencia_g", 4, NV3_GUARDIA, ["respiro"], "Paciencia",
+     "Cada golpe que esquivas te enseña dónde devolverlo.",
+     {"evasion_bonus": ("set", capa_guardia(4)), "guardia_paciencia": ("set", True), "potencia_coste": (P, 1.0)}),
+    ("guardia_no_cae", 5, ["respiro", "paciencia_g"], [], "Guardia que no cae",
+     "Bajas la punta, pero el cuerpo todavía no se ha enterado.",
+     {"evasion_bonus": ("set", capa_guardia(5)), "guardia_no_cae": ("set", True), "potencia_coste": (P, 1.0)}),
+]
+
+
+# PASO LIGERO (25/11, cerrado con el jefe): de serie paso de 60 px a donde apuntas (atraviesa cuerpos), estocada del 70 % a
+# UNO (antes o despues del paso, ver plan_paso), Presteza 3 t, 34 EN, enfr 4. Lo que sube por nivel, la estocada.
+PRESTEZA = 13
+NV3_PASO = ["ida_vuelta", "esquiva_paso", "pasar_cortando", "encadenar"]
+ARBOLES["paso_ligero"] = [
+    ("paso_largo", 2, [], ["al_costado"], "Paso largo",
+     "Dos pasos donde otros dan uno.",
+     {"forma_rango": ("add", 40.0), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("al_costado", 2, [], ["paso_largo"], "Al costado",
+     "Nadie se cubre de lado.",
+     {"extra_costado": ("set", 0.3), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("ida_vuelta", 3, ["paso_largo"], ["esquiva_paso"], "Ida y vuelta",
+     "Entras, pinchas y ya no estás.",
+     {"vuelve": ("set", True), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("esquiva_paso", 3, ["paso_largo"], ["ida_vuelta"], "Esquiva en el paso",
+     "El cuerpo sigue moviéndose aunque los pies paren.",
+     {"capa_esquiva": ("set", 0.2), "capa_esquiva_turnos": ("set", 1), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("pasar_cortando", 3, ["al_costado"], ["encadenar"], "Pasar cortando",
+     "El que se cruza en el camino también se lleva lo suyo.",
+     {"corte_al_pasar": ("set", 0.3), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("encadenar", 3, ["al_costado"], ["pasar_cortando"], "Encadenar",
+     "El paso no acaba: empieza lo siguiente.",
+     {"descuento_siguiente": ("set", 0.2), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("presteza_mayor", 4, NV3_PASO, ["paso_despista"], "Presteza mayor",
+     "Los pies ya no esperan a la cabeza.",
+     {"efectos_mult_de": ("add", {PRESTEZA: 1.4}), "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+    ("paso_despista", 4, NV3_PASO, ["presteza_mayor"], "Paso que despista",
+     "Cuando te buscan, ya no estás donde mirabas.",
+     {"amenaza_tras_usar": ("set", 0.5), "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+    ("recobrar_aliento", 5, ["presteza_mayor", "paso_despista"], ["paso_guardia"], "Recobrar aliento",
+     "Si no hay a quien pinchar, al menos respiras.",
+     {"energia_sin_golpe": ("set", 0.1), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+    ("paso_guardia", 5, ["presteza_mayor", "paso_despista"], ["recobrar_aliento"], "Paso de guardia",
+     "Acabas el paso con la punta arriba.",
+     {"guardia_si_no_golpea": ("set", True), "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+]
+
+# PUNZADA AL NERVIO (25/11, cerrado con el jefe): de serie linea 79 px SOLO AL PRIMERO, 1 golpe del 90 % y, si acierta, dos
+# tiradas: Debil 80 % (ataque x0,80, 3 t) y Lento 60 % (barra x0,75, 3 t). 42 EN, enfr 4. TEMBLOR: -10 puntos de critico
+# (el jefe); CADENA NERVIOSA: el salto, al 50 % de daño y de probabilidad (el jefe).
+LENTO = 3
+DEBIL = 4
+MARCA = 15
+NV3_PUNZADA = ["temblor", "pulso_firme", "clavado"]
+NV4_PUNZADA = ["cadena_nerviosa", "atravesar_p", "larga_p"]
+ARBOLES["punzada_al_nervio"] = [
+    ("nervio_brazo", 2, [], ["nervio_pierna"], "Nervio del brazo",
+     "Un pinchazo en el hombro y el brazo ya no responde igual.",
+     {"efectos_mult_de": ("add", {DEBIL: 0.65}), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("nervio_pierna", 2, [], ["nervio_brazo"], "Nervio de la pierna",
+     "Detrás de la rodilla, donde la pierna se olvida de andar.",
+     {"efectos_mult_de": ("add", {LENTO: 0.60}), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("temblor", 3, ["nervio_brazo"], ["pulso_firme", "clavado"], "Temblor",
+     "La mano tiembla, y la que tiembla no acierta donde duele.",
+     {"debil_quita_critico": ("set", 0.10), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("pulso_firme", 3, ["nervio_brazo", "nervio_pierna"], ["temblor", "clavado"], "Pulso firme",
+     "Si sabes dónde está el nervio, no fallas el nervio.",
+     {"efectos_prob_de": ("add", {DEBIL: 1.0, LENTO: 0.85}), "potencia": (P, 0.25), "potencia_coste": (P, 1.0)}),
+    ("clavado", 3, ["nervio_pierna"], ["temblor", "pulso_firme"], "Clavado",
+     "La pierna que no anda tampoco se aparta.",
+     {"enraiza_si_lento": ("set", 0.30), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("cadena_nerviosa", 4, NV3_PUNZADA, ["atravesar_p", "larga_p"], "Cadena nerviosa",
+     "El calambre no sabe dónde acaba un cuerpo y empieza otro.",
+     {"salto_cadena": ("set", 0.5), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("atravesar_p", 4, NV3_PUNZADA, ["cadena_nerviosa", "larga_p"], "Atravesar",
+     "El que está detrás también tiene nervios.",
+     {"forma_solo_primero": ("set", False), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("larga_p", 4, NV3_PUNZADA, ["cadena_nerviosa", "atravesar_p"], "Línea larga",
+     "Más lejos, igual de fino.",
+     {"forma_radio": ("add", 36.0), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+    ("sobre_lo_tocado", 5, NV4_PUNZADA, ["mano_segura", "lena_al_caido"], "Sobre lo tocado",
+     "Donde ya duele, duele más.",
+     {"extra_si_tocado": ("set", 0.30), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("mano_segura", 5, NV4_PUNZADA, ["sobre_lo_tocado", "lena_al_caido"], "Mano segura",
+     "No se aparta a tiempo quien no sabe que va hacia él.",
+     {"infalible": ("set", True), "potencia": (P, 0.275), "potencia_coste": (P, 1.0)}),
+    ("lena_al_caido", 5, NV4_PUNZADA, ["sobre_lo_tocado", "mano_segura"], "Leña al caído",
+     "Mientras se recupera, que le peguen todos.",
+     {"estado_golpe": ("set", MARCA), "estado_golpe_prob": ("set", 1.0), "estado_golpe_turnos": ("set", 1),
+      "estado_golpe_mult": ("set", 1.10), "potencia": (P, 0.625), "potencia_coste": (P, 1.0)}),
+]
+
 
 def _valor(v) -> str:
     if isinstance(v, bool):
@@ -259,6 +530,8 @@ def _valor(v) -> str:
         return str(v)
     if isinstance(v, float):
         return repr(round(v, 6))
+    if isinstance(v, dict):
+        return "{" + ", ".join("%s: %s" % (_valor(k), _valor(x)) for k, x in v.items()) + "}"
     return '"%s"' % v
 
 
@@ -301,7 +574,7 @@ def escribir(clave: str) -> None:
         ultima = list(re.finditer(r"\[ext_resource [^\n]*\]\n", t))[-1]
         t = t[:ultima.end()] + '[ext_resource type="Script" path="res://scripts/items/nodo_mejora.gd" id="nodo_mejora"]\n' \
             + t[ultima.end():]
-    subs = [_sub(clave, n) for n in ARBOLES[clave] + linea_fija(ARBOLES[clave])]
+    subs = [_sub(clave, n) for n in ARBOLES[clave] + linea_fija(ARBOLES[clave], clave)]
     bloque = "".join(s[1] + "\n\n" for s in subs)
     i = t.index("[resource]")
     t = t[:i] + bloque + t[i:]

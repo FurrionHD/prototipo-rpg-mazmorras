@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/items/nodo_mejora.gd" id="nodo_mejora"]
 
 [sub_resource type="Resource" id="SA_0"]
 script = ExtResource("2")
@@ -14,6 +15,270 @@ script = ExtResource("2")
 estado = 3
 prob = 0.6
 turns = 3
+
+[sub_resource type="Resource" id="NM_pun_nervio_brazo"]
+script = ExtResource("nodo_mejora")
+id = &"nervio_brazo"
+nombre = "Nervio del brazo"
+descripcion = "Un pinchazo en el hombro y el brazo ya no responde igual."
+padres = Array[StringName]([])
+excluye = Array[StringName]([&"nervio_pierna"])
+nivel_min = 2
+dominio = 300
+oro = 10000
+cambios = {"efectos_mult_de": ["add", {4: 0.65}], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_nervio_pierna"]
+script = ExtResource("nodo_mejora")
+id = &"nervio_pierna"
+nombre = "Nervio de la pierna"
+descripcion = "Detrás de la rodilla, donde la pierna se olvida de andar."
+padres = Array[StringName]([])
+excluye = Array[StringName]([&"nervio_brazo"])
+nivel_min = 2
+dominio = 300
+oro = 10000
+cambios = {"efectos_mult_de": ["add", {3: 0.6}], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_temblor"]
+script = ExtResource("nodo_mejora")
+id = &"temblor"
+nombre = "Temblor"
+descripcion = "La mano tiembla, y la que tiembla no acierta donde duele."
+padres = Array[StringName]([&"nervio_brazo"])
+excluye = Array[StringName]([&"pulso_firme", &"clavado"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"debil_quita_critico": ["set", 0.1], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_pulso_firme"]
+script = ExtResource("nodo_mejora")
+id = &"pulso_firme"
+nombre = "Pulso firme"
+descripcion = "Si sabes dónde está el nervio, no fallas el nervio."
+padres = Array[StringName]([&"nervio_brazo", &"nervio_pierna"])
+excluye = Array[StringName]([&"temblor", &"clavado"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"efectos_prob_de": ["add", {4: 1.0, 3: 0.85}], "potencia": ["presupuesto", 0.25], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_clavado"]
+script = ExtResource("nodo_mejora")
+id = &"clavado"
+nombre = "Clavado"
+descripcion = "La pierna que no anda tampoco se aparta."
+padres = Array[StringName]([&"nervio_pierna"])
+excluye = Array[StringName]([&"temblor", &"pulso_firme"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"enraiza_si_lento": ["set", 0.3], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_cadena_nerviosa"]
+script = ExtResource("nodo_mejora")
+id = &"cadena_nerviosa"
+nombre = "Cadena nerviosa"
+descripcion = "El calambre no sabe dónde acaba un cuerpo y empieza otro."
+padres = Array[StringName]([&"temblor", &"pulso_firme", &"clavado"])
+excluye = Array[StringName]([&"atravesar_p", &"larga_p"])
+nivel_min = 4
+dominio = 900
+oro = 160000
+cambios = {"salto_cadena": ["set", 0.5], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_atravesar_p"]
+script = ExtResource("nodo_mejora")
+id = &"atravesar_p"
+nombre = "Atravesar"
+descripcion = "El que está detrás también tiene nervios."
+padres = Array[StringName]([&"temblor", &"pulso_firme", &"clavado"])
+excluye = Array[StringName]([&"cadena_nerviosa", &"larga_p"])
+nivel_min = 4
+dominio = 900
+oro = 160000
+cambios = {"forma_solo_primero": ["set", false], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_larga_p"]
+script = ExtResource("nodo_mejora")
+id = &"larga_p"
+nombre = "Línea larga"
+descripcion = "Más lejos, igual de fino."
+padres = Array[StringName]([&"temblor", &"pulso_firme", &"clavado"])
+excluye = Array[StringName]([&"cadena_nerviosa", &"atravesar_p"])
+nivel_min = 4
+dominio = 900
+oro = 160000
+cambios = {"forma_radio": ["add", 36.0], "potencia": ["presupuesto", 0.75], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_sobre_lo_tocado"]
+script = ExtResource("nodo_mejora")
+id = &"sobre_lo_tocado"
+nombre = "Sobre lo tocado"
+descripcion = "Donde ya duele, duele más."
+padres = Array[StringName]([&"cadena_nerviosa", &"atravesar_p", &"larga_p"])
+excluye = Array[StringName]([&"mano_segura", &"lena_al_caido"])
+nivel_min = 5
+dominio = 1200
+oro = 640000
+cambios = {"extra_si_tocado": ["set", 0.3], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_mano_segura"]
+script = ExtResource("nodo_mejora")
+id = &"mano_segura"
+nombre = "Mano segura"
+descripcion = "No se aparta a tiempo quien no sabe que va hacia él."
+padres = Array[StringName]([&"cadena_nerviosa", &"atravesar_p", &"larga_p"])
+excluye = Array[StringName]([&"sobre_lo_tocado", &"lena_al_caido"])
+nivel_min = 5
+dominio = 1200
+oro = 640000
+cambios = {"infalible": ["set", true], "potencia": ["presupuesto", 0.275], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_lena_al_caido"]
+script = ExtResource("nodo_mejora")
+id = &"lena_al_caido"
+nombre = "Leña al caído"
+descripcion = "Mientras se recupera, que le peguen todos."
+padres = Array[StringName]([&"cadena_nerviosa", &"atravesar_p", &"larga_p"])
+excluye = Array[StringName]([&"sobre_lo_tocado", &"mano_segura"])
+nivel_min = 5
+dominio = 1200
+oro = 640000
+cambios = {"estado_golpe": ["set", 15], "estado_golpe_prob": ["set", 1.0], "estado_golpe_turnos": ["set", 1], "estado_golpe_mult": ["set", 1.1], "potencia": ["presupuesto", 0.625], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_linea_6"]
+script = ExtResource("nodo_mejora")
+id = &"linea_6"
+nombre = "Nivel 6"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"sobre_lo_tocado", &"mano_segura", &"lena_al_caido"])
+excluye = Array[StringName]([])
+nivel_min = 6
+dominio = 1500
+oro = 1024000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_linea_7"]
+script = ExtResource("nodo_mejora")
+id = &"linea_7"
+nombre = "Nivel 7"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_6"])
+excluye = Array[StringName]([])
+nivel_min = 7
+dominio = 1800
+oro = 1638000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_linea_8"]
+script = ExtResource("nodo_mejora")
+id = &"linea_8"
+nombre = "Nivel 8"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_7"])
+excluye = Array[StringName]([])
+nivel_min = 8
+dominio = 2100
+oro = 2621000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_linea_9"]
+script = ExtResource("nodo_mejora")
+id = &"linea_9"
+nombre = "Nivel 9"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_8"])
+excluye = Array[StringName]([])
+nivel_min = 9
+dominio = 2400
+oro = 4194000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_linea_10"]
+script = ExtResource("nodo_mejora")
+id = &"linea_10"
+nombre = "Nivel 10"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_9"])
+excluye = Array[StringName]([])
+nivel_min = 10
+dominio = 2700
+oro = 6710000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_linea_11"]
+script = ExtResource("nodo_mejora")
+id = &"linea_11"
+nombre = "Nivel 11"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_10"])
+excluye = Array[StringName]([])
+nivel_min = 11
+dominio = 3000
+oro = 10736000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_linea_12"]
+script = ExtResource("nodo_mejora")
+id = &"linea_12"
+nombre = "Nivel 12"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_11"])
+excluye = Array[StringName]([])
+nivel_min = 12
+dominio = 3300
+oro = 17178000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_linea_13"]
+script = ExtResource("nodo_mejora")
+id = &"linea_13"
+nombre = "Nivel 13"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_12"])
+excluye = Array[StringName]([])
+nivel_min = 13
+dominio = 3600
+oro = 27485000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_linea_14"]
+script = ExtResource("nodo_mejora")
+id = &"linea_14"
+nombre = "Nivel 14"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_13"])
+excluye = Array[StringName]([])
+nivel_min = 14
+dominio = 3900
+oro = 43976000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_linea_15"]
+script = ExtResource("nodo_mejora")
+id = &"linea_15"
+nombre = "Nivel 15"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_14"])
+excluye = Array[StringName]([])
+nivel_min = 15
+dominio = 4200
+oro = 70362000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_pun_linea_16"]
+script = ExtResource("nodo_mejora")
+id = &"linea_16"
+nombre = "Nivel 16"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_15"])
+excluye = Array[StringName]([])
+nivel_min = 16
+dominio = 4500
+oro = 112579000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
 
 [resource]
 script = ExtResource("1")
@@ -32,3 +297,5 @@ forma_ancho = 8.0
 forma_solo_primero = true
 descripcion = "No busca el órgano: busca el cable. Después de esto, ni pega igual ni llega a tiempo."
 efectos = [SubResource("SA_0"), SubResource("SA_1")]
+; EL ARBOL (24/11, cerrado con el jefe): lo escribe tools/arboles_habilidades.py, no tocarlo a mano.
+arbol = [SubResource("NM_pun_nervio_brazo"), SubResource("NM_pun_nervio_pierna"), SubResource("NM_pun_temblor"), SubResource("NM_pun_pulso_firme"), SubResource("NM_pun_clavado"), SubResource("NM_pun_cadena_nerviosa"), SubResource("NM_pun_atravesar_p"), SubResource("NM_pun_larga_p"), SubResource("NM_pun_sobre_lo_tocado"), SubResource("NM_pun_mano_segura"), SubResource("NM_pun_lena_al_caido"), SubResource("NM_pun_linea_6"), SubResource("NM_pun_linea_7"), SubResource("NM_pun_linea_8"), SubResource("NM_pun_linea_9"), SubResource("NM_pun_linea_10"), SubResource("NM_pun_linea_11"), SubResource("NM_pun_linea_12"), SubResource("NM_pun_linea_13"), SubResource("NM_pun_linea_14"), SubResource("NM_pun_linea_15"), SubResource("NM_pun_linea_16")]

@@ -397,6 +397,21 @@ ICONOS = [
         "..........s.", "....wwhh.sss", "...wwwbbh.s.", "..wwwwbbbh..", "..wwwwbbbh..", "..wwwwbbbh..",
         "..wwwwbbbh..", "..wwwwbbbh..", "...wwwbbh...", "....wwhh....", "............", "............"),
         {'w': (226, 236, 255), 'l': (170, 182, 222), 'b': (40, 46, 86), 'h': (96, 108, 170), 's': (190, 170, 240)}),
+    # (25/11, Fintas del estoque) GUARDIA LEIDA: un ojo que ya te ha visto venir.
+    ("guardia_leida", "Guardia leída", (0.85, 0.75, 0.45), (
+        "............", "............", "....oooo....", "..oolllloo..", ".ollddddllo.", "olldaawddllo",
+        "olldaaaddllo", ".ollddddllo.", "..oolllloo..", "....oooo....", "............", "............"),
+        {'a': (30, 24, 20)}),
+    # (25/11, las capas de esquiva) ESQUIVO: una rafaga de aire, el sitio donde estabas.
+    ("esquivo", "Esquivo", (0.7, 0.92, 0.85), (
+        "............", "........oo..", ".ooooooollo.", "ollllllwwlo.", ".oooooooo...", "............",
+        "...oooooo...", "..olllllwo..", "...oooooo...", "............", ".ooooo......", "olllwo......"),
+        {}),
+    # (25/11, En guardia: Paciencia) AL ACECHO: la hoja arriba, lista para devolverla.
+    ("al_acecho", "Al acecho", (0.95, 0.6, 0.35), (
+        ".....oo.....", "....owlo....", "....olmo....", "...oolmoo...", "....olmo....", "....olmo....",
+        "..ooolmooo..", "..oaaaaaao..", "..ooolmooo..", "....odmo....", "....odmo....", ".....oo....."),
+        {'a': (240, 200, 90)}),
 ]
 
 

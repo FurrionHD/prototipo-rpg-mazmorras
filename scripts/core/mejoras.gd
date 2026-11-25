@@ -135,6 +135,8 @@ static func _aplicar(copia: Resource, n: Resource) -> void:
 			"add":
 				if ahora is Array:
 					copia.set(c, (ahora as Array) + (v as Array))   # una lista NUEVA: la de la ficha no se toca
+				elif ahora is Dictionary:
+					copia.set(c, (ahora as Dictionary).merged(v as Dictionary, true))   # (25/11) uno NUEVO, mezclado
 				else:
 					copia.set(c, ahora + v)
 			"set": copia.set(c, v)

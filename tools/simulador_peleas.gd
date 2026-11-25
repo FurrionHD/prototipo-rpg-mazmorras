@@ -259,7 +259,10 @@ const VIDA_MUNECO := 9999999.0
 # de area"): escenario 'munecos', 10 muñecos del mismo enemigo alrededor del tuyo, que mira hacia +x (de donde salen). Sitio
 # respecto a tus pies: x hacia delante, y hacia tu derecha. Se mide el daño por ciclo SUMANDO todos y a cuantos pilla cada
 # golpe (columna objetivos_por_accion). 'muneco' (uno solo) sigue igual, para comparar daño a uno contra daño en area.
-const ESC_MUNECO := ["muneco", "munecos", "munecos_juntos"]
+# EL MUÑECO QUE PEGA (25/11, el jefe: "un enemigo que no haga daño pero que pegue y que tenga muchisima vida"): escenario
+# 'muneco_pega', el muñeco de siempre pero ACTUA a su ritmo y te ataca, con su daño a 0. Para lo que solo hace algo cuando
+# te atacan (En guardia: la esquiva y la contra van antes que el daño, asi que salen igual).
+const ESC_MUNECO := ["muneco", "munecos", "munecos_juntos", "muneco_pega"]
 const CORRO_MUNECOS := [
 	Vector2(0, 55),                                          # pegado a ti
 	Vector2(-40, -130), Vector2(-40, 130),                   # a los lados, un poco por detras
@@ -980,7 +983,7 @@ func _casos_base() -> Array:
 					"jefe":
 						if JEFES.has(loc) and not _sin_jefes:
 							out.append([piso, grupo, esc, load(JEFES[loc]), &"", false, true])
-					"muneco", "munecos", "munecos_juntos":
+					"muneco", "munecos", "munecos_juntos", "muneco_pega":
 						for ed in _enemigos_de(loc):
 							if _pasa_solo(ed):
 								out.append([piso, grupo, esc, ed, &"", false, false])
@@ -991,7 +994,7 @@ func _casos_base() -> Array:
 func _corro(caso: Array, n_grupo: int) -> Array:
 	var piso: int = caso[0]
 	match String(caso[2]):
-		"uno", "muneco":
+		"uno", "muneco", "muneco_pega":
 			return [[caso[3], caso[4], caso[5], caso[6]]]
 		"munecos", "munecos_juntos":
 			var corro_m: Array = []
@@ -1423,8 +1426,10 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 	# llena (ni anda, ni pega, ni carga, ni se cura) y, por si acaso, lo que hiciera no quita nada.
 	if String(caso[2]) in ESC_MUNECO:
 		for e in _cb._enemies:
-			e.dummy_speed_override = 0.0001
 			e.dummy_dmg_out_mult = 0.0
+			if String(caso[2]) == "muneco_pega":
+				continue   # este SI actua (a la velocidad que le puso volver_muneco) y ataca, sin quitar nada
+			e.dummy_speed_override = 0.0001
 			_cb._gauge[e] = 0.0
 	Engine.time_scale = _escala_tiempo
 	var vida0: Dictionary = {}
@@ -1472,7 +1477,7 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 		# (24/11) EL MUÑECO NO ACTUA, PERO SANGRA: sin turnos nunca le tocaban los daños por turno (sangrado, veneno,
 		# quemadura) y Desangrar parecia lo unico que los cobraba. Cada _muneco_tick turnos tuyos (un ciclo) le toca su
 		# "inicio de turno" (el daño de sus estados y que se le gasten), como a un enemigo que no hace nada.
-		if String(caso[2]) in ESC_MUNECO and _muneco_tick > 0 and mios >= sig_tick:
+		if String(caso[2]) in ESC_MUNECO and caso[2] != "muneco_pega" and _muneco_tick > 0 and mios >= sig_tick:
 			sig_tick = mios + _muneco_tick
 			for e in _cb._enemies:
 				if e.is_alive():
@@ -1539,7 +1544,7 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 	var ciclos: float = maxf(0.01, float(_cb.reloj_barra) * _vel_ciclo(piso) / (2.0 * float(_cb.UMBRAL))) if is_instance_valid(_cb) else 0.01
 	var ed0: EnemyData = corro[0][0]
 	var repetir: String = "%d,%s,%s,%s,%s,%s,%d,%s" % [piso, caso[1], caso[2], caso[7] if caso[7] != "" else "-",
-		ed0.resource_path.get_file().get_basename() if String(caso[2]) in ["uno", "manada", "muneco", "munecos", "munecos_juntos", "jefe"] else "-",
+		ed0.resource_path.get_file().get_basename() if String(caso[2]) in ["uno", "manada", "muneco", "munecos", "munecos_juntos", "muneco_pega", "jefe"] else "-",
 		(String(caso[4]) if caso[4] != &"" else ("mutante" if caso[5] else "-")) if String(caso[2]) == "uno" else "-",
 		_semilla, str(_escala_tiempo)]
 	linea += "|%s|%.2f|%.2f|%s|%s|%d|%s|%.2f|%.2f|%d" % [pelea_id, ciclos, quitado / ciclos, _txt_reparto(_por_estado["aliados"]),
@@ -2333,6 +2338,16 @@ func _habilidad_por_nombre(yo: Combatant, archivo: String) -> AbilityData:
 	return null
 
 
+# (25/11) Su postura de contraataque (En guardia) si la lleva y la puede usar ya, o null.
+func _postura_lista(yo: Combatant):
+	if _solo_basico:
+		return null
+	for ab in yo.abilities_combate:
+		if ab != null and ab.postura_contraataque and _habilidad_lista(yo, ab):
+			return ab
+	return null
+
+
 # La de mas daño que pueda pagar (si pega mas que el ataque normal), o null.
 func _mejor_golpe(yo: Combatant, oculto: bool) -> AbilityData:
 	var tm = _cb.turno_mapa
@@ -2497,6 +2512,14 @@ func _plan_util(yo: Combatant, turno_id: int, obj: Combatant) -> Dictionary:
 
 
 func _plan_golpe(yo: Combatant, obj: Combatant) -> Dictionary:
+	# (25/11) LA POSTURA (En guardia del estoque): no pega, asi que el reparto por daño nunca la elegia. Si la lleva y la
+	# tiene lista, la ALTERNA con pegar (un turno en guardia, el siguiente golpea), como un jugador.
+	var g = _postura_lista(yo)
+	if g != null and not bool(yo.get_meta("sim_guardia_antes", false)):
+		yo.set_meta("sim_guardia_antes", true)
+		_apuntar_accion("se pone en guardia")
+		return {"que": "habilidad", "nombre": g.nombre, "rango": 99999.0}
+	yo.set_meta("sim_guardia_antes", false)
 	var colocado = _plan_colocado(yo, obj)
 	if colocado != null:
 		return colocado

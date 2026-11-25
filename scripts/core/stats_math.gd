@@ -562,6 +562,13 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	if puede_esquivar and randf() < evade_p:
 		return {"damage": 0.0, "evaded": true, "crit": false, "aturde": false,
 			"evade_p": evade_p, "crit_p": crit_p, "aturde_p": aturde_p}
+	# (25/11) LAS CAPAS DE ESQUIVA: ha pasado la normal; otra tirada por cada capa (solo si las hay: sin capas no se tira
+	# nada mas y las peleas sin guardia salen igual que antes).
+	if puede_esquivar:
+		for capa in defender.capas_esquiva():
+			if randf() < float(capa):
+				return {"damage": 0.0, "evaded": true, "crit": false, "aturde": false, "capa": true,
+					"evade_p": evade_p, "crit_p": crit_p, "aturde_p": aturde_p}
 
 	# 2) Daño base (raw×motion_value en atk()) mitigado por la defensa. FLOAT.
 	# Si esta DEFENDIENDO, su escudo suma su defensa aqui (defend_defense): un escudo solo protege
@@ -721,6 +728,11 @@ static func resolve_magico_enemigo(attacker: Combatant, defender: Combatant, pue
 	if puede_esquivar and randf() < evade_p:
 		return {"damage": 0.0, "evaded": true, "crit": false, "aturde": false,
 			"evade_p": evade_p, "crit_p": crit_p, "aturde_p": 0.0, "magico": true}
+	if puede_esquivar:
+		for capa in defender.capas_esquiva():
+			if randf() < float(capa):
+				return {"damage": 0.0, "evaded": true, "crit": false, "aturde": false, "capa": true,
+					"evade_p": evade_p, "crit_p": crit_p, "aturde_p": 0.0, "magico": true}
 	var mdef := defender.mdef_value() + (defender.defend_mdef if defending else 0.0)
 	var dmg := damage(attacker.atk_magico(), mdef)
 	var mitig := factor_defensa(mdef)

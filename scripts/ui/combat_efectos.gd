@@ -782,8 +782,8 @@ Solo tiene ojos para quien lo provocó: todo lo que haga irá contra ese persona
 	# mucho y te sube la esquiva, y hasta ahora solo se anunciaba UNA vez en el log y desaparecia de
 	# la vista. Igual que Defender y el agotamiento, aqui abajo.
 	if c.en_guardia:
-		out.append(["🤺", "En guardia (postura de contraataque)\nVelocidad -%d %%, Esquiva +%d %%; devuelve el golpe al esquivar.\nDura hasta su próxima acción."
-			% [roundi((1.0 - c.guardia_spd_mult) * 100.0), roundi(c.evasion_bonus * 100.0)],
+		out.append(["🤺", "En guardia (postura de contraataque)\nVelocidad -%d %%; de los golpes que le alcanzan, esquiva además un %d %%; devuelve el golpe al esquivar.\nDura hasta su próxima acción."
+			% [roundi((1.0 - c.guardia_spd_mult) * 100.0), roundi(c.guardia_capa * 100.0)],
 			"🤺", Color(0.85, 0.8, 0.5)])
 	# DEFENDIENDO: reduce el daño hasta su próximo turno. Vale para ti y para los compañeros.
 	if bool(_pantalla._defendiendo.get(c, false)) or (c == _pantalla._player and _pantalla._player_defending):

@@ -163,7 +163,7 @@ func _accion_habilidad() -> void:
 		var tras_prep: bool = not _pantalla._preps_turno.is_empty()
 		var manos: int = _pantalla._player.ability_manos(ab)
 		var es_conv: bool = ab.energia_a_mana > 0.0   # Canalizar: gasta toda la energia
-		var coste: float = _pantalla._player.current_energy if es_conv else ab.coste(manos)
+		var coste: float = _pantalla._player.current_energy if es_conv else _pantalla._player.coste_hab(ab, manos)
 		var cd_left: int = _pantalla._player.ability_cd_left(ab)
 		var b := TooltipButton.new()
 		var cd_txt := "  ⏳%d" % cd_left if cd_left > 0 else ""
@@ -430,9 +430,20 @@ static func mult_arbol_golpe(ab: AbilityData, objetivo: Combatant, i: int, bajas
 		m *= 1.0 + ab.bonus_por_baja * float(mini(bajas, ab.bonus_por_baja_max))
 	if ab.remate_estado >= 0 and i == ultimo and objetivo != null and objetivo.has_status(ab.remate_estado):
 		m *= ab.remate_mult
+	# (25/11) BUSCAR EL HUECO / COMPAS: cada golpe un poco mas que el anterior. ULTIMA ESTOCADA / REMATE DEL BAILE.
+	if ab.golpe_creciente > 0.0 and i > 0:
+		m *= 1.0 + ab.golpe_creciente * float(i)
+	if not is_equal_approx(ab.ultimo_golpe_mult, 1.0) and i == ultimo:
+		m *= ab.ultimo_golpe_mult
+	# (25/11) ESTOCADA DOBLE: los golpes despues del primero, a su parte.
+	if i > 0 and not is_equal_approx(ab.golpe_siguiente_mult, 1.0):
+		m *= ab.golpe_siguiente_mult
 	if ab.bonus_vida_baja > 0.0 and objetivo != null and objetivo.max_hp > 0.0 \
 			and objetivo.current_hp < objetivo.max_hp * ab.vida_baja_umbral:
 		m *= 1.0 + ab.bonus_vida_baja
+	# (25/11) SOBRE LO TOCADO (Punzada al nervio): al que ya esta Debil o Lento.
+	if ab.extra_si_tocado > 0.0 and objetivo != null 			and (objetivo.has_status(StatusEffects.Id.DEBIL) or objetivo.has_status(StatusEffects.Id.LENTO)):
+		m *= 1.0 + ab.extra_si_tocado
 	return m
 
 
@@ -445,11 +456,109 @@ static func gastar_salir_de_sombras(p: Combatant) -> void:
 
 # LO QUE HACEN LOS ARBOLES AL ACABAR LA HABILIDAD (24/11: Desaparecer y Oportunista), tras sus golpes y los estados que
 # se pone quien la usa. Devuelve lineas del log.
+# (25/11) RETO (En guardia): hasta donde llega (px en el mapa).
+const RETO_RADIO := 150.0
+
+# ENTRAR EN GUARDIA con la postura 'ab' (En guardia, con su arbol). 'de_la_habilidad' = la has usado tu: frena tu barra
+# (guardia_spd_mult) y te quita la prisa si lo pide. PASO DE GUARDIA (Paso ligero) entra sin ninguna de las dos.
+# Devuelve lineas del log.
+func poner_guardia(pg: Combatant, ab: AbilityData, de_la_habilidad: bool) -> Array:
+	var out: Array = []
+	if pg == null or ab == null:
+		return out
+	pg.en_guardia = true
+	pg.guardia_spd_mult = ab.guardia_spd_mult if de_la_habilidad else 1.0
+	pg.guardia_capa = ab.evasion_bonus + ab.guardia_capa_extra   # (25/11) como CAPA de esquiva, no sumada
+	pg.guardia_todos_lados = ab.guardia_todos_lados
+	pg.guardia_contra_critico = ab.guardia_contra_critico
+	pg.guardia_paso = ab.guardia_paso
+	pg.guardia_respiro = ab.guardia_respiro
+	pg.guardia_paciencia = ab.guardia_paciencia
+	pg.guardia_no_cae = ab.guardia_no_cae
+	# (25/11, el jefe) LA HABILIDAD te quita tus efectos de mas velocidad: la guardia tiene que durar.
+	if de_la_habilidad and ab.guardia_quita_prisa:
+		for e in pg.statuses.duplicate():
+			if float(e.d.get("spd_mult", 1.0)) > 1.0:
+				pg.quitar_estado(e.id())
+	# RETO: los enemigos de cerca te ponen arriba en su amenaza (como la Provocacion, sin obligarles).
+	if ab.guardia_reto:
+		var cerca: Array = _pantalla._vivos().filter(func(e): return not _pantalla.tactico 			or _pantalla.turno_mapa.pies_de(e).distance_to(_pantalla.turno_mapa.pies_de(pg)) <= RETO_RADIO)
+		if not cerca.is_empty():
+			_pantalla.objetivos.provocar_amenaza(pg, cerca)
+			out.append("%s reta a %d enemigo%s" % [pg.nombre, cerca.size(), "" if cerca.size() == 1 else "s"])
+	pg.guardia_contra_mult = ab.contra_mult
+	pg.guardia_contra_escudo = ab.contra_con_escudo
+	return out
+
+
+# PASO DE GUARDIA: la guardia que entra es la de TU En guardia (con tu arbol); sin ella, la de su ficha.
+const RUTA_EN_GUARDIA := "res://resources/abilities/en_guardia.tres"
+
+func _tu_en_guardia(p: Combatant) -> AbilityData:
+	for ab in p.abilities_combate:   # (las del loadout ya vienen montadas con su arbol)
+		if ab is AbilityData and (ab as AbilityData).postura_contraataque:
+			return ab
+	# sin llevarla puesta: la ficha con los nodos que tenga cogidos (si es un personaje), o tal cual
+	var base: AbilityData = load(RUTA_EN_GUARDIA) as AbilityData
+	var pj: PersonajeData = Game.pj_de_combatant(p)
+	return Mejoras.para_combate(pj, base) as AbilityData if pj != null else base
+
+# (25/11) EL ARBOL DEL ESTOQUE, acabados los golpes: 'entraron' = a los que les entro algun golpe.
+var _obj_principal_hab: Combatant = null
+
+func _arbol_tras_golpes(ab: AbilityData, entraron: Array, criticos: int, ultimo: Combatant, log_estados: Array) -> void:
+	var p: Combatant = _pantalla._player
+	var en: float = 0.0
+	if ab.energia_por_critico > 0.0:
+		en += ab.energia_por_critico * float(criticos)
+	if ab.energia_por_enemigo > 0.0:
+		en += ab.energia_por_enemigo * float(entraron.size())
+	if ab.energia_sin_golpe > 0.0 and entraron.is_empty():
+		en += ab.energia_sin_golpe
+	if en > 0.0:
+		p.regen_energy(en * p.max_energy)
+		log_estados.append("%s recupera %d de energía" % [p.nombre, roundi(en * p.max_energy)])
+	# (25/11) PASO DE GUARDIA (Paso ligero): si no le ha entrado a nadie, a la guardia sin frenar la barra.
+	if ab.guardia_si_no_golpea and entraron.is_empty() and not p.en_guardia:
+		log_estados += poner_guardia(p, _tu_en_guardia(p), false)
+		log_estados.append("%s queda en guardia" % p.nombre)
+	# HERIDA EN CRUZ: al ultimo que se llevo un golpe.
+	if ab.estado_al_ultimo >= 0 and ultimo != null and ultimo.is_alive() and not ultimo.es_inmune(ab.estado_al_ultimo):
+		ultimo.apply_status(ab.estado_al_ultimo, ab.estado_al_ultimo_turnos)
+		log_estados.append("·" + str(StatusEffects.def(ab.estado_al_ultimo).get("nombre", "?")))
+	# SIN GUARDIA: fuera la guardia, el Defender y el Baluarte de los que se llevaron golpe.
+	if ab.quita_guardia:
+		for t in entraron:
+			var c: Combatant = t
+			if not c.is_alive():
+				continue
+			var tenia: bool = c.en_guardia or bool(_pantalla._defendiendo.get(c, false)) \
+				or c.has_status(StatusEffects.Id.BALUARTE)
+			c.salir_de_guardia()
+			_pantalla._defendiendo.erase(c)
+			c.quitar_estado(StatusEffects.Id.BALUARTE)
+			if tenia:
+				log_estados.append("%s pierde la guardia" % c.nombre)
+
+
 func _arbol_tras_usar(ab: AbilityData, obj: Combatant, en_mapa: bool, reparto_mapa: Array) -> Array:
 	var out: Array = []
 	var p: Combatant = _pantalla._player
 	if ab.sigilo_esquiva > 0.0 or ab.sigilo_energia > 0.0 or ab.sigilo_golpe > 0.0:
 		p.sigilo_extra = {"esquiva": ab.sigilo_esquiva, "energia": ab.sigilo_energia, "golpe": ab.sigilo_golpe}
+	# (25/11) ESQUIVA EN EL PASO / BAILAR ESQUIVANDO: una CAPA de esquiva unos turnos (StatusEffects.Id.ESQUIVO, su escala
+	# es la capa: 0,2 = 20 %; ver Combatant.capas_esquiva).
+	if ab.capa_esquiva > 0.0:
+		p.apply_status(StatusEffects.Id.ESQUIVO, ab.capa_esquiva_turnos, -1.0, 1, false, -1, 0.0, ab.capa_esquiva)
+		out.append("%s queda Esquivo" % p.nombre)
+	# (25/11) ENCADENAR: tu siguiente habilidad, mas barata. PASO QUE DESPISTA: te pierden un poco de vista.
+	if ab.descuento_siguiente > 0.0:
+		p.descuento_hab = maxf(p.descuento_hab, ab.descuento_siguiente)
+	if ab.amenaza_tras_usar < 1.0:
+		for e in _pantalla._vivos():
+			var am: Dictionary = (e as Combatant).amenaza
+			if am.has(p):
+				am[p] = float(am[p]) * ab.amenaza_tras_usar
 	# DESVIO: te olvidan.
 	if ab.desvia_amenaza:
 		for e in _pantalla._vivos():
@@ -565,6 +674,10 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	if ab.extra_espalda > 0.0 and _pantalla.tactico and _pantalla.turno_mapa.por_la_espalda(_pantalla._player, objetivo):
 		dmg *= 1.0 + ab.extra_espalda
 		print("        [%s] por la espalda: +%d %%" % [objetivo.nombre, roundi(ab.extra_espalda * 100.0)])
+	# (25/11) AL COSTADO (Paso ligero): de lado o por la espalda, desde donde pega.
+	if ab.extra_costado > 0.0 and _pantalla.tactico and _pantalla.turno_mapa.golpe_de_costado(_pantalla._player, objetivo):
+		dmg *= 1.0 + ab.extra_costado
+		print("        [%s] de costado: +%d %%" % [objetivo.nombre, roundi(ab.extra_costado * 100.0)])
 	r.dmg = dmg
 	r.imbue = float(result.get("dmg_imbue", 0.0)) * ab.dano_mult * m_golpe * escala
 	r.mult_imbue = float(result.get("mult_imbue", 1.0))
@@ -587,8 +700,9 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 		_bajas_hab += 1   # Tajos que persiguen: los golpes que quedan pegan mas
 	# (24/11) DESEQUILIBRAR: el golpe que entra deja su estado (con la resistencia del enemigo).
 	if ab.estado_golpe >= 0 and objetivo.is_alive() and not objetivo.es_inmune(ab.estado_golpe) \
+			and (not ab.estado_golpe_solo_principal or objetivo == _obj_principal_hab) \
 			and randf() < StatusEffects.prob_final(ab.estado_golpe_prob, _pantalla._player, objetivo, ab.estado_golpe):
-		objetivo.apply_status(ab.estado_golpe, ab.estado_golpe_turnos)
+		objetivo.apply_status(ab.estado_golpe, ab.estado_golpe_turnos, -1.0, 1, false, -1, ab.estado_golpe_mult)
 		r.estados.append("·" + str(StatusEffects.def(ab.estado_golpe).get("nombre", "?")))
 	if r.imbue > 0.0:
 		_pantalla.fuego_al_musgo(objetivo, _pantalla._player.imbue_elemento)
@@ -620,6 +734,10 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 		_pantalla.magia._gastar_amplificadores(objetivo, _pantalla._player.imbue_elemento)
 	r.conecto = true
 	r.crit = result.crit
+	# (25/11) DESEQUILIBRIO (Estocada penetrante): el critico le echa atras en la barra de turno.
+	if ab.retrasa_si_critico and result.crit and objetivo.is_alive():
+		_pantalla.echar_atras(objetivo)
+		r.estados.append("·echado atrás en la barra")
 	var esc_txt: String = "" if is_equal_approx(escala, 1.0) else " [%d%%]" % roundi(escala * 100.0)
 	# Etiqueta de "con qué se pega": arma+escudo distingue arma/escudo; el dual, la 2ª mano.
 	var mano_txt: String = ""
@@ -640,7 +758,8 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 		# tajo). Se hacen una sola vez al final de la habilidad, en _usar_habilidad.
 		# 'escala' es la fraccion de daño que encaja ESTE objetivo, y con ella va la probabilidad:
 		# al de al lado que se come el 40% del golpe le prende el estado un 40% de las veces.
-		var ap: Array = _tirar_efectos_habilidad(ab, objetivo, result.crit, "objetivo", escala, escala)
+		# (25/11) por encima de 1 (ENSARTAR: los de detras pegan mas) sube el daño, no la probabilidad ni la fuerza
+		var ap: Array = _tirar_efectos_habilidad(ab, objetivo, result.crit, "objetivo", minf(escala, 1.0), minf(escala, 1.0))
 		r.estados += ap
 		if not ap.is_empty():
 			r.linea += "  -> " + ", ".join(ap)
@@ -775,7 +894,7 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	var idxs: Array = _pantalla._player.ability_hand_indices(ab)
 	var manos: int = maxi(1, idxs.size())
 	var es_conversion: bool = ab.energia_a_mana > 0.0   # Canalizar: gasta TODA la energia
-	var coste: float = _pantalla._player.current_energy if es_conversion else ab.coste(manos)
+	var coste: float = _pantalla._player.current_energy if es_conversion else _pantalla._player.coste_hab(ab, manos)
 	# Al SOLTAR una carga no se valida ni se cobra: ya se hizo al empezarla, y volver a exigir
 	# energia aqui te dejaria la habilidad a medias por haberte quedado seco entre medias.
 	if not soltando:
@@ -826,6 +945,7 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		# pero sale cuando vuelva a llegar a la barra. Tambien las de carga: su carga empieza al llegar.
 		if _pantalla.retrasa(ab):
 			_pantalla._player.spend_energy(coste)
+			_pantalla._player.descuento_hab = 0.0   # (25/11) Encadenar: se gasta al pagar
 			_pantalla._player.start_cooldown(ab)
 			_sumar_dominio(ab)
 			# La conversion (Canalizar) funde la energia al comprometerse: el maná, ahora (al salir ya no hay coste).
@@ -837,6 +957,7 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 			return
 		if ab.carga_turnos > 0:
 			_pantalla._player.spend_energy(coste)
+			_pantalla._player.descuento_hab = 0.0   # (25/11) Encadenar: se gasta al pagar
 			_pantalla._player.start_cooldown(ab)
 			_sumar_dominio(ab)
 			# En el mapa el sitio se elige AL EMPEZAR y se queda: al soltarla cae ahi.
@@ -845,6 +966,7 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 			_empezar_carga_jugador(ab)
 			return
 		_pantalla._player.spend_energy(coste)
+		_pantalla._player.descuento_hab = 0.0   # (25/11) Encadenar: se gasta al pagar
 		_pantalla._player.start_cooldown(ab)   # entra en cooldown (si la habilidad tiene)
 		_sumar_dominio(ab)
 	# LA MUNICION: se gasta al SOLTARLA (el Disparo cargado, al soltar la carga, no al empezarla).
@@ -938,6 +1060,8 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# porque lo necesita la tirada de efectos, que ahora vive fuera (ver el bloque de EFECTOS mas
 	# abajo). Sin golpes se queda en false, que es lo correcto: una habilidad que no pega no critea.
 	var hubo_critico: bool = false
+	var criticos_hab: int = 0                  # (25/11) Respiracion: cuantos golpes han criteado
+	var ultimo_golpeado: Combatant = null      # (25/11) Herida en cruz: el ultimo al que le entro un golpe
 	# GOLPES de daño (rango aleatorio; cada tajo con su ESQUIVA y CRITICO propios). Si
 	# efectos_por_golpe, cada tajo que acierta tira los efectos (sangrado 40%/hit).
 	# Las de UTILIDAD PURA (dano_mult 0, p.ej. Canalizar) NO golpean.
@@ -947,6 +1071,12 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		var n_enemigos: int = reparto_mapa.size() if en_mapa and not reparto_mapa.is_empty() \
 			else _pantalla._vivos().size()
 		golpes = ab.num_golpes(manos, n_enemigos)
+		# (25/11) ACOSO: con uno solo en la huella, golpes de mas. NINGUNO SE LIBRA: uno por lo menos a cada uno.
+		if ab.golpes_si_uno > 0 and n_enemigos == 1:
+			golpes += ab.golpes_si_uno
+		if ab.golpe_a_cada_uno and en_mapa:
+			golpes = maxi(golpes, reparto_mapa.size())
+		_obj_principal_hab = obj
 		_bajas_hab = 0
 		_ultimo_golpe_hab = golpes - 1
 		# PLAN de golpes: mano y multiplicador de cada uno. Intercala las manos del dual (der, izq,
@@ -1057,6 +1187,9 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 						conecto_escudo[r.c] = true
 				if r.crit:
 					hubo_critico = true
+					criticos_hab += 1
+				if r.conecto:
+					ultimo_golpeado = r.c
 				mana_ganado_golpes += r.mana
 				estados_log += r.estados
 				# Token de ESTE golpe para el rastro del log (con su objetivo: si la habilidad toca a
@@ -1108,6 +1241,8 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 						var dsp: String = _pantalla.desplazado(t, ab.tiron, _pantalla._player)
 						if dsp != "":
 							_pantalla._set_log(dsp)
+		_arbol_tras_golpes(ab, tocados.filter(func(t): return int(conecto_por_obj.get(t, 0)) > 0), criticos_hab,
+			ultimo_golpeado, estados_log)
 		# Excelia: como el ataque, entrena la stat de su arma (por impacto medio, contra el principal).
 		var pj_hab: PersonajeData = Game.pj_de_combatant(_pantalla._player)
 		Game.ganar_golpe(_pantalla._reto(obj, pj_hab) * _pantalla._player.motion_value, pj_hab, _pantalla._player)
@@ -1174,11 +1309,7 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# Postura de contraataque del estoque (KAN-57): entras en guardia hasta tu proxima accion.
 	# Bajas velocidad (data-driven), esquivas mas y devuelves los golpes que esquivas (riposte).
 	if ab.postura_contraataque:
-		_pantalla._player.en_guardia = true
-		_pantalla._player.guardia_spd_mult = ab.guardia_spd_mult
-		_pantalla._player.evasion_bonus = ab.evasion_bonus
-		_pantalla._player.guardia_contra_mult = ab.contra_mult
-		_pantalla._player.guardia_contra_escudo = ab.contra_con_escudo
+		estados_log += poner_guardia(_pantalla._player, ab, true)
 	# Foco arcano (Canalización): concede cargas que amplifican tus proximos hechizos.
 	if ab.foco_cargas > 0:
 		_pantalla._player.foco_cargas += ab.foco_cargas
@@ -1533,12 +1664,12 @@ func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico:
 				continue
 			# Solo lo que le LANZAS a alguien se resiste; un buff tuyo siempre prende (igual que
 			# en los hechizos, ver _aplicar_estado_hechizo).
-			var p: float = a.prob
+			var p: float = ab.prob_de_efecto(a) if ab != null else a.prob   # (25/11) la que le pongan los nodos
 			if al_enemigo:
 				# ATURDIR: la probabilidad de la habilidad es solo la BASE; encima suma el aturdir
 				# del ARMA (que ya viene con Peso y rareza aplicados, ver Game._hand_from). Sin esto,
 				# mejorar Peso no le hacia nada a Golpe sismico ni a Aplastamiento.
-				var base: float = a.prob
+				var base: float = p
 				if a.estado == StatusEffects.Id.ATURDIDO:
 					base += _pantalla._player.aturdir_base
 				# Y de ahi a la puerta comun, como todo lo demas: la resistencia del bicho al control,
@@ -1571,14 +1702,30 @@ func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico:
 			d.aturdir_en_area = ab != null and (ab.es_area() or (ab.forma >= 0 and not ab.forma_solo_primero))
 			# (24/11) SOMBRA LARGA: los estados que se pone quien la usa duran mas.
 			var turnos_a: int = a.turns
+			# (25/11) HERIDA QUE SE ABRE: los que causa a los enemigos, turnos de mas.
+			if al_enemigo and ab != null and ab.efectos_turnos_enemigo > 0:
+				turnos_a = (a.turns if a.turns > 0 else int(StatusEffects.def(a.estado).get("turns", 1))) + ab.efectos_turnos_enemigo
 			if not al_enemigo and ab != null and ab.efectos_turnos_extra > 0:
 				turnos_a = (a.turns if a.turns > 0 else int(StatusEffects.def(a.estado).get("turns", 1))) + ab.efectos_turnos_extra
 			for _s in cargas:
-				d.apply_status(a.estado, _pantalla._player.runa_turnos(a.estado, turnos_a), _pantalla._player.runa_mag(a.estado, mag, d), 1, false, a.cap, a.mult)
+				d.apply_status(a.estado, _pantalla._player.runa_turnos(a.estado, turnos_a), _pantalla._player.runa_mag(a.estado, mag, d), 1, false, a.cap,
+					ab.mult_de_efecto(a) if ab != null else a.mult)
+			# (25/11) TEMBLOR (Punzada): su Debil le baja tambien el critico (en SU copia del estado, como el Oportunista).
+			if al_enemigo and ab != null and ab.debil_quita_critico > 0.0 and int(a.estado) == StatusEffects.Id.DEBIL:
+				var inst = d.get_status(StatusEffects.Id.DEBIL)
+				if inst != null:
+					var dd: Dictionary = (inst.d as Dictionary).duplicate()
+					dd["crit_flat"] = -ab.debil_quita_critico
+					inst.d = dd
 			# "·" = causado al golpeado (CombatPantalla._frase_estados lo junta en "Causa X"). El buff que se pone el que la
 			# usa y se llama como ella (Guardia de carne) no se repite: "usa Guardia de carne" ya lo dice.
 			if al_enemigo:
 				out.append("·" + nom)
 			elif not (d == _pantalla._player and ab != null and nom == ab.nombre):
 				out.append("%s recibe %s" % [d.nombre, nom])
+	# (25/11) CLAVADO (Punzada): si queda Lento, una tirada de Enraizado 1 turno (con su escala, como los demas estados).
+	if filtro != "self" and ab != null and ab.enraiza_si_lento > 0.0 and objetivo != null and objetivo.is_alive() 			and objetivo.has_status(StatusEffects.Id.LENTO) and not objetivo.es_inmune(StatusEffects.Id.ENRAIZADO) 			and randf() < StatusEffects.prob_final(ab.enraiza_si_lento * escala_prob, _pantalla._player, objetivo,
+				StatusEffects.Id.ENRAIZADO):
+		objetivo.apply_status(StatusEffects.Id.ENRAIZADO, 1)
+		out.append("·" + str(StatusEffects.def(StatusEffects.Id.ENRAIZADO).get("nombre", "?")))
 	return out

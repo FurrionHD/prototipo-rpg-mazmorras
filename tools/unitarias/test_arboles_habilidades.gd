@@ -419,3 +419,221 @@ func test_linea_del_6_al_16() -> void:
 	igual(roundi(m.coste_energia), roundi(48.0 * pow(1.4, 15)), "y su coste")
 	var l6: Resource = Mejoras.nodo(base, &"linea_6")
 	cierto(l6.padres.has(&"frenesi") and l6.padres.has(&"ligera"), "el 6 cuelga de los dos del nivel 5")
+
+
+# ------------------------------------------------------------ EL ESTOQUE (25/11)
+const ESTOCADA_RUTA := "res://resources/abilities/estocada_penetrante.tres"
+
+func _est(ids: Array) -> AbilityData:
+	var base: AbilityData = load(ESTOCADA_RUTA)
+	return Mejoras.montar_sin_nombre(base, (base.arbol as Array).filter(func(n): return ids.has(String(n.id)))) as AbilityData
+
+
+# ESTOCADA PENETRANTE (cerrada con el jefe): 180 % de serie; los numeros de la ficha que aprobo.
+func test_estocada_numeros_cerrados() -> void:
+	const Hab = preload("res://scripts/ui/combat_habilidades.gd")
+	var casos := [
+		[["sin_armadura"], 2.16, 64], [["atravesar"], 2.16, 64],
+		[["sin_armadura", "corazon"], 3.024, 90], [["sin_armadura", "empunadura"], 3.15, 90],
+		[["atravesar", "lanza_larga"], 3.276, 90], [["atravesar", "ensartar"], 3.15, 90],
+		[["atravesar", "ensartar", "herida_se_abre"], 4.234, 126],
+		[["atravesar", "ensartar", "desequilibrio"], 4.410, 126],
+		[["sin_armadura", "corazon", "grieta", "a_fondo"], 6.421, 177],
+		[["sin_armadura", "corazon", "grieta", "remate"], 5.927, 177],
+	]
+	for c in casos:
+		var m: AbilityData = _est(c[0])
+		cerca(m.dano_mult, float(c[1]), 0.003, "daño de la estocada con %s" % str(c[0]))
+		igual(roundi(m.coste_energia), int(c[2]), "energia con %s" % str(c[0]))
+	var sa: AbilityData = _est(["sin_armadura"])
+	cerca(sa.penetracion_extra, 0.45, 0.0001, "Sin armadura: ignora 20 -> 45 % de defensa")
+	igual(_est(["atravesar"]).forma_ancho, 24.0, "Atravesar: la linea 8 -> 24 px")
+	igual(_est(["atravesar", "lanza_larga"]).forma_radio, 139.0, "Lanza larga: 99 -> 139 px")
+	var h: AbilityData = _est(["atravesar", "ensartar", "herida_se_abre"])
+	cerca(h.efectos[0].prob * h.efectos_prob_mult, 0.6, 0.001, "Herida que se abre: Vulnerable 30 -> 60 %")
+	igual(h.efectos_turnos_enemigo, 2, "y dura 2 turnos mas")
+	# la doble: dos golpes, el segundo a la mitad; entre los dos, lo de su nivel (642 %)
+	var d: AbilityData = _est(["sin_armadura", "corazon", "grieta", "estocada_doble"])
+	igual(d.golpes_max, 2, "Estocada doble: dos golpes")
+	cerca(d.dano_mult * 1.5, 6.421, 0.003, "y entre los dos, lo de su nivel")
+	cerca(Hab.mult_arbol_golpe(d, null, 1, 0, 1), 0.5, 0.0001, "el segundo, a la mitad")
+	cerca(Hab.mult_arbol_golpe(d, null, 0, 0, 1), 1.0, 0.0001, "el primero, entero")
+	var base: AbilityData = load(ESTOCADA_RUTA)
+	igual(Mejoras.nodo(base, &"linea_6").padres.size(), 3, "la linea del 6 cuelga de los TRES del nivel 5")
+	cierto(not (Mejoras.nodo(base, &"grieta").excluye as Array).is_empty() and Mejoras.nodo(base, &"grieta").excluye.size() == 2,
+		"Grieta cierra las otras dos del nivel 4")
+
+
+func _de(ruta: String, ids: Array) -> AbilityData:
+	var base: AbilityData = load(ruta)
+	return Mejoras.montar_sin_nombre(base, (base.arbol as Array).filter(func(n): return ids.has(String(n.id)))) as AbilityData
+
+
+# FINTAS (cerrada con el jefe): 120 % por golpe de serie; los de la rama de Acoso llevan su forma x0,93.
+func test_fintas_numeros_cerrados() -> void:
+	const R := "res://resources/abilities/fintas.tres"
+	var casos := [
+		[["acoso"], 1.339, 62], [["abanico"], 1.44, 62],
+		[["acoso", "buscar_hueco"], 1.719, 86], [["abanico", "mas_fintas"], 1.848, 86],
+		[["abanico", "brazo_largo_f"], 2.184, 86], [["abanico", "ninguno_se_libra"], 2.016, 86],
+		[["acoso", "ultima_estocada", "finta_enganosa"], 2.734, 121], [["abanico", "mas_fintas", "leer_guardia"], 2.822, 121],
+		[["acoso", "buscar_hueco", "finta_enganosa", "ritmo_f"], 3.981, 169],
+		[["abanico", "brazo_largo_f", "leer_guardia", "respiracion"], 4.280, 169],
+	]
+	for c in casos:
+		var m: AbilityData = _de(R, c[0])
+		cerca(m.dano_mult, float(c[1]), 0.004, "Fintas, daño por golpe con %s" % str(c[0]))
+		igual(roundi(m.coste_energia), int(c[2]), "Fintas, energia con %s" % str(c[0]))
+	igual(_de(R, ["acoso"]).golpes_si_uno, 1, "Acoso: un golpe mas con uno solo")
+	igual(_de(R, ["abanico"]).forma_apertura, 110.0, "Abanico: 60 -> 110 grados")
+	igual(_de(R, ["abanico", "mas_fintas", "leer_guardia", "ritmo_f"]).cooldown, 3, "Ritmo: enfriamiento 4 -> 3")
+	var f: AbilityData = _de(R, ["acoso", "buscar_hueco", "finta_enganosa"])
+	cierto(f.estado_golpe == StatusEffects.Id.VULNERABLE and f.estado_golpe_solo_principal, "Finta engañosa: Vulnerable solo al primero")
+	igual(_de(R, ["abanico", "mas_fintas", "leer_guardia"]).estado_golpe, StatusEffects.Id.GUARDIA_LEIDA, "Leer la guardia: su estado")
+
+
+# DANZA DE ACERO (cerrada con el jefe): 65 % por estocada; la rama de Cuarto tiempo lleva su forma x1,051.
+func test_danza_numeros_cerrados() -> void:
+	const R := "res://resources/abilities/danza_de_acero.tres"
+	var casos := [
+		[["cuarto_tiempo"], 0.820, 64], [["danza_ancha"], 0.78, 64],
+		[["cuarto_tiempo", "compas"], 1.148, 90], [["danza_ancha", "danza_larga"], 1.183, 90],
+		[["danza_ancha", "baile_alimenta"], 1.092, 90],
+		[["cuarto_tiempo", "compas", "herida_cruz"], 1.674, 126], [["danza_ancha", "danza_larga", "sin_guardia"], 1.529, 126],
+		[["cuarto_tiempo", "remate_baile", "herida_cruz", "ritmo_d"], 2.437, 177],
+		[["danza_ancha", "danza_larga", "sin_guardia", "bailar_esquivando"], 2.319, 177],
+	]
+	for c in casos:
+		var m: AbilityData = _de(R, c[0])
+		cerca(m.dano_mult, float(c[1]), 0.004, "Danza, daño por estocada con %s" % str(c[0]))
+		igual(roundi(m.coste_energia), int(c[2]), "Danza, energia con %s" % str(c[0]))
+	# (25/11, tras la tanda: Cuarto tiempo ganaba tambien en grupo) su estocada de mas, SOLO con uno en la linea; DANZA
+	# ANCHA, mas estocadas por enemigo (0,7 -> 1, tope 4 -> 6)
+	var cu: AbilityData = _de(R, ["cuarto_tiempo"])
+	igual(cu.golpes_max, 3, "Cuarto tiempo: las 3 de siempre")
+	igual(cu.golpes_si_uno, 1, "y una mas si solo hay uno")
+	var an: AbilityData = _de(R, ["danza_ancha"])
+	cerca(an.golpes_extra_por_enemigo, 1.0, 0.0001, "Danza ancha: una estocada mas por enemigo de mas")
+	igual(an.golpes_extra_max, 6, "hasta 6 de mas")
+	igual(_de(R, ["danza_ancha"]).forma_ancho, 36.0, "Danza ancha: 20 -> 36 px")
+	igual(_de(R, ["danza_ancha", "danza_larga"]).forma_radio, 160.0, "Danza larga: 119 -> 160 px")
+
+
+# LAS PIEZAS COMPARTIDAS del estoque, en el golpe: cada golpe mas que el anterior, y el ultimo x1,5.
+func test_estoque_golpe_creciente_y_ultimo() -> void:
+	const Hab = preload("res://scripts/ui/combat_habilidades.gd")
+	var c: AbilityData = _de("res://resources/abilities/danza_de_acero.tres", ["cuarto_tiempo", "compas"])
+	cerca(Hab.mult_arbol_golpe(c, null, 0, 0, 3), 1.0, 0.0001, "Compas: el primero, entero")
+	cerca(Hab.mult_arbol_golpe(c, null, 2, 0, 3), 1.2, 0.0001, "Compas: el tercero +20 %")
+	var u: AbilityData = _de("res://resources/abilities/fintas.tres", ["acoso", "ultima_estocada"])
+	cerca(Hab.mult_arbol_golpe(u, null, 0, 0, 2), 1.0, 0.0001, "Ultima estocada: los de antes, enteros")
+	cerca(Hab.mult_arbol_golpe(u, null, 2, 0, 2), 1.5, 0.0001, "Ultima estocada: el ultimo x1,5")
+
+
+# EN GUARDIA (cerrada con el jefe): no pega; cada nivel sube su CAPA de esquiva (20, 22, 24, 26, 28 y +1 en la linea: 39
+# en el 16). De serie la barra al 50 % y la habilidad quita la velocidad de mas.
+func test_en_guardia_capa_por_nivel() -> void:
+	const R := "res://resources/abilities/en_guardia.tres"
+	var base: AbilityData = load(R)
+	cerca(base.evasion_bonus, 0.20, 0.0001, "de serie, capa del 20 %")
+	cerca(base.guardia_spd_mult, 0.5, 0.0001, "de serie, la barra al 50 %")
+	cierto(base.guardia_quita_prisa, "la habilidad quita tu velocidad de mas")
+	var casos := [
+		[["guardia_alta"], 0.22, 56], [["guardia_paciente", "riposte_perfecto"], 0.24, 78],
+		[["guardia_alta", "reto", "respiro"], 0.26, 110], [["guardia_paciente", "salir_al_paso", "paciencia_g", "guardia_no_cae"], 0.28, 154],
+	]
+	for c in casos:
+		var m: AbilityData = _de(R, c[0])
+		cerca(m.evasion_bonus, float(c[1]), 0.0001, "En guardia, capa con %s" % str(c[0]))
+		igual(roundi(m.coste_energia), int(c[2]), "En guardia, energia con %s" % str(c[0]))
+		igual(m.dano_mult, 0.0, "y no pega")
+	var hasta16: Array = ["guardia_alta", "reto", "respiro", "guardia_no_cae"]
+	for nv in range(6, 17):
+		hasta16.append("linea_%d" % nv)
+	var m16: AbilityData = _de(R, hasta16)
+	cerca(m16.evasion_bonus, 0.39, 0.0001, "en el 16, capa del 39 %")
+	cerca(m16.evasion_bonus + m16.guardia_capa_extra, 0.47, 0.0001, "y con Guardia alta, 47 %")
+	cerca(_de(R, ["guardia_paciente"]).guardia_spd_mult, 0.35, 0.0001, "Guardia paciente: la barra al 35 %")
+	igual(_de(R, ["guardia_paciente", "salir_al_paso"]).guardia_paso, 40.0, "Salir al paso: hasta 40 px")
+	igual(Mejoras.nodo(base, &"linea_6").padres.size(), 1, "la linea cuelga del unico del nivel 5")
+
+
+# PASO LIGERO (cerrado con el jefe): la estocada 70 % sube por nivel (84/118/172 y 250 o 240 en el 5), EN 48/67/93/131.
+# Presteza mayor sube la Presteza de +25 a +40 % (el nodo pone su fuerza, no toca la ficha).
+func test_paso_ligero_numeros() -> void:
+	const R := "res://resources/abilities/paso_ligero.tres"
+	var base: AbilityData = load(R)
+	var casos := [
+		[["paso_largo"], 84, 48], [["al_costado", "encadenar"], 118, 67],
+		[["paso_largo", "ida_vuelta", "presteza_mayor"], 172, 93],
+		[["al_costado", "pasar_cortando", "paso_despista", "recobrar_aliento"], 250, 131],
+		[["paso_largo", "esquiva_paso", "presteza_mayor", "paso_guardia"], 240, 131],
+	]
+	for c in casos:
+		var m: AbilityData = _de(R, c[0])
+		cerca(m.dano_mult * 100.0, float(c[1]), 0.51, "Paso ligero, daño con %s" % str(c[0]))
+		igual(roundi(m.coste_energia), int(c[2]), "Paso ligero, energia con %s" % str(c[0]))
+	igual(_de(R, ["paso_largo"]).forma_rango, 100.0, "Paso largo: 60 -> 100 px")
+	cierto(_de(R, ["paso_largo", "ida_vuelta"]).vuelve, "Ida y vuelta: vuelve")
+	var pm: AbilityData = _de(R, ["paso_largo", "ida_vuelta", "presteza_mayor"])
+	cerca(pm.mult_de_efecto(pm.efectos[0]), 1.4, 0.0001, "Presteza mayor: +40 %")
+	cerca(base.mult_de_efecto(base.efectos[0]), 0.0, 0.0001, "la ficha sigue con la del catalogo")
+	cierto(base.efectos_mult_de.is_empty(), "y su diccionario no se ha tocado al montar")
+	cerca(_de(R, ["al_costado", "pasar_cortando"]).corte_al_pasar, 0.3, 0.0001, "Pasar cortando: 30 %")
+	cerca(_de(R, ["al_costado", "encadenar"]).descuento_siguiente, 0.2, 0.0001, "Encadenar: -20 %")
+	cerca(_de(R, ["al_costado", "encadenar", "paso_despista"]).amenaza_tras_usar, 0.5, 0.0001, "Paso que despista: x0,5")
+
+
+# ENCADENAR: el coste con el descuento, y sin el, el de siempre.
+func test_encadenar_coste() -> void:
+	var ab: AbilityData = load("res://resources/abilities/fintas.tres")
+	var c := Combatant.new("x", 1, Abilities.new(), 100, 10, 5, 5)
+	igual(c.coste_hab(ab, 1), ab.coste(1), "sin descuento, lo de siempre")
+	c.descuento_hab = 0.2
+	igual(c.coste_hab(ab, 1), roundf(ab.coste(1) * 0.8), "con Encadenar, un 20 % menos")
+
+
+# PUNZADA AL NERVIO (cerrada con el jefe): golpe 90 % -> 108 / 151 o 139 / 212 o 229 / 296, 274 o 309; EN 59/82/115/161.
+# La fuerza y la probabilidad de Debil y Lento las ponen los nodos (efectos_*_de), sin tocar la ficha.
+func test_punzada_numeros() -> void:
+	const R := "res://resources/abilities/punzada_al_nervio.tres"
+	var base: AbilityData = load(R)
+	var casos := [
+		[["nervio_brazo"], 108, 59], [["nervio_brazo", "temblor"], 151, 82], [["nervio_pierna", "pulso_firme"], 139, 82],
+		[["nervio_pierna", "clavado", "cadena_nerviosa"], 212, 115], [["nervio_brazo", "temblor", "larga_p"], 229, 115],
+		[["nervio_brazo", "temblor", "atravesar_p", "sobre_lo_tocado"], 296, 161],
+		[["nervio_brazo", "temblor", "atravesar_p", "mano_segura"], 274, 161],
+		[["nervio_brazo", "temblor", "atravesar_p", "lena_al_caido"], 309, 161],
+	]
+	for c in casos:
+		var m: AbilityData = _de(R, c[0])
+		cerca(m.dano_mult * 100.0, float(c[1]), 0.51, "Punzada, daño con %s" % str(c[0]))
+		igual(roundi(m.coste_energia), int(c[2]), "Punzada, energia con %s" % str(c[0]))
+	var debil = base.efectos[0]
+	var lento = base.efectos[1]
+	var brazo: AbilityData = _de(R, ["nervio_brazo", "pulso_firme"])
+	cerca(brazo.mult_de_efecto(debil), 0.65, 0.0001, "Nervio del brazo: Debil x0,65")
+	cerca(brazo.mult_de_efecto(lento), 0.0, 0.0001, "y el Lento, el del catalogo")
+	cerca(brazo.prob_de_efecto(debil), 1.0, 0.0001, "Pulso firme: Debil 100 %")
+	cerca(brazo.prob_de_efecto(lento), 0.85, 0.0001, "Pulso firme: Lento 85 %")
+	cerca(_de(R, ["nervio_pierna"]).mult_de_efecto(lento), 0.60, 0.0001, "Nervio de la pierna: Lento x0,60")
+	cerca(base.prob_de_efecto(debil), 0.8, 0.0001, "la ficha sigue con su 80 %")
+	cierto(not _de(R, ["nervio_brazo", "temblor", "atravesar_p"]).forma_solo_primero, "Atravesar: a todos los de la linea")
+	cierto(_de(R, ["nervio_brazo", "temblor", "atravesar_p", "mano_segura"]).infalible, "Mano segura: infalible")
+	var lena: AbilityData = _de(R, ["nervio_brazo", "temblor", "atravesar_p", "lena_al_caido"])
+	igual(lena.estado_golpe, int(StatusEffects.Id.MARCA), "Leña al caido: Marca")
+	cerca(lena.estado_golpe_mult, 1.10, 0.0001, "al +10 %")
+
+
+# SOBRE LO TOCADO (Punzada): +30 % al que ya este Debil o Lento; al que no, nada.
+func test_sobre_lo_tocado() -> void:
+	const Hab = preload("res://scripts/ui/combat_habilidades.gd")
+	var ab: AbilityData = _de("res://resources/abilities/punzada_al_nervio.tres",
+		["nervio_brazo", "temblor", "atravesar_p", "sobre_lo_tocado"])
+	var e := Combatant.new("e", 1, Abilities.new(), 100, 10, 5, 5)
+	cerca(Hab.mult_arbol_golpe(ab, e, 0, 0, 0), 1.0, 0.0001, "sin Debil ni Lento, nada")
+	e.apply_status(StatusEffects.Id.LENTO, 3)
+	cerca(Hab.mult_arbol_golpe(ab, e, 0, 0, 0), 1.3, 0.0001, "Lento: +30 %")
+	e.statuses.clear()
+	e.apply_status(StatusEffects.Id.DEBIL, 3)
+	cerca(Hab.mult_arbol_golpe(ab, e, 0, 0, 0), 1.3, 0.0001, "Debil: +30 %")

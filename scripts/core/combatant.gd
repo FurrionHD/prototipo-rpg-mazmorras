@@ -238,6 +238,18 @@ var defend_bloqueo_magia: float = 0.5
 var en_guardia: bool = false        # true = estas en la postura de guardia/contraataque
 var guardia_spd_mult: float = 1.0   # multiplica tu velocidad mientras aguantas (< 1 = lento)
 var guardia_contra_mult: float = 1.0    # daño del riposte al esquivar (vs un básico)
+# (25/11) LA CAPA DE ESQUIVA DE LA GUARDIA: mientras estas en guardia, segunda tirada si el golpe pasa tu esquiva normal
+# (antes se SUMABA en evasion_bonus y subia el techo al 65 %). Ver capas_esquiva y StatsMath.resolve_attack.
+var guardia_capa: float = 0.0
+# (25/11) ENCADENAR (Paso ligero): tu SIGUIENTE habilidad cuesta este % menos de energia (se gasta al pagarla).
+var descuento_hab: float = 0.0
+# (25/11) LO QUE TRAE LA GUARDIA DE SU ARBOL (AbilityData.guardia_*): solo mientras dura (salir_de_guardia lo quita).
+var guardia_todos_lados: bool = false
+var guardia_contra_critico: bool = false
+var guardia_paso: float = 0.0
+var guardia_respiro: float = 0.0
+var guardia_paciencia: bool = false
+var guardia_no_cae: bool = false
 var guardia_contra_escudo: bool = false # lo que devuelves en la postura es un ESCUDAZO (Postura de rodela)
 
 # Esquiva EXTRA por HABILIDADES/BUFFS (0 = ninguna). Generico: la suben la postura del
@@ -1375,11 +1387,21 @@ func _guardia_spd() -> float: return guardia_spd_mult if en_guardia else 1.0
 # Sale de la postura de guardia y resetea sus numeros (lo llama el combate al empezar tu
 # turno: la postura dura "hasta tu proxima accion", como el Defender).
 func salir_de_guardia() -> void:
+	# (25/11) GUARDIA QUE NO CAE: al salir, la mitad de su capa un turno mas (el estado Esquivo).
+	if en_guardia and guardia_no_cae and guardia_capa > 0.0:
+		apply_status(StatusEffects.Id.ESQUIVO, 1, -1.0, 1, false, -1, 0.0, guardia_capa * 0.5)
+	guardia_todos_lados = false
+	guardia_contra_critico = false
+	guardia_paso = 0.0
+	guardia_respiro = 0.0
+	guardia_paciencia = false
+	guardia_no_cae = false
 	en_guardia = false
 	guardia_spd_mult = 1.0
 	guardia_contra_mult = 1.0
 	guardia_contra_escudo = false
 	evasion_bonus = 0.0
+	guardia_capa = 0.0
 
 func is_alive() -> bool:
 	return current_hp > 0.0
@@ -1657,6 +1679,11 @@ func stacks_de(id: int) -> int:
 
 
 # --- Energia de combate (KAN-57) ---
+# (25/11) LO QUE TE CUESTA UNA HABILIDAD AHORA: su coste, con el descuento de Encadenar si lo llevas.
+func coste_hab(ab: AbilityData, manos: int) -> float:
+	return roundf(ab.coste(manos) * (1.0 - descuento_hab)) if descuento_hab > 0.0 else ab.coste(manos)
+
+
 func spend_energy(amount: float) -> void:
 	current_energy = maxf(0.0, current_energy - amount)
 
@@ -2402,6 +2429,20 @@ func status_crit_flat() -> float:
 	for e in statuses:
 		s += e.flat_de("crit_flat")
 	return s
+
+# LAS CAPAS DE ESQUIVA (25/11, el jefe): cada una es OTRA tirada si el golpe ha pasado tu esquiva normal (y las de
+# antes). Total = 1 - (1-normal)(1-capa1)(1-capa2)...: nunca llega al 100 % y cada punto de mas vale un poco menos, asi
+# que no hace falta techo. Fuentes: la guardia mientras dure y los estados con 'capa_esquiva' (Esquivo).
+func capas_esquiva() -> Array:
+	var out: Array = []
+	if en_guardia and guardia_capa > 0.0:
+		out.append(guardia_capa)
+	for e in statuses:
+		var c: float = e.flat_de("capa_esquiva")
+		if c > 0.0:
+			out.append(c)
+	return out
+
 
 func status_evade_flat() -> float:
 	var s: float = sigilo("esquiva")   # (24/11) Pies en la niebla
