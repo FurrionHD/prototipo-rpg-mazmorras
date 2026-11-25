@@ -308,6 +308,12 @@ DESPL_CARRIL = 1000
 SOLO_CARRIL_0 = {"prueba_tunel", "prueba_vinculo_steam"}
 
 
+def solo_carril_0(nombre: str) -> bool:
+    """Las del tunel de Steam: el tunel entrega a 127.0.0.1:<puerto de la sala> SIN desplazar (25/11: prueba_sala_steam
+    fallo en el carril 2 porque no estaba en la lista; ahora va por el nombre)."""
+    return nombre in SOLO_CARRIL_0 or "steam" in nombre or "tunel" in nombre
+
+
 def _git(*a, cwd: Path = RAIZ) -> str:
     return subprocess.run(["git", *a], cwd=str(cwd), capture_output=True, text=True).stdout.strip()
 
@@ -428,7 +434,7 @@ def main() -> int:
     # Cada carril coge la siguiente de la cola (las mas largas primero, para que no quede una sola al final); las del
     # tunel de Steam, solo el carril 0.
     pendientes = sorted(con_red, key=lambda n: -TOPES.get(n, TOPE_RED if es_de_red(n) else TOPE_NORMAL))
-    solo_0 = [n for n in pendientes if n in SOLO_CARRIL_0 and len(raices) > 1]
+    solo_0 = [n for n in pendientes if solo_carril_0(n) and len(raices) > 1]
     cola_libre = queue.Queue()
     for n in pendientes:
         if n not in solo_0:
