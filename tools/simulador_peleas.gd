@@ -2338,6 +2338,16 @@ func _habilidad_por_nombre(yo: Combatant, archivo: String) -> AbilityData:
 	return null
 
 
+# (25/11) Su postura de contraataque (En guardia) si la lleva y la puede usar ya, o null.
+func _postura_lista(yo: Combatant):
+	if _solo_basico:
+		return null
+	for ab in yo.abilities_combate:
+		if ab != null and ab.postura_contraataque and _habilidad_lista(yo, ab):
+			return ab
+	return null
+
+
 # La de mas daño que pueda pagar (si pega mas que el ataque normal), o null.
 func _mejor_golpe(yo: Combatant, oculto: bool) -> AbilityData:
 	var tm = _cb.turno_mapa
@@ -2502,6 +2512,14 @@ func _plan_util(yo: Combatant, turno_id: int, obj: Combatant) -> Dictionary:
 
 
 func _plan_golpe(yo: Combatant, obj: Combatant) -> Dictionary:
+	# (25/11) LA POSTURA (En guardia del estoque): no pega, asi que el reparto por daño nunca la elegia. Si la lleva y la
+	# tiene lista, la ALTERNA con pegar (un turno en guardia, el siguiente golpea), como un jugador.
+	var g = _postura_lista(yo)
+	if g != null and not bool(yo.get_meta("sim_guardia_antes", false)):
+		yo.set_meta("sim_guardia_antes", true)
+		_apuntar_accion("se pone en guardia")
+		return {"que": "habilidad", "nombre": g.nombre, "rango": 99999.0}
+	yo.set_meta("sim_guardia_antes", false)
 	var colocado = _plan_colocado(yo, obj)
 	if colocado != null:
 		return colocado
