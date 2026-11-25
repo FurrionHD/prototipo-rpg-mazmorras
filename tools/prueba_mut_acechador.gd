@@ -589,6 +589,12 @@ func _luna_del_cielo(combat: Node, ca: Combatant, yo: Combatant) -> void:
 	_ok(is_equal_approx(Game.radio_lampara(), Vision.RADIO_MINIMO), "los farolillos se apagan (la luz es ella)")
 	var f: Dictionary = luna.foco()
 	_ok(float(f["intensidad"]) < 1.0 and float(f["radio"]) > 0.0, "y alumbra ella, tenue")
+	# (25/11, inestable en el banco) la luna pudo estar en CRECIENTE (su fase avanza con los turnos del Cazador): pasar a
+	# llena es "la siguiente" y arranca su paso; cambiarla otra vez en el mismo fotograma, a mitad de ese paso, se funde
+	# (como debe). Se espera a que acabe para mirar el paso de llena a menguante.
+	var t0: int = Time.get_ticks_msec()
+	while is_instance_valid(luna._paso) and Time.get_ticks_msec() - t0 < 5000:
+		await get_tree().process_frame
 	ca.paciencia_carga = 3
 	ca.fase_luna = Combatant.FASE_MENGUANTE
 	tm._tick_luna()
