@@ -507,7 +507,14 @@ func test_danza_numeros_cerrados() -> void:
 		var m: AbilityData = _de(R, c[0])
 		cerca(m.dano_mult, float(c[1]), 0.004, "Danza, daño por estocada con %s" % str(c[0]))
 		igual(roundi(m.coste_energia), int(c[2]), "Danza, energia con %s" % str(c[0]))
-	igual(_de(R, ["cuarto_tiempo"]).golpes_max, 4, "Cuarto tiempo: 4 estocadas")
+	# (25/11, tras la tanda: Cuarto tiempo ganaba tambien en grupo) su estocada de mas, SOLO con uno en la linea; DANZA
+	# ANCHA, mas estocadas por enemigo (0,7 -> 1, tope 4 -> 6)
+	var cu: AbilityData = _de(R, ["cuarto_tiempo"])
+	igual(cu.golpes_max, 3, "Cuarto tiempo: las 3 de siempre")
+	igual(cu.golpes_si_uno, 1, "y una mas si solo hay uno")
+	var an: AbilityData = _de(R, ["danza_ancha"])
+	cerca(an.golpes_extra_por_enemigo, 1.0, 0.0001, "Danza ancha: una estocada mas por enemigo de mas")
+	igual(an.golpes_extra_max, 6, "hasta 6 de mas")
 	igual(_de(R, ["danza_ancha"]).forma_ancho, 36.0, "Danza ancha: 20 -> 36 px")
 	igual(_de(R, ["danza_ancha", "danza_larga"]).forma_radio, 160.0, "Danza larga: 119 -> 160 px")
 

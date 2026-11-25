@@ -21,7 +21,7 @@ excluye = Array[StringName]([&"danza_ancha"])
 nivel_min = 2
 dominio = 300
 oro = 10000
-cambios = {"golpes_min": ["add", 1], "golpes_max": ["add", 1], "dano_mult": ["mult", 1.051], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+cambios = {"golpes_si_uno": ["set", 1], "dano_mult": ["mult", 1.051], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_dan_danza_ancha"]
 script = ExtResource("nodo_mejora")
@@ -33,7 +33,7 @@ excluye = Array[StringName]([&"cuarto_tiempo"])
 nivel_min = 2
 dominio = 300
 oro = 10000
-cambios = {"forma_ancho": ["add", 16.0], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+cambios = {"forma_ancho": ["add", 16.0], "golpes_extra_por_enemigo": ["set", 1.0], "golpes_extra_max": ["set", 6], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_dan_compas"]
 script = ExtResource("nodo_mejora")
