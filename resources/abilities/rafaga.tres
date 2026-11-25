@@ -10,164 +10,261 @@ script = ExtResource("2")
 estado = 1
 prob = 0.22
 
-[sub_resource type="Resource" id="NM_raf_filo"]
+[sub_resource type="Resource" id="NM_raf_mas_tajos"]
 script = ExtResource("nodo_mejora")
-id = &"filo"
-nombre = "Filo afilado"
-descripcion = "Los tajos entran más limpios."
+id = &"mas_tajos"
+nombre = "Más tajos"
+descripcion = "El brazo no para: caen más tajos, aunque ninguno entra hondo."
 padres = Array[StringName]([])
-excluye = Array[StringName]([])
-nivel_min = 1
-dominio = 100
-oro = 400
-cambios = {"dano_mult": ["mult", 1.06]}
-
-[sub_resource type="Resource" id="NM_raf_tajos"]
-script = ExtResource("nodo_mejora")
-id = &"tajos"
-nombre = "Tajos veloces"
-descripcion = "Un tajo más en cada ráfaga."
-padres = Array[StringName]([&"filo"])
-excluye = Array[StringName]([&"abanico"])
-nivel_min = 1
-dominio = 250
-oro = 900
-cambios = {"golpes_min": ["add", 1], "golpes_max": ["add", 1], "dano_mult": ["mult", 1.03]}
-
-[sub_resource type="Resource" id="NM_raf_abanico"]
-script = ExtResource("nodo_mejora")
-id = &"abanico"
-nombre = "Abanico"
-descripcion = "Abres más el brazo: la ráfaga barre un ángulo más ancho."
-padres = Array[StringName]([&"filo"])
-excluye = Array[StringName]([&"tajos"])
-nivel_min = 1
-dominio = 250
-oro = 900
-cambios = {"forma_apertura": ["add", 40.0], "dano_mult": ["mult", 1.05]}
-
-[sub_resource type="Resource" id="NM_raf_torbellino"]
-script = ExtResource("nodo_mejora")
-id = &"torbellino"
-nombre = "Torbellino"
-descripcion = "Otro tajo más, y más rápido."
-padres = Array[StringName]([&"tajos"])
 excluye = Array[StringName]([&"hoja_fina"])
 nivel_min = 2
-dominio = 600
-oro = 2200
-cambios = {"golpes_min": ["add", 1], "golpes_max": ["add", 1], "dano_mult": ["mult", 1.03]}
+dominio = 300
+oro = 10000
+cambios = {"golpes_min": ["add", 1], "golpes_max": ["add", 1], "golpes_dual_min": ["add", 2], "golpes_dual_max": ["add", 2], "dual_golpe_mult": ["set", 0.533333], "golpes_extra_por_enemigo": ["mult", 1.666667], "golpes_extra_por_enemigo_dual": ["set", 3.0], "golpes_extra_max": ["set", 12], "dano_mult": ["mult", 0.75], "potencia": ["presupuesto", 0.75], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_raf_hoja_fina"]
 script = ExtResource("nodo_mejora")
 id = &"hoja_fina"
 nombre = "Hoja fina"
-descripcion = "Menos tajos que el torbellino, pero cada uno entra mucho más hondo."
-padres = Array[StringName]([&"tajos"])
-excluye = Array[StringName]([&"torbellino"])
+descripcion = "Menos tajos, pero cada uno entra hasta el hueso."
+padres = Array[StringName]([])
+excluye = Array[StringName]([&"mas_tajos"])
 nivel_min = 2
-dominio = 600
-oro = 2200
-cambios = {"dano_mult": ["mult", 1.12]}
+dominio = 300
+oro = 10000
+cambios = {"golpes_min": ["add", -1], "golpes_max": ["add", -1], "golpes_dual_min": ["add", -1], "golpes_dual_max": ["add", -1], "dual_golpe_mult": ["set", 0.4], "golpes_extra_por_enemigo": ["set", 0.5], "golpes_extra_por_enemigo_dual": ["set", 1.0], "dano_mult": ["mult", 1.8], "potencia": ["presupuesto", 0.75], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_raf_remolino"]
 script = ExtResource("nodo_mejora")
 id = &"remolino"
 nombre = "Remolino"
-descripcion = "Giras sobre ti: la ráfaga barre casi todo alrededor."
-padres = Array[StringName]([&"torbellino"])
-excluye = Array[StringName]([&"frenesi"])
-nivel_min = 2
-dominio = 1000
-oro = 4000
-cambios = {"forma_apertura": ["add", 80.0], "dano_mult": ["mult", 1.04]}
+descripcion = "Giras sobre ti mismo y la hoja pasa por todo lo que te rodea."
+padres = Array[StringName]([&"mas_tajos"])
+excluye = Array[StringName]([&"brazo_largo"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"forma_apertura": ["set", 360.0], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_raf_brazo_largo"]
+script = ExtResource("nodo_mejora")
+id = &"brazo_largo"
+nombre = "Brazo largo"
+descripcion = "Estiras el brazo y alcanzas a los que se creían a salvo detrás."
+padres = Array[StringName]([&"mas_tajos"])
+excluye = Array[StringName]([&"remolino"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"forma_radio": ["add", 20.0], "potencia": ["presupuesto", 0.75], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_raf_mil_cortes"]
+script = ExtResource("nodo_mejora")
+id = &"mil_cortes"
+nombre = "Mil cortes"
+descripcion = "Cortes que no matan, pero que no dejan de sangrar."
+padres = Array[StringName]([&"hoja_fina"])
+excluye = Array[StringName]([&"entrar_bailando"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"efectos_prob_mult": ["set", 1.727273], "potencia": ["presupuesto", 0.625], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_raf_entrar_bailando"]
+script = ExtResource("nodo_mejora")
+id = &"entrar_bailando"
+nombre = "Entrar bailando"
+descripcion = "No esperas a que se acerquen: entras tú."
+padres = Array[StringName]([&"hoja_fina"])
+excluye = Array[StringName]([&"mil_cortes"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"acercarse": ["add", 60.0], "potencia": ["presupuesto", 0.75], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_raf_persiguen"]
+script = ExtResource("nodo_mejora")
+id = &"persiguen"
+nombre = "Tajos que persiguen"
+descripcion = "Cuando uno cae, la hoja ya va hacia el siguiente, y con más ganas."
+padres = Array[StringName]([&"remolino", &"brazo_largo"])
+excluye = Array[StringName]([])
+nivel_min = 4
+dominio = 900
+oro = 160000
+cambios = {"bonus_por_baja": ["set", 0.15], "potencia": ["presupuesto", 0.75], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_raf_remate"]
+script = ExtResource("nodo_mejora")
+id = &"remate"
+nombre = "Remate"
+descripcion = "El último tajo busca la herida que abrieron los primeros."
+padres = Array[StringName]([&"mil_cortes", &"entrar_bailando"])
+excluye = Array[StringName]([])
+nivel_min = 4
+dominio = 900
+oro = 160000
+cambios = {"remate_estado": ["set", 1], "remate_mult": ["set", 1.5], "potencia": ["presupuesto", 0.625], "potencia_coste": ["presupuesto", 1.0]}
 
 [sub_resource type="Resource" id="NM_raf_frenesi"]
 script = ExtResource("nodo_mejora")
 id = &"frenesi"
 nombre = "Frenesí"
-descripcion = "La ráfaga vuelve un turno antes."
-padres = Array[StringName]([&"torbellino"])
-excluye = Array[StringName]([&"remolino"])
-nivel_min = 2
-dominio = 1000
-oro = 4000
-cambios = {"cooldown": ["add", -1], "dano_mult": ["mult", 1.05]}
+descripcion = "Acabas una ráfaga y el brazo ya pide la siguiente."
+padres = Array[StringName]([&"persiguen", &"remate"])
+excluye = Array[StringName]([&"ligera"])
+nivel_min = 5
+dominio = 1200
+oro = 640000
+cambios = {"cooldown": ["add", -1], "potencia": ["presupuesto", 0.75], "potencia_coste": ["presupuesto", 1.0]}
 
-[sub_resource type="Resource" id="NM_raf_huracan"]
+[sub_resource type="Resource" id="NM_raf_ligera"]
 script = ExtResource("nodo_mejora")
-id = &"huracan"
-nombre = "Huracán"
-descripcion = "El remolino no se para: un tajo más y más daño a todo lo que pilla."
-padres = Array[StringName]([&"remolino"])
+id = &"ligera"
+nombre = "Ráfaga ligera"
+descripcion = "Menos fuerza en cada tajo y menos aliento en cada ráfaga."
+padres = Array[StringName]([&"persiguen", &"remate"])
+excluye = Array[StringName]([&"frenesi"])
+nivel_min = 5
+dominio = 1200
+oro = 640000
+cambios = {"potencia": ["presupuesto", 0.625], "potencia_coste": ["presupuesto", 0.375]}
+
+[sub_resource type="Resource" id="NM_raf_linea_6"]
+script = ExtResource("nodo_mejora")
+id = &"linea_6"
+nombre = "Nivel 6"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"frenesi", &"ligera"])
 excluye = Array[StringName]([])
-nivel_min = 3
+nivel_min = 6
+dominio = 1500
+oro = 1024000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_raf_linea_7"]
+script = ExtResource("nodo_mejora")
+id = &"linea_7"
+nombre = "Nivel 7"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_6"])
+excluye = Array[StringName]([])
+nivel_min = 7
 dominio = 1800
-oro = 9000
-cambios = {"golpes_min": ["add", 1], "golpes_max": ["add", 1], "dano_mult": ["mult", 1.08]}
+oro = 1638000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
 
-[sub_resource type="Resource" id="NM_raf_corte_limpio"]
+[sub_resource type="Resource" id="NM_raf_linea_8"]
 script = ExtResource("nodo_mejora")
-id = &"corte_limpio"
-nombre = "Corte limpio"
-descripcion = "Cada tajo de la hoja fina gasta menos energía."
-padres = Array[StringName]([&"hoja_fina"])
+id = &"linea_8"
+nombre = "Nivel 8"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_7"])
 excluye = Array[StringName]([])
-nivel_min = 3
-dominio = 1500
-oro = 7000
-cambios = {"coste_energia": ["add", -8], "dano_mult": ["mult", 1.06]}
+nivel_min = 8
+dominio = 2100
+oro = 2621000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
 
-[sub_resource type="Resource" id="NM_raf_brazo"]
+[sub_resource type="Resource" id="NM_raf_linea_9"]
 script = ExtResource("nodo_mejora")
-id = &"brazo"
-nombre = "Brazo largo"
-descripcion = "Llegas más lejos con la hoja."
-padres = Array[StringName]([&"abanico"])
-excluye = Array[StringName]([&"profundos"])
-nivel_min = 2
-dominio = 600
-oro = 2200
-cambios = {"forma_radio": ["add", 15.0], "dano_mult": ["mult", 1.06]}
-
-[sub_resource type="Resource" id="NM_raf_profundos"]
-script = ExtResource("nodo_mejora")
-id = &"profundos"
-nombre = "Tajos profundos"
-descripcion = "Más daño a cambio de algo más de energía."
-padres = Array[StringName]([&"abanico"])
-excluye = Array[StringName]([&"brazo"])
-nivel_min = 2
-dominio = 600
-oro = 2200
-cambios = {"dano_mult": ["mult", 1.12], "coste_energia": ["add", 4]}
-
-[sub_resource type="Resource" id="NM_raf_barrido"]
-script = ExtResource("nodo_mejora")
-id = &"barrido"
-nombre = "Barrido"
-descripcion = "Aún más lejos y más ancho: nadie se libra."
-padres = Array[StringName]([&"brazo"])
+id = &"linea_9"
+nombre = "Nivel 9"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_8"])
 excluye = Array[StringName]([])
-nivel_min = 3
-dominio = 1500
-oro = 7000
-cambios = {"forma_radio": ["add", 10.0], "forma_apertura": ["add", 20.0], "dano_mult": ["mult", 1.06]}
+nivel_min = 9
+dominio = 2400
+oro = 4194000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
 
-[sub_resource type="Resource" id="NM_raf_desangrar"]
+[sub_resource type="Resource" id="NM_raf_linea_10"]
 script = ExtResource("nodo_mejora")
-id = &"desangrar"
-nombre = "Desangrar"
-descripcion = "Los tajos profundos rematan con todo: bastante más daño."
-padres = Array[StringName]([&"profundos"])
+id = &"linea_10"
+nombre = "Nivel 10"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_9"])
 excluye = Array[StringName]([])
-nivel_min = 3
-dominio = 1500
-oro = 7000
-cambios = {"dano_mult": ["mult", 1.12]}
+nivel_min = 10
+dominio = 2700
+oro = 6710000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_raf_linea_11"]
+script = ExtResource("nodo_mejora")
+id = &"linea_11"
+nombre = "Nivel 11"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_10"])
+excluye = Array[StringName]([])
+nivel_min = 11
+dominio = 3000
+oro = 10736000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_raf_linea_12"]
+script = ExtResource("nodo_mejora")
+id = &"linea_12"
+nombre = "Nivel 12"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_11"])
+excluye = Array[StringName]([])
+nivel_min = 12
+dominio = 3300
+oro = 17178000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_raf_linea_13"]
+script = ExtResource("nodo_mejora")
+id = &"linea_13"
+nombre = "Nivel 13"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_12"])
+excluye = Array[StringName]([])
+nivel_min = 13
+dominio = 3600
+oro = 27485000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_raf_linea_14"]
+script = ExtResource("nodo_mejora")
+id = &"linea_14"
+nombre = "Nivel 14"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_13"])
+excluye = Array[StringName]([])
+nivel_min = 14
+dominio = 3900
+oro = 43976000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_raf_linea_15"]
+script = ExtResource("nodo_mejora")
+id = &"linea_15"
+nombre = "Nivel 15"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_14"])
+excluye = Array[StringName]([])
+nivel_min = 15
+dominio = 4200
+oro = 70362000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_raf_linea_16"]
+script = ExtResource("nodo_mejora")
+id = &"linea_16"
+nombre = "Nivel 16"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_15"])
+excluye = Array[StringName]([])
+nivel_min = 16
+dominio = 4500
+oro = 112579000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
 
 [resource]
 script = ExtResource("1")
+golpe_txt = "de cada tajo"
 nombre = "Ráfaga"
 inicial = true
 coste_energia = 48
@@ -190,5 +287,5 @@ golpes_extra_por_enemigo_dual = 1.6
 efectos = [SubResource("SA_sang")]
 efectos_por_golpe = true
 descripcion = "Ráfaga de tajos rápidos y superficiales; con dos dagas caen aún más. Cada tajo que acierta puede abrir una herida sangrante."
-; EL ARBOL (23/11): PROVISIONAL, de ejemplo: ramas que se abren y acaban cada una en su punta; el de verdad se diseña con el jefe.
-arbol = [SubResource("NM_raf_filo"), SubResource("NM_raf_tajos"), SubResource("NM_raf_abanico"), SubResource("NM_raf_torbellino"), SubResource("NM_raf_hoja_fina"), SubResource("NM_raf_remolino"), SubResource("NM_raf_frenesi"), SubResource("NM_raf_huracan"), SubResource("NM_raf_corte_limpio"), SubResource("NM_raf_brazo"), SubResource("NM_raf_profundos"), SubResource("NM_raf_barrido"), SubResource("NM_raf_desangrar")]
+; EL ARBOL (24/11, cerrado con el jefe): lo escribe tools/arboles_habilidades.py, no tocarlo a mano.
+arbol = [SubResource("NM_raf_mas_tajos"), SubResource("NM_raf_hoja_fina"), SubResource("NM_raf_remolino"), SubResource("NM_raf_brazo_largo"), SubResource("NM_raf_mil_cortes"), SubResource("NM_raf_entrar_bailando"), SubResource("NM_raf_persiguen"), SubResource("NM_raf_remate"), SubResource("NM_raf_frenesi"), SubResource("NM_raf_ligera"), SubResource("NM_raf_linea_6"), SubResource("NM_raf_linea_7"), SubResource("NM_raf_linea_8"), SubResource("NM_raf_linea_9"), SubResource("NM_raf_linea_10"), SubResource("NM_raf_linea_11"), SubResource("NM_raf_linea_12"), SubResource("NM_raf_linea_13"), SubResource("NM_raf_linea_14"), SubResource("NM_raf_linea_15"), SubResource("NM_raf_linea_16")]

@@ -32,6 +32,30 @@ const NOMBRE_CAMPO := {
 # Los que se leen mejor en porcentaje cuando se multiplican (los demas, "x1,2").
 const SIEMPRE_PCT := ["dano_mult", "dano_base", "dano_objetivo", "dano_salpicon", "area_secundario"]
 
+# EL ANTES -> DESPUES de la ficha de un nodo (24/11, el jefe: "nada de +40 %: el numero REAL que se le va a sumar").
+# Cada fila: campo, como se llama en la ficha y como se escribe su valor. Lo que no este aqui lo cuenta la propia
+# habilidad (AbilityData.frase_mejora) o, si no, sale con su nombre de NOMBRE_CAMPO.
+#   pct = porcentaje · pct_atk = % del Ataque · num = numero · dec = con decimales · dist = distancia · grados
+const FILAS_ANTES_DESPUES := [
+	["dano_mult", "Daño de cada golpe", "pct_atk"],
+	["golpes", "Golpes", "golpes"],
+	["golpes_extra_por_enemigo", "Golpes con 3 enemigos en el combate", "golpes_3"],
+	["golpes_extra_max", "Tope de golpes de más por enemigos", "num"],
+	["dual_golpe_mult", "Con dos armas, daño de los golpes de la segunda frente a los de la primera", "pct"],
+	["coste_energia", "Coste de energía", "coste"],
+	["coste_mana", "Coste de maná", "num"],
+	["cooldown", "Turnos de enfriamiento", "num"],
+	["forma_radio", "Alcance", "dist"],
+	["forma_apertura", "Ángulo", "grados"],
+	["forma_rango", "Distancia hasta donde se apunta", "dist"],
+	["crit_extra", "Probabilidad de crítico de más", "pct"],
+	["extra_espalda", "Daño de más si golpea por la espalda", "pct"],
+	["imbue_prob", "Probabilidad base de que prenda", "pct"],
+	["imbue_usos", "Ataques que dura la impregnación", "num"],
+	["imbue_fuerza", "Daño por turno de su veneno, frente al de siempre", "pct"],
+	["se_aparta", "Distancia que se aparta tras golpear", "dist"],
+]
+
 var _menu = null          # maestro_menu: para repintar y dar avisos
 var nodo_sel: StringName = &""   # que nodo de su arbol ("" = la habilidad misma)
 
@@ -44,7 +68,7 @@ func _init(menu) -> void:
 #  LO QUE SE PINTA: EL ARBOL ENTERO, UNA FILA POR COSA (23/11, el jefe con el arbol de Diablo delante)
 #  De arriba abajo: en el maestro, primero el BASICO del arma y debajo cada habilidad; en la torre, cada magia (las
 #  magias no tienen basico). Cada fila: el ICONO de la habilidad a la izquierda (cuadrado) y sus mejoras saliendo hacia
-#  la DERECHA, abriendose en ramas y juntandose (circulos; en rombo las que juntan dos ramas o cierran la fila). El
+#  la DERECHA, abriendose en ramas y juntandose (24/11: CUADROS, son todos principales; ROMBOS la linea del 6 al 16). El
 #  basico NO es una puerta: es una fila mas, ninguna cuelga de el. Sin nombres: el nombre, al pasar el raton; al
 #  clicar, su ficha a la derecha. Las mejoras llevan el icono de su habilidad hasta que tengan el suyo.
 # ------------------------------------------------------------
@@ -276,11 +300,6 @@ func _pintar_fila(lienzo: Lienzo, pj: PersonajeData, clave: String, f: Resource,
 	var por_id: Dictionary = {}
 	for n in nodos:
 		por_id[StringName(n.id)] = n
-	# Los que no cuelgan de nadie son los ultimos (se pintan en rombo), y los que juntan dos ramas tambien.
-	var tiene_hijos: Dictionary = {}
-	for n in nodos:
-		for pa in n.padres:
-			tiene_hijos[StringName(pa)] = true
 	for c in range(1, max_col + 1):
 		if not cols.has(c):
 			continue
@@ -293,10 +312,16 @@ func _pintar_fila(lienzo: Lienzo, pj: PersonajeData, clave: String, f: Resource,
 				continue   # un hueco de una linea larga: no se pinta nada
 			var n = por_id[id]
 			var b := NodoUI.new()
-			b.forma = NodoUI.Forma.ROMBO if ((n.padres as Array).size() > 1 or not tiene_hijos.has(id)) else NodoUI.Forma.CIRCULO
+			# (24/11, el jefe) LA FORMA DICE LO IMPORTANTE QUE ES: en las habilidades, todo el arbol (niveles 2-5) son
+			# PRINCIPALES (cuadro); los ROMBOS seran la linea recta del nivel 6 al 16, la que solo sube el daño.
+			b.forma = NodoUI.Forma.ROMBO if String(n.id).begins_with("linea_") else NodoUI.Forma.CUADRO
 			if f == null:
 				b.forma = int((basico["formas"] as Dictionary).get(String(n.id), b.forma))
-			b.dibujo = icono
+			# (24/11) SU ICONO PROPIO si lo tiene (assets/ui/habilidades/<habilidad>__<nodo>.png); si no, el de su habilidad.
+			b.dibujo = _dibujo_png(_png_nodo(f, StringName(n.id)), icono) if f != null else icono
+			# (24/11, el jefe) LA LINEA DEL 6 AL 16: el icono de su habilidad con un "+" arriba a la derecha.
+			if String(n.id).begins_with("linea_"):
+				b.dibujo = _con_mas(b.dibujo)
 			b.estado = (String((basico["estados"] as Dictionary).get(String(n.id), "falta")) if f == null
 				else (_estado(pj, f, n, cogidos) if sabida else "falta"))
 			b.elegido = (clave == fila_sel and id == nodo_sel)
@@ -312,7 +337,10 @@ func _pintar_fila(lienzo: Lienzo, pj: PersonajeData, clave: String, f: Resource,
 				nodo_sel = id
 				_menu._rebuild())
 			lienzo.add_child(b)
-	# LAS LINEAS: del padre (o del icono) al hijo, pasando por sus huecos. Verde si las dos puntas son tuyas.
+	# LAS LINEAS: del padre (o del icono) al hijo, pasando por sus huecos, UNA POR CADA PAR (24/11, el jefe: el punto de union
+	# hacia creer que desde el de arriba solo se llegaba al de abajo; con cada linea se entiende a cual va cada una). Verde
+	# si las dos puntas son tuyas; las verdes, las ultimas, encima de las oscuras cuando se cruzan.
+	var verdes: Array = []
 	for par in cadenas:
 		var cad: Array = par[0]
 		var pts := PackedVector2Array()
@@ -323,7 +351,11 @@ func _pintar_fila(lienzo: Lienzo, pj: PersonajeData, clave: String, f: Resource,
 			if k == cad.size() - 1:
 				p.x -= NODO * 0.5     # entra por el borde izquierdo del hijo
 			pts.append(p)
-		lienzo.lineas.append([pts, VERDE if par[1] else OSCURO])
+		if par[1]:
+			verdes.append([pts, VERDE])
+		else:
+			lienzo.lineas.append([pts, OSCURO])
+	lienzo.lineas.append_array(verdes)
 	lienzo.ancho_fila = MARGEN + ICONO + 48.0 + maxi(max_col - 1, 0) * _paso_x + NODO
 	return alto
 
@@ -437,8 +469,52 @@ func _columnas(f: Resource) -> int:
 	return m
 
 
-# EL DIBUJO del icono de una fila: el grimorio de la magia, o el arma (las habilidades, hasta que tengan el suyo).
+# (24/11) LOS ICONOS PROPIOS de las habilidades y de sus nodos (tools/iconos_habilidades_pixel.py --hornear).
+const CARPETA_ICONOS := "res://assets/ui/habilidades/"
+
+
+static func _png_nodo(f: Resource, id: StringName) -> String:
+	return CARPETA_ICONOS + "%s__%s.png" % [String(f.resource_path).get_file().get_basename(), String(id)]
+
+
+# Un PNG de 12 x 12 pintado a su tamaño, o el dibujo de respaldo si no existe.
+static func _dibujo_png(ruta: String, respaldo: Callable) -> Callable:
+	if not ResourceLoader.exists(ruta):
+		return respaldo
+	var tex: Texture2D = load(ruta)
+	return func(ci: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+		ci.draw_texture_rect(tex, Rect2(pos, Vector2(lado, lado)), false, Color(1, 1, 1, col.a))
+
+
+# El dibujo de siempre con un "+" de pixel arriba a la derecha (los rombos de la linea del 6 al 16): cruz de 3 x 3
+# pixeles del icono, clara, con su borde oscuro para que se lea encima de cualquier dibujo.
+const MAS_CLARO := Color(1.0, 0.86, 0.35)
+const MAS_BORDE := Color(0.05, 0.04, 0.03)
+
+
+static func _con_mas(base: Callable) -> Callable:
+	return func(ci: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+		if base.is_valid():
+			base.call(ci, pos, lado, col)
+		var u: float = lado / 12.0
+		var cruz: Array[Vector2i] = [Vector2i(10, 0), Vector2i(9, 1), Vector2i(10, 1), Vector2i(11, 1), Vector2i(10, 2)]
+		var borde := Color(MAS_BORDE, col.a)
+		for c in cruz:   # el borde: los vecinos de la cruz (dentro del icono), luego la cruz encima
+			for d in [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1)]:
+				var v: Vector2i = c + d
+				if v.x <= 11 and v.y >= 0 and not cruz.has(v):
+					ci.draw_rect(Rect2(pos + Vector2(v) * u, Vector2(u, u)), borde)
+		var claro := Color(MAS_CLARO, col.a)
+		for c in cruz:
+			ci.draw_rect(Rect2(pos + Vector2(c) * u, Vector2(u, u)), claro)
+
+
+# EL DIBUJO del icono de una fila: el grimorio de la magia, o el de la habilidad (su PNG; si no tiene, el arma).
 func _dibujo_icono(f: Resource, arma: Resource) -> Callable:
+	if f is AbilityData:
+		var propio: Callable = _dibujo_png(CARPETA_ICONOS + String(f.resource_path).get_file().get_basename() + ".png", Callable())
+		if propio.is_valid():
+			return propio
 	if f is SpellData:
 		var tex: Texture2D = LibrosPixel.textura(LibrosPixel.id_de_magia(f))
 		if tex != null:
@@ -562,7 +638,7 @@ func _pintar_ficha(content: VBoxContainer, pj: PersonajeData, base: Resource, sa
 		Game.poner_sin_mejoras(base, on, pj)
 		_menu._rebuild())
 	content.add_child(sin)
-	MenuScaffold.fila(content, "Dominio", "%d usos" % int((pj.dominio as Dictionary).get(ruta, 0)))
+	_pintar_dominio(content, pj, base)
 	MenuScaffold.separador(content)
 	var n: Resource = Mejoras.nodo(base, nodo_sel) if nodo_sel != &"" else null
 	if n == null:
@@ -582,7 +658,7 @@ func _pintar_ficha(content: VBoxContainer, pj: PersonajeData, base: Resource, sa
 	if String(n.descripcion) != "":
 		MenuScaffold.nota(content, String(n.descripcion))
 	MenuScaffold.titulo(content, "Cambia", 14)
-	for linea in texto_cambios(base, n):
+	for linea in texto_cambios(base, n, (pj.nodos_elegidos as Dictionary).get(ruta, [])):
 		MenuScaffold.nota(content, "· " + linea)
 	MenuScaffold.titulo(content, "Pide", 14)
 	var cogidos2: Array = (pj.nodos_elegidos as Dictionary).get(ruta, [])
@@ -591,7 +667,13 @@ func _pintar_ficha(content: VBoxContainer, pj: PersonajeData, base: Resource, sa
 		var nombres: Array = (n.padres as Array).map(func(pa):
 			var x: Resource = Mejoras.nodo(base, StringName(pa))
 			return String(x.nombre) if x != null else String(pa))
-		_req(content, "Antes: " + " o ".join(PackedStringArray(nombres)), padres_ok)
+		# (24/11) con muchos (los que se cogen desde cualquiera del nivel anterior), sin la lista: ensanchaba el panel
+		if nombres.size() >= 3:
+			var p0: Resource = Mejoras.nodo(base, StringName(n.padres[0]))
+			_req(content, "Antes: cualquiera de los %d del nivel %d" % [nombres.size(), int(p0.nivel_min) if p0 != null else 0],
+				padres_ok)
+		else:
+			_req(content, "Antes: " + " o ".join(PackedStringArray(nombres)), padres_ok)
 	_req(content, "Nivel %d" % int(n.nivel_min), int(pj.level) >= int(n.nivel_min))
 	_req(content, "Dominio %d (llevas %d)" % [int(n.dominio), int((pj.dominio as Dictionary).get(ruta, 0))],
 		int((pj.dominio as Dictionary).get(ruta, 0)) >= int(n.dominio))
@@ -616,6 +698,51 @@ func _pintar_ficha(content: VBoxContainer, pj: PersonajeData, base: Resource, sa
 		_menu._rebuild(), motivo == "")
 
 
+# EL DOMINIO (24/11, el jefe): "Dominio 137 / 300" (lo que llevas y lo siguiente que pide su arbol), una barra hasta
+# ahi y, en el COLOR de como sube, a que ritmo sube en el piso (Mejoras.prob_dominio): en la mazmorra el de ahora; en el
+# pueblo, el mas hondo al que has llegado (es donde la entrenarias).
+const NOMBRE_RITMO := {
+	Mejoras.Ritmo.NARANJA: "sube siempre",
+	Mejoras.Ritmo.AMARILLO: "sube bien",
+	Mejoras.Ritmo.VERDE: "sube poco",
+	Mejoras.Ritmo.GRIS: "ya no sube: baja más hondo",
+}
+
+func _pintar_dominio(content: VBoxContainer, pj: PersonajeData, base: Resource) -> void:
+	var d: int = int((pj.dominio as Dictionary).get(String(base.resource_path), 0))
+	var meta: int = Mejoras.dominio_siguiente(pj, base)
+	var en_mazmorra: bool = _en_mazmorra()
+	var piso: int = Mejoras.piso_de_ahora() if en_mazmorra else maxi(1, int(pj.piso_hondo))
+	var ritmo: int = Mejoras.ritmo_dominio(d, piso)
+	var col: Color = Mejoras.COLOR_RITMO[ritmo]
+	MenuScaffold.fila(content, "Dominio", ("%d / %d" % [d, meta]) if meta > 0 else str(d), 200, col)
+	# La barra: hasta lo siguiente que pide (sin nada mas que pedir, llena).
+	var fondo := ColorRect.new()
+	fondo.color = OSCURO
+	fondo.custom_minimum_size = Vector2(0, 3.0 * P)
+	fondo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var lleno := ColorRect.new()
+	lleno.color = col
+	lleno.anchor_bottom = 1.0
+	lleno.anchor_right = clampf(float(d) / float(meta), 0.0, 1.0) if meta > 0 else 1.0
+	fondo.add_child(lleno)
+	content.add_child(fondo)
+	var l := Label.new()
+	var donde: String = ("en este piso (%d)" % piso) if en_mazmorra 		else "en el piso %d (el más hondo al que has llegado)" % piso
+	var prob: int = roundi(Mejoras.prob_dominio(d, piso) * 100.0)
+	l.text = "%s: %s" % [donde[0].to_upper() + donde.substr(1), NOMBRE_RITMO[ritmo]] 		+ ((", un %d %% de los usos" % prob) if prob > 0 else "")
+	l.add_theme_font_size_override("font_size", 11)
+	l.add_theme_color_override("font_color", col)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(l)
+
+
+# ¿En la mazmorra (la escena de los pisos)? Fuera de ella (el pueblo, una herramienta) manda tu piso mas hondo.
+func _en_mazmorra() -> bool:
+	var s: Node = (Engine.get_main_loop() as SceneTree).current_scene
+	return s != null and s.scene_file_path.ends_with("levels/main.tscn")
+
+
 func _req(content: VBoxContainer, txt: String, ok: bool) -> void:
 	var l := Label.new()
 	l.text = ("✓ " if ok else "· ") + txt
@@ -624,8 +751,122 @@ func _req(content: VBoxContainer, txt: String, ok: bool) -> void:
 	content.add_child(l)
 
 
-# Lo que cambia un nodo, en una linea por cambio ("+10 % de daño", "+20 de alcance", "elemento: Rayo").
-static func texto_cambios(base: Resource, n: Resource) -> Array:
+# LO QUE CAMBIA UN NODO, con los numeros REALES: la habilidad montada con el camino que lleva el personaje (o el mas
+# corto hasta este nodo, si aun no lo tiene) SIN el nodo, contra la misma CON el. «Daño de cada golpe: 90 % -> 88 % del
+# Ataque de quien la usa», «Coste de energía: 48 -> 67 (con dos armas: 70 -> 98)».
+static func texto_cambios(base: Resource, n: Resource, cogidos: Array = []) -> Array:
+	if not (base is AbilityData):
+		return texto_cambios_viejo(base, n)
+	var camino: Array = camino_hasta(base, n, cogidos)
+	var antes: AbilityData = Mejoras.montar_sin_nombre(base, _en_orden(base, camino)) as AbilityData
+	var despues: AbilityData = Mejoras.montar_sin_nombre(base, _en_orden(base, camino + [n])) as AbilityData
+	var out: Array = []
+	for fila in FILAS_ANTES_DESPUES:
+		var nombre_f: String = String(fila[1])
+		if String(fila[0]) == "dano_mult" and base.golpe_txt != "":
+			nombre_f = "Daño " + base.golpe_txt   # «Daño del salto», «Daño de cada tajo»
+		var l: String = _fila_antes_despues(antes, despues, String(fila[0]), nombre_f, String(fila[2]))
+		if l != "":
+			out.append(l)
+	# Lo PROPIO de cada mecanica (remates, cargas, lo que se pone al saltar...): lo escribe la habilidad.
+	for c in (n.cambios as Dictionary):
+		for frase in despues.frase_mejora(String(c), antes).split("\n", false):
+			if not out.has(frase):
+				out.append(frase)
+	return out
+
+
+# Los nodos que lleva el personaje en esta ficha (menos este) y, si le falta el anterior, el camino mas corto hasta el:
+# siempre el PRIMER padre que no cierre nada de lo que ya lleva.
+static func camino_hasta(base: Resource, n: Resource, cogidos: Array) -> Array:
+	var out: Array = []
+	for id in cogidos:
+		var x: Resource = Mejoras.nodo(base, StringName(id))
+		if x != null and x != n:
+			out.append(x)
+	var actual: Resource = n
+	var vueltas: int = 0
+	while actual != null and not (actual.padres as Array).is_empty() and vueltas < 32:
+		vueltas += 1
+		if (actual.padres as Array).any(func(pa): return out.any(func(x): return StringName(x.id) == StringName(pa))):
+			break
+		var siguiente: Resource = null
+		for pa in actual.padres:
+			var cand: Resource = Mejoras.nodo(base, StringName(pa))
+			if cand != null and not out.any(func(x): return (x.excluye as Array).has(cand.id) or (cand.excluye as Array).has(x.id)):
+				siguiente = cand
+				break
+		if siguiente == null:
+			break
+		out.append(siguiente)
+		actual = siguiente
+	return out
+
+
+static func _en_orden(base: Resource, nodos: Array) -> Array:
+	return (base.arbol as Array).filter(func(x): return nodos.has(x))
+
+
+static func _fila_antes_despues(a: AbilityData, d: AbilityData, campo: String, nombre: String, como: String) -> String:
+	match como:
+		"golpes_3":
+			# Lo que mete DE VERDAD con 3 enemigos (los golpes extra se redondean hacia abajo): «1,44 golpes» no se entiende.
+			if is_equal_approx(a.golpes_extra_por_enemigo, d.golpes_extra_por_enemigo) \
+					and is_equal_approx(a.golpes_extra_por_enemigo_dual, d.golpes_extra_por_enemigo_dual):
+				return ""
+			var l3: String = "%s: %d → %d" % [nombre, a.num_golpes(1, 3), d.num_golpes(1, 3)]
+			if d.golpes_dual_max > 0:
+				l3 += " (con dos armas: %d → %d)" % [a.num_golpes(2, 3), d.num_golpes(2, 3)]
+			return l3
+		"golpes":
+			var g_a: String = a._golpes_txt(1)
+			var g_d: String = d._golpes_txt(1)
+			var dual_a: String = a._golpes_txt(2) if a.golpes_dual_max > 0 else ""
+			var dual_d: String = d._golpes_txt(2) if d.golpes_dual_max > 0 else ""
+			if g_a == g_d and dual_a == dual_d:
+				return ""
+			var l: String = "%s: %s → %s" % [nombre, g_a, g_d]
+			if dual_d != "" and dual_a != dual_d:
+				l += " (con dos armas: %s → %s)" % [dual_a, dual_d]
+			return l
+		"coste":
+			var e_a: float = a.coste_energia
+			var e_d: float = d.coste_energia
+			var du_a: float = a.coste_energia_dual
+			var du_d: float = d.coste_energia_dual
+			if is_equal_approx(e_a, e_d) and is_equal_approx(du_a, du_d):
+				return ""
+			var l2: String = "%s: %d → %d" % [nombre, roundi(e_a), roundi(e_d)]
+			if du_d > 0.0:
+				l2 += " (con dos armas: %d → %d)" % [roundi(du_a), roundi(du_d)]
+			return l2
+	if not (campo in a):
+		return ""
+	var va = a.get(campo)
+	var vd = d.get(campo)
+	if (va is float or va is int) and is_equal_approx(float(va), float(vd)):
+		return ""
+	if not (va is float or va is int) and va == vd:
+		return ""
+	return "%s: %s → %s%s" % [nombre, _valor(va, como), _valor(vd, como),
+		" del Ataque de quien la usa" if como == "pct_atk" else ""]
+
+
+static func _valor(v, como: String) -> String:
+	match como:
+		"pct", "pct_atk":
+			return AbilityData._pct_entero(float(v))
+		"dec":
+			return MenuScaffold.valor_es(str(snappedf(float(v), 0.01)))
+		"dist":
+			return "nada" if float(v) <= 0.0 else AbilityData.casillas_txt(float(v))
+		"grados":
+			return "%d°" % roundi(float(v))
+	return str(roundi(float(v))) if (v is float or v is int) else str(v)
+
+
+# Lo de antes (las magias, hasta que tengan su antes -> despues): una linea por cambio ("+10 % de daño").
+static func texto_cambios_viejo(base: Resource, n: Resource) -> Array:
 	var out: Array = []
 	var vistos: Array = []
 	for campo in (n.cambios as Dictionary):

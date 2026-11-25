@@ -78,7 +78,7 @@ func _montar_a_medias() -> void:
 	_a_medias = SceneMultiplayer.new()
 	get_tree().set_multiplayer(_a_medias, raiz.get_path())
 	var peer := ENetMultiplayerPeer.new()
-	ok(peer.create_server(PUERTO_A_MEDIAS, 8) == OK, "la sala a medias escucha")
+	ok(peer.create_server(Net.puerto_fisico(PUERTO_A_MEDIAS), 8) == OK, "la sala a medias escucha")
 	_a_medias.multiplayer_peer = peer
 	_a_medias.peer_connected.connect(_llega_a_medias)
 
@@ -143,7 +143,7 @@ func _correr() -> void:
 	await _caso("A) nadie escucha", PUERTO_NADIE, "ninguna partida", 45.0)
 
 	_muda = ENetConnection.new()
-	ok(_muda.create_host_bound("127.0.0.1", PUERTO_MUDA, 8) == OK, "la sala muda escucha")
+	ok(_muda.create_host_bound("127.0.0.1", Net.puerto_fisico(PUERTO_MUDA), 8) == OK, "la sala muda escucha")
 	await _caso("B) sala muda", PUERTO_MUDA, "no contesta", 30.0)
 	ok(_llegadas_muda == 2, "a la sala muda le llegan dos conexiones: la entrada y el reintento (%d)" % _llegadas_muda)
 	_muda.destroy()

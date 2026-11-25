@@ -279,6 +279,9 @@ const RADIO_CURA_AREA := 200.0
 # EL ARBOL de esta ficha (22/11, memoria rangos-magias-y-habilidades): sus nodos (scripts/items/nodo_mejora.gd), que
 # la van modificando. Lo monta Mejoras.montar para la pelea con los que haya cogido cada personaje.
 @export var arbol: Array = []
+# LA POTENCIA DEL NIVEL (24/11, el prestamo): ver AbilityData.potencia. Daño x potencia, mana x potencia_coste.
+@export var potencia: float = 1.0
+@export var potencia_coste: float = 1.0
 
 const ESTADO_PROB_MAX := 0.95
 

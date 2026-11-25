@@ -42,6 +42,7 @@
 extends Node
 
 const BasicoArbol = preload("res://scripts/core/basico_arbol.gd")
+const Mejoras = preload("res://scripts/core/mejoras.gd")
 
 const CABECERA := "R|tanda|reglas|piso|grupo|escenario|arma|enemigo|mutacion|jefe|n_enem|t|gana|turnos_yo|turnos_el|vida_perdida|caidos|mp_gastado|dano_por_turno|dano_recibido_por_turno_suyo|segundos|acciones|fotogramas|ms_por_fotograma|pelea|ciclos|dano_por_ciclo|estados_en_enemigos|estados_en_los_tuyos|n_seguida|repetir|vel_ref_piso|vel_ciclo|emboscada"
 # Una linea POR PERSONAJE de los tuyos en cada pelea (lo pidio: "daños de cada uno, cuanto tanquean con cada armadura, el
@@ -227,6 +228,9 @@ const GRUPOS := {
 	"solo_guerrero": ["guerrero"],
 	"solo_mago": ["mago"],
 	"duo": ["tanque", "mago"],
+	# (24/11, el jefe) PARA EL OPORTUNISTA: su seguimiento solo entra cuando OTRO de los tuyos golpea; el tanque va pegando
+	# y el guerrero (el del arma de la tanda) entra detras. Su daño se lee en <tanda>_personajes.csv, rol guerrero.
+	"pareja": ["guerrero", "tanque"],
 	"trio": ["tanque", "guerrero", "mago"],
 	"cuatro": ["tanque", "guerrero", "arquero", "mago"],
 }
@@ -299,11 +303,15 @@ const ARMAS_TODAS := ["daga", "espada_corta", "espada_larga", "estoque", "hacha_
 # escalan su daño con la Fuerza (escala_destreza 0); lo que distingue a las ligeras es el critico (Destreza) y la esquiva
 # (Agilidad). Y su armadura: pesada y media -> hierro, agil y distancia -> cuero. (20/11, el jefe: "guerrero es mas probable
 # que tenga hierro o hierro ligero mas que placas, para actuar mas"; las placas, para el tanque.)
+# (24/11, el jefe) LA RESISTENCIA DEL MAGO Y LOS DE DISTANCIA: 550 de 750 (antes la mitad, 375). La vida se compone nivel a
+# nivel (base x (1 + R/333) y se guarda), asi que con la mitad acababan con 1/8 de la del tanque en el nivel 5 (3k contra
+# 25k); "algo de resistencia siempre consiguen", y con 550 quedan en ~1/3.
+const RES_FRAGIL := 550.0 / 750.0
 const PERFILES := {
 	"pesado": [{"fuerza": 1.0, "resistencia": 1.0, "destreza": 1.0, "agilidad": 0.85, "voluntad": 0.5}, "hierro"],
 	"medio": [{"fuerza": 1.0, "resistencia": 1.0, "agilidad": 1.0, "destreza": 0.5, "voluntad": 0.5}, "hierro"],
 	"agil": [{"fuerza": 1.0, "agilidad": 1.0, "destreza": 1.0, "resistencia": 0.5, "voluntad": 0.5}, "cuero"],
-	"distancia": [{"destreza": 1.0, "agilidad": 1.0, "fuerza": 1.0, "resistencia": 0.5, "voluntad": 0.5}, "cuero"],
+	"distancia": [{"destreza": 1.0, "agilidad": 1.0, "fuerza": 1.0, "resistencia": RES_FRAGIL, "voluntad": 0.5}, "cuero"],
 }
 const PERFIL_DE_ARMA := {"hacha_grande": "pesado", "mandobles": "pesado", "martillo_grande": "pesado",
 	"espada_corta": "medio", "espada_larga": "medio", "maza_peq": "medio", "punos": "medio",
@@ -453,9 +461,11 @@ func _leer_args() -> void:
 			"dano_mut": StatsMath.dano_mut = Array(kv[1].split(";")).map(func(x): return float(x))
 			"mejoras": _mejoras = kv[1] == "1"
 			"receta": _receta = kv[1]
+			"pociones_tier": _pociones_tier = kv[1] != "0"
 			"basico_energia": _basico_energia = kv[1]
 			"mejora_energia": _mejora_energia = -1.0 if kv[1] == "basico" else float(kv[1])
 			"solo_basico": _solo_basico = kv[1] == "1"
+			"muneco_tick": _muneco_tick = int(kv[1])
 			"stats_nivel": _tope = float(kv[1])
 			"ver": _ver = kv[1] == "1"
 			"vel_enemigos": _vel_enemigos = kv[1]
@@ -514,8 +524,8 @@ func _leer_args() -> void:
 const REPARTO := {
 	"guerrero": {"fuerza": 1.0, "resistencia": 1.0, "agilidad": 1.0, "destreza": 0.5, "voluntad": 0.5},
 	"tanque": {"fuerza": 1.0, "resistencia": 1.0, "agilidad": 0.73, "destreza": 0.5, "voluntad": 0.5},
-	"arquero": {"fuerza": 1.0, "resistencia": 0.5, "agilidad": 1.0, "destreza": 1.0, "voluntad": 0.5},
-	"mago": {"magia": 1.0, "resistencia": 0.5, "agilidad": 1.0, "voluntad": 0.5, "fuerza": 0.25, "destreza": 0.5},
+	"arquero": {"fuerza": 1.0, "resistencia": RES_FRAGIL, "agilidad": 1.0, "destreza": 1.0, "voluntad": 0.5},
+	"mago": {"magia": 1.0, "resistencia": RES_FRAGIL, "agilidad": 1.0, "voluntad": 0.5, "fuerza": 0.25, "destreza": 0.5},
 }
 
 func _personaje(piso: int, rol: String, en_grupo: bool, arma_g: String = "") -> PersonajeData:
@@ -605,7 +615,13 @@ func _personaje(piso: int, rol: String, en_grupo: bool, arma_g: String = "") -> 
 	elif not set_forzado.is_empty() and rol in ["guerrero", "arquero"]:
 		var set_g: Array = []
 		for n in set_forzado:
-			set_g.append(load("res://resources/abilities/%s.tres" % n))
+			# (24/11) CON SU CAMINO DE NODOS: 'rafaga:mas_tajos.brazo_largo' = la Rafaga con esos nodos de su arbol (de verdad,
+			# por Mejoras: el personaje los lleva como si los hubiera cogido). Sin ':' va sin mejoras de arbol.
+			var nom: String = String(n).get_slice(":", 0)
+			var ab_f: AbilityData = load("res://resources/abilities/%s.tres" % nom)
+			set_g.append(ab_f)
+			if String(n).contains(":"):
+				p.nodos_elegidos[String(ab_f.resource_path)] = Array(String(n).get_slice(":", 1).split(".", false))
 		while set_g.size() < Game.MAX_HABILIDADES:
 			set_g.append(null)
 		p.loadout_habilidades[Game.clave_loadout(p)] = set_g
@@ -632,6 +648,8 @@ func _personaje(piso: int, rol: String, en_grupo: bool, arma_g: String = "") -> 
 # Tambien la linea de la varita y la del escudo, un paso por nivel subido.
 var _receta := "a_mix"
 var _solo_basico := false
+# (24/11) cada cuantos turnos tuyos le tocan al MUÑECO sus daños por turno (0 = nunca, lo de antes)
+var _muneco_tick := 2
 
 func _poner_arbol_basico(p: PersonajeData, piso: int) -> void:
 	var nivel: int = 1 + (piso - 1) / PISOS_NIVEL
@@ -714,6 +732,8 @@ var _pociones_mana := -1
 var _mana_real := false
 var _tope := 750.0
 const POCIONES_SIN_FIN := 999
+var _pociones_tier := true   # (24/11) de serie: las pociones de su tier del piso 13 en adelante (pociones_tier=0 = las de hoy, hasta T2)
+const POCION_TIER_PCT := 0.75
 
 func _llenar_bolsa(piso: int, jefe: bool) -> void:
 	Game.consumables.clear()
@@ -721,6 +741,10 @@ func _llenar_bolsa(piso: int, jefe: bool) -> void:
 	var magos: int = Game.party.filter(func(p): return String(p.get_meta("rol", "")) == "mago").size()
 	# CONTRA UN JEFE se baja mejor servido (lo pidio: "2 de mana y 2 de vida"): dos de vida por cabeza y dos de mana por mago.
 	var por: int = 2 if jefe else 1
+	# (24/11, el jefe: "un par mas de pociones, equivalente a la duracion de la pelea") con pociones_tier: las peleas se
+	# alargan con el escalon (los golpes suben), asi que +1 por cabeza cada 3 escalones (1-3: +0 ... 10: +3).
+	if _pociones_tier:
+		por += ((maxi(1, piso) - 1) / 6) / 3
 	var v: int = _pociones_vida if _pociones_vida >= 0 else Game.party.size() * por
 	var m: int = _pociones_mana if _pociones_mana >= 0 else magos * por
 	# con 'mana=real', sin fin; y la mejor que hay para el piso (del 13 en adelante no hay mas que la media +3)
@@ -730,7 +754,15 @@ func _llenar_bolsa(piso: int, jefe: bool) -> void:
 		if piso > 12:
 			tam_m = "media_3"
 	if v > 0:
-		Game.add_consumable(load("res://resources/consumables/pocion_%s.tres" % tam), v)
+		var pv: Resource = load("res://resources/consumables/pocion_%s.tres" % tam)
+		# (24/11, el jefe: "las pociones siguen siendo solo hasta T2, se quedan cortas de curacion") 'pociones_tier=1': del
+		# piso 13 en adelante, LA POCION DE SU TIER (aun no existe): cura lo mismo en proporcion que la media en el piso 12
+		# (~75 % de la vida de uno de los tuyos), con sus turnos de siempre.
+		if _pociones_tier and piso > 12:
+			pv = pv.duplicate()
+			pv.cura_total = 0.0
+			pv.cura_pct = POCION_TIER_PCT
+		Game.add_consumable(pv, v)
 	if m > 0:
 		Game.add_consumable(load("res://resources/consumables/pocion_mana_%s.tres" % tam_m), m)
 
@@ -773,6 +805,9 @@ func _poner_mejoras(c: Combatant, piso: int) -> void:
 	var mp: float = pow(MEJORA_MANA_NIVEL, n)
 	c.abilities_combate = c.abilities_combate.map(func(ab):
 		if not (ab is AbilityData):
+			return ab
+		# (24/11) LA QUE LLEVA NODOS DE VERDAD (arma=daga#rafaga:nodos) ya trae su nivel: no se le finge encima.
+		if Mejoras.es_montada(ab):
 			return ab
 		var x: AbilityData = ab.duplicate(false)
 		x.dano_mult = ab.dano_mult * dano
@@ -1398,6 +1433,7 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 		vida0[a] = a.current_hp
 		mp0 += a.current_mp
 	_hist.clear()
+	var sig_tick: int = _muneco_tick
 	var resultado := "?"
 	var fotos: int = 0
 	while true:
@@ -1433,6 +1469,14 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 			resultado = "ATASCADA"
 			_volcar_atasco()
 			break
+		# (24/11) EL MUÑECO NO ACTUA, PERO SANGRA: sin turnos nunca le tocaban los daños por turno (sangrado, veneno,
+		# quemadura) y Desangrar parecia lo unico que los cobraba. Cada _muneco_tick turnos tuyos (un ciclo) le toca su
+		# "inicio de turno" (el daño de sus estados y que se le gasten), como a un enemigo que no hace nada.
+		if String(caso[2]) in ESC_MUNECO and _muneco_tick > 0 and mios >= sig_tick:
+			sig_tick = mios + _muneco_tick
+			for e in _cb._enemies:
+				if e.is_alive():
+					e.tick_statuses()
 		var tp: int = Time.get_ticks_usec()
 		_pilotar()
 		_crono["~piloto"] = float(_crono.get("~piloto", 0.0)) + (Time.get_ticks_usec() - tp) / 1000.0
@@ -1513,6 +1557,12 @@ func _pelea(caso: Array, reponer: bool = true) -> String:
 		var arma_a: String = pj.equipped_main.resource_path.get_file().get_basename() if pj != null and pj.equipped_main != null else "-"
 		if pj != null and pj.equipped_off != null:
 			arma_a += "+" + pj.equipped_off.resource_path.get_file().get_basename()
+		# (24/11) CON SU CAMINO DE NODOS (arma=daga#rafaga:nodos): que se distingan las ramas en el resultado.
+		if pj != null and not (pj.nodos_elegidos as Dictionary).is_empty():
+			var caminos: Array = []
+			for ruta in pj.nodos_elegidos:
+				caminos.append("%s:%s" % [String(ruta).get_file().get_basename(), ".".join(PackedStringArray(pj.nodos_elegidos[ruta]))])
+			arma_a += "#" + ";".join(PackedStringArray(caminos))
 		_lineas_extra.append("P|%s|%s|%s|%s|%.1f|%.2f|%.2f|%.3f|%.3f|%.1f|%.1f|%d|%.2f|%.2f|%d|%.3f|%d|%d|%.1f|%d|%d|%d|%s" % [comun,
 			_rol(a), arma_a, _armadura_de(pj), a.max_hp, a.def_value(), a.mdef_value(), float(mitig[a][0]), float(mitig[a][1]),
 			float(_hecho.get(a, 0.0)), float(_recibido.get(a, 0.0)), n_t, float(_hecho.get(a, 0.0)) / maxf(1.0, float(n_t)),

@@ -1167,6 +1167,9 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	c.mutante = mutante
 	c.mutacion = mutacion if mutante else &""
 	c.grado_mut = grado_de(mutante, mutacion)
+	# (24/11) su bando y el nivel de su piso: el veneno que le entra va por la tabla de los enemigos y ese nivel.
+	c.es_enemigo = true
+	c.nivel_piso = 1 + (maxi(pis, 1) - 1) / StatsMath.PISOS_NIVEL
 	return c
 
 

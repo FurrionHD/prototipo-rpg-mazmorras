@@ -68,7 +68,43 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
 const VENENO_BASE_DMG := 3.0
 const VENENO_TURNS := 4
-const VENENO_MAX_STACKS := 5
+# (24/11, el jefe) TOPE 3 DOSIS (antes 5: con x2 por dosis se disparaba).
+const VENENO_MAX_STACKS := 3
+# (24/11) UN VENENO POR NIVEL (pisos 1-12, 13-24...), con nombre propio y FUERZA FIJA por dosis, que pone QUIEN LO SUFRE:
+# los enemigos escalan mucha mas vida que tus personajes, asi que hay dos tablas. Nivel 1 = lo de siempre (3). Las demas
+# suben como la vida del que lo sufre (la del enemigo normal y la tuya, medianas del simulador 23/11): a 3 dosis, ~7-8 %
+# de la vida de un enemigo normal por turno, ~13 % de la tuya. PROVISIONAL: afinar con el simulador.
+const VENENO_NOMBRES := ["Veneno", "Ponzoña", "Toxina", "Hiel negra", "Pudrición"]
+# (24/11, el jefe: "un numero mas alto tipo 5 para empezar... con 20 se sigue notando en los pisos 7-12") el que pones tu
+# empieza en 5 y el resto sube en la misma proporcion.
+const VENENO_A_ENEMIGOS := [5.0, 70.0, 500.0, 4000.0, 32500.0]
+const VENENO_A_PERSONAJES := [3.0, 10.0, 36.0, 130.0, 470.0]
+
+
+# El nivel del veneno que le entra a 'victima': el de su piso si es un enemigo, el suyo si es de los tuyos.
+# 'forzado' > 0 = el tipo que dice quien lo pone (el Filo: por el TIER DE SU ARMA, ver veneno_de_tier).
+static func veneno_nivel(victima, forzado: int = 0) -> int:
+	if forzado > 0:
+		return clampi(forzado, 1, VENENO_NOMBRES.size())
+	if victima == null:
+		return 1
+	var n: int = int(victima.nivel_piso) if bool(victima.es_enemigo) else int(victima.level)
+	return clampi(n, 1, VENENO_NOMBRES.size())
+
+
+static func veneno_base(victima, forzado: int = 0) -> float:
+	var tabla: Array = VENENO_A_ENEMIGOS if victima != null and bool(victima.es_enemigo) else VENENO_A_PERSONAJES
+	return float(tabla[veneno_nivel(victima, forzado) - 1])
+
+
+static func veneno_nombre(victima, forzado: int = 0) -> String:
+	return String(VENENO_NOMBRES[veneno_nivel(victima, forzado) - 1])
+
+
+# (24/11, el jefe) EL VENENO DEL FILO POR EL TIER DEL ARMA: cada 2 tiers un tipo nuevo (T1-T2 Veneno, T3-T4 Ponzoña...);
+# en el tier impar mete 1-2 dosis y en el par 2-3 (eso lo dice su escalera, AbilityData.imbue_escalera).
+static func veneno_de_tier(tier: int) -> int:
+	return clampi((maxi(tier, 1) + 1) / 2, 1, VENENO_NOMBRES.size())
 
 # Sangrado: APILABLE. Cada stack = fraccion BAJA del ATAQUE del aplicador (no 1:1);
 # machacar con armas cortantes sube el daño total (dot = magnitud x stacks). PROVISIONAL.

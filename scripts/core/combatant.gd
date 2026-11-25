@@ -244,6 +244,19 @@ var guardia_contra_escudo: bool = false # lo que devuelves en la postura es un E
 # estoque y (futuro) cualquier buff de esquiva. Si > 0, rompe el tope normal de esquiva
 # (EVADE_MAX 0.35 -> EVADE_MAX_BUFF 0.65) en StatsMath.resolve_attack.
 var evasion_bonus: float = 0.0
+# LO QUE TRAE EL SIGILO DE DESAPARECER (24/11, su arbol): solo cuenta MIENTRAS lleve el Sigilo. "esquiva" (Pies en la
+# niebla, suma a la esquiva), "energia" (Recarga en las sombras: % de su energia maxima al empezar cada turno) y "golpe"
+# (Salir de las sombras: su primer ataque oculto pega este % de mas y le saca del sigilo). Lo pone la habilidad al usarse.
+var sigilo_extra: Dictionary = {}
+# (24/11) DE QUE BANDO Y DE QUE NIVEL DE PISO es (lo pone EnemyData.crear_combatant): el veneno que le entra va por la tabla
+# de su bando y el nivel de su piso (StatusEffects.veneno_base). Los tuyos usan su nivel.
+var es_enemigo: bool = false
+var nivel_piso: int = 1
+
+func sigilo(que: String) -> float:
+	if sigilo_extra.is_empty() or not has_status(StatusEffects.Id.SIGILO):
+		return 0.0
+	return float(sigilo_extra.get(que, 0.0))
 
 # --- RIPOSTE AL BLOQUEAR (la personalidad del escudo PEQUEÑO) ---
 # El estoque ripostea al ESQUIVAR (en_guardia, arriba); la rodela ripostea al BLOQUEAR. Son dos
@@ -898,6 +911,17 @@ var imbue_def_gastada: bool = false
 # proposito: tiene que apagarse cuando se agoten los USOS, y un estado se apagaria por turnos.
 # Lo lee spd() igual que lee los estados, y consumir_imbue lo devuelve a 1.0.
 var imbue_spd_mult: float = 1.0
+# (24/11) LO QUE LE PONE EL ARBOL DEL FILO EMPONZOÑADO a su imbuicion (lo fija la habilidad tras aplicar_imbue, que lo
+# devuelve a lo normal): el TIPO de veneno (por el tier del arma), su fuerza, Acido, Ponzoña y sangre, Toxina que revienta y
+# Señal del veneno. Ver roll_imbue.
+var imbue_veneno_nivel: int = 0
+var imbue_fuerza: float = 1.0
+var imbue_acido: float = 0.0
+var imbue_con_sangre: float = 0.0
+var imbue_revienta: bool = false
+var imbue_senal: float = 0.0
+# PONZOÑA Y SANGRE en la VICTIMA: si lleva veneno Y sangrado, los dos le hacen este % de mas (lo deja el golpe impregnado).
+var ponzona_sangre: float = 0.0
 
 
 # Un golpe de 'elem' GASTA los estados que lo amplificaban: el rayo evapora el Mojado al
@@ -958,6 +982,13 @@ func aplicar_imbue(elem: int, pct: float, usos: int, cuerpo: bool,
 		spd_mult: float = 1.0, prisma: bool = false, tope: int = -1, reparto: Array = [],
 		extra_estado: int = -1, extra_prob: float = 0.0) -> void:
 	imbue_elemento = elem
+	# (24/11) lo del arbol del Filo, a lo normal: si lo pone el Filo, lo vuelve a fijar justo despues
+	imbue_veneno_nivel = 0
+	imbue_fuerza = 1.0
+	imbue_acido = 0.0
+	imbue_con_sangre = 0.0
+	imbue_revienta = false
+	imbue_senal = 0.0
 	imbue_extra_estado = extra_estado
 	imbue_extra_prob = extra_prob
 	imbue_prisma = prisma
@@ -1128,6 +1159,9 @@ func roll_imbue(target: Combatant) -> String:
 		return ""
 	if target.es_inmune(imbue_estado):
 		return ""
+	# (24/11) SEÑAL DEL VENENO (Filo): pegar a uno que ya esta envenenado te devuelve energia.
+	if imbue_senal > 0.0 and target.has_status(StatusEffects.Id.VENENO):
+		regen_energy(imbue_senal * max_energy)
 	# Con QUE stat compite: Magia si viene de un hechizo, DESTREZA si la puso un arma. Un picaro
 	# que envenena su daga no tiene Magia, asi que medirlo por Magia lo dejaba sin veneno.
 	var stat: float = float(abilities.destreza) if imbue_por_destreza else float(abilities.magia)
@@ -1155,9 +1189,26 @@ func roll_imbue(target: Combatant) -> String:
 		stacks = 1
 	if stacks == 0:
 		return ""
+	# (24/11) EL VENENO DEL FILO: su tipo (por el tier del arma) y su fuerza (la de su arbol, en proporcion a la de siempre).
+	var mag_i: float = StatusEffects.magnitud_de(imbue_estado, atk(), atk(), target, motion_value)
+	if imbue_estado == StatusEffects.Id.VENENO and not is_equal_approx(imbue_fuerza, 1.0):
+		mag_i = StatusEffects.VENENO_BASE_DMG * imbue_fuerza
 	for _s in stacks:
 		# duracion/magnitud por defecto del catalogo; el tope, el de la imbuicion
-		target.apply_status(imbue_estado, runa_turnos(imbue_estado, -1), runa_mag(imbue_estado, StatusEffects.magnitud_de(imbue_estado, atk(), atk(), target, motion_value), target), 1, false, imbue_tope)
+		target.apply_status(imbue_estado, runa_turnos(imbue_estado, -1), runa_mag(imbue_estado, mag_i, target), 1, false,
+			imbue_tope, 0.0, 1.0, -1, imbue_veneno_nivel)
+	# (24/11) PONZOÑA Y SANGRE, ACIDO y TOXINA QUE REVIENTA (arbol del Filo)
+	if imbue_con_sangre > 0.0:
+		target.ponzona_sangre = maxf(target.ponzona_sangre, imbue_con_sangre)
+	if imbue_acido > 0.0:
+		target.rompe_armadura_n = mini(target.rompe_armadura_n + 1, 3)
+		target.rompe_armadura_valor = maxf(target.rompe_armadura_valor, imbue_acido)
+		target.rompe_armadura_turnos = 3
+	if imbue_revienta and imbue_estado == StatusEffects.Id.VENENO and target.stacks_de(StatusEffects.Id.VENENO) >= \
+			mini(StatusEffects.VENENO_MAX_STACKS, imbue_tope if imbue_tope > 0 else StatusEffects.VENENO_MAX_STACKS):
+		var rev: float = target.detonar_estado(StatusEffects.Id.VENENO)
+		if rev > 0.0:
+			print("[estado] %s: el veneno revienta (%.1f)" % [target.nombre, rev])
 	var nom: String = String(StatusEffects.def(imbue_estado).get("nombre", "?"))
 	var txt: String = nom if stacks == 1 else "%s ×%d" % [nom, stacks]
 	# EL SEGUNDO ESTADO (unturas): solo si el primero ha entrado, y con su propia tirada contra su Resistencia.
@@ -1771,7 +1822,7 @@ func current_hand_slot() -> String:
 # volvias a tener las cinco.
 func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 		stacks_add: int = 1, refresh_all: bool = false, stack_cap: int = -1,
-		mult_override: float = 0.0, escala: float = 1.0, usos: int = -1) -> void:
+		mult_override: float = 0.0, escala: float = 1.0, usos: int = -1, nivel_veneno: int = 0) -> void:
 	var d: Dictionary = StatusEffects.def(id)
 	if d.is_empty():
 		return
@@ -1822,6 +1873,16 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 				String(StatusEffects.def(id_apagado).get("nombre", "?"))])
 	if turns < 0:
 		turns = int(d.get("turns", 3))
+	# (24/11) UN VENENO POR NIVEL, FIJO (el jefe: lo del Ataque se rompia): su fuerza la pone QUIEN LO SUFRE (la tabla de
+	# los que pones tu si es un enemigo, la de los que te ponen si es de los tuyos) y su nivel. Lo que traiga de mas una
+	# fuente (el Filo mejorado, un veneno mas fuerte de su ficha) va en proporcion a la fuerza de siempre (3 = x1).
+	if id == StatusEffects.Id.VENENO:
+		# (24/11) EL TIPO: el que diga quien lo pone (el Filo, por el tier de su arma) o, si no dice, el del nivel de la victima.
+		magnitude = StatusEffects.veneno_base(self, nivel_veneno) * (magnitude / StatusEffects.VENENO_BASE_DMG if magnitude > 0.0 else 1.0)
+		var nom_v: String = StatusEffects.veneno_nombre(self, nivel_veneno)
+		if nom_v != String(d.get("nombre", "")):
+			d = d.duplicate()
+			d["nombre"] = nom_v
 	if magnitude < 0.0:
 		magnitude = float(d.get("dot_default", 0.0))
 		if magnitude <= 0.0:
@@ -1894,6 +1955,9 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 			# entradas); pero rehidratando desde un save manda lo que traiga el dict, o la pelea
 			# siguiente empezaria con el estado lleno otra vez.
 			e.usos = usos if usos >= 0 else int(e.d.get("usos", 0))
+			# (24/11) UN VENENO MAS FUERTE se queda con su nombre (Veneno -> Ponzoña)
+			if id == StatusEffects.Id.VENENO and magnitude > e.magnitude:
+				e.d = d
 			e.magnitude = maxf(e.magnitude, magnitude)   # sube al mas fuerte
 			# Nivel de stat: se queda con el MAS FUERTE (mas lejos de 1.0).
 			if mult_override > 0.0 and absf(mult_override - 1.0) > absf(e.base_stat_mult() - 1.0):
@@ -2055,6 +2119,10 @@ func tick_statuses() -> Dictionary:
 			_al_quitar_status(e)
 			continue   # fuera de 'kept': se le quita y actua con normalidad
 		var dmg: float = e.dot_damage()
+		# (24/11) PONZOÑA Y SANGRE (arbol del Filo): con veneno Y sangrado encima, los dos hacen mas.
+		if ponzona_sangre > 0.0 and (e.id() == StatusEffects.Id.VENENO or e.id() == StatusEffects.Id.SANGRADO) \
+				and has_status(StatusEffects.Id.VENENO) and has_status(StatusEffects.Id.SANGRADO):
+			dmg *= 1.0 + ponzona_sangre
 		var cura: float = e.heal_amount()
 		var mana: float = e.mana_amount()
 		# Buff/debuff de stat = ni DoT, ni cura, ni maná, ni stun (se salta el primer decremento).
@@ -2195,6 +2263,22 @@ func regen_mana_turnos_pendientes() -> int:
 #
 # No refresca cachés a proposito: es el mismo trato que consumir_amplificadores. Si algun dia se
 # quita por aqui un estado que toque stats, ahi si habra que refrescar la ficha a mano.
+# (24/11) DETONAR un daño por turno (Desangrar de la Puñalada, Toxina que revienta del Filo): todo lo que le quedaba por
+# hacer (su daño por turno x sus turnos, cada carga), de golpe, y se le quita. Devuelve el daño hecho.
+func detonar_estado(id: int) -> float:
+	if id < 0 or not is_alive():
+		return 0.0
+	var queda: float = 0.0
+	for e in statuses:
+		if e.id() == id:
+			queda += e.dot_damage() * float(maxi(0, e.turns))
+	if queda <= 0.0:
+		return 0.0
+	quitar_estado(id)
+	take_damage(queda)
+	return queda
+
+
 func quitar_estado(id: int) -> bool:
 	var fuera: bool = false
 	for i in range(statuses.size() - 1, -1, -1):
@@ -2320,7 +2404,7 @@ func status_crit_flat() -> float:
 	return s
 
 func status_evade_flat() -> float:
-	var s: float = 0.0
+	var s: float = sigilo("esquiva")   # (24/11) Pies en la niebla
 	for e in statuses:
 		s += e.flat_de("evade_flat")
 	return s

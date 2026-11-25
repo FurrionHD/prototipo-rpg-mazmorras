@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://tools/capturas_arboles_daga.gd" id="1"]
+
+[node name="CapturasArbolesDaga" type="Node"]
+script = ExtResource("1")

@@ -1,6 +1,259 @@
 [gd_resource type="Resource" script_class="AbilityData" format=3]
 
 [ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/nodo_mejora.gd" id="nodo_mejora"]
+
+[sub_resource type="Resource" id="NM_fil_agarra_mejor"]
+script = ExtResource("nodo_mejora")
+id = &"agarra_mejor"
+nombre = "Agarra mejor"
+descripcion = "Lo dejas secar un momento más y ya no se va con el primer golpe."
+padres = Array[StringName]([])
+excluye = Array[StringName]([&"mas_usos"])
+nivel_min = 2
+dominio = 300
+oro = 10000
+cambios = {"imbue_prob": ["set", 0.85], "potencia": ["presupuesto", 0.25], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_fil_mas_usos"]
+script = ExtResource("nodo_mejora")
+id = &"mas_usos"
+nombre = "Más usos"
+descripcion = "Más frasco en el filo, para más golpes."
+padres = Array[StringName]([])
+excluye = Array[StringName]([&"agarra_mejor"])
+nivel_min = 2
+dominio = 300
+oro = 10000
+cambios = {"imbue_usos": ["set", 7], "potencia": ["presupuesto", 0.125], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_fil_dosis_cargadas"]
+script = ExtResource("nodo_mejora")
+id = &"dosis_cargadas"
+nombre = "Dosis cargadas"
+descripcion = "Cada corte deja más veneno dentro."
+padres = Array[StringName]([&"agarra_mejor"])
+excluye = Array[StringName]([&"veneno_fuerte"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"imbue_peldano": ["set", 1], "potencia": ["presupuesto", 0.125], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_fil_veneno_fuerte"]
+script = ExtResource("nodo_mejora")
+id = &"veneno_fuerte"
+nombre = "Veneno fuerte"
+descripcion = "Un frasco más turbio que el anterior."
+padres = Array[StringName]([&"agarra_mejor"])
+excluye = Array[StringName]([&"dosis_cargadas"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_fil_compartir"]
+script = ExtResource("nodo_mejora")
+id = &"compartir"
+nombre = "Compartir el frasco"
+descripcion = "Sobra veneno: que lo pruebe también el de al lado."
+padres = Array[StringName]([&"mas_usos"])
+excluye = Array[StringName]([&"mano_rapida"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"imbue_comparte_usos": ["set", 3], "potencia": ["presupuesto", 0.125], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_fil_mano_rapida"]
+script = ExtResource("nodo_mejora")
+id = &"mano_rapida"
+nombre = "Mano rápida"
+descripcion = "Destapas, untas y tapas sin mirar."
+padres = Array[StringName]([&"mas_usos"])
+excluye = Array[StringName]([&"compartir"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"cooldown": ["add", -1], "potencia": ["presupuesto", 0.25], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_fil_acido"]
+script = ExtResource("nodo_mejora")
+id = &"acido"
+nombre = "Ácido"
+descripcion = "No solo envenena: también se come la armadura."
+padres = Array[StringName]([&"dosis_cargadas", &"veneno_fuerte", &"compartir", &"mano_rapida"])
+excluye = Array[StringName]([&"ponzona_sangre"])
+nivel_min = 4
+dominio = 900
+oro = 160000
+cambios = {"imbue_acido": ["set", 0.04], "potencia": ["presupuesto", 0.25], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_fil_ponzona_sangre"]
+script = ExtResource("nodo_mejora")
+id = &"ponzona_sangre"
+nombre = "Ponzoña y sangre"
+descripcion = "Por una herida abierta, el veneno corre más deprisa."
+padres = Array[StringName]([&"dosis_cargadas", &"veneno_fuerte", &"compartir", &"mano_rapida"])
+excluye = Array[StringName]([&"acido"])
+nivel_min = 4
+dominio = 900
+oro = 160000
+cambios = {"imbue_con_sangre": ["set", 0.15], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_fil_toxina"]
+script = ExtResource("nodo_mejora")
+id = &"toxina"
+nombre = "Toxina que revienta"
+descripcion = "Cuando ya no cabe más veneno, sale todo de golpe."
+padres = Array[StringName]([&"acido", &"ponzona_sangre"])
+excluye = Array[StringName]([&"senal"])
+nivel_min = 5
+dominio = 1200
+oro = 640000
+cambios = {"imbue_revienta": ["set", true], "potencia": ["presupuesto", 0.25], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_fil_senal"]
+script = ExtResource("nodo_mejora")
+id = &"senal"
+nombre = "Señal del veneno"
+descripcion = "Sabes quién va a caer, y eso te da aire."
+padres = Array[StringName]([&"acido", &"ponzona_sangre"])
+excluye = Array[StringName]([&"toxina"])
+nivel_min = 5
+dominio = 1200
+oro = 640000
+cambios = {"imbue_senal": ["set", 0.05], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_fil_linea_6"]
+script = ExtResource("nodo_mejora")
+id = &"linea_6"
+nombre = "Nivel 6"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"toxina", &"senal"])
+excluye = Array[StringName]([])
+nivel_min = 6
+dominio = 1500
+oro = 1024000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_fil_linea_7"]
+script = ExtResource("nodo_mejora")
+id = &"linea_7"
+nombre = "Nivel 7"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_6"])
+excluye = Array[StringName]([])
+nivel_min = 7
+dominio = 1800
+oro = 1638000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_fil_linea_8"]
+script = ExtResource("nodo_mejora")
+id = &"linea_8"
+nombre = "Nivel 8"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_7"])
+excluye = Array[StringName]([])
+nivel_min = 8
+dominio = 2100
+oro = 2621000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_fil_linea_9"]
+script = ExtResource("nodo_mejora")
+id = &"linea_9"
+nombre = "Nivel 9"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_8"])
+excluye = Array[StringName]([])
+nivel_min = 9
+dominio = 2400
+oro = 4194000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_fil_linea_10"]
+script = ExtResource("nodo_mejora")
+id = &"linea_10"
+nombre = "Nivel 10"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_9"])
+excluye = Array[StringName]([])
+nivel_min = 10
+dominio = 2700
+oro = 6710000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_fil_linea_11"]
+script = ExtResource("nodo_mejora")
+id = &"linea_11"
+nombre = "Nivel 11"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_10"])
+excluye = Array[StringName]([])
+nivel_min = 11
+dominio = 3000
+oro = 10736000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_fil_linea_12"]
+script = ExtResource("nodo_mejora")
+id = &"linea_12"
+nombre = "Nivel 12"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_11"])
+excluye = Array[StringName]([])
+nivel_min = 12
+dominio = 3300
+oro = 17178000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_fil_linea_13"]
+script = ExtResource("nodo_mejora")
+id = &"linea_13"
+nombre = "Nivel 13"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_12"])
+excluye = Array[StringName]([])
+nivel_min = 13
+dominio = 3600
+oro = 27485000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_fil_linea_14"]
+script = ExtResource("nodo_mejora")
+id = &"linea_14"
+nombre = "Nivel 14"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_13"])
+excluye = Array[StringName]([])
+nivel_min = 14
+dominio = 3900
+oro = 43976000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_fil_linea_15"]
+script = ExtResource("nodo_mejora")
+id = &"linea_15"
+nombre = "Nivel 15"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_14"])
+excluye = Array[StringName]([])
+nivel_min = 15
+dominio = 4200
+oro = 70362000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_fil_linea_16"]
+script = ExtResource("nodo_mejora")
+id = &"linea_16"
+nombre = "Nivel 16"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_15"])
+excluye = Array[StringName]([])
+nivel_min = 16
+dominio = 4500
+oro = 112579000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
 
 [resource]
 script = ExtResource("1")
@@ -14,7 +267,10 @@ imbue_estado = 0
 imbue_usos = 5
 imbue_prob = 0.7
 imbue_por_destreza = true
-; (03/10, su decision) LA ESCALERA: 70% de que prenda y, si prende, las dosis que suma segun el tier del
+; (24/11, el jefe) POR TIER DEL ARMA: tier impar 1-2 dosis (60/40), par 2-3; el TIPO de veneno cada 2 tiers (Veneno, Ponzoña,
+; Toxina...: StatusEffects.veneno_de_tier). Antes (03/10) LA ESCALERA: 70% de que prenda y, si prende, las dosis que suma segun el tier del
 ; arma (una fila por tier; el largo de la fila es su tope). T5: veneno superior u otro efecto, en el futuro.
-imbue_escalera = [[0.9, 0.1], [0.6, 0.3, 0.1], [0.15, 0.6, 0.2, 0.05], [0.05, 0.4, 0.35, 0.15, 0.05]]
+imbue_escalera = [[0.6, 0.4], [0.0, 0.6, 0.4], [0.6, 0.4], [0.0, 0.6, 0.4], [0.6, 0.4], [0.0, 0.6, 0.4], [0.6, 0.4], [0.0, 0.6, 0.4], [0.6, 0.4], [0.0, 0.6, 0.4]]
 descripcion = "Pasas el filo por un frasco turbio y esperas a que agarre. No corta más: corta peor, y eso a veces vale más que cortar hondo."
+; EL ARBOL (24/11, cerrado con el jefe): lo escribe tools/arboles_habilidades.py, no tocarlo a mano.
+arbol = [SubResource("NM_fil_agarra_mejor"), SubResource("NM_fil_mas_usos"), SubResource("NM_fil_dosis_cargadas"), SubResource("NM_fil_veneno_fuerte"), SubResource("NM_fil_compartir"), SubResource("NM_fil_mano_rapida"), SubResource("NM_fil_acido"), SubResource("NM_fil_ponzona_sangre"), SubResource("NM_fil_toxina"), SubResource("NM_fil_senal"), SubResource("NM_fil_linea_6"), SubResource("NM_fil_linea_7"), SubResource("NM_fil_linea_8"), SubResource("NM_fil_linea_9"), SubResource("NM_fil_linea_10"), SubResource("NM_fil_linea_11"), SubResource("NM_fil_linea_12"), SubResource("NM_fil_linea_13"), SubResource("NM_fil_linea_14"), SubResource("NM_fil_linea_15"), SubResource("NM_fil_linea_16")]

@@ -30,7 +30,10 @@ Como decide si una prueba ha ido bien (las hay de varias epocas y cada una lo di
 """
 import argparse
 import os
+import queue
 import re
+import shutil
+import threading
 import subprocess
 import sys
 import time
@@ -218,8 +221,9 @@ def todas_las_pruebas() -> list:
                   if p.stem not in AYUDANTES and p.stem not in NO_SIN_VENTANA)
 
 
-def matar_restos() -> None:
-    """Las de red dejan Godots vivos si se cortan: los que sigan con el puerto 24599/24567 se cierran."""
+def matar_restos(despl: int = 0) -> None:
+    """Las de red dejan Godots vivos si se cortan: los que sigan con el puerto 24599/24567 se cierran (los de SU carril:
+    con su desplazamiento, ver Net.puerto_fisico)."""
     if os.name != "nt":
         return
     try:
@@ -228,7 +232,7 @@ def matar_restos() -> None:
         return
     pids = set()
     for linea in out.splitlines():
-        if ":24599" in linea or ":24567" in linea:
+        if (":%d" % (24599 + despl)) in linea or (":%d" % (24567 + despl)) in linea:
             partes = linea.split()
             if partes and partes[-1].isdigit() and partes[-1] != "0":
                 pids.add(partes[-1])
@@ -236,14 +240,16 @@ def matar_restos() -> None:
         subprocess.run(["taskkill", "/F", "/T", "/PID", pid], capture_output=True)
 
 
-def _una_pasada(godot: str, nombre: str, pasada: dict, tope: float):
-    cmd = [godot, "--headless"] + pasada.get("antes", []) + ["--path", str(RAIZ), "res://tools/%s.tscn" % nombre]
+def _una_pasada(godot: str, nombre: str, pasada: dict, tope: float, raiz: Path = RAIZ, despl: int = 0):
+    cmd = [godot, "--headless"] + pasada.get("antes", []) + ["--path", str(raiz), "res://tools/%s.tscn" % nombre]
     if pasada.get("despues"):
         cmd += ["--"] + pasada["despues"]
     env = dict(os.environ)
     env.update(pasada.get("env", {}))
+    if despl:
+        env["DO_DESPL_PUERTO"] = str(despl)   # su carril: sus puertos, desplazados (Net.puerto_fisico)
     try:
-        p = subprocess.run(cmd, capture_output=True, timeout=tope, cwd=str(RAIZ), env=env)
+        p = subprocess.run(cmd, capture_output=True, timeout=tope, cwd=str(raiz), env=env)
         return (p.stdout + p.stderr).decode("utf-8", "replace"), p.returncode, False
     except subprocess.TimeoutExpired as e:
         return ((e.stdout or b"") + (e.stderr or b"")).decode("utf-8", "replace"), None, True
@@ -266,17 +272,17 @@ def _juzgar(texto: str, codigo, colgada: bool):
 ORDEN_MALO = {"BIEN": 0, "SIN MARCA": 1, "MAL": 2, "COLGADA": 3}
 
 
-def pasar(godot: str, nombre: str) -> dict:
+def pasar(godot: str, nombre: str, raiz: Path = RAIZ, despl: int = 0) -> dict:
     tope = TOPES.get(nombre, TOPE_RED if es_de_red(nombre) else TOPE_NORMAL)
     pasadas = COMO_SE_LANZA.get(nombre, [{}])
     t0 = time.time()
     textos = []
     estado, fallos, codigo = "BIEN", [], 0
     for i, pasada in enumerate(pasadas):
-        texto, cod, colgada = _una_pasada(godot, nombre, pasada, tope)
+        texto, cod, colgada = _una_pasada(godot, nombre, pasada, tope, raiz, despl)
         textos.append("===== pasada %d %s =====\n%s" % (i + 1, pasada, texto))
         if colgada and es_de_red(nombre):
-            matar_restos()
+            matar_restos(despl)
         if pasada.get("prepara") and not colgada:
             continue   # solo deja listo lo de la siguiente pasada
         e, f = _juzgar(texto, cod, colgada)
@@ -288,6 +294,58 @@ def pasar(godot: str, nombre: str) -> dict:
     dur = time.time() - t0
     (SALIDA / (nombre + ".log")).write_text("\n".join(textos), encoding="utf-8")
     return {"nombre": nombre, "estado": estado, "dur": dur, "tope": tope, "codigo": codigo, "fallos": fallos[:6]}
+
+
+# ------------------------------------------------------------------------------------------------------------------
+#  LOS CARRILES DE RED (25/11, el jefe: "¿no pueden usar puertos diferentes para hacer varias a la vez?")
+# ------------------------------------------------------------------------------------------------------------------
+# Las de red iban de una en una porque compartian PUERTOS y la CARPETA DE DATOS (user://: partidas, nube local, base de
+# datos). Con --carriles N se reparten en N carriles a la vez: el carril 0 es este worktree; cada uno de los demas es un
+# worktree hermano (<este>-carril<k>) en el MISMO commit, con su override.cfg (su carpeta de datos) y su desplazamiento
+# de puertos (DO_DESPL_PUERTO = 1000*k, ver Net.puerto_fisico). Las del tunel de Steam van siempre en el carril 0 (su
+# tunel abre puertos de verdad). Los carriles usan lo COMMITEADO: con cambios sin commitear aqui, se va con uno solo.
+DESPL_CARRIL = 1000
+SOLO_CARRIL_0 = {"prueba_tunel", "prueba_vinculo_steam"}
+
+
+def solo_carril_0(nombre: str) -> bool:
+    """Las del tunel de Steam: el tunel entrega a 127.0.0.1:<puerto de la sala> SIN desplazar (25/11: prueba_sala_steam
+    fallo en el carril 2 porque no estaba en la lista; ahora va por el nombre)."""
+    return nombre in SOLO_CARRIL_0 or "steam" in nombre or "tunel" in nombre
+
+
+def _git(*a, cwd: Path = RAIZ) -> str:
+    return subprocess.run(["git", *a], cwd=str(cwd), capture_output=True, text=True).stdout.strip()
+
+
+def _carpeta_datos() -> str:
+    ov = RAIZ / "override.cfg"
+    if ov.exists():
+        m = re.search(r'custom_user_dir_name="([^"]+)"', ov.read_text(encoding="utf-8"))
+        if m:
+            return m.group(1)
+    return "DungeonOratoria"
+
+
+def preparar_carril(k: int, godot: str) -> Path:
+    """El worktree del carril k en el commit de este, con su carpeta de datos y el proyecto importado."""
+    sha = _git("rev-parse", "HEAD")
+    dest = RAIZ.parent / ("%s-carril%d" % (RAIZ.name, k))
+    if not dest.exists():
+        subprocess.run(["git", "worktree", "add", "--detach", str(dest), sha], cwd=str(RAIZ), capture_output=True)
+        shutil.copytree(RAIZ / ".godot", dest / ".godot", dirs_exist_ok=True)   # la cache (si no, importa de cero)
+    else:
+        subprocess.run(["git", "checkout", "--detach", "--force", sha], cwd=str(dest), capture_output=True)
+    # lo que git no trae (memoria worktree-nuevo-copiar-ignorados): la partida de referencia de muchas pruebas
+    ref = TOOLS / "huellas" / "mundo_ref.tres"
+    if ref.exists():
+        (dest / "tools" / "huellas").mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ref, dest / "tools" / "huellas" / "mundo_ref.tres")
+    (dest / "override.cfg").write_text(
+        "; Carril %d de las pruebas de red (tools/pasar_pruebas.py --carriles): su propia carpeta de datos.\n"
+        "[application]\nconfig/custom_user_dir_name=\"%s_carril%d\"\n" % (k, _carpeta_datos(), k), encoding="utf-8")
+    subprocess.run([godot, "--headless", "--path", str(dest), "--import"], capture_output=True, timeout=900)
+    return dest
 
 
 def main() -> int:
@@ -305,6 +363,8 @@ def main() -> int:
     ap.add_argument("--lista", action="store_true", help="ensena la lista y sale")
     ap.add_argument("--unitarias", action="store_true", help="solo las unitarias (tools/unitarias): segundos")
     ap.add_argument("--con-red", action="store_true", help="las de red aunque el banco este en marcha (se pisaran)")
+    ap.add_argument("--carriles", type=int, default=1,
+                    help="las de red en N carriles a la vez (worktrees hermanos con sus puertos y su carpeta de datos)")
     a = ap.parse_args()
 
     nombres = todas_las_pruebas()
@@ -341,18 +401,65 @@ def main() -> int:
 
     res = []
     t0 = time.time()
+    cerrojo = threading.Lock()
+
     def apuntar(r):
-        res.append(r)
-        print("[%3d/%d] %-9s %-34s %5.1f s" % (len(res), len(nombres), r["estado"], r["nombre"], r["dur"]),
-              flush=True)
+        with cerrojo:
+            res.append(r)
+            print("[%3d/%d] %-9s %-34s %5.1f s%s" % (len(res), len(nombres), r["estado"], r["nombre"], r["dur"],
+                  ("  (carril %d)" % r["carril"]) if r.get("carril") else ""), flush=True)
+
+    # LOS CARRILES se preparan mientras pasan las normales (worktree, carpeta de datos, importar).
+    carriles = max(1, a.carriles) if con_red else 1
+    if carriles > 1 and _git("status", "--porcelain", "--untracked-files=no"):
+        print("HAY CAMBIOS SIN COMMITEAR: los carriles usan lo commiteado, asi que las de red van en uno solo.", flush=True)
+        carriles = 1
+    raices = [RAIZ]
+    prep = None
+    futs_carril = []
+    if carriles > 1:
+        print("Preparando %d carriles de red mas (a la vez que las normales)..." % (carriles - 1), flush=True)
+        prep = ThreadPoolExecutor(max_workers=carriles - 1)
+        futs_carril = [prep.submit(preparar_carril, k, godot) for k in range(1, carriles)]
 
     with ThreadPoolExecutor(max_workers=max(1, a.hilos)) as ex:
         for fut in as_completed([ex.submit(pasar, godot, n) for n in sin_red]):
             apuntar(fut.result())
+    if prep is not None:
+        raices += [f.result() for f in futs_carril]
+        prep.shutdown()
     if any(es_de_red(n) for n in con_red):
-        matar_restos()
-    for n in con_red:
-        apuntar(pasar(godot, n))
+        for k in range(len(raices)):
+            matar_restos(DESPL_CARRIL * k)
+    # Cada carril coge la siguiente de la cola (las mas largas primero, para que no quede una sola al final); las del
+    # tunel de Steam, solo el carril 0.
+    pendientes = sorted(con_red, key=lambda n: -TOPES.get(n, TOPE_RED if es_de_red(n) else TOPE_NORMAL))
+    solo_0 = [n for n in pendientes if solo_carril_0(n) and len(raices) > 1]
+    cola_libre = queue.Queue()
+    for n in pendientes:
+        if n not in solo_0:
+            cola_libre.put(n)
+
+    def carril(k: int):
+        if k == 0:
+            for n in solo_0:
+                apuntar(pasar(godot, n, raices[0], 0))
+        while True:
+            try:
+                n = cola_libre.get_nowait()
+            except queue.Empty:
+                return
+            r = pasar(godot, n, raices[k], DESPL_CARRIL * k)
+            r["carril"] = k
+            apuntar(r)
+
+    if len(raices) > 1:
+        print("Las %d que van solas, en %d carriles a la vez." % (len(con_red), len(raices)), flush=True)
+    hilos_c = [threading.Thread(target=carril, args=(k,)) for k in range(len(raices))]
+    for h in hilos_c:
+        h.start()
+    for h in hilos_c:
+        h.join()
 
     malas = [r for r in res if r["estado"] != "BIEN"]
     print("\n================ RESUMEN (%.0f s) ================" % (time.time() - t0))

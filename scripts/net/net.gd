@@ -38,6 +38,14 @@ extends Node
 const Canal := preload("res://scripts/net/net_canales.gd")
 
 const PUERTO := 24567
+
+# LOS CARRILES DEL BANCO (25/11, el jefe: "¿no pueden usar puertos diferentes para hacer varias a la vez?"): las pruebas de
+# red se reparten en varios worktrees a la vez (tools/pasar_pruebas.py --carriles) y cada uno lleva su DESPLAZAMIENTO en
+# DO_DESPL_PUERTO (1000, 2000...). Todo el juego sigue hablando de sus puertos de siempre (24567, la ranura de cada prueba,
+# lo que publica la sala...); solo al ABRIR de verdad (hostear/unirse) se le suma. Asi dos carriles no se pisan. Fuera de
+# las pruebas vale 0. El tunel de Steam conecta a un puerto REAL que abre el (no se desplaza): sus pruebas van en el carril 0.
+static func puerto_fisico(p: int) -> int:
+	return p + int(OS.get_environment("DO_DESPL_PUERTO")) if OS.has_environment("DO_DESPL_PUERTO") else p
 const MAX_JUGADORES := 4
 # CONEXIONES, que no es lo mismo que jugadores: ENet deja entrar de sobra (los que esperan en la puerta, los
 # que se reconectan antes de que se note su caida) y el tope de humanos lo pone _saludar. Venia de cuando los
@@ -725,7 +733,7 @@ func hostear(codigo: String, puerto: int = PUERTO) -> int:
 		estado_cambiado.emit("La sesión la abre la sala.")
 		return ERR_UNAVAILABLE
 	var peer := ENetMultiplayerPeer.new()
-	var err := peer.create_server(puerto, MAX_CONEXIONES)
+	var err := peer.create_server(puerto_fisico(puerto), MAX_CONEXIONES)
 	if err != OK:
 		estado_cambiado.emit("No se ha podido abrir la partida (¿está ocupado el puerto %d?)" % puerto)
 		return err
@@ -754,7 +762,7 @@ func unirse(ip: String, codigo: String, puerto: int = PUERTO, compartido := fals
 		estado_cambiado.emit("Solo puedes unirte a una sala desde el pueblo.")
 		return ERR_UNAVAILABLE
 	var peer := ENetMultiplayerPeer.new()
-	var err := peer.create_client(ip, puerto)
+	var err := peer.create_client(ip, puerto_fisico(puerto))
 	if err != OK:
 		estado_cambiado.emit("No se ha podido conectar con %s" % ip)
 		return err

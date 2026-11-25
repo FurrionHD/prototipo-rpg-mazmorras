@@ -422,6 +422,83 @@ func _respuesta_enemiga(objetivo: Combatant, evadido: bool, defendiendo: bool) -
 		_pantalla._log_extra(txt)
 
 
+# LO QUE LE SUMA EL ARBOL A ESTE GOLPE (24/11): las bajas que lleva la habilidad (Tajos que persiguen) y el remate del
+# ultimo golpe a quien lleva el estado (Remate). Lo comparte el simulador: por eso es una funcion suelta.
+static func mult_arbol_golpe(ab: AbilityData, objetivo: Combatant, i: int, bajas: int, ultimo: int) -> float:
+	var m: float = 1.0
+	if ab.bonus_por_baja > 0.0 and bajas > 0:
+		m *= 1.0 + ab.bonus_por_baja * float(mini(bajas, ab.bonus_por_baja_max))
+	if ab.remate_estado >= 0 and i == ultimo and objetivo != null and objetivo.has_status(ab.remate_estado):
+		m *= ab.remate_mult
+	if ab.bonus_vida_baja > 0.0 and objetivo != null and objetivo.max_hp > 0.0 \
+			and objetivo.current_hp < objetivo.max_hp * ab.vida_baja_umbral:
+		m *= 1.0 + ab.bonus_vida_baja
+	return m
+
+
+# SALIR DE LAS SOMBRAS: el primer ataque oculto ya ha pegado con su bonus; se sale del sigilo.
+static func gastar_salir_de_sombras(p: Combatant) -> void:
+	if p != null and p.sigilo("golpe") > 0.0:
+		p.quitar_estado(StatusEffects.Id.SIGILO)
+		p.sigilo_extra = {}
+
+
+# LO QUE HACEN LOS ARBOLES AL ACABAR LA HABILIDAD (24/11: Desaparecer y Oportunista), tras sus golpes y los estados que
+# se pone quien la usa. Devuelve lineas del log.
+func _arbol_tras_usar(ab: AbilityData, obj: Combatant, en_mapa: bool, reparto_mapa: Array) -> Array:
+	var out: Array = []
+	var p: Combatant = _pantalla._player
+	if ab.sigilo_esquiva > 0.0 or ab.sigilo_energia > 0.0 or ab.sigilo_golpe > 0.0:
+		p.sigilo_extra = {"esquiva": ab.sigilo_esquiva, "energia": ab.sigilo_energia, "golpe": ab.sigilo_golpe}
+	# DESVIO: te olvidan.
+	if ab.desvia_amenaza:
+		for e in _pantalla._vivos():
+			(e as Combatant).amenaza[p] = 0.0
+		out.append("los enemigos le pierden la pista a %s" % p.nombre)
+	# HUMO PARA TODOS: los tuyos que pilla la nube (en el mapa, los que estan dentro de su radio; fuera, todos).
+	if ab.oculta_aliados_turnos > 0:
+		for al in _pantalla._aliados_vivos():
+			if al == p:
+				continue
+			if en_mapa and _pantalla.turno_mapa.pies_de(al).distance_to(_pantalla.turno_mapa.pies_de(p)) > ab.forma_radio:
+				continue
+			al.apply_status(StatusEffects.Id.SIGILO, ab.oculta_aliados_turnos)
+			out.append("%s recibe Sigilo" % al.nombre)
+	# HUMO ESPESO: la nube se queda en el suelo y ciega al que empiece su turno dentro.
+	if ab.nube_turnos > 0 and en_mapa:
+		_pantalla.turno_mapa.poner_nube_jugador(p, ab)
+	# OPORTUNISTA: su arbol cambia el estado que se acaba de poner (una copia de su ficha del catalogo, solo para este).
+	if ab.oport_usos > 0 or ab.oport_seguimiento > 0.0 or ab.oport_alcance > 0.0 or ab.oport_cadena > 0 \
+			or ab.oport_oculto > 0 or ab.oport_energia > 0.0 or ab.oport_dual_entero:
+		for e in p.statuses:
+			if e.id() != StatusEffects.Id.OPORTUNISTA:
+				continue
+			var d: Dictionary = (e.d as Dictionary).duplicate()
+			if ab.oport_seguimiento > 0.0:
+				d["seguimiento_pct"] = ab.oport_seguimiento
+			if ab.oport_alcance > 0.0:
+				d["alcance_mapa"] = ab.oport_alcance
+			d["cadena"] = ab.oport_cadena
+			d["cadena_hecha"] = 0
+			d["oculto"] = ab.oport_oculto
+			d["energia"] = ab.oport_energia
+			d["dual_entero"] = ab.oport_dual_entero
+			e.d = d
+			if ab.oport_usos > 0:
+				e.usos = ab.oport_usos
+	return out
+
+
+# DESANGRAR: todo lo que le quedaba por hacer a ese estado, de golpe, y se le quita. Devuelve el daño hecho.
+static func detonar(objetivo: Combatant, estado: int) -> float:
+	return objetivo.detonar_estado(estado) if objetivo != null else 0.0
+
+
+# Las bajas y el ultimo golpe de la habilidad EN CURSO (los pone _usar_habilidad antes de los golpes).
+var _bajas_hab: int = 0
+var _ultimo_golpe_hab: int = -1
+
+
 func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: int,
 		escala: float, etq: String, m_golpe: float) -> Dictionary:
 	# (07/10) EL ESCUDO DE SUBDITOS del Rey tirano: un golpe a EL SOLO (sin area) puede comerselo un subdito suyo.
@@ -462,8 +539,9 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	var estilo_ab: int = _pantalla.efectos._estilo_de_habilidad(ab, _pantalla._player)
 	if ab.golpe_es_de_escudo(i) and not (ab.es_toda_de_escudo() and ab.fx_estilo >= 0):
 		estilo_ab = CombatFX.Estilo.ESCUDAZO
+	# (24/11) MANO SEGURA: la que no falla (AbilityData.infalible, como la Mirada estelar de los enemigos).
 	var result := StatsMath.resolve_attack(_pantalla._player, objetivo, def_e, atk_ov, ab.crit_extra,
-		ab.penetracion_extra)
+		ab.penetracion_extra, not ab.infalible)
 	_pantalla._aplicar_pasivas(result, _pantalla._player, objetivo)
 	if result.evaded:
 		r.evaded = true
@@ -477,7 +555,16 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	_golpes_mun.append({"c": objetivo, "evadido": false})
 	# Con flecha o virote de material cargado, pega con su bonus (_mult_mun = 1 sin municion o sin arco).
 	var dmg: float = result.damage * ab.dano_mult * m_golpe * escala * _mult_mun \
-		* (1.0 + _pantalla._player.runa_dano_hab)   # runas: Daño de habilidades
+		* (1.0 + _pantalla._player.runa_dano_hab) \
+		* mult_arbol_golpe(ab, objetivo, i, _bajas_hab, _ultimo_golpe_hab)   # runas: Daño de habilidades; el arbol
+	# (24/11) SALIR DE LAS SOMBRAS: pegando oculto (con ese bonus de su Desaparecer).
+	dmg *= 1.0 + _pantalla._player.sigilo("golpe")
+	# (24/11) HASTA EL MANGO: el critico de esta habilidad pega mas. POR LA ESPALDA: como el Mordisco a traicion enemigo.
+	if result.crit and not is_equal_approx(ab.crit_dano_mult, 1.0):
+		dmg *= ab.crit_dano_mult
+	if ab.extra_espalda > 0.0 and _pantalla.tactico and _pantalla.turno_mapa.por_la_espalda(_pantalla._player, objetivo):
+		dmg *= 1.0 + ab.extra_espalda
+		print("        [%s] por la espalda: +%d %%" % [objetivo.nombre, roundi(ab.extra_espalda * 100.0)])
 	r.dmg = dmg
 	r.imbue = float(result.get("dmg_imbue", 0.0)) * ab.dano_mult * m_golpe * escala
 	r.mult_imbue = float(result.get("mult_imbue", 1.0))
@@ -487,7 +574,22 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	dmg *= _pantalla.mult_chepa(objetivo, ab.es_area() or int(ab.forma) == CombatFormas.Tipo.CIRCULO \
 		or int(ab.forma) == CombatFormas.Tipo.CONO)
 	r.dmg = dmg
+	var vivo_antes: bool = objetivo.is_alive()
 	objetivo.take_damage(dmg)
+	# (24/11) DESANGRAR: lo que le quedaba de sangrado, de golpe (antes de que esta misma habilidad le abra heridas nuevas).
+	if ab.detona_estado >= 0 and objetivo.is_alive():
+		var det: float = detonar(objetivo, ab.detona_estado)
+		if det > 0.0:
+			r.dmg += det
+			dmg += det   # va en el mismo total (fx, amenaza y registro) que el golpe
+			r["desangra"] = det
+	if vivo_antes and not objetivo.is_alive():
+		_bajas_hab += 1   # Tajos que persiguen: los golpes que quedan pegan mas
+	# (24/11) DESEQUILIBRAR: el golpe que entra deja su estado (con la resistencia del enemigo).
+	if ab.estado_golpe >= 0 and objetivo.is_alive() and not objetivo.es_inmune(ab.estado_golpe) \
+			and randf() < StatusEffects.prob_final(ab.estado_golpe_prob, _pantalla._player, objetivo, ab.estado_golpe):
+		objetivo.apply_status(ab.estado_golpe, ab.estado_golpe_turnos)
+		r.estados.append("·" + str(StatusEffects.def(ab.estado_golpe).get("nombre", "?")))
 	if r.imbue > 0.0:
 		_pantalla.fuego_al_musgo(objetivo, _pantalla._player.imbue_elemento)
 	# ROBO DE VIDA (AbilityData.robo_vida): sobre el daño que de verdad ha entrado. Hoy no lo usa
@@ -539,7 +641,7 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 		# 'escala' es la fraccion de daño que encaja ESTE objetivo, y con ella va la probabilidad:
 		# al de al lado que se come el 40% del golpe le prende el estado un 40% de las veces.
 		var ap: Array = _tirar_efectos_habilidad(ab, objetivo, result.crit, "objetivo", escala, escala)
-		r.estados = ap
+		r.estados += ap
 		if not ap.is_empty():
 			r.linea += "  -> " + ", ".join(ap)
 	if objetivo.is_alive():
@@ -547,6 +649,8 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 		if imb_h != "":
 			r.estados.append(imb_h)
 			r.linea += "  ⚡ " + imb_h
+	if r.has("desangra"):
+		r.linea += "  🩸 desangra %.2f" % float(r["desangra"])
 	return r
 
 
@@ -778,6 +882,14 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		if ab.paso or ab.avance:
 			_pantalla.turno_mapa.pedir_movimiento(ab, _pantalla._player,
 				0 if reparto_mapa.is_empty() else ab.num_golpes(manos, reparto_mapa.size()))
+		# (24/11) ENTRAR BAILANDO (Rafaga): te acercas antes de pegar. ESCABULLIRSE (Desaparecer): te vas al sitio del
+		# segundo clic cuando acaban los golpes. Tambien antes de los golpes, por el orden en que viajan al espejo.
+		if ab.acercarse > 0.0:
+			_pantalla.turno_mapa.pedir_acercarse(ab, _pantalla._player,
+				0 if reparto_mapa.is_empty() else ab.num_golpes(manos, reparto_mapa.size()))
+		if ab.se_mueve > 0.0:
+			_pantalla.turno_mapa.pedir_escabullirse(ab, _pantalla._player,
+				0 if reparto_mapa.is_empty() else ab.num_golpes(manos, reparto_mapa.size()))
 		# LA CARGA (Embestida): corres hasta el primero que pilla, y le pegas al llegar.
 		if ab.carga:
 			_pantalla.turno_mapa.pedir_carga(ab, _pantalla._player,
@@ -835,6 +947,8 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		var n_enemigos: int = reparto_mapa.size() if en_mapa and not reparto_mapa.is_empty() \
 			else _pantalla._vivos().size()
 		golpes = ab.num_golpes(manos, n_enemigos)
+		_bajas_hab = 0
+		_ultimo_golpe_hab = golpes - 1
 		# PLAN de golpes: mano y multiplicador de cada uno. Intercala las manos del dual (der, izq,
 		# der, izq) y, en arma+escudo, alterna arma (fuerte) / escudo (flojo). Ver ab.plan_golpes.
 		var plan: Array = ab.plan_golpes(golpes, manos)
@@ -1048,7 +1162,12 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# gastaban la energía, salían en el log y no pasaba nada. La rama enemiga siempre lo hizo bien
 	# (ver _enemy_use_ability: su llamada "self" va fuera del if/else de daño) — son funciones
 	# espejo y se habian desincronizado justo aqui. Si se vuelve a tocar una, tocar la otra.
+	# (24/11) SALIR DE LAS SOMBRAS: si esta habilidad ha pegado estando oculto con ese bonus, el sigilo se gasta (antes de
+	# que esta misma, si es Desaparecer, ponga el nuevo).
+	if total > 0.0:
+		gastar_salir_de_sombras(_pantalla._player)
 	estados_log += _tirar_efectos_habilidad(ab, obj, hubo_critico, "self")
+	estados_log += _arbol_tras_usar(ab, obj, en_mapa, reparto_mapa)
 
 	if ab.bloqueo_turnos > 0:
 		_pantalla._player_defending = true   # golpe de escudo: te deja en guardia
@@ -1111,12 +1230,39 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# SUSTITUYE, asi que envenenar la daga te quita el Filo o el Manto que llevaras -- hay una sola
 	# ranura de imbuicion, y es a proposito.
 	if ab.es_imbuicion():
-		_pantalla._player.aplicar_imbue(ab.imbue_elemento, ab.imbue_pct, ab.imbue_usos, false,
-			ab.imbue_estado, ab.imbue_prob, Elementos.INTENSIDAD_IMBUIDO,
-			ab.imbue_prob_doble, ab.imbue_por_destreza, 1.0, false,
-			ab.imbue_tope(_tier_arma_activa()), ab.imbue_reparto(_tier_arma_activa()))
-		estados_log.append("el arma puede causar %s durante %d ataques" % [
-			str(StatusEffects.def(ab.imbue_estado).get("nombre", "?")), ab.imbue_usos])
+		# (24/11) el TIER que cuenta: el del arma, y uno mas por cada peldaño de Dosis cargadas (su arbol).
+		var tier_i: int = _tier_arma_activa() + ab.imbue_peldano
+		var quienes: Array = [_pantalla._player]
+		# COMPARTIR EL FRASCO: tambien el aliado vivo mas cercano (en el mapa; fuera, el primero que no sea el), con menos ataques.
+		if ab.imbue_comparte_usos > 0:
+			var cerca_a: Combatant = null
+			var d_min: float = INF
+			for al in _pantalla._aliados_vivos():
+				if al == _pantalla._player:
+					continue
+				var dd: float = _pantalla.turno_mapa.pies_de(al).distance_to(_pantalla.turno_mapa.pies_de(_pantalla._player)) \
+					if _pantalla.tactico else 0.0
+				if dd < d_min:
+					d_min = dd
+					cerca_a = al
+			if cerca_a != null:
+				quienes.append(cerca_a)
+		for q in quienes:
+			q.aplicar_imbue(ab.imbue_elemento, ab.imbue_pct, ab.imbue_usos if q == _pantalla._player else ab.imbue_comparte_usos,
+				false, ab.imbue_estado, ab.imbue_prob, Elementos.INTENSIDAD_IMBUIDO,
+				ab.imbue_prob_doble, ab.imbue_por_destreza, 1.0, false,
+				ab.imbue_tope(tier_i), ab.imbue_reparto(tier_i))
+			# lo de su arbol (aplicar_imbue lo deja a lo normal)
+			if ab.imbue_estado == StatusEffects.Id.VENENO:
+				q.imbue_veneno_nivel = StatusEffects.veneno_de_tier(tier_i)
+			q.imbue_fuerza = ab.imbue_fuerza
+			q.imbue_acido = ab.imbue_acido
+			q.imbue_con_sangre = ab.imbue_con_sangre
+			q.imbue_revienta = ab.imbue_revienta
+			q.imbue_senal = ab.imbue_senal
+			estados_log.append("el arma de %s puede causar %s durante %d ataques" % [q.nombre,
+				StatusEffects.veneno_nombre(null, q.imbue_veneno_nivel) if q.imbue_veneno_nivel > 0
+				else str(StatusEffects.def(ab.imbue_estado).get("nombre", "?")), q.imbue_usos])
 	# LIMPIAR DEBUFFS: a un aliado elegido (Purificar) o a todo el grupo (el area del baston).
 	if ab.limpia_debuffs > 0:
 		# Sin ternario a proposito: _aliados_vivos() devuelve Array[Combatant] y la otra rama un
@@ -1133,6 +1279,13 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 			var quitados: Array = al.limpiar_debuffs(ab.limpia_debuffs)
 			if not quitados.is_empty():
 				estados_log.append("%s se quita %s" % [al.nombre, ", ".join(quitados)])
+	# (24/11) EJECUCION: si ha derribado a alguien, vuelve a estar lista ya.
+	if ab.recarga_al_matar and _bajas_hab > 0:
+		_pantalla._player.ability_cooldowns[ab] = 0
+		estados_log.append("%s vuelve a estar lista" % ab.nombre)
+	# (24/11) GOLPE Y FUERA: tras clavarla, un salto hacia atras (como el Sorbo de la Vidriada enemigo).
+	if ab.se_aparta > 0.0 and total > 0.0 and _pantalla.tactico and not _pantalla._espejo and obj != null:
+		_pantalla.turno_mapa.pedir_retirada(_pantalla._player, obj, ab.se_aparta)
 	# RECORTE DE COOLDOWNS: a las OTRAS habilidades, nunca a la suya (ver AbilityData).
 	if ab.reduce_cooldowns > 0:
 		var destrabadas: int = _pantalla._player.reducir_cooldowns(ab.reduce_cooldowns, ab)
@@ -1390,8 +1543,21 @@ func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico:
 					base += _pantalla._player.aturdir_base
 				# Y de ahi a la puerta comun, como todo lo demas: la resistencia del bicho al control,
 				# su afinidad y el estado Rayo entran ya dentro (ver Combatant.resist_estados).
-				p = StatusEffects.prob_final(base * escala_prob, _pantalla._player, d, a.estado)
-			if randf() >= p:
+				p = StatusEffects.prob_final(base * escala_prob * (ab.efectos_prob_mult if ab != null else 1.0),
+					_pantalla._player, d, a.estado)
+			# CADA CARGA SU TIRADA (Arteria): las cargas de mas que le da el arbol tiran cada una por su cuenta.
+			var cargas: int = maxi(1, a.stacks)
+			var por_carga: bool = al_enemigo and ab != null and ab.efectos_cargas_extra > 0
+			if por_carga:
+				cargas += ab.efectos_cargas_extra
+				var entran: int = 0
+				for _k in cargas:
+					if randf() < p:
+						entran += 1
+				if entran == 0:
+					continue
+				cargas = entran
+			elif randf() >= p:
 				continue
 			# (10/10) del golpe REAL que le acaba de entrar (ya lleva su escala); si no viene de un golpe, como siempre
 			var mag_real: float = StatusEffects.magnitud_del_golpe(int(a.estado), d if al_enemigo else null,
@@ -1403,8 +1569,12 @@ func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico:
 			# ignoraba a.stacks: la primera habilidad que lo use tiene que funcionar sin acordarse.
 			# DOS MENTES: un aturdir que pilla un area le da a las dos cabezas.
 			d.aturdir_en_area = ab != null and (ab.es_area() or (ab.forma >= 0 and not ab.forma_solo_primero))
-			for _s in maxi(1, a.stacks):
-				d.apply_status(a.estado, _pantalla._player.runa_turnos(a.estado, a.turns), _pantalla._player.runa_mag(a.estado, mag, d), 1, false, a.cap, a.mult)
+			# (24/11) SOMBRA LARGA: los estados que se pone quien la usa duran mas.
+			var turnos_a: int = a.turns
+			if not al_enemigo and ab != null and ab.efectos_turnos_extra > 0:
+				turnos_a = (a.turns if a.turns > 0 else int(StatusEffects.def(a.estado).get("turns", 1))) + ab.efectos_turnos_extra
+			for _s in cargas:
+				d.apply_status(a.estado, _pantalla._player.runa_turnos(a.estado, turnos_a), _pantalla._player.runa_mag(a.estado, mag, d), 1, false, a.cap, a.mult)
 			# "·" = causado al golpeado (CombatPantalla._frase_estados lo junta en "Causa X"). El buff que se pone el que la
 			# usa y se llama como ella (Guardia de carne) no se repite: "usa Guardia de carne" ya lo dice.
 			if al_enemigo:

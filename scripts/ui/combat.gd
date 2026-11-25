@@ -2196,6 +2196,9 @@ func _begin_player_turn() -> void:
 	enemigos.costra_vuelve(_player)
 	# Estados alterados (KAN-58): tick al inicio del turno (DoT, expira, aturdido).
 	var ev: Dictionary = _player.tick_statuses()
+	# (24/11) RECARGA EN LAS SOMBRAS (Desaparecer): oculto, cada turno repone un % de la energia maxima.
+	if _player.sigilo("energia") > 0.0:
+		_player.regen_energy(_player.sigilo("energia") * _player.max_energy)
 	# (23/11) donde empieza tu turno: PLANTADO (arbol del basico de la ballesta) mira si te has movido desde aqui.
 	if tactico:
 		turno_mapa.marcar_inicio_turno(_player)
@@ -2733,6 +2736,9 @@ func _accion_atacar() -> void:
 	# por golpe (su energia_regen propia): pegan menos veces, asi que cada golpe carga mas.
 	# (23/11) con la linea del arbol del basico de esta mano (Combatant.arbol_mano: piso 8 y 12 de cada nivel).
 	_player.regen_energy(arbol_basico.energia(_player, _player.energia_regen if _player.energia_regen > 0.0 else ATTACK_ENERGY_REGEN))
+	# (24/11) SALIR DE LAS SOMBRAS: si este basico ha entrado oculto, el sigilo se gasta.
+	if aciertos.has(true):
+		habilidades.gastar_salir_de_sombras(_player)
 	_update_hp()
 	_player.advance_hand()  # dual-wield: el proximo golpe sera con la otra mano
 	_fin_de_eleccion()
@@ -2793,7 +2799,8 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 	# despues, el critico y el aturdir.
 	var mult_antes: float = arbol_basico.mult_antes(_player, obj)
 	var result := StatsMath.resolve_attack(_player, obj, def_e, -1.0, 0.0, arbol_basico.penetra(_player))
-	escala *= _player.mult_arbol_basico * mult_antes * arbol_basico.mult_despues(_player, result)
+	escala *= _player.mult_arbol_basico * mult_antes * arbol_basico.mult_despues(_player, result) \
+		* (1.0 + _player.sigilo("golpe"))   # (24/11) Salir de las sombras (Desaparecer): pegando oculto
 	if escala != 1.0:
 		result.damage = float(result.damage) * escala
 		if result.has("dmg_imbue"):
@@ -3410,16 +3417,23 @@ func _disparar_un_seguimiento(esc: Combatant, obj: Combatant, pct: float, inst, 
 		if oport != null:
 			estilo = CombatFX.Estilo.PUNALADA
 		var arma: String = esc.current_hand_name()
-		var m_mano: float = 1.0 if i == 0 else DUAL_SEGUIMIENTO_MULT
+		# (24/11) ENTRAR LOS DOS (arbol del Oportunista): la segunda mano tambien entra entera.
+		var m_mano: float = 1.0 if i == 0 or (oport != null and bool(oport.d.get("dual_entero", false))) \
+			else DUAL_SEGUIMIENTO_MULT
 		efectos._fx_tanda(i)   # los dos golpes son dos, no uno: cada uno con su tanda
-		var r := StatsMath.resolve_attack(esc, obj, enemigo_defiende(obj, esc), -1.0, crit_extra)
+		# (24/11, el jefe) EL SEGUIMIENTO ES UN BASICO al pct: con la linea de daño de su arbol, la defensa que ignora y,
+		# tras acertar, sus facultades (el sangrado de la daga...). Lo de antes y lo de despues, como _golpe_basico.
+		var mult_antes_s: float = arbol_basico.mult_antes(esc, obj)
+		var r := StatsMath.resolve_attack(esc, obj, enemigo_defiende(obj, esc), -1.0, crit_extra, arbol_basico.penetra(esc))
 		_aplicar_pasivas(r, esc, obj)
 		if r.evaded:
 			_log_extra("%s entra detrás pero %s lo esquiva. 💨" % [esc.nombre, obj.nombre])
 			efectos._fx_golpe(esc, obj, 0.0, false, true, Elementos.Elemento.NINGUNO, estilo)
 			continue
-		var dmg: float = float(r.damage) * pct * m_mano
+		var dmg: float = float(r.damage) * pct * m_mano * esc.mult_arbol_basico * mult_antes_s \
+			* arbol_basico.mult_despues(esc, r)
 		var elem_dmg: float = float(r.get("dmg_imbue", 0.0))
+		var vida_antes_s: float = obj.current_hp
 		obj.take_damage(dmg)
 		efectos._fx_golpe(esc, obj, dmg, r.crit, false,
 			esc.imbue_elemento if elem_dmg > 0.0 else Elementos.Elemento.NINGUNO, estilo)
@@ -3450,6 +3464,13 @@ func _disparar_un_seguimiento(esc: Combatant, obj: Combatant, pct: float, inst, 
 		if imb != "":
 			linea += "  ⚡ Causa %s a %s." % [imb, _etq(obj)]
 			imbuido = true
+		# (24/11) las facultades del arbol del basico, como en cualquier basico que acierta
+		linea += arbol_basico.tras_acierto(esc, obj, dmg, r, vida_antes_s)
+		# (24/11) CRITICO EN CADENA (arbol del Oportunista): el que critea le da una entrada mas, hasta su tope.
+		if oport != null and r.crit and int(oport.d.get("cadena", 0)) > int(oport.d.get("cadena_hecha", 0)):
+			oport.d["cadena_hecha"] = int(oport.d.get("cadena_hecha", 0)) + 1
+			oport.usos += 1
+			linea += "  (+1 hueco)"
 		_log_extra(linea)
 		# DURABILIDAD: el arma que entra se gasta, como en cualquier golpe.
 		Game.desgastar_arma(esc.current_hand_slot(), pj_esc)
@@ -3457,6 +3478,12 @@ func _disparar_un_seguimiento(esc: Combatant, obj: Combatant, pct: float, inst, 
 	# habilidad = un uso, traiga los golpes que traiga"). Solo si de verdad ha entrado algo.
 	if conecto and imbuido:
 		magia._gastar_imbue()
+	# (24/11) SIN DEJAR RASTRO y APROVECHADO (arbol del Oportunista): tras entrar, se esconde y/o recupera energia.
+	if conecto and oport != null:
+		if int(oport.d.get("oculto", 0)) > 0:
+			esc.apply_status(StatusEffects.Id.SIGILO, int(oport.d["oculto"]))
+		if float(oport.d.get("energia", 0.0)) > 0.0:
+			esc.regen_energy(float(oport.d["energia"]) * esc.max_energy)
 	_player = quien_actuaba
 
 
