@@ -7,7 +7,8 @@ mientras tanto (lo pidio el jefe el 29/10/2026: "si no perdemos un monton de tie
   python tools/banco.py                 # la bateria entera sobre HEAD de este worktree
   python tools/banco.py 24cc899d        # sobre ese commit
   python tools/banco.py HEAD sala town  # solo las que contengan esas palabras (como pasar_pruebas.py)
-  python tools/banco.py --hilos 2       # menos a la vez, si hay poca RAM libre (por defecto 3)
+  python tools/banco.py --hilos 2       # menos a la vez, si hay poca RAM libre (por defecto 8)
+  python tools/banco.py --carriles 1    # las de red de una en una (por defecto 3 carriles a la vez)
 
 COMO VA:
   - El banco es un worktree fijo, ../prm-banco, que no se toca a mano: cada vez se pone en el commit que toca (detached).
@@ -91,7 +92,9 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Pasa la bateria entera en ../prm-banco sobre un commit.")
     ap.add_argument("commit", nargs="?", default="HEAD")
     ap.add_argument("filtros", nargs="*")
-    ap.add_argument("--hilos", type=int, default=3)
+    ap.add_argument("--hilos", type=int, default=8)   # (25/11, el jefe) a tope: memoria simulador-apurar-ram-y-cpu
+    # (25/11) las de red en varios carriles a la vez (worktrees ../prm-banco-carril<k>, ver pasar_pruebas.py)
+    ap.add_argument("--carriles", type=int, default=3)
     a = ap.parse_args()
     if RAIZ.name == BANCO.name:
         raise SystemExit("banco.py se lanza desde el worktree de trabajo, no desde el banco.")
@@ -105,7 +108,7 @@ def main() -> int:
     salida.parent.mkdir(parents=True, exist_ok=True)
     CERROJO.write_text(str(os.getpid()))
     try:
-        orden = [sys.executable, "-u", str(BANCO / "tools" / "pasar_pruebas.py"), "--hilos", str(a.hilos), *a.filtros]
+        orden = [sys.executable, "-u", str(BANCO / "tools" / "pasar_pruebas.py"), "--hilos", str(a.hilos), "--carriles", str(a.carriles), *a.filtros]
         with open(salida, "w", encoding="utf-8") as f:
             f.write("BANCO: bateria sobre %s\n" % sha)
             p = subprocess.Popen(orden, cwd=str(BANCO), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
