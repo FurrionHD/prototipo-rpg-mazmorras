@@ -11,7 +11,10 @@ tanda = sys.argv[1] if len(sys.argv) > 1 else "munecos_estoque2"
 ruta = Path(__file__).resolve().parent / "resultados_simulador" / (tanda + "_personajes.csv")
 NOMBRE_A_CLAVE = {"Estocada penetrante": "estocada_penetrante", "Fintas": "fintas", "Danza de acero": "danza_de_acero",
                   "En guardia": "en_guardia", "Paso ligero": "paso_ligero", "Punzada al nervio": "punzada_al_nervio",
-                  "Avance cubierto": "avance_cubierto"}
+                  "Avance cubierto": "avance_cubierto",
+                  # (26/11) la espada corta
+                  "Tajo quebrantador": "tajo_quebrantador", "Doble tajo": "doble_tajo", "Cambio de ritmo": "cambio_de_ritmo",
+                  "Señalar el hueco": "senalar_el_hueco", "Corte de tendones": "corte_de_tendones"}
 d = defaultdict(list)
 for r in csv.DictReader(open(ruta, encoding="utf-8"), delimiter=";"):
     if r.get("rol") != "guerrero":
@@ -34,7 +37,8 @@ for r in csv.DictReader(open(ruta, encoding="utf-8"), delimiter=";"):
     except ValueError:
         pass
 
-ESC = ["muneco", "munecos", "munecos_juntos"]
+# (26/11) y el muñeco que PEGA (lo que solo hace algo cuando te atacan), si la tanda lo trae
+ESC = ["muneco", "munecos", "munecos_juntos"] + (["muneco_pega"] if any(k[1] == "muneco_pega" for k in d) else [])
 habs = sorted({k[0] for k in d})
 for h in habs:
     caminos = sorted({k[2] for k in d if k[0] == h and k[2] != ""})
@@ -49,4 +53,4 @@ for h in habs:
             v.append(100.0 * (sum(xs) / len(xs)) / nom[e] if xs and nom[e] > 0 else float("nan"))
         filas.append((c, v))
     for c, v in sorted(filas, key=lambda f: -f[1][0]):
-        print("   %5.0f %5.0f %5.0f   %s" % (v[0], v[1], v[2], c))
+        print("   " + " ".join("%5.0f" % x for x in v) + "   " + c)

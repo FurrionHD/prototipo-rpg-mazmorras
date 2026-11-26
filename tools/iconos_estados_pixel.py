@@ -412,6 +412,11 @@ ICONOS = [
         ".....oo.....", "....owlo....", "....olmo....", "...oolmoo...", "....olmo....", "....olmo....",
         "..ooolmooo..", "..oaaaaaao..", "..ooolmooo..", "....odmo....", "....odmo....", ".....oo....."),
         {'a': (240, 200, 90)}),
+    # (26/11, espada corta: Doble tajo) FURIA DE FILO: el remolino de filos.
+    ("furia_filo", "Furia de filo", (0.85, 0.85, 0.95), (
+        "....oooo....", "..oowwlloo..", ".olw....loo.", ".ow..oo..lo.", "ol..owlo..lo", "ol.olwmlo.lo",
+        "ol.olmmlo.lo", "ol..olmo..lo", ".ol..oo..mo.", ".oom....moo.", "..oommmmoo..", "....oooo...."),
+        {}),
 ]
 
 
@@ -584,6 +589,7 @@ EMOJI = {
     "🧄": "plato_estomago", "🍀": "plato_fortuna", "🦠": "infectado", "🌿": "florecido", "👁": "ojos_insomnes", "🕯": "concentracion",
     "🧫": "costra_sangre", "🫦": "sed_mana", "🏮": "a_oscuras", "🌘": "bebe_luz", "🍇": "racimo",
     "🐺": "paciencia", "🌙": "marca_luna", "🌗": "fases_luna", "🌕": "luz_luna", "🌒": "fases_luna",
+    "🌪": "furia_filo",   # (26/11, espada corta: Doble tajo)
 }
 
 

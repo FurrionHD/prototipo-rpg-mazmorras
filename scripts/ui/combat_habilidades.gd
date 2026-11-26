@@ -441,6 +441,9 @@ static func mult_arbol_golpe(ab: AbilityData, objetivo: Combatant, i: int, bajas
 	if ab.bonus_vida_baja > 0.0 and objetivo != null and objetivo.max_hp > 0.0 \
 			and objetivo.current_hp < objetivo.max_hp * ab.vida_baja_umbral:
 		m *= 1.0 + ab.bonus_vida_baja
+	# (26/11, espada corta) ROMPER LA GUARDIA / SOBRE LO MARCADO / AL QUE COJEA: al que ya lleva el estado.
+	if ab.extra_si_estado >= 0 and ab.extra_si_estado_mult > 0.0 and objetivo != null and objetivo.has_status(ab.extra_si_estado):
+		m *= 1.0 + ab.extra_si_estado_mult
 	# (25/11) SOBRE LO TOCADO (Punzada al nervio): al que ya esta Debil o Lento.
 	if ab.extra_si_tocado > 0.0 and objetivo != null 			and (objetivo.has_status(StatusEffects.Id.DEBIL) or objetivo.has_status(StatusEffects.Id.LENTO)):
 		m *= 1.0 + ab.extra_si_tocado
@@ -534,6 +537,11 @@ func _arbol_tras_golpes(ab: AbilityData, entraron: Array, criticos: int, ultimo:
 	if ab.guardia_si_no_golpea and entraron.is_empty() and not p.en_guardia:
 		log_estados += poner_guardia(p, _tu_en_guardia(p), false)
 		log_estados.append("%s queda en guardia" % p.nombre)
+	# (26/11, espada corta) FURIA DE FILO: una carga por cada enemigo de mas al que le entro.
+	if ab.furia_por_enemigo and entraron.size() > 1 and not p.es_inmune(StatusEffects.Id.FURIA_FILO):
+		p.apply_status(StatusEffects.Id.FURIA_FILO, int(StatusEffects.def(StatusEffects.Id.FURIA_FILO).get("turns", 2)), 0.0,
+			entraron.size() - 1)
+		log_estados.append("%s gana %d de Furia de filo" % [p.nombre, entraron.size() - 1])
 	# (26/11) RETO (Avance cubierto): los que se llevaron golpe van solo a por ti (si ya provocas a todos, se queda asi).
 	if ab.reto_turnos > 0:
 		var retados: Array = entraron.filter(func(o): return (o as Combatant).is_alive())
@@ -636,6 +644,9 @@ var _abiertos_escudo: Dictionary = {}
 var _carrera_hab: float = 0.0
 # Los criticos de la ultima habilidad (lo miran las pruebas: tools/prueba_avance_cubierto).
 var criticos_ultima: int = 0
+# (26/11, espada corta) PRESA FACIL: los enemigos Lentos de un Corte de tendones con el nodo (la lista es la MISMA en todos: la
+# mira StatsMath.critico_espada para contar cuantos siguen Lentos).
+var _presas: Array = []
 
 
 func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: int,
@@ -684,6 +695,10 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	var de_escudo: bool = ab.golpe_es_de_escudo(i)
 	var pen_g: float = 0.0 if de_escudo and ab.escudo_hasta_golpe >= 0 else ab.penetracion_extra
 	var crit_g: float = ab.crit_extra
+	# (26/11, espada corta) HUECO ABIERTO: mas critico contra el que lleva el estado.
+	if ab.crit_si_estado >= 0 and objetivo.has_status(ab.crit_si_estado):
+		crit_g += ab.crit_si_estado_extra
+	var tenia_retrasa: bool = ab.retrasa_si_estado >= 0 and objetivo.has_status(ab.retrasa_si_estado)
 	if ab.escudo_abre_critico and not de_escudo and _abiertos_escudo.has(objetivo):
 		crit_g = 5.0   # seguro, lleve el critico que lleve
 	var result := StatsMath.resolve_attack(_pantalla._player, objetivo, def_e, atk_ov, crit_g,
@@ -779,6 +794,10 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	r.conecto = true
 	r.crit = result.crit
 	# (25/11) DESEQUILIBRIO (Estocada penetrante): el critico le echa atras en la barra de turno.
+	# (26/11, espada corta) ARRODILLAR: al que ya llevaba el estado, atras en la barra.
+	if tenia_retrasa and objetivo.is_alive():
+		_pantalla.echar_atras(objetivo)
+		r.estados.append("·echado atrás en la barra")
 	if ab.retrasa_si_critico and result.crit and objetivo.is_alive():
 		_pantalla.echar_atras(objetivo)
 		r.estados.append("·echado atrás en la barra")
@@ -1183,6 +1202,22 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 							"" if tm == obj else " (%s)" % tm.nombre, m_golpe))
 						escala_por_obj[tm] = maxf(float(escala_por_obj.get(tm, 0.0)), esc_m)
 						if tm not in tocados: tocados.append(tm)
+					# (26/11, espada corta) REMATE EN CRUZ: si el ultimo golpe ha tumbado a alguien, otro al mas cercano a tu alcance.
+					if ab.golpe_si_mata_ultimo and i == golpes - 1 and golpe_res.any(func(rr): return not (rr.c as Combatant).is_alive()):
+						var cerca_c: Combatant = null
+						var d_c: float = INF
+						# a tiro de la PROPIA habilidad (el cono del Doble tajo llega a 69 px; el basico, a unos 19)
+						var tiro: float = ab.forma_radio if ab.forma_radio > 0.0 else _pantalla.turno_mapa.alcance_de(_pantalla._player)
+						for e2 in _pantalla._vivos():
+							var dd2: float = _pantalla.turno_mapa.hueco_entre(_pantalla._player, e2)
+							if dd2 > tiro:
+								continue
+							if dd2 < d_c:
+								d_c = dd2
+								cerca_c = e2
+						if cerca_c != null:
+							golpe_res.append(_resolver_golpe_hab(ab, cerca_c, i, manos, 1.0, " (remate en cruz: %s)" % cerca_c.nombre, m_golpe))
+							if cerca_c not in tocados: tocados.append(cerca_c)
 				AbilityData.AreaModo.SPLASH:
 					# Principal al 100%, cada secundario x el % que toca (baja con la multitud si la
 					# habilidad tiene decay). El total CRECE con cada enemigo tocado.
@@ -1365,6 +1400,10 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# Bajas velocidad (data-driven), esquivas mas y devuelves los golpes que esquivas (riposte).
 	if ab.postura_contraataque:
 		estados_log += poner_guardia(_pantalla._player, ab, true)
+	# (26/11, espada corta) PRESTEZA (Cambio de ritmo): un estado para quien la usa.
+	if ab.estado_propio >= 0 and not _pantalla._player.es_inmune(ab.estado_propio):
+		_pantalla._player.apply_status(ab.estado_propio, ab.estado_propio_turnos)
+		estados_log.append("%s recibe %s" % [_pantalla._player.nombre, str(StatusEffects.def(ab.estado_propio).get("nombre", "?"))])
 	# Foco arcano (Canalización): concede cargas que amplifican tus proximos hechizos.
 	if ab.foco_cargas > 0:
 		_pantalla._player.foco_cargas += ab.foco_cargas
@@ -1765,6 +1804,32 @@ func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico:
 			for _s in cargas:
 				d.apply_status(a.estado, _pantalla._player.runa_turnos(a.estado, turnos_a), _pantalla._player.runa_mag(a.estado, mag, d), 1, false, a.cap,
 					ab.mult_de_efecto(a) if ab != null else a.mult)
+			# (26/11, espada corta) APROVECHAR EL HUECO: energia por cada enemigo al que le entra el estado de la habilidad.
+			if al_enemigo and ab != null and ab.energia_por_estado > 0.0 and not ab.efectos.is_empty() and a == ab.efectos[0]:
+				_pantalla._player.regen_energy(ab.energia_por_estado * _pantalla._player.max_energy)
+				out.append("%s recupera %d de energía" % [_pantalla._player.nombre,
+					roundi(ab.energia_por_estado * _pantalla._player.max_energy)])
+			# A POR EL / CAZA (Señalar el hueco): la Marca recuerda quien la puso y con que.
+			if al_enemigo and ab != null and int(a.estado) == StatusEffects.Id.MARCA:
+				if ab.marca_energia_aliados > 0.0:
+					d.set_meta(&"marca_energia", [_pantalla._player, ab.marca_energia_aliados])
+				if ab.recarga_si_cae_marcado:
+					d.set_meta(&"marca_caza", [_pantalla._player, ab])
+				if ab.marca_ojo_critico > 0.0:
+					d.set_meta(&"marca_ojo", [_pantalla._player, ab.marca_ojo_critico])
+				if ab.marca_orden:
+					d.set_meta(&"marca_orden", true)
+					for sg in [StatusEffects.Id.SIGILO, StatusEffects.Id.EN_SOMBRAS]:
+						if d.has_status(sg):
+							d.quitar_estado(sg)
+							out.append("%s queda a la vista" % d.nombre)
+			# SIN PODER CURARSE / PRESA FACIL (Corte de tendones)
+			if al_enemigo and ab != null and int(a.estado) == StatusEffects.Id.HERIDA_PROFUNDA and ab.herida_cura_duele > 0.0:
+				d.set_meta(&"cura_duele", ab.herida_cura_duele)
+			if al_enemigo and ab != null and int(a.estado) == StatusEffects.Id.LENTO and ab.presa_facil > 0.0:
+				if not _presas.has(d):
+					_presas.append(d)
+				d.set_meta(&"presa_facil", [_presas, ab.presa_facil])
 			# (25/11) TEMBLOR (Punzada): su Debil le baja tambien el critico (en SU copia del estado, como el Oportunista).
 			if al_enemigo and ab != null and ab.debil_quita_critico > 0.0 and int(a.estado) == StatusEffects.Id.DEBIL:
 				var inst = d.get_status(StatusEffects.Id.DEBIL)

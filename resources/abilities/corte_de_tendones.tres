@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/items/nodo_mejora.gd" id="nodo_mejora"]
 
 [sub_resource type="Resource" id="SA_0"]
 script = ExtResource("2")
@@ -14,6 +15,258 @@ script = ExtResource("2")
 estado = 16
 prob = 0.7
 turns = 3
+
+[sub_resource type="Resource" id="NM_cor_barrido_bajo"]
+script = ExtResource("nodo_mejora")
+id = &"barrido_bajo"
+nombre = "Barrido bajo"
+descripcion = "Un tajo a ras de suelo, casi en redondo."
+padres = Array[StringName]([])
+excluye = Array[StringName]([&"brazo_largo_t"])
+nivel_min = 2
+dominio = 300
+oro = 10000
+cambios = {"forma_apertura": ["set", 220.0], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cor_brazo_largo_t"]
+script = ExtResource("nodo_mejora")
+id = &"brazo_largo_t"
+nombre = "Brazo largo"
+descripcion = "Un paso más de filo."
+padres = Array[StringName]([])
+excluye = Array[StringName]([&"barrido_bajo"])
+nivel_min = 2
+dominio = 300
+oro = 10000
+cambios = {"forma_radio": ["set", 95.0], "potencia": ["presupuesto", 0.75], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cor_asegurar_corte"]
+script = ExtResource("nodo_mejora")
+id = &"asegurar_corte"
+nombre = "Asegurar el corte"
+descripcion = "Donde va el filo, el tendón no se escapa."
+padres = Array[StringName]([&"barrido_bajo"])
+excluye = Array[StringName]([&"sin_curarse"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"efectos_prob_mult": ["set", 1.5], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cor_sin_curarse"]
+script = ExtResource("nodo_mejora")
+id = &"sin_curarse"
+nombre = "Sin poder curarse"
+descripcion = "Lo que le cierra la herida, se la abre."
+padres = Array[StringName]([&"barrido_bajo"])
+excluye = Array[StringName]([&"asegurar_corte"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"herida_cura_duele": ["set", 0.5], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cor_al_que_cojea"]
+script = ExtResource("nodo_mejora")
+id = &"al_que_cojea"
+nombre = "Al que cojea"
+descripcion = "El que no se puede apartar, se lo come entero."
+padres = Array[StringName]([&"brazo_largo_t"])
+excluye = Array[StringName]([&"desangrar_t"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"extra_si_estado": ["set", 3], "extra_si_estado_mult": ["set", 0.3], "potencia": ["presupuesto", 0.375], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cor_desangrar_t"]
+script = ExtResource("nodo_mejora")
+id = &"desangrar_t"
+nombre = "Desangrar"
+descripcion = "Bajo la rodilla hay mucha sangre."
+padres = Array[StringName]([&"brazo_largo_t"])
+excluye = Array[StringName]([&"al_que_cojea"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"estado_golpe": ["set", 1], "estado_golpe_prob": ["set", 0.5], "estado_golpe_turnos": ["set", 3], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cor_arrodillar"]
+script = ExtResource("nodo_mejora")
+id = &"arrodillar"
+nombre = "Arrodillar"
+descripcion = "Al que ya cojeaba, la pierna se le dobla."
+padres = Array[StringName]([&"asegurar_corte", &"sin_curarse"])
+excluye = Array[StringName]([&"presa_facil", &"retroceso_t"])
+nivel_min = 4
+dominio = 900
+oro = 160000
+cambios = {"retrasa_si_estado": ["set", 3], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cor_presa_facil"]
+script = ExtResource("nodo_mejora")
+id = &"presa_facil"
+nombre = "Presa fácil"
+descripcion = "El que cojea es el primero al que va todo el mundo."
+padres = Array[StringName]([&"asegurar_corte", &"al_que_cojea"])
+excluye = Array[StringName]([&"arrodillar", &"retroceso_t"])
+nivel_min = 4
+dominio = 900
+oro = 160000
+cambios = {"presa_facil": ["set", 0.05], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cor_retroceso_t"]
+script = ExtResource("nodo_mejora")
+id = &"retroceso_t"
+nombre = "Retroceso"
+descripcion = "Cortas y te apartas: que te sigan, si pueden."
+padres = Array[StringName]([&"sin_curarse", &"desangrar_t"])
+excluye = Array[StringName]([&"arrodillar", &"presa_facil"])
+nivel_min = 4
+dominio = 900
+oro = 160000
+cambios = {"se_aparta": ["add", 40.0], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cor_clavarlo"]
+script = ExtResource("nodo_mejora")
+id = &"clavarlo"
+nombre = "Clavarlo"
+descripcion = "Lo que no puede andar, se queda donde está."
+padres = Array[StringName]([&"arrodillar", &"presa_facil", &"retroceso_t"])
+excluye = Array[StringName]([])
+nivel_min = 5
+dominio = 1200
+oro = 640000
+cambios = {"enraiza_si_lento": ["set", 0.5], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cor_linea_6"]
+script = ExtResource("nodo_mejora")
+id = &"linea_6"
+nombre = "Nivel 6"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"clavarlo"])
+excluye = Array[StringName]([])
+nivel_min = 6
+dominio = 1500
+oro = 1024000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cor_linea_7"]
+script = ExtResource("nodo_mejora")
+id = &"linea_7"
+nombre = "Nivel 7"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_6"])
+excluye = Array[StringName]([])
+nivel_min = 7
+dominio = 1800
+oro = 1638000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cor_linea_8"]
+script = ExtResource("nodo_mejora")
+id = &"linea_8"
+nombre = "Nivel 8"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_7"])
+excluye = Array[StringName]([])
+nivel_min = 8
+dominio = 2100
+oro = 2621000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cor_linea_9"]
+script = ExtResource("nodo_mejora")
+id = &"linea_9"
+nombre = "Nivel 9"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_8"])
+excluye = Array[StringName]([])
+nivel_min = 9
+dominio = 2400
+oro = 4194000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cor_linea_10"]
+script = ExtResource("nodo_mejora")
+id = &"linea_10"
+nombre = "Nivel 10"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_9"])
+excluye = Array[StringName]([])
+nivel_min = 10
+dominio = 2700
+oro = 6710000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cor_linea_11"]
+script = ExtResource("nodo_mejora")
+id = &"linea_11"
+nombre = "Nivel 11"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_10"])
+excluye = Array[StringName]([])
+nivel_min = 11
+dominio = 3000
+oro = 10736000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cor_linea_12"]
+script = ExtResource("nodo_mejora")
+id = &"linea_12"
+nombre = "Nivel 12"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_11"])
+excluye = Array[StringName]([])
+nivel_min = 12
+dominio = 3300
+oro = 17178000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cor_linea_13"]
+script = ExtResource("nodo_mejora")
+id = &"linea_13"
+nombre = "Nivel 13"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_12"])
+excluye = Array[StringName]([])
+nivel_min = 13
+dominio = 3600
+oro = 27485000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cor_linea_14"]
+script = ExtResource("nodo_mejora")
+id = &"linea_14"
+nombre = "Nivel 14"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_13"])
+excluye = Array[StringName]([])
+nivel_min = 14
+dominio = 3900
+oro = 43976000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cor_linea_15"]
+script = ExtResource("nodo_mejora")
+id = &"linea_15"
+nombre = "Nivel 15"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_14"])
+excluye = Array[StringName]([])
+nivel_min = 15
+dominio = 4200
+oro = 70362000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cor_linea_16"]
+script = ExtResource("nodo_mejora")
+id = &"linea_16"
+nombre = "Nivel 16"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_15"])
+excluye = Array[StringName]([])
+nivel_min = 16
+dominio = 4500
+oro = 112579000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
 
 [resource]
 script = ExtResource("1")
@@ -36,3 +289,5 @@ suelo_roto = 18
 redirige_al_morir = true
 descripcion = "No busca el pecho: busca lo que lo sostiene y lo que lo repara. Después de esto se mueve peor y se recompone aún peor."
 efectos = [SubResource("SA_0"), SubResource("SA_1")]
+; EL ARBOL (24/11, cerrado con el jefe): lo escribe tools/arboles_habilidades.py, no tocarlo a mano.
+arbol = [SubResource("NM_cor_barrido_bajo"), SubResource("NM_cor_brazo_largo_t"), SubResource("NM_cor_asegurar_corte"), SubResource("NM_cor_sin_curarse"), SubResource("NM_cor_al_que_cojea"), SubResource("NM_cor_desangrar_t"), SubResource("NM_cor_arrodillar"), SubResource("NM_cor_presa_facil"), SubResource("NM_cor_retroceso_t"), SubResource("NM_cor_clavarlo"), SubResource("NM_cor_linea_6"), SubResource("NM_cor_linea_7"), SubResource("NM_cor_linea_8"), SubResource("NM_cor_linea_9"), SubResource("NM_cor_linea_10"), SubResource("NM_cor_linea_11"), SubResource("NM_cor_linea_12"), SubResource("NM_cor_linea_13"), SubResource("NM_cor_linea_14"), SubResource("NM_cor_linea_15"), SubResource("NM_cor_linea_16")]

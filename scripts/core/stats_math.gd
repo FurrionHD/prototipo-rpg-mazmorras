@@ -255,6 +255,30 @@ static func max_mp_jugador(ab: Abilities, base_mp: float) -> float:
 const ESCUDO_DEF_A_ATAQUE := 0.7
 
 
+# (26/11, espada corta) LOS CRITICOS DE MAS por lo que lleva puesto el defensor: OJO DE DUELISTA (quien le marco, contra su
+# marcado) y PRESA FACIL (todos contra los Lentos de un Corte de tendones con el nodo, por cada uno de ellos que siga Lento).
+static func critico_espada(attacker: Combatant, defender: Combatant) -> float:
+	var extra: float = 0.0
+	if defender.has_meta(&"marca_ojo") and defender.has_status(StatusEffects.Id.MARCA):
+		var mo: Array = defender.get_meta(&"marca_ojo")
+		if mo.size() == 2 and mo[0] == attacker:
+			extra += float(mo[1])
+	if defender.has_meta(&"presa_facil") and defender.has_status(StatusEffects.Id.LENTO):
+		var pf: Array = defender.get_meta(&"presa_facil")
+		if pf.size() == 2:
+			var n: int = (pf[0] as Array).filter(func(c): return is_instance_valid(c) and (c as Combatant).is_alive() \
+				and (c as Combatant).has_status(StatusEffects.Id.LENTO)).size()
+			extra += minf(AbilityData.PRESA_TOPE, float(pf[1]) * float(n))
+	return extra
+
+
+# ORDEN DE ATAQUE: al marcado con el nodo no le valen las capas de esquiva.
+static func capas_validas(defender: Combatant) -> Array:
+	if defender.has_meta(&"marca_orden") and defender.has_status(StatusEffects.Id.MARCA):
+		return []
+	return defender.capas_esquiva()
+
+
 # Daño = ataque mitigado por la defensa (rendimientos decrecientes).
 #   daño = ataque × K / (K + defensa)
 # Devuelve FLOAT (con decimales) para NO perder precision: asi mejoras pequeñas
@@ -540,7 +564,7 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# Defender NO anula el critico: lo deja a la MITAD (DEFEND_CRIT_MULT). El x0.5 va DESPUES del
 	# clamp, sobre la probabilidad ya resuelta, para que reduzca lo que de verdad te iban a sacar.
 	var crit_p := clampf(crit_chance(atk_dex, def_agi) + attacker.crit_bonus + attacker.crit_flat
-		+ attacker.status_crit_flat() + crit_extra - defender.crit_resist, 0.0, 1.0)
+		+ attacker.status_crit_flat() + crit_extra + critico_espada(attacker, defender) - defender.crit_resist, 0.0, 1.0)
 	if defending:
 		crit_p *= DEFEND_CRIT_MULT
 	# EL ATURDIR VA POR DONDE VAN TODOS LOS ESTADOS. Hasta ahora tenia carril propio -- su propio
@@ -565,7 +589,7 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# (25/11) LAS CAPAS DE ESQUIVA: ha pasado la normal; otra tirada por cada capa (solo si las hay: sin capas no se tira
 	# nada mas y las peleas sin guardia salen igual que antes).
 	if puede_esquivar:
-		for capa in defender.capas_esquiva():
+		for capa in capas_validas(defender):
 			if randf() < float(capa):
 				return {"damage": 0.0, "evaded": true, "crit": false, "aturde": false, "capa": true,
 					"evade_p": evade_p, "crit_p": crit_p, "aturde_p": aturde_p}
@@ -729,7 +753,7 @@ static func resolve_magico_enemigo(attacker: Combatant, defender: Combatant, pue
 		return {"damage": 0.0, "evaded": true, "crit": false, "aturde": false,
 			"evade_p": evade_p, "crit_p": crit_p, "aturde_p": 0.0, "magico": true}
 	if puede_esquivar:
-		for capa in defender.capas_esquiva():
+		for capa in capas_validas(defender):
 			if randf() < float(capa):
 				return {"damage": 0.0, "evaded": true, "crit": false, "aturde": false, "capa": true,
 					"evade_p": evade_p, "crit_p": crit_p, "aturde_p": 0.0, "magico": true}

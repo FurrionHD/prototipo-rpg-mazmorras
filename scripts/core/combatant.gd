@@ -1634,6 +1634,10 @@ func en_sombras() -> bool:
 # PASO UNICO de toda la curacion (pociones, regeneracion, hechizos): por eso la Herida profunda se
 # descuenta aqui y no en cada sitio que cura.
 func heal(amount: float) -> void:
+	# (26/11, espada corta) SIN PODER CURARSE: con la Herida profunda del nodo, la cura le hace daño.
+	if amount > 0.0 and has_meta(&"cura_duele") and has_status(StatusEffects.Id.HERIDA_PROFUNDA):
+		take_damage(amount * float(get_meta(&"cura_duele")))
+		return
 	current_hp = minf(max_hp, current_hp + maxf(0.0, amount) * status_heal_recv_mult() * (1.0 + runa_cura_recibida))
 
 

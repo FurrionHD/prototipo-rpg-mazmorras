@@ -65,7 +65,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	NOCHE_LUNA,
 	GUARDIA_LEIDA,
 	ESQUIVO,
-	AL_ACECHO }
+	AL_ACECHO,
+	FURIA_FILO }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -804,6 +805,14 @@ static var _defs: Dictionary = {
 		"turns": 3, "stack_mode": "merge", "max_stacks": 3, "atk_mult": 1.1,
 		"descripcion": "Cada golpe que no te ha tocado te ha enseñado dónde devolverlo.",
 	},
+	# (26/11, espada corta: Doble tajo) FURIA DE FILO: por cada enemigo de mas que pilla el Doble tajo, una carga; cada una +5 %
+	# de ataque, hasta 4, 2 turnos.
+	Id.FURIA_FILO: {
+		"id": Id.FURIA_FILO, "nombre": "Furia de filo", "icono": "🌪", "color": Color(0.85, 0.85, 0.95),
+		"turns": 2, "stack_mode": "merge", "max_stacks": 4, "atk_mult": 1.05,
+		"descripcion": "Cuantos más tiene delante, más rápido va el filo.",
+	},
+
 	# EL SET CONCENTRACION (12/11, el de la Polilla insomne): cada frase bien recitada le pone una carga (hasta el tope del
 	# set) y fallar una se las quita todas (CombatMagia). Cada carga, + el daño magico que diga el set (mult_override). Dura
 	# la pelea: no se gasta por turnos y no sale de ella ("de_la_pelea").

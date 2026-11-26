@@ -2,11 +2,276 @@
 
 [ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/items/nodo_mejora.gd" id="nodo_mejora"]
 
 [sub_resource type="Resource" id="SA_vuln"]
 script = ExtResource("2")
 estado = 5
 prob = 0.35
+
+[sub_resource type="Resource" id="NM_taj_tajo_a_fondo"]
+script = ExtResource("nodo_mejora")
+id = &"tajo_a_fondo"
+nombre = "Tajo a fondo"
+descripcion = "Menos ancho, más hondo."
+padres = Array[StringName]([])
+excluye = Array[StringName]([&"barrido_ancho"])
+nivel_min = 2
+dominio = 300
+oro = 10000
+cambios = {"forma_apertura": ["set", 60.0], "forma_radio": ["add", 30.0], "dano_mult": ["mult", 1.1], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_taj_barrido_ancho"]
+script = ExtResource("nodo_mejora")
+id = &"barrido_ancho"
+nombre = "Barrido ancho"
+descripcion = "El tajo abre a todos los que tiene delante."
+padres = Array[StringName]([])
+excluye = Array[StringName]([&"tajo_a_fondo"])
+nivel_min = 2
+dominio = 300
+oro = 10000
+cambios = {"forma_apertura": ["set", 150.0], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_taj_romper_guardia"]
+script = ExtResource("nodo_mejora")
+id = &"romper_guardia"
+nombre = "Romper la guardia"
+descripcion = "Lo que ya está abierto, se termina de abrir."
+padres = Array[StringName]([&"tajo_a_fondo"])
+excluye = Array[StringName]([&"quebrar_armadura", &"hueco_abierto"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"extra_si_estado": ["set", 5], "extra_si_estado_mult": ["set", 0.4], "potencia": ["presupuesto", 0.375], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_taj_quebrar_armadura"]
+script = ExtResource("nodo_mejora")
+id = &"quebrar_armadura"
+nombre = "Quebrar armadura"
+descripcion = "El filo no rodea la placa: la parte."
+padres = Array[StringName]([&"tajo_a_fondo"])
+excluye = Array[StringName]([&"romper_guardia", &"hueco_abierto"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"penetracion_extra": ["add", 0.25], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_taj_hueco_abierto"]
+script = ExtResource("nodo_mejora")
+id = &"hueco_abierto"
+nombre = "Hueco abierto"
+descripcion = "Por donde ya ha entrado una vez, entra mejor."
+padres = Array[StringName]([&"tajo_a_fondo"])
+excluye = Array[StringName]([&"romper_guardia", &"quebrar_armadura"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"crit_si_estado": ["set", 5], "crit_si_estado_extra": ["set", 0.25], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_taj_abrir_a_todos"]
+script = ExtResource("nodo_mejora")
+id = &"abrir_a_todos"
+nombre = "Abrir a todos"
+descripcion = "Ninguno de los que alcanza se queda con la guardia entera."
+padres = Array[StringName]([&"barrido_ancho"])
+excluye = Array[StringName]([&"exponer_mas"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"efectos_prob_mult": ["set", 2.0], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_taj_exponer_mas"]
+script = ExtResource("nodo_mejora")
+id = &"exponer_mas"
+nombre = "Exponer más"
+descripcion = "La herida que deja es más ancha que la que hace."
+padres = Array[StringName]([&"barrido_ancho"])
+excluye = Array[StringName]([&"abrir_a_todos"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"efectos_mult_de": ["add", {5: 0.7}], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_taj_desequilibrio_q"]
+script = ExtResource("nodo_mejora")
+id = &"desequilibrio_q"
+nombre = "Desequilibrio"
+descripcion = "Cuando entra bien, el otro tarda en recomponerse."
+padres = Array[StringName]([&"romper_guardia", &"hueco_abierto"])
+excluye = Array[StringName]([&"aprovechar_hueco", &"mano_rapida_q"])
+nivel_min = 4
+dominio = 900
+oro = 160000
+cambios = {"retrasa_si_critico": ["set", true], "potencia": ["presupuesto", 0.625], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_taj_aprovechar_hueco"]
+script = ExtResource("nodo_mejora")
+id = &"aprovechar_hueco"
+nombre = "Aprovechar el hueco"
+descripcion = "Cada guardia que abres te da aire."
+padres = Array[StringName]([&"abrir_a_todos", &"exponer_mas"])
+excluye = Array[StringName]([&"desequilibrio_q", &"mano_rapida_q"])
+nivel_min = 4
+dominio = 900
+oro = 160000
+cambios = {"energia_por_estado": ["set", 0.05], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_taj_mano_rapida_q"]
+script = ExtResource("nodo_mejora")
+id = &"mano_rapida_q"
+nombre = "Mano rápida"
+descripcion = "El tajo vuelve antes a la mano."
+padres = Array[StringName]([&"quebrar_armadura", &"abrir_a_todos"])
+excluye = Array[StringName]([&"desequilibrio_q", &"aprovechar_hueco"])
+nivel_min = 4
+dominio = 900
+oro = 160000
+cambios = {"cooldown": ["add", -1], "potencia": ["presupuesto", 0.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_taj_desarmar_guardia"]
+script = ExtResource("nodo_mejora")
+id = &"desarmar_guardia"
+nombre = "Desarmar la guardia"
+descripcion = "Lo que tenía levantado para pararte, ya no lo tiene."
+padres = Array[StringName]([&"desequilibrio_q", &"aprovechar_hueco", &"mano_rapida_q"])
+excluye = Array[StringName]([])
+nivel_min = 5
+dominio = 1200
+oro = 640000
+cambios = {"quita_guardia": ["set", true], "potencia": ["presupuesto", 0.75], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_taj_linea_6"]
+script = ExtResource("nodo_mejora")
+id = &"linea_6"
+nombre = "Nivel 6"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"desarmar_guardia"])
+excluye = Array[StringName]([])
+nivel_min = 6
+dominio = 1500
+oro = 1024000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_taj_linea_7"]
+script = ExtResource("nodo_mejora")
+id = &"linea_7"
+nombre = "Nivel 7"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_6"])
+excluye = Array[StringName]([])
+nivel_min = 7
+dominio = 1800
+oro = 1638000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_taj_linea_8"]
+script = ExtResource("nodo_mejora")
+id = &"linea_8"
+nombre = "Nivel 8"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_7"])
+excluye = Array[StringName]([])
+nivel_min = 8
+dominio = 2100
+oro = 2621000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_taj_linea_9"]
+script = ExtResource("nodo_mejora")
+id = &"linea_9"
+nombre = "Nivel 9"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_8"])
+excluye = Array[StringName]([])
+nivel_min = 9
+dominio = 2400
+oro = 4194000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_taj_linea_10"]
+script = ExtResource("nodo_mejora")
+id = &"linea_10"
+nombre = "Nivel 10"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_9"])
+excluye = Array[StringName]([])
+nivel_min = 10
+dominio = 2700
+oro = 6710000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_taj_linea_11"]
+script = ExtResource("nodo_mejora")
+id = &"linea_11"
+nombre = "Nivel 11"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_10"])
+excluye = Array[StringName]([])
+nivel_min = 11
+dominio = 3000
+oro = 10736000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_taj_linea_12"]
+script = ExtResource("nodo_mejora")
+id = &"linea_12"
+nombre = "Nivel 12"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_11"])
+excluye = Array[StringName]([])
+nivel_min = 12
+dominio = 3300
+oro = 17178000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_taj_linea_13"]
+script = ExtResource("nodo_mejora")
+id = &"linea_13"
+nombre = "Nivel 13"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_12"])
+excluye = Array[StringName]([])
+nivel_min = 13
+dominio = 3600
+oro = 27485000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_taj_linea_14"]
+script = ExtResource("nodo_mejora")
+id = &"linea_14"
+nombre = "Nivel 14"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_13"])
+excluye = Array[StringName]([])
+nivel_min = 14
+dominio = 3900
+oro = 43976000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_taj_linea_15"]
+script = ExtResource("nodo_mejora")
+id = &"linea_15"
+nombre = "Nivel 15"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_14"])
+excluye = Array[StringName]([])
+nivel_min = 15
+dominio = 4200
+oro = 70362000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_taj_linea_16"]
+script = ExtResource("nodo_mejora")
+id = &"linea_16"
+nombre = "Nivel 16"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_15"])
+excluye = Array[StringName]([])
+nivel_min = 16
+dominio = 4500
+oro = 112579000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
 
 [resource]
 script = ExtResource("1")
@@ -29,3 +294,5 @@ suelo_roto = 16
 efectos = [SubResource("SA_vuln")]
 efectos_por_golpe = true
 descripcion = "Un tajo firme que abre la guardia del enemigo y lo deja expuesto. Apertura táctica."
+; EL ARBOL (24/11, cerrado con el jefe): lo escribe tools/arboles_habilidades.py, no tocarlo a mano.
+arbol = [SubResource("NM_taj_tajo_a_fondo"), SubResource("NM_taj_barrido_ancho"), SubResource("NM_taj_romper_guardia"), SubResource("NM_taj_quebrar_armadura"), SubResource("NM_taj_hueco_abierto"), SubResource("NM_taj_abrir_a_todos"), SubResource("NM_taj_exponer_mas"), SubResource("NM_taj_desequilibrio_q"), SubResource("NM_taj_aprovechar_hueco"), SubResource("NM_taj_mano_rapida_q"), SubResource("NM_taj_desarmar_guardia"), SubResource("NM_taj_linea_6"), SubResource("NM_taj_linea_7"), SubResource("NM_taj_linea_8"), SubResource("NM_taj_linea_9"), SubResource("NM_taj_linea_10"), SubResource("NM_taj_linea_11"), SubResource("NM_taj_linea_12"), SubResource("NM_taj_linea_13"), SubResource("NM_taj_linea_14"), SubResource("NM_taj_linea_15"), SubResource("NM_taj_linea_16")]

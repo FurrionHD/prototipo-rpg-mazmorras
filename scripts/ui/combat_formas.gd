@@ -441,7 +441,8 @@ static func de_habilidad_mapa(ab: AbilityData, pies: Vector2, pisa: float, alcan
 	var centro: Vector2 = pies
 	match int(ab.forma_apunte):
 		Apunte.DELANTE:
-			centro = pies + dir.limit_length(pisa + alcance)
+			# (26/11) SEÑALAR DESDE LEJOS: la punta llega mas alla sin moverte (AbilityData.alcance_extra).
+			centro = pies + dir.limit_length(pisa + alcance + ab.alcance_extra)
 		Apunte.LIBRE:
 			var rango: float = ab.forma_rango if ab.forma_rango > 0.0 else alcance
 			centro = pies + dir.limit_length(pisa + rango)

@@ -81,6 +81,14 @@ const PASO_X_MIN := 70.0  # de una columna de mejoras a la siguiente: lo justo..
 const PASO_X_MAX := 160.0 # ...y lo mas que se separan para LLENAR EL ANCHO (23/11, el jefe: "el espacio no esta bien
                           # aprovechado"): las mejoras se reparten por todo el ancho de la columna, como en Diablo.
 const PASO_Y := 57.0      # entre dos mejoras de la misma columna
+# (26/11, el jefe: "que queden mas claras las lineas, separar mas los nodos horizontalmente") EL ARBOL de una habilidad (sus
+# columnas de nodos que se ramifican) va con al menos esto entre columna y columna; la linea fija de rombos del 6 al 16, que
+# es recta, se queda con el paso de siempre (si no, el arbol no cabria y todo iria con scroll).
+const PASO_X_ARBOL := 120.0
+# (26/11, el jefe: "que nunca se vean solapadas las lineas en las zonas de aglomeracion") Y MAS cuantas mas lineas cruzan
+# el hueco entre dos columnas: tantos px por linea, hasta el tope.
+const PASO_X_POR_LINEA := 6.0
+const PASO_X_ARBOL_MAX := 200.0
 const FILA_MIN := 96.0
 const SEP_FILAS := 42.0   # el hueco entre una habilidad y la siguiente (la raya va en medio)
 const SEP_PLEGADAS := 6.0 # entre dos plegadas
@@ -302,11 +310,21 @@ func _pintar_fila(lienzo: Lienzo, pj: PersonajeData, clave: String, f: Resource,
 	var por_id: Dictionary = {}
 	for n in nodos:
 		por_id[StringName(n.id)] = n
+	# LA X DE CADA COLUMNA: entre columnas del arbol (las que no son rombos de la linea fija), PASO_X_ARBOL como poco.
+	var x_col: Dictionary = {1: MARGEN + ICONO + 48.0}
+	for c in range(2, max_col + 1):
+		var de_arbol: bool = f != null and cols.has(c) and (cols[c] as Array).any(func(id): return not String(id).begins_with("linea_") 			and not String(id).begins_with("~"))
+		var lineas: int = 0
+		if de_arbol:
+			for id in cols[c]:
+				lineas += (detras.get(id, []) as Array).size()
+		var paso_arbol: float = clampf(maxf(PASO_X_ARBOL, 80.0 + PASO_X_POR_LINEA * float(lineas)), PASO_X_ARBOL, PASO_X_ARBOL_MAX)
+		x_col[c] = float(x_col[c - 1]) + (maxf(_paso_x, paso_arbol) if de_arbol else _paso_x)
 	for c in range(1, max_col + 1):
 		if not cols.has(c):
 			continue
 		for id in cols[c]:
-			var pos := Vector2(_px_g(MARGEN + ICONO + 48.0 + (c - 1) * _paso_x), _px_g(cy + float(rel[id])))
+			var pos := Vector2(_px_g(float(x_col[c])), _px_g(cy + float(rel[id])))
 			centro[id] = pos
 			if not plegada and cogidos.has(String(id)):
 				_x_ultimo = maxf(_x_ultimo, pos.x)
@@ -367,7 +385,7 @@ func _pintar_fila(lienzo: Lienzo, pj: PersonajeData, clave: String, f: Resource,
 			lienzo.lineas.append([pts, OSCURO])
 	lienzo.lineas.append_array(verdes)
 	lienzo.lineas.append_array(ambar)
-	lienzo.ancho_fila = MARGEN + ICONO + 48.0 + maxi(max_col - 1, 0) * _paso_x + NODO
+	lienzo.ancho_fila = maxf(lienzo.ancho_fila, float(x_col.get(max_col, MARGEN + ICONO + 48.0)) + NODO)
 	return alto
 
 

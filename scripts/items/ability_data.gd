@@ -696,6 +696,45 @@ func secundario_para(n_enemigos: int) -> float:
 @export var escudo_contra_extra: float = 0.0
 # LLEGAR CUBIERTO: la guardia que te deja (bloqueo_turnos) te dura estos turnos tuyos de mas.
 @export var guardia_turnos_extra: int = 0
+# --- LA ESPADA CORTA (26/11, sus arboles) ---
+# ROMPER LA GUARDIA / SOBRE LO MARCADO / AL QUE COJEA: los golpes pegan este % de mas a quien ya lleva ESTE estado (-1 = nada).
+@export var extra_si_estado: int = -1
+@export var extra_si_estado_mult: float = 0.0
+# HUECO ABIERTO: esta probabilidad de critico de mas contra quien lleva ESTE estado (-1 = nada).
+@export var crit_si_estado: int = -1
+@export var crit_si_estado_extra: float = 0.0
+# APROVECHAR EL HUECO: por cada enemigo al que le entra el estado de la habilidad (efectos[0]), este % de tu energia maxima.
+@export var energia_por_estado: float = 0.0
+# PRESTEZA (Cambio de ritmo): al usarla, quien la usa se pone ESTE estado estos turnos (-1 = nada).
+@export var estado_propio: int = -1
+@export var estado_propio_turnos: int = 2
+# A POR EL (Señalar el hueco): mientras le dure la Marca que pone, los compañeros que le peguen recuperan este % de su energia
+# maxima por golpe (CombatHabilidades.energia_por_marca).
+@export var marca_energia_aliados: float = 0.0
+# CAZA (Señalar el hueco): si cae el que marco, la habilidad vuelve a estar lista al instante.
+@export var recarga_si_cae_marcado: bool = false
+# SEÑALAR DESDE LEJOS: la huella delante (forma_apunte DELANTE) cae estos px mas lejos, sin moverte.
+@export var alcance_extra: float = 0.0
+# ARRODILLAR (Corte de tendones): al que YA llevaba este estado al golpearle, lo echa atras en la barra de turno (-1 = nada).
+@export var retrasa_si_estado: int = -1
+# --- LOS GANCHOS DE LA ESPADA CORTA (26/11, el jefe: "builds especificas") ---
+# FURIA DE FILO (Doble tajo): por cada enemigo de mas al que le entra, una carga de Furia de filo para quien la usa.
+@export var furia_por_enemigo: bool = false
+# REMATE EN CRUZ (Doble tajo): si el ULTIMO golpe mata, un golpe mas (al 100 %) al enemigo vivo mas cercano al alcance de la
+# habilidad (forma_radio).
+@export var golpe_si_mata_ultimo: bool = false
+# OJO DE DUELISTA (Señalar el hueco): mientras dure la Marca que pone, quien la puso tiene esta probabilidad de critico de mas
+# contra el marcado (StatsMath.resolve_attack).
+@export var marca_ojo_critico: float = 0.0
+# ORDEN DE ATAQUE (Señalar el hueco): el marcado pierde el sigilo y, mientras le dure la Marca, no le valen las capas de esquiva.
+@export var marca_orden: bool = false
+# SIN PODER CURARSE (Corte de tendones): al que le pone la Herida profunda, cada cura le hace ESTA fraccion de daño en vez de
+# curarle (Combatant.heal).
+@export var herida_cura_duele: float = 0.0
+# PRESA FACIL (Corte de tendones): a los que deja Lentos, cada enemigo Lento de los cortados da esta prob de critico a todos
+# los tuyos contra los Lentos (hasta PRESA_TOPE).
+@export var presa_facil: float = 0.0
+const PRESA_TOPE := 0.20
 # --- LA FUERZA Y LA PROBABILIDAD DE CADA ESTADO, por nodo (25/11: Presteza mayor, Nervio del brazo/pierna, Pulso firme).
 # Estado (StatusEffects.Id) -> valor, por encima de lo que diga su StatusApplication (mult = el nivel del estado de stat,
 # como StatusApplication.mult; prob = la probabilidad base). Los nodos los juntan con "add" (Mejoras mezcla diccionarios).
@@ -1286,6 +1325,57 @@ func frase_mejora(campo: String, antes: AbilityData) -> String:
 		"bonus_por_baja":
 			return "Por cada enemigo que derriba, los golpes que le quedan infligen un %s más (hasta %d veces)." % [
 				_pct_txt(bonus_por_baja), bonus_por_baja_max]
+		"extra_si_estado", "extra_si_estado_mult":
+			if extra_si_estado < 0 or extra_si_estado_mult <= 0.0:
+				return ""
+			return "A quien ya tenga %s, sus golpes le infligen un %s más." % [
+				str(StatusEffects.def(extra_si_estado).get("nombre", "?")), _pct_entero(extra_si_estado_mult)]
+		"crit_si_estado", "crit_si_estado_extra":
+			if crit_si_estado < 0 or crit_si_estado_extra <= 0.0:
+				return ""
+			return "Contra quien tenga %s, la probabilidad de crítico sube %d puntos." % [
+				str(StatusEffects.def(crit_si_estado).get("nombre", "?")), roundi(crit_si_estado_extra * 100.0)]
+		"energia_por_estado":
+			if energia_por_estado <= 0.0 or efectos.is_empty() or efectos[0] == null:
+				return ""
+			return "Por cada enemigo al que le causa %s, recuperas un %s de tu energía máxima." % [
+				str(StatusEffects.def(int(efectos[0].estado)).get("nombre", "?")), _pct_entero(energia_por_estado)]
+		"estado_propio", "estado_propio_turnos":
+			if estado_propio < 0:
+				return ""
+			return "Al usarla, ganas %s durante %d turno%s." % [str(StatusEffects.def(estado_propio).get("nombre", "?")),
+				estado_propio_turnos, "" if estado_propio_turnos == 1 else "s"]
+		"marca_energia_aliados":
+			return ("Mientras le dure la Marca, cada golpe que le dé uno de tus compañeros le devuelve un %s de su energía máxima." \
+				% _pct_entero(marca_energia_aliados)) if marca_energia_aliados > 0.0 else ""
+		"recarga_si_cae_marcado":
+			return "Si cae el enemigo al que marcó, vuelve a estar lista al instante." if recarga_si_cae_marcado else ""
+		"alcance_extra":
+			return ("Llega %s más lejos sin que te muevas." % casillas_txt(alcance_extra)) if alcance_extra > 0.0 else ""
+		"retrasa_si_estado":
+			if retrasa_si_estado < 0:
+				return ""
+			return "Al que ya tuviera %s, lo echa atrás en la barra de turno." % str(StatusEffects.def(retrasa_si_estado).get("nombre", "?"))
+		"furia_por_enemigo":
+			if not furia_por_enemigo:
+				return ""
+			var fu: Dictionary = StatusEffects.def(StatusEffects.Id.FURIA_FILO)
+			return "Por cada enemigo de más que alcanza, una carga de Furia de filo: un %s más de ataque por carga, hasta %d, durante %d turnos." % [
+				_pct_entero(float(fu.get("atk_mult", 1.0)) - 1.0), int(fu.get("max_stacks", 1)), int(fu.get("turns", 2))]
+		"golpe_si_mata_ultimo":
+			return "Si el último golpe derriba a su objetivo, da otro al enemigo más cercano a su alcance." if golpe_si_mata_ultimo else ""
+		"marca_ojo_critico":
+			return ("Mientras le dure la Marca, tu probabilidad de crítico contra el marcado sube %d puntos." \
+				% roundi(marca_ojo_critico * 100.0)) if marca_ojo_critico > 0.0 else ""
+		"marca_orden":
+			return "Al marcado se le quita el sigilo y, mientras le dure la Marca, no le valen las esquivas de más (guardias, Esquivo)." \
+				if marca_orden else ""
+		"herida_cura_duele":
+			return ("Mientras tenga la Herida profunda que causa, cada cura que reciba le hace un %s de daño en vez de curarle." \
+				% _pct_entero(herida_cura_duele)) if herida_cura_duele > 0.0 else ""
+		"presa_facil":
+			return ("Por cada enemigo que deja Lento, todos los tuyos tienen %d puntos más de crítico contra los Lentos (hasta %d)." % [
+				roundi(presa_facil * 100.0), roundi(PRESA_TOPE * 100.0)]) if presa_facil > 0.0 else ""
 		"carga_peso_max":
 			return ("Sus golpes de arma infligen hasta un %s más según lo que corras antes de chocar (con la carrera entera, todo)." \
 				% _pct_entero(carga_peso_max)) if carga_peso_max > 0.0 else ""

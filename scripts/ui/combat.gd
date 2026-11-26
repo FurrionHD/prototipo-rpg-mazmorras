@@ -1221,6 +1221,18 @@ func escudo_carne(obj: Combatant, dmg: float, quien: Combatant, estilo: int) -> 
 # LA FURIA DE REY (31/10, los mutantes del rey rata, ver MutacionData): al caer una rata, su rey (el de su familia que
 # tenga Furia) se lleva una carga de FURIA_REY (hasta furia_max) y sus turnos se renuevan. Solo quien ejecuta la pelea;
 # el estado viaja a los espejos como los demas.
+# (26/11, espada corta) CAZA (Señalar el hueco): cae el marcado (lo tumbe quien lo tumbe) y la habilidad de quien le marco
+# vuelve a estar lista.
+func _caza_del_marcado(muerto: Combatant) -> void:
+	if muerto == null or not muerto.has_meta(&"marca_caza") or not muerto.has_status(StatusEffects.Id.MARCA):
+		return
+	var mc: Array = muerto.get_meta(&"marca_caza")
+	if mc.size() != 2 or not (mc[0] is Combatant) or not (mc[0] as Combatant).is_alive():
+		return
+	(mc[0] as Combatant).ability_cooldowns.erase(mc[1])
+	_log_extra("%s puede volver a señalar: %s está lista" % [(mc[0] as Combatant).nombre, (mc[1] as AbilityData).nombre])
+
+
 func _furia_rey(muerto: Combatant) -> void:
 	if muerto == null or _espejo or muerto.furia_por_muerte > 0.0:
 		return
@@ -1305,6 +1317,12 @@ func _aplicar_pasivas(result: Dictionary, atacante: Combatant, defensor: Combata
 		result["evaded"] = true
 		_log_extra("%s está en el aire: no le llega" % _etq(defensor))
 		return
+	# (26/11, espada corta) A POR EL: al marcado con el nodo, el compañero que le pega recupera energia.
+	if defensor != null and atacante != null and defensor.has_meta(&"marca_energia") \
+			and defensor.has_status(StatusEffects.Id.MARCA) and _aliados.has(atacante):
+		var me: Array = defensor.get_meta(&"marca_energia")
+		if me.size() == 2 and me[0] != atacante:
+			atacante.regen_energy(float(me[1]) * atacante.max_energy)
 	var m: float = _mult_pasivas(atacante, defensor)
 	if m == 1.0:
 		return
@@ -3279,6 +3297,7 @@ func _morir_enemigo(e: Combatant) -> void:
 		_tributo(e)
 		_furia_rey(e)
 		_cria_muerta(e)
+		_caza_del_marcado(e)
 		if hueco >= 0 and hueco < _enemies.size() and _enemies[hueco] != e \
 				and _target_idx == hueco:
 			figuras._seleccionar(hueco)   # el nuevo ocupa el sitio de tu objetivo: que se vea marcado

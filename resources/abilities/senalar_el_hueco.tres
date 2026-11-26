@@ -2,12 +2,265 @@
 
 [ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/items/nodo_mejora.gd" id="nodo_mejora"]
 
 [sub_resource type="Resource" id="SA_0"]
 script = ExtResource("2")
 estado = 15
 prob = 0.85
 turns = 3
+
+[sub_resource type="Resource" id="NM_sen_marca_honda"]
+script = ExtResource("nodo_mejora")
+id = &"marca_honda"
+nombre = "Marca honda"
+descripcion = "No señala un hueco: señala EL hueco."
+padres = Array[StringName]([])
+excluye = Array[StringName]([&"marca_larga"])
+nivel_min = 2
+dominio = 300
+oro = 10000
+cambios = {"efectos_mult_de": ["add", {15: 1.4}], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_sen_marca_larga"]
+script = ExtResource("nodo_mejora")
+id = &"marca_larga"
+nombre = "Marca larga"
+descripcion = "Una marca así no se borra en un momento."
+padres = Array[StringName]([])
+excluye = Array[StringName]([&"marca_honda"])
+nivel_min = 2
+dominio = 300
+oro = 10000
+cambios = {"efectos_turnos_enemigo": ["set", 2], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_sen_sobre_marcado"]
+script = ExtResource("nodo_mejora")
+id = &"sobre_marcado"
+nombre = "Sobre lo marcado"
+descripcion = "Al que ya está señalado, se le corta sin dudar."
+padres = Array[StringName]([&"marca_honda"])
+excluye = Array[StringName]([&"ojo_duelista"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"extra_si_estado": ["set", 15], "extra_si_estado_mult": ["set", 0.3], "potencia": ["presupuesto", 0.375], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_sen_ojo_duelista"]
+script = ExtResource("nodo_mejora")
+id = &"ojo_duelista"
+nombre = "Ojo de duelista"
+descripcion = "Ya sabes por dónde entra: ahora entra mejor."
+padres = Array[StringName]([&"marca_honda"])
+excluye = Array[StringName]([&"sobre_marcado"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"marca_ojo_critico": ["set", 0.15], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_sen_a_por_el"]
+script = ExtResource("nodo_mejora")
+id = &"a_por_el"
+nombre = "A por él"
+descripcion = "Cuando todos saben dónde, todos van."
+padres = Array[StringName]([&"marca_larga"])
+excluye = Array[StringName]([&"orden_ataque"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"marca_energia_aliados": ["set", 0.03], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_sen_orden_ataque"]
+script = ExtResource("nodo_mejora")
+id = &"orden_ataque"
+nombre = "Orden de ataque"
+descripcion = "El señalado no tiene dónde esconderse."
+padres = Array[StringName]([&"marca_larga"])
+excluye = Array[StringName]([&"a_por_el"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"marca_orden": ["set", true], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_sen_sin_fallo"]
+script = ExtResource("nodo_mejora")
+id = &"sin_fallo"
+nombre = "Sin fallo"
+descripcion = "El hueco está ahí; no hay forma de no acertarle."
+padres = Array[StringName]([&"ojo_duelista", &"orden_ataque"])
+excluye = Array[StringName]([&"paso_al_hueco"])
+nivel_min = 4
+dominio = 900
+oro = 160000
+cambios = {"infalible": ["set", true], "potencia": ["presupuesto", 0.375], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_sen_paso_al_hueco"]
+script = ExtResource("nodo_mejora")
+id = &"paso_al_hueco"
+nombre = "Paso al hueco"
+descripcion = "Un paso hacia lo que has visto."
+padres = Array[StringName]([&"sobre_marcado", &"a_por_el"])
+excluye = Array[StringName]([&"sin_fallo"])
+nivel_min = 4
+dominio = 900
+oro = 160000
+cambios = {"acercarse": ["add", 40.0], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_sen_caza"]
+script = ExtResource("nodo_mejora")
+id = &"caza"
+nombre = "Caza"
+descripcion = "Cae el señalado y ya buscas al siguiente."
+padres = Array[StringName]([&"paso_al_hueco"])
+excluye = Array[StringName]([&"mano_rapida_s"])
+nivel_min = 5
+dominio = 1200
+oro = 640000
+cambios = {"recarga_si_cae_marcado": ["set", true], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_sen_mano_rapida_s"]
+script = ExtResource("nodo_mejora")
+id = &"mano_rapida_s"
+nombre = "Mano rápida"
+descripcion = "El dedo que señala no se queda quieto."
+padres = Array[StringName]([&"sin_fallo"])
+excluye = Array[StringName]([&"caza"])
+nivel_min = 5
+dominio = 1200
+oro = 640000
+cambios = {"cooldown": ["add", -1], "potencia": ["presupuesto", 0.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_sen_linea_6"]
+script = ExtResource("nodo_mejora")
+id = &"linea_6"
+nombre = "Nivel 6"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"caza", &"mano_rapida_s"])
+excluye = Array[StringName]([])
+nivel_min = 6
+dominio = 1500
+oro = 1024000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_sen_linea_7"]
+script = ExtResource("nodo_mejora")
+id = &"linea_7"
+nombre = "Nivel 7"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_6"])
+excluye = Array[StringName]([])
+nivel_min = 7
+dominio = 1800
+oro = 1638000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_sen_linea_8"]
+script = ExtResource("nodo_mejora")
+id = &"linea_8"
+nombre = "Nivel 8"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_7"])
+excluye = Array[StringName]([])
+nivel_min = 8
+dominio = 2100
+oro = 2621000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_sen_linea_9"]
+script = ExtResource("nodo_mejora")
+id = &"linea_9"
+nombre = "Nivel 9"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_8"])
+excluye = Array[StringName]([])
+nivel_min = 9
+dominio = 2400
+oro = 4194000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_sen_linea_10"]
+script = ExtResource("nodo_mejora")
+id = &"linea_10"
+nombre = "Nivel 10"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_9"])
+excluye = Array[StringName]([])
+nivel_min = 10
+dominio = 2700
+oro = 6710000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_sen_linea_11"]
+script = ExtResource("nodo_mejora")
+id = &"linea_11"
+nombre = "Nivel 11"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_10"])
+excluye = Array[StringName]([])
+nivel_min = 11
+dominio = 3000
+oro = 10736000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_sen_linea_12"]
+script = ExtResource("nodo_mejora")
+id = &"linea_12"
+nombre = "Nivel 12"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_11"])
+excluye = Array[StringName]([])
+nivel_min = 12
+dominio = 3300
+oro = 17178000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_sen_linea_13"]
+script = ExtResource("nodo_mejora")
+id = &"linea_13"
+nombre = "Nivel 13"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_12"])
+excluye = Array[StringName]([])
+nivel_min = 13
+dominio = 3600
+oro = 27485000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_sen_linea_14"]
+script = ExtResource("nodo_mejora")
+id = &"linea_14"
+nombre = "Nivel 14"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_13"])
+excluye = Array[StringName]([])
+nivel_min = 14
+dominio = 3900
+oro = 43976000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_sen_linea_15"]
+script = ExtResource("nodo_mejora")
+id = &"linea_15"
+nombre = "Nivel 15"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_14"])
+excluye = Array[StringName]([])
+nivel_min = 15
+dominio = 4200
+oro = 70362000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_sen_linea_16"]
+script = ExtResource("nodo_mejora")
+id = &"linea_16"
+nombre = "Nivel 16"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_15"])
+excluye = Array[StringName]([])
+nivel_min = 16
+dominio = 4500
+oro = 112579000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
 
 [resource]
 script = ExtResource("1")
@@ -29,3 +282,5 @@ forma_solo_primero = true
 redirige_al_morir = true
 descripcion = "Dos cortes en el mismo sitio, sin disimulo. Más que herirlo, es enseñarle a los tuyos por dónde se entra."
 efectos = [SubResource("SA_0")]
+; EL ARBOL (24/11, cerrado con el jefe): lo escribe tools/arboles_habilidades.py, no tocarlo a mano.
+arbol = [SubResource("NM_sen_marca_honda"), SubResource("NM_sen_marca_larga"), SubResource("NM_sen_sobre_marcado"), SubResource("NM_sen_ojo_duelista"), SubResource("NM_sen_a_por_el"), SubResource("NM_sen_orden_ataque"), SubResource("NM_sen_sin_fallo"), SubResource("NM_sen_paso_al_hueco"), SubResource("NM_sen_caza"), SubResource("NM_sen_mano_rapida_s"), SubResource("NM_sen_linea_6"), SubResource("NM_sen_linea_7"), SubResource("NM_sen_linea_8"), SubResource("NM_sen_linea_9"), SubResource("NM_sen_linea_10"), SubResource("NM_sen_linea_11"), SubResource("NM_sen_linea_12"), SubResource("NM_sen_linea_13"), SubResource("NM_sen_linea_14"), SubResource("NM_sen_linea_15"), SubResource("NM_sen_linea_16")]

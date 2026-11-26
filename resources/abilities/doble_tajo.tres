@@ -1,6 +1,247 @@
 [gd_resource type="Resource" script_class="AbilityData" format=3]
 
 [ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/nodo_mejora.gd" id="nodo_mejora"]
+
+[sub_resource type="Resource" id="NM_dob_tercer_tajo"]
+script = ExtResource("nodo_mejora")
+id = &"tercer_tajo"
+nombre = "Tercer tajo"
+descripcion = "Con uno solo delante, sobra tiempo para otro."
+padres = Array[StringName]([])
+excluye = Array[StringName]([&"mas_tajos"])
+nivel_min = 2
+dominio = 300
+oro = 10000
+cambios = {"golpes_si_uno": ["set", 1], "dano_mult": ["mult", 0.9], "potencia": ["presupuesto", 0.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_dob_mas_tajos"]
+script = ExtResource("nodo_mejora")
+id = &"mas_tajos"
+nombre = "Más tajos"
+descripcion = "Cuantos más hay delante, más tajos caben."
+padres = Array[StringName]([])
+excluye = Array[StringName]([&"tercer_tajo"])
+nivel_min = 2
+dominio = 300
+oro = 10000
+cambios = {"golpes_extra_por_enemigo": ["set", 1.0], "potencia": ["presupuesto", 0.125], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_dob_remate_combo"]
+script = ExtResource("nodo_mejora")
+id = &"remate_combo"
+nombre = "Remate del combo"
+descripcion = "El último tajo se lleva todo el peso, y si tumba, sigue."
+padres = Array[StringName]([&"tercer_tajo"])
+excluye = Array[StringName]([&"filo_fino"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"ultimo_golpe_mult": ["set", 1.5], "golpe_si_mata_ultimo": ["set", true], "potencia": ["presupuesto", 0.375], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_dob_filo_fino"]
+script = ExtResource("nodo_mejora")
+id = &"filo_fino"
+nombre = "Filo fino"
+descripcion = "No es más fuerte: es más exacto."
+padres = Array[StringName]([&"tercer_tajo"])
+excluye = Array[StringName]([&"remate_combo"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"crit_extra": ["add", 0.2], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_dob_abanico_d"]
+script = ExtResource("nodo_mejora")
+id = &"abanico_d"
+nombre = "Abanico"
+descripcion = "Los tajos se abren hasta los costados."
+padres = Array[StringName]([&"mas_tajos"])
+excluye = Array[StringName]([&"brazo_largo_d"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"forma_apertura": ["set", 180.0], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_dob_brazo_largo_d"]
+script = ExtResource("nodo_mejora")
+id = &"brazo_largo_d"
+nombre = "Brazo largo"
+descripcion = "Un paso más de filo."
+padres = Array[StringName]([&"mas_tajos"])
+excluye = Array[StringName]([&"abanico_d"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"forma_radio": ["set", 95.0], "potencia": ["presupuesto", 0.25], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_dob_filo_sangra"]
+script = ExtResource("nodo_mejora")
+id = &"filo_sangra"
+nombre = "Filo que sangra"
+descripcion = "Los tajos no cierran detrás de sí."
+padres = Array[StringName]([&"remate_combo", &"filo_fino"])
+excluye = Array[StringName]([&"furia_filo"])
+nivel_min = 4
+dominio = 900
+oro = 160000
+cambios = {"estado_golpe": ["set", 1], "estado_golpe_prob": ["set", 0.25], "estado_golpe_turnos": ["set", 3], "potencia": ["presupuesto", 0.25], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_dob_furia_filo"]
+script = ExtResource("nodo_mejora")
+id = &"furia_filo"
+nombre = "Furia de filo"
+descripcion = "Cuantos más tiene delante, más rápido va el filo."
+padres = Array[StringName]([&"abanico_d", &"brazo_largo_d"])
+excluye = Array[StringName]([&"filo_sangra"])
+nivel_min = 4
+dominio = 900
+oro = 160000
+cambios = {"furia_por_enemigo": ["set", true], "potencia": ["presupuesto", 0.375], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_dob_respiracion_d"]
+script = ExtResource("nodo_mejora")
+id = &"respiracion_d"
+nombre = "Respiración"
+descripcion = "Un tajo limpio es un respiro."
+padres = Array[StringName]([&"filo_sangra", &"furia_filo"])
+excluye = Array[StringName]([])
+nivel_min = 5
+dominio = 1200
+oro = 640000
+cambios = {"energia_por_critico": ["set", 0.05], "potencia": ["presupuesto", 0.75], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_dob_linea_6"]
+script = ExtResource("nodo_mejora")
+id = &"linea_6"
+nombre = "Nivel 6"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"respiracion_d"])
+excluye = Array[StringName]([])
+nivel_min = 6
+dominio = 1500
+oro = 1024000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_dob_linea_7"]
+script = ExtResource("nodo_mejora")
+id = &"linea_7"
+nombre = "Nivel 7"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_6"])
+excluye = Array[StringName]([])
+nivel_min = 7
+dominio = 1800
+oro = 1638000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_dob_linea_8"]
+script = ExtResource("nodo_mejora")
+id = &"linea_8"
+nombre = "Nivel 8"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_7"])
+excluye = Array[StringName]([])
+nivel_min = 8
+dominio = 2100
+oro = 2621000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_dob_linea_9"]
+script = ExtResource("nodo_mejora")
+id = &"linea_9"
+nombre = "Nivel 9"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_8"])
+excluye = Array[StringName]([])
+nivel_min = 9
+dominio = 2400
+oro = 4194000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_dob_linea_10"]
+script = ExtResource("nodo_mejora")
+id = &"linea_10"
+nombre = "Nivel 10"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_9"])
+excluye = Array[StringName]([])
+nivel_min = 10
+dominio = 2700
+oro = 6710000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_dob_linea_11"]
+script = ExtResource("nodo_mejora")
+id = &"linea_11"
+nombre = "Nivel 11"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_10"])
+excluye = Array[StringName]([])
+nivel_min = 11
+dominio = 3000
+oro = 10736000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_dob_linea_12"]
+script = ExtResource("nodo_mejora")
+id = &"linea_12"
+nombre = "Nivel 12"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_11"])
+excluye = Array[StringName]([])
+nivel_min = 12
+dominio = 3300
+oro = 17178000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_dob_linea_13"]
+script = ExtResource("nodo_mejora")
+id = &"linea_13"
+nombre = "Nivel 13"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_12"])
+excluye = Array[StringName]([])
+nivel_min = 13
+dominio = 3600
+oro = 27485000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_dob_linea_14"]
+script = ExtResource("nodo_mejora")
+id = &"linea_14"
+nombre = "Nivel 14"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_13"])
+excluye = Array[StringName]([])
+nivel_min = 14
+dominio = 3900
+oro = 43976000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_dob_linea_15"]
+script = ExtResource("nodo_mejora")
+id = &"linea_15"
+nombre = "Nivel 15"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_14"])
+excluye = Array[StringName]([])
+nivel_min = 15
+dominio = 4200
+oro = 70362000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_dob_linea_16"]
+script = ExtResource("nodo_mejora")
+id = &"linea_16"
+nombre = "Nivel 16"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_15"])
+excluye = Array[StringName]([])
+nivel_min = 16
+dominio = 4500
+oro = 112579000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
 
 [resource]
 script = ExtResource("1")
@@ -23,3 +264,5 @@ suelo_roto = 17
 redirige_al_morir = true
 golpes_extra_por_enemigo = 0.7
 descripcion = "Combo fiable de tajos encadenados. Sin estados, pero sin depender de nada: daño sólido y barato, el pan de cada día de la espada."
+; EL ARBOL (24/11, cerrado con el jefe): lo escribe tools/arboles_habilidades.py, no tocarlo a mano.
+arbol = [SubResource("NM_dob_tercer_tajo"), SubResource("NM_dob_mas_tajos"), SubResource("NM_dob_remate_combo"), SubResource("NM_dob_filo_fino"), SubResource("NM_dob_abanico_d"), SubResource("NM_dob_brazo_largo_d"), SubResource("NM_dob_filo_sangra"), SubResource("NM_dob_furia_filo"), SubResource("NM_dob_respiracion_d"), SubResource("NM_dob_linea_6"), SubResource("NM_dob_linea_7"), SubResource("NM_dob_linea_8"), SubResource("NM_dob_linea_9"), SubResource("NM_dob_linea_10"), SubResource("NM_dob_linea_11"), SubResource("NM_dob_linea_12"), SubResource("NM_dob_linea_13"), SubResource("NM_dob_linea_14"), SubResource("NM_dob_linea_15"), SubResource("NM_dob_linea_16")]

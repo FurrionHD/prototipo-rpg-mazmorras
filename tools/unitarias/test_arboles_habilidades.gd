@@ -697,3 +697,55 @@ func test_estoque_y_escudos() -> void:
 	cierto(pool.has(postura), "y sin estoque la Postura de rodela sale")
 	p.equipped_main = main_antes
 	p.equipped_off = off_antes
+
+
+# LA ESPADA CORTA (26/11, cerrada con el jefe): los numeros de sus arboles.
+const ESPADA := "res://resources/abilities/%s.tres"
+
+func test_espada_corta_numeros() -> void:
+	var Q: String = ESPADA % "tajo_quebrantador"
+	var af: AbilityData = _de(Q, ["tajo_a_fondo"])
+	igual(af.forma_apertura, 60.0, "Tajo a fondo: cono de 60 grados")
+	igual(af.forma_radio, 99.0, "y 30 px mas largo")
+	cerca(af.dano_mult, 2.0 * 1.1 * 1.2, 0.0001, "x1,1 y el +20 % del nivel")
+	igual(roundi(af.coste_energia), 67, "48 -> 67 de energia")
+	cerca(_de(Q, ["barrido_ancho", "exponer_mas"]).mult_de_efecto(af.efectos[0]), 0.70, 0.0001, "Exponer mas: Vulnerable al 70 %")
+	cerca(_de(Q, ["barrido_ancho", "abrir_a_todos"]).efectos_prob_mult, 2.0, 0.0001, "Abrir a todos: x2")
+	igual(_de(Q, ["tajo_a_fondo", "romper_guardia", "mano_rapida_q"]).cooldown, 4, "Mano rapida: recarga 4")
+	cierto(_de(Q, ["tajo_a_fondo", "romper_guardia", "mano_rapida_q", "desarmar_guardia"]).quita_guardia, "Desarmar la guardia")
+	var D: String = ESPADA % "doble_tajo"
+	igual(_de(D, ["tercer_tajo"]).golpes_si_uno, 1, "Tercer tajo: uno mas con uno solo")
+	cerca(_de(D, ["mas_tajos"]).golpes_extra_por_enemigo, 1.0, 0.0001, "Mas tajos: 1 por enemigo")
+	cerca(_de(D, ["tercer_tajo", "remate_combo"]).ultimo_golpe_mult, 1.5, 0.0001, "Remate del combo: x1,5")
+	cerca(_de(D, ["mas_tajos", "abanico_d", "filo_sangra", "respiracion_d"]).energia_por_critico, 0.05, 0.0001, "Respiracion")
+	var C: String = ESPADA % "cambio_de_ritmo"
+	igual(_de(C, ["acelerar"]).reduce_cooldowns, 2, "Acelerar: -2 esperas")
+	var pr: AbilityData = _de(C, ["encadenar_r", "ancho_r", "esquivar_cruzar", "presteza_r"])
+	igual(pr.estado_propio, int(StatusEffects.Id.PRESTEZA), "Presteza: el estado propio")
+	cerca(pr.descuento_siguiente, 0.2, 0.0001, "Encadenar: -20 %")
+	igual(pr.forma_ancho, 28.0, "Ancho: 28 px")
+	var S: String = ESPADA % "senalar_el_hueco"
+	var sm: AbilityData = _de(S, ["marca_honda"])
+	cerca(sm.mult_de_efecto(sm.efectos[0]), 1.40, 0.0001, "Marca honda: x1,40")
+	igual(_de(S, ["marca_larga"]).efectos_turnos_enemigo, 2, "Marca larga: +2 turnos")
+	cierto(_de(S, ["marca_larga", "orden_ataque"]).marca_orden, "Orden de ataque")
+	cerca(_de(S, ["marca_honda", "ojo_duelista"]).marca_ojo_critico, 0.15, 0.0001, "Ojo de duelista: +15")
+	cierto(_de(S, ["marca_larga", "a_por_el", "sin_fallo", "caza"]).recarga_si_cae_marcado, "Caza")
+	var T: String = ESPADA % "corte_de_tendones"
+	igual(_de(T, ["barrido_bajo"]).forma_apertura, 220.0, "Barrido bajo: 220 grados")
+	igual(_de(T, ["brazo_largo_t", "al_que_cojea", "arrodillar"]).retrasa_si_estado, int(StatusEffects.Id.LENTO), "Arrodillar")
+	cerca(_de(T, ["brazo_largo_t", "al_que_cojea", "presa_facil"]).presa_facil, 0.05, 0.0001, "Presa facil")
+	cerca(_de(T, ["barrido_bajo", "sin_curarse"]).herida_cura_duele, 0.5, 0.0001, "Sin poder curarse")
+	cerca(_de(T, ["brazo_largo_t", "al_que_cojea", "presa_facil", "clavarlo"]).enraiza_si_lento, 0.5, 0.0001, "Clavarlo")
+	cierto(_de(D, ["mas_tajos", "abanico_d", "furia_filo"]).furia_por_enemigo, "Furia de filo")
+	cierto(_de(D, ["tercer_tajo", "remate_combo"]).golpe_si_mata_ultimo, "Remate del combo: y si tumba, sigue")
+
+
+# +X % AL QUE LLEVA EL ESTADO (Romper la guardia, Sobre lo marcado, Al que cojea); al que no, nada.
+func test_extra_si_estado() -> void:
+	const Hab = preload("res://scripts/ui/combat_habilidades.gd")
+	var ab: AbilityData = _de(ESPADA % "tajo_quebrantador", ["tajo_a_fondo", "romper_guardia"])
+	var e := Combatant.new("e", 1, Abilities.new(), 100, 10, 5, 5)
+	cerca(Hab.mult_arbol_golpe(ab, e, 0, 0, 0), 1.0, 0.0001, "sin Vulnerable, nada")
+	e.apply_status(StatusEffects.Id.VULNERABLE, 3)
+	cerca(Hab.mult_arbol_golpe(ab, e, 0, 0, 0), 1.4, 0.0001, "Vulnerable: +40 %")
