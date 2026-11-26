@@ -279,6 +279,10 @@ func sigilo(que: String) -> float:
 # Estos dos los pone Game desde el escudo equipado; 0 = este escudo no ripostea.
 var escudo_contra_prob: float = 0.0   # probabilidad de devolver el golpe que paras
 var escudo_contra_mult: float = 0.0   # fraccion del daño con la que lo devuelves
+# (26/11) ESCUDO QUE DEVUELVE (Avance cubierto): probabilidad DE MAS hasta su siguiente turno (la quita el empezar su turno).
+var escudo_contra_extra: float = 0.0
+# (26/11) LLEGAR CUBIERTO (Avance cubierto): turnos SUYOS de mas que sigue en guardia (los gasta el empezar su turno).
+var guardia_turnos_quedan: int = 0
 
 # --- COBERTURA / CUBRIR A UN ALIADO (la personalidad del escudo GRANDE) ---
 # "Yo recibo tus golpes": mientras dure, los golpes que el sorteo manda al PROTEGIDO llegan a

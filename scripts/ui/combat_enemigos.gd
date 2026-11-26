@@ -722,6 +722,9 @@ func _propio_florecido(e: Combatant, ab: AbilityData, tocados: Array = []) -> Ar
 		e.guardia_contra_mult = ab.contra_mult
 		e.guardia_contra_escudo = ab.contra_con_escudo
 		out.append("se pone en guardia: devolverá lo que esquive")
+		# (26/11) En guardia con rodela: el escudo arriba tambien (ver CombatHabilidades.poner_guardia).
+		if _pantalla.CombatHabilidades.lleva_rodela(e) and not ab.contra_con_escudo:
+			_pantalla._poner_en_defensa(e)
 	# (fase 3) SU FILO / SU MANTO: el hechizo de imbuir, a si mismo.
 	var sp_imb: SpellData = ab.get_meta(&"hechizo") if ab.has_meta(&"hechizo") else null
 	if sp_imb != null and sp_imb.es_imbuicion():
@@ -2643,6 +2646,8 @@ func _riposte_bloqueo(atacante: Combatant, victima: Combatant, defendiendo: bool
 	if not atacante.is_alive() or not victima.is_alive():
 		return ""
 	var p: float = victima.escudo_contra_prob
+	if p > 0.0:
+		p += victima.escudo_contra_extra   # (26/11) Escudo que devuelve
 	if p <= 0.0 or randf() >= p:
 		return ""
 	return _contraatacar(atacante, victima, victima.escudo_contra_mult, true)

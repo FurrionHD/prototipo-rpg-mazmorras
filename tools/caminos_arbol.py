@@ -1,5 +1,6 @@
 # tools/caminos_arbol.py (25/11): los caminos hasta el nivel 5 del arbol de cada habilidad, para el simulador.
-#   python tools/caminos_arbol.py [hab1,hab2]  -> estoque#hab,estoque#hab:n2.n3.n4.n5,...  (arma estoque; cambiar a mano para otra)
+#   python tools/caminos_arbol.py [hab1,hab2] [arma]  -> arma#hab,arma#hab:n2.n3.n4.n5,...  (arma: estoque por defecto;
+#   con escudo, 'estoque+escudo_pequeno' para el Avance cubierto)
 # Los caminos hasta el nivel 5 de cada habilidad del estoque (uno por nodo de cada nivel, respetando padres y exclusiones),
 # como lista de 'estoque#hab:n2.n3.n4.n5' para el simulador. Mas cada habilidad sin arbol (el nominal).
 import os
@@ -37,10 +38,11 @@ def caminos(clave):
     return out
 
 
+ARMA = sys.argv[2] if len(sys.argv) > 2 else "estoque"
 lista = []
 for h in HABS:
-    lista.append("estoque#%s" % h)
+    lista.append("%s#%s" % (ARMA, h))
     for c in caminos(h):
-        lista.append("estoque#%s:%s" % (h, ".".join(c)))
+        lista.append("%s#%s:%s" % (ARMA, h, ".".join(c)))
 print(",".join(lista))
 print(len(lista), file=sys.stderr)

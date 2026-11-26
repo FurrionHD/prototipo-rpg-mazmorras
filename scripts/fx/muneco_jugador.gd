@@ -763,6 +763,13 @@ func animar(nombre: String) -> void:
 	_aplicar_anim(nombre, true)
 
 
+# La MISMA animacion OTRA VEZ desde el principio (26/11, el jefe: "la Rafaga solo hace la animacion en uno de sus hits"):
+# los gestos que se repiten en cada golpe (CombatTactico._REPITE_POR_GOLPE) con una sola mano se llaman igual en todos, y
+# animar() no reinicia la que ya va.
+func reanimar(nombre: String) -> void:
+	_aplicar_anim(_con_su_guardia(nombre), true)
+
+
 # Clava un fotograma concreto y para el reloj. Lo usa la pantalla de combate, que decide ella cuando
 # avanza un gesto en vez de dejarlo correr.
 func fijar(nombre: String, marco: int) -> void:

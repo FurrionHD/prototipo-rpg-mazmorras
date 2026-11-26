@@ -2167,6 +2167,11 @@ func _begin_player_turn() -> void:
 	if _dps_on:
 		_turnos_jugador += 1
 	_player_defending = false  # la guardia solo dura hasta tu proximo turno
+	# (26/11) LLEGAR CUBIERTO: la del Avance cubierto aguanta estos turnos tuyos de mas. ESCUDO QUE DEVUELVE: hasta aqui.
+	if _player.guardia_turnos_quedan > 0:
+		_player.guardia_turnos_quedan -= 1
+		_player_defending = true
+	_player.escudo_contra_extra = 0.0
 	_player.salir_de_guardia() # la postura de contraataque tambien dura hasta tu proxima accion
 	_player.tick_cooldowns()   # habilidades (KAN-57): baja 1 turno los cooldowns activos
 	# Provocacion (escudo): dura N turnos SUYOS. Baja 1 al empezar su turno (entre medias, los

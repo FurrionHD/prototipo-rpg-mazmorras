@@ -18,6 +18,7 @@ const CASOS := [
 	["en_guardia", ["guardia_alta", "reto", "respiro"], &"guardia_no_cae"],
 	["paso_ligero", ["al_costado", "pasar_cortando", "presteza_mayor"], &"paso_guardia"],
 	["punzada_al_nervio", ["nervio_brazo", "temblor", "cadena_nerviosa"], &"lena_al_caido"],
+	["avance_cubierto", ["carrera_larga", "abrir_guardia", "doble_estocada"], &"llegar_cubierto"],
 ]
 
 
@@ -36,6 +37,7 @@ func _ready() -> void:
 		Game.lider_idx = 0
 	var pj: PersonajeData = Game.lider()
 	pj.equipped_main = Game.crear_item(load("res://resources/weapons/estoque.tres"), 1, 0, {})
+	pj.equipped_off = load("res://resources/shields/escudo_pequeno.tres")   # (26/11) la rodela: el Avance cubierto
 	pj.habilidades_aprendidas = Game.pool_habilidades(pj).duplicate()
 	pj.level = 4
 	pj.piso_hondo = 40

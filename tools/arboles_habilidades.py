@@ -523,7 +523,48 @@ ARBOLES["punzada_al_nervio"] = [
 ]
 
 
+# AVANCE CUBIERTO (26/11, cerrado con el jefe; estoque + RODELA): de serie carga en linea de 110 px hasta el PRIMERO,
+# rodelazo 90 % (golpe 0, con tu Defensa, aturde 20 %) y estocada 200 % (golpe 1, con tu arma, +20 % de defensa ignorada),
+# en guardia 1 turno, 58 EN, enfr 5. Arriba la ESTOCADA (llegar y pinchar), abajo el ESCUDO (controlar).
+ATURDIDO = 7
+NV3_AVANCE = ["peso_carrera", "abrir_guardia", "arrollar", "retar"]
+ARBOLES["avance_cubierto"] = [
+    ("carrera_larga", 2, [], ["rodelazo_aturde"], "Carrera larga",
+     "Lo que se aleja también se alcanza.",
+     {"forma_radio": ("add", 40.0), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+    ("rodelazo_aturde", 2, [], ["carrera_larga"], "Rodelazo que aturde",
+     "El canto de la rodela, justo en la sien.",
+     {"efectos_prob_de": ("add", {ATURDIDO: 0.45}), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("peso_carrera", 3, ["carrera_larga"], ["abrir_guardia"], "Peso de la carrera",
+     "Todo lo que corres llega en la punta.",
+     {"carga_peso_max": ("set", 0.3), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("abrir_guardia", 3, ["carrera_larga"], ["peso_carrera"], "Abrirle la guardia",
+     "La rodela le aparta el arma; la punta entra sola.",
+     {"escudo_abre_critico": ("set", True), "potencia": (P, 0.375), "potencia_coste": (P, 1.0)}),
+    ("arrollar", 3, ["rodelazo_aturde"], ["retar"], "Arrollar",
+     "Lo que se pone delante de la rodela, se aparta.",
+     {"forma_escudo_largo": ("set", 40.0), "tiron": ("set", -18.0), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("retar", 3, ["rodelazo_aturde"], ["arrollar"], "Reto",
+     "Después de eso, solo tiene ojos para ti.",
+     {"reto_turnos": ("set", 2), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    # Nv4: desde cualquiera de los cuatro, una de dos. ESTOCADA DOBLE: una estocada mas al 50 % (100 % del Ataque) y todo
+    # x290/390 para que no suba el daño (como la de la Estocada penetrante: mas golpes, mismo daño).
+    ("doble_estocada", 4, NV3_AVANCE, ["escudo_devuelve"], "Estocada doble",
+     "Sacas y vuelves a entrar antes de que se den cuenta.",
+     {"golpes_min": ("add", 1), "golpes_max": ("add", 1), "mults_golpe": ("add", [1.0]),
+      "dano_mult": ("mult", 290.0 / 390.0), "potencia": (P, 0.75), "potencia_coste": (P, 1.0)}),
+    ("escudo_devuelve", 4, NV3_AVANCE, ["doble_estocada"], "Escudo que devuelve",
+     "Llegas con la rodela arriba y con ganas de contestar.",
+     {"escudo_contra_extra": ("set", 0.35), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+    ("llegar_cubierto", 5, ["doble_estocada", "escudo_devuelve"], [], "Llegar cubierto",
+     "Entras, pinchas, y la rodela no baja.",
+     {"guardia_turnos_extra": ("set", 1), "potencia": (P, 0.5), "potencia_coste": (P, 1.0)}),
+]
+
+
 def _valor(v) -> str:
+    if isinstance(v, list):
+        return "[" + ", ".join(_valor(x) for x in v) + "]"
     if isinstance(v, bool):
         return "true" if v else "false"
     if isinstance(v, int):

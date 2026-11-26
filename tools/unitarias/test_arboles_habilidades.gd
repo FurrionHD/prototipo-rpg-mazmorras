@@ -637,3 +637,63 @@ func test_sobre_lo_tocado() -> void:
 	e.statuses.clear()
 	e.apply_status(StatusEffects.Id.DEBIL, 3)
 	cerca(Hab.mult_arbol_golpe(ab, e, 0, 0, 0), 1.3, 0.0001, "Debil: +30 %")
+
+
+# AVANCE CUBIERTO (26/11, estoque + rodela, cerrado con el jefe): rodelazo 90 % (escudo, golpe 0) + estocada 200 % (arma).
+const AVANCE_RUTA := "res://resources/abilities/avance_cubierto.tres"
+
+func test_avance_cubierto_numeros() -> void:
+	var base: AbilityData = load(AVANCE_RUTA)
+	cierto(base.golpe_es_de_escudo(0) and not base.golpe_es_de_escudo(1), "el rodelazo DELANTE, la estocada detras")
+	cierto(base.tiene_golpe_de_escudo() and not base.es_toda_de_escudo(), "lleva escudo, pero no es toda de escudo")
+	var cl: AbilityData = _de(AVANCE_RUTA, ["carrera_larga"])
+	igual(cl.forma_radio, 150.0, "Carrera larga: 110 -> 150 px")
+	cerca(cl.dano_mult, 1.3, 0.0001, "y el +30 % del nivel")
+	igual(roundi(cl.coste_energia), 81, "58 -> 81 de energia")
+	var ra: AbilityData = _de(AVANCE_RUTA, ["rodelazo_aturde"])
+	cerca(ra.prob_de_efecto(ra.efectos[0]), 0.45, 0.0001, "Rodelazo que aturde: 45 %")
+	cerca(base.prob_de_efecto(base.efectos[0]), 0.2, 0.0001, "la ficha sigue al 20 %")
+	var dob: AbilityData = _de(AVANCE_RUTA, ["carrera_larga", "peso_carrera", "doble_estocada"])
+	igual(dob.golpes_max, 3, "Estocada doble: 3 golpes")
+	igual((dob.mults_golpe as Array).size(), 3, "con su multiplicador")
+	cerca(float(dob.mults_golpe[2]), 1.0, 0.0001, "la segunda estocada al 100 % del Ataque")
+	igual((base.mults_golpe as Array).size(), 2, "la ficha no se ha tocado")
+	cerca(_de(AVANCE_RUTA, ["carrera_larga", "peso_carrera"]).carga_peso_max, 0.3, 0.0001, "Peso de la carrera: hasta +30 %")
+	cierto(_de(AVANCE_RUTA, ["carrera_larga", "abrir_guardia"]).escudo_abre_critico, "Abrirle la guardia")
+	var arr: AbilityData = _de(AVANCE_RUTA, ["rodelazo_aturde", "arrollar"])
+	cierto(arr.forma_escudo_largo > 0.0 and arr.tiron < 0.0, "Arrollar: el escudo a toda la linea, y empuja")
+	igual(_de(AVANCE_RUTA, ["rodelazo_aturde", "retar"]).reto_turnos, 2, "Reto: 2 turnos")
+	cerca(_de(AVANCE_RUTA, ["rodelazo_aturde", "retar", "escudo_devuelve"]).escudo_contra_extra, 0.35, 0.0001,
+		"Escudo que devuelve: +35 %")
+	igual(_de(AVANCE_RUTA, ["rodelazo_aturde", "retar", "escudo_devuelve", "llegar_cubierto"]).guardia_turnos_extra, 1,
+		"Llegar cubierto: un turno mas")
+	igual(Mejoras.nodo(base, &"linea_6").padres.size(), 1, "la linea del 6 cuelga del unico del nivel 5")
+
+
+# QUE ESCUDO VALE (26/11, el jefe): el Avance cubierto solo con rodela; En guardia con la mano libre o con rodela, y con
+# rodela se come la Postura de rodela. La Guardia rota sigue con cualquiera.
+func test_estoque_y_escudos() -> void:
+	var p: PersonajeData = Game.lider()
+	var main_antes = p.equipped_main
+	var off_antes = p.equipped_off
+	var avance: AbilityData = load(AVANCE_RUTA)
+	var guardia: AbilityData = load("res://resources/abilities/en_guardia.tres")
+	var postura: AbilityData = load("res://resources/abilities/postura_rodela.tres")
+	p.equipped_main = load("res://resources/weapons/estoque.tres")
+	p.equipped_off = null
+	var pool: Array = Game.pool_habilidades(p)
+	cierto(pool.has(guardia) and not pool.has(avance), "estoque solo: En guardia, sin Avance")
+	p.equipped_off = load("res://resources/shields/escudo_pequeno.tres")
+	pool = Game.pool_habilidades(p)
+	cierto(pool.has(guardia) and pool.has(avance), "estoque y rodela: En guardia y Avance cubierto")
+	cierto(not pool.has(postura), "y la Postura de rodela no sale (la tapa En guardia)")
+	p.equipped_off = load("res://resources/shields/escudo_normal.tres")
+	pool = Game.pool_habilidades(p)
+	cierto(not pool.has(guardia) and not pool.has(avance), "estoque y escudo normal: ni En guardia ni Avance")
+	p.equipped_main = load("res://resources/weapons/espada_larga.tres")
+	p.equipped_off = load("res://resources/shields/escudo_pequeno.tres")
+	pool = Game.pool_habilidades(p)
+	cierto(pool.has(load("res://resources/abilities/guardia_rota.tres")), "la Guardia rota sigue con cualquier escudo")
+	cierto(pool.has(postura), "y sin estoque la Postura de rodela sale")
+	p.equipped_main = main_antes
+	p.equipped_off = off_antes

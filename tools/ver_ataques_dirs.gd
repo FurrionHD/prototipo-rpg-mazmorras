@@ -20,6 +20,7 @@ const HABILIDADES := [
 	["daga", "oportunista"],
 	["estoque", "estocada_penetrante"], ["estoque", "fintas"], ["estoque", "punzada_al_nervio"],
 	["estoque", "paso_ligero"], ["estoque", "danza_de_acero"], ["estoque", "en_guardia"],
+	["estoque", "avance_cubierto"],
 	["espada", "basico"], ["espada", "tajo_quebrantador"], ["espada", "doble_tajo"], ["espada", "cambio_de_ritmo"],
 	["espada", "senalar_el_hueco"], ["espada", "corte_de_tendones"],
 	["larga", "basico"], ["larga", "tajo_pesado"], ["larga", "tajo_desarmante"], ["larga", "estocada_marcial"],
@@ -143,6 +144,8 @@ const MOMENTOS_ESTOQUE := {
 	"danza_de_acero": [0.06, 0.16, 0.26, 0.36, 0.55],
 	# Tres de la postura al activarla y dos de la esquiva en guardia (el golpe llega a los 0.6).
 	"en_guardia": [0.05, 0.12, 0.2, 0.63, 0.72],
+	# (26/11) estoque + rodela: la carrera (0,16), el rodelazo al llegar y la estocada un golpe despues.
+	"avance_cubierto": [0.06, 0.14, 0.19, 0.27, 0.4],
 }
 # LA DAGA (DagaAire) pinta golpe a golpe sobre cada cuerpo: sus momentos van por habilidad.
 const MOMENTOS_DAGA := {
@@ -762,6 +765,21 @@ func _efecto_estoque(ab: AbilityData, nom: String, f, fila: int, hoja: Image, ti
 			if mejor.has_area():
 				piezas.append({"n": EstoqueAire.golpe(self, EstoqueAire.Modo.PUNZADA, dest + alto, mejor, false, false, 0,
 					semilla, 0.0, 1.0), "t0": 0.2})
+		"avance_cubierto":
+			# (26/11) Como la Embestida: corres con el rastro hasta pegarte al primero (o al final); al llegar el RODELAZO
+			# (el escudazo, con la chapa) y, un golpe despues, la ESTOCADA que atraviesa.
+			var fin_a: Vector2 = f.origen + f.dir * f.largo
+			var prim_a: Rect2 = cajas[0] if not cajas.is_empty() else Rect2()
+			if prim_a.has_area():
+				fin_a = Vector2(prim_a.get_center().x, prim_a.end.y) - f.dir * 22.0
+			var dur_a: float = 0.16
+			camino = [yo, fin_a, dur_a]
+			piezas.append({"n": EstoqueAire.rastro(self, yo, fin_a, dur_a, semilla), "t0": 0.0})
+			if prim_a.has_area():
+				piezas.append({"n": EscudoAire.golpe(self, EscudoAire.Modo.ESCUDAZO, fin_a + alto, prim_a, false, false, 0,
+					semilla, 0.0, 1.0, true), "t0": dur_a})
+				piezas.append({"n": EstoqueAire.golpe(self, EstoqueAire.Modo.PENETRANTE, fin_a + alto, prim_a, false, true, 1,
+					semilla + 1, 0.0, 1.0), "t0": dur_a + EspadaAire.T_ENTRE})
 		"danza_de_acero":
 			# Cruzas la linea entera (sin acabar encima de nadie) y cada estocada cae al pasar a su lado.
 			var fin: Vector2 = f.origen + f.dir * f.largo

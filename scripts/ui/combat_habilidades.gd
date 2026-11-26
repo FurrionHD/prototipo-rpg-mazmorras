@@ -488,7 +488,19 @@ func poner_guardia(pg: Combatant, ab: AbilityData, de_la_habilidad: bool) -> Arr
 			out.append("%s reta a %d enemigo%s" % [pg.nombre, cerca.size(), "" if cerca.size() == 1 else "s"])
 	pg.guardia_contra_mult = ab.contra_mult
 	pg.guardia_contra_escudo = ab.contra_con_escudo
+	# (26/11, el jefe) EN GUARDIA CON RODELA: la postura se suma a la de la rodela (que con el estoque no sale): el escudo
+	# ARRIBA (paras lo que no esquivas y la rodela lo devuelve, ShieldData.contra_prob) ademas de la contra al esquivar.
+	if lleva_rodela(pg) and not ab.contra_con_escudo:
+		_pantalla._poner_en_defensa(pg)
+		out.append("%s alza la rodela" % pg.nombre)
 	return out
+
+
+# ¿Lleva un escudo PEQUEÑO en la otra mano? (En guardia con rodela)
+static func lleva_rodela(c: Combatant) -> bool:
+	var pj: PersonajeData = Game.pj_de_combatant(c)
+	return pj != null and pj.equipped_off is ShieldData \
+		and int((pj.equipped_off as ShieldData).tamano) == ShieldData.Tamano.PEQUENO
 
 
 # PASO DE GUARDIA: la guardia que entra es la de TU En guardia (con tu arbol); sin ella, la de su ficha.
@@ -522,6 +534,18 @@ func _arbol_tras_golpes(ab: AbilityData, entraron: Array, criticos: int, ultimo:
 	if ab.guardia_si_no_golpea and entraron.is_empty() and not p.en_guardia:
 		log_estados += poner_guardia(p, _tu_en_guardia(p), false)
 		log_estados.append("%s queda en guardia" % p.nombre)
+	# (26/11) RETO (Avance cubierto): los que se llevaron golpe van solo a por ti (si ya provocas a todos, se queda asi).
+	if ab.reto_turnos > 0:
+		var retados: Array = entraron.filter(func(o): return (o as Combatant).is_alive())
+		if not retados.is_empty() and not (p.provocar_turnos > 0 and p.provocados.is_empty()):
+			if p.provocar_turnos <= 0:
+				p.provocados = []   # lo de una provocacion vieja ya acabada
+			p.provocar_turnos = maxi(p.provocar_turnos, ab.reto_turnos)
+			for o in retados:
+				if not p.provocados.has(o):
+					p.provocados.append(o)
+			_pantalla.objetivos.provocar_amenaza(p, retados)
+			log_estados.append("%s reta a %s" % [p.nombre, ", ".join(retados.map(func(o): return (o as Combatant).nombre))])
 	# HERIDA EN CRUZ: al ultimo que se llevo un golpe.
 	if ab.estado_al_ultimo >= 0 and ultimo != null and ultimo.is_alive() and not ultimo.es_inmune(ab.estado_al_ultimo):
 		ultimo.apply_status(ab.estado_al_ultimo, ab.estado_al_ultimo_turnos)
@@ -606,6 +630,12 @@ static func detonar(objetivo: Combatant, estado: int) -> float:
 # Las bajas y el ultimo golpe de la habilidad EN CURSO (los pone _usar_habilidad antes de los golpes).
 var _bajas_hab: int = 0
 var _ultimo_golpe_hab: int = -1
+# (26/11, Avance cubierto) a quien le entro ya el golpe de escudo (Abrirle la guardia) y lo que corriste de la carga, de 0 a 1
+# (Peso de la carrera). Los pone a cero _usar_habilidad antes de los golpes.
+var _abiertos_escudo: Dictionary = {}
+var _carrera_hab: float = 0.0
+# Los criticos de la ultima habilidad (lo miran las pruebas: tools/prueba_avance_cubierto).
+var criticos_ultima: int = 0
 
 
 func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: int,
@@ -649,9 +679,18 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	if ab.golpe_es_de_escudo(i) and not (ab.es_toda_de_escudo() and ab.fx_estilo >= 0):
 		estilo_ab = CombatFX.Estilo.ESCUDAZO
 	# (24/11) MANO SEGURA: la que no falla (AbilityData.infalible, como la Mirada estelar de los enemigos).
-	var result := StatsMath.resolve_attack(_pantalla._player, objetivo, def_e, atk_ov, ab.crit_extra,
-		ab.penetracion_extra, not ab.infalible)
+	# (26/11) AVANCE CUBIERTO: la defensa que ignora es de la ESTOCADA (el rodelazo no la lleva), y ABRIRLE LA GUARDIA:
+	# al que ya le entro el rodelazo, los golpes de arma son criticos seguro (5 = como el Riposte perfecto).
+	var de_escudo: bool = ab.golpe_es_de_escudo(i)
+	var pen_g: float = 0.0 if de_escudo and ab.escudo_hasta_golpe >= 0 else ab.penetracion_extra
+	var crit_g: float = ab.crit_extra
+	if ab.escudo_abre_critico and not de_escudo and _abiertos_escudo.has(objetivo):
+		crit_g = 5.0   # seguro, lleve el critico que lleve
+	var result := StatsMath.resolve_attack(_pantalla._player, objetivo, def_e, atk_ov, crit_g,
+		pen_g, not ab.infalible)
 	_pantalla._aplicar_pasivas(result, _pantalla._player, objetivo)
+	if not result.evaded and de_escudo:
+		_abiertos_escudo[objetivo] = true
 	if result.evaded:
 		r.evaded = true
 		r.linea = "golpe %d%s: esquivado 💨" % [i + 1, etq]
@@ -674,6 +713,11 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	if ab.extra_espalda > 0.0 and _pantalla.tactico and _pantalla.turno_mapa.por_la_espalda(_pantalla._player, objetivo):
 		dmg *= 1.0 + ab.extra_espalda
 		print("        [%s] por la espalda: +%d %%" % [objetivo.nombre, roundi(ab.extra_espalda * 100.0)])
+	# (26/11) PESO DE LA CARRERA (Avance cubierto): los golpes de arma, segun lo que corriste (_carrera_hab, de 0 a 1).
+	if ab.carga_peso_max > 0.0 and not de_escudo and _carrera_hab > 0.0:
+		dmg *= 1.0 + ab.carga_peso_max * _carrera_hab
+		print("        [%s] peso de la carrera (%d %%): +%d %%" % [objetivo.nombre, roundi(_carrera_hab * 100.0),
+			roundi(ab.carga_peso_max * _carrera_hab * 100.0)])
 	# (25/11) AL COSTADO (Paso ligero): de lado o por la espalda, desde donde pega.
 	if ab.extra_costado > 0.0 and _pantalla.tactico and _pantalla.turno_mapa.golpe_de_costado(_pantalla._player, objetivo):
 		dmg *= 1.0 + ab.extra_costado
@@ -741,7 +785,7 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	var esc_txt: String = "" if is_equal_approx(escala, 1.0) else " [%d%%]" % roundi(escala * 100.0)
 	# Etiqueta de "con qué se pega": arma+escudo distingue arma/escudo; el dual, la 2ª mano.
 	var mano_txt: String = ""
-	if ab.escudo_desde_golpe >= 0:
+	if ab.tiene_golpe_de_escudo():
 		# Se dice con QUE se pega y, en el escudazo, que va con la DEFENSA: es la unica pista de
 		# que subir armadura le sube el daño a ese golpe.
 		mano_txt = " [escudo · DEF]" if ab.golpe_es_de_escudo(i) else " [arma]"
@@ -976,6 +1020,8 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# 'coste' vale lo que tengas AHORA. Sin este guardia, una habilidad de conversion con carga te
 	# daria maná gratis por energia que ya no gastas.
 	_aliados_mapa = null
+	_carrera_hab = 0.0
+	_abiertos_escudo.clear()
 	var reparto_escudo: Array = []   # a quien le cae el escudazo, si tiene huella propia (Guardia rota)
 	if en_mapa:
 		reparto_mapa = _pantalla.turno_mapa.reparto_habilidad(ab, _pantalla._player)
@@ -1014,6 +1060,8 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 				0 if reparto_mapa.is_empty() else ab.num_golpes(manos, reparto_mapa.size()))
 		# LA CARGA (Embestida): corres hasta el primero que pilla, y le pegas al llegar.
 		if ab.carga:
+			_carrera_hab = _pantalla.turno_mapa.carrera_de_carga(ab, _pantalla._player,
+				null if reparto_mapa.is_empty() else reparto_mapa[0]["c"])
 			_pantalla.turno_mapa.pedir_carga(ab, _pantalla._player,
 				null if reparto_mapa.is_empty() else reparto_mapa[0]["c"],
 				0 if reparto_mapa.is_empty() else ab.num_golpes(manos, reparto_mapa.size()))
@@ -1241,6 +1289,7 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 						var dsp: String = _pantalla.desplazado(t, ab.tiron, _pantalla._player)
 						if dsp != "":
 							_pantalla._set_log(dsp)
+		criticos_ultima = criticos_hab
 		_arbol_tras_golpes(ab, tocados.filter(func(t): return int(conecto_por_obj.get(t, 0)) > 0), criticos_hab,
 			ultimo_golpeado, estados_log)
 		# Excelia: como el ataque, entrena la stat de su arma (por impacto medio, contra el principal).
@@ -1306,6 +1355,12 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 
 	if ab.bloqueo_turnos > 0:
 		_pantalla._player_defending = true   # golpe de escudo: te deja en guardia
+		# (26/11) LLEGAR CUBIERTO: y te dura turnos de mas.
+		if ab.guardia_turnos_extra > 0:
+			_pantalla._player.guardia_turnos_quedan = maxi(_pantalla._player.guardia_turnos_quedan, ab.guardia_turnos_extra)
+	# (26/11) ESCUDO QUE DEVUELVE: hasta tu siguiente turno.
+	if ab.escudo_contra_extra > 0.0:
+		_pantalla._player.escudo_contra_extra = maxf(_pantalla._player.escudo_contra_extra, ab.escudo_contra_extra)
 	# Postura de contraataque del estoque (KAN-57): entras en guardia hasta tu proxima accion.
 	# Bajas velocidad (data-driven), esquivas mas y devuelves los golpes que esquivas (riposte).
 	if ab.postura_contraataque:

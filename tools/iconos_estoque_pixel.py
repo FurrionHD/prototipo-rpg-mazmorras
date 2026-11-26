@@ -113,6 +113,21 @@ def punzada_al_nervio():
     return L.hecho()
 
 
+def rodela(L, cx, cy, r=2.8):
+    """(26/11) La rodela: escudo pequeño y redondo, de hierro con el umbo dorado."""
+    L.disco(cx, cy, r, 'm', luz='l', sombra='d')
+    L.disco(cx, cy, 0.9, 'a')
+
+
+def avance_cubierto():
+    """(26/11, estoque + rodela) Corre con la rodela delante y la punta asomando por encima."""
+    L = Lienzo()
+    rayas(L, 4, 5, 3, 'c')
+    rodela(L, 5.5, 7.0, 3.2)
+    estoque(L, 3, 4, 11, 1, cazoleta=False)
+    return L.hecho()
+
+
 HABILIDADES = [
     ("estocada_penetrante", "Estocada penetrante", estocada_penetrante),
     ("fintas", "Fintas", fintas),
@@ -120,6 +135,7 @@ HABILIDADES = [
     ("en_guardia", "En guardia", en_guardia),
     ("paso_ligero", "Paso ligero", paso_ligero),
     ("punzada_al_nervio", "Punzada al nervio", punzada_al_nervio),
+    ("avance_cubierto", "Avance cubierto", avance_cubierto),
 ]
 
 # ------------------------------------------------------------------ ESTOCADA PENETRANTE
@@ -369,6 +385,46 @@ def _lena_al_caido(L):
     L.disco(6.0, 6.0, 1.2, 'x')
 
 
+# ------------------------------------------------------------------ AVANCE CUBIERTO (26/11)
+def _carrera_larga(L):
+    rayas(L, 4, 3, 4, 'c')
+    rodela(L, 4.0, 6.0, 2.6)
+    L.filas(5, 9, rc(FLECHA, {'w': 'c'}))
+def _rodelazo_aturde(L):
+    rodela(L, 4.0, 7.5, 3.0)
+    L.filas(5, 0, ESTRELLA[1:6])
+def _peso_carrera(L):
+    rayas(L, 3, 3, 4, 'c')
+    rodela(L, 4.0, 7.0, 2.4)
+    estoque(L, 4, 4, 11, 4, cazoleta=False)
+    chispa(L, 10, 7)
+def _abrir_guardia(L):
+    L.linea(1, 1, 5, 5, ['S', 's'])        # su arma, apartada
+    rodela(L, 5.0, 7.5, 2.6)
+    estoque(L, 3, 11, 11, 3, cazoleta=False)
+    L.filas(8, 0, [".w.", "www", ".w."])
+def _arrollar(L):
+    rodela(L, 3.0, 6.0, 2.8)
+    L.filas(6, 1, rc(SILUETA[:4], {'k': 'r'}))
+    L.filas(8, 6, rc(SILUETA[:4], {'k': 'R'}))
+    L.filas(5, 10, ["cc"])
+def _retar(L):
+    rodela(L, 3.0, 7.0, 2.6)
+    L.filas(6, 4, rc(SILUETA, {'k': 'r'}))
+    L.filas(10, 0, ["x", "x", "x", ".", "x"])
+def _doble_estocada(L):
+    rodela(L, 2.5, 6.0, 2.2)
+    estoque(L, 3, 3, 11, 3, cazoleta=False)
+    estoque(L, 3, 9, 11, 9, cazoleta=False)
+def _escudo_devuelve(L):
+    rodela(L, 4.0, 6.0, 3.0)
+    L.arco(6.5, 6.0, 4.5, 300, 420, ['x', 'x', 'X'], paso=8)
+    L.filas(9, 8, ["x.", "xx"])
+def _llegar_cubierto(L):
+    L.arco(6.0, 7.0, 5.2, 200, 340, ['B', 'b', 'b', 'B'], paso=6)
+    rodela(L, 6.0, 7.5, 3.4)
+
+
 NODOS = [
     ("estocada_penetrante", [("sin_armadura", "Sin armadura", _sin_armadura), ("atravesar", "Atravesar", _atravesar),
                              ("corazon", "Corazón", _corazon), ("empunadura", "Hasta la empuñadura", _empunadura),
@@ -403,6 +459,13 @@ NODOS = [
                            ("atravesar_p", "Atravesar", _atravesar_p), ("larga_p", "Línea larga", _linea_larga_p),
                            ("sobre_lo_tocado", "Sobre lo tocado", _sobre_lo_tocado), ("mano_segura", "Mano segura", _mano_segura_p),
                            ("lena_al_caido", "Leña al caído", _lena_al_caido)]),
+    ("avance_cubierto", [("carrera_larga", "Carrera larga", _carrera_larga),
+                         ("rodelazo_aturde", "Rodelazo que aturde", _rodelazo_aturde),
+                         ("peso_carrera", "Peso de la carrera", _peso_carrera),
+                         ("abrir_guardia", "Abrirle la guardia", _abrir_guardia), ("arrollar", "Arrollar", _arrollar),
+                         ("retar", "Reto", _retar), ("doble_estocada", "Estocada doble", _doble_estocada),
+                         ("escudo_devuelve", "Escudo que devuelve", _escudo_devuelve),
+                         ("llegar_cubierto", "Llegar cubierto", _llegar_cubierto)]),
 ]
 
 

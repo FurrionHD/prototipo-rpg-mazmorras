@@ -7,6 +7,7 @@
 [ext_resource type="Resource" path="res://resources/abilities/paso_ligero.tres" id="n0_paso_l"]
 [ext_resource type="Resource" path="res://resources/abilities/punzada_al_nervio.tres" id="n1_punzad"]
 [ext_resource type="Resource" path="res://resources/abilities/danza_de_acero.tres" id="n2_danza_"]
+[ext_resource type="Resource" path="res://resources/abilities/avance_cubierto.tres" id="n3_avance"]
 
 [resource]
 script = ExtResource("1")
@@ -23,5 +24,5 @@ evasion_bonus = 0.04
 bloqueo = 0.08
 dano_tipo = 0
 aturdir_base = 0.0
-habilidades = [ExtResource("2"), ExtResource("3"), ExtResource("4"), ExtResource("n0_paso_l"), ExtResource("n1_punzad"), ExtResource("n2_danza_")]
+habilidades = [ExtResource("2"), ExtResource("3"), ExtResource("4"), ExtResource("n0_paso_l"), ExtResource("n1_punzad"), ExtResource("n2_danza_"), ExtResource("n3_avance")]
 valor_base = 450

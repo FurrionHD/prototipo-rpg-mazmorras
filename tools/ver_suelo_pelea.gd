@@ -79,6 +79,9 @@ func _correr() -> void:
 		Game.equipar_arma(load("res://resources/weapons/%s.tres" % pa[0]))
 		if pa.size() > 1 and pa[1] == "varita":
 			print("  varita: ", Game.equipar_secundaria(load("res://resources/wands/varita.tres")))
+	# SUELO_ESCUDO=escudo_pequeno (26/11): el escudo en la izquierda (el Avance cubierto del estoque, con rodela).
+	if OS.get_environment("SUELO_ESCUDO") != "":
+		print("  escudo: ", Game.equipar_secundaria(load("res://resources/shields/%s.tres" % OS.get_environment("SUELO_ESCUDO"))))
 	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
 	await _esperar(5)
 	Game.entrar_arena_de_pruebas()

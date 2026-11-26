@@ -8791,14 +8791,23 @@ func pool_habilidades(pj: PersonajeData = null) -> Array:
 			for ab in habilidades_de_item(it):
 				if ab == null or pool.has(ab):
 					continue
-				# Tecnicas de arma+escudo: solo si llevas escudo (ej: Guardia rota).
-				if ab.requiere_escudo and not tiene_escudo:
+				# Tecnicas de arma+escudo: solo si llevas escudo (ej: Guardia rota), y de los tamaños que pida
+				# (26/11: el Avance cubierto del estoque, solo con rodela; ver AbilityData.escudos_tamanos).
+				if ab.requiere_escudo and not (tiene_escudo and ab.vale_con_escudo(p.equipped_off)):
 					continue
 				# Tecnicas de una mano libre: solo con la otra mano vacia o con varita
-				# (ej: el estoque, "En guardia" / contraataque de duelo).
-				if ab.requiere_off_libre and not off_libre:
+				# (ej: el estoque, "En guardia" / contraataque de duelo), o con el escudo que admita (En guardia, rodela).
+				if ab.requiere_off_libre and not off_libre and not (tiene_escudo and ab.vale_con_escudo(p.equipped_off)):
 					continue
 				pool.append(ab)
+	# LAS QUE SE TAPAN (26/11): si sale una que sustituye a otra, esa otra no (En guardia con rodela -> sin Postura de rodela).
+	var tapadas: Array = []
+	for ab in pool:
+		for s in (ab as AbilityData).sustituye:
+			if s != null:
+				tapadas.append(s)
+	if not tapadas.is_empty():
+		pool = pool.filter(func(ab): return not tapadas.has(ab))
 	return pool
 
 
