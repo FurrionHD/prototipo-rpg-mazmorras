@@ -117,4 +117,5 @@ const TABLA := {
 	"🌗": "fases_luna",
 	"🌕": "luz_luna",
 	"🌒": "fases_luna",
+	"🌪": "furia_filo",
 }

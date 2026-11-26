@@ -1,6 +1,223 @@
 [gd_resource type="Resource" script_class="AbilityData" format=3]
 
 [ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/nodo_mejora.gd" id="nodo_mejora"]
+
+[sub_resource type="Resource" id="NM_cam_acelerar"]
+script = ExtResource("nodo_mejora")
+id = &"acelerar"
+nombre = "Acelerar"
+descripcion = "Rompes el compás y todo llega antes."
+padres = Array[StringName]([])
+excluye = Array[StringName]([&"encadenar_r"])
+nivel_min = 2
+dominio = 300
+oro = 10000
+cambios = {"reduce_cooldowns": ["set", 2], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cam_encadenar_r"]
+script = ExtResource("nodo_mejora")
+id = &"encadenar_r"
+nombre = "Encadenar"
+descripcion = "El cambio de ritmo es el principio de lo siguiente."
+padres = Array[StringName]([])
+excluye = Array[StringName]([&"acelerar"])
+nivel_min = 2
+dominio = 300
+oro = 10000
+cambios = {"descuento_siguiente": ["set", 0.2], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cam_carrera_larga_r"]
+script = ExtResource("nodo_mejora")
+id = &"carrera_larga_r"
+nombre = "Carrera larga"
+descripcion = "Más camino entre un compás y el otro."
+padres = Array[StringName]([&"encadenar_r"])
+excluye = Array[StringName]([&"ancho_r"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"forma_radio": ["set", 120.0], "potencia": ["presupuesto", 0.75], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cam_ancho_r"]
+script = ExtResource("nodo_mejora")
+id = &"ancho_r"
+nombre = "Ancho"
+descripcion = "El tajo al pasar barre más que la línea."
+padres = Array[StringName]([&"acelerar"])
+excluye = Array[StringName]([&"carrera_larga_r"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"forma_ancho": ["set", 28.0], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cam_por_la_espalda_r"]
+script = ExtResource("nodo_mejora")
+id = &"por_la_espalda_r"
+nombre = "Por la espalda"
+descripcion = "Al que cruzas lo pillas por donde no mira."
+padres = Array[StringName]([&"ancho_r"])
+excluye = Array[StringName]([&"esquivar_cruzar"])
+nivel_min = 4
+dominio = 900
+oro = 160000
+cambios = {"extra_costado": ["set", 0.3], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cam_esquivar_cruzar"]
+script = ExtResource("nodo_mejora")
+id = &"esquivar_cruzar"
+nombre = "Esquivar al cruzar"
+descripcion = "Para cuando te buscan, ya no estás donde estabas."
+padres = Array[StringName]([&"carrera_larga_r"])
+excluye = Array[StringName]([&"por_la_espalda_r"])
+nivel_min = 4
+dominio = 900
+oro = 160000
+cambios = {"capa_esquiva": ["set", 0.2], "capa_esquiva_turnos": ["set", 1], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cam_presteza_r"]
+script = ExtResource("nodo_mejora")
+id = &"presteza_r"
+nombre = "Presteza"
+descripcion = "Acabas el compás con los pies todavía ligeros."
+padres = Array[StringName]([&"por_la_espalda_r", &"esquivar_cruzar"])
+excluye = Array[StringName]([])
+nivel_min = 5
+dominio = 1200
+oro = 640000
+cambios = {"estado_propio": ["set", 13], "estado_propio_turnos": ["set", 2], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cam_linea_6"]
+script = ExtResource("nodo_mejora")
+id = &"linea_6"
+nombre = "Nivel 6"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"presteza_r"])
+excluye = Array[StringName]([])
+nivel_min = 6
+dominio = 1500
+oro = 1024000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cam_linea_7"]
+script = ExtResource("nodo_mejora")
+id = &"linea_7"
+nombre = "Nivel 7"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_6"])
+excluye = Array[StringName]([])
+nivel_min = 7
+dominio = 1800
+oro = 1638000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cam_linea_8"]
+script = ExtResource("nodo_mejora")
+id = &"linea_8"
+nombre = "Nivel 8"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_7"])
+excluye = Array[StringName]([])
+nivel_min = 8
+dominio = 2100
+oro = 2621000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cam_linea_9"]
+script = ExtResource("nodo_mejora")
+id = &"linea_9"
+nombre = "Nivel 9"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_8"])
+excluye = Array[StringName]([])
+nivel_min = 9
+dominio = 2400
+oro = 4194000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cam_linea_10"]
+script = ExtResource("nodo_mejora")
+id = &"linea_10"
+nombre = "Nivel 10"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_9"])
+excluye = Array[StringName]([])
+nivel_min = 10
+dominio = 2700
+oro = 6710000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cam_linea_11"]
+script = ExtResource("nodo_mejora")
+id = &"linea_11"
+nombre = "Nivel 11"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_10"])
+excluye = Array[StringName]([])
+nivel_min = 11
+dominio = 3000
+oro = 10736000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cam_linea_12"]
+script = ExtResource("nodo_mejora")
+id = &"linea_12"
+nombre = "Nivel 12"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_11"])
+excluye = Array[StringName]([])
+nivel_min = 12
+dominio = 3300
+oro = 17178000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cam_linea_13"]
+script = ExtResource("nodo_mejora")
+id = &"linea_13"
+nombre = "Nivel 13"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_12"])
+excluye = Array[StringName]([])
+nivel_min = 13
+dominio = 3600
+oro = 27485000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cam_linea_14"]
+script = ExtResource("nodo_mejora")
+id = &"linea_14"
+nombre = "Nivel 14"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_13"])
+excluye = Array[StringName]([])
+nivel_min = 14
+dominio = 3900
+oro = 43976000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cam_linea_15"]
+script = ExtResource("nodo_mejora")
+id = &"linea_15"
+nombre = "Nivel 15"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_14"])
+excluye = Array[StringName]([])
+nivel_min = 15
+dominio = 4200
+oro = 70362000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_cam_linea_16"]
+script = ExtResource("nodo_mejora")
+id = &"linea_16"
+nombre = "Nivel 16"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_15"])
+excluye = Array[StringName]([])
+nivel_min = 16
+dominio = 4500
+oro = 112579000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
 
 [resource]
 script = ExtResource("1")
@@ -24,3 +241,5 @@ suelo_roto = 15
 reduce_cooldowns = 1
 redirige_al_morir = true
 descripcion = "Rompes la cadencia a media pelea. No hace gran cosa por sí solo, pero te deja las manos listas antes de tiempo."
+; EL ARBOL (24/11, cerrado con el jefe): lo escribe tools/arboles_habilidades.py, no tocarlo a mano.
+arbol = [SubResource("NM_cam_acelerar"), SubResource("NM_cam_encadenar_r"), SubResource("NM_cam_carrera_larga_r"), SubResource("NM_cam_ancho_r"), SubResource("NM_cam_por_la_espalda_r"), SubResource("NM_cam_esquivar_cruzar"), SubResource("NM_cam_presteza_r"), SubResource("NM_cam_linea_6"), SubResource("NM_cam_linea_7"), SubResource("NM_cam_linea_8"), SubResource("NM_cam_linea_9"), SubResource("NM_cam_linea_10"), SubResource("NM_cam_linea_11"), SubResource("NM_cam_linea_12"), SubResource("NM_cam_linea_13"), SubResource("NM_cam_linea_14"), SubResource("NM_cam_linea_15"), SubResource("NM_cam_linea_16")]
