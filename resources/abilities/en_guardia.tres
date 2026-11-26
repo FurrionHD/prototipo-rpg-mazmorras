@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/items/nodo_mejora.gd" id="nodo_mejora"]
+[ext_resource type="Resource" path="res://resources/abilities/postura_rodela.tres" id="postura_rodela"]
 
 [sub_resource type="Resource" id="NM_en__guardia_alta"]
 script = ExtResource("nodo_mejora")
@@ -253,10 +254,14 @@ fx_estilo = 43
 cooldown = 0
 postura_contraataque = true
 requiere_off_libre = true
+; (26/11, el jefe) TAMBIEN CON RODELA, y entonces la postura se suma a la de la rodela (que no sale): ver
+; CombatHabilidades.poner_guardia.
+escudos_tamanos = [0]
+sustituye = [ExtResource("postura_rodela")]
 guardia_spd_mult = 0.5
 guardia_quita_prisa = true
 evasion_bonus = 0.20
 contra_mult = 1.0
-descripcion = "Postura de duelo del estoque (una mano, la otra libre o con varita): entras en guardia hasta tu próxima acción. Bajas tu velocidad, pero recibes menos daño y esquivas mucho más; cada golpe que esquivas lo devuelves con una estocada. Alto riesgo y recompensa: aguanta, esquiva y castiga."
+descripcion = "Postura de duelo del estoque (una mano; la otra libre, con varita o con rodela): entras en guardia hasta tu próxima acción. Bajas tu velocidad, pero recibes menos daño y esquivas mucho más; cada golpe que esquivas lo devuelves con una estocada. Con rodela, además, la alzas: lo que no esquivas lo paras, y la rodela puede devolverlo. Alto riesgo y recompensa: aguanta, esquiva y castiga."
 ; EL ARBOL (24/11, cerrado con el jefe): lo escribe tools/arboles_habilidades.py, no tocarlo a mano.
 arbol = [SubResource("NM_en__guardia_alta"), SubResource("NM_en__guardia_paciente"), SubResource("NM_en__ojos_espalda"), SubResource("NM_en__reto"), SubResource("NM_en__riposte_perfecto"), SubResource("NM_en__salir_al_paso"), SubResource("NM_en__respiro"), SubResource("NM_en__paciencia_g"), SubResource("NM_en__guardia_no_cae"), SubResource("NM_en__linea_6"), SubResource("NM_en__linea_7"), SubResource("NM_en__linea_8"), SubResource("NM_en__linea_9"), SubResource("NM_en__linea_10"), SubResource("NM_en__linea_11"), SubResource("NM_en__linea_12"), SubResource("NM_en__linea_13"), SubResource("NM_en__linea_14"), SubResource("NM_en__linea_15"), SubResource("NM_en__linea_16")]

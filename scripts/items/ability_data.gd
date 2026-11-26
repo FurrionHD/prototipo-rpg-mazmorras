@@ -117,10 +117,18 @@ static func carga_de_peso(peso: float) -> float:
 # mults_golpe: en Guardia rota / Aplastamiento el golpe 0 es del ARMA (con tu Ataque) y el 1 del
 # ESCUDO (con tu Defensa), cada uno con su atributo.
 @export var escudo_desde_golpe: int = -1
+# Y AL REVES (26/11, el Avance cubierto del estoque con rodela): del golpe 0 HASTA este (incluido) van con el ESCUDO y
+# los de despues con el arma: primero el rodelazo y luego la estocada. -1 = ninguno.
+@export var escudo_hasta_golpe: int = -1
 
 # ¿Este golpe (0-indexado) se da con el escudo?
 func golpe_es_de_escudo(i: int) -> bool:
-	return escudo_desde_golpe >= 0 and i >= escudo_desde_golpe
+	return (escudo_desde_golpe >= 0 and i >= escudo_desde_golpe) or (escudo_hasta_golpe >= 0 and i <= escudo_hasta_golpe)
+
+
+# ¿Alguno de sus golpes es de escudo? (para decir en el log con QUE pega cada uno)
+func tiene_golpe_de_escudo() -> bool:
+	return escudo_desde_golpe >= 0 or escudo_hasta_golpe >= 0
 
 
 # ¿TODOS sus golpes son de escudo? Es decir: ¿es una tecnica de escudo entera, y no un ataque de arma
@@ -677,6 +685,17 @@ func secundario_para(n_enemigos: int) -> float:
 @export var extra_si_tocado: float = 0.0
 # LEÑA AL CAIDO: la fuerza del estado_golpe (como StatusApplication.mult; 0 = la del catalogo). La Marca, x1,10.
 @export var estado_golpe_mult: float = 0.0
+# --- AVANCE CUBIERTO (26/11, estoque + rodela, su arbol) ---
+# PESO DE LA CARRERA: los golpes de ARMA pegan hasta este % de mas, segun lo que hayas corrido de la linea (entera = todo).
+@export var carga_peso_max: float = 0.0
+# ABRIRLE LA GUARDIA: al que le entra un golpe de ESCUDO, los de arma que le sigan son criticos seguro.
+@export var escudo_abre_critico: bool = false
+# RETO: al que le entra, va solo a por ti estos turnos tuyos (te deja provocandole a EL; Combatant.provocar_turnos).
+@export var reto_turnos: int = 0
+# ESCUDO QUE DEVUELVE: hasta tu siguiente turno, tu escudo devuelve el golpe que paras con esta probabilidad de mas.
+@export var escudo_contra_extra: float = 0.0
+# LLEGAR CUBIERTO: la guardia que te deja (bloqueo_turnos) te dura estos turnos tuyos de mas.
+@export var guardia_turnos_extra: int = 0
 # --- LA FUERZA Y LA PROBABILIDAD DE CADA ESTADO, por nodo (25/11: Presteza mayor, Nervio del brazo/pierna, Pulso firme).
 # Estado (StatusEffects.Id) -> valor, por encima de lo que diga su StatusApplication (mult = el nivel del estado de stat,
 # como StatusApplication.mult; prob = la probabilidad base). Los nodos los juntan con "add" (Mejoras mezcla diccionarios).
@@ -872,6 +891,22 @@ enum Gesto { AUTO = -1, QUIETO, EN_SITIO, PASO, VIAJE, SALTO, ATRAVESAR }
 # una VARITA (WandData, que no pesa ni estorba). Inverso de requiere_escudo. Ej: el estoque,
 # que trae "En guardia" (postura de contraataque de duelo). Game la filtra en el loadout.
 @export var requiere_off_libre: bool = false
+# QUE ESCUDOS VALEN (26/11, el jefe: "estoque con rodela; la espada larga, mediano; la maza, mediano y grande"), por
+# ShieldData.Tamano. Con requiere_escudo: solo con estos (vacio = cualquiera). Con requiere_off_libre: con la mano libre
+# O con uno de estos (En guardia, tambien con rodela). Lo mira Game.pool_habilidades.
+@export var escudos_tamanos: Array = []
+# LAS QUE TAPA (26/11): si esta sale, estas no (En guardia con rodela se come la Postura de rodela: serian dos posturas
+# casi iguales; la suya ya hace lo de la rodela, ver CombatHabilidades.poner_guardia).
+@export var sustituye: Array = []
+
+
+# ¿Vale con este escudo? (para requiere_escudo / requiere_off_libre; ver escudos_tamanos)
+func vale_con_escudo(sh: ShieldData) -> bool:
+	if sh == null:
+		return false
+	if escudos_tamanos.is_empty():
+		return requiere_escudo
+	return escudos_tamanos.has(int(sh.tamano))
 
 # PROVOCACION (taunt de escudo): N > 0 = al usarla, quien la lanza queda PROVOCANDO N turnos suyos.
 # Mientras dure, los enemigos TIENDEN a pegarle mas a el (pesa mas en su sorteo de objetivo), pero
@@ -1251,6 +1286,31 @@ func frase_mejora(campo: String, antes: AbilityData) -> String:
 		"bonus_por_baja":
 			return "Por cada enemigo que derriba, los golpes que le quedan infligen un %s más (hasta %d veces)." % [
 				_pct_txt(bonus_por_baja), bonus_por_baja_max]
+		"carga_peso_max":
+			return ("Sus golpes de arma infligen hasta un %s más según lo que corras antes de chocar (con la carrera entera, todo)." \
+				% _pct_entero(carga_peso_max)) if carga_peso_max > 0.0 else ""
+		"escudo_abre_critico":
+			return "Si el golpe de escudo le entra, los golpes de arma que le siguen son siempre críticos." if escudo_abre_critico else ""
+		"reto_turnos":
+			return ("Al que le entra va solo a por ti durante %d turno%s tuyo%s." % [reto_turnos, "" if reto_turnos == 1 else "s",
+				"" if reto_turnos == 1 else "s"]) if reto_turnos > 0 else ""
+		"escudo_contra_extra":
+			return ("Hasta tu siguiente turno, la probabilidad de devolver con el escudo el golpe que paras sube un %s." \
+				% _pct_entero(escudo_contra_extra)) if escudo_contra_extra > 0.0 else ""
+		"guardia_turnos_extra":
+			return ("La guardia en la que te deja dura %d turno%s tuyo%s más." % [guardia_turnos_extra,
+				"" if guardia_turnos_extra == 1 else "s", "" if guardia_turnos_extra == 1 else "s"]) if guardia_turnos_extra > 0 else ""
+		"forma_escudo_largo":
+			return ("El golpe de escudo alcanza a todos los de su línea hasta %s." % casillas_txt(forma_escudo_largo)) \
+				if forma_escudo_largo > 0.0 else ""
+		"tiron":
+			if tiron < 0.0:
+				return "Empuja %s a cada enemigo que golpea." % casillas_txt(-tiron)
+			return ("Arrastra %s hacia quien golpea a cada enemigo que alcanza." % casillas_txt(tiron)) if tiron > 0.0 else ""
+		"mults_golpe":
+			if mults_golpe.size() <= (antes.mults_golpe as Array).size():
+				return ""
+			return "Un golpe más al final, al %s de los de arma." % _pct_entero(float(mults_golpe[-1]) / maxf(float(mults_golpe[-2]), 0.0001))
 		"remate_estado", "remate_mult":
 			if remate_estado < 0:
 				return ""
@@ -1266,6 +1326,18 @@ static func _oport_usos_de(a: AbilityData) -> int:
 static func _oport_pct_de(a: AbilityData) -> float:
 	return a.oport_seguimiento if a.oport_seguimiento > 0.0 \
 		else float(StatusEffects.def(StatusEffects.Id.OPORTUNISTA).get("seguimiento_pct", 0.75))
+
+
+const _NOMBRE_TAMANO_ESCUDO := ["escudo pequeño", "escudo normal", "escudo grande"]
+
+# «escudo», «escudo pequeño», «escudo normal o escudo grande»
+func _escudos_txt() -> String:
+	if escudos_tamanos.is_empty():
+		return "escudo"
+	var n: Array = []
+	for tm in escudos_tamanos:
+		n.append(_NOMBRE_TAMANO_ESCUDO[clampi(int(tm), 0, _NOMBRE_TAMANO_ESCUDO.size() - 1)])
+	return " o ".join(PackedStringArray(n))
 
 
 static func _pct_entero(f: float) -> String:
@@ -1653,9 +1725,9 @@ func resumen(manos: int = 1, de_enemigo: bool = false, quien = null) -> String:
 	if cooldown > 0:
 		coste_p.append("se recarga en %d turno%s" % [cooldown, "" if cooldown == 1 else "s"])
 	if requiere_escudo:
-		coste_p.append("requiere escudo")
+		coste_p.append("requiere " + _escudos_txt())
 	if requiere_off_libre:
-		coste_p.append("requiere la otra mano libre")
+		coste_p.append("requiere la otra mano libre" + ("" if escudos_tamanos.is_empty() else " o " + _escudos_txt()))
 	if not coste_p.is_empty():
 		if c > 0.0:
 			l.append("Coste: " + " · ".join(coste_p) + ".")

@@ -10,7 +10,8 @@ from pathlib import Path
 tanda = sys.argv[1] if len(sys.argv) > 1 else "munecos_estoque2"
 ruta = Path(__file__).resolve().parent / "resultados_simulador" / (tanda + "_personajes.csv")
 NOMBRE_A_CLAVE = {"Estocada penetrante": "estocada_penetrante", "Fintas": "fintas", "Danza de acero": "danza_de_acero",
-                  "En guardia": "en_guardia", "Paso ligero": "paso_ligero", "Punzada al nervio": "punzada_al_nervio"}
+                  "En guardia": "en_guardia", "Paso ligero": "paso_ligero", "Punzada al nervio": "punzada_al_nervio",
+                  "Avance cubierto": "avance_cubierto"}
 d = defaultdict(list)
 for r in csv.DictReader(open(ruta, encoding="utf-8"), delimiter=";"):
     if r.get("rol") != "guerrero":

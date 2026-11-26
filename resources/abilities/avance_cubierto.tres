@@ -1,0 +1,283 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/items/nodo_mejora.gd" id="nodo_mejora"]
+
+[sub_resource type="Resource" id="SA_stun"]
+script = ExtResource("2")
+estado = 7
+prob = 0.2
+
+[sub_resource type="Resource" id="NM_ava_carrera_larga"]
+script = ExtResource("nodo_mejora")
+id = &"carrera_larga"
+nombre = "Carrera larga"
+descripcion = "Lo que se aleja también se alcanza."
+padres = Array[StringName]([])
+excluye = Array[StringName]([&"rodelazo_aturde"])
+nivel_min = 2
+dominio = 300
+oro = 10000
+cambios = {"forma_radio": ["add", 40.0], "potencia": ["presupuesto", 0.75], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_ava_rodelazo_aturde"]
+script = ExtResource("nodo_mejora")
+id = &"rodelazo_aturde"
+nombre = "Rodelazo que aturde"
+descripcion = "El canto de la rodela, justo en la sien."
+padres = Array[StringName]([])
+excluye = Array[StringName]([&"carrera_larga"])
+nivel_min = 2
+dominio = 300
+oro = 10000
+cambios = {"efectos_prob_de": ["add", {7: 0.45}], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_ava_peso_carrera"]
+script = ExtResource("nodo_mejora")
+id = &"peso_carrera"
+nombre = "Peso de la carrera"
+descripcion = "Todo lo que corres llega en la punta."
+padres = Array[StringName]([&"carrera_larga"])
+excluye = Array[StringName]([&"abrir_guardia"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"carga_peso_max": ["set", 0.3], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_ava_abrir_guardia"]
+script = ExtResource("nodo_mejora")
+id = &"abrir_guardia"
+nombre = "Abrirle la guardia"
+descripcion = "La rodela le aparta el arma; la punta entra sola."
+padres = Array[StringName]([&"carrera_larga"])
+excluye = Array[StringName]([&"peso_carrera"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"escudo_abre_critico": ["set", true], "potencia": ["presupuesto", 0.375], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_ava_arrollar"]
+script = ExtResource("nodo_mejora")
+id = &"arrollar"
+nombre = "Arrollar"
+descripcion = "Lo que se pone delante de la rodela, se aparta."
+padres = Array[StringName]([&"rodelazo_aturde"])
+excluye = Array[StringName]([&"retar"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"forma_escudo_largo": ["set", 40.0], "tiron": ["set", -18.0], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_ava_retar"]
+script = ExtResource("nodo_mejora")
+id = &"retar"
+nombre = "Reto"
+descripcion = "Después de eso, solo tiene ojos para ti."
+padres = Array[StringName]([&"rodelazo_aturde"])
+excluye = Array[StringName]([&"arrollar"])
+nivel_min = 3
+dominio = 600
+oro = 40000
+cambios = {"reto_turnos": ["set", 2], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_ava_doble_estocada"]
+script = ExtResource("nodo_mejora")
+id = &"doble_estocada"
+nombre = "Estocada doble"
+descripcion = "Sacas y vuelves a entrar antes de que se den cuenta."
+padres = Array[StringName]([&"peso_carrera", &"abrir_guardia", &"arrollar", &"retar"])
+excluye = Array[StringName]([&"escudo_devuelve"])
+nivel_min = 4
+dominio = 900
+oro = 160000
+cambios = {"golpes_min": ["add", 1], "golpes_max": ["add", 1], "mults_golpe": ["add", [1.0]], "dano_mult": ["mult", 0.74359], "potencia": ["presupuesto", 0.75], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_ava_escudo_devuelve"]
+script = ExtResource("nodo_mejora")
+id = &"escudo_devuelve"
+nombre = "Escudo que devuelve"
+descripcion = "Llegas con la rodela arriba y con ganas de contestar."
+padres = Array[StringName]([&"peso_carrera", &"abrir_guardia", &"arrollar", &"retar"])
+excluye = Array[StringName]([&"doble_estocada"])
+nivel_min = 4
+dominio = 900
+oro = 160000
+cambios = {"escudo_contra_extra": ["set", 0.35], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_ava_llegar_cubierto"]
+script = ExtResource("nodo_mejora")
+id = &"llegar_cubierto"
+nombre = "Llegar cubierto"
+descripcion = "Entras, pinchas, y la rodela no baja."
+padres = Array[StringName]([&"doble_estocada", &"escudo_devuelve"])
+excluye = Array[StringName]([])
+nivel_min = 5
+dominio = 1200
+oro = 640000
+cambios = {"guardia_turnos_extra": ["set", 1], "potencia": ["presupuesto", 0.5], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_ava_linea_6"]
+script = ExtResource("nodo_mejora")
+id = &"linea_6"
+nombre = "Nivel 6"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"llegar_cubierto"])
+excluye = Array[StringName]([])
+nivel_min = 6
+dominio = 1500
+oro = 1024000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_ava_linea_7"]
+script = ExtResource("nodo_mejora")
+id = &"linea_7"
+nombre = "Nivel 7"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_6"])
+excluye = Array[StringName]([])
+nivel_min = 7
+dominio = 1800
+oro = 1638000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_ava_linea_8"]
+script = ExtResource("nodo_mejora")
+id = &"linea_8"
+nombre = "Nivel 8"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_7"])
+excluye = Array[StringName]([])
+nivel_min = 8
+dominio = 2100
+oro = 2621000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_ava_linea_9"]
+script = ExtResource("nodo_mejora")
+id = &"linea_9"
+nombre = "Nivel 9"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_8"])
+excluye = Array[StringName]([])
+nivel_min = 9
+dominio = 2400
+oro = 4194000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_ava_linea_10"]
+script = ExtResource("nodo_mejora")
+id = &"linea_10"
+nombre = "Nivel 10"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_9"])
+excluye = Array[StringName]([])
+nivel_min = 10
+dominio = 2700
+oro = 6710000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_ava_linea_11"]
+script = ExtResource("nodo_mejora")
+id = &"linea_11"
+nombre = "Nivel 11"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_10"])
+excluye = Array[StringName]([])
+nivel_min = 11
+dominio = 3000
+oro = 10736000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_ava_linea_12"]
+script = ExtResource("nodo_mejora")
+id = &"linea_12"
+nombre = "Nivel 12"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_11"])
+excluye = Array[StringName]([])
+nivel_min = 12
+dominio = 3300
+oro = 17178000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_ava_linea_13"]
+script = ExtResource("nodo_mejora")
+id = &"linea_13"
+nombre = "Nivel 13"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_12"])
+excluye = Array[StringName]([])
+nivel_min = 13
+dominio = 3600
+oro = 27485000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_ava_linea_14"]
+script = ExtResource("nodo_mejora")
+id = &"linea_14"
+nombre = "Nivel 14"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_13"])
+excluye = Array[StringName]([])
+nivel_min = 14
+dominio = 3900
+oro = 43976000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_ava_linea_15"]
+script = ExtResource("nodo_mejora")
+id = &"linea_15"
+nombre = "Nivel 15"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_14"])
+excluye = Array[StringName]([])
+nivel_min = 15
+dominio = 4200
+oro = 70362000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[sub_resource type="Resource" id="NM_ava_linea_16"]
+script = ExtResource("nodo_mejora")
+id = &"linea_16"
+nombre = "Nivel 16"
+descripcion = "La misma técnica, cada vez más afinada."
+padres = Array[StringName]([&"linea_15"])
+excluye = Array[StringName]([])
+nivel_min = 16
+dominio = 4500
+oro = 112579000
+cambios = {"potencia": ["presupuesto", 1.0], "potencia_coste": ["presupuesto", 1.0]}
+
+[resource]
+script = ExtResource("1")
+nombre = "Avance cubierto"
+precio = 2500
+coste_energia = 58
+cooldown = 5
+; (26/11, cerrado con el jefe) LA TECNICA DEL ESTOQUE CON RODELA: corres por la linea con la rodela delante hasta el
+; primero que pillas; al llegar, el RODELAZO (golpe 0, con tu Defensa) y por el hueco la ESTOCADA (golpe 1, con tu arma).
+; Te deja en guardia. Solo con escudo PEQUEÑO (escudos_tamanos). Se parece a la Embestida de la rodela (todo escudo y
+; empuja); esta te deja pegado a el y pega con el estoque.
+forma = 3
+forma_apunte = 1
+forma_radio = 110.0
+forma_ancho = 16.0
+forma_solo_primero = true
+carga = true
+golpes_min = 2
+golpes_max = 2
+dano_mult = 1.0
+mults_golpe = [0.9, 2.0]
+escudo_hasta_golpe = 0
+penetracion_extra = 0.2
+redirige_al_morir = true
+efectos = [SubResource("SA_stun")]
+efectos_por_golpe = false
+bloqueo_turnos = 1
+requiere_escudo = true
+escudos_tamanos = [0]
+fx_estilo = 41
+descripcion = "Técnica de estoque y rodela: corres hacia el primero que se te cruce con la rodela por delante, le das con ella y, por el hueco que abre, le metes la estocada. Quedas en guardia. El primer golpe es del escudo y pega con tu defensa; el segundo, del arma."
+; EL ARBOL (24/11, cerrado con el jefe): lo escribe tools/arboles_habilidades.py, no tocarlo a mano.
+arbol = [SubResource("NM_ava_carrera_larga"), SubResource("NM_ava_rodelazo_aturde"), SubResource("NM_ava_peso_carrera"), SubResource("NM_ava_abrir_guardia"), SubResource("NM_ava_arrollar"), SubResource("NM_ava_retar"), SubResource("NM_ava_doble_estocada"), SubResource("NM_ava_escudo_devuelve"), SubResource("NM_ava_llegar_cubierto"), SubResource("NM_ava_linea_6"), SubResource("NM_ava_linea_7"), SubResource("NM_ava_linea_8"), SubResource("NM_ava_linea_9"), SubResource("NM_ava_linea_10"), SubResource("NM_ava_linea_11"), SubResource("NM_ava_linea_12"), SubResource("NM_ava_linea_13"), SubResource("NM_ava_linea_14"), SubResource("NM_ava_linea_15"), SubResource("NM_ava_linea_16")]

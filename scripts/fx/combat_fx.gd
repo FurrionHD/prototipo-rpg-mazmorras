@@ -1995,6 +1995,17 @@ func arrancar_cola() -> float:
 				# Lo que cuenta es lo que tarda en tocar la que SIGUE (la finta sigue a pinchazos).
 				var a_sig_ev: String = String(ANIM_SIGUIENTE_MAPA.get(a_ev, a_ev))
 				minimo = maxf(minimo, float(IMPACTO_ANIM_MAPA.get(a_sig_ev, 0.0)) + T_RESPIRO_REPITE)
+		# (26/11) UNA ACCION CON DOS GESTOS (el Avance cubierto: rodelazo y estocada): el golpe que trae OTRA animacion
+		# tambien tiene que dejarla tocar, o el daño sale antes de que llegue la hoja.
+		var a_prim: Dictionary = {}   # bloque que pega -> la animacion de su primer golpe
+		for ev in _cola:
+			var a_ev2: String = String(ev.get("anim", ""))
+			if a_ev2 == "":
+				continue
+			if not a_prim.has(ev["ba"]):
+				a_prim[ev["ba"]] = a_ev2
+			elif a_ev2 != String(a_prim[ev["ba"]]):
+				minimo = maxf(minimo, float(IMPACTO_ANIM_MAPA.get(a_ev2, 0.0)) + T_RESPIRO_REPITE)
 		if minimo > paso:
 			paso = minimo
 			extra = paso * float(n_tandas - 1)
@@ -2330,6 +2341,7 @@ const ANIM_SIGUIENTE_MAPA := {"lanzar_humo": "tajo_daga_solo", "finta_estoque": 
 # Las que el cuerpo REPITE en cada golpe (las mismas que CombatTactico._REPITE_POR_GOLPE): entre golpe y
 # golpe se les deja lo que tardan en tocar mas este respiro (ver arrancar_cola).
 const ANIM_REPITE_MAPA := ["tajo_daga", "punalada_daga", "finta_estoque", "pinchazo_estoque", "rota_larga",
+	"estocada_honda", "estocada_estoque",
 	"tajo_espada", "reves_espada", "barrido_espada", "tajo_bajo_espada", "tajo_paso_espada",
 	"mazazo_maza", "rompe_maza", "culatazo_maza", "aplasta_maza",
 	# La Andanada (03/10): un disparo por virote (uno a cada uno de los tres primeros).
@@ -2429,6 +2441,7 @@ func _plan_animar(ev: Dictionary, vistos: Dictionary) -> void:
 		return
 	var cuando: Array[float] = []
 	var manos: Array[int] = []   # la mano de cada golpe de 'cuando'
+	var anims: Array = []        # (26/11) la animacion de cada golpe (el Avance cubierto: rodelazo y LUEGO la estocada)
 	# UNO POR TANDA: un golpe que pilla a tres son tres impactos pero UN golpe (25/09, la espada corta: su
 	# barrido se relanzaba por cada enemigo, con avisos de 0 s que reiniciaban la animacion a medias).
 	var tandas_vistas: Dictionary = {}
@@ -2443,6 +2456,7 @@ func _plan_animar(ev: Dictionary, vistos: Dictionary) -> void:
 		tandas_vistas[pt] = true
 		cuando.append(float(_cola[i]["t"]))
 		manos.append(int(_cola[i].get("mano", -1)))
+		anims.append(String(_cola[i].get("anim", "")))
 	if cuando.is_empty() and propio:
 		cuando.append(float(ev["t"]))
 	if cuando.is_empty():
@@ -2467,9 +2481,11 @@ func _plan_animar(ev: Dictionary, vistos: Dictionary) -> void:
 		"embiste": embiste,
 		"golpes": cuando,
 		"manos": manos,
+		"anims": anims,
 		"sig": 0,
 		"dir8": SpritesEnemigo.dir8(dir),
 		"dir_v": dir if ev["bv"] != ev["ba"] else Vector2.ZERO,
+		"bv": ev["bv"],
 		"anim": ev.get("anim", &""),
 		"ini_lanzado": false,
 		"fin_lanzado": false,
@@ -2580,14 +2596,30 @@ func _cola_de_gestos() -> float:
 # 'siguiente' = no es el arranque sino uno de los golpes de despues: si su animacion sigue con otra
 # (ANIM_SIGUIENTE_MAPA: la finta con pinchazos), se avisa con esa.
 # 'golpe' = el indice del golpe que se avisa, para sacar su mano.
-func _avisar_gesto(p: Dictionary, dur_anim: float, siguiente: bool = false, golpe: int = 0) -> void:
+# LA ANIMACION DE UN GOLPE DE DESPUES: la que siga a la del gesto (ANIM_SIGUIENTE_MAPA: la finta con pinchazos) o, si
+# ese golpe trae OTRA propia (26/11, el Avance cubierto: el rodelazo con el escudo y la estocada con el estoque), esa.
+func _anim_golpe(p: Dictionary, golpe: int) -> String:
 	var anim: String = String(p.get("anim", ""))
-	if siguiente:
-		anim = String(ANIM_SIGUIENTE_MAPA.get(anim, anim))
+	var anims: Array = p.get("anims", [])
+	if golpe >= 0 and golpe < anims.size() and String(anims[golpe]) != "" and String(anims[golpe]) != anim:
+		return String(anims[golpe])
+	return String(ANIM_SIGUIENTE_MAPA.get(anim, anim))
+
+
+func _avisar_gesto(p: Dictionary, dur_anim: float, siguiente: bool = false, golpe: int = 0) -> void:
+	var anim: String = _anim_golpe(p, golpe) if siguiente else String(p.get("anim", ""))
 	var manos: Array = p.get("manos", [])
 	var mano: int = int(manos[golpe]) if golpe >= 0 and golpe < manos.size() else -1
 	# HACIA DONDE PEGA, para que el cuerpo se gire antes (12/10, ver dir_del_gesto). ZERO = no se sabe (sin victima).
-	_dir_gesto[p["bloque"]] = p.get("dir_v", Vector2.ZERO)
+	# (26/11, el jefe: "el Oportunista no se queda mirando al enemigo") EN EL MAPA, de donde estan AHORA: la de cuando se
+	# planeo el golpe era de antes de moverse (el salto a la espalda, el paso, la carga) y le giraba al lado contrario.
+	var dir_v: Vector2 = p.get("dir_v", Vector2.ZERO)
+	if dir_v != Vector2.ZERO and p.has("bv"):
+		var ra: Rect2 = _rect_mapa(p["bloque"])
+		var rv: Rect2 = _rect_mapa(p["bv"])
+		if ra.has_area() and rv.has_area() and (rv.get_center() - ra.get_center()).length() >= 1.0:
+			dir_v = (rv.get_center() - ra.get_center()).normalized()
+	_dir_gesto[p["bloque"]] = dir_v
 	gesto_iniciado.emit(p["bloque"], int(p["dir8"]),
 		dur_anim / maxf(escala_tiempo, 0.01), StringName(anim), mano)
 
@@ -2686,8 +2718,7 @@ func _aplicar_gestos(mov: Dictionary, esc: Dictionary, zorden: Dictionary) -> vo
 		# repite su tajo en cada puñalada: avisado en el golpe, el tajo llegaba tarde).
 		var adel: float = 0.0
 		if rect_en_mapa.is_valid() and sig > 0 or bool(p.get("tras_suelo", false)):
-			var a_sig: String = String(ANIM_SIGUIENTE_MAPA.get(String(p.get("anim", "")), p.get("anim", "")))
-			adel = float(IMPACTO_ANIM_MAPA.get(a_sig, 0.0))
+			adel = float(IMPACTO_ANIM_MAPA.get(_anim_golpe(p, sig), 0.0))
 		if sig < golpes.size() and _t >= float(golpes[sig]) - adel:
 			p["sig"] = sig + 1
 			# El primero ya lo lanzo el arranque de arriba (salvo la bomba: su arranque fue tirarla).

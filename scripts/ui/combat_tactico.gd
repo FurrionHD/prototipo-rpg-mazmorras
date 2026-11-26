@@ -2105,14 +2105,18 @@ func siguiente_en_cadena(desde: Combatant, ya: Array, maximo: float) -> Combatan
 func reparto_escudazo(ab: AbilityData, c: Combatant) -> Array:
 	if not _hay_apunte or ab.forma_escudo_largo <= 0.0:
 		return []
-	return _reparto_en(ab, c, forma_escudazo(ab, c, apunte))
+	# (26/11) en la carga (Arrollar) el escudo pilla a TODOS los de su linea, aunque la estocada vaya solo al primero
+	return _reparto_en(ab, c, forma_escudazo(ab, c, apunte), ab.carga)
 
 
 # La LINEA del escudazo: sale de tus pies hacia donde apuntas, y su ancho lo pone tu escudo.
 func forma_escudazo(ab: AbilityData, c: Combatant, hacia: Vector2) -> RefCounted:
 	var f = forma_de(ab, c, hacia)
 	var tam: int = clampi(c.fx_escudo, 0, ShieldData.ANCHO_ESCUDAZO.size() - 1)
-	return CombatFormas.linea(pies_de(c), f.dir, ab.forma_escudo_largo, float(ShieldData.ANCHO_ESCUDAZO[tam]))
+	# (26/11) EN UNA CARGA (Arrollar, del Avance cubierto) el escudo va delante TODA la carrera: su linea es la de la carga
+	# y esto de mas.
+	var largo: float = ab.forma_escudo_largo + (f.largo if ab.carga and f.tipo == CombatFormas.Tipo.LINEA else 0.0)
+	return CombatFormas.linea(pies_de(c), f.dir, largo, float(ShieldData.ANCHO_ESCUDAZO[tam]))
 
 
 # LOS TUYOS QUE PILLA LA HUELLA (AbilityData.forma_a_aliados), del mas cercano al centro al mas lejano, y a
@@ -2184,7 +2188,7 @@ func aliados_de_huella(ab: AbilityData, c: Combatant) -> Array:
 
 # A quien pilla la forma 'f' que lanza 'c': los del OTRO bando. Si la lanza un enemigo, los tuyos (ver
 # LAS HABILIDADES DEL ENEMIGO); el orden de desempate, su sitio en su lista, igual en todas las maquinas.
-func _reparto_en(ab: AbilityData, c: Combatant, f) -> Array:
+func _reparto_en(ab: AbilityData, c: Combatant, f, todos: bool = false) -> Array:
 	var out: Array = []
 	var nucleo = CombatFormas.circulo(f.centro, ab.forma_nucleo) if ab.forma_nucleo > 0.0 else null
 	var lista: Array = []
@@ -2214,7 +2218,7 @@ func _reparto_en(ab: AbilityData, c: Combatant, f) -> Array:
 		if is_equal_approx(float(x["d"]), float(y["d"])):
 			return int(x["i"]) < int(y["i"])
 		return float(x["d"]) < float(y["d"]))
-	if ab.forma_solo_primero and lista.size() > 1:
+	if ab.forma_solo_primero and lista.size() > 1 and not todos:
 		lista = lista.slice(0, 1)
 	# (25/11) ENSARTAR (Estocada penetrante): por orden de cercania a quien la lanza, cada uno de detras del primero pega
 	# bonus_tras_primero mas que el anterior.
@@ -8331,13 +8335,33 @@ func pedir_escabullirse(ab: AbilityData, c: Combatant, golpes: int) -> void:
 
 # LA CARGA (Embestida, 25/09): corres por la linea hasta pegarte al primero que pilla ('victima') y le das
 # al llegar; sin nadie, hasta el final de la linea y ya. 'golpes' = los que va a dar.
+# (26/11) PESO DE LA CARRERA (Avance cubierto): cuanto de su linea corre 'c' hasta chocar con 'victima', de 0 a 1 (sin
+# victima, la linea entera). Lo mismo que mide pedir_carga, sin moverle.
+func carrera_de_carga(ab: AbilityData, c: Combatant, victima: Combatant) -> float:
+	if c == null or cuerpo_de(c) == null:
+		return 0.0
+	var f = forma_de(ab, c, apunte)
+	if f.largo <= 0.0:
+		return 0.0
+	if victima == null:
+		return 1.0
+	var fin: Vector2 = pies_de(victima) - f.dir * (maxf(radio_pisa(victima), 8.0) + radio_pisa(c))
+	return clampf(pies_de(c).distance_to(fin) / f.largo, 0.0, 1.0)
+
+
+const V_CARGA_JUGADOR := 220.0      # px por segundo de pelea (a velocidad normal, x0,7: ~150 px por segundo de verdad)
+const T_CARGA_JUGADOR_MIN := 0.3    # aunque este al lado, que se vea arrancar
+
 func pedir_carga(ab: AbilityData, c: Combatant, victima: Combatant, golpes: int) -> void:
 	var f = forma_de(ab, c, apunte)
 	var fin: Vector2 = f.origen + f.dir * f.largo
 	if victima != null:
 		fin = pies_de(victima) - f.dir * (maxf(radio_pisa(victima), 8.0) + radio_pisa(c))
-	pedir_desliz(c, _sitio_libre_hacia(c, fin), Desliz.ANTES if victima != null else Desliz.YA,
-		golpes if victima != null else 0)
+	# (26/11, el jefe: "es jodidamente rapida, no da tiempo a apreciar nada") la carrera va a V_CARGA_JUGADOR, no en el paso
+	# de 0,16 s: con el Avance cubierto y la Embestida se ve correr hasta el y chocar.
+	var hasta: Vector2 = _sitio_libre_hacia(c, fin)
+	pedir_desliz(c, hasta, Desliz.ANTES if victima != null else Desliz.YA,
+		golpes if victima != null else 0, maxf(hasta.distance_to(pos_de(c)) / V_CARGA_JUGADOR, T_CARGA_JUGADOR_MIN))
 
 
 # EL MURO (25/09): te pones junto a quien cubres, DEL LADO DEL ENEMIGO MAS CERCANO A EL (no "delante" suyo:
@@ -8606,6 +8630,8 @@ const _GESTOS_QUE_DEFIENDEN := ["defensa", "voto_larga", "golpe_escudo", "embest
 const _REPITE_POR_GOLPE := {"tajo_daga": "tajo_daga_izq", "punalada_daga": "punalada_daga_izq",
 	# El estoque (una mano siempre): la finta y el pinchazo de la Danza, uno por golpe.
 	"finta_estoque": "finta_estoque", "pinchazo_estoque": "pinchazo_estoque",
+	# (26/11) y sus estocadas: la Estocada doble del arbol (Estocada penetrante, Avance cubierto) pincha dos veces.
+	"estocada_honda": "estocada_honda", "estocada_estoque": "estocada_estoque",
 	# Las puñaladas de tras la bomba (CombatFX las avisa ya con su nombre: ANIM_SIGUIENTE_MAPA).
 	"tajo_daga_solo": "tajo_daga_solo",
 	# La espada corta (25/09): con una, siempre la derecha; con dos, alternando (MunecoJugador los cambia
@@ -8659,7 +8685,11 @@ func gesto_en_mapa(c: Combatant, anim: String, dur: float, mano: int = -1) -> bo
 	# (bloqueo_turnos: el Voto, los golpes de escudo, la Embestida, la Provocacion, el Muro, la rodela).
 	if anim in _GESTOS_QUE_DEFIENDEN:
 		(m as MunecoJugador).postura_defensa = true
-	(m as MunecoJugador).animar("%s_%d" % [anim, d])
+	# Los que se repiten por golpe, DESDE EL PRINCIPIO cada vez (con una sola mano se llaman igual en todos los golpes).
+	if _REPITE_POR_GOLPE.values().has(anim) or _REPITE_POR_GOLPE.has(anim):
+		(m as MunecoJugador).reanimar("%s_%d" % [anim, d])
+	else:
+		(m as MunecoJugador).animar("%s_%d" % [anim, d])
 	cuerpo.set_meta(MARCA_GESTO, true)   # que su propio _physics_process (jugador remoto) no se lo pise
 	_gestos_mapa[cuerpo] = {"t": 0.0, "dur": maxf(dur, 0.3), "anim": anim, "d0": d, "m": m,
 		"escala": escala}
